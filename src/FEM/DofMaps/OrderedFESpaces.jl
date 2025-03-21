@@ -106,8 +106,8 @@ end
 
 function CartesianFESpace(f::SingleFieldFESpace)
   cell_odofs_ids = get_cell_odof_ids(f)
-  odofs_to_bg_odofs = get_odof_to_bg_odof(f,cell_odofs_ids)
-  bg_odofs_to_odofs = get_bg_odof_to_odof(f,cell_odofs_ids)
+  odofs_to_bg_odofs = IdentityVector(num_free_dofs(f))
+  bg_odofs_to_odofs = IdentityVector(num_free_dofs(f))
   CartesianFESpace(f,cell_odofs_ids,odofs_to_bg_odofs,bg_odofs_to_odofs)
 end
 
