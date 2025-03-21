@@ -221,8 +221,8 @@ end
 
 for T in (:(Algebra.SparseMatrixBuilder),:(Algebra.ArrayBuilder))
   @eval begin
-    function ParamDataStructures.parameterize(a::$T,r::AbstractRealization)
-      ParamAlgebra.ParamBuilder(a,param_length(r))
+    function ParamDataStructures.parameterize(a::$T,plength::Int)
+      ParamBuilder(a,plength)
     end
   end
 end

@@ -178,12 +178,21 @@ function get_polynomial_orders(basis)
   get_orders(shapefun.fields)
 end
 
-function get_bg_cell_to_act_cell(f::SingleFieldFESpace)
+function get_cell_to_bg_cell(f::SingleFieldFESpace)
   trian = get_triangulation(f)
-  get_bg_cell_to_act_cell(trian)
+  D = num_cell_dims(trian)
+  glue = get_glue(trian,Val(D))
+  glue.tface_to_mface
 end
 
-function get_bg_cell_to_act_cell(trian::Triangulation)
+function get_bg_cell_to_cell(f::SingleFieldFESpace)
+  trian = get_triangulation(f)
+  D = num_cell_dims(trian)
+  glue = get_glue(trian,Val(D))
+  glue.mface_to_tface
+end
+
+function get_cell_to_bg_cell(trian::Triangulation)
   Utils.get_tface_to_mface(trian)
 end
 

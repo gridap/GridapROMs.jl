@@ -26,8 +26,6 @@ import Test: @test
 import Gridap.Algebra: residual!,jacobian!
 import Gridap.FESpaces: FEFunction,SparseMatrixAssembler,EvaluationFunction
 
-include("ParamAssemblers.jl")
-
 export SingleFieldParamFESpace
 export get_vector_type2
 export param_zero_free_values
@@ -49,5 +47,7 @@ export ParamFEFunction
 export SingleFieldParamFEFunction
 export MultiFieldParamFEFunction
 include("ParamFEFunctions.jl")
+
+include("ParamAssemblers.jl")
 
 end # module

@@ -8,6 +8,7 @@ using ROManifolds.DofMaps
 using SparseArrays
 using DrWatson
 using Test
+using DrWatson
 
 pdomain = (1,10,1,10,1,10)
 pspace = ParamSpace(pdomain)
@@ -59,91 +60,54 @@ Voutagg = AgFEMSpace(Voutact,aggregatesout)
 
 g(x) = x[2]-x[1]
 
-Uagg = TrialFESpace(Vagg,g)
-
 aout(u,v) = ∫(∇(v)⋅∇(u))dΩout
 lout(v) = ∫(∇(v)⋅∇(g))dΩout
 
 V = FESpace(model,reffe,conformity=:H1)
+Vfun = FunctionExtensionFESpace(V,Vagg,Voutagg,g)
+Vharm = HarmonicExtensionFESpace(V,Vagg,Voutagg,aout,lout)
 
-Vext = HarmonicExtensionFESpace(V,Vagg,Voutagg,aout,lout)
+gh = interpolate_everywhere(g,V)
+gh_fun = Extensions.extended_interpolate_everywhere(g,Vfun)
+@assert gh_fun.free_values ≈ gh.free_values
 
-# get_cell_dof_ids(Vext,Ωact)
-# get_cell_dof_ids(Vext,Ωactout)
+gh_harm = Extensions.extended_interpolate_everywhere(g,Vharm)
+writevtk(Ωbg,datadir("plts/sol_harm"),cellfields=["uh"=>gh_harm])
 
-# Vext[1] === get_internal_space(Vext)
-# Vext[2] === get_external_space(Vext)
-# nintext = num_free_dofs(get_internal_space(Vext)) + num_free_dofs(get_external_space(Vext))
-# num_free_dofs(Vext) == nintext
+Vext = Vharm
+assem = SparseMatrixAssembler(Vext,Vext)
 
-# Extensions.get_extension(Vext)
+ν(x) = x[2]-x[1]
+a(u,v) = ∫(ν*∇(v)⋅∇(u))dΩ + ∫( 100*v*u  - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u )dΓ
+l(v) = ∫(ν*v)dΩ + ∫( 100*v*g - (n_Γ⋅∇(v))*g )dΓ
+@assert assemble_matrix(a,assem,Vext,Vext) ≈ assemble_matrix(a,assem,Vagg,Vagg)
+@assert assemble_vector(l,assem,Vext) ≈ assemble_vector(l,assem,Vagg)
 
-# zero_dirichlet_values(Vext)
-# get_dof_value_type(Vext)
-# get_free_dof_ids(Vext)
-# ConstraintStyle(Vext)
-# get_fe_basis(Vext)
+ext_assem = ExtensionAssembler(Vext,Vext)
 
-# get_cell_isconstrained(Vext,Ωact)
-# get_cell_isconstrained(Vext,Ωactout)
+A = assemble_matrix(a,ext_assem,Vext,Vext)
+in_A = assemble_matrix(a,ext_assem.assem,Vagg,Vagg)
+out_A = ext_assem.extension.matrix
+norm(A)^2 ≈ norm(in_A)^2 + norm(out_A)^2
 
-# Extensions.to_multi_field(Vext)
+b = assemble_vector(l,ext_assem,Vext)
+in_b = assemble_vector(l,ext_assem.assem,Vagg)
+out_b = ext_assem.extension.vector
+norm(b)^2 ≈ norm(in_b)^2 + norm(out_b)^2
 
-using GridapSolvers
-using GridapSolvers.LinearSolvers
-using GridapSolvers.BlockSolvers
+solver = LUSolver()
 
-Uext = Vext # this needs fixing
-bblocks = [LinearSystemBlock(),LinearSystemBlock()]
-solver = BlockDiagonalSolver(bblocks,[LUSolver(),LUSolver()])
+in_u = zero_free_values(Vext)
+in_A = assemble_matrix(a,Vext,Vext)
+in_b = assemble_vector(l,Vext)
+solve!(in_u,solver,in_A,in_b)
+uh = ExtendedFEFunction(Vext,in_u)
+u = extend_free_values(Vext,in_u)
 
-const γd = 10.0
-const hd = dp[1]/n
+@assert u[Vext.dof_to_bg_dofs] ≈ in_u
+@assert u[Vext.extension.dof_to_bg_dofs] ≈ Vext.extension.values.free_values
 
-a((ui,uo),(vi,vo)) = ∫(∇(vi)⋅∇(ui))dΩ + ∫( (γd/hd)*vi*ui  - vi*(n_Γ⋅∇(ui)) - (n_Γ⋅∇(vi))*ui )dΓ
-l((vi,vo)) = ∫( (γd/hd)*vi*g - (n_Γ⋅∇(vi))*g )dΓ
+u_alg = similar(u)
+solve!(u_alg,solver,A,b)
 
-op = AffineFEOperator(a,l,Uext,Vext)
-A = get_matrix(op)
-b = get_vector(op)
-
-uhin,uhex = solve(op)
-
-writevtk(Ωbg,"sol_inout",cellfields=["uhin"=>uhin,"uhex"=>uhex])
-
-# _Vaggext = ExternalFESpace(V,Vagg,Voutact,aggregatesout)
-
-# Aout = assemble_matrix(aout,Voutagg,Voutagg)
-# _Aout = assemble_matrix(aout,_Vaggext,_Vaggext)
-# Aout ≈ _Aout
-
-ν(μ) = x->μ[3]
-νμ(μ) = ParamFunction(ν,μ)
-
-f(μ) = x->μ[1]*x[1] - μ[2]*x[2]
-fμ(μ) = ParamFunction(f,μ)
-
-h(μ) = x->1
-hμ(μ) = ParamFunction(h,μ)
-
-g(μ) = x->μ[3]*x[1]-x[2]
-gμ(μ) = ParamFunction(g,μ)
-
-a(μ,(u,uo),(v,vo),dΩ,dΓ) = ∫(νμ(μ)*∇(v)⋅∇(u))dΩ + ∫( (γd/hd)*v*u  - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u )dΓ
-l(μ,(v,vo),dΩ,dΓ,dΓn) = ∫(fμ(μ)⋅v)dΩ + ∫(hμ(μ)⋅v)dΓn + ∫( (γd/hd)*v*gμ(μ) - (n_Γ⋅∇(v))*gμ(μ) )dΓ
-res(μ,u,v,dΩ,dΓ,dΓn) =  a(μ,u,v,dΩ,dΓ) - l(μ,v,dΩ,dΓ,dΓn)
-
-trian_a = (Ω,Γ)
-trian_res = (Ω,Γ,Γn)
-domains = FEDomains(trian_res,trian_a)
-
-aout(μ,u,v) = ∫(∇(v)⋅∇(u))dΩout
-lout(μ,v) = ∫(∇(v)⋅∇(gμ(μ)))dΩout
-
-μ = realization(pspace;nparams=50)
-ext = HarmonicExtension(Voutagg,aout,lout,μ)
-
-Vext = Extensions.SingleFieldExtensionFESpace(ext,V,Vagg,Voutagg)
-Uext = ParamTrialFESpace(Vext,gμ)
-
-feop = LinearParamOperator(res,a,pspace,Uext,Vext,domains)
+@assert u_alg ≈ u

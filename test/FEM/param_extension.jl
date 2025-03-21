@@ -8,9 +8,7 @@ using ROManifolds.DofMaps
 using SparseArrays
 using DrWatson
 using Test
-using GridapSolvers
-using GridapSolvers.LinearSolvers
-using GridapSolvers.BlockSolvers
+using DrWatson
 
 pdomain = (1,10,1,10,1,10)
 pspace = ParamSpace(pdomain)
@@ -52,8 +50,6 @@ dΓ = Measure(Γ,degree)
 
 reffe = ReferenceFE(lagrangian,Float64,order)
 
-V = FESpace(Ωbg,reffe,conformity=:H1)
-
 Vact = FESpace(Ωact,reffe,conformity=:H1)
 Vagg = AgFEMSpace(Vact,aggregates)
 
@@ -61,9 +57,6 @@ cutgeoout = cut(model,!geo2)
 aggregatesout = aggregate(strategy,cutgeoout)
 Voutact = FESpace(Ωactout,reffe,conformity=:H1)
 Voutagg = AgFEMSpace(Voutact,aggregatesout)
-
-const γd = 10.0
-const hd = dp[1]/n
 
 ν(μ) = x->μ[3]
 νμ(μ) = ParamFunction(ν,μ)
@@ -77,24 +70,49 @@ hμ(μ) = ParamFunction(h,μ)
 g(μ) = x->μ[3]*x[1]-x[2]
 gμ(μ) = ParamFunction(g,μ)
 
-a(μ,(u,uo),(v,vo),dΩ,dΓ) = ∫(νμ(μ)*∇(v)⋅∇(u))dΩ + ∫( (γd/hd)*v*u  - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u )dΓ
-l(μ,(v,vo),dΩ,dΓ,dΓn) = ∫(fμ(μ)⋅v)dΩ + ∫(hμ(μ)⋅v)dΓn + ∫( (γd/hd)*v*gμ(μ) - (n_Γ⋅∇(v))*gμ(μ) )dΓ
+const γd = 10.0
+const hd = dp[1]/n
+
+a(μ,u,v,dΩ,dΓ) = ∫(νμ(μ)*∇(v)⋅∇(u))dΩ + ∫( (γd/hd)*v*u  - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u )dΓ
+l(μ,v,dΩ,dΓ,dΓn) = ∫(fμ(μ)⋅v)dΩ + ∫(hμ(μ)⋅v)dΓn + ∫( (γd/hd)*v*gμ(μ) - (n_Γ⋅∇(v))*gμ(μ) )dΓ
 res(μ,u,v,dΩ,dΓ,dΓn) =  a(μ,u,v,dΩ,dΓ) - l(μ,v,dΩ,dΓ,dΓn)
 
-trian_a = (Ω,Γ)
-trian_res = (Ω,Γ,Γn)
-domains = FEDomains(trian_res,trian_a)
-
-aout(μ,u,v) = ∫(∇(v)⋅∇(u))dΩout
+aout(u,v) = ∫(∇(v)⋅∇(u))dΩout
 lout(μ,v) = ∫(∇(v)⋅∇(gμ(μ)))dΩout
 
-μ = realization(pspace;nparams=50)
-ext = HarmonicExtension(Voutagg,aout,lout,μ)
-
-Vext = Extensions.SingleFieldExtensionFESpace(ext,V,Vagg,Voutagg)
+V = FESpace(model,reffe,conformity=:H1)
+Vext = ParamHarmonicExtensionFESpace(V,Vagg,Voutagg,aout,lout)
 Uext = ParamTrialFESpace(Vext,gμ)
 
-feop = LinearParamOperator(res,a,pspace,Uext,Vext,domains)
+μ = realization(pspace;nparams=50)
+Uμ = Uext(μ)
 
-bblocks = [LinearSystemBlock(),LinearSystemBlock()]
-solver = BlockDiagonalSolver(bblocks,[LUSolver(),LUSolver()])
+u = zero_free_values(Uμ)
+uh = FEFunction(Uμ,u)
+
+afun(u,v) = a(μ,u,v,dΩ,dΓ)
+lfun(v) = res(μ,uh,v,dΩ,dΓ,dΓn)
+
+solver = LUSolver()
+
+A = assemble_matrix(afun,Uμ,Vext)
+b = assemble_vector(lfun,Uμ)
+solve!(u,solver,A,b)
+uh = ExtendedFEFunction(Uμ,u)
+
+uext = extend_free_values(Uμ,u)
+
+norm(uext[1])^2 ≈ norm(u[1])^2 + norm(Uμ.space.extension.values.free_values[1])^2
+uext[1][Vext.dof_to_bg_dofs] ≈ u[1]
+uext[1][Vext.extension.dof_to_bg_dofs] ≈ Uμ.space.extension.values.free_values[1]
+
+dof_map = get_dof_map(V)
+fesnaps = Snapshots(uext,dof_map,μ)
+
+energy(u,v) = ∫(∇(v)⋅∇(u))dΩbg
+X = assemble_matrix(energy,V,V)
+
+state_reduction = PODReduction(1e-4,energy;nparams=50)
+basis = reduced_basis(state_reduction,fesnaps,X)
+
+jacs =

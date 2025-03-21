@@ -58,12 +58,14 @@ function FESpaces.scatter_free_and_dirichlet_values(f::SingleFieldParamFESpace,f
   scatter_free_and_dirichlet_values(get_fe_space(f),fv,dv)
 end
 
-function FESpaces.gather_free_and_dirichlet_values(f::SingleFieldParamFESpace,cv)
-  gather_free_and_dirichlet_values(remove_layer(f),cv)
+function FESpaces.gather_free_and_dirichlet_values!(fv,dv,f::SingleFieldParamFESpace,cv)
+  gather_free_and_dirichlet_values!(fv,dv,get_fe_space(f),cv)
 end
 
-function FESpaces.gather_free_and_dirichlet_values!(fv,dv,f::SingleFieldParamFESpace,cv)
-  gather_free_and_dirichlet_values!(fv,dv,remove_layer(f),cv)
+function FESpaces.gather_free_and_dirichlet_values(f::SingleFieldParamFESpace,cv)
+  fv = zero_free_values(f)
+  dv = zero_dirichlet_values(f)
+  gather_free_and_dirichlet_values!(fv,dv,f,cv)
 end
 
 function DofMaps.get_dof_map(f::SingleFieldParamFESpace,args...)
@@ -179,14 +181,15 @@ function FESpaces.scatter_free_and_dirichlet_values(
 end
 
 function FESpaces.scatter_free_and_dirichlet_values(
-  pf::SingleFieldParamFESpace{<:FESpaceWithLinearConstraints},
+  f::FESpaceWithLinearConstraints,
   fmdof_to_val::AbstractParamVector,
   dmdof_to_val::AbstractParamVector)
 
-  f = get_fe_space(pf)
-  pf′ = remove_layer(pf)
-  fdof_to_val = zero_free_values(pf′)
-  ddof_to_val = zero_dirichlet_values(pf′)
+  @check param_length(fmdof_to_val) == param_length(dmdof_to_val)
+  plength = param_length(fmdof_to_val)
+  fdof_to_val = global_parameterize(zero_free_values(f.space),plength)
+  ddof_to_val = global_parameterize(zero_dirichlet_values(f.space),plength)
+
   FESpaces._setup_dof_to_val!(
     fdof_to_val,
     ddof_to_val,
@@ -196,7 +199,8 @@ function FESpaces.scatter_free_and_dirichlet_values(
     f.DOF_to_coeffs,
     f.n_fdofs,
     f.n_fmdofs)
-  scatter_free_and_dirichlet_values(pf′,fdof_to_val,ddof_to_val)
+
+  scatter_free_and_dirichlet_values(f.space,fdof_to_val,ddof_to_val)
 end
 
 function FESpaces.gather_free_and_dirichlet_values(
@@ -204,48 +208,45 @@ function FESpaces.gather_free_and_dirichlet_values(
   cv) where T<:FESpaces.FixConstant
 
   f = get_fe_space(pf)
-  pf′ = remove_layer(pf)
-  _fv,_dv = gather_free_and_dirichlet_values(pf′,cv)
-  @assert innerlength(_dv) == 0
-  fv = ParamVectorWithEntryRemoved(_fv,f.dof_to_fix)
-  dv = get_param_entry(_fv,f.dof_to_fix:f.dof_to_fix)
+  _fv,_dv = zero_free_and_dirichlet_values(f.space)
+  @assert length(_dv) == 0
+  pfv = global_parameterize(_fv,param_length(pf))
+  pdv = global_parameterize(_dv,param_length(pf))
+  gather_free_and_dirichlet_values!(pfv,pdv,f.space,cv)
+
+  fv = ParamVectorWithEntryRemoved(pfv,f.dof_to_fix)
+  dv = get_param_entry(pfv,f.dof_to_fix:f.dof_to_fix)
   (fv,dv)
-end
-
-function FESpaces.gather_free_and_dirichlet_values!(
-  free_vals::AbstractParamVector,
-  dirichlet_vals::AbstractParamVector,
-  f::SingleFieldParamFESpace{<:UnconstrainedFESpace},
-  cell_vals)
-
-  gather_free_and_dirichlet_values!(free_vals,dirichlet_vals,get_fe_space(f),cell_vals)
 end
 
 function FESpaces.gather_free_and_dirichlet_values!(
   fv::AbstractParamVector,
   dv::AbstractParamVector,
-  pf::SingleFieldParamFESpace{<:FESpaceWithConstantFixed{T}},
+  f::FESpaceWithConstantFixed{T},
   cv) where T<:FESpaces.FixConstant
 
   @assert innerlength(dv) == 1
-  f = get_fe_space(pf)
-  pf′ = remove_layer(pf)
   _dv = similar(dv,eltype(dv),0)
   _fv = ParamVectorWithEntryInserted(fv,f.dof_to_fix,zeros(eltype2(fv),param_length(fv)))
-  gather_free_and_dirichlet_values!(_fv,_dv,pf′,cv)
+  gather_free_and_dirichlet_values!(_fv,_dv,f,cv)
   dv.data[1,:] = _fv.value
   (fv,dv)
 end
 
 function FESpaces.gather_free_and_dirichlet_values!(
-  fmdof_to_val,
-  dmdof_to_val,
-  pf::SingleFieldParamFESpace{<:FESpaceWithLinearConstraints},
+  fmdof_to_val::AbstractParamVector,
+  dmdof_to_val::AbstractParamVector,
+  f::FESpaceWithLinearConstraints,
   cell_to_ludof_to_val)
 
-  f = get_fe_space(pf)
-  pf′ = remove_layer(pf)
-  fdof_to_val,ddof_to_val = gather_free_and_dirichlet_values(pf′,cell_to_ludof_to_val)
+  @check param_length(fmdof_to_val) == param_length(dmdof_to_val)
+  plength = param_length(fmdof_to_val)
+
+  _fv,_dv = zero_free_and_dirichlet_values(f.space)
+  fdof_to_val = global_parameterize(_fv,plength)
+  ddof_to_val = global_parameterize(_dv,plength)
+  gather_free_and_dirichlet_values!(fdof_to_val,ddof_to_val,f.space,cell_to_ludof_to_val)
+
   FESpaces._setup_mdof_to_val!(
     fmdof_to_val,
     dmdof_to_val,
@@ -254,6 +255,7 @@ function FESpaces.gather_free_and_dirichlet_values!(
     f.mDOF_to_DOF,
     f.n_fdofs,
     f.n_fmdofs)
+
   fmdof_to_val,dmdof_to_val
 end
 
@@ -366,12 +368,12 @@ function FESpaces._setup_dof_to_val!(
       mdof = FESpaces._DOF_to_dof(mDOF,n_fmdofs)
       if mdof > 0
         fmdof = mdof
-        @inbounds for k in param_eachindex(f2v)
+        @inbounds for k in 1:plength
           val[k] += fm2v[fmdof,k]*coeff
         end
       else
         dmdof = -mdof
-        @inbounds for k in param_eachindex(f2v)
+        @inbounds for k in 1:plength
           val[k] += dm2v[dmdof,k]*coeff
         end
       end
@@ -379,24 +381,23 @@ function FESpaces._setup_dof_to_val!(
     dof = FESpaces._DOF_to_dof(DOF,n_fdofs)
     if dof > 0
       fdof = dof
-      @inbounds for k in param_eachindex(f2v)
+      @inbounds for k in 1:plength
         f2v[fdof,k] = val[k]
       end
     else
       ddof = -dof
-      @inbounds for k in param_eachindex(f2v)
+      @inbounds for k in 1:plength
         d2v[ddof,k] = val[k]
       end
     end
   end
-
 end
 
 function FESpaces._setup_mdof_to_val!(
-  fdof_to_val::ConsecutiveParamVector,
-  ddof_to_val::ConsecutiveParamVector,
   fmdof_to_val::ConsecutiveParamVector,
   dmdof_to_val::ConsecutiveParamVector,
+  fdof_to_val::ConsecutiveParamVector,
+  ddof_to_val::ConsecutiveParamVector,
   mDOF_to_DOF,
   n_fdofs,
   n_fmdofs)
@@ -417,24 +418,24 @@ function FESpaces._setup_mdof_to_val!(
     dof = FESpaces._DOF_to_dof(DOF,n_fdofs)
     if dof > 0
       fdof = dof
-      @inbounds for k in param_eachindex(f2v)
+      @inbounds for k in 1:plength
         val[k] = f2v[fdof,k]
       end
     else
       ddof = -dof
-      @inbounds for k in param_eachindex(f2v)
+      @inbounds for k in 1:plength
         val[k] = d2v[ddof,k]
       end
     end
     mdof = FESpaces._DOF_to_dof(mDOF,n_fmdofs)
     if mdof > 0
       fmdof = mdof
-      @inbounds for k in param_eachindex(f2v)
+      @inbounds for k in 1:plength
         fm2v[fmdof,k] = val[k]
       end
     else
       dmdof = -mdof
-      @inbounds for k in param_eachindex(f2v)
+      @inbounds for k in 1:plength
         dm2v[dmdof,k] = val[k]
       end
     end
@@ -502,41 +503,39 @@ function FESpaces.gather_free_and_dirichlet_values(
   pf::SingleFieldParamFESpace{<:OrderedFESpace{<:FESpaceWithConstantFixed{T}}},
   cv) where T<:FESpaces.FixConstant
 
-  f = get_fe_space2(pf)
-  pf′ = remove_layer(pf)
-  _fv,_dv = gather_free_and_dirichlet_values(pf′,cv)
-  @assert innerlength(_dv) == 0
-  fv = ParamVectorWithEntryRemoved(_fv,f.dof_to_fix)
-  dv = get_param_entry(_fv,f.dof_to_fix:f.dof_to_fix)
+  f = get_fe_space(pf)
+  _fv,_dv = zero_free_and_dirichlet_values(f.space)
+  @assert length(_dv) == 0
+  pfv = global_parameterize(_fv,param_length(pf))
+  pdv = global_parameterize(_dv,param_length(pf))
+  gather_free_and_dirichlet_values!(pfv,pdv,f.space,cv)
+
+  fv = ParamVectorWithEntryRemoved(pfv,f.dof_to_fix)
+  dv = get_param_entry(pfv,f.dof_to_fix:f.dof_to_fix)
   (fv,dv)
-end
-
-function FESpaces.gather_free_and_dirichlet_values!(
-  free_vals::AbstractParamVector,
-  dirichlet_vals::AbstractParamVector,
-  f::SingleFieldParamFESpace{<:OrderedFESpace},
-  cell_vals)
-
-  gather_free_and_dirichlet_values!(free_vals,dirichlet_vals,get_fe_space(f),cell_vals)
 end
 
 function FESpaces.gather_free_and_dirichlet_values!(
   fv::AbstractParamVector,
   dv::AbstractParamVector,
-  pf::SingleFieldParamFESpace{<:OrderedFESpace{<:FESpaceWithConstantFixed{T}}},
+  f::OrderedFESpace{<:FESpaceWithConstantFixed{T}},
   cv) where T<:FESpaces.FixConstant
 
   @assert innerlength(dv) == 1
-  f = get_fe_space2(pf)
-  pf′ = remove_layer(pf)
   _dv = similar(dv,eltype(dv),0)
   _fv = ParamVectorWithEntryInserted(fv,f.dof_to_fix,zeros(eltype2(fv),param_length(fv)))
-  gather_free_and_dirichlet_values!(_fv,_dv,pf′,cv)
+  gather_free_and_dirichlet_values!(_fv,_dv,f,cv)
   dv.data[1,:] = _fv.value
   (fv,dv)
 end
 
 # utils
+
+function zero_free_and_dirichlet_values(f::SingleFieldFESpace)
+  fv = zero_free_values(f)
+  dv = zero_dirichlet_values(f)
+  (fv,dv)
+end
 
 remove_layer(f::SingleFieldFESpace) = @abstractmethod
 remove_layer(f::SingleFieldParamFESpace{<:UnconstrainedFESpace}) = f

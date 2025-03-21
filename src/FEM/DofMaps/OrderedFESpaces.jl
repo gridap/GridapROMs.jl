@@ -138,7 +138,7 @@ end
 
 function get_cell_odof_ids(space::SingleFieldFESpace)
   cell_dofs_ids = get_cell_dof_ids(space)
-  cell_to_parent_cell = get_bg_cell_to_act_cell(space)
+  cell_to_parent_cell = get_cell_to_bg_cell(space)
   fe_dof_basis = get_data(get_fe_dof_basis(space))
   orders = get_polynomial_orders(space)
   trian = get_triangulation(space)
