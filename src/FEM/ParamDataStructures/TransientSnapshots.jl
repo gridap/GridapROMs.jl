@@ -1,465 +1,152 @@
 """
-    abstract type TransientSnapshots{T,N,D,I,R<:TransientRealization,A} <: Snapshots{T,N,D,I,R,A} end
+    const TransientSnapshots{T,N,I,R<:TransientRealization,A} = Snapshots{T,N,I,R,A}
 
-Transient specialization of a `Snapshots`. The dimension `N` of a
-SteadySnapshots is equal to `D` + 2, where `D` represents the number of
-spatial axes, to which a temporal and a parametric dimension are added.
+Transient specialization of a `Snapshots`
 
 Subtypes:
-- [`TransientGenericSnapshots`](@ref)
-- [`GenericSnapshots`](@ref)
-- [`TransientSnapshotsAtIndices`](@ref)
-- [`TransientReshapedSnapshots`](@ref)
 - [`TransientSnapshotsWithIC`](@ref)
 - [`ModeTransientSnapshots`](@ref)
 """
-abstract type TransientSnapshots{T,N,D,I,R<:TransientRealization,A} <: Snapshots{T,N,D,I,R,A} end
+const TransientSnapshots{T,N,I,R<:TransientRealization,A} = Snapshots{T,N,I,R,A}
+
+space_dofs(s::TransientSnapshots{T,N}) where {T,N} = size(get_all_data(s))[1:N-2]
 
 num_times(s::TransientSnapshots) = num_times(get_realization(s))
 
-Base.size(s::TransientSnapshots) = (space_dofs(s)...,num_times(s),num_params(s))
+Base.size(s::TransientSnapshots) = (space_dofs(s)...,num_params(s),num_times(s))
+
+function Snapshots(s::AbstractParamVector,i::AbstractDofMap,r::TransientRealization)
+  data = get_all_data(s)
+  data′ = reshape(data,:,num_params(r),num_times(r))
+  s′ = ConsecutiveParamArray(data′)
+  Snapshots(s′,i,r)
+end
+
+function Snapshots(s::AbstractParamMatrix,i::TrivialDofMap,r::TransientRealization)
+  Snapshots(get_all_data(s),i,r)
+end
+
+function get_param_data(s::TransientSnapshots)
+  data = get_all_data(s)
+  ncols = num_times(s)*num_params(s)
+  ConsecutiveParamArray(reshape(data,:,ncols))
+end
 
 get_initial_data(s::TransientSnapshots) = @abstractmethod
+get_initial_param_data(s::TransientSnapshots) = @abstractmethod
 
-"""
-    struct TransientGenericSnapshots{T,N,D,I,R,A} <: TransientSnapshots{T,N,D,I,R,A}
-      data::A
-      dof_map::I
-      realization::R
-    end
-
-Most standard implementation of a [`TransientSnapshots`](@ref)
-"""
-struct TransientGenericSnapshots{T,N,D,I,R,A} <: TransientSnapshots{T,N,D,I,R,A}
-  data::A
-  dof_map::I
-  realization::R
-  function TransientGenericSnapshots(
-    data::A,
-    dof_map::I,
-    realization::R
-    ) where {T,N,D,R,A<:AbstractParamArray{T,N},I<:AbstractDofMap{D}}
-    new{T,D+2,D,I,R,A}(data,dof_map,realization)
-  end
+function _select_snapshots(s::TransientSnapshots,pindex)
+  prange = _format_index(pindex)
+  trange = 1:num_times(s)
+  drange = view(get_all_data(s),:,prange,trange)
+  rrange = get_realization(s)[prange,trange]
+  Snapshots(drange,get_dof_map(s),rrange)
 end
 
-function Snapshots(s::AbstractParamArray,i::AbstractDofMap,r::TransientRealization)
-  TransientGenericSnapshots(s,i,r)
-end
-
-get_all_data(s::TransientGenericSnapshots) = get_all_data(s.data)
-get_param_data(s::TransientGenericSnapshots) = s.data
-DofMaps.get_dof_map(s::TransientGenericSnapshots) = s.dof_map
-get_realization(s::TransientGenericSnapshots) = s.realization
-
-function get_indexed_data(s::TransientGenericSnapshots{T}) where T
-  i = get_dof_map(s)
-  data = get_all_data(s)
-  idata = zeros(T,size(data))
-  for ipt in 1:num_params(s)*num_times(s)
-    for (ij,j) in enumerate(i)
-      if j > 0
-        @inbounds idata[ij,ipt] = data[j,ipt]
-      end
-    end
-  end
-  return idata
-end
-
-Base.@propagate_inbounds function Base.getindex(
-  s::TransientGenericSnapshots{T,N},
-  i::Vararg{Integer,N}
-  ) where {T,N}
-
-  @boundscheck checkbounds(s,i...)
-  ispace...,itime,iparam = i
-  ispace′ = s.dof_map[ispace...]
-  data = get_all_data(s)
-  ispace′ == 0 ? zero(eltype(s)) : data[ispace′,iparam+(itime-1)*num_params(s)]
-end
-
-Base.@propagate_inbounds function Base.setindex!(
-  s::TransientGenericSnapshots{T,N},
-  v,
-  i::Vararg{Integer,N}
-  ) where {T,N}
-
-  @boundscheck checkbounds(s,i...)
-  ispace...,itime,iparam = i
-  ispace′ = s.dof_map[ispace...]
-  data = get_all_data(s)
-  ispace′ != 0 && (data[ispace′,iparam+(itime-1)*num_params(s)] = v)
+function param_getindex(s::TransientSnapshots{T,N},pindex::Integer,tindex::Integer) where {T,N}
+  view(get_all_data(s),_ncolons(Val{N-2}())...,pindex,tindex)
 end
 
 """
-    struct TransientSnapshotsAtIndices{T,N,D,I,R,A<:TransientSnapshots{T,N,D,I,R},B,C} <: TransientSnapshots{T,N,D,I,R,A}
-      snaps::A
-      trange::B
-      prange::C
-    end
-
-Represents a [`TransientSnapshots`](@ref) `snaps` whose parametric and temporal ranges
-are restricted to the indices in `prange` and `trange`. This type essentially acts
-as a view for suptypes of `TransientSnapshots`, at every space location, on
-a selected number of parameter/time indices. An instance of `TransientSnapshotsAtIndices`
-is created by calling the function `select_snapshots`
-"""
-struct TransientSnapshotsAtIndices{T,N,D,I,R,A<:TransientSnapshots{T,N,D,I,R},B,C} <: TransientSnapshots{T,N,D,I,R,A}
-  snaps::A
-  trange::B
-  prange::C
-  function TransientSnapshotsAtIndices(snaps::A,trange::B,prange::C) where {T,N,D,I,R,A<:TransientSnapshots{T,N,D,I,R},B,C}
-    @assert 1 <= minimum(trange) <= maximum(trange) <= _num_all_times(snaps)
-    @assert 1 <= minimum(prange) <= maximum(prange) <= _num_all_params(snaps)
-    new{T,N,D,I,R,A,B,C}(snaps,trange,prange)
-  end
-end
-
-function TransientSnapshotsAtIndices(s::TransientSnapshotsAtIndices,trange,prange)
-  trange′ = s.trange[trange]
-  prange′ = s.prange[prange]
-  TransientSnapshotsAtIndices(s.snaps,trange′,prange′)
-end
-
-function Snapshots(s::TransientSnapshotsAtIndices,i::AbstractDofMap,r::TransientRealization)
-  snaps = Snapshots(s.snaps,i,r)
-  TransientSnapshotsAtIndices(snaps,s.trange,s.prange)
-end
-
-time_indices(s::TransientSnapshotsAtIndices) = s.trange
-num_times(s::TransientSnapshotsAtIndices) = length(time_indices(s))
-param_indices(s::TransientSnapshotsAtIndices) = s.prange
-num_params(s::TransientSnapshotsAtIndices) = length(param_indices(s))
-
-_num_all_times(s::TransientSnapshots) = num_times(s)
-_num_all_params(s::TransientSnapshotsAtIndices) = _num_all_params(s.snaps)
-_num_all_times(s::TransientSnapshotsAtIndices) = _num_all_times(s.snaps)
-
-get_all_data(s::TransientSnapshotsAtIndices) = get_all_data(s.snaps)
-DofMaps.get_dof_map(s::TransientSnapshotsAtIndices) = get_dof_map(s.snaps)
-get_realization(s::TransientSnapshotsAtIndices) = get_realization(s.snaps)[s.prange,s.trange]
-
-function get_param_data(s::TransientSnapshotsAtIndices)
-  prange = param_indices(s)
-  trange = time_indices(s)
-  np = _num_all_params(s)
-  ptrange = range_1d(prange,trange,np)
-  data = get_all_data(s)
-  v = view(data,:,ptrange)
-  isa(s,SparseSnapshots) ? recast(v,s) : ConsecutiveParamArray(v)
-end
-
-function get_indexed_data(s::TransientSnapshotsAtIndices{T}) where T
-  i = get_dof_map(s)
-  data = get_all_data(s)
-  idata = zeros(T,num_space_dofs(s),num_times(s)*num_params(s))
-  for (it,t) in enumerate(time_indices(s))
-    for (ip,p) in enumerate(param_indices(s))
-      ipt = (it-1)*num_params(s)+ip
-      pt = (t-1)*_num_all_params(s)+p
-      for (ij,j) in enumerate(i)
-        if j > 0
-          @inbounds idata[ij,ipt] = data[j,pt]
-        end
-      end
-    end
-  end
-  return idata
-end
-
-Base.@propagate_inbounds function Base.getindex(
-  s::TransientSnapshotsAtIndices{T,N},
-  i::Vararg{Integer,N}
-  ) where {T,N}
-
-  @boundscheck checkbounds(s,i...)
-  ispace...,itime,iparam = i
-  itime′ = getindex(time_indices(s),itime)
-  iparam′ = getindex(param_indices(s),iparam)
-  getindex(s.snaps,ispace...,itime′,iparam′)
-end
-
-Base.@propagate_inbounds function Base.setindex!(
-  s::TransientSnapshotsAtIndices{T,N},
-  v,
-  i::Vararg{Integer,N}
-  ) where {T,N}
-
-  @boundscheck checkbounds(s,i...)
-  ispace...,itime,iparam = i
-  itime′ = getindex(time_indices(s),itime)
-  iparam′ = getindex(param_indices(s),iparam)
-  setindex!(s.snaps,v,ispace,itime′,iparam′)
-end
-
-function DofMaps.flatten(s::TransientSnapshotsAtIndices)
-  data = get_param_data(s)
-  sbasic = Snapshots(data,get_dof_map(s),get_realization(s))
-  flatten(sbasic)
-end
-
-function select_snapshots(s::TransientSnapshots,trange,prange)
-  trange = format_range(trange,num_times(s))
-  prange = format_range(prange,num_params(s))
-  TransientSnapshotsAtIndices(s,trange,prange)
-end
-
-function select_snapshots(s::TransientSnapshots,prange;trange=1:num_times(s))
-  select_snapshots(s,trange,prange)
-end
-
-# trivial dimensions
-
-function select_snapshots(s::TransientSnapshots{T,N},trange::Integer,prange) where {T,N}
-  srange = select_snapshots(s,format_range(trange,num_times(s)),prange)
-  dropdims(srange;dims=N-1)
-end
-
-function select_snapshots(s::TransientSnapshots{T,N},trange,prange::Integer) where {T,N}
-  srange = select_snapshots(s,trange,format_range(prange,num_params(s)))
-  dropdims(srange;dims=N)
-end
-
-function select_snapshots(s::TransientSnapshots{T,N},trange::Integer,prange::Integer) where {T,N}
-  srange = select_snapshots(s,format_range(trange,num_times(s)),format_range(prange,num_params(s)))
-  dropdims(srange;dims=(N-1,N))
-end
-
-"""
-    struct TransientReshapedSnapshots{T,N,N′,D,I,R,A<:TransientSnapshots{T,N′,D,I,R},B} <: TransientSnapshots{T,N,D,I,R,A}
-      snaps::A
-      size::NTuple{N,Int}
-      mi::B
-    end
-
-Represents a [`TransientSnapshots`](@ref) `snaps` whose size is resized to `size`. This struct
-is equivalent to `ReshapedArray`, and is only used to make sure the result
-of this operation is still a subtype of TransientSnapshots
-"""
-struct TransientReshapedSnapshots{T,N,N′,D,I,R,A<:TransientSnapshots{T,N′,D,I,R},B} <: TransientSnapshots{T,N,D,I,R,A}
-  snaps::A
-  size::NTuple{N,Int}
-  mi::B
-end
-
-Base.size(s::TransientReshapedSnapshots) = s.size
-
-function Base.reshape(s::TransientReshapedSnapshots,dims::Dims)
-  reshape(s.snaps,dims)
-end
-
-function Base.reshape(s::TransientSnapshots,dims::Dims)
-  n = length(s)
-  prod(dims) == n || DimensionMismatch()
-
-  strds = Base.front(Base.size_to_strides(map(length,axes(s))...,1))
-  strds1 = map(s->max(1,Int(s)),strds)
-  mi = map(Base.SignedMultiplicativeInverse,strds1)
-  TransientReshapedSnapshots(s,dims,reverse(mi))
-end
-
-function Base.getindex(
-  s::TransientReshapedSnapshots{T,N},
-  i::Vararg{Integer,N}
-  ) where {T,N}
-
-  @boundscheck checkbounds(s,i...)
-  ax = axes(s.snaps)
-  i′ = Base.offset_if_vec(Base._sub2ind(size(s),i...),ax)
-  i′′ = Base.ind2sub_rs(ax,s.mi,i′)
-  Base._unsafe_getindex_rs(s.snaps,i′′)
-end
-
-function Base.setindex!(
-  s::TransientReshapedSnapshots{T,N},
-  v,i::Vararg{Integer,N}
-  ) where {T,N}
-
-  @boundscheck checkbounds(s,i...)
-  ax = axes(s.snaps)
-  i′ = Base.offset_if_vec(Base._sub2ind(size(s),i...),ax)
-  s.snaps[Base.ind2sub_rs(ax,s.mi,i′)] = v
-  v
-end
-
-get_realization(s::TransientReshapedSnapshots) = get_realization(s.snaps)
-DofMaps.get_dof_map(s::TransientReshapedSnapshots) = get_dof_map(s.snaps)
-
-function get_param_data(s::TransientReshapedSnapshots)
-  v = get_param_data(s.snaps)
-  reshape(v.data,s.size)
-end
-
-function get_indexed_data(s::TransientReshapedSnapshots)
-  v = get_indexed_data(s.snaps)
-  reshape(v,s.size)
-end
-
-"""
-    struct TransientSnapshotsWithIC{T,N,D,I,R,A,B<:TransientSnapshots{T,N,D,I,R,A}} <: TransientSnapshots{T,N,D,I,R,A}
+    struct TransientSnapshotsWithIC{T,N,I,R,A,B<:TransientSnapshots{T,N,I,R,A}} <: TransientSnapshots{T,N,I,R,A}
       initial_data::A
       snaps::B
     end
 
 Stores a [`TransientSnapshots`](@ref) `snaps` alongside a parametric initial condition `initial_data`
 """
-struct TransientSnapshotsWithIC{T,N,D,I,R,A,B<:TransientSnapshots{T,N,D,I,R}} <: TransientSnapshots{T,N,D,I,R,A}
+struct TransientSnapshotsWithIC{T,N,I,R,A,B<:TransientSnapshots{T,N,I,R}} <: TransientSnapshots{T,N,I,R,A}
   initial_data::A
   snaps::B
 end
 
-function Snapshots(s,s0::AbstractParamArray,i::AbstractDofMap,r::TransientRealization)
+function Snapshots(s::AbstractParamMatrix,s0,i::AbstractDofMap,r::TransientRealization)
+  initial_data = get_all_data(s0)
   snaps = Snapshots(s,i,r)
-  TransientSnapshotsWithIC(s0,snaps)
+  TransientSnapshotsWithIC(initial_data,snaps)
+end
+
+function Snapshots(s::AbstractParamVector,s0,i::AbstractDofMap,r::TransientRealization)
+  data = get_all_data(s)
+  data′ = reshape(data,:,num_params(r),num_times(r))
+  s′ = ConsecutiveParamArray(data′)
+  Snapshots(s′,s0,i,r)
 end
 
 get_all_data(s::TransientSnapshotsWithIC) = get_all_data(s.snaps)
 get_initial_data(s::TransientSnapshotsWithIC) = s.initial_data
-get_param_data(s::TransientSnapshotsWithIC) = get_param_data(s.snaps)
+get_initial_param_data(s::TransientSnapshotsWithIC) = ConsecutiveParamArray(s.initial_data)
 DofMaps.get_dof_map(s::TransientSnapshotsWithIC) = get_dof_map(s.snaps)
 get_realization(s::TransientSnapshotsWithIC) = get_realization(s.snaps)
-get_indexed_data(s::TransientSnapshotsWithIC) = get_indexed_data(s.snaps)
 
-Base.@propagate_inbounds function Base.getindex(
-  s::TransientSnapshotsWithIC{T,N},
-  i::Vararg{Integer,N}
-  ) where {T,N}
-
+function Base.getindex(s::TransientSnapshotsWithIC{T,N},i::Vararg{Integer,N}) where {T,N}
   getindex(s.snaps,i...)
 end
 
-Base.@propagate_inbounds function Base.setindex!(
-  s::TransientSnapshotsWithIC{T,N},
-  v,
-  i::Vararg{Integer,N}
-  ) where {T,N}
-
+function Base.setindex!(s::TransientSnapshotsWithIC{T,N},v,i::Vararg{Integer,N}) where {T,N}
   setindex!(s.snaps,v,i...)
 end
 
-function TransientSnapshotsAtIndices(s::TransientSnapshotsWithIC,trange,prange)
-  snaps′ = TransientSnapshotsAtIndices(s.snaps,trange,prange)
-  initial_data′ = ConsecutiveParamArray(view(get_all_data(s.initial_data),:,prange))
-  TransientSnapshotsWithIC(initial_data′,snaps′)
+function _select_snapshots(s::TransientSnapshotsWithIC,pindex)
+  prange = _format_index(pindex)
+  d0range = view(s.initial_data,:,prange)
+  srange = _select_snapshots(s.snaps,pindex)
+  TransientSnapshotsWithIC(d0range,srange)
 end
 
-"""
-"""
-const TransientSparseSnapshots{T,N,D,I,R} = Union{
-  TransientGenericSnapshots{T,N,D,I,R,<:ParamSparseMatrix},
-  TransientSnapshotsAtIndices{T,N,D,I,R,<:ParamSparseMatrix}
-}
+const TransientReshapedSnapshots{T,N,I,R<:TransientRealization,A,B} = ReshapedSnapshots{T,N,I,R,A,B}
 
-const UnfoldingTransientSnapshots{T,I<:TrivialDofMap,R,A} = TransientSnapshots{T,3,1,I,R,A}
+function Snapshots(s::AbstractParamMatrix,i::AbstractDofMap,r::TransientRealization)
+  data = get_all_data(s)
+  param_data = s
+  dims = (size(i)...,num_params(r),num_times(r))
+  idata = reshape(data,dims)
+  ReshapedSnapshots(idata,param_data,i,r)
+end
 
-abstract type ModeAxes end
-struct Mode1Axes <: ModeAxes end
-struct Mode2Axes <: ModeAxes end
+function Snapshots(s::ParamSparseMatrix,i::TrivialSparseMatrixDofMap,r::TransientRealization)
+  T = eltype2(s)
+  data = get_all_data(s)
+  data′ = reshape(data,:,num_params(r),num_times(r))
+  param_data = s
+  ReshapedSnapshots(data′,param_data,i,r)
+end
 
-change_mode(::Mode1Axes) = Mode2Axes()
-change_mode(::Mode2Axes) = Mode1Axes()
-
-"""
-    struct ModeTransientSnapshots{M<:ModeAxes,T,I,R,A<:UnfoldingTransientSnapshots{T,I,R}} <: TransientSnapshots{T,2,1,I,R,A}
-      snaps::A
-      mode::M
+function Snapshots(s::ParamSparseMatrix,i::SparseMatrixDofMap,r::TransientRealization)
+  T = eltype2(s)
+  data = get_all_data(s)
+  param_data = s
+  idata = zeros(T,size(i)...,num_params(r),num_times(r))
+  for it in 1:num_times(r), ip in 1:num_params(r)
+    ipt = (it-1)*num_params(r)+ip
+    for k in CartesianIndices(i)
+      k′ = i[k]
+      if k′ > 0
+        idata[k.I...,ip,it] = data[k′,ipt]
+      end
     end
-
-Represents a [`TransientSnapshots`](@ref) with a [`TrivialDofMap`](@ref) indexing strategy
-as an `AbstractMatrix` with a system of mode-unfolding representations. Only two
-mode-unfolding representations are considered:
-
-Mode1Axes:
-
-  ```[u(x1,t1,μ1) ⋯ u(x1,t1,μP) u(x1,t2,μ1) ⋯ u(x1,t2,μP) u(x1,t3,μ1) ⋯ ⋯ u(x1,tT,μ1) ⋯ u(x1,tT,μP)]
-        ⋮             ⋮          ⋮            ⋮           ⋮              ⋮             ⋮
-  u(xN,t1,μ1) ⋯ u(xN,t1,μP) u(xN,t2,μ1) ⋯ u(xN,t2,μP) u(xN,t3,μ1) ⋯ ⋯ u(xN,tT,μ1) ⋯ u(xN,tT,μP)]```
-
-Mode2Axes:
-
-  ```[u(x1,t1,μ1) ⋯ u(x1,t1,μP) u(x2,t1,μ1) ⋯ u(x2,t1,μP) u(x3,t1,μ1) ⋯ ⋯ u(xN,t1,μ1) ⋯ u(xN,t1,μP)]
-        ⋮             ⋮          ⋮            ⋮           ⋮              ⋮             ⋮
-  u(x1,tT,μ1) ⋯ u(x1,tT,μP) u(x2,tT,μ1) ⋯ u(x2,tT,μP) u(x3,tT,μ1) ⋯ ⋯ u(xN,tT,μ1) ⋯ u(xN,tT,μP)]```
-"""
-struct ModeTransientSnapshots{M<:ModeAxes,T,I,R,A<:UnfoldingTransientSnapshots{T,I,R}} <: TransientSnapshots{T,2,1,I,R,A}
-  snaps::A
-  mode::M
-end
-
-function ModeTransientSnapshots(s::TransientSnapshots)
-  ModeTransientSnapshots(s,get_mode(s))
-end
-
-function DofMaps.flatten(s::TransientSnapshots)
-  i′ = flatten(get_dof_map(s))
-  s′ = Snapshots(get_param_data(s),i′,get_realization(s))
-  ModeTransientSnapshots(s′)
-end
-
-get_all_data(s::ModeTransientSnapshots) = get_all_data(s.snaps)
-get_param_data(s::ModeTransientSnapshots) = get_param_data(s.snaps)
-get_realization(s::ModeTransientSnapshots) = get_realization(s.snaps)
-DofMaps.get_dof_map(s::ModeTransientSnapshots) = get_dof_map(s.snaps)
-
-"""
-    change_mode(s::ModeTransientSnapshots) -> ModeTransientSnapshots
-
-Returns the snapshots obtained by opposing the mode of `s`. The result is a
-subtype of `AbstractMatrix` with entries equal to those of `s`, but with swapped
-spatial and temporal axes
-"""
-change_mode(s::UnfoldingTransientSnapshots) = ModeTransientSnapshots(s,change_mode(get_mode(s)))
-change_mode(s::ModeTransientSnapshots) = ModeTransientSnapshots(s.snaps,change_mode(get_mode(s)))
-
-get_mode(s::UnfoldingTransientSnapshots) = Mode1Axes()
-get_mode(s::ModeTransientSnapshots) = s.mode
-
-const Mode1TransientSnapshots{T,I,R,A} = ModeTransientSnapshots{Mode1Axes,T,I,R,A}
-const Mode2TransientSnapshots{T,I,R,A} = ModeTransientSnapshots{Mode2Axes,T,I,R,A}
-
-Base.size(s::Mode1TransientSnapshots) = (num_space_dofs(s),num_times(s)*num_params(s))
-Base.size(s::Mode2TransientSnapshots) = (num_times(s),num_space_dofs(s)*num_params(s))
-
-Base.@propagate_inbounds function Base.getindex(s::Mode1TransientSnapshots,ispace::Integer,icol::Integer)
-  @boundscheck checkbounds(s,ispace,icol)
-  itime = slow_index(icol,num_params(s))
-  iparam = fast_index(icol,num_params(s))
-  getindex(s.snaps,ispace,itime,iparam)
-end
-
-Base.@propagate_inbounds function Base.setindex!(s::Mode1TransientSnapshots,v,ispace::Integer,icol::Integer)
-  @boundscheck checkbounds(s,ispace,icol)
-  itime = slow_index(icol,num_params(s))
-  iparam = fast_index(icol,num_params(s))
-  setindex!(s.snaps,v,ispace,itime,iparam)
-end
-
-Base.@propagate_inbounds function Base.getindex(s::Mode2TransientSnapshots,itime::Integer,icol::Integer)
-  @boundscheck checkbounds(s,itime,icol)
-  ispace = slow_index(icol,num_params(s))
-  iparam = fast_index(icol,num_params(s))
-  getindex(s.snaps,ispace,itime,iparam)
-end
-
-Base.@propagate_inbounds function Base.setindex!(s::Mode2TransientSnapshots,v,itime::Integer,icol::Integer)
-  @boundscheck checkbounds(s,itime,icol)
-  ispace = slow_index(icol,num_params(s))
-  iparam = fast_index(icol,num_params(s))
-  setindex!(s.snaps,v,ispace,itime,iparam)
-end
-
-function change_mode(a::AbstractMatrix,np::Integer)
-  n1 = size(a,1)
-  n2 = Int(size(a,2)/np)
-  a′ = zeros(eltype(a),n2,n1*np)
-  @inbounds for i = 1:np
-    @views a′[:,(i-1)*n1+1:i*n1] = a[:,i:np:np*n2]'
   end
-  return a′
+  ReshapedSnapshots(idata,param_data,i,r)
 end
 
-get_indexed_data(s::Mode1TransientSnapshots) = get_indexed_data(s.snaps)
-get_indexed_data(s::Mode2TransientSnapshots) = collect(s)
+function _select_snapshots(s::TransientReshapedSnapshots{T,N},pindex) where {T,N}
+  np = num_params(s)
+  prange = _format_index(pindex)
+  trange = 1:num_times(s)
+  drange = view(get_all_data(s),_ncolons(Val{N-2}())...,prange,trange)
+  pdrange = _get_param_data(s.param_data,prange,trange)
+  rrange = get_realization(s)[prange,trange]
+  ReshapedSnapshots(drange,pdrange,get_dof_map(s),rrange)
+end
+
+function _get_param_data(pdata::ConsecutiveParamMatrix,prange,trange)
+  ConsecutiveParamArray(view(pdata.data,:,prange,trange))
+end
+
+# in practice, when dealing with the Jacobian, the param data is never fetched
+function _get_param_data(pdata::ConsecutiveParamSparseMatrixCSC,prange,trange)
+  pdata
+end
 
 # block snapshots
 
@@ -467,7 +154,7 @@ function Snapshots(
   data::BlockParamArray{T,N},
   data0::BlockParamArray,
   i::AbstractArray{<:AbstractDofMap},
-  r::AbstractRealization
+  r::TransientRealization
   ) where {T,N}
 
   block_values = blocks(data)
@@ -491,20 +178,80 @@ function Snapshots(
   BlockSnapshots(array,touched)
 end
 
-function Arrays.return_cache(::typeof(get_initial_data),s::BlockSnapshots{S,N}) where {S,N}
-  cache = get_initial_data(testitem(s))
-  block_cache = Array{typeof(cache),N}(undef,size(s))
-  return block_cache
-end
+for f in (:get_initial_data,:get_initial_param_data)
+  @eval begin
+    function Arrays.return_cache(::typeof($f),s::BlockSnapshots{S,N}) where {S,N}
+      cache = $f(testitem(s))
+      block_cache = Array{typeof(cache),N}(undef,size(s))
+      return block_cache
+    end
 
-function get_initial_data(s::BlockSnapshots)
-  values = return_cache(get_initial_data,s)
-  for i in eachindex(s.touched)
-    if s.touched[i]
-      values[i] = get_initial_data(s[i])
+    function $f(s::BlockSnapshots)
+      values = return_cache($f,s)
+      for i in eachindex(s.touched)
+        if s.touched[i]
+          values[i] = $f(s[i])
+        end
+      end
+      return mortar(values)
     end
   end
-  return mortar(values)
+end
+
+# mode snapshots
+
+abstract type ModeAxes end
+struct Mode1Axes <: ModeAxes end
+struct Mode2Axes <: ModeAxes end
+
+struct ModeTransientSnapshots{M<:ModeAxes,T,I,R,A<:AbstractMatrix{T}} <: TransientSnapshots{T,2,I,R,A}
+  mode::M
+  data::A
+  dof_map::I
+  realization::R
+end
+
+function ModeTransientSnapshots(data,i,r)
+  ModeTransientSnapshots(Mode1Axes(),data,i,r)
+end
+
+Base.size(s::ModeTransientSnapshots) = size(s.data)
+
+get_all_data(s::ModeTransientSnapshots) = s.data
+DofMaps.get_dof_map(s::ModeTransientSnapshots) = s.dof_map
+get_realization(s::ModeTransientSnapshots) = s.realization
+
+function Base.getindex(s::ModeTransientSnapshots,i,j)
+  getindex(s.data,i,j)
+end
+
+function Base.setindex!(s::ModeTransientSnapshots,v,i,j)
+  setindex!(s.data,v,i,j)
+end
+
+function get_mode1(s::TransientSnapshots)
+  ns = num_space_dofs(s)
+  data = get_all_data(s)
+  m1 = reshape(data,ns,:)
+  i = get_dof_map(s)
+  r = get_realization(s)
+  ModeTransientSnapshots(m1,i,r)
+end
+
+function get_mode2(s::TransientSnapshots)
+  mode1 = get_mode1(s)
+  m2 = change_mode(mode1.data,num_params(s))
+  ModeTransientSnapshots(Mode2Axes(),s.data,s.dof_map,s.realization)
+end
+
+function change_mode(a::AbstractMatrix,np::Integer)
+  n1 = size(a,1)
+  n2 = Int(size(a,2)/np)
+  a′ = zeros(eltype(a),n2,n1*np)
+  @inbounds for i = 1:np
+    @views a′[:,(i-1)*n1+1:i*n1] = a[:,i:np:np*n2]'
+  end
+  return a′
 end
 
 # utils
@@ -512,11 +259,11 @@ end
 function Snapshots(
   a::TupOfArrayContribution,
   i::TupOfArrayContribution,
-  r::AbstractRealization)
+  r::TransientRealization)
 
   map((a,i)->Snapshots(a,i,r),a,i)
 end
 
-function select_snapshots(a::TupOfArrayContribution,args...;kwargs...)
-  map(a->select_snapshots(a,args...;kwargs...),a)
+function select_snapshots(a::TupOfArrayContribution,pindex)
+  map(a->select_snapshots(a,pindex),a)
 end

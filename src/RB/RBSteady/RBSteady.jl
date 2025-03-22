@@ -33,6 +33,7 @@ using ROManifolds.ParamAlgebra
 using ROManifolds.ParamFESpaces
 using ROManifolds.ParamSteady
 using ROManifolds.ParamODEs
+using ROManifolds.Extensions
 
 import Base: +,-,*,\
 import PartitionedArrays: tuple_of_arrays
@@ -174,5 +175,7 @@ export load_operator
 export load_results
 export plot_a_solution
 include("PostProcess.jl")
+
+include("Extensions.jl")
 
 end # module

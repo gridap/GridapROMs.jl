@@ -118,6 +118,10 @@ FESpaces.get_dirichlet_dof_tag(f::TProductFESpace) = get_dirichlet_dof_tag(f.spa
 
 FESpaces.scatter_free_and_dirichlet_values(f::TProductFESpace,fv,dv) = scatter_free_and_dirichlet_values(f.space,fv,dv)
 
+function FESpaces.gather_free_and_dirichlet_values!(fv,dv,f::TProductFESpace,cv)
+  gather_free_and_dirichlet_values!(fv,dv,f.space,cv)
+end
+
 function DofMaps.get_sparsity(U::TProductFESpace,V::TProductFESpace,args...)
   @check length(U.spaces_1d) == length(V.spaces_1d)
   sparsity = get_sparsity(U.space,V.space,args...)

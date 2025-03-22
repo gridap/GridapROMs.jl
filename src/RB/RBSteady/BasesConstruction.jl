@@ -221,12 +221,11 @@ function ttsvd(
   ) where {T,N}
 
   cores = Array{T,3}[]
-  oldrank = 1
-  remainder = reshape(A,oldrank,size(A,1),:)
+  remainder = first_unfold(A)
   for d in 1:N-1
     cur_core,cur_remainder = ttsvd_loop(red_style[d],remainder)
     oldrank = size(cur_core,3)
-    remainder::Array{T,3} = reshape(cur_remainder,oldrank,size(A,d+1),:)
+    remainder = reshape(cur_remainder,oldrank,size(A,d+1),:)
     push!(cores,cur_core)
   end
   return cores,remainder
@@ -266,12 +265,11 @@ function steady_ttsvd(
   ) where {T,N,D}
 
   cores = Array{T,3}[]
-  oldrank = 1
-  remainder = reshape(A,oldrank,size(A,1),:)
+  remainder = first_unfold(A)
   for d in 1:D
     cur_core,cur_remainder = ttsvd_loop(red_style[d],remainder,X[d])
     oldrank = size(cur_core,3)
-    remainder::Array{T,3} = reshape(cur_remainder,oldrank,size(A,d+1),:)
+    remainder = reshape(cur_remainder,oldrank,size(A,d+1),:)
     push!(cores,cur_core)
   end
 
@@ -310,6 +308,20 @@ function generalized_ttsvd(
     push!(cores,cur_core)
   end
   return cores,remainder
+end
+
+first_unfold(A::AbstractArray{T,N}) where {T,N} = reshape(A,1,size(A,1),:)
+
+function first_unfold(A::SubArray{T,N}) where {T,N}
+  skeep = 1,size(A,1)
+  scale = prod(size(A)[2:N-1])
+  iview = A.indices[end]
+  rview = range_1d(1:scale,iview,scale)
+  view(reshape(A.parent,skeep...,:),:,:,rview)
+end
+
+function first_unfold(A::Snapshots)
+  first_unfold(get_all_data(A))
 end
 
 function orthogonalize!(

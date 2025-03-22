@@ -35,6 +35,7 @@ include("PartialDerivatives.jl")
 
 export get_parent
 export order_domains
+export is_related
 include("Triangulations.jl")
 
 export Contribution

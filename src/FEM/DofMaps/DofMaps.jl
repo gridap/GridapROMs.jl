@@ -48,6 +48,7 @@ export get_dof_eltype
 include("SparsityPatterns.jl")
 
 export AbstractDofMap
+export AbstractSparseDofMap
 export TrivialDofMap
 export InverseDofMap
 export VectorDofMap

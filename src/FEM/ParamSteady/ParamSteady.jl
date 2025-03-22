@@ -71,10 +71,8 @@ export LinearNonlinearParamFEOperator
 export join_operators
 include("LinearNonlinearParamFEOperators.jl")
 
-export ParamOpFromFEOp
-export JointParamOpFromFEOp
-export SplitParamOpFromFEOp
-export LinearNonlinearParamOpFromFEOp
+export GenericParamOperator
+export GenericLinearNonlinearParamOperator
 export collect_cell_matrix_for_trian
 export collect_cell_vector_for_trian
 include("ParamOpFromFEOps.jl")

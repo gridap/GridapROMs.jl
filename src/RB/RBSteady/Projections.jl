@@ -291,7 +291,7 @@ struct PODProjection <: Projection
   basis::AbstractMatrix
 end
 
-function Projection(red::PODReduction,s::AbstractArray{<:Number},args...)
+function Projection(red::PODReduction,s::AbstractArray,args...)
   basis = reduction(red,s,args...)
   PODProjection(basis)
 end
@@ -353,7 +353,7 @@ struct TTSVDProjection <: Projection
   dof_map::AbstractDofMap
 end
 
-function Projection(red::TTSVDReduction,s::AbstractArray{<:Number},args...)
+function Projection(red::TTSVDReduction,s::AbstractArray,args...)
   cores = reduction(red,s,args...)
   dof_map = get_dof_map(s)
   TTSVDProjection(cores,dof_map)
@@ -378,11 +378,12 @@ num_reduced_dofs(a::TTSVDProjection) = size(last(get_cores(a)),3)
 
 #TODO this needs to be fixed
 function project!(x̂::AbstractArray,a::TTSVDProjection,x::AbstractArray,norm_matrix::AbstractRankTensor)
-  # a′ = rescale(_sparse_rescaling,norm_matrix,a)
-  # basis′ = get_basis(a′)
-  # mul!(x̂,basis′',x)
-  basis = get_basis(a)
-  mul!(x̂,basis',x)
+  ## a′ = rescale(_sparse_rescaling,norm_matrix,a)
+  ## basis′ = get_basis(a′)
+  ## mul!(x̂,basis′',x)
+  # basis = get_basis(a)
+  # mul!(x̂,basis',x)
+  x̂
 end
 
 function union_bases(a::TTSVDProjection,b::TTSVDProjection,args...)

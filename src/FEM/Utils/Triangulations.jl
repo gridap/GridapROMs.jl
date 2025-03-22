@@ -302,6 +302,11 @@ function find_closest_view(tparents,tchild::Triangulation)
   return iperm,view(tparents[iperm...],indices)
 end
 
+function is_related(t::Triangulation,s::Triangulation)
+  t === s && return true
+  t ≈ s || is_parent(t,s) || is_parent(s,t)
+end
+
 # triangulation views
 
 function FESpaces.get_cell_fe_data(fun,f,ttrian::Geometry.TriangulationView)

@@ -33,7 +33,7 @@ ParamAlgebra.get_linear_operator(op::LinearNonlinearParamFEOperator) = op.op_lin
 ParamAlgebra.get_nonlinear_operator(op::LinearNonlinearParamFEOperator) = op.op_nonlinear
 
 function FESpaces.get_algebraic_operator(op::LinearNonlinearParamFEOperator)
-  LinearNonlinearParamOpFromFEOp(op)
+  GenericLinearNonlinearParamOperator(op)
 end
 
 function FESpaces.get_test(op::LinearNonlinearParamFEOperator)

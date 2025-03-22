@@ -87,12 +87,12 @@ ext_assem = ExtensionAssembler(Vext,Vext)
 
 A = assemble_matrix(a,ext_assem,Vext,Vext)
 in_A = assemble_matrix(a,ext_assem.assem,Vagg,Vagg)
-out_A = ext_assem.extension.matrix
+out_A = assemble_matrix(aout,ext_assem.assem,Voutagg,Voutagg)
 norm(A)^2 ≈ norm(in_A)^2 + norm(out_A)^2
 
 b = assemble_vector(l,ext_assem,Vext)
 in_b = assemble_vector(l,ext_assem.assem,Vagg)
-out_b = ext_assem.extension.vector
+out_b = assemble_vector(lout,ext_assem.assem,Voutagg)
 norm(b)^2 ≈ norm(in_b)^2 + norm(out_b)^2
 
 solver = LUSolver()
@@ -104,8 +104,8 @@ solve!(in_u,solver,in_A,in_b)
 uh = ExtendedFEFunction(Vext,in_u)
 u = extend_free_values(Vext,in_u)
 
-@assert u[Vext.dof_to_bg_dofs] ≈ in_u
-@assert u[Vext.extension.dof_to_bg_dofs] ≈ Vext.extension.values.free_values
+@assert u[Vext.fdof_to_bg_fdofs] ≈ in_u
+@assert u[Vext.extension.fdof_to_bg_fdofs] ≈ Vext.extension.values.free_values
 
 u_alg = similar(u)
 solve!(u_alg,solver,A,b)

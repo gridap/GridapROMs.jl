@@ -72,19 +72,6 @@ function Algebra.solve(
   solve(solver,set_domains(odeop),r,u0)
 end
 
-# for T in (:JointDomains,:SplitDomains)
-#   @eval begin
-#     function Algebra.solve(
-#       solver::ODESolver,
-#       odeop::LinearNonlinearODEParamOperator{$T},
-#       r::TransientRealization,
-#       u0::AbstractVector)
-
-#       solve(solver,join_operators(odeop),r,u0)
-#     end
-#   end
-# end
-
 function Algebra.solve(
   solver::ODESolver,
   odeop::ODEParamOperator,

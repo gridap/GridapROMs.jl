@@ -6,11 +6,6 @@ function ExternalFESpace(
   return ext_act_space
 end
 
-# n_bg_dofs = num_free_dofs(bg_space)
-# in_dof_to_bg_dof = get_dof_to_bg_dof(bg_space,int_agg_space)
-# cutout_dof_to_bg_dof = setdiff(1:num_free_dofs(bg_space),in_dof_to_bg_dof)
-# dof_to_cutout_dof = get_bg_dof_to_dof(bg_space,ext_act_space,cutout_dof_to_bg_dof)
-# dof_to_in_dof = setdiff(1:num_free_dofs(ext_act_space),dof_to_cutout_dof)
 function ExternalFESpace(
   bg_space::SingleFieldFESpace,
   int_agg_space::FESpaceWithLinearConstraints,
@@ -18,10 +13,10 @@ function ExternalFESpace(
   bg_cell_to_ext_bg_cell::AbstractVector
   )
 
-  in_dof_to_bg_dof = get_dof_to_bg_dof(bg_space,int_agg_space)
-  cutout_dof_to_bg_dof = get_dof_to_bg_dof(bg_space,ext_act_space)
+  in_dof_to_bg_dof = get_fdof_to_bg_fdof(bg_space,int_agg_space)
+  cutout_dof_to_bg_dof = get_fdof_to_bg_fdof(bg_space,ext_act_space)
   aggout_dof_to_bg_dof = intersect(in_dof_to_bg_dof,cutout_dof_to_bg_dof)
-  dof_to_aggout_dof = get_bg_dof_to_dof(bg_space,ext_act_space,aggout_dof_to_bg_dof)
+  dof_to_aggout_dof = get_bg_fdof_to_fdof(bg_space,ext_act_space,aggout_dof_to_bg_dof)
 
   shfns_g = get_fe_basis(ext_act_space)
   dofs_g = get_fe_dof_basis(ext_act_space)

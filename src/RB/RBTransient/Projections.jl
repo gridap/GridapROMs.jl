@@ -1,12 +1,12 @@
 function _projection(red::TransientAffineReduction,s::TransientSnapshots,args...)
-  s1 = flatten(select_snapshots(s,1,1))
+  s1 = get_mode1(select_snapshots(s,1,1))
   projection_space = projection(get_reduction_space(red),s1,args...)
   projection_time = PODProjection(I[1:num_times(s),1:1])
   TransientProjection(projection_space,projection_time)
 end
 
 function _projection(red::TransientReduction,s::TransientSnapshots,args...)
-  s1 = flatten(s)
+  s1 = get_mode1(s)
   projection_space = projection(get_reduction_space(red),s1,args...)
   proj_s1 = project(projection_space,s1)
   proj_s2 = change_mode(proj_s1,num_params(s))

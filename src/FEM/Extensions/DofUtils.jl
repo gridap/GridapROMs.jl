@@ -1,19 +1,26 @@
-function get_bg_dof_to_dof(
-  bg_f::SingleFieldFESpace,
-  f::SingleFieldFESpace,
-  dof_to_bg_dof::AbstractVector
-  )
+function get_bg_fdof_to_fdof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace)
+  bg_fdof_to_fdof,_ = get_bg_dof_to_dof(bg_f,f)
+  bg_fdof_to_fdof
+end
 
-  bg_dof_to_all_dof = get_bg_dof_to_dof(bg_f,f)
-  bg_dof_to_dof = similar(dof_to_bg_dof)
-  for (i,bg_dof) in enumerate(dof_to_bg_dof)
-    bg_dof_to_dof[i] = bg_dof_to_all_dof[bg_dof]
-  end
-  return bg_dof_to_dof
+function get_bg_ddof_to_ddof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace)
+  _,bg_ddof_to_ddof = get_bg_dof_to_dof(bg_f,f)
+  bg_ddof_to_ddof
+end
+
+function get_fdof_to_bg_fdof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace)
+  fdof_to_bg_fdof,_ = get_dof_to_bg_dof(bg_f,f)
+  fdof_to_bg_fdof
+end
+
+function get_ddof_to_bg_ddof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace)
+  _,ddof_to_bg_ddof = get_dof_to_bg_dof(bg_f,f)
+  ddof_to_bg_ddof
 end
 
 function get_bg_dof_to_dof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace)
-  bg_dof_to_dof = zeros(Int,num_unconstrained_free_dofs(bg_f))
+  bg_fdof_to_fdof = zeros(Int,num_unconstrained_free_dofs(bg_f))
+  bg_ddof_to_ddof = zeros(Int,num_dirichlet_dofs(bg_f))
   bg_cell_ids = get_cell_dof_ids(bg_f)
   cell_ids = get_cell_dof_ids(f)
   bg_cache = array_cache(bg_cell_ids)
@@ -24,36 +31,28 @@ function get_bg_dof_to_dof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace)
     dofs = getindex!(cache,cell_ids,cell)
     for (bg_dof,dof) in zip(bg_dofs,dofs)
       if bg_dof > 0
-        bg_dof_to_dof[bg_dof] = dof
+        @check dof > 0
+        bg_fdof_to_fdof[bg_dof] = dof
+      else
+        @check dof < 0
+        bg_ddof_to_ddof[-bg_dof] = -dof
       end
     end
   end
-  return bg_dof_to_dof
+  return bg_fdof_to_fdof,bg_ddof_to_ddof
 end
 
 function get_bg_dof_to_dof(bg_f::SingleFieldFESpace,agg_f::FESpaceWithLinearConstraints)
-  act_dof_to_agg_dof = get_dof_to_mdof(agg_f)
-  bg_dof_to_act_dof = get_bg_dof_to_dof(bg_f,agg_f.space)
-  bg_dof_to_agg_dof = compose_index(bg_dof_to_act_dof,act_dof_to_agg_dof)
-  return bg_dof_to_agg_dof
-end
-
-function get_dof_to_bg_dof(
-  bg_f::SingleFieldFESpace,
-  f::SingleFieldFESpace,
-  bg_dof_to_dof::AbstractVector
-  )
-
-  dof_to_all_bg_dof = get_dof_to_bg_dof(bg_f,f)
-  dof_to_bg_dof = similar(bg_dof_to_dof)
-  for (i,dof) in enumerate(bg_dof_to_dof)
-    dof_to_bg_dof[i] = dof_to_all_bg_dof[dof]
-  end
-  return dof_to_bg_dof
+  act_fdof_to_agg_fdof,act_ddof_to_agg_ddof = get_dof_to_mdof(agg_f)
+  bg_fdof_to_act_fdof,bg_ddof_to_act_ddof = get_bg_dof_to_dof(bg_f,agg_f.space)
+  bg_fdof_to_agg_fdof = compose_index(bg_fdof_to_act_fdof,act_fdof_to_agg_fdof)
+  bg_ddof_to_agg_ddof = compose_index(bg_ddof_to_act_ddof,act_ddof_to_agg_ddof)
+  return bg_fdof_to_agg_fdof,bg_ddof_to_agg_ddof
 end
 
 function get_dof_to_bg_dof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace)
-  dof_to_bg_dof = zeros(Int,num_free_dofs(f))
+  fdof_to_bg_fdof = zeros(Int,num_free_dofs(f))
+  ddof_to_bg_ddof = zeros(Int,num_dirichlet_dofs(f))
   bg_cell_ids = get_cell_dof_ids(bg_f)
   cell_ids = get_cell_dof_ids(f)
   bg_cache = array_cache(bg_cell_ids)
@@ -64,18 +63,23 @@ function get_dof_to_bg_dof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace)
     dofs = getindex!(cache,cell_ids,cell)
     for (bg_dof,dof) in zip(bg_dofs,dofs)
       if dof > 0
-        dof_to_bg_dof[dof] = bg_dof
+        @check bg_dof > 0
+        fdof_to_bg_fdof[dof] = bg_dof
+      else
+        @check bg_dof < 0
+        ddof_to_bg_ddof[-dof] = -bg_dof
       end
     end
   end
-  return dof_to_bg_dof
+  return fdof_to_bg_fdof,ddof_to_bg_ddof
 end
 
 function get_dof_to_bg_dof(bg_f::SingleFieldFESpace,agg_f::FESpaceWithLinearConstraints)
-  agg_dof_to_act_dof = get_mdof_to_dof(agg_f)
-  act_dof_to_bg_dof = get_dof_to_bg_dof(bg_f,agg_f.space)
-  agg_dof_to_bg_dof = compose_index(agg_dof_to_act_dof,act_dof_to_bg_dof)
-  return agg_dof_to_bg_dof
+  agg_fdof_to_act_fdof,agg_ddof_to_act_ddof = get_mdof_to_dof(agg_f)
+  act_fdof_to_bg_fdof,act_ddof_to_bg_ddof = get_dof_to_bg_dof(bg_f,agg_f.space)
+  agg_fdof_to_bg_fdof = compose_index(agg_fdof_to_act_fdof,act_fdof_to_bg_fdof)
+  agg_ddof_to_bg_ddof = compose_index(agg_ddof_to_act_ddof,act_ddof_to_bg_ddof)
+  return agg_fdof_to_bg_fdof,agg_ddof_to_bg_ddof
 end
 
 function get_ag_out_dof_to_bg_dof(
@@ -83,42 +87,77 @@ function get_ag_out_dof_to_bg_dof(
   f_ag::FESpaceWithLinearConstraints,
   f_out::UnconstrainedFESpace)
 
-  agg_dof_to_bg_dof = get_dof_to_bg_dof(f_bg,f_ag)
-  act_out_dof_to_bg_dof = get_dof_to_bg_dof(f_bg,f_out)
-  agg_out_dof_to_bg_dof = setdiff(act_out_dof_to_bg_dof,agg_dof_to_bg_dof)
-  return agg_out_dof_to_bg_dof
+  agg_fdof_to_bg_fdof,agg_ddof_to_bg_ddof = get_dof_to_bg_dof(f_bg,f_ag)
+  act_out_fdof_to_bg_fdof,act_out_ddof_to_bg_ddof = get_dof_to_bg_dof(f_bg,f_out)
+  agg_out_fdof_to_bg_fdof = setdiff(act_out_fdof_to_bg_fdof,agg_fdof_to_bg_fdof)
+  agg_out_ddof_to_bg_ddof = setdiff(act_out_ddof_to_bg_ddof,agg_ddof_to_bg_ddof)
+  return agg_out_fdof_to_bg_fdof,agg_out_ddof_to_bg_ddof
 end
 
 function get_dof_to_mdof(f::FESpaceWithLinearConstraints)
   T = eltype(f.mDOF_to_DOF)
-  dof_to_mdof = zeros(T,f.n_fdofs)
+  fdof_to_mfdof = zeros(T,num_free_dofs(f.space))
+  ddof_to_mddof = zeros(T,num_dirichlet_dofs(f.space))
   cache = array_cache(f.DOF_to_mDOFs)
-  for DOF in eachindex(dof_to_mdof)
+  for DOF in 1:length(f.DOF_to_mDOFs)
     mDOFs = getindex!(cache,f.DOF_to_mDOFs,DOF)
     dof = FESpaces._DOF_to_dof(DOF,f.n_fdofs)
     for mDOF in mDOFs
       mdof = FESpaces._DOF_to_dof(mDOF,f.n_fmdofs)
       if dof > 0
-        dof_to_mdof[dof] = mdof
+        fdof_to_mfdof[dof] = mdof
+      else
+        ddof_to_mddof[-dof] = -mdof
       end
     end
   end
-  return dof_to_mdof
+  return fdof_to_mfdof,ddof_to_mddof
 end
 
 function get_mdof_to_dof(f::FESpaceWithLinearConstraints)
   T = eltype(f.mDOF_to_DOF)
-  mdof_to_dof = zeros(T,f.n_fmdofs)
-  for mDOF in eachindex(mdof_to_dof)
+  mfdof_to_fdof = zeros(T,num_free_dofs(f))
+  mddof_to_ddof = zeros(T,num_dirichlet_dofs(f))
+  for mDOF in 1:length(f.mDOF_to_DOF)
     DOF = f.mDOF_to_DOF[mDOF]
     mdof = FESpaces._DOF_to_dof(mDOF,f.n_fmdofs)
     dof = FESpaces._DOF_to_dof(DOF,f.n_fdofs)
     if mdof > 0
-      mdof_to_dof[mdof] = dof
+      mfdof_to_fdof[mdof] = dof
+    else
+      mddof_to_ddof[-mdof] = -dof
     end
   end
-  return mdof_to_dof
+  return mfdof_to_fdof,mddof_to_ddof
 end
+
+# function get_dof_to_bg_dof(
+#   bg_f::SingleFieldFESpace,
+#   f::SingleFieldFESpace,
+#   bg_dof_to_dof::AbstractVector
+#   )
+
+#   dof_to_all_bg_dof = get_dof_to_bg_dof(bg_f,f)
+#   dof_to_bg_dof = similar(bg_dof_to_dof)
+#   for (i,dof) in enumerate(bg_dof_to_dof)
+#     dof_to_bg_dof[i] = dof_to_all_bg_dof[dof]
+#   end
+#   return dof_to_bg_dof
+# end
+
+# function get_bg_dof_to_dof(
+#   bg_f::SingleFieldFESpace,
+#   f::SingleFieldFESpace,
+#   dof_to_bg_dof::AbstractVector
+#   )
+
+#   bg_dof_to_all_dof = get_bg_dof_to_dof(bg_f,f)
+#   bg_dof_to_dof = similar(dof_to_bg_dof)
+#   for (i,bg_dof) in enumerate(dof_to_bg_dof)
+#     bg_dof_to_dof[i] = bg_dof_to_all_dof[bg_dof]
+#   end
+#   return bg_dof_to_dof
+# end
 
 function compose_index(i1_to_i2,i2_to_i3)
   T_i3 = eltype(i2_to_i3)

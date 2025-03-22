@@ -97,7 +97,7 @@ const SafeTTSVDRanks = TTSVDRanks{SafeTTSVD}
 const UnsafeTTSVDRanks = TTSVDRanks{UnsafeTTSVD}
 
 function TTSVDRanks(tolranks::Vector{<:Union{Float64,Int}},args...;unsafe=false,kwargs...)
-  style = map(tolrank -> ReductionStyle(tolrank,args...),tolranks)
+  style = map(tolrank -> ReductionStyle(tolrank,args...;kwargs...),tolranks)
   TTSVDRanks(style,TTSVDStyle(Val(unsafe)))
 end
 

@@ -78,7 +78,7 @@ function get_param_space(feop::ParamFEOperator)
 end
 
 function FESpaces.get_algebraic_operator(op::ParamFEOperator)
-  ParamOpFromFEOp(op)
+  GenericParamOperator(op)
 end
 
 ParamDataStructures.realization(op::ParamFEOperator;kwargs...) = realization(get_param_space(op);kwargs...)

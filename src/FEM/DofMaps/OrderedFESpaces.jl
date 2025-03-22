@@ -115,8 +115,8 @@ function CartesianFESpace(model::DiscreteModel,args...;kwargs...)
   CartesianFESpace(FESpace(model,args...;kwargs...))
 end
 
-function CartesianFESpace()
-
+function CartesianFESpace(f::SingleFieldFESpace,g::SingleFieldFESpace)
+  @notimplemented "Implement!"
 end
 
 FESpaces.get_fe_space(f::CartesianFESpace) = f.space

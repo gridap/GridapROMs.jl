@@ -8,7 +8,7 @@ function RBSteady.project(r1::RBSpace,x::Projection,r2::RBSpace,combine::Functio
   galerkin_projection(get_reduced_subspace(r1),x,get_reduced_subspace(r2),combine)
 end
 
-const TransientSingleFieldEvalRBSpace = EvalRBSpace{SingleFieldRBSpace,<:TransientRealization}
+const TransientSingleFieldEvalRBSpace{S} = EvalRBSpace{SingleFieldRBSpace{S},<:TransientRealization}
 
 function Algebra.allocate_in_domain(r::TransientSingleFieldEvalRBSpace,x::V) where V<:AbstractParamVector
   x̂ = allocate_vector(eltype(V),num_reduced_dofs(r))

@@ -349,8 +349,8 @@ function Utils.compute_relative_error(
   @check size(sol) == size(sol_approx)
   errors = zeros(num_params(sol))
   @inbounds for ip = 1:num_params(sol)
-    solip = select_snapshots(sol,ip)
-    solip_approx = select_snapshots(sol_approx,ip)
+    solip = param_getindex(sol,ip)
+    solip_approx = param_getindex(sol_approx,ip)
     err_norm = induced_norm(solip-solip_approx,args...)
     sol_norm = induced_norm(solip,args...)
     errors[ip] = err_norm / sol_norm
