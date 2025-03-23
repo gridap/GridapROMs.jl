@@ -189,8 +189,10 @@ function inverse_table(cell_dofs::Table)
     pend = cell_dofs.ptrs[cell+1]-1
     for p in pini:pend
       dof = cell_dofs.data[p]
-      data[ptrs[dof]] = cell
-      ptrs[dof] += 1
+      if dof > 0
+        data[ptrs[dof]] = cell
+        ptrs[dof] += 1
+      end
     end
   end
   rewind_ptrs!(ptrs)

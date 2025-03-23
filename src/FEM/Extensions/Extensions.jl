@@ -15,6 +15,9 @@ using Gridap.Helpers
 using Gridap.MultiField
 using Gridap.ODEs
 
+using GridapEmbedded
+using GridapEmbedded.AgFEM
+
 using ROManifolds.Utils
 using ROManifolds.DofMaps
 using ROManifolds.TProduct
@@ -23,6 +26,8 @@ using ROManifolds.ParamAlgebra
 using ROManifolds.ParamFESpaces
 using ROManifolds.ParamSteady
 using ROManifolds.ParamODEs
+
+import Gridap.FESpaces: LinearConstraintsMap
 
 export get_bg_dof_to_dof
 export get_dof_to_bg_dof
@@ -41,6 +46,7 @@ include("ParamExtensions.jl")
 
 export ExternalFESpace
 export ExternalAgFEMSpace
+export OrderedAgFEMSpace
 include("ExternalFESpaces.jl")
 
 export ExtensionFESpace
