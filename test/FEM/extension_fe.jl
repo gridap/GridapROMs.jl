@@ -111,3 +111,27 @@ u_alg = similar(u)
 solve!(u_alg,solver,A,b)
 
 @assert u_alg ≈ u
+
+# order 2
+
+order = 2
+degree = 2*order
+
+dΩbg = Measure(Ωbg,degree)
+dΩ = Measure(Ω,degree)
+dΩout = Measure(Ωout,degree)
+Γn = BoundaryTriangulation(model,tags=[8])
+dΓn = Measure(Γn,degree)
+Γ = EmbeddedBoundary(cutgeo)
+n_Γ = get_normal_vector(Γ)
+dΓ = Measure(Γ,degree)
+
+reffe = ReferenceFE(lagrangian,Float64,order)
+
+Vact = FESpace(Ωact,reffe,conformity=:H1)
+Vagg = AgFEMSpace(Vact,aggregates)
+
+cutgeoout = cut(model,!geo2)
+aggregatesout = aggregate(strategy,cutgeoout)
+Voutact = FESpace(Ωactout,reffe,conformity=:H1)
+Voutagg = Voutact

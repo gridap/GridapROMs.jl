@@ -373,8 +373,7 @@ function gather_extended_free_and_dirichlet_values(f::SingleFieldFESpace,bg_cell
 end
 
 function gather_extended_free_and_dirichlet_values!(bg_fv,bg_dv,f::SingleFieldFESpace,bg_cell_vals)
-  bg_f = get_bg_fe_space(f)
-  bg_vals_from_bg_cell_vals!(bg_fv,bg_dv,bg_f,bg_cell_vals)
+  bg_vals_from_bg_cell_vals!(bg_fv,bg_dv,get_ext_space(f),bg_cell_vals)
 end
 
 function extend_free_values(f::SingleFieldFESpace,fv)
@@ -523,7 +522,7 @@ function bg_vals_from_bg_cell_vals!(bg_fv,bg_dv,f::ExtensionFESpace,bg_cv)
   incut_cellids = get_cell_dof_ids(f)
   out_cellids = get_cell_dof_ids(get_outcut_fe_space(f))
 
-  incut_cv,out_cv = _split_bg_cell_vals(bg_cv)
+  incut_cv,out_cv = _split_bg_cell_vals(f,bg_cv)
   cache_incut_cv = array_cache(incut_cv)
   cache_out_cv = array_cache(out_cv)
 
