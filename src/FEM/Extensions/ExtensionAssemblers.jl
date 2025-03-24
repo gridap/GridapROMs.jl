@@ -152,30 +152,6 @@ function FESpaces.assemble_matrix_add!(A,a::ExtensionAssembler,matdata)
   A
 end
 
-# function FESpaces.assemble_vector(ext::Extension)
-#   f = get_fe_space(ext)
-#   assem = SparseMatrixAssembler(f,f)
-#   assemble_vector(assem,ext.vecdata)
-# end
-
-# function assemble_extended_vector(ext::Extension)
-#   f = get_fe_space(ext)
-#   assem = ExtensionAssemblerInsertOut(f,f)
-#   assemble_vector(assem,ext.vecdata)
-# end
-
-# function FESpaces.assemble_matrix(ext::Extension)
-#   f = get_fe_space(ext)
-#   assem = SparseMatrixAssembler(f,f)
-#   assemble_matrix(assem,ext.matdata)
-# end
-
-# function assemble_extended_matrix(ext::Extension)
-#   f = get_fe_space(ext)
-#   assem = ExtensionAssemblerInsertOut(f,f)
-#   assemble_matrix(assem,ext.matdata)
-# end
-
 # utils
 
 function to_bg_cellrows(cellids,a::ExtensionAssembler)

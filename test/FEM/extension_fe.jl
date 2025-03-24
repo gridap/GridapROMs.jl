@@ -134,4 +134,17 @@ Vagg = AgFEMSpace(Vact,aggregates)
 cutgeoout = cut(model,!geo2)
 aggregatesout = aggregate(strategy,cutgeoout)
 Voutact = FESpace(Ωactout,reffe,conformity=:H1)
-Voutagg = Voutact
+Voutagg = AgFEMSpace(Voutact,aggregatesout)
+
+V = FESpace(model,reffe,conformity=:H1)
+
+Vharm = HarmonicExtensionFESpace(V,Vagg,Voutagg,aout,lout)
+
+u = interpolate_everywhere(g,Vagg)
+fv = get_free_dof_values(u)
+dv = get_dirichlet_dof_values(u)
+
+bg_fv,bg_dv = Extensions.extend_free_and_dirichlet_values(Vharm,fv,dv)
+
+bg_u = FEFunction(V,bg_fv,bg_dv)
+writevtk(Ωbg,datadir("plts/sol_harm"),cellfields=["uh"=>bg_u])

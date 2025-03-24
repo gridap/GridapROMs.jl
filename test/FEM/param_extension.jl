@@ -5,6 +5,7 @@ using GridapEmbedded
 using ROManifolds
 using ROManifolds.Extensions
 using ROManifolds.DofMaps
+using ROManifolds.ParamDataStructures
 using SparseArrays
 using DrWatson
 using Test
@@ -99,9 +100,14 @@ A = assemble_matrix(afun,Uμ,Vext)
 b = assemble_vector(lfun,Uμ)
 solve!(u,solver,A,b)
 uh = ExtendedFEFunction(Uμ,u)
+uh1 = param_getindex(uh,1)
+writevtk(Ωbg,datadir("plts/sol_harm"),cellfields=["uh"=>uh1])
 
 uext = extend_free_values(Uμ,u)
+writevtk(Ωbg,datadir("plts/sol_harm"),cellfields=["uh"=>FEFunction(V,uext[1])])
+writevtk(Ω,datadir("plts/sol_harm_in"),cellfields=["uh"=>FEFunction(V,uext[1])])
 
+# not true if order > 1
 norm(uext[1])^2 ≈ norm(u[1])^2 + norm(Uμ.space.extension.values.free_values[1])^2
 uext[1][Vext.fdof_to_bg_fdofs] ≈ u[1]
 uext[1][Vext.extension.fdof_to_bg_fdofs] ≈ Uμ.space.extension.values.free_values[1]
