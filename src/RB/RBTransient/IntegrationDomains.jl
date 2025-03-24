@@ -116,7 +116,7 @@ struct TransientIntegrationDomain <: IntegrationDomain
 end
 
 function RBSteady.vector_domain(
-  ::TransientReduction,
+  ::TransientKroneckerReduction,
   trian::Triangulation,
   test::FESpace,
   rows::AbstractVector,
@@ -127,7 +127,7 @@ function RBSteady.vector_domain(
 end
 
 function RBSteady.matrix_domain(
-  ::TransientReduction,
+  ::TransientKroneckerReduction,
   trian::Triangulation,
   trial::FESpace,
   test::FESpace,
@@ -140,7 +140,7 @@ function RBSteady.matrix_domain(
 end
 
 function RBSteady.vector_domain(
-  ::TTSVDReduction,
+  ::TransientLinearReduction,
   trian::Triangulation,
   test::FESpace,
   rows::AbstractVector,
@@ -153,7 +153,7 @@ function RBSteady.vector_domain(
 end
 
 function RBSteady.matrix_domain(
-  ::TTSVDReduction,
+  ::TransientLinearReduction,
   trian::Triangulation,
   trial::FESpace,
   test::FESpace,

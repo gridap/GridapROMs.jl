@@ -258,8 +258,7 @@ struct OrderedFESpaceWithLinearConstraints{S<:SingleFieldFESpace} <: SingleField
   DOF_to_mDOFs::Table
   DOF_to_coeffs::Table
   cell_to_incell::Vector
-  incell_to_lmdof_to_mdof::Table
-  cutcell_to_lmdof_to_mdof::Table
+  cell_to_lmdof_to_mdof::AbstractArray
   cell_to_ldof_to_dof::Table
 end
 
@@ -292,7 +291,7 @@ function OrderedFESpaceWithLinearConstraints!(
   mDOF_to_DOF,n_fmdofs = FESpaces._find_master_dofs(DOF_to_DOFs,n_fdofs)
   DOF_to_mDOFs = FESpaces._renumber_constraints!(DOF_to_DOFs,mDOF_to_DOF)
   cell_to_ldof_to_dof = Table(get_cell_dof_ids(space))
-  incell_to_lmdof_to_mdof,cutcell_to_lmdof_to_mdof = _setup_ordered_cell_to_lmdof_to_mdof(
+  cell_to_lmdof_to_mdof = _setup_ordered_cell_to_lmdof_to_mdof(
     cell_to_ldof_to_dof,
     acell_to_acellin,
     DOF_to_mDOFs,
@@ -307,60 +306,12 @@ function OrderedFESpaceWithLinearConstraints!(
     DOF_to_mDOFs,
     DOF_to_coeffs,
     acell_to_acellin,
-    incell_to_lmdof_to_mdof,
-    cutcell_to_lmdof_to_mdof,
+    cell_to_lmdof_to_mdof,
     cell_to_ldof_to_dof)
 
 end
 
-function _setup_ordered_cell_to_lmdof_to_mdof(args...)
-  incell_to_lmdof_to_mdof = _get_incell_to_lmdof_to_mdof(args...)
-  cutcell_to_lmdof_to_mdof = _get_cutcell_to_lmdof_to_mdof(args...)
-  return (incell_to_lmdof_to_mdof,cutcell_to_lmdof_to_mdof)
-end
-
-function _get_incell_to_lmdof_to_mdof(
-  cell_to_ldof_to_dof,
-  acell_to_acellin,
-  DOF_to_mDOFs,
-  n_fdofs,
-  n_fmdofs
-  )
-
-  acellin = unique(acell_to_acellin)
-  n_incells = length(acell_to_acellin)
-  cell_to_lmdof_to_mdof_ptrs = zeros(eltype(cell_to_ldof_to_dof.ptrs),n_incells+1)
-
-  for (icell,cell) in enumerate(acell_to_acellin)
-    pini = cell_to_ldof_to_dof.ptrs[cell]
-    pend = cell_to_ldof_to_dof.ptrs[cell+1]
-    cell_to_lmdof_to_mdof_ptrs[icell+1] = pend-pini
-  end
-
-  length_to_ptrs!(cell_to_lmdof_to_mdof_ptrs)
-  ndata = cell_to_lmdof_to_mdof_ptrs[end]-1
-  cell_to_lmdof_to_mdof_data = zeros(eltype(cell_to_ldof_to_dof.data),ndata)
-
-  for (icell,cell) in enumerate(acellin)
-    pini = cell_to_ldof_to_dof.ptrs[cell]
-    pend = cell_to_ldof_to_dof.ptrs[cell+1]-1
-    o = cell_to_lmdof_to_mdof_ptrs[icell]-1
-    for (lmdof,p) in enumerate(pini:pend)
-      dof = cell_to_ldof_to_dof.data[p]
-      DOF = FESpaces._dof_to_DOF(dof,n_fdofs)
-      qini = DOF_to_mDOFs.ptrs[DOF]
-      qend = DOF_to_mDOFs.ptrs[DOF+1]-1
-      @assert qend == qini
-      mDOF = DOF_to_mDOFs.data[qini]
-      mdof = FESpaces._DOF_to_dof(mDOF,n_fmdofs)
-      cell_to_lmdof_to_mdof_data[o+lmdof] = mdof
-    end
-  end
-
-  Table(cell_to_lmdof_to_mdof_data,cell_to_lmdof_to_mdof_ptrs)
-end
-
-function _get_cutcell_to_lmdof_to_mdof(
+function _setup_ordered_cell_to_lmdof_to_mdof(
   cell_to_ldof_to_dof,
   acell_to_acellin,
   DOF_to_mDOFs,
@@ -372,12 +323,12 @@ function _get_cutcell_to_lmdof_to_mdof(
   acellcut = setdiff(1:n_acells,acell_to_acellin)
   n_acellcut = length(acellcut)
 
-  cell_to_lmdof_to_mdof_ptrs = zeros(eltype(cell_to_ldof_to_dof.ptrs),n_acellcut+1)
+  cell_to_lmdof_to_mdof_ptrs = zeros(eltype(cell_to_ldof_to_dof.ptrs),n_acells+1)
 
-  for (icell,cell) in enumerate(acellcut)
+  for icell in 1:n_acells
     mdofs = Set{Int}()
-    pini = cell_to_ldof_to_dof.ptrs[cell]
-    pend = cell_to_ldof_to_dof.ptrs[cell+1]-1
+    pini = cell_to_ldof_to_dof.ptrs[icell]
+    pend = cell_to_ldof_to_dof.ptrs[icell+1]-1
     for p in pini:pend
       dof = cell_to_ldof_to_dof.data[p]
       DOF = FESpaces._dof_to_DOF(dof,n_fdofs)
@@ -396,7 +347,70 @@ function _get_cutcell_to_lmdof_to_mdof(
   ndata = cell_to_lmdof_to_mdof_ptrs[end]-1
   cell_to_lmdof_to_mdof_data = zeros(eltype(cell_to_ldof_to_dof.data),ndata)
 
-  for (icell,cell) in enumerate(acellcut)
+  acellin = unique(acell_to_acellin)
+  _fill_incell_to_lmdof_to_mdof!(
+    cell_to_lmdof_to_mdof_data,
+    cell_to_lmdof_to_mdof_ptrs,
+    cell_to_ldof_to_dof,
+    acellin,
+    DOF_to_mDOFs,
+    n_fdofs,
+    n_fmdofs
+    )
+
+  acellcut = setdiff(1:n_acells,acellin)
+  _fill_cutcell_to_lmdof_to_mdof!(
+    cell_to_lmdof_to_mdof_data,
+    cell_to_lmdof_to_mdof_ptrs,
+    cell_to_ldof_to_dof,
+    acellcut,
+    DOF_to_mDOFs,
+    n_fdofs,
+    n_fmdofs
+    )
+
+  OTable(cell_to_lmdof_to_mdof_data,cell_to_lmdof_to_mdof_ptrs)
+end
+
+function _fill_incell_to_lmdof_to_mdof!(
+  cell_to_lmdof_to_mdof_data,
+  cell_to_lmdof_to_mdof_ptrs,
+  cell_to_ldof_to_dof,
+  acellin,
+  DOF_to_mDOFs,
+  n_fdofs,
+  n_fmdofs
+  )
+
+  for cell in acellin
+    pini = cell_to_ldof_to_dof.ptrs[cell]
+    pend = cell_to_ldof_to_dof.ptrs[cell+1]-1
+    o = cell_to_lmdof_to_mdof_ptrs[cell]-1
+    for (lmdof,p) in enumerate(pini:pend)
+      dof = cell_to_ldof_to_dof.data[p]
+      DOF = FESpaces._dof_to_DOF(dof,n_fdofs)
+      qini = DOF_to_mDOFs.ptrs[DOF]
+      qend = DOF_to_mDOFs.ptrs[DOF+1]-1
+      @assert qend == qini
+      mDOF = DOF_to_mDOFs.data[qini]
+      mdof = FESpaces._DOF_to_dof(mDOF,n_fmdofs)
+      cell_to_lmdof_to_mdof_data[o+lmdof] = mdof
+    end
+  end
+  cell_to_lmdof_to_mdof_data
+end
+
+function _fill_cutcell_to_lmdof_to_mdof!(
+  cell_to_lmdof_to_mdof_data,
+  cell_to_lmdof_to_mdof_ptrs,
+  cell_to_ldof_to_dof,
+  acellcut,
+  DOF_to_mDOFs,
+  n_fdofs,
+  n_fmdofs
+  )
+
+  for cell in acellcut
     mdofs = Set{Int}()
     pini = cell_to_ldof_to_dof.ptrs[cell]
     pend = cell_to_ldof_to_dof.ptrs[cell+1]-1
@@ -411,17 +425,15 @@ function _get_cutcell_to_lmdof_to_mdof(
         push!(mdofs,mdof)
       end
     end
-    o = cell_to_lmdof_to_mdof_ptrs[icell]-1
+    o = cell_to_lmdof_to_mdof_ptrs[cell]-1
     for (lmdof,mdof) in enumerate(mdofs)
       cell_to_lmdof_to_mdof_data[o+lmdof] = mdof
     end
   end
-
-  Table(cell_to_lmdof_to_mdof_data,cell_to_lmdof_to_mdof_ptrs)
 end
 
 function FESpaces.get_cell_dof_ids(f::OrderedFESpaceWithLinearConstraints)
-  f.incell_to_lmdof_to_mdof
+  f.cell_to_lmdof_to_mdof
 end
 
 function FESpaces.get_fe_dof_basis(f::OrderedFESpaceWithLinearConstraints)
@@ -545,15 +557,14 @@ end
 FESpaces.ConstraintStyle(::Type{<:OrderedFESpaceWithLinearConstraints}) = Constrained()
 
 function FESpaces.get_cell_isconstrained(f::OrderedFESpaceWithLinearConstraints)
-  cell_to_mask, = _get_cell_to_in_cut_info(f)
+  cell_to_mask = _get_cell_to_in_cut_mask(f)
   return cell_to_mask
 end
 
 function FESpaces.get_cell_constraints(f::OrderedFESpaceWithLinearConstraints)
-  cell_to_mask,cell_to_cellcut = _get_cell_to_in_cut_info(f)
+  cell_to_mask = _get_cell_to_in_cut_mask(f)
 
   k = OrderedLinearConstraintsMap(
-    f.cutcell_to_lmdof_to_mdof,
     f.DOF_to_mDOFs,
     f.DOF_to_coeffs,
     length(f.mDOF_to_DOF),
@@ -562,33 +573,31 @@ function FESpaces.get_cell_constraints(f::OrderedFESpaceWithLinearConstraints)
     )
 
   cell_to_mat = get_cell_constraints(f.space)
-  lazy_map(k,f.incell_to_lmdof_to_mdof,f.cell_to_ldof_to_dof,cell_to_mat,cell_to_mask,cell_to_cellcut)
+  lazy_map(k,f.cell_to_lmdof_to_mdof,f.cell_to_ldof_to_dof,cell_to_mat,cell_to_mask)
 end
 
-struct OrderedLinearConstraintsMap{A,B,C} <: Map
+struct OrderedLinearConstraintsMap{A,B} <: Map
   f::LinearConstraintsMap{A,B}
-  cutcell_to_lmdof_to_mdof::C
 end
 
-function OrderedLinearConstraintsMap(cutcell_to_lmdof_to_mdof,args...)
+function OrderedLinearConstraintsMap(args...)
   f = LinearConstraintsMap(args...)
-  OrderedLinearConstraintsMap(f,cutcell_to_lmdof_to_mdof)
+  OrderedLinearConstraintsMap(f)
 end
 
 function Arrays.return_cache(
-  k::OrderedLinearConstraintsMap,lmdof_to_mdof,ldof_to_dof,mat,mask,cellcut
+  k::OrderedLinearConstraintsMap,lmdof_to_mdof,ldof_to_dof,mat,mask
   )
 
   return_cache(k.f,lmdof_to_mdof,ldof_to_dof,mat)
 end
 
 function Arrays.evaluate!(
-  cache,k::OrderedLinearConstraintsMap,lmdof_to_mdof,ldof_to_dof,mat,mask,cellcut
+  cache,k::OrderedLinearConstraintsMap,lmdof_to_mdof,ldof_to_dof,mat,mask
   )
 
   if mask
-    lmdof_to_mdof′ = k.cutcell_to_lmdof_to_mdof[cellcut]
-    evaluate!(cache,k.f,lmdof_to_mdof′,ldof_to_dof,mat)
+    evaluate!(cache,k.f,lmdof_to_mdof,ldof_to_dof,mat)
   else
     m1,m2,mDOF_to_lmdof = cache
     n_lmdofs = length(lmdof_to_mdof)
@@ -645,14 +654,35 @@ end
 
 # utils
 
-struct OrderedAppendTables{T,A<:Table{T},B<:Table{T}} <: AbstractVector{Vector{T}}
-  a::A
-  b::B
-  id_to_ida::Vector{Int32}
-  id_to_idb::Vector{Int32}
+struct OVector{T} <: AbstractVector{T}
+  values::Vector{T}
 end
 
-function _get_cell_to_in_cut_info(f::OrderedFESpaceWithLinearConstraints)
+Base.size(v::OVector) = size(v.values)
+Base.getindex(v::OVector,i) = getindex(v.values,i)
+Base.setindex!(v::OVector,α,i) = setindex!(v.values,α,i)
+
+struct OTable{T,Vd,Vp} <: AbstractVector{OVector{T}}
+  values::Table{T,Vd,Vp}
+end
+
+function OTable(data,ptrs)
+  OTable(Table(data,ptrs))
+end
+
+Base.size(t::OTable) = size(t.values)
+
+function Base.getindex(t::OTable,i::Integer)
+  v = getindex(t.values,i)
+  OVector(v)
+end
+
+function Base.getindex(t::OTable,i::AbstractVector)
+  v = getindex(t.values,i)
+  OTable(v)
+end
+
+function _get_cell_to_in_cut_mask(f::OrderedFESpaceWithLinearConstraints)
   IN = false
   CUT = true
   cell_to_incell = f.cell_to_incell
@@ -663,7 +693,6 @@ function _get_cell_to_in_cut_info(f::OrderedFESpaceWithLinearConstraints)
   cell_to_cellcut = zeros(Int32,ncells)
   for (icut,cell) in enumerate(cutcells)
     cell_to_mask[cell] = CUT
-    cell_to_cellcut[cell] = icut
   end
-  return cell_to_mask,cell_to_cellcut
+  return cell_to_mask
 end

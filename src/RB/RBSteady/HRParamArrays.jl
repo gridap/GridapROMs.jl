@@ -12,10 +12,10 @@ Fields:
   on an [`IntegrationDomain`](@ref)
 - `coeff`: parameter-dependent coefficient computed during the online phase
   according to the formula `coeff = Φi⁻¹ * fecache[i,:]`, where `(Φi,i)` are
-  stored in a `HyperReduction` object
+  stored in a `HRProjection` object
 - `hypred`: the ouptut of the online phase of a hyper-reduction strategy, acoording
   to the formula `hypred = Φrb * coeff`, where `Φrb` is stored in a
-  `HyperReduction` object
+  `HRProjection` object
 """
 struct HRParamArray{T,N,A,B,C<:ParamArray{T,N}} <: ParamArray{T,N}
   fecache::A

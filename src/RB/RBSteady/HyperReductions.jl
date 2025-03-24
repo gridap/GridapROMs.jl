@@ -1,9 +1,5 @@
 """
-    abstract type HyperReduction{
-      A<:Reduction,
-      B<:ReducedProjection,
-      C<:IntegrationDomain
-      } <: Projection end
+    abstract type HRProjection{A<:ReducedProjection} <: Projection end
 
 Subtype of a [`Projection`](@ref) dedicated to the outputd of a hyper-reduction
 (e.g. an empirical interpolation method (EIM)) procedure applied on residual/jacobians
@@ -23,46 +19,49 @@ the reduced projection `Φrb`, where
 - for residuals: `Φrb = test_basis' * Φ`
 - for Jacobians: `Φrb = test_basis' * Φ * trial_basis`
 
-The output of this operation is a ReducedProjection. Therefore, a HyperReduction
+The output of this operation is a ReducedProjection. Therefore, a HRProjection
 is completely characterized by the triplet `(Φrb,Φi,i)`.
 Subtypes:
-- [`TrivialHyperReduction`](@ref)
+- [`TrivialHRProjection`](@ref)
 - [`MDEIM`](@ref)
 """
-abstract type HyperReduction{A<:Reduction,B<:ReducedProjection,C<:IntegrationDomain} <: Projection end
+abstract type HRProjection{A<:ReducedProjection} <: Projection end
 
-HyperReduction(::Reduction,args...) = @abstractmethod
+const HRVecProjection = HRProjection{ReducedVecProjection}
+const HRMatProjection = HRProjection{ReducedMatProjection}
+
+HRProjection(::Reduction,args...) = @abstractmethod
 
 """
-    get_interpolation(a::HyperReduction) -> Factorization
+    get_interpolation(a::HRProjection) -> Factorization
 
-For a [`HyperReduction`](@ref) `a` represented by the triplet `(Φrb,Φi,i)`,
+For a [`HRProjection`](@ref) `a` represented by the triplet `(Φrb,Φi,i)`,
 returns `Φi`, usually stored as a Factorization
 """
-get_interpolation(a::HyperReduction) = @abstractmethod
+get_interpolation(a::HRProjection) = @abstractmethod
 
 """
-    get_integration_domain(a::HyperReduction) -> IntegrationDomain
+    get_integration_domain(a::HRProjection) -> IntegrationDomain
 
-For a [`HyperReduction`](@ref) `a` represented by the triplet `(Φrb,Φi,i)`,
+For a [`HRProjection`](@ref) `a` represented by the triplet `(Φrb,Φi,i)`,
 returns `i`
 """
-get_integration_domain(a::HyperReduction) = @abstractmethod
+get_integration_domain(a::HRProjection) = @abstractmethod
 
-get_integration_cells(a::HyperReduction) = get_integration_cells(get_integration_domain(a))
-get_cellids_rows(a::HyperReduction) = get_cellids_rows(get_integration_domain(a))
-get_cellids_cols(a::HyperReduction) = get_cellids_cols(get_integration_domain(a))
-get_owned_icells(a::HyperReduction) = get_owned_icells(a,get_integration_cells(a))
-get_owned_icells(a::HyperReduction,cells) = get_owned_icells(get_integration_domain(a),cells)
+get_integration_cells(a::HRProjection) = get_integration_cells(get_integration_domain(a))
+get_cellids_rows(a::HRProjection) = get_cellids_rows(get_integration_domain(a))
+get_cellids_cols(a::HRProjection) = get_cellids_cols(get_integration_domain(a))
+get_owned_icells(a::HRProjection) = get_owned_icells(a,get_integration_cells(a))
+get_owned_icells(a::HRProjection,cells) = get_owned_icells(get_integration_domain(a),cells)
 
-num_reduced_dofs(a::HyperReduction) = num_reduced_dofs(get_basis(a))
-num_reduced_dofs_left_projector(a::HyperReduction) = num_reduced_dofs_left_projector(get_basis(a))
-num_reduced_dofs_right_projector(a::HyperReduction) = num_reduced_dofs_right_projector(get_basis(a))
+num_reduced_dofs(a::HRProjection) = num_reduced_dofs(get_basis(a))
+num_reduced_dofs_left_projector(a::HRProjection) = num_reduced_dofs_left_projector(get_basis(a))
+num_reduced_dofs_right_projector(a::HRProjection) = num_reduced_dofs_right_projector(get_basis(a))
 
 function inv_project!(
   b̂::AbstractParamArray,
   coeff::AbstractParamArray,
-  a::HyperReduction,
+  a::HRProjection,
   b::AbstractParamArray)
 
   o = one(eltype2(b̂))
@@ -73,60 +72,54 @@ function inv_project!(
 end
 
 """
-    struct TrivialHyperReduction{A,B} <: HyperReduction{A,B,IntegrationDomain}
-      reduction::A
-      basis::B
+    struct TrivialHRProjection{A} <: HRProjection{A}
+      basis::A
     end
 
 Trivial hyper-reduction returned whenever the residual/Jacobian is zero
 """
-struct TrivialHyperReduction{A,B} <: HyperReduction{A,B,IntegrationDomain}
-  reduction::A
-  basis::B
+struct TrivialHRProjection{A} <: HRProjection{A}
+  basis::A
 end
 
-get_basis(a::TrivialHyperReduction) = a.basis
-get_interpolation(a::TrivialHyperReduction) = @notimplemented
-get_integration_domain(a::TrivialHyperReduction) = @notimplemented
+get_basis(a::TrivialHRProjection) = a.basis
+get_interpolation(a::TrivialHRProjection) = @notimplemented
+get_integration_domain(a::TrivialHRProjection) = @notimplemented
 
-function HyperReduction(red::Reduction,s::Nothing,trian::Triangulation,test::RBSpace)
-  red = get_reduction(red)
+function HRProjection(red::Reduction,s::Nothing,trian::Triangulation,test::RBSpace)
   nrows = num_reduced_dofs(test)
   basis = ReducedProjection(zeros(nrows,1))
-  return TrivialHyperReduction(red,basis)
+  return TrivialHRProjection(basis)
 end
 
-function HyperReduction(red::Reduction,s::Nothing,trian::Triangulation,trial::RBSpace,test::RBSpace)
-  red = get_reduction(red)
+function HRProjection(red::Reduction,s::Nothing,trian::Triangulation,trial::RBSpace,test::RBSpace)
   nrows = num_reduced_dofs(test)
   ncols = num_reduced_dofs(trial)
   basis = ReducedProjection(zeros(nrows,1,ncols))
-  return TrivialHyperReduction(red,basis)
+  return TrivialHRProjection(basis)
 end
 
 """
-    struct MDEIM{A,B,C} <: HyperReduction{A,B,C}
-      reduction::A
-      basis::B
+    struct MDEIM{A} <: HRProjection{A}
+      basis::A
       interpolation::Factorization
-      domain::C
+      domain::IntegrationDomain
     end
 
-[`HyperReduction`](@ref) returned by a matrix-based empirical interpolation method
+[`HRProjection`](@ref) returned by a matrix-based empirical interpolation method
 """
-struct MDEIM{A,B,C} <: HyperReduction{A,B,C}
-  reduction::A
-  basis::B
+struct MDEIM{A} <: HRProjection{A}
+  basis::A
   interpolation::Factorization
-  domain::C
+  domain::IntegrationDomain
 end
 
 get_basis(a::MDEIM) = a.basis
 get_interpolation(a::MDEIM) = a.interpolation
 get_integration_domain(a::MDEIM) = a.domain
 
-function HyperReduction(
-  red::AbstractMDEIMReduction,
+function HRProjection(
+  red::MDEIMReduction,
   s::Snapshots,
   trian::Triangulation,
   test::RBSpace)
@@ -137,11 +130,11 @@ function HyperReduction(
   rows,interp = empirical_interpolation(basis)
   factor = lu(interp)
   domain = vector_domain(trian,test,rows)
-  return MDEIM(red,proj_basis,factor,domain)
+  return MDEIM(proj_basis,factor,domain)
 end
 
-function HyperReduction(
-  red::AbstractMDEIMReduction,
+function HRProjection(
+  red::MDEIMReduction,
   s::Snapshots,
   trian::Triangulation,
   trial::RBSpace,
@@ -153,26 +146,26 @@ function HyperReduction(
   (rows,cols),interp = empirical_interpolation(basis)
   factor = lu(interp)
   domain = matrix_domain(trian,trial,test,rows,cols)
-  return MDEIM(red,proj_basis,factor,domain)
+  return MDEIM(proj_basis,factor,domain)
 end
 
-function reduced_triangulation(trian::Triangulation,a::TrivialHyperReduction)
+function reduced_triangulation(trian::Triangulation,a::TrivialHRProjection)
   red_trian = view(trian,Int[])
   return red_trian
 end
 
 """
-    reduced_triangulation(trian::Triangulation,a::HyperReduction)
+    reduced_triangulation(trian::Triangulation,a::HRProjection)
 
 Returns the triangulation view of `trian` on the integration cells contained in `a`
 """
-function reduced_triangulation(trian::Triangulation,a::HyperReduction)
+function reduced_triangulation(trian::Triangulation,a::HRProjection)
   red_cells = get_integration_cells(a)
   red_trian = view(trian,red_cells)
   return red_trian
 end
 
-function allocate_coefficient(a::HyperReduction,r::AbstractRealization)
+function allocate_coefficient(a::HRProjection,r::AbstractRealization)
   n = num_reduced_dofs(a)
   np = num_params(r)
   coeffvec = zeros(n)
@@ -180,10 +173,7 @@ function allocate_coefficient(a::HyperReduction,r::AbstractRealization)
   return coeff
 end
 
-function allocate_hyper_reduction(
-  a::HyperReduction{<:Reduction,<:ReducedVecProjection},
-  r::AbstractRealization)
-
+function allocate_hyper_reduction(a::HRVecProjection,r::AbstractRealization)
   nrows = num_reduced_dofs_left_projector(a)
   np = num_params(r)
   b = zeros(nrows)
@@ -192,10 +182,7 @@ function allocate_hyper_reduction(
   return hypred
 end
 
-function allocate_hyper_reduction(
-  a::HyperReduction{<:Reduction,<:ReducedMatProjection},
-  r::AbstractRealization)
-
+function allocate_hyper_reduction(a::HRMatProjection,r::AbstractRealization)
   nrows = num_reduced_dofs_left_projector(a)
   ncols = num_reduced_dofs_right_projector(a)
   np = num_params(r)
@@ -205,7 +192,7 @@ function allocate_hyper_reduction(
   return hypred
 end
 
-function Utils.Contribution(v::Tuple{Vararg{HyperReduction}},t::Tuple{Vararg{Triangulation}})
+function Utils.Contribution(v::Tuple{Vararg{HRProjection}},t::Tuple{Vararg{Triangulation}})
   AffineContribution(v,t)
 end
 
@@ -214,7 +201,7 @@ end
 
 Contribution whose `values` assume one of the following types:
 
-- [`HyperReduction`](@ref) for single field problems
+- [`HRProjection`](@ref) for single field problems
 - [`BlockProjection`](@ref) for multi field problems
 """
 struct AffineContribution{A<:Projection,V,K} <: Contribution
@@ -265,7 +252,7 @@ function inv_project!(
 end
 
 function reduced_form(red::Reduction,s,trian::Triangulation,args...)
-  hyper_red = HyperReduction(red,s,trian,args...)
+  hyper_red = HRProjection(red,s,trian,args...)
   red_trian = reduced_triangulation(trian,hyper_red)
   return hyper_red,red_trian
 end
@@ -367,12 +354,12 @@ end
 # multi field interface
 
 """
-    const BlockHyperReduction{A<:HyperReduction,N} = BlockProjection{A,N}
+    const BlockHRProjection{A<:HRProjection,N} = BlockProjection{A,N}
 """
-const BlockHyperReduction{A<:HyperReduction,N} = BlockProjection{A,N}
+const BlockHRProjection{A<:HRProjection,N} = BlockProjection{A,N}
 
 function Utils.Contribution(
-  v::Tuple{Vararg{BlockHyperReduction}},
+  v::Tuple{Vararg{BlockHRProjection}},
   t::Tuple{Vararg{Triangulation}})
 
   AffineContribution(v,t)
@@ -380,13 +367,13 @@ end
 
 for f in (:get_basis,:get_interpolation)
   @eval begin
-    function Arrays.return_cache(::typeof($f),a::BlockHyperReduction)
+    function Arrays.return_cache(::typeof($f),a::BlockHRProjection)
       cache = $f(testitem(a))
       block_cache = Array{typeof(cache),ndims(a)}(undef,size(a))
       return block_cache
     end
 
-    function $f(a::BlockHyperReduction)
+    function $f(a::BlockHRProjection)
       cache = return_cache($f,a)
       for i in eachindex(a)
         if a.touched[i]
@@ -400,12 +387,12 @@ end
 
 for f in (:get_cellids_rows,:get_cellids_cols)
   @eval begin
-    function Arrays.return_cache(::typeof($f),a::BlockHyperReduction)
+    function Arrays.return_cache(::typeof($f),a::BlockHRProjection)
       block_cache = Array{Table,ndims(a)}(undef,size(a))
       return block_cache
     end
 
-    function $f(a::BlockHyperReduction)
+    function $f(a::BlockHRProjection)
       cache = return_cache($f,a)
       for i in eachindex(a)
         if a.touched[i]
@@ -417,14 +404,14 @@ for f in (:get_cellids_rows,:get_cellids_cols)
   end
 end
 
-function Arrays.return_cache(::typeof(get_integration_cells),a::BlockHyperReduction)
+function Arrays.return_cache(::typeof(get_integration_cells),a::BlockHRProjection)
   ntouched = length(findall(a.touched))
   cache = get_integration_cells(testitem(a))
   block_cache = Vector{typeof(cache)}(undef,ntouched)
   return block_cache
 end
 
-function get_integration_cells(a::BlockHyperReduction)
+function get_integration_cells(a::BlockHRProjection)
   cache = return_cache(get_integration_cells,a)
   count = 0
   for i in eachindex(a)
@@ -436,18 +423,18 @@ function get_integration_cells(a::BlockHyperReduction)
   return union(cache...)
 end
 
-function get_owned_icells(a::BlockHyperReduction)
+function get_owned_icells(a::BlockHRProjection)
   cells = get_integration_cells(a)
   get_owned_icells(a,cells)
 end
 
-function Arrays.return_cache(::typeof(get_owned_icells),a::BlockHyperReduction,cells)
+function Arrays.return_cache(::typeof(get_owned_icells),a::BlockHRProjection,cells)
   cache = get_owned_icells(testitem(a),cells)
   block_cache = Array{typeof(cache),ndims(a)}(undef,size(a))
   return block_cache
 end
 
-function get_owned_icells(a::BlockHyperReduction,cells::AbstractVector)
+function get_owned_icells(a::BlockHRProjection,cells::AbstractVector)
   cache = return_cache(get_owned_icells,a,cells)
   for i in eachindex(a)
     if a.touched[i]
@@ -460,7 +447,7 @@ end
 function inv_project!(
   hypred::BlockParamArray,
   coeff::ArrayBlock,
-  a::BlockHyperReduction,
+  a::BlockHRProjection,
   b::ArrayBlock)
 
   for i in eachindex(a)
@@ -471,7 +458,7 @@ function inv_project!(
   return hypred
 end
 
-for T in (:AffineContribution,:BlockHyperReduction)
+for T in (:AffineContribution,:BlockHRProjection)
   @eval begin
     function inv_project!(cache::HRParamArray,a::$T)
       inv_project!(cache.hypred,cache.coeff,a,cache.fecache)
@@ -479,7 +466,7 @@ for T in (:AffineContribution,:BlockHyperReduction)
   end
 end
 
-function reduced_triangulation(trian::Triangulation,a::BlockHyperReduction)
+function reduced_triangulation(trian::Triangulation,a::BlockHRProjection)
   red_cells = get_integration_cells(a)
   red_trian = view(trian,red_cells)
   return red_trian
@@ -487,7 +474,7 @@ end
 
 function Arrays.return_cache(
   ::typeof(allocate_coefficient),
-  a::HyperReduction,
+  a::HRProjection,
   r::AbstractRealization)
 
   coeffvec = testvalue(Vector{Float64})
@@ -496,7 +483,7 @@ end
 
 function Arrays.return_cache(
   ::typeof(allocate_coefficient),
-  a::BlockHyperReduction,
+  a::BlockHRProjection,
   r::AbstractRealization)
 
   i = findfirst(a.touched)
@@ -506,7 +493,7 @@ function Arrays.return_cache(
   return block_coeff
 end
 
-function allocate_coefficient(a::BlockHyperReduction,r::AbstractRealization)
+function allocate_coefficient(a::BlockHRProjection,r::AbstractRealization)
   coeff = return_cache(allocate_coefficient,a,r)
   for i in eachindex(a)
     if a.touched[i]
@@ -518,7 +505,7 @@ end
 
 function Arrays.return_cache(
   ::typeof(allocate_hyper_reduction),
-  a::HyperReduction{<:Reduction,<:ReducedVecProjection},
+  a::HRVecProjection,
   r::AbstractRealization)
 
   hypvec = testvalue(Vector{Float64})
@@ -527,7 +514,7 @@ end
 
 function Arrays.return_cache(
   ::typeof(allocate_hyper_reduction),
-  a::HyperReduction{<:Reduction,<:ReducedMatProjection},
+  a::HRMatProjection,
   r::AbstractRealization)
 
   hypvec = testvalue(Matrix{Float64})
@@ -536,7 +523,7 @@ end
 
 function Arrays.return_cache(
   ::typeof(allocate_hyper_reduction),
-  a::BlockHyperReduction,
+  a::BlockHRProjection,
   r::AbstractRealization)
 
   i = findfirst(a.touched)
@@ -546,7 +533,7 @@ function Arrays.return_cache(
   return block_hypred
 end
 
-function allocate_hyper_reduction(a::BlockHyperReduction,r::AbstractRealization)
+function allocate_hyper_reduction(a::BlockHRProjection,r::AbstractRealization)
   hypred = return_cache(allocate_hyper_reduction,a,r)
   for i in eachindex(a)
     hypred[i] = allocate_hyper_reduction(a.array[i],r)
@@ -560,7 +547,7 @@ function reduced_form(
   trian::Triangulation,
   test::MultiFieldRBSpace)
 
-  hyper_reds = Vector{HyperReduction}(undef,size(s))
+  hyper_reds = Vector{HRProjection}(undef,size(s))
   for i in eachindex(s)
     hyper_red, = reduced_form(red,s[i],trian,test[i])
     hyper_reds[i] = hyper_red
@@ -579,7 +566,7 @@ function reduced_form(
   trial::MultiFieldRBSpace,
   test::MultiFieldRBSpace)
 
-  hyper_reds = Matrix{HyperReduction}(undef,size(s))
+  hyper_reds = Matrix{HRProjection}(undef,size(s))
   for (i,j) in Iterators.product(axes(s)...)
     hyper_red, = reduced_form(red,s[i,j],trian,trial[j],test[i])
     hyper_reds[i,j] = hyper_red

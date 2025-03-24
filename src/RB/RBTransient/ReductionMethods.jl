@@ -1,17 +1,20 @@
-TransientReductionStyle(args...;kwargs...) = @abstractmethod
+abstract type TransientReduction{A<:ReductionStyle,B<:NormStyle} <: Reduction{A,B} end
 
-function TransientReductionStyle(tolrank_space,tolrank_time;kwargs...)
-  style_space = ReductionStyle(tol_space;kwargs...)
-  style_time = ReductionStyle(tol_time;kwargs...)
-  return style_space,style_time
-end
+abstract type TransientStyle end
+struct KroneckerStyle <: TransientStyle end
+struct LinearStyle <: TransientStyle end
 
-function TransientReductionStyle(tolrank;kwargs...)
-  TransientReductionStyle(tolrank,tolrank;kwargs...)
-end
+TransientStyle(::Type{<:ReductionStyle}) = KroneckerStyle()
+TransientStyle(::Type{<:TTSVDReduction}) = LinearStyle()
+TransientStyle(red::TransientReduction{A}) where A = TransientStyle(A)
+
+RBSteady.get_reduction(r::TransientReduction) = @abstractmethod
+RBSteady.ReductionStyle(r::TransientReduction) = ReductionStyle(get_reduction(r))
+RBSteady.NormStyle(r::TransientReduction) = NormStyle(get_reduction(r))
+ParamDataStructures.num_params(r::TransientReduction) = num_params(get_reduction(r))
 
 """
-    struct TransientReduction{A,B,RS<:Reduction{A,B},RT<:Reduction{A,EuclideanNorm}} <: Reduction{A,B}
+    struct TransientKroneckerReduction{A,B,RS<:Reduction{A,B},RT<:Reduction{A,EuclideanNorm}} <: TransientReduction{A,B}
       reduction_space::RS
       reduction_time::RT
     end
@@ -20,28 +23,23 @@ Wrapper for reduction methods in transient problems. The fields `reduction_space
 and `reduction_time` respectively represent the spatial reduction method, and
 the temporal one
 """
-struct TransientReduction{A,B,RS<:Reduction{A,B},RT<:Reduction{A,EuclideanNorm}} <: Reduction{A,B}
+struct TransientKroneckerReduction{A,B,RS<:Reduction{A,B},RT<:Reduction{A,EuclideanNorm}} <: TransientReduction{A,B}
   reduction_space::RS
   reduction_time::RT
 end
 
-const TransientAffineReduction{A,B} = TransientReduction{A,B,AffineReduction{A,B},AffineReduction{A,EuclideanNorm}}
-const TransientPODReduction{A,B} = TransientReduction{A,B,PODReduction{A,B},PODReduction{A,EuclideanNorm}}
+const TransientKroneckerAffineReduction{A,B} = TransientKroneckerReduction{A,B,<:AffineReduction,<:AffineReduction}
+const TransientKroneckerPODReduction{A,B} = TransientKroneckerReduction{A,B,<:PODReduction,<:PODReduction}
+
+RBSteady.get_reduction(r::TransientKroneckerReduction) = get_reduction(r.reduction_space)
+get_reduction_time(r::TransientKroneckerReduction) = get_reduction(r.reduction_time)
 
 # generic constructor
 
 function TransientReduction(style_space::ReductionStyle,style_time::ReductionStyle,args...;kwargs...)
   reduction_space = Reduction(style_space,args...;kwargs...)
   reduction_time = Reduction(style_time;kwargs...)
-  TransientReduction(reduction_space,reduction_time)
-end
-
-function TransientReduction(red_style::ReductionStyle,args...;kwargs...)
-  TransientReduction(red_style,red_style,args...;kwargs...)
-end
-
-function TransientReduction(red_style::TTSVDRanks,args...;kwargs...)
-  TTSVDReduction(red_style,args...;kwargs...)
+  TransientKroneckerReduction(reduction_space,reduction_time)
 end
 
 function TransientReduction(
@@ -58,8 +56,24 @@ function TransientReduction(tolrank::Union{Int,Float64},args...;kwargs...)
   TransientReduction(tolrank,tolrank,args...;kwargs...)
 end
 
+function TransientReduction(red_style::ReductionStyle,args...;kwargs...)
+  TransientReduction(red_style,red_style,args...;kwargs...)
+end
+
+struct TransientLinearReduction{A,B,R<:SteadyReduction{A,B}} <: TransientReduction{A,B}
+  reduction::R
+end
+
+RBSteady.get_reduction(r::TransientLinearReduction) = get_reduction(r.reduction)
+
+function TransientReduction(red_style::TTSVDRanks,args...;kwargs...)
+  reduction = TTSVDReduction(red_style,args...;kwargs...)
+  TransientLinearReduction(reduction)
+end
+
 function TransientReduction(tolrank::Union{Vector{Int},Vector{Float64}},args...;kwargs...)
-  TTSVDReduction(tolrank,args...;kwargs...)
+  reduction = TTSVDReduction(tolrank,args...;kwargs...)
+  TransientLinearReduction(reduction)
 end
 
 function TransientReduction(supr_op::Function,args...;supr_tol=1e-2,kwargs...)
@@ -67,14 +81,10 @@ function TransientReduction(supr_op::Function,args...;supr_tol=1e-2,kwargs...)
   SupremizerReduction(reduction,supr_op,supr_tol)
 end
 
-get_reduction_space(r::TransientReduction) = get_reduction(r.reduction_space)
-get_reduction_time(r::TransientReduction) = get_reduction(r.reduction_time)
-RBSteady.ReductionStyle(r::TransientReduction) = ReductionStyle(get_reduction_space(r))
-RBSteady.NormStyle(r::TransientReduction) = NormStyle(get_reduction_space(r))
-ParamDataStructures.num_params(r::TransientReduction) = num_params(get_reduction_space(r))
+abstract type TransientHyperReduction{A} <: HyperReduction{A} end
 
 """
-    struct TransientMDEIMReduction{A,R<:Reduction{A,EuclideanNorm}} <: AbstractMDEIMReduction{A}
+    struct TransientMDEIMReduction{A,R<:TransientReduction{A,EuclideanNorm}} <: TransientHyperReduction{A}
       reduction::R
       combine::Function
     end
@@ -127,10 +137,12 @@ The same can be said of any time marching scheme. This is the meaning of the
 function combine. Note that for a time marching with `p` interpolation points (e.g.
 for `θ` method, `p = 2`) the combine functions will have to accept `p` arguments.
 """
-struct TransientMDEIMReduction{A,R<:Reduction{A,EuclideanNorm}} <: AbstractMDEIMReduction{A}
+struct TransientMDEIMReduction{A,R<:TransientReduction{A,EuclideanNorm}} <: TransientHyperReduction{A}
   reduction::R
   combine::Function
 end
+
+TransientStyle(red::TransientMDEIMReduction) = TransientStyle(get_reduction(red))
 
 function TransientMDEIMReduction(combine::Function,args...;kwargs...)
   reduction = TransientReduction(args...;kwargs...)

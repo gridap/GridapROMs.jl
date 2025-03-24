@@ -86,7 +86,7 @@ function load_reduced_subspace(dir,f::FESpace;label="")
   reduced_subspace(f,basis)
 end
 
-for T in (:HyperReduction,:BlockHyperReduction)
+for T in (:HRProjection,:BlockHRProjection)
   @eval begin
     function DrWatson.save(dir,hp::$T;label="")
       hr_dir = get_filename(dir,"hypred",label)

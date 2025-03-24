@@ -75,6 +75,10 @@ export assemble_extended_matrix
 include("ExtensionAssemblers.jl")
 
 export ExtensionParamOperator
-include("ExtensionOperators.jl")
+export ExtensionLinearParamOperator
+export ExtensionLinearNonlinearParamOperator
+include("ExtensionParamOperators.jl")
+
+include("ExtensionParamSolvers.jl")
 
 end # module

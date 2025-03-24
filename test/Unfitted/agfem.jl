@@ -158,7 +158,7 @@ x̂ = RBParamVector(xrb,x)
 nlop = parameterize(rbop,r)
 syscache = allocate_systemcache(nlop,x̂)
 
-hr_lhs_out_cache = allocate_hypred_cache(hr_lhs_out,r)
+# hr_lhs_out_cache = allocate_hypred_cache(hr_lhs_out,r)
 
 A,b = syscache.A,syscache.b
 fill!(x̂,zero(eltype(x̂)))

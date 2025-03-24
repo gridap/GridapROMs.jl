@@ -14,7 +14,7 @@ Subtypes:
 - [`BlockProjection`](@ref)
 - [`InvProjection`](@ref)
 - [`ReducedProjection`](@ref)
-- [`HyperReduction`](@ref)
+- [`HRProjection`](@ref)
 """
 abstract type Projection <: Map end
 
@@ -127,8 +127,15 @@ end
 (Petrov) Galerkin projection of a projection map `b` onto the subspace `a` (row
 projection) and, if applicable, onto the subspace `c` (column projection)
 """
-galerkin_projection(a::Projection,b::Projection) = @abstractmethod
-galerkin_projection(a::Projection,b::Projection,c::Projection,args...) = @abstractmethod
+function galerkin_projection(a::Projection,b::Projection)
+  b̂ = galerkin_projection(get_basis(a),get_basis(b))
+  return ReducedProjection(b̂)
+end
+
+function galerkin_projection(a::Projection,b::Projection,c::Projection,args...)
+  b̂ = galerkin_projection(get_basis(a),get_basis(b),get_basis(c),args...)
+  return ReducedProjection(b̂)
+end
 
 """
     empirical_interpolation(a::Projection) -> (AbstractVector,AbstractMatrix)
@@ -314,21 +321,6 @@ function union_bases(a::PODProjection,basis_b::AbstractMatrix,args...)
   PODProjection(basis_ab)
 end
 
-function galerkin_projection(proj_left::PODProjection,a::PODProjection)
-  basis_left = get_basis(proj_left)
-  basis = get_basis(a)
-  proj_basis = galerkin_projection(basis_left,basis)
-  return ReducedProjection(proj_basis)
-end
-
-function galerkin_projection(proj_left::PODProjection,a::PODProjection,proj_right::PODProjection)
-  basis_left = get_basis(proj_left)
-  basis = get_basis(a)
-  basis_right = get_basis(proj_right)
-  proj_basis = galerkin_projection(basis_left,basis,basis_right)
-  return ReducedProjection(proj_basis)
-end
-
 function empirical_interpolation(a::PODProjection)
   empirical_interpolation(get_basis(a))
 end
@@ -351,6 +343,10 @@ a field `dof_map` is provided along with the tensor train cores `cores`
 struct TTSVDProjection <: Projection
   cores::AbstractVector{<:AbstractArray{T,3} where T}
   dof_map::AbstractDofMap
+end
+
+function Projection(red::TTSVDReduction,s::AbstractMatrix,args...)
+  Projection(first(red),s,args...)
 end
 
 function Projection(red::TTSVDReduction,s::AbstractArray,args...)
@@ -378,11 +374,9 @@ num_reduced_dofs(a::TTSVDProjection) = size(last(get_cores(a)),3)
 
 #TODO this needs to be fixed
 function project!(x̂::AbstractArray,a::TTSVDProjection,x::AbstractArray,norm_matrix::AbstractRankTensor)
-  ## a′ = rescale(_sparse_rescaling,norm_matrix,a)
-  ## basis′ = get_basis(a′)
-  ## mul!(x̂,basis′',x)
-  # basis = get_basis(a)
-  # mul!(x̂,basis',x)
+  a′ = rescale(_sparse_rescaling,norm_matrix,a)
+  basis′ = get_basis(a′)
+  mul!(x̂,basis′',x)
   x̂
 end
 

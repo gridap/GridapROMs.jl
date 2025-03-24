@@ -54,7 +54,7 @@ export AffineReduction
 export PODReduction
 export TTSVDReduction
 export SupremizerReduction
-export AbstractMDEIMReduction
+export HyperReduction
 export MDEIMReduction
 export AdaptiveReduction
 export get_reduction
@@ -138,11 +138,12 @@ export get_cellids_cols
 export get_owned_icells
 include("IntegrationDomains.jl")
 
-export HyperReduction
-export TrivialHyperReduction
+export HRProjection
+export TrivialHRProjection
 export MDEIM
 export AffineContribution
-export BlockHyperReduction
+export BlockHRProjection
+export get_interpolation
 export get_integration_domain
 export reduced_triangulation
 export reduced_jacobian
