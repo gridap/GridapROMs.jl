@@ -1,27 +1,3 @@
-function _projection(red::TransientKroneckerAffineReduction,s::TransientSnapshots,args...)
-  s1 = get_mode1(select_snapshots(s,1,1))
-  projection_space = projection(get_reduction_space(red),s1,args...)
-  projection_time = PODProjection(I[1:num_times(s),1:1])
-  KroneckerProjection(projection_space,projection_time)
-end
-
-function _projection(red::TransientKroneckerReduction,s::TransientSnapshots,args...)
-  s1 = get_mode1(s)
-  projection_space = projection(get_reduction_space(red),s1,args...)
-  proj_s1 = project(projection_space,s1)
-  proj_s2 = change_mode(proj_s1,num_params(s))
-  projection_time = projection(get_reduction_time(red),proj_s2)
-  KroneckerProjection(projection_space,projection_time)
-end
-
-function RBSteady.projection(red::TransientKroneckerReduction,s::TransientSnapshots)
-  _projection(red,s)
-end
-
-function RBSteady.projection(red::TransientKroneckerReduction,s::TransientSnapshots,X::MatrixOrTensor)
-  _projection(red,s,X)
-end
-
 abstract type TransientProjection <: Projection end
 
 get_projection_space(a::TransientProjection) = @abstractmethod
@@ -33,7 +9,7 @@ ParamDataStructures.num_times(a::TransientProjection) = num_fe_dofs(get_projecti
 RBSteady.num_fe_dofs(a::TransientProjection) = num_space_dofs(a)*num_times(a)
 
 function RBSteady.project!(x̂::ConsecutiveParamVector,a::TransientProjection,x::ConsecutiveParamVector)
-  nt = num_times(a.projection_time)
+  nt = num_times(a)
   @check Int(param_length(x) / param_length(x̂)) == nt
   np = param_length(x̂)
   @inbounds for ip in eachindex(x̂)
@@ -64,7 +40,7 @@ function Algebra.allocate_in_domain(a::TransientProjection,x::V) where V<:Abstra
 end
 
 function Algebra.allocate_in_range(a::TransientProjection,x̂::V) where V<:AbstractParamVector
-  x = allocate_vector(eltype(V),num_space_dofs(a.projection_space))
+  x = allocate_vector(eltype(V),num_space_dofs(a))
   nt = num_times(a)
   npt = param_length(x̂) * nt
   return global_parameterize(x,npt)
@@ -88,6 +64,30 @@ struct KroneckerProjection <: TransientProjection
   projection_time::Projection
 end
 
+function KroneckerProjection(red::TransientKroneckerAffineReduction,s::TransientSnapshots,args...)
+  s1 = get_mode1(select_snapshots(s,1,1))
+  projection_space = projection(get_reduction_space(red),s1,args...)
+  projection_time = PODProjection(I[1:num_times(s),1:1])
+  KroneckerProjection(projection_space,projection_time)
+end
+
+function KroneckerProjection(red::TransientKroneckerReduction,s::TransientSnapshots,args...)
+  s1 = get_mode1(s)
+  projection_space = projection(get_reduction_space(red),s1,args...)
+  proj_s1 = project(projection_space,s1)
+  proj_s2 = change_mode(proj_s1,num_params(s))
+  projection_time = projection(get_reduction_time(red),proj_s2)
+  KroneckerProjection(projection_space,projection_time)
+end
+
+function RBSteady.projection(red::TransientKroneckerReduction,s::TransientSnapshots)
+  KroneckerProjection(red,s)
+end
+
+function RBSteady.projection(red::TransientKroneckerReduction,s::TransientSnapshots,X::MatrixOrTensor)
+  KroneckerProjection(red,s,X)
+end
+
 get_projection_space(a::KroneckerProjection) = a.projection_space
 get_projection_time(a::KroneckerProjection) = a.projection_time
 
@@ -95,7 +95,7 @@ RBSteady.get_basis(a::KroneckerProjection) = kron(get_basis_time(a),get_basis_sp
 RBSteady.num_reduced_dofs(a::KroneckerProjection) = num_reduced_dofs(a.projection_space)*num_reduced_dofs(a.projection_time)
 RBSteady.get_norm_matrix(a::KroneckerProjection) = get_norm_matrix(a.projection_space)
 
-function RBSteady.project!(x̂::AbstractVector,a::KroneckerProjection,x::AbstractVector)
+function RBSteady.project!(x̂::AbstractVector{<:Number},a::KroneckerProjection,x::AbstractVector{<:Number})
   ns = num_reduced_dofs(a.projection_space)
   nt = num_reduced_dofs(a.projection_time)
   X̂ = reshape(x̂,ns,nt)
@@ -109,7 +109,7 @@ function RBSteady.project!(x̂::AbstractVector,a::KroneckerProjection,x::Abstrac
   project!(X̂,a.projection_space,X*basis_time)
 end
 
-function RBSteady.inv_project!(x::AbstractVector,a::KroneckerProjection,x̂::AbstractVector)
+function RBSteady.inv_project!(x::AbstractVector{<:Number},a::KroneckerProjection,x̂::AbstractVector{<:Number})
   Ns = num_fe_dofs(a.projection_space)
   Nt = num_fe_dofs(a.projection_time)
   X = reshape(x,Ns,Nt)
@@ -186,22 +186,41 @@ struct LinearProjection{A} <: TransientProjection
   projection::A
 end
 
-DofMaps.get_dof_map(a::LinearProjection) = get_dof_map(a.projection)
+function RBSteady.projection(red::TransientLinearReduction,s::TransientSnapshots)
+  proj = projection(get_reduction(red),s)
+  LinearProjection(proj)
+end
 
-get_cores_space(a::LinearProjection) = get_cores(a.projection)[1:end-1]
-get_core_time(a::LinearProjection) = get_cores(a.projection)[end]
+function RBSteady.projection(red::TransientLinearReduction,s::TransientSnapshots,X::MatrixOrTensor)
+  proj = projection(get_reduction(red),s,X)
+  LinearProjection(proj)
+end
+
+#TODO when new projection operators are implemented, this will have to change
+RBSteady.get_cores(a::LinearProjection) = get_cores(a.projection)
+get_cores_space(a::LinearProjection) = get_cores(a)[1:end-1]
+get_core_time(a::LinearProjection) = get_cores(a)[end]
+
+ParamDataStructures.num_space_dofs(a::LinearProjection) = prod(map(c -> size(c,2),get_cores_space(a)))
+ParamDataStructures.num_times(a::LinearProjection) = size(get_core_time(a),2)
+
+DofMaps.get_dof_map(a::LinearProjection) = get_dof_map(a.projection)
 
 RBSteady.get_basis(a::LinearProjection) = get_basis(a.projection)
 RBSteady.num_reduced_dofs(a::LinearProjection) = num_reduced_dofs(a.projection)
 RBSteady.get_norm_matrix(a::LinearProjection) = get_norm_matrix(a.projection)
-RBSteady.union_bases(a::LinearProjection) = union_bases(a.projection)
 RBSteady.empirical_interpolation(a::LinearProjection) = empirical_interpolation(a.projection)
+
+function RBSteady.union_bases(a::LinearProjection,b::AbstractArray,args...)
+  projection′ = union_bases(a.projection,b,args...)
+  LinearProjection(projection′)
+end
 
 function RBSteady.galerkin_projection(proj_left::LinearProjection,a::LinearProjection)
   galerkin_projection(proj_left.projection,a.projection)
 end
 
-function RBSteady.rescale(op::Function,X::AbstractRankTensor{D},b::LinearProjection) where D
+function RBSteady.rescale(op::Function,X::AbstractRankTensor,b::LinearProjection)
   RBSteady.rescale(op,X,b.projection)
 end
 
@@ -238,6 +257,14 @@ function RBSteady.galerkin_projection(
   @notimplemented "Write this function!"
 end
 
+function RBSteady.project!(x̂::AbstractVector{<:Number},a::LinearProjection,x::AbstractVector{<:Number})
+  project!(x̂,a.projection,x)
+end
+
+function RBSteady.inv_project!(x::AbstractVector{<:Number},a::LinearProjection,x̂::AbstractVector{<:Number})
+  inv_project!(x,a.projection,x̂)
+end
+
 # multfield interface
 
 function Arrays.return_type(::typeof(projection),::TransientKroneckerReduction,::TransientSnapshots)
@@ -257,11 +284,12 @@ function Arrays.return_type(::typeof(projection),::TransientLinearReduction,::Tr
 end
 
 function RBSteady.enrich!(
-  red::SupremizerReduction{<:TransientKroneckerReduction},
+  red::SupremizerReduction{A,<:TransientKroneckerReduction},
   a::BlockProjection,
   norm_matrix::BlockMatrix,
   supr_matrix::BlockMatrix;
-  kwargs...)
+  kwargs...
+  ) where A
 
   @check a.touched[1] "Primal field not defined"
   a_primal,a_dual... = a.array
@@ -285,11 +313,12 @@ function RBSteady.enrich!(
 end
 
 function RBSteady.enrich!(
-  red::SupremizerReduction{<:TransientLinearReduction},
+  red::SupremizerReduction{A,<:TransientLinearReduction},
   a::BlockProjection,
   norm_matrix::BlockRankTensor,
   supr_matrix::BlockRankTensor;
-  kwargs...)
+  kwargs...
+  ) where A
 
   red′ = SupremizerReduction(red.reduction.reduction,red.supr_op,red.supr_tol)
   enrich!(red′,a,norm_matrix,supr_matrix;kwargs...)

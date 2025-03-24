@@ -119,7 +119,6 @@ include("Projections.jl")
 export RBSpace
 export SingleFieldRBSpace
 export MultiFieldRBSpace
-export EvalRBSpace
 export reduced_subspace
 export reduced_spaces
 export reduced_basis

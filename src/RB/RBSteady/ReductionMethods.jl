@@ -322,7 +322,7 @@ end
 get_supr(r::SupremizerReduction) = r.supr_op
 get_supr_tol(r::SupremizerReduction) = r.supr_tol
 
-get_reduction(r::SupremizerReduction) = get_reduction(r.reduction)
+get_reduction(r::SupremizerReduction) = r.reduction
 ReductionStyle(r::SupremizerReduction) = ReductionStyle(get_reduction(r))
 NormStyle(r::SupremizerReduction) = NormStyle(get_reduction(r))
 ParamDataStructures.num_params(r::SupremizerReduction) = num_params(get_reduction(r))
@@ -382,7 +382,7 @@ function MDEIMReduction(args...;kwargs...)
   MDEIMReduction(reduction)
 end
 
-get_reduction(r::MDEIMReduction) = get_reduction(r.reduction)
+get_reduction(r::MDEIMReduction) = r.reduction
 ReductionStyle(r::MDEIMReduction) = ReductionStyle(get_reduction(r))
 NormStyle(r::MDEIMReduction) = NormStyle(get_reduction(r))
 ParamDataStructures.num_params(r::MDEIMReduction) = num_params(get_reduction(r))

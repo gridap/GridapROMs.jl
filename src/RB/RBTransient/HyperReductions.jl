@@ -1,4 +1,4 @@
-abstract type TransientHRProjection{A<:ReductionStyle,B<:ReducedProjection} <: HRProjection{B} end
+abstract type TransientHRProjection{A<:TransientReduction,B<:ReducedProjection} <: HRProjection{B} end
 
 TransientHRStyle(hr::TransientHRProjection{A}) where A = TransientStyle(A)
 TransientHRStyle(hr::BlockProjection) = TransientHRStyle(testitem(hr))

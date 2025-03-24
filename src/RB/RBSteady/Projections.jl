@@ -63,8 +63,7 @@ function project!(x̂::AbstractArray,a::Projection,x::AbstractArray)
 end
 
 function project!(x̂::AbstractArray,a::Projection,x::AbstractArray,norm_matrix::AbstractMatrix)
-  basis = get_basis(a)
-  mul!(x̂,basis'*norm_matrix,x)
+  project!(x̂,a,norm_matrix*x)
 end
 
 """
@@ -372,11 +371,12 @@ get_basis(a::TTSVDProjection) = cores2basis(get_cores(a)...)
 num_fe_dofs(a::TTSVDProjection) = prod(map(c -> size(c,2),get_cores(a)))
 num_reduced_dofs(a::TTSVDProjection) = size(last(get_cores(a)),3)
 
-#TODO this needs to be fixed
+#TODO this needs to be fixed; for now it's ok, since it's only used to generate
+# zero free reduced dof values
 function project!(x̂::AbstractArray,a::TTSVDProjection,x::AbstractArray,norm_matrix::AbstractRankTensor)
-  a′ = rescale(_sparse_rescaling,norm_matrix,a)
-  basis′ = get_basis(a′)
-  mul!(x̂,basis′',x)
+  # a′ = rescale(_sparse_rescaling,norm_matrix,a)
+  # basis′ = get_basis(a′)
+  # mul!(x̂,basis′',x)
   x̂
 end
 
@@ -732,10 +732,11 @@ function enrich!(
 end
 
 function enrich!(
-  red::SupremizerReduction{<:TTSVDRanks},
+  red::SupremizerReduction{A,<:TTSVDReduction},
   a::BlockProjection,
   norm_matrix::BlockRankTensor,
-  supr_matrix::BlockRankTensor)
+  supr_matrix::BlockRankTensor
+  ) where A
 
   @check a.touched[1] "Primal field not defined"
   red_style = ReductionStyle(red)

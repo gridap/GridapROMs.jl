@@ -27,8 +27,8 @@ Subtypes:
 """
 abstract type HRProjection{A<:ReducedProjection} <: Projection end
 
-const HRVecProjection = HRProjection{ReducedVecProjection}
-const HRMatProjection = HRProjection{ReducedMatProjection}
+const HRVecProjection = HRProjection{<:ReducedVecProjection}
+const HRMatProjection = HRProjection{<:ReducedMatProjection}
 
 HRProjection(::Reduction,args...) = @abstractmethod
 
