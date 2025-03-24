@@ -1,3 +1,26 @@
+
+
+function FESpaces.zero_free_values(r::RBSpace{<:ExtensionFESpace})
+  zero_free_values(Extensions.get_bg_space(r))
+end
+
+function FESpaces.zero_free_values(r::RBSpace{<:SingleFieldParamFESpace{<:ExtensionFESpace}})
+  zero_free_values(_get_rb_bg_space(r))
+end
+
+function to_snapshots(
+  r::RBSpace{<:UnEvalTrialFESpace{<:ExtensionFESpace}},
+  x̂::AbstractParamVector,
+  μ::AbstractRealization
+  )
+
+  rμ = r(μ)
+  x = inv_project(Extensions.get_bg_space(rμ),x̂)
+  fill_out_free_values!(x,get_fe_space(rμ))
+  i = get_dof_map(rμ)
+  Snapshots(x,i,μ)
+end
+
 function reduced_cells(
   f::ExtensionFESpace,
   trian::Triangulation,
@@ -73,4 +96,22 @@ for T in (:SingleFieldParamFESpace,:UnEvalTrialFESpace,:TransientTrialFESpace,:T
       reduced_idofs(get_fe_space(r),trian,cells,dofs)
     end
   end
+end
+
+# utils
+
+function Extensions.get_ext_space(r::RBSpace)
+  fext = Extensions.get_ext_space(get_fe_space(r))
+  reduced_subspace(fext,get_reduced_subspace(r))
+end
+
+function Extensions.get_bg_space(r::RBSpace)
+  fbg = Extensions.get_bg_space(get_fe_space(r))
+  reduced_subspace(fbg,get_reduced_subspace(r))
+end
+
+function _get_rb_bg_space(r::RBSpace{<:SingleFieldParamFESpace{<:ExtensionFESpace}})
+  fextμ = get_fe_space(r)
+  fbgμ = Extensions.get_bg_space(fextμ)
+  reduced_subspace(fbgμ,get_reduced_subspace(r))
 end

@@ -125,7 +125,7 @@ export SparseSnapshots
 export BlockSnapshots
 export get_realization
 export select_snapshots
-export get_indexed_data
+export num_space_dofs
 include("Snapshots.jl")
 
 export TransientSnapshots

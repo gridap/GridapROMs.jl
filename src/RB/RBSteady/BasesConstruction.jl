@@ -22,6 +22,10 @@ function reduction(red::TTSVDReduction,A::AbstractArray,args...)
 end
 
 # somewhat arbitrary
+function _size_cond(A::StridedMatrix)
+  length(A) > 1e5 && (size(A,1) > 1e1*size(A,2) || size(A,2) > 1e1*size(A,1))
+end
+
 function _size_cond(A::AbstractMatrix)
   length(A) > 1e5 && (size(A,1) > 1e2*size(A,2) || size(A,2) > 1e2*size(A,1))
 end
@@ -118,6 +122,10 @@ function tpod(red_style::ReductionStyle,A::AbstractMatrix,X::AbstractSparseMatri
   else
     tpod(red_style,A,L,p)
   end
+end
+
+function tpod(red_style::ReductionStyle,A::AbstractMatrix,X::AbstractRankTensor)
+  tpod(red_style,A,kron(X))
 end
 
 function tpod(red_style::ReductionStyle,A::AbstractMatrix)
@@ -256,6 +264,10 @@ function ttsvd(
   # tt orthogonality
   remainder′ = orthogonalize!(red_style,cores,remainder,X)
   return cores,remainder′
+end
+
+function ttsvd(red_style::TTSVDRanks,A::AbstractArray,X::AbstractSparseMatrix)
+  tpod(first(red_style),reshape(A,size(A,1),:),X)
 end
 
 function steady_ttsvd(

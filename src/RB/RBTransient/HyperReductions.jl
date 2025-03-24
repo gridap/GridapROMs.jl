@@ -1,4 +1,32 @@
-function RBSteady.HyperReduction(
+abstract type TransientHRProjection{A<:TransientReduction,B<:ReducedProjection} <: HRProjection{B} end
+
+TransientHRStyle(hr::TransientHRProjection{A}) where A = TransientStyle(A)
+TransientHRStyle(hr::BlockProjection) = TransientHRStyle(testitem(hr))
+
+get_indices_time(a::TransientHRProjection) = get_indices_time(get_integration_domain(a))
+get_itimes(a::TransientHRProjection,args...) = get_itimes(get_integration_domain(a),args...)
+
+"""
+    struct TransientMDEIM{A,B} <: TransientHRProjection{A,B}
+      reduction::A
+      projection::MDEIM{B}
+    end
+"""
+struct TransientMDEIM{A,B} <: TransientHRProjection{A,B}
+  reduction::A
+  projection::MDEIM{B}
+end
+
+function TransientMDEIM(reduction,proj_basis,factor,domain)
+  projection = MDEIM(proj_basis,factor,domain)
+  TransientMDEIM(reduction,projection)
+end
+
+RBSteady.get_basis(a::TransientMDEIM) = get_basis(a.projection)
+RBSteady.get_interpolation(a::TransientMDEIM) = get_interpolation(a.projection)
+RBSteady.get_integration_domain(a::TransientMDEIM) = get_integration_domain(a.projection)
+
+function RBSteady.HRProjection(
   red::TransientMDEIMReduction,
   s::Snapshots,
   trian::Triangulation,
@@ -10,10 +38,10 @@ function RBSteady.HyperReduction(
   (rows,indices_time),interp = empirical_interpolation(basis)
   factor = lu(interp)
   domain = vector_domain(reduction,trian,test,rows,indices_time)
-  return MDEIM(reduction,proj_basis,factor,domain)
+  return TransientMDEIM(reduction,proj_basis,factor,domain)
 end
 
-function RBSteady.HyperReduction(
+function RBSteady.HRProjection(
   red::TransientMDEIMReduction,
   s::Snapshots,
   trian::Triangulation,
@@ -26,13 +54,8 @@ function RBSteady.HyperReduction(
   ((rows,cols),indices_time),interp = empirical_interpolation(basis)
   factor = lu(interp)
   domain = matrix_domain(reduction,trian,trial,test,rows,cols,indices_time)
-  return MDEIM(reduction,proj_basis,factor,domain)
+  return TransientMDEIM(reduction,proj_basis,factor,domain)
 end
-
-const TransientHyperReduction{A<:Reduction,B<:ReducedProjection} = HyperReduction{A,B,TransientIntegrationDomain}
-
-get_indices_time(a::TransientHyperReduction) = get_indices_time(get_integration_domain(a))
-get_itimes(a::TransientHyperReduction,args...) = get_itimes(get_integration_domain(a),args...)
 
 function RBSteady.reduced_jacobian(
   red::Tuple{Vararg{Reduction}},
@@ -50,8 +73,8 @@ end
 function RBSteady.inv_project!(
   b̂::AbstractParamArray,
   coeff::AbstractParamArray,
-  a::TransientHyperReduction{<:TransientReduction},
-  b::AbstractParamArray)
+  a::TransientHRProjection,
+  b::AbstractParamMatrix)
 
   o = one(eltype2(b̂))
   interp = RBSteady.get_interpolation(a)
@@ -98,7 +121,7 @@ function RBSteady.allocate_hypred_cache(a::TupOfAffineContribution,r::TransientR
   return HRParamArray(fecache,coeffs,hypred)
 end
 
-function get_common_time_domain(a::TransientHyperReduction...)
+function get_common_time_domain(a::TransientHRProjection...)
   time_ids = ()
   for ai in a
     time_ids = (time_ids...,get_indices_time(ai))
@@ -114,7 +137,7 @@ function get_common_time_domain(a::TupOfAffineContribution)
   union(map(get_common_time_domain,a)...)
 end
 
-function get_param_itimes(a::HyperReduction,common_ids::Range2D)
+function get_param_itimes(a::HRProjection,common_ids::Range2D)
   common_param_ids = common_ids.axis1
   common_time_ids = common_ids.axis2
   local_time_ids = get_indices_time(a)
@@ -123,13 +146,13 @@ function get_param_itimes(a::HyperReduction,common_ids::Range2D)
   return locations
 end
 
-function Arrays.return_cache(::typeof(get_indices_time),a::BlockHyperReduction)
+function Arrays.return_cache(::typeof(get_indices_time),a::BlockHRProjection)
   cache = get_indices_time(testitem(a))
   block_cache = Array{typeof(cache),ndims(a)}(undef,size(a))
   return block_cache
 end
 
-function get_indices_time(a::BlockHyperReduction)
+function get_indices_time(a::BlockHRProjection)
   cache = return_cache(get_itimes,a)
   for i in eachindex(a)
     if a.touched[i]
@@ -141,13 +164,13 @@ end
 
 for f in (:get_itimes,:get_param_itimes)
   @eval begin
-    function Arrays.return_cache(::typeof($f),a::BlockHyperReduction,ids::AbstractArray)
+    function Arrays.return_cache(::typeof($f),a::BlockHRProjection,ids::AbstractArray)
       cache = $f(testitem(a),ids)
       block_cache = Array{typeof(cache),ndims(a)}(undef,size(a))
       return block_cache
     end
 
-    function $f(a::BlockHyperReduction,ids::AbstractArray)
+    function $f(a::BlockHRProjection,ids::AbstractArray)
       cache = return_cache($f,a,ids)
       for i in eachindex(a)
         if a.touched[i]
@@ -159,7 +182,7 @@ for f in (:get_itimes,:get_param_itimes)
   end
 end
 
-function get_common_time_domain(a::BlockHyperReduction...)
+function get_common_time_domain(a::BlockHRProjection...)
   time_ids = ()
   for ai in a
     for i in eachindex(ai)
@@ -171,7 +194,7 @@ function get_common_time_domain(a::BlockHyperReduction...)
   union(time_ids...)
 end
 
-for f in (:get_itimes,:get_param_itimes), T in (:HyperReduction,:BlockHyperReduction)
+for f in (:get_itimes,:get_param_itimes), T in (:HRProjection,:BlockHRProjection)
   @eval begin
     function $f(a::$T,common_ids::Range1D)
       $f(a,common_ids.parent)

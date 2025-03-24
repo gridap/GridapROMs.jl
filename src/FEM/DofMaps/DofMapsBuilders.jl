@@ -22,9 +22,16 @@ end
 function get_sparse_dof_map(a::TProductSparsity,U::FESpace,V::FESpace,args...)
   Tu = get_dof_eltype(U)
   Tv = get_dof_eltype(V)
-  full_ids = get_d_sparse_dofs_to_full_dofs(Tu,Tv,a)
-  sparse_ids = sparsify_indices(full_ids)
-  SparseMatrixDofMap(sparse_ids,full_ids,a)
+  try
+    full_ids = get_d_sparse_dofs_to_full_dofs(Tu,Tv,a)
+    sparse_ids = sparsify_indices(full_ids)
+    SparseMatrixDofMap(sparse_ids,full_ids,a)
+  catch
+    msg = "Could not build sparse tensor-product dof mapping. Must represent the
+    jacobian using a linear dof map"
+    println(msg)
+    get_sparse_dof_map(a.sparsity,U,V,args...)
+  end
 end
 
 """

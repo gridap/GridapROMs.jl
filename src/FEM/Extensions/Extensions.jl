@@ -15,6 +15,9 @@ using Gridap.Helpers
 using Gridap.MultiField
 using Gridap.ODEs
 
+using GridapEmbedded
+using GridapEmbedded.AgFEM
+
 using ROManifolds.Utils
 using ROManifolds.DofMaps
 using ROManifolds.TProduct
@@ -23,6 +26,8 @@ using ROManifolds.ParamAlgebra
 using ROManifolds.ParamFESpaces
 using ROManifolds.ParamSteady
 using ROManifolds.ParamODEs
+
+import Gridap.FESpaces: LinearConstraintsMap
 
 export get_bg_dof_to_dof
 export get_dof_to_bg_dof
@@ -41,6 +46,7 @@ include("ParamExtensions.jl")
 
 export ExternalFESpace
 export ExternalAgFEMSpace
+export OrderedAgFEMSpace
 include("ExternalFESpaces.jl")
 
 export ExtensionFESpace
@@ -58,6 +64,12 @@ export extend_free_dirichlet_values
 export extended_interpolate
 export extended_interpolate_everywhere
 export extended_interpolate_dirichlet
+export fill_out_free_values!
+export fill_out_dirichlet_values!
+export fill_out_free_and_dirichlet_values!
+export remove_out_free_values
+export remove_out_dirichlet_values
+export remove_out_free_and_dirichlet_values
 include("ExtensionFESpaces.jl")
 
 export ExtensionAssembler
@@ -69,6 +81,10 @@ export assemble_extended_matrix
 include("ExtensionAssemblers.jl")
 
 export ExtensionParamOperator
-include("ExtensionOperators.jl")
+export ExtensionLinearParamOperator
+export ExtensionLinearNonlinearParamOperator
+include("ExtensionParamOperators.jl")
+
+include("ExtensionParamSolvers.jl")
 
 end # module

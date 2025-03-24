@@ -109,7 +109,7 @@ ReductionStyle(tolrank::Union{Float64,Int};kwargs...) = TTSVDRanks(tolrank;kwarg
 ReductionStyle(tolrank::Vector{<:Union{Float64,Int}};kwargs...) = TTSVDRanks(tolrank;kwargs...)
 
 Base.size(r::TTSVDRanks) = (length(r.style),)
-Base.getindex(r::TTSVDRanks,i::Integer) = getindex(r.style,i)
+Base.getindex(r::TTSVDRanks,i::Integer) = r.style[i]
 
 """
     abstract type NormStyle end
@@ -157,7 +157,7 @@ Subtypes:
 - [`DirectReduction`](@ref)
 - [`GreedyReduction`](@ref)
 - [`SupremizerReduction`](@ref)
-- [`AbstractMDEIMReduction`](@ref)
+- [`HyperReduction`](@ref)
 - [`TransientReduction`](@ref)
 """
 abstract type Reduction{A<:ReductionStyle,B<:NormStyle} end
@@ -282,7 +282,7 @@ function TTSVDReduction(tolrank,args...;nparams=50,kwargs...)
 end
 
 Base.size(r::TTSVDReduction) = (length(r.tols),)
-Base.getindex(r::TTSVDReduction,i::Integer) = Reduction(getindex(r.red_style,i),r.norm_style;nparams=r.nparams)
+Base.getindex(r::TTSVDReduction,i::Integer) = Reduction(r.red_style[i],r.norm_style;nparams=r.nparams)
 
 ReductionStyle(r::TTSVDReduction) = r.red_style
 NormStyle(r::TTSVDReduction) = r.norm_style
@@ -322,7 +322,7 @@ end
 get_supr(r::SupremizerReduction) = r.supr_op
 get_supr_tol(r::SupremizerReduction) = r.supr_tol
 
-get_reduction(r::SupremizerReduction) = get_reduction(r.reduction)
+get_reduction(r::SupremizerReduction) = r.reduction
 ReductionStyle(r::SupremizerReduction) = ReductionStyle(get_reduction(r))
 NormStyle(r::SupremizerReduction) = NormStyle(get_reduction(r))
 ParamDataStructures.num_params(r::SupremizerReduction) = num_params(get_reduction(r))
@@ -351,7 +351,7 @@ function Reduction(supr_op::Function,args...;kwargs...)
 end
 
 """
-    abstract type AbstractMDEIMReduction{A} <: Reduction{A,EuclideanNorm} end
+    abstract type HyperReduction{A} <: Reduction{A,EuclideanNorm} end
 
 Type representing a hyper-reduction approximation by means of a MDEIM algorithm.
 Check [this](https://doi.org/10.1016/j.jcp.2015.09.046) for more details on MDEIM. This
@@ -364,16 +364,16 @@ Subtypes:
 - [`MDEIMReduction`](@ref)
 - [`TransientMDEIMReduction`](@ref)
 """
-abstract type AbstractMDEIMReduction{A} <: Reduction{A,EuclideanNorm} end
+abstract type HyperReduction{A<:ReductionStyle} <: Reduction{A,EuclideanNorm} end
 
 """
-    struct MDEIMReduction{A,R<:Reduction{A,EuclideanNorm}} <: AbstractMDEIMReduction{A}
+    struct MDEIMReduction{A,R<:Reduction{A,EuclideanNorm}} <: HyperReduction{A}
       reduction::R
     end
 
 MDEIM struct employed in steady problems
 """
-struct MDEIMReduction{A,R<:Reduction{A,EuclideanNorm}} <: AbstractMDEIMReduction{A}
+struct MDEIMReduction{A,R<:Reduction{A,EuclideanNorm}} <: HyperReduction{A}
   reduction::R
 end
 
@@ -382,7 +382,7 @@ function MDEIMReduction(args...;kwargs...)
   MDEIMReduction(reduction)
 end
 
-get_reduction(r::MDEIMReduction) = get_reduction(r.reduction)
+get_reduction(r::MDEIMReduction) = r.reduction
 ReductionStyle(r::MDEIMReduction) = ReductionStyle(get_reduction(r))
 NormStyle(r::MDEIMReduction) = NormStyle(get_reduction(r))
 ParamDataStructures.num_params(r::MDEIMReduction) = num_params(get_reduction(r))

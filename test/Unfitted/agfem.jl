@@ -97,79 +97,20 @@ lout(μ,v) = ∫(∇(v)⋅∇(gμ(μ)))dΩout
 Vext = ParamHarmonicExtensionFESpace(V,Vagg,Voutagg,aout,lout)
 Uext = ParamTrialFESpace(Vext,gμ)
 
-feop = LinearParamOperator(res,a,pspace,Uext,Vext,domains)
+feop = ExtensionLinearParamOperator(res,a,pspace,Uext,Vext,domains)
 
 solver = LUSolver()
-
-μ = realization(pspace;nparams=50)
-u, = solve(solver,feop,μ)
-Uμ = Uext(μ)
-uext = extend_free_values(Uμ,u)
-
-dof_map = get_dof_map(Vext)
-fesnaps = Snapshots(uext,dof_map,μ)
-
 energy(u,v) = ∫(∇(v)⋅∇(u))dΩbg
-# X = assemble_matrix(energy,V,V)
-
 state_reduction = PODReduction(1e-4,energy;nparams=50)
-rbsolver = RBSolver(solver,state_reduction;nparams_res=50,nparams_jac=50)
+rbsolver = RBSolver(solver,state_reduction;nparams_res=50,nparams_jac=20)
 
-# basis = reduced_basis(state_reduction,fesnaps,X)
+μ = realization(feop;nparams=50)
+fesnaps, = solution_snapshots(rbsolver,feop,μ)
 
-red_trial,red_test = reduced_spaces(rbsolver,feop,fesnaps)
+rbop = reduced_operator(rbsolver,feop,fesnaps)
+μon = realization(feop;nparams=10,sampling=:uniform)
+x̂,rbstats = solve(rbsolver,rbop,μon)
+x,festats = solution_snapshots(rbsolver,feop,μon)
+perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
 
-dm = get_dof_map(Vext)
-sin = get_sparse_dof_map(Vext,Vext,Ω)
-sΓ = get_sparse_dof_map(Vext,Vext,Γ)
-sΩout = get_sparse_dof_map(Vext,Vext,Ωout)
-sΩactout = get_sparse_dof_map(Vext,Vext,Ωactout)
-"NOTE: this sparsity on Ωactout won't work long term, since I will be inputing
-Ωout in aout"
-
-extop = ExtensionParamOperator(feop)
-Aallin = jacobian_snapshots(rbsolver,extop,fesnaps)
-assemallout = Extensions.ExtensionAssemblerInsertOut(Uμ,Uμ)
-_Aallout = assemble_matrix(assemallout,Uμ.space.extension.matdata)
-Aallout = Snapshots(_Aallout,sΩactout,μ)
-Ainin = jacobian_snapshots(rbsolver,feop,fesnaps)
-
-ballin = residual_snapshots(rbsolver,extop,fesnaps)
-_ballout = assemble_vector(assemallout,Uμ.space.extension.vecdata)
-ballout = Snapshots(_ballout,dm,μ)
-binin = residual_snapshots(rbsolver,feop,fesnaps)
-
-hr_reduction = rbsolver.residual_reduction
-hr_lhs = reduced_jacobian(hr_reduction,red_trial,red_test,Aallin)
-hr_rhs = reduced_residual(hr_reduction,red_test,ballin)
-hr_lhs_out,t_lhs_out = RBSteady.reduced_form(hr_reduction,Aallout,Ωout,red_trial,red_test)
-hr_rhs_out,t_rhs_out = RBSteady.reduced_form(hr_reduction,ballout,Ωout,red_test)
-
-trians_rhs = get_domains(hr_rhs)
-trians_lhs = get_domains(hr_lhs)
-feop′ = change_domains(feop,trians_rhs,trians_lhs)
-rbop = GenericRBOperator(feop′,red_trial,red_test,hr_lhs,hr_rhs)
-
-r = realization(pspace;nparams=10,sampling=:uniform)
-x = Extensions.zero_bg_free_values(Uext(r))
-xrb = project(get_trial(rbop)(r),x)
-x̂ = RBParamVector(xrb,x)
-
-nlop = parameterize(rbop,r)
-syscache = allocate_systemcache(nlop,x̂)
-
-hr_lhs_out_cache = allocate_hypred_cache(hr_lhs_out,r)
-
-A,b = syscache.A,syscache.b
-fill!(x̂,zero(eltype(x̂)))
-residual!(b,nlop,x̂)
-jacobian!(A,nlop,x̂)
-ns = solve!(x̂,solver,A,b)
-
-rbsnaps = RBSteady.to_snapshots(rbop.trial,x̂,r)
-
-uon, = solve(solver,feop,r)
-uexton = extend_free_values(Uext(r),uon)
-fesnapson = Snapshots(uexton,dof_map,r)
-
-fesnapson - rbsnaps
+U = get_trial(rbop)(μon)

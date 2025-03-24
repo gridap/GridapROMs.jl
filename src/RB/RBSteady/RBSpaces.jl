@@ -83,9 +83,13 @@ Subtypes:
 
 - [`SingleFieldRBSpace`](@ref)
 - [`MultiFieldRBSpace`](@ref)
-- [`EvalRBSpace`](@ref)
 """
 abstract type RBSpace{S} <: FESpace end
+
+function Arrays.evaluate(r::RBSpace,args...)
+  space = evaluate(get_fe_space(r),args...)
+  reduced_subspace(space,get_reduced_subspace(r))
+end
 
 (U::RBSpace)(μ) = evaluate(U,μ)
 
@@ -117,6 +121,7 @@ FESpaces.get_dirichlet_dof_ids(r::RBSpace) = get_dirichlet_dof_ids(get_fe_space(
 FESpaces.get_cell_is_dirichlet(r::RBSpace) = get_cell_is_dirichlet(get_fe_space(r))
 FESpaces.num_dirichlet_tags(r::RBSpace) = num_dirichlet_tags(get_fe_space(r))
 FESpaces.get_dirichlet_dof_tag(r::RBSpace) = get_dirichlet_dof_tag(get_fe_space(r))
+DofMaps.get_dof_map(r::RBSpace) = get_dof_map(get_fe_space(r))
 ParamDataStructures.param_length(r::RBSpace) = param_length(get_fe_space(r))
 
 function FESpaces.zero_free_values(r::RBSpace)
@@ -135,24 +140,14 @@ function FESpaces.gather_free_and_dirichlet_values!(fv,dv,r::RBSpace,cv)
   gather_free_and_dirichlet_values!(fv.fe_data,dv,get_fe_space(r),cv)
 end
 
-for (f,f!,g) in zip(
-  (:project,:inv_project),
-  (:project!,:inv_project!),
-  (:(Algebra.allocate_in_domain),:(Algebra.allocate_in_range)))
-
+for (f,f!) in zip((:project,:inv_project),(:project!,:inv_project!))
   @eval begin
     function $f(r::RBSpace,x::AbstractVector)
-      y = $g(r,x)
-      $f!(y,r,x)
-      return y
+      $f(get_reduced_subspace(r),x)
     end
 
     function $f!(y,r::RBSpace,x::AbstractVector)
       $f!(y,get_reduced_subspace(r),x)
-    end
-
-    function $g(r::RBSpace,x::AbstractVector)
-      $g(get_reduced_subspace(r),x)
     end
   end
 end
@@ -203,15 +198,15 @@ FESpaces.get_fe_space(r::SingleFieldRBSpace) = r.space
 get_reduced_subspace(r::SingleFieldRBSpace) = r.subspace
 
 """
-    struct MultiFieldRBSpace <: RBSpace{MultiFieldFESpace}
-      space::MultiFieldFESpace
+    struct MultiFieldRBSpace{S<:MultiFieldFESpace} <: RBSpace{S}
+      space::S
       subspace::BlockProjection
     end
 
 Reduced basis subspace of a `MultiFieldFESpace` in `Gridap`
 """
-struct MultiFieldRBSpace <: RBSpace{MultiFieldFESpace}
-  space::MultiFieldFESpace
+struct MultiFieldRBSpace{S<:MultiFieldFESpace} <: RBSpace{S}
+  space::S
   subspace::BlockProjection
 end
 
@@ -238,56 +233,17 @@ function Base.iterate(r::MultiFieldRBSpace,state=1)
   return ri,state+1
 end
 
-function Arrays.evaluate(r::RBSpace,args...)
-  space = evaluate(get_fe_space(r),args...)
-  subspace = reduced_subspace(space,get_reduced_subspace(r))
-  EvalRBSpace(subspace,args...)
-end
-
-"""
-    struct EvalRBSpace{S,B<:AbstractRealization} <: RBSpace{S}
-      space::S
-      realization::B
-    end
-
-Conceptually this isn't needed, but it helps dispatching according to steady/transient
-cases
-"""
-struct EvalRBSpace{S,B<:AbstractRealization} <: RBSpace{S}
-  space::S
-  realization::B
-end
-
-FESpaces.get_fe_space(r::EvalRBSpace) = get_fe_space(r.space)
-get_reduced_subspace(r::EvalRBSpace) = get_reduced_subspace(r.space)
-
-ParamDataStructures.param_length(r::EvalRBSpace) = num_params(r.realization)
-
-Base.getindex(r::EvalRBSpace{MultiFieldRBSpace},i::Integer) = EvalRBSpace(r.space[i],r.realization)
-
-function Base.iterate(r::EvalRBSpace{MultiFieldRBSpace},state=1)
-  if state > num_fields(r)
-    return nothing
-  end
-  ri = EvalRBSpace(iterate(r.space,state),r.realization)
-  return ri,state+1
-end
-
-MultiField.MultiFieldStyle(r::RBSpace) = MultiFieldStyle(get_fe_space(r))
-MultiField.num_fields(r::RBSpace) = num_fields(get_fe_space(r))
-Base.length(r::RBSpace) = num_fields(r)
+MultiField.MultiFieldStyle(r::MultiFieldRBSpace) = MultiFieldStyle(get_fe_space(r))
+MultiField.num_fields(r::MultiFieldRBSpace) = num_fields(get_fe_space(r))
+Base.length(r::MultiFieldRBSpace) = num_fields(r)
 
 # utils
-
-function to_snapshots(f::FESpace,x::AbstractParamVector,r::AbstractRealization)
-  i = invert(get_dof_map(f))
-  Snapshots(x,i,r)
-end
 
 function to_snapshots(f::RBSpace,x̂::AbstractParamVector,r::AbstractRealization)
   fr = f(r)
   x = inv_project(fr,x̂)
-  to_snapshots(get_fe_space(f),x,r)
+  i = get_dof_map(fr)
+  Snapshots(x,i,r)
 end
 
 function projection_error(f::RBSpace,x::AbstractParamVector,r::AbstractRealization)

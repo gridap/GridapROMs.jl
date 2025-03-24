@@ -141,16 +141,16 @@ end
 # extended interface
 
 get_ext_space(f::SingleFieldFESpace) = @abstractmethod
-get_bg_fe_space(f::SingleFieldFESpace) = @abstractmethod
+get_bg_space(f::SingleFieldFESpace) = @abstractmethod
 get_extension(f::SingleFieldFESpace) = @notimplemented
 
 get_ext_space(f::ExtensionFESpace) = f
-get_bg_fe_space(f::ExtensionFESpace) = f.bg_space
+get_bg_space(f::ExtensionFESpace) = f.bg_space
 get_extension(f::ExtensionFESpace) = f.extension
 
-for F in (:get_ext_space,:get_bg_fe_space,:get_extension)
+for F in (:get_ext_space,:get_bg_space,:get_extension)
   for T in (:SingleFieldParamFESpace,:UnEvalTrialFESpace,:TransientTrialFESpace,:TrialFESpace)
-    if !(F==:get_bg_fe_space && T==:SingleFieldParamFESpace)
+    if !(F==:get_bg_space && T==:SingleFieldParamFESpace)
       @eval begin
         $F(f::$T{<:ExtensionFESpace}) = $F(f.space)
       end
@@ -158,16 +158,16 @@ for F in (:get_ext_space,:get_bg_fe_space,:get_extension)
   end
 end
 
-function get_bg_fe_space(f::TrivialParamFESpace{<:ExtensionFESpace})
-  TrivialParamFESpace(get_bg_fe_space(f.space),f.plength)
+function get_bg_space(f::TrivialParamFESpace{<:ExtensionFESpace})
+  TrivialParamFESpace(get_bg_space(f.space),f.plength)
 end
 
-function get_bg_fe_space(f::TrialParamFESpace{<:ExtensionFESpace})
-  TrialParamFESpace(get_bg_fe_space(f.space),f.dirichlet_values)
+function get_bg_space(f::TrialParamFESpace{<:ExtensionFESpace})
+  TrialParamFESpace(get_bg_space(f.space),f.dirichlet_values)
 end
 
-zero_bg_free_values(f::SingleFieldFESpace) = zero_free_values(get_bg_fe_space(f))
-zero_bg_dirichlet_values(f::SingleFieldFESpace) = zero_dirichlet_values(get_bg_fe_space(f))
+zero_bg_free_values(f::SingleFieldFESpace) = zero_free_values(get_bg_space(f))
+zero_bg_dirichlet_values(f::SingleFieldFESpace) = zero_dirichlet_values(get_bg_space(f))
 
 zero_bg_free_values(f::ExtensionFESpace) = zero_free_values(f.bg_space)
 zero_bg_dirichlet_values(f::ExtensionFESpace) = zero_dirichlet_values(f.bg_space)
@@ -255,11 +255,11 @@ function get_bg_cell_dof_ids(f::SingleFieldFESpace,args...)
 end
 
 function _extended_cell_values(f::SingleFieldFESpace,object)
-  FESpaces._cell_vals(get_bg_fe_space(f),object)
+  FESpaces._cell_vals(get_bg_space(f),object)
 end
 
 function _extended_cell_values(f::SingleFieldFESpace,object::SingleFieldFEFunction)
-  bg_f = get_bg_fe_space(f)
+  bg_f = get_bg_space(f)
   cell_vals = get_cell_dof_values(object)
   is_bg = _is_background_cell_vals(f,cell_vals)
 
@@ -276,7 +276,7 @@ function _extended_cell_values(f::SingleFieldFESpace,object::SingleFieldFEFuncti
 end
 
 function _is_background_cell_vals(f::SingleFieldFESpace,cell_vals)
-  bg_f = get_bg_fe_space(f)
+  bg_f = get_bg_space(f)
   bg_trian = get_triangulation(bg_f)
   num_bg_cells = num_cells(bg_trian)
   if length(cell_vals) < num_bg_cells
@@ -324,11 +324,11 @@ function extended_interpolate_dirichlet!(object,fv,dv,f::SingleFieldFESpace)
 end
 
 function ExtendedCellField(f::SingleFieldFESpace,bg_cellvals)
-  CellField(get_bg_fe_space(f),bg_cellvals)
+  CellField(get_bg_space(f),bg_cellvals)
 end
 
 function scatter_extended_free_and_dirichlet_values(f::SingleFieldFESpace,fv,dv)
-  bg_f = get_bg_fe_space(f)
+  bg_f = get_bg_space(f)
   if length(fv) == num_free_dofs(bg_f) && length(dv) == num_dirichlet_dofs(bg_f)
     scatter_free_and_dirichlet_values(bg_f,fv,dv)
   else
@@ -393,6 +393,41 @@ function extend_free_and_dirichlet_values(f::SingleFieldFESpace,fv,dv)
   bg_dv = zero_bg_dirichlet_values(f)
   _bg_vals_from_in_vals!(bg_fv,bg_dv,get_ext_space(f),fv,dv)
   return bg_fv,bg_dv
+end
+
+function fill_out_free_values!(bg_fv,f::SingleFieldFESpace)
+  bg_dv = zero_bg_dirichlet_values(f)
+  fill_out_free_and_dirichlet_values!(bg_fv,bg_dv,f)
+  return bg_fv
+end
+
+function fill_out_dirichlet_values!(bg_fv,f::SingleFieldFESpace)
+  bg_fv = zero_bg_free_values(f)
+  fill_out_free_and_dirichlet_values!(bg_fv,bg_dv,f)
+  return bg_dv
+end
+
+function fill_out_free_and_dirichlet_values!(bg_fv,bg_dv,f::SingleFieldFESpace)
+  _fill_bg_out_vals!(bg_fv,bg_dv,get_ext_space(f))
+end
+
+function remove_out_free_values(f::SingleFieldFESpace,bg_fv)
+  bg_dv = zero_bg_dirichlet_values(f)
+  fv,dv = remove_out_free_and_dirichlet_values(f,bg_fv,bg_dv)
+  return fv
+end
+
+function remove_out_dirichlet_values(f::SingleFieldFESpace,bg_dv)
+  bg_fv = zero_bg_free_values(f)
+  fv,dv = remove_out_free_and_dirichlet_values(f,bg_fv,bg_dv)
+  return dv
+end
+
+function remove_out_free_and_dirichlet_values(f::SingleFieldFESpace,bg_fv,bg_dv)
+  fv = zero_free_values(f)
+  dv = zero_dirichlet_values(f)
+  _remove_bg_out_vals!(fv,dv,f,bg_fv,bg_dv)
+  return fv,dv
 end
 
 # utils
@@ -518,6 +553,69 @@ function _bg_vals_from_in_vals!(
   end
 end
 
+function _fill_bg_out_vals!(bg_fv,bg_dv,f::ExtensionFESpace)
+  out_fv = get_free_dof_values(f.extension.values)
+  out_dv = get_dirichlet_dof_values(f.extension.values)
+  for (out_fdof,bg_fdof) in enumerate(f.extension.fdof_to_bg_fdofs)
+    bg_fv[bg_fdof] = out_fv[out_fdof]
+  end
+  for (out_ddof,bg_ddof) in enumerate(f.extension.ddof_to_bg_ddofs)
+    bg_dv[bg_ddof] = out_dv[out_ddof]
+  end
+end
+
+function _fill_bg_out_vals!(
+  bg_fv::ConsecutiveParamVector,
+  bg_dv::ConsecutiveParamVector,
+  f::ExtensionFESpace)
+
+  out_fv = get_free_dof_values(f.extension.values)
+  out_dv = get_dirichlet_dof_values(f.extension.values)
+  bg_fdata = get_all_data(bg_fv)
+  out_fdata = get_all_data(out_fv)
+  bg_ddata = get_all_data(bg_dv)
+  out_ddata = get_all_data(out_dv)
+  for k in param_eachindex(bg_fv)
+    for (out_fdof,bg_fdof) in enumerate(f.extension.fdof_to_bg_fdofs)
+      bg_fdata[bg_fdof,k] = out_fdata[out_fdof,k]
+    end
+    for (out_ddof,bg_ddof) in enumerate(f.extension.ddof_to_bg_ddofs)
+      bg_ddata[bg_ddof,k] = out_ddata[out_ddof,k]
+    end
+  end
+end
+
+function _remove_bg_out_vals!(fv,dv,f::ExtensionFESpace,bg_fv,bg_dv)
+  for (in_fdof,bg_fdof) in enumerate(f.fdof_to_bg_fdofs)
+    fv[in_fdof] = bg_fv[bg_fdof]
+  end
+  for (in_ddof,bg_ddof) in enumerate(f.extension.ddof_to_bg_ddofs)
+    dv[in_ddof] = bg_dv[bg_ddof]
+  end
+end
+
+function _remove_bg_out_vals!(
+  fv::ConsecutiveParamVector,
+  dv::ConsecutiveParamVector,
+  f::ExtensionFESpace,
+  bg_fv::ConsecutiveParamVector,
+  bg_dv::ConsecutiveParamVector,)
+
+  bg_fdata = get_all_data(bg_fv)
+  in_fdata = get_all_data(in_fv)
+  bg_ddata = get_all_data(bg_dv)
+  in_ddata = get_all_data(in_dv)
+
+  for k in param_eachindex(bg_fv)
+    for (in_fdof,bg_fdof) in enumerate(f.fdof_to_bg_fdofs)
+      in_fdata[in_fdof,k] = bg_fdata[bg_fdof,k]
+    end
+    for (in_ddof,bg_ddof) in enumerate(f.extension.ddof_to_bg_ddofs)
+      in_ddata[in_ddof,k] = bg_ddata[bg_ddof,k]
+    end
+  end
+end
+
 function bg_vals_from_bg_cell_vals!(bg_fv,bg_dv,f::ExtensionFESpace,bg_cv)
   incut_cellids = get_cell_dof_ids(f)
   out_cellids = get_cell_dof_ids(get_outcut_fe_space(f))
@@ -558,5 +656,5 @@ function _split_bg_cell_vals(
 end
 
 function DofMaps.get_dof_map(f::ExtensionFESpace,args...)
-  get_dof_map(get_bg_fe_space(f),args...)
+  get_dof_map(get_bg_space(f),args...)
 end
