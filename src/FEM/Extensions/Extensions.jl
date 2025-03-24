@@ -64,6 +64,12 @@ export extend_free_dirichlet_values
 export extended_interpolate
 export extended_interpolate_everywhere
 export extended_interpolate_dirichlet
+export fill_out_free_values!
+export fill_out_dirichlet_values!
+export fill_out_free_and_dirichlet_values!
+export remove_out_free_values
+export remove_out_dirichlet_values
+export remove_out_free_and_dirichlet_values
 include("ExtensionFESpaces.jl")
 
 export ExtensionAssembler

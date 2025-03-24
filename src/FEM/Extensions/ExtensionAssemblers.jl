@@ -15,8 +15,8 @@ struct ExtensionAssembler{S<:OutValsStyle} <: SparseMatrixAssembler
 end
 
 function ExtensionAssembler(trial::FESpace,test::FESpace,style=InsertInOut())
-  bg_trial = get_bg_fe_space(trial)
-  bg_test = get_bg_fe_space(test)
+  bg_trial = get_bg_space(trial)
+  bg_test = get_bg_space(test)
   assem = SparseMatrixAssembler(bg_trial,bg_test)
   extension = get_extension(trial) # must be equal to the test extension
   trial_fdof_to_bg_fdofs = get_in_fdof_to_bg_fdofs(trial)
@@ -205,7 +205,7 @@ function ParamDataStructures.parameterize(a::ExtensionAssembler,r::AbstractReali
 end
 
 function ParamSteady._assemble_matrix(f,U::FESpace,V::ExtensionFESpace)
-  ParamSteady._assemble_matrix(f,get_bg_fe_space(U),get_bg_fe_space(V))
+  ParamSteady._assemble_matrix(f,get_bg_space(U),get_bg_space(V))
 end
 
 function DofMaps.SparsityPattern(
