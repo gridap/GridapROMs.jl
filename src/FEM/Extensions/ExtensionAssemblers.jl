@@ -19,8 +19,8 @@ function ExtensionAssembler(trial::FESpace,test::FESpace,style=InsertInOut())
   bg_test = get_bg_space(test)
   assem = SparseMatrixAssembler(bg_trial,bg_test)
   extension = get_extension(trial) # must be equal to the test extension
-  trial_fdof_to_bg_fdofs = get_in_fdof_to_bg_fdofs(trial)
-  test_fdof_to_bg_fdofs = get_in_fdof_to_bg_fdofs(test)
+  trial_fdof_to_bg_fdofs = get_active_fdof_to_bg_fdofs(trial)
+  test_fdof_to_bg_fdofs = get_active_fdof_to_bg_fdofs(test)
   ExtensionAssembler(style,assem,extension,trial_fdof_to_bg_fdofs,test_fdof_to_bg_fdofs)
 end
 
@@ -190,7 +190,7 @@ function DofMaps.SparsityPattern(
   trian=DofMaps._get_common_domain(U,V)
   )
 
-  a = ExtensionAssembler(U,V)
+  a = ExtensionAssemblerInsertIn(U,V)
   m1 = nz_counter(FESpaces.get_matrix_builder(a),(FESpaces.get_rows(a),FESpaces.get_cols(a)))
   cellidsrows = get_bg_cell_dof_ids(V,trian)
   cellidscols = get_bg_cell_dof_ids(U,trian)

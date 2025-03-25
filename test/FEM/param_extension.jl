@@ -111,3 +111,14 @@ writevtk(Ω,datadir("plts/sol_harm_in"),cellfields=["uh"=>FEFunction(V,uext[1])]
 norm(uext[1])^2 ≈ norm(u[1])^2 + norm(Uμ.space.extension.values.free_values[1])^2
 uext[1][Vext.fdof_to_bg_fdofs] ≈ u[1]
 uext[1][Vext.extension.fdof_to_bg_fdofs] ≈ Uμ.space.extension.values.free_values[1]
+
+Uagg = ParamTrialFESpace(Vagg,gμ)
+Uμagg = Uagg(μ)
+uok = zero_free_values(Uμagg)
+Aok = assemble_matrix(afun,Uμagg,Vagg)
+bok = assemble_vector(lfun,Uμagg)
+solve!(uok,solver,Aok,bok)
+uhok = FEFunction(Uμagg,uok)
+uhok1 = param_getindex(uhok,1)
+writevtk(Ω,datadir("plts/sol_harm_ok"),cellfields=["uh"=>uhok1])
+writevtk(Ωbg,datadir("plts/sol_harm_ok"),cellfields=["uh"=>uhok1])

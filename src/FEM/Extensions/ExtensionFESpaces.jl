@@ -500,7 +500,7 @@ function get_cut_fdof_to_bg_fdofs(f::ExtensionFESpace)
   setdiff(bg_fdof_ids,inout_fdof_ids)
 end
 
-function get_incut_fdof_to_bg_fdofs(f::ExtensionFESpace)
+function get_active_fdof_to_bg_fdofs(f::ExtensionFESpace)
   out_bg_fdofs = get_out_fdof_to_bg_fdofs(f)
   bg_incut_bg_fmask = ones(Bool,num_free_dofs(f.bg_space))
   for bg_fdof in out_bg_fdofs
@@ -509,7 +509,7 @@ function get_incut_fdof_to_bg_fdofs(f::ExtensionFESpace)
   findall(bg_incut_bg_fmask)
 end
 
-function get_incut_ddof_to_bg_ddofs(f::ExtensionFESpace)
+function get_active_ddof_to_bg_ddofs(f::ExtensionFESpace)
   out_bg_ddofs = get_out_ddof_to_bg_ddofs(f)
   bg_incut_bg_dmask = ones(Bool,num_dirichlet_dofs(f.bg_space))
   for bg_ddof in out_bg_ddofs
@@ -518,12 +518,19 @@ function get_incut_ddof_to_bg_ddofs(f::ExtensionFESpace)
   findall(bg_incut_bg_dmask)
 end
 
-function get_incut_dof_to_bg_dofs(f::ExtensionFESpace)
-  get_incut_fdof_to_bg_fdofs(f),get_incut_ddof_to_bg_ddofs(f)
+function get_active_dof_to_bg_dofs(f::ExtensionFESpace)
+  get_active_fdof_to_bg_fdofs(f),get_active_ddof_to_bg_ddofs(f)
 end
 
-function get_incut_dof_to_bg_dofs(f::ExtensionFESpace{<:FESpaceWithLinearConstraints})
+function get_active_dof_to_bg_dofs(f::ExtensionFESpace{<:FESpaceWithLinearConstraints})
   get_dof_to_bg_dof(f.bg_space,f.space.space)
+end
+
+function get_inactive_dof_to_bg_dofs(f::ExtensionFESpace)
+  bg_act_fdofs,bg_act_ddofs = get_active_dof_to_bg_dofs(f)
+  bg_inact_fdofs = setdiff(get_free_dof_ids(f.bg_space),bg_act_fdofs)
+  bg_inact_ddofs = setdiff(get_dirichlet_dof_ids(f.bg_space),bg_act_ddofs)
+  bg_inact_fdofs,bg_inact_ddofs
 end
 
 for f in (:get_incut_fe_space,:get_outcut_fe_space,:get_incut_cells_to_bg_cells,
@@ -531,7 +538,9 @@ for f in (:get_incut_fe_space,:get_outcut_fe_space,:get_incut_cells_to_bg_cells,
     :get_out_cells_to_bg_cells,:get_bg_cells_to_incut_cells,:get_in_cells_to_incut_cells,
     :get_bg_cells_to_outcut_cells,:get_out_cells_to_outcut_cells,:extend_incut_cell_vals,
     :get_in_fdof_to_bg_fdofs,:get_in_ddof_to_bg_ddofs,:get_out_fdof_to_bg_fdofs,
-    :get_out_ddof_to_bg_ddofs,:get_cut_fdof_to_bg_fdofs,:get_incut_dof_to_bg_dofs)
+    :get_out_ddof_to_bg_ddofs,:get_cut_fdof_to_bg_fdofs,:get_active_dof_to_bg_dofs,
+    :get_active_fdof_to_bg_fdofs,:get_active_ddof_to_bg_ddofs,:get_active_dof_to_bg_dofs,
+    :get_inactive_dof_to_bg_dofs)
   @eval begin
     $f(fs::SingleFieldFESpace,args...) = $f(get_ext_space(fs),args...)
   end
@@ -601,7 +610,7 @@ function _bg_in_cut_vals_from_in_vals!(
 
   T = eltype(bg_fv)
 
-  incut_fdof_to_bg_fdof,incut_ddof_to_bg_ddof = get_incut_dof_to_bg_dofs(f)
+  incut_fdof_to_bg_fdof,incut_ddof_to_bg_ddof = get_active_dof_to_bg_dofs(f)
 
   for DOF in 1:length(f.space.DOF_to_mDOFs)
     pini = f.space.DOF_to_mDOFs.ptrs[DOF]
@@ -662,7 +671,7 @@ function _bg_in_cut_vals_from_in_vals!(
   T = eltype2(bg_fv)
   plength = param_length(bg_fv)
 
-  incut_fdof_to_bg_fdof,incut_ddof_to_bg_ddof = get_incut_dof_to_bg_dofs(f)
+  incut_fdof_to_bg_fdof,incut_ddof_to_bg_ddof = get_active_dof_to_bg_dofs(f)
 
   bg_fdata = get_all_data(bg_fv)
   in_fdata = get_all_data(in_fv)
@@ -699,13 +708,18 @@ function _bg_in_cut_vals_from_in_vals!(
 end
 
 function _fill_bg_out_vals!(bg_fv,bg_dv,f::ExtensionFESpace)
+  inact_fdof_to_bg_fdof,inact_ddof_to_bg_ddof = get_inactive_dof_to_bg_dofs(f)
   out_fv = get_free_dof_values(f.extension.values)
   out_dv = get_dirichlet_dof_values(f.extension.values)
   for (out_fdof,bg_fdof) in enumerate(f.extension.fdof_to_bg_fdofs)
-    bg_fv[bg_fdof] = out_fv[out_fdof]
+    if bg_fdof ∈ inact_fdof_to_bg_fdof
+      bg_fv[bg_fdof] = out_fv[out_fdof]
+    end
   end
   for (out_ddof,bg_ddof) in enumerate(f.extension.ddof_to_bg_ddofs)
-    bg_dv[bg_ddof] = out_dv[out_ddof]
+    if bg_ddof ∈ inact_ddof_to_bg_ddof
+      bg_dv[bg_ddof] = out_dv[out_ddof]
+    end
   end
 end
 
@@ -714,6 +728,7 @@ function _fill_bg_out_vals!(
   bg_dv::ConsecutiveParamVector,
   f::ExtensionFESpace)
 
+  inact_fdof_to_bg_fdof,inact_ddof_to_bg_ddof = get_inactive_dof_to_bg_dofs(f)
   out_fv = get_free_dof_values(f.extension.values)
   out_dv = get_dirichlet_dof_values(f.extension.values)
   bg_fdata = get_all_data(bg_fv)
@@ -722,10 +737,14 @@ function _fill_bg_out_vals!(
   out_ddata = get_all_data(out_dv)
   for k in param_eachindex(bg_fv)
     for (out_fdof,bg_fdof) in enumerate(f.extension.fdof_to_bg_fdofs)
-      bg_fdata[bg_fdof,k] = out_fdata[out_fdof,k]
+      if bg_fdof ∈ inact_fdof_to_bg_fdof
+        bg_fdata[bg_fdof,k] = out_fdata[out_fdof,k]
+      end
     end
     for (out_ddof,bg_ddof) in enumerate(f.extension.ddof_to_bg_ddofs)
-      bg_ddata[bg_ddof,k] = out_ddata[out_ddof,k]
+      if bg_ddof ∈ inact_ddof_to_bg_ddof
+        bg_ddata[bg_ddof,k] = out_ddata[out_ddof,k]
+      end
     end
   end
 end

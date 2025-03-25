@@ -44,7 +44,7 @@ aggregates = aggregate(strategy,cutgeo)
 Ω = Triangulation(cutgeo,PHYSICAL_IN)
 Ωout = Triangulation(cutgeo,PHYSICAL_OUT)
 
-order = 1
+order = 2
 degree = 2*order
 
 dΩbg = Measure(Ωbg,degree)
@@ -113,4 +113,11 @@ x̂,rbstats = solve(rbsolver,rbop,μon)
 x,festats = solution_snapshots(rbsolver,feop,μon)
 perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
 
-U = get_trial(rbop)(μon)
+U = Uext(μ)
+u = zero_free_values(U)
+solve!(u,solver,feop.op,μ)
+bg_u = extend_free_values(U,u)
+new_bg_u = extend_free_values(U,u)
+
+writevtk(Ωbg,datadir("plts/sol_harm_ok"),cellfields=["uh"=>FEFunction(V,bg_u[1])])
+writevtk(Ωbg,datadir("plts/sol_harm"),cellfields=["uh"=>FEFunction(V,new_bg_u[1])])
