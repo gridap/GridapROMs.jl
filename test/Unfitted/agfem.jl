@@ -121,3 +121,13 @@ new_bg_u = extend_free_values(U,u)
 
 writevtk(Ωbg,datadir("plts/sol_harm_ok"),cellfields=["uh"=>FEFunction(V,bg_u[1])])
 writevtk(Ωbg,datadir("plts/sol_harm"),cellfields=["uh"=>FEFunction(V,new_bg_u[1])])
+
+red_trial,red_test = reduced_spaces(rbsolver,feop,fesnaps)
+# jacs = jacobian_snapshots(rbsolver,feop,fesnaps)
+us_jac = get_param_data(fesnaps) |> similar
+fill!(us_jac,zero(eltype2(us_jac)))
+r_jac = get_realization(fesnaps)
+A = jacobian(feop,r_jac,us_jac)
+iA = ParamSteady.get_sparse_dof_map_at_domains(feop)
+
+cell_dof_ids = Extensions.get_bg_cell_dof_ids(Vext,Ω)

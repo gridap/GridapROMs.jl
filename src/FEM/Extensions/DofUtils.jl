@@ -82,18 +82,6 @@ function get_dof_to_bg_dof(bg_f::SingleFieldFESpace,agg_f::FESpaceWithLinearCons
   return agg_fdof_to_bg_fdof,agg_ddof_to_bg_ddof
 end
 
-function get_ag_out_dof_to_bg_dof(
-  f_bg::UnconstrainedFESpace,
-  f_ag::FESpaceWithLinearConstraints,
-  f_out::UnconstrainedFESpace)
-
-  agg_fdof_to_bg_fdof,agg_ddof_to_bg_ddof = get_dof_to_bg_dof(f_bg,f_ag)
-  act_out_fdof_to_bg_fdof,act_out_ddof_to_bg_ddof = get_dof_to_bg_dof(f_bg,f_out)
-  agg_out_fdof_to_bg_fdof = setdiff(act_out_fdof_to_bg_fdof,agg_fdof_to_bg_fdof)
-  agg_out_ddof_to_bg_ddof = setdiff(act_out_ddof_to_bg_ddof,agg_ddof_to_bg_ddof)
-  return agg_out_fdof_to_bg_fdof,agg_out_ddof_to_bg_ddof
-end
-
 function get_dof_to_mdof(f::FESpaceWithLinearConstraints)
   T = eltype(f.mDOF_to_DOF)
   fdof_to_mfdof = zeros(T,num_free_dofs(f.space))
@@ -131,33 +119,21 @@ function get_mdof_to_dof(f::FESpaceWithLinearConstraints)
   return mfdof_to_fdof,mddof_to_ddof
 end
 
-# function get_dof_to_bg_dof(
-#   bg_f::SingleFieldFESpace,
-#   f::SingleFieldFESpace,
-#   bg_dof_to_dof::AbstractVector
-#   )
+function get_bg_dof_to_active_dof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace)
+  get_bg_dof_to_dof(bg_f,f)
+end
 
-#   dof_to_all_bg_dof = get_dof_to_bg_dof(bg_f,f)
-#   dof_to_bg_dof = similar(bg_dof_to_dof)
-#   for (i,dof) in enumerate(bg_dof_to_dof)
-#     dof_to_bg_dof[i] = dof_to_all_bg_dof[dof]
-#   end
-#   return dof_to_bg_dof
-# end
+function get_bg_dof_to_active_dof(bg_f::SingleFieldFESpace,f::FESpaceWithLinearConstraints)
+  get_bg_dof_to_dof(bg_f,f.space)
+end
 
-# function get_bg_dof_to_dof(
-#   bg_f::SingleFieldFESpace,
-#   f::SingleFieldFESpace,
-#   dof_to_bg_dof::AbstractVector
-#   )
+function get_active_dof_to_bg_dof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace)
+  get_dof_to_bg_dof(bg_f,f)
+end
 
-#   bg_dof_to_all_dof = get_bg_dof_to_dof(bg_f,f)
-#   bg_dof_to_dof = similar(dof_to_bg_dof)
-#   for (i,bg_dof) in enumerate(dof_to_bg_dof)
-#     bg_dof_to_dof[i] = bg_dof_to_all_dof[bg_dof]
-#   end
-#   return bg_dof_to_dof
-# end
+function get_active_dof_to_bg_dof(bg_f::SingleFieldFESpace,f::FESpaceWithLinearConstraints)
+  get_dof_to_bg_dof(bg_f,f.space)
+end
 
 function compose_index(i1_to_i2,i2_to_i3)
   T_i3 = eltype(i2_to_i3)

@@ -72,6 +72,12 @@ export remove_out_dirichlet_values
 export remove_out_free_and_dirichlet_values
 include("ExtensionFESpaces.jl")
 
+export EmbeddedFESpace
+include("EmbeddedFESpaces.jl")
+
+export DirectSumFESpace
+include("DirectSumFESpaces.jl")
+
 export ExtensionAssembler
 export ExtensionAssemblerInsertIn
 export ExtensionAssemblerInsertOut
