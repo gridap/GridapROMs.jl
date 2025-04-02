@@ -2,11 +2,11 @@
 
 ## Installation
 
-ROManifolds is a registered package. You can install it by running:
+GridapROMs is a registered package. You can install it by running:
 
 ```julia
 # Use ] to enter the Pkg REPL mode
-pkg> add ROManifolds
+pkg> add GridapROMs
 ```
 
 ## Load package
@@ -14,7 +14,7 @@ pkg> add ROManifolds
 Load the package normally with
 
 ```julia
-using ROManifolds
+using GridapROMs
 ```
 
 ## Workflow 
@@ -153,7 +153,7 @@ solver = LUSolver()
 
 ## RB solver
 
-Finally, we are ready to begin the ROManifolds part. The first part consists in defining the problem's [`RBSolver`](@ref), i.e. the reduced counterpart of a FE solver:
+Finally, we are ready to begin the GridapROMs part. The first part consists in defining the problem's [`RBSolver`](@ref), i.e. the reduced counterpart of a FE solver:
 
 ```julia 
 tol = 1e-4
@@ -246,7 +246,7 @@ rbop = GenericRBOperator(op′,Û,V̂,â,l̂)
 
 ## Online phase 
 
-This step consists in computing the ROManifolds approximation for any desired parameter. We consider, for e.g., 10 parameters distributed uniformly on `D`
+This step consists in computing the GridapROMs approximation for any desired parameter. We consider, for e.g., 10 parameters distributed uniformly on `D`
 
 ```julia
 μon = realization(D;nparams=10,rand=true)

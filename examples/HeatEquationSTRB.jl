@@ -2,7 +2,7 @@ module HeatEquationSTRB
 
 using DrWatson
 using Gridap
-using ROManifolds
+using GridapROMs
 
 include("ExamplesInterface.jl")
 

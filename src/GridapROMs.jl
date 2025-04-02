@@ -1,4 +1,4 @@
-module ROManifolds
+module GridapROMs
 
 export compute_speedup
 export compute_error
@@ -6,7 +6,7 @@ export compute_relative_error
 export ∂₁, ∂₂, ∂₃
 
 include("FEM/Utils/Utils.jl")
-using ROManifolds.Utils
+using GridapROMs.Utils
 
 export OrderedFESpace
 export CartesianFESpace
@@ -18,13 +18,13 @@ export get_sparse_dof_map
 export flatten
 
 include("FEM/DofMaps/DofMaps.jl")
-using ROManifolds.DofMaps
+using GridapROMs.DofMaps
 
 export TProductDiscreteModel
 export TProductFESpace
 
 include("FEM/TProduct/TProduct.jl")
-using ROManifolds.TProduct
+using GridapROMs.TProduct
 
 export Realization
 export TransientRealization
@@ -46,20 +46,20 @@ export Snapshots
 export select_snapshots
 
 include("FEM/ParamDataStructures/ParamDataStructures.jl")
-using ROManifolds.ParamDataStructures
+using GridapROMs.ParamDataStructures
 
 include("FEM/ParamAlgebra/ParamAlgebra.jl")
-using ROManifolds.ParamAlgebra
+using GridapROMs.ParamAlgebra
 
 include("FEM/ParamGeometry/ParamGeometry.jl")
-using ROManifolds.ParamGeometry
+using GridapROMs.ParamGeometry
 
 export ParamTrialFESpace
 export TrialParamFESpace
 export MultiFieldParamFESpace
 
 include("FEM/ParamFESpaces/ParamFESpaces.jl")
-using ROManifolds.ParamFESpaces
+using GridapROMs.ParamFESpaces
 
 export ParamOperator
 export LinearParamOperator
@@ -70,7 +70,7 @@ export LinearParamFEOperator
 export LinearNonlinearParamFEOperator
 
 include("FEM/ParamSteady/ParamSteady.jl")
-using ROManifolds.ParamSteady
+using GridapROMs.ParamSteady
 
 export ODEParamOperator
 export TransientParamLinearOperator
@@ -83,7 +83,7 @@ export TransientParamLinearFEOperator
 export LinearNonlinearTransientParamFEOperator
 
 include("FEM/ParamODEs/ParamODEs.jl")
-using ROManifolds.ParamODEs
+using GridapROMs.ParamODEs
 
 export Reduction
 export PODReduction
@@ -138,7 +138,7 @@ export load_operator
 export load_results
 
 include("RB/RBSteady/RBSteady.jl")
-using ROManifolds.RBSteady
+using GridapROMs.RBSteady
 
 export TransientReduction
 export TransientMDEIMReduction
@@ -146,5 +146,5 @@ export TransientProjection
 export TransientRBOperator
 
 include("RB/RBTransient/RBTransient.jl")
-using ROManifolds.RBTransient
+using GridapROMs.RBTransient
 end

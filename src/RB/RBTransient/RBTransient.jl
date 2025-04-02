@@ -19,21 +19,21 @@ using Gridap.ODEs
 using Gridap.TensorValues
 using Gridap.Helpers
 
-using ROManifolds.Utils
-using ROManifolds.DofMaps
-using ROManifolds.TProduct
-using ROManifolds.ParamDataStructures
-using ROManifolds.ParamAlgebra
-using ROManifolds.ParamFESpaces
-using ROManifolds.ParamSteady
-using ROManifolds.ParamODEs
+using GridapROMs.Utils
+using GridapROMs.DofMaps
+using GridapROMs.TProduct
+using GridapROMs.ParamDataStructures
+using GridapROMs.ParamAlgebra
+using GridapROMs.ParamFESpaces
+using GridapROMs.ParamSteady
+using GridapROMs.ParamODEs
 
-using ROManifolds.RBSteady
+using GridapROMs.RBSteady
 
 import Base: +,-,*,\
 import StatsBase: countmap
 import UnPack: @unpack
-import ROManifolds.RBSteady: reduced_cells,_get_label
+import GridapROMs.RBSteady: reduced_cells,_get_label
 
 export TransientReduction
 export TransientMDEIMReduction

@@ -1,6 +1,6 @@
 module ParamMappedModelTest
 
-using ROManifolds
+using GridapROMs
 using Gridap
 using Gridap.Geometry
 using Test

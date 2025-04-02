@@ -1,8 +1,8 @@
 ```@meta
-CurrentModule = ROManifolds.DofMaps
+CurrentModule = GridapROMs.DofMaps
 ```
 
-# ROManifolds.DofMaps 
+# GridapROMs.DofMaps 
 
 ```@autodocs
 Modules = [DofMaps,]

@@ -1,5 +1,5 @@
 using Documenter
-using ROManifolds
+using GridapROMs
 
 fem_interface = [
   "utils.md",
@@ -17,19 +17,19 @@ rom_interface = [
 ]
 
 makedocs(;
-    modules=[ROManifolds],
+    modules=[GridapROMs],
     format=Documenter.HTML(size_threshold=nothing),
     pages=[
         "Home" => "index.md",
         "Usage" => ["steady.md","transient.md"],
         "FEM Interface" => fem_interface,
-        "ROManifolds Interface" => rom_interface,
+        "GridapROMs Interface" => rom_interface,
         "Contributing" => "contributing.md",
     ],
-    sitename="ROManifolds.jl",
+    sitename="GridapROMs.jl",
     warnonly=[:cross_references,:missing_docs],
 )
 
 deploydocs(
-  repo = "github.com:nichomueller/ROManifolds.jl.git",
+  repo = "github.com:nichomueller/GridapROMs.jl.git",
 )

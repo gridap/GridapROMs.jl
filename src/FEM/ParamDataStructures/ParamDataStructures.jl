@@ -14,8 +14,8 @@ using Gridap.Geometry
 using Gridap.CellData
 using Gridap.Helpers
 
-using ROManifolds.Utils
-using ROManifolds.DofMaps
+using GridapROMs.Utils
+using GridapROMs.DofMaps
 
 import ArraysOfArrays: front_tuple,innersize,_ncolons
 import Base:+,-,*,/,\

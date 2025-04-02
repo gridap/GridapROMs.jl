@@ -2,9 +2,9 @@ module DofMapTests
 
 using Gridap
 using GridapEmbedded
-using ROManifolds
-using ROManifolds.DofMaps
-using ROManifolds.TProduct
+using GridapROMs
+using GridapROMs.DofMaps
+using GridapROMs.TProduct
 using Test
 
 R = 0.3

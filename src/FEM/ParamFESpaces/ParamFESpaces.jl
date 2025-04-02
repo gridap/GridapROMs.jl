@@ -17,10 +17,10 @@ using Gridap.ReferenceFEs
 using Gridap.TensorValues
 using Gridap.Helpers
 
-using ROManifolds.DofMaps
-using ROManifolds.TProduct
-using ROManifolds.ParamDataStructures
-using ROManifolds.ParamAlgebra
+using GridapROMs.DofMaps
+using GridapROMs.TProduct
+using GridapROMs.ParamDataStructures
+using GridapROMs.ParamAlgebra
 
 import Test: @test
 import ArraysOfArrays: _innerlength
