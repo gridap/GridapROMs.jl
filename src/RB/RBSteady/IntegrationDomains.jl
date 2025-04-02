@@ -153,18 +153,18 @@ function vector_domain(
 end
 
 """
-    struct MatrixDomain{T} <: IntegrationDomain{Int,1}
+    struct MatrixDomain{T,S} <: IntegrationDomain
       cells::Vector{Int32}
       cell_irows::Table{T,Vector{T},Vector{Int32}}
-      cell_icols::Table{T,Vector{T},Vector{Int32}}
+      cell_icols::Table{S,Vector{S},Vector{Int32}}
     end
 
 Integration domain for a projection vector operator in a steady problem
 """
-struct MatrixDomain{T} <: IntegrationDomain
+struct MatrixDomain{T,S} <: IntegrationDomain
   cells::Vector{Int32}
   cell_irows::Table{T,Vector{T},Vector{Int32}}
-  cell_icols::Table{T,Vector{T},Vector{Int32}}
+  cell_icols::Table{S,Vector{S},Vector{Int32}}
 end
 
 function matrix_domain(args...)

@@ -94,9 +94,10 @@ end
 @inline function add_hr_entry!(
   combine::Function,A::ConsecutiveParamVector,v::Number,ids::Tuple)
 
+  uids = unique(ids)
   data = get_all_data(A)
   np = param_length(A)
-  for it in ids
+  for it in uids
     for ip in 1:np
       astp = data[it,ip]
       data[it,ip] = combine(astp,v)
@@ -108,9 +109,10 @@ end
 @inline function add_hr_entry!(
   combine::Function,A::ConsecutiveParamVector,v::AbstractVector,ids::Tuple)
 
+  uids = unique(ids)
   data = get_all_data(A)
   np = param_length(A)
-  for it in ids
+  for it in uids
     for ip in 1:np
       ipt = (it-1)*np + ip
       vtp = v[ipt]
@@ -212,12 +214,27 @@ end
 end
 
 _ipos(v::VectorValue) = any(i>0 for i in v.data)
-_iseq(v::VectorValue{D},w::VectorValue{D}) where D = all(i==j for (i,j) in zip(v.data,w.data))
+
 @inline function _get_ids(v::VectorValue)
   ids = ()
   for vi in v.data
     if vi > 0
       ids = (ids...,vi)
+    end
+  end
+  return ids
+end
+
+@inline function _get_ids(v::VectorValue,w::VectorValue)
+  ids = ()
+  for vi in v.data
+    if vi > 0
+      for wi in w.data
+        if wi == vi
+          ids = (ids...,wi)
+          break
+        end
+      end
     end
   end
   return ids
@@ -230,9 +247,10 @@ end
     if _ipos(j)
       for (li,i) in enumerate(is)
         if _ipos(i)
-          if _iseq(i,j)
+          ij = _get_ids(i,j)
+          if !isempty(ij)
             vij = vs[li,lj]
-            add_hr_entry!(combine,A,vij,_get_ids(i))
+            add_hr_entry!(combine,A,vij,ij)
           end
         end
       end
@@ -260,9 +278,10 @@ end
     if _ipos(j)
       for (li,i) in enumerate(is)
         if _ipos(i)
-          if _iseq(i,j)
+          ij = _get_ids(i,j)
+          if !isempty(ij)
             get_hr_param_entry!(vij,vs,loc,li,lj)
-            add_hr_entry!(combine,A,vij,_get_ids(i))
+            add_hr_entry!(combine,A,vij,ij)
           end
         end
       end
