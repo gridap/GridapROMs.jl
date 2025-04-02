@@ -1,28 +1,13 @@
-abstract type EmbeddedSpaceStyle end
-struct ActiveSpace <: EmbeddedSpaceStyle end
-struct ComplementarySpace <: EmbeddedSpaceStyle end
-
-struct EmbeddedFESpace{S<:SingleFieldFESpace,A<:EmbeddedSpaceStyle} <: SingleFieldFESpace
-  style::A
+struct EmbeddedFESpace{S<:SingleFieldFESpace} <: SingleFieldFESpace
   space::S
   bg_space::SingleFieldFESpace
   fdof_to_bg_fdofs::AbstractVector
   ddof_to_bg_ddofs::AbstractVector
 end
 
-const ComplementaryFESpace{S<:SingleFieldFESpace} = EmbeddedFESpace{S,ComplementarySpace}
-
-function EmbeddedFESpace(args...)
-  EmbeddedFESpace(ActiveSpace(),args...)
-end
-
-function EmbeddedComplementaryFESpace(args...)
-  EmbeddedFESpace(ComplementarySpace(),args...)
-end
-
-function EmbeddedFESpace(space::SingleFieldFESpace,bg_space::SingleFieldFESpace,style=ActiveSpace())
+function EmbeddedFESpace(space::SingleFieldFESpace,bg_space::SingleFieldFESpace)
   fdof_to_bg_fdofs,ddof_to_bg_ddofs = get_active_dof_to_bg_dof(bg_space,space)
-  EmbeddedFESpace(style,space,bg_space,fdof_to_bg_fdofs,ddof_to_bg_ddofs)
+  EmbeddedFESpace(space,bg_space,fdof_to_bg_fdofs,ddof_to_bg_ddofs)
 end
 
 FESpaces.ConstraintStyle(::Type{<:EmbeddedFESpace{S}}) where S = ConstraintStyle(S)
@@ -74,12 +59,16 @@ end
 get_emb_space(f::SingleFieldFESpace) = @abstractmethod
 get_act_space(f::SingleFieldFESpace) = @abstractmethod
 get_bg_space(f::SingleFieldFESpace) = @abstractmethod
+get_active_fdof_to_bg_fdofs(f::SingleFieldFESpace) = @abstractmethod
+get_active_ddof_to_bg_ddofs(f::SingleFieldFESpace) = @abstractmethod
 
 get_emb_space(f::EmbeddedFESpace) = f
 get_act_space(f::EmbeddedFESpace) = f.space
 get_bg_space(f::EmbeddedFESpace) = f.bg_space
+get_active_fdof_to_bg_fdofs(f::EmbeddedFESpace) = f.fdof_to_bg_fdofs
+get_active_ddof_to_bg_ddofs(f::EmbeddedFESpace) = f.ddof_to_bg_ddofs
 
-for F in (:get_emb_space,:get_act_space,:get_bg_space)
+for F in (:get_emb_space,:get_act_space,:get_bg_space,:get_active_fdof_to_bg_fdofs,:get_active_ddof_to_bg_ddofs)
   for T in (:SingleFieldParamFESpace,:UnEvalTrialFESpace,:TransientTrialFESpace,:TrialFESpace)
     if !(F∈(:get_act_space,:get_bg_space) && T==:SingleFieldParamFESpace)
       @eval begin
@@ -116,7 +105,7 @@ end
 
 function ExtendedFEFunction(f::SingleFieldFESpace,fv::AbstractVector,dv::AbstractVector)
   bg_cell_vals = scatter_extended_free_and_dirichlet_values(f,fv,dv)
-  bg_cell_field = ExtendedCellField(f,cell_vals)
+  bg_cell_field = ExtendedCellField(f,bg_cell_vals)
   SingleFieldFEFunction(bg_cell_field,bg_cell_vals,fv,dv,f)
 end
 
@@ -134,20 +123,6 @@ function ExtendedFEFunction(
   zmdv = dv .+ c
   FEFunction(f.space,zmfv,zmdv)
 end
-
-# function _extended_cell_values(f::SingleFieldFESpace,object)
-#   FESpaces._cell_vals(get_bg_space(f),object)
-# end
-
-# function _extended_cell_values(f::SingleFieldFESpace,object::SingleFieldFEFunction)
-#   bg_f = get_bg_space(f)
-#   cell_vals = get_cell_dof_values(object)
-#   bg_cell_vals = extend_cell_vals(f,cell_vals)
-#   bg_cell_field = CellField(bg_f,bg_cell_vals)
-#   bg_fv,bg_dv = gather_free_and_dirichlet_values(bg_f,bg_cell_vals)
-#   bg_object = SingleFieldFEFunction(bg_cell_field,bg_cell_vals,bg_fv,bg_dv,bg_f)
-#   FESpaces._cell_vals(bg_f,bg_object)
-# end
 
 function extended_interpolate(object,f::SingleFieldFESpace)
   fv = zero_free_values(f)
@@ -240,44 +215,9 @@ end
 function extend_free_and_dirichlet_values(f::SingleFieldFESpace,fv,dv)
   bg_fv = zero_bg_free_values(f)
   bg_dv = zero_bg_dirichlet_values(f)
-  _bg_vals_from_vals!(bg_fv,bg_dv,get_emb_space(f),fv,dv)
+  _bg_vals_from_vals!(bg_fv,bg_dv,f,fv,dv)
   return bg_fv,bg_dv
 end
-
-# function fill_out_free_values!(bg_fv,f::SingleFieldFESpace)
-#   bg_dv = zero_bg_dirichlet_values(f)
-#   fill_out_free_and_dirichlet_values!(bg_fv,bg_dv,f)
-#   return bg_fv
-# end
-
-# function fill_out_dirichlet_values!(bg_fv,f::SingleFieldFESpace)
-#   bg_fv = zero_bg_free_values(f)
-#   fill_out_free_and_dirichlet_values!(bg_fv,bg_dv,f)
-#   return bg_dv
-# end
-
-# function fill_out_free_and_dirichlet_values!(bg_fv,bg_dv,f::SingleFieldFESpace)
-#   _fill_bg_out_vals!(bg_fv,bg_dv,get_emb_space(f))
-# end
-
-# function remove_out_free_values(f::SingleFieldFESpace,bg_fv)
-#   bg_dv = zero_bg_dirichlet_values(f)
-#   fv,dv = remove_out_free_and_dirichlet_values(f,bg_fv,bg_dv)
-#   return fv
-# end
-
-# function remove_out_dirichlet_values(f::SingleFieldFESpace,bg_dv)
-#   bg_fv = zero_bg_free_values(f)
-#   fv,dv = remove_out_free_and_dirichlet_values(f,bg_fv,bg_dv)
-#   return dv
-# end
-
-# function remove_out_free_and_dirichlet_values(f::SingleFieldFESpace,bg_fv,bg_dv)
-#   fv = zero_free_values(f)
-#   dv = zero_dirichlet_values(f)
-#   _remove_bg_out_vals!(fv,dv,f,bg_fv,bg_dv)
-#   return fv,dv
-# end
 
 # utils
 
@@ -285,6 +225,10 @@ function extend_cell_vals(f::SingleFieldFESpace,cell_vals)
   bg_f = get_bg_space(f)
   bg_fv,bg_dv = gather_extended_free_and_dirichlet_values(f,cell_vals)
   scatter_free_and_dirichlet_values(bg_f,bg_fv,bg_dv)
+end
+
+function _bg_vals_from_vals!(bg_fv,bg_dv,f::SingleFieldFESpace,fv,dv)
+  _bg_vals_from_vals!(bg_fv,bg_dv,get_emb_space(f),fv,dv)
 end
 
 function _bg_vals_from_vals!(bg_fv,bg_dv,f::EmbeddedFESpace,fv,dv)
@@ -399,80 +343,45 @@ function _bg_vals_from_vals!(
   end
 end
 
-function DofMaps.get_dof_map(f::EmbeddedFESpace,args...)
-  get_dof_map(get_bg_space(f),args...)
+struct BGCellDofIds{A<:AbstractArray,FI<:AbstractVector,FD<:AbstractVector} <: Map
+  cell_dof_ids::A
+  fdof_to_bg_fdofs::FI
+  ddof_to_bg_ddofs::FD
 end
 
-# complementary interface
-
-function FESpaces.scatter_free_and_dirichlet_values(f::ComplementaryFESpace,fv,dv)
-  cell_dof_ids = get_cell_dof_ids(f)
-  lazy_map(Broadcasting(PosZeroNegReindex(fv,dv)),cell_dof_ids)
+function BGCellDofIds(cell_dof_ids::AbstractArray,fdof_to_bg_fdofs::AbstractArray)
+  nddof_approx = maximum(fdof_to_bg_fdofs)
+  ddof_to_bg_ddofs = IdentityVector(nddof_approx)
+  BGCellDofIds(cell_dof_ids,fdof_to_bg_fdofs,ddof_to_bg_ddofs)
 end
 
-function _check_intersection(f::EmbeddedFESpace,g::EmbeddedFESpace)
-  @check f.bg_space === g.bg_space
-  @check isempty(intersect(f.fdof_to_bg_fdofs,g.fdof_to_bg_fdofs))
-  @check isempty(intersect(f.ddof_to_bg_ddofs,g.ddof_to_bg_ddofs))
-  @check length(f.fdof_to_bg_fdofs)+length(g.fdof_to_bg_fdofs) == num_free_dofs(f.bg_space)
-  @check length(f.ddof_to_bg_ddofs)+length(g.ddof_to_bg_ddofs) == num_dirichlet_dofs(f.bg_space)
+function Arrays.return_cache(k::BGCellDofIds,i::Int)
+  cache = array_cache(k.cell_dof_ids)
+  r = getindex!(cache,k.cell_dof_ids,i)
+  (cache,CachedArray(r))
 end
 
-function _check_intersection(f::FESpace,g::FESpace)
-  @notimplemented
-end
-
-function  (dof_to_bg_dofs,g_dof_to_bg_dofs)
-  intersect_bg_dofs = intersect(dof_to_bg_dofs,g_dof_to_bg_dofs)
-  T = eltype(g_dof_to_bg_dofs)
-  ndofs = length(g_dof_to_bg_dofs)
-  complem_ndofs = ndofs-length(intersect_bg_dofs)
-  dof_to_complem_dofs = zeros(T,ndofs)
-  complem_dof_to_bg_dofs = zeros(T,complem_ndofs)
-  fcount = 0
-  for (g_dof,bg_dof) in enumerate(g_dof_to_bg_dofs)
-    if !(bg_dof ∈ intersect_bg_dofs)
-      fcount += 1
-      dof_to_complem_dofs[g_dof] = fcount
-      complem_dof_to_bg_dofs[fcount] = bg_dof
-    end
-  end
-  return dof_to_complem_dofs,complem_dof_to_bg_dofs
-end
-
-function _get_complem_info(cellids::Table,dof_to_complem_fdofs,dof_to_complem_ddofs)
-  complem_nfree = length(findall(!iszero,dof_to_complem_fdofs))
-  complem_ndiri = length(findall(!iszero,dof_to_complem_ddofs))
-  complem_cellids = copy(cellids)
-  for (i,dofi) in enumerate(cellids.data)
-    if dofi > 0
-      complem_cellids.data[i] = dof_to_complem_fdofs[dofi]
+function Arrays.evaluate!(c,k::BGCellDofIds,i::Int)
+  cache,a = c
+  ids = getindex!(cache,k.cell_dof_ids,i)
+  setsize!(a,size(ids))
+  r = a.array
+  for (j,idsj) in enumerate(ids)
+    if idsj > 0
+      r[j] = k.fdof_to_bg_fdofs[idsj]
     else
-      complem_cellids.data[i] = dof_to_complem_ddofs[dofi]
+      r[j] = k.ddof_to_bg_ddofs[-idsj]
     end
   end
-  return complem_cellids,complem_nfree,complem_ndiri
+  return r
 end
 
-function get_complementary(f::EmbeddedFESpace,g::SingleFieldFESpace)
-  @notimplemented "For now, the inactive space must be an UnconstrainedFESpace"
+function get_bg_cell_dof_ids(f::EmbeddedFESpace,args...)
+  cell_ids = get_cell_dof_ids(f,args...)
+  k = BGCellDofIds(cell_ids,f.fdof_to_bg_fdofs,f.ddof_to_bg_ddofs)
+  lazy_map(k,1:length(cell_ids))
 end
 
-function get_complementary(f::EmbeddedFESpace,g::UnconstrainedFESpace)
-  g_bg_fdofs,g_bg_ddofs = get_active_dof_to_bg_dof(f.bg_space,g)
-  fdof_to_complem_fdofs,complem_fdof_to_bg_fdofs = _get_complem_dof_info(
-    f.fdof_to_bg_fdofs,
-    g_bg_fdofs)
-  ddof_to_complem_ddofs,complem_ddof_to_bg_ddofs = _get_complem_dof_info(
-    f.ddof_to_bg_ddofs,
-    g_bg_ddofs)
-  complem_cell_dof_ids,complem_nfree,complem_ndiri = _get_complem_info(
-    get_cell_dof_ids(g),
-    fdof_to_complem_fdofs,
-    ddof_to_complem_ddofs)
-  complem_space = UnconstrainedFESpace(
-    g.vector_type,complem_nfree,complem_ndiri,complem_cell_dof_ids,
-    g.fe_basis,g.fe_dof_basis,g.cell_is_dirichlet,g.dirichlet_dof_tag,g.dirichlet_cells,g.ntags
-    )
-  EmbeddedComplementaryFESpace(complem_space,f.bg_space,complem_fdof_to_bg_fdofs,complem_ddof_to_bg_ddofs)
+function get_bg_cell_dof_ids(f::SingleFieldFESpace,args...)
+  get_bg_cell_dof_ids(get_emb_space(f),args...)
 end

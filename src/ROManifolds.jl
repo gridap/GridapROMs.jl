@@ -84,16 +84,6 @@ export LinearNonlinearTransientParamFEOperator
 include("FEM/ParamODEs/ParamODEs.jl")
 using ROManifolds.ParamODEs
 
-export Extension
-export ZeroExtension
-export FunctionExtension
-export HarmonicExtension
-export ExtensionFESpace
-export ZeroExtensionFESpace
-export FunctionExtensionFESpace
-export HarmonicExtensionFESpace
-export MultiFieldExtensionFESpace
-
 include("FEM/Extensions/Extensions.jl")
 using ROManifolds.Extensions
 

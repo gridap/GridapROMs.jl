@@ -1,28 +1,26 @@
-
-
-function FESpaces.zero_free_values(r::RBSpace{<:ExtensionFESpace})
+function FESpaces.zero_free_values(r::RBSpace{<:DirectSumFESpace})
   zero_free_values(Extensions.get_bg_space(r))
 end
 
-function FESpaces.zero_free_values(r::RBSpace{<:SingleFieldParamFESpace{<:ExtensionFESpace}})
+function FESpaces.zero_free_values(r::RBSpace{<:SingleFieldParamFESpace{<:DirectSumFESpace}})
   zero_free_values(_get_rb_bg_space(r))
 end
 
 function to_snapshots(
-  r::RBSpace{<:UnEvalTrialFESpace{<:ExtensionFESpace}},
+  r::RBSpace{<:UnEvalTrialFESpace{<:DirectSumFESpace}},
   x̂::AbstractParamVector,
   μ::AbstractRealization
   )
 
   rμ = r(μ)
   x = inv_project(Extensions.get_bg_space(rμ),x̂)
-  fill_out_free_values!(x,get_fe_space(rμ))
+  pad_solution!(x,get_fe_space(rμ))
   i = get_dof_map(rμ)
   Snapshots(x,i,μ)
 end
 
 function reduced_cells(
-  f::ExtensionFESpace,
+  f::DirectSumFESpace,
   trian::Triangulation,
   dofs::AbstractVector
   )
@@ -33,7 +31,7 @@ function reduced_cells(
 end
 
 function reduced_cells(
-  r::RBSpace{<:ExtensionFESpace},
+  r::RBSpace{<:DirectSumFESpace},
   trian::Triangulation,
   dofs::AbstractVector)
 
@@ -41,7 +39,7 @@ function reduced_cells(
 end
 
 function reduced_idofs(
-  f::ExtensionFESpace,
+  f::DirectSumFESpace,
   trian::Triangulation,
   cells::AbstractVector,
   dofs::AbstractVector)
@@ -52,7 +50,7 @@ function reduced_idofs(
 end
 
 function reduced_idofs(
-  r::RBSpace{<:ExtensionFESpace},
+  r::RBSpace{<:DirectSumFESpace},
   trian::Triangulation,
   cells::AbstractVector,
   dofs::AbstractVector)
@@ -63,15 +61,15 @@ end
 for T in (:SingleFieldParamFESpace,:UnEvalTrialFESpace,:TransientTrialFESpace,:TrialFESpace)
   @eval begin
     function reduced_cells(
-      f::$T{<:ExtensionFESpace},
+      f::$T{<:DirectSumFESpace},
       trian::Triangulation,
       dofs::AbstractVector)
 
-      reduced_cells(Extensions.get_ext_space(f),trian,dofs)
+      reduced_cells(f.space,trian,dofs)
     end
 
     function reduced_cells(
-      r::RBSpace{<:$T{<:ExtensionFESpace}},
+      r::RBSpace{<:$T{<:DirectSumFESpace}},
       trian::Triangulation,
       dofs::AbstractVector)
 
@@ -79,16 +77,16 @@ for T in (:SingleFieldParamFESpace,:UnEvalTrialFESpace,:TransientTrialFESpace,:T
     end
 
     function reduced_idofs(
-      f::$T{<:ExtensionFESpace},
+      f::$T{<:DirectSumFESpace},
       trian::Triangulation,
       cells::AbstractVector,
       dofs::AbstractVector)
 
-      reduced_idofs(Extensions.get_ext_space(f),trian,cells,dofs)
+      reduced_idofs(f.space,trian,cells,dofs)
     end
 
     function reduced_idofs(
-      r::RBSpace{<:$T{<:ExtensionFESpace}},
+      r::RBSpace{<:$T{<:DirectSumFESpace}},
       trian::Triangulation,
       cells::AbstractVector,
       dofs::AbstractVector)
@@ -100,18 +98,13 @@ end
 
 # utils
 
-function Extensions.get_ext_space(r::RBSpace)
-  fext = Extensions.get_ext_space(get_fe_space(r))
-  reduced_subspace(fext,get_reduced_subspace(r))
-end
-
 function Extensions.get_bg_space(r::RBSpace)
   fbg = Extensions.get_bg_space(get_fe_space(r))
   reduced_subspace(fbg,get_reduced_subspace(r))
 end
 
-function _get_rb_bg_space(r::RBSpace{<:SingleFieldParamFESpace{<:ExtensionFESpace}})
-  fextμ = get_fe_space(r)
-  fbgμ = Extensions.get_bg_space(fextμ)
+function _get_rb_bg_space(r::RBSpace{<:SingleFieldParamFESpace{<:DirectSumFESpace}})
+  fμ = get_fe_space(r)
+  fbgμ = Extensions.get_bg_space(fμ)
   reduced_subspace(fbgμ,get_reduced_subspace(r))
 end

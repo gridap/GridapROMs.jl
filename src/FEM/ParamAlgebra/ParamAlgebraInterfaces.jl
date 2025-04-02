@@ -6,7 +6,7 @@ end
 
 for f in (:(Algebra.allocate_in_range),:(Algebra.allocate_in_domain))
   @eval begin
-    function $f(::Type{PV},matrix::AbstractParamMatrix) where PV<:AbstractParamVector
+    function $f(::Type{PV},matrix::AbstractParamMatrix) where {T,PV<:AbstractParamVector{T}}
       V = Vector{T}
       item = testitem(matrix)
       plength = param_length(matrix)
@@ -14,7 +14,7 @@ for f in (:(Algebra.allocate_in_range),:(Algebra.allocate_in_domain))
       global_parameterize(v,plength)
     end
 
-    function $f(::Type{PV},matrix::BlockParamMatrix) where PV<:BlockParamVector
+    function $f(::Type{PV},matrix::BlockParamMatrix) where {T,PV<:BlockParamVector{T}}
       V = BlockVector{T,Vector{Vector{T}}}
       item = testitem(matrix)
       plength = param_length(matrix)

@@ -35,55 +35,15 @@ include("DofUtils.jl")
 
 include("ODofUtils.jl")
 
-export Extension
-export ZeroExtension
-export FunctionExtension
-export HarmonicExtension
-include("ExtensionInterface.jl")
-
-export ParamExtension
-include("ParamExtensions.jl")
-
-export ExternalFESpace
-export ExternalAgFEMSpace
-export OrderedAgFEMSpace
-include("ExternalFESpaces.jl")
-
-export ExtensionFESpace
-export ZeroExtensionFESpace
-export FunctionExtensionFESpace
-export HarmonicExtensionFESpace
-export ParamZeroExtensionFESpace
-export ParamFunctionExtensionFESpace
-export ParamHarmonicExtensionFESpace
-export ExtendedFEFunction
-export get_bg_cell_dof_ids
-export extend_free_values
-export extend_dirichlet_values
-export extend_free_dirichlet_values
-export extended_interpolate
-export extended_interpolate_everywhere
-export extended_interpolate_dirichlet
-export fill_out_free_values!
-export fill_out_dirichlet_values!
-export fill_out_free_and_dirichlet_values!
-export remove_out_free_values
-export remove_out_dirichlet_values
-export remove_out_free_and_dirichlet_values
-include("ExtensionFESpaces.jl")
-
 export EmbeddedFESpace
+export get_bg_cell_dof_ids
 include("EmbeddedFESpaces.jl")
 
 export DirectSumFESpace
+export ⊕
 include("DirectSumFESpaces.jl")
 
 export ExtensionAssembler
-export ExtensionAssemblerInsertIn
-export ExtensionAssemblerInsertOut
-export ExtensionAssemblerInsertInOut
-export assemble_extended_vector
-export assemble_extended_matrix
 include("ExtensionAssemblers.jl")
 
 export ExtensionParamOperator
@@ -91,6 +51,12 @@ export ExtensionLinearParamOperator
 export ExtensionLinearNonlinearParamOperator
 include("ExtensionParamOperators.jl")
 
-include("ExtensionParamSolvers.jl")
+export ZeroExtension
+export FunctionExtension
+export HarmonicExtension
+export ExtensionSolver
+export extend_solution
+export pad_solution!
+include("ExtensionSolvers.jl")
 
 end # module

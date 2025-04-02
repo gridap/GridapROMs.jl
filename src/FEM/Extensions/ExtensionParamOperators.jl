@@ -24,7 +24,7 @@ ParamSteady.get_fe_operator(extop::ExtensionParamOperator) = get_fe_operator(ext
 function get_extended_assembler(extop::ExtensionParamOperator)
   trial = get_trial(extop)
   test = get_test(extop)
-  ExtensionAssemblerInsertIn(trial,test)
+  ExtensionAssembler(trial,test)
 end
 
 function get_param_extended_assembler(extop::ExtensionParamOperator,r::Realization)

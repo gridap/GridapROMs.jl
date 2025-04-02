@@ -40,33 +40,28 @@ aggregates = aggregate(strategy,cutgeo)
 
 Ωbg = Triangulation(model)
 Ωact = Triangulation(cutgeo,ACTIVE)
-Ωactout = Triangulation(cutgeo,ACTIVE_OUT)
 Ω = Triangulation(cutgeo,PHYSICAL_IN)
 Ωout = Triangulation(cutgeo,PHYSICAL_OUT)
+Ωinact = Ωout.b
+Γ = EmbeddedBoundary(cutgeo)
+n_Γ = get_normal_vector(Γ)
 
-order = 2
+order = 1
 degree = 2*order
 
 dΩbg = Measure(Ωbg,degree)
 dΩ = Measure(Ω,degree)
-dΩout = Measure(Ωout,degree)
+dΩinact = Measure(Ωinact,degree)
 Γn = BoundaryTriangulation(model,tags=[8])
 dΓn = Measure(Γn,degree)
-Γ = EmbeddedBoundary(cutgeo)
-n_Γ = get_normal_vector(Γ)
 dΓ = Measure(Γ,degree)
 
 reffe = ReferenceFE(lagrangian,Float64,order)
 
 V = FESpace(Ωbg,reffe,conformity=:H1)
-
 Vact = FESpace(Ωact,reffe,conformity=:H1)
 Vagg = AgFEMSpace(Vact,aggregates)
-
-cutgeoout = cut(model,!geo2)
-aggregatesout = aggregate(strategy,cutgeoout)
-Voutact = FESpace(Ωactout,reffe,conformity=:H1)
-Voutagg = AgFEMSpace(Voutact,aggregatesout)
+Vout = FESpace(Ωinact,reffe,conformity=:H1)
 
 const γd = 10.0
 const hd = dp[1]/n
@@ -91,15 +86,12 @@ trian_a = (Ω,Γ)
 trian_res = (Ω,Γ,Γn)
 domains = FEDomains(trian_res,trian_a)
 
-aout(u,v) = ∫(∇(v)⋅∇(u))dΩout
-lout(μ,v) = ∫(∇(v)⋅∇(gμ(μ)))dΩout
-
-Vext = ParamHarmonicExtensionFESpace(V,Vagg,Voutagg,aout,lout)
+Vext = DirectSumFESpace(V,Vagg,Vout)
 Uext = ParamTrialFESpace(Vext,gμ)
 
 feop = ExtensionLinearParamOperator(res,a,pspace,Uext,Vext,domains)
 
-solver = LUSolver()
+solver = ExtensionSolver(LUSolver())
 energy(u,v) = ∫(∇(v)⋅∇(u))dΩbg
 state_reduction = PODReduction(1e-4,energy;nparams=50)
 rbsolver = RBSolver(solver,state_reduction;nparams_res=50,nparams_jac=20)
@@ -113,21 +105,5 @@ x̂,rbstats = solve(rbsolver,rbop,μon)
 x,festats = solution_snapshots(rbsolver,feop,μon)
 perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
 
-U = Uext(μ)
-u = zero_free_values(U)
-solve!(u,solver,feop.op,μ)
-bg_u = extend_free_values(U,u)
-new_bg_u = extend_free_values(U,u)
-
 writevtk(Ωbg,datadir("plts/sol_harm_ok"),cellfields=["uh"=>FEFunction(V,bg_u[1])])
 writevtk(Ωbg,datadir("plts/sol_harm"),cellfields=["uh"=>FEFunction(V,new_bg_u[1])])
-
-red_trial,red_test = reduced_spaces(rbsolver,feop,fesnaps)
-# jacs = jacobian_snapshots(rbsolver,feop,fesnaps)
-us_jac = get_param_data(fesnaps) |> similar
-fill!(us_jac,zero(eltype2(us_jac)))
-r_jac = get_realization(fesnaps)
-A = jacobian(feop,r_jac,us_jac)
-iA = ParamSteady.get_sparse_dof_map_at_domains(feop)
-
-cell_dof_ids = Extensions.get_bg_cell_dof_ids(Vext,Ω)
