@@ -1,8 +1,8 @@
 ```@meta
-CurrentModule = ROManifolds.RBSteady
+CurrentModule = GridapROMs.RBSteady
 ```
 
-# ROManifolds.RBSteady 
+# GridapROMs.RBSteady 
 
 ```@autodocs
 Modules = [RBSteady,]

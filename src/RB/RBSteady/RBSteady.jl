@@ -25,19 +25,19 @@ using GridapSolvers.LinearSolvers
 using GridapSolvers.NonlinearSolvers
 using GridapSolvers.SolverInterfaces
 
-using ROManifolds.Utils
-using ROManifolds.DofMaps
-using ROManifolds.TProduct
-using ROManifolds.ParamDataStructures
-using ROManifolds.ParamAlgebra
-using ROManifolds.ParamFESpaces
-using ROManifolds.ParamSteady
-using ROManifolds.ParamODEs
-using ROManifolds.Extensions
+using GridapROMs.Utils
+using GridapROMs.DofMaps
+using GridapROMs.TProduct
+using GridapROMs.ParamDataStructures
+using GridapROMs.ParamAlgebra
+using GridapROMs.ParamFESpaces
+using GridapROMs.ParamSteady
+using GridapROMs.ParamODEs
+using GridapROMs.Extensions
 
 import Base: +,-,*,\
 import PartitionedArrays: tuple_of_arrays
-import ROManifolds.TProduct: get_factor
+import GridapROMs.TProduct: get_factor
 
 export ReductionStyle
 export SearchSVDRank

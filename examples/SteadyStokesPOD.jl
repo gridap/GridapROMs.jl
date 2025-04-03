@@ -3,7 +3,7 @@ module SteadyStokesPOD
 using DrWatson
 using Gridap
 using GridapEmbedded
-using ROManifolds
+using GridapROMs
 
 import Gridap.MultiField: BlockMultiFieldStyle
 

@@ -1,6 +1,6 @@
-# ROManifolds.jl 
+# GridapROMs.jl 
 
-Welcome to the documentation for ROManifolds. 
+Welcome to the documentation for GridapROMs. 
 
 !!! note 
 

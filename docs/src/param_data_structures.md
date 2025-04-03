@@ -1,8 +1,8 @@
 ```@meta
-CurrentModule = ROManifolds.ParamDataStructures
+CurrentModule = GridapROMs.ParamDataStructures
 ```
 
-# ROManifolds.ParamDataStructures 
+# GridapROMs.ParamDataStructures 
 
 ```@autodocs
 Modules = [ParamDataStructures,]

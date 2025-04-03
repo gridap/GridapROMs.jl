@@ -1,7 +1,7 @@
-Contributing to `ROManifolds`
+Contributing to `GridapROMs`
 ==
 
-By contributing to `ROManifolds`, you accept and agree to the following *Developer Certificate of Origin Version 1.1* (see below) for all your contributions.
+By contributing to `GridapROMs`, you accept and agree to the following *Developer Certificate of Origin Version 1.1* (see below) for all your contributions.
 
 ```
 Developer Certificate of Origin
@@ -44,7 +44,7 @@ By making a contribution to this project, I certify that:
 ```
 
 
-ROManifolds Style Guides
+GridapROMs Style Guides
 ===
 
 * 2 spaces for indentation level

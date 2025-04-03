@@ -6,19 +6,19 @@ using Plots
 using Serialization
 using Test
 
-using ROManifolds
-using ROManifolds.RBSteady
-using ROManifolds.RBTransient
+using GridapROMs
+using GridapROMs.RBSteady
+using GridapROMs.RBTransient
 
 import Gridap.CellData: get_domains
 import Gridap.Helpers: @abstractmethod
 import Gridap.MultiField: BlockMultiFieldStyle
-import ROManifolds.ParamAlgebra: get_linear_operator,get_nonlinear_operator
-import ROManifolds.ParamDataStructures: AbstractSnapshots,get_realization
-import ROManifolds.ParamSteady: ParamOperator,LinearNonlinearParamEq
-import ROManifolds.ParamODEs: ODEParamOperator,LinearNonlinearParamODE
-import ROManifolds.RBSteady: reduced_operator,get_state_reduction,get_residual_reduction,get_jacobian_reduction,load_stats
-import ROManifolds.Utils: change_domains
+import GridapROMs.ParamAlgebra: get_linear_operator,get_nonlinear_operator
+import GridapROMs.ParamDataStructures: AbstractSnapshots,get_realization
+import GridapROMs.ParamSteady: ParamOperator,LinearNonlinearParamEq
+import GridapROMs.ParamODEs: ODEParamOperator,LinearNonlinearParamODE
+import GridapROMs.RBSteady: reduced_operator,get_state_reduction,get_residual_reduction,get_jacobian_reduction,load_stats
+import GridapROMs.Utils: change_domains
 
 function try_loading_fe_snapshots(dir,rbsolver,feop,args...;label="",kwargs...)
   try
@@ -235,7 +235,7 @@ export Plots
 export Serialization
 export Test
 
-export ROManifolds
+export GridapROMs
 
 export BlockMultiFieldStyle
 

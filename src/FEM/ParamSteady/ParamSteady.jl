@@ -20,18 +20,18 @@ using GridapSolvers.LinearSolvers
 using GridapSolvers.BlockSolvers
 using GridapSolvers.MultilevelTools
 
-using ROManifolds.Utils
-using ROManifolds.DofMaps
-using ROManifolds.TProduct
-using ROManifolds.ParamDataStructures
-using ROManifolds.ParamAlgebra
-using ROManifolds.ParamFESpaces
+using GridapROMs.Utils
+using GridapROMs.DofMaps
+using GridapROMs.TProduct
+using GridapROMs.ParamDataStructures
+using GridapROMs.ParamAlgebra
+using GridapROMs.ParamFESpaces
 
 import Test: @test
 import Gridap.Algebra: residual!,jacobian!
 import Gridap.FESpaces: FEFunction,SparseMatrixAssembler,EvaluationFunction
 import Gridap.ReferenceFEs: get_order
-import ROManifolds.Utils: CostTracker,change_domains,set_domains
+import GridapROMs.Utils: CostTracker,change_domains,set_domains
 
 export UnEvalTrialFESpace
 export ParamTrialFESpace

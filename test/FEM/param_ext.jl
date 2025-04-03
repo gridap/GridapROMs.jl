@@ -2,9 +2,9 @@ using Gridap
 using Gridap.Arrays
 using Gridap.FESpaces
 using GridapEmbedded
-using ROManifolds
-using ROManifolds.Extensions
-using ROManifolds.DofMaps
+using GridapROMs
+using GridapROMs.Extensions
+using GridapROMs.DofMaps
 using SparseArrays
 using DrWatson
 using Test

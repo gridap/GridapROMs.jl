@@ -18,14 +18,14 @@ using Gridap.ODEs
 using GridapEmbedded
 using GridapEmbedded.AgFEM
 
-using ROManifolds.Utils
-using ROManifolds.DofMaps
-using ROManifolds.TProduct
-using ROManifolds.ParamDataStructures
-using ROManifolds.ParamAlgebra
-using ROManifolds.ParamFESpaces
-using ROManifolds.ParamSteady
-using ROManifolds.ParamODEs
+using GridapROMs.Utils
+using GridapROMs.DofMaps
+using GridapROMs.TProduct
+using GridapROMs.ParamDataStructures
+using GridapROMs.ParamAlgebra
+using GridapROMs.ParamFESpaces
+using GridapROMs.ParamSteady
+using GridapROMs.ParamODEs
 
 import Gridap.FESpaces: LinearConstraintsMap
 

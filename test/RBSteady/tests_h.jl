@@ -8,9 +8,9 @@ using Test
 using BenchmarkTools
 using DrWatson
 
-using ROManifolds
-import ROManifolds.Utils: CostTracker
-import ROManifolds.ParamDataStructures: GenericSnapshots,BlockSnapshots,TransientSnapshotsWithIC,get_realization,get_param_data
+using GridapROMs
+import GridapROMs.Utils: CostTracker
+import GridapROMs.ParamDataStructures: GenericSnapshots,BlockSnapshots,TransientSnapshotsWithIC,get_realization,get_param_data
 
 tol_or_rank(tol,rank) = @assert false "Provide either a tolerance or a rank for the reduction step"
 tol_or_rank(tol::Real,rank) = tol
@@ -778,7 +778,7 @@ end
 # using Test
 # using DrWatson
 
-# using ROManifolds
+# using GridapROMs
 # pdomain = (1,10,-1,5,1,2)
 # pspace = ParamSpace(pdomain)
 

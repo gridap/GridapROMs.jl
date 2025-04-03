@@ -4,7 +4,7 @@ using Gridap
 using Gridap.MultiField
 using GridapSolvers
 using GridapSolvers.NonlinearSolvers
-using ROManifolds
+using GridapROMs
 
 tol_or_rank(tol,rank) = @assert false "Provide either a tolerance or a rank for the reduction step"
 tol_or_rank(tol::Real,rank) = tol

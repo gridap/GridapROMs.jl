@@ -1,25 +1,25 @@
-# ROManifolds
+# GridapROMs
 
 This package provides a set of tools for the solution of parameterized partial differential equations (PDEs) with reduced order models (ROMs). The presence of parameters severely impacts the feasibility of running high-fidelity (HF) codes such as the finite element (FE) method, because typically the solution is required for many different values of the parameters. ROMs create surrogate models that approximate the solution manifold on a lower-dimensional manifold. These surrogates provide accurate solutions in a much shorter time and with much fewer computational resources. The library is developed in close collaboration with [Gridap.jl](https://github.com/gridap/Gridap.jl).
 
 | **Documentation** |
 |:------------ |
-| [![docdev](https://img.shields.io/badge/docs-dev-blue.svg)](https://nichomueller.github.io/ROManifolds.jl/dev/) |
+| [![docdev](https://img.shields.io/badge/docs-dev-blue.svg)](https://nichomueller.github.io/GridapROMs.jl/dev/) |
 | **Citation** |
 | [![DOI](https://img.shields.io/badge/DOI-10.1016%2Fj.jcp.2022.111162-blue)](https://github.com/nichomueller/rb_julia) |
 |**Build Status** |
-| [![CI](https://github.com/nichomueller/ROManifolds.jl/workflows/CI/badge.svg)](https://github.com:nichomueller/ROManifolds.jl/actions?query=workflow%3ACI) [![codecov](https://codecov.io/gh/github.com:nichomueller/ROManifolds.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/github.com:nichomueller/ROManifolds.jl) |
+| [![CI](https://github.com/nichomueller/GridapROMs.jl/workflows/CI/badge.svg)](https://github.com:nichomueller/GridapROMs.jl/actions?query=workflow%3ACI) [![codecov](https://codecov.io/gh/github.com:nichomueller/GridapROMs.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/github.com:nichomueller/GridapROMs.jl) |
 
 ## Installation
 
 ```julia
 # Type ] to enter package mode
-pkg> add ROManifolds
+pkg> add GridapROMs
 ```
 
 ## Examples
 
-Before running the following examples, it is necessary to import from file some geometries which can be found [here](https://nichomueller.github.io/ROManifolds.jl/docs/assets). The file name is `models.zip`. The geometries must be unzipped and moved to a directory where the numerical experiments are ran. This directory should be placed inside the `data` directory of the `Julia` project which is being used to run these experiments. To find this directory, first add the package `DrWatson` with 
+Before running the following examples, it is necessary to import from file some geometries which can be found [here](https://nichomueller.github.io/GridapROMs.jl/docs/assets). The file name is `models.zip`. The geometries must be unzipped and moved to a directory where the numerical experiments are ran. This directory should be placed inside the `data` directory of the `Julia` project which is being used to run these experiments. To find this directory, first add the package `DrWatson` with 
 
 ```julia
 # Type ] to enter package mode

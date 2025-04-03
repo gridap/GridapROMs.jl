@@ -12,8 +12,8 @@ using GridapEmbedded
 using GridapEmbedded.Interfaces
 using GridapEmbedded.LevelSetCutters
 
-using ROManifolds.Utils
-using ROManifolds.ParamDataStructures
+using GridapROMs.Utils
+using GridapROMs.ParamDataStructures
 
 import FillArrays: Fill
 import Gridap.Fields: AffineMap,ConstantMap

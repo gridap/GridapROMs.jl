@@ -14,7 +14,7 @@ using GridapSolvers.NonlinearSolvers
 using DrWatson
 using Serialization
 
-using ROManifolds
+using GridapROMs
 
 import Gridap.MultiField: BlockMultiFieldStyle
 ```
@@ -141,7 +141,7 @@ nls = NewtonSolver(LUSolver();rtol=1e-10)
 fesolver = ThetaMethod(nls,dt,θ)
 ```
 
-## ROManifolds code 
+## GridapROMs code 
 
 We finally discuss the code relative to the reduced part. As usual we start by defining the `RBSolver` of the problem 
 

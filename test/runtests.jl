@@ -1,4 +1,4 @@
-module ROManifoldsTests
+module GridapROMsTests
 
 using Test
 

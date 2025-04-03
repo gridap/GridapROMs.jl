@@ -1,8 +1,8 @@
 ```@meta
-CurrentModule = ROManifolds.TProduct
+CurrentModule = GridapROMs.TProduct
 ```
 
-# ROManifolds.TProduct 
+# GridapROMs.TProduct 
 
 ```@autodocs
 Modules = [TProduct,]
