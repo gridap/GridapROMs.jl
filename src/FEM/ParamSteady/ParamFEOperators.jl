@@ -78,7 +78,7 @@ function get_param_space(feop::ParamFEOperator)
 end
 
 function FESpaces.get_algebraic_operator(op::ParamFEOperator)
-  ParamOpFromFEOp(op)
+  GenericParamOperator(op)
 end
 
 ParamDataStructures.realization(op::ParamFEOperator;kwargs...) = realization(get_param_space(op);kwargs...)
@@ -90,7 +90,6 @@ get_domains_res(op::ParamFEOperator) = get_domains_res(get_domains(op))
 get_domains_jac(op::ParamFEOperator) = get_domains_jac(get_domains(op))
 
 DofMaps.get_dof_map(op::ParamFEOperator) = get_dof_map(get_trial(op))
-DofMaps.get_internal_dof_map(op::ParamFEOperator) = get_internal_dof_map(get_trial(op))
 DofMaps.get_sparse_dof_map(op::ParamFEOperator) = get_sparse_dof_map(get_trial(op),get_test(op))
 
 """

@@ -1,11 +1,3 @@
-abstract type TransientHRStyle end
-struct KroneckerTransientHR <: TransientHRStyle end
-struct LinearTransientHR <: TransientHRStyle end
-
-TransientHRStyle(hr::TransientHyperReduction) = KroneckerTransientHR()
-TransientHRStyle(hr::TransientHyperReduction{<:TTSVDReduction}) = LinearTransientHR()
-TransientHRStyle(hr::BlockProjection) = TransientHRStyle(testitem(hr))
-
 function RBSteady.collect_cell_hr_matrix(
   trial::FESpace,
   test::FESpace,
@@ -123,13 +115,13 @@ end
   A
 end
 
-struct AddTransientHREntriesMap{A<:TransientHRStyle,F,I<:Range2D} <: Map
+struct AddTransientHREntriesMap{A<:TransientStyle,F,I<:Range2D} <: Map
   style::A
   combine::F
   locations::I
 end
 
-function AddTransientHREntriesMap(style::TransientHRStyle,locations::Range2D)
+function AddTransientHREntriesMap(style::TransientStyle,locations::Range2D)
   AddTransientHREntriesMap(style,+,locations)
 end
 
@@ -141,7 +133,7 @@ function Arrays.return_cache(k::AddTransientHREntriesMap,A,vs::ParamBlock,args..
   zeros(eltype2(vs),length(get_param_time_inds(k)))
 end
 
-for (T,f) in zip((:KroneckerTransientHR,:LinearTransientHR),(:add_hr_kron_entries!,:add_hr_lin_entries!))
+for (T,f) in zip((:KroneckerStyle,:LinearStyle),(:add_hr_kron_entries!,:add_hr_lin_entries!))
   @eval begin
     function Arrays.evaluate!(cache,k::AddTransientHREntriesMap{$T},A,vs,is)
       $f(cache,k.combine,A,vs,is,k.locations)
@@ -304,7 +296,7 @@ end
 
 function RBSteady.assemble_hr_vector_add!(
   b::ArrayBlock,
-  style::TransientHRStyle,
+  style::TransientStyle,
   cellvec,
   cellidsrows::ArrayBlock,
   icells::ArrayBlock,
@@ -336,7 +328,7 @@ end
 
 function RBSteady.assemble_hr_matrix_add!(
   A::ArrayBlock,
-  style::TransientHRStyle,
+  style::TransientStyle,
   cellmat,
   cellidsrows::ArrayBlock,
   cellidscols::ArrayBlock,

@@ -138,7 +138,7 @@ function tproduct_array(
 end
 
 function tproduct_array(
-  ::Utils.MixedDerivative,
+  ::Utils.Divergence,
   arrays_1d::Vector{<:AbstractArray},
   gradients_1d::Vector{<:AbstractArray},
   args...

@@ -69,6 +69,8 @@ end
 
 Base.copy(a::GenericParamBlock) = GenericParamBlock(copy(a.data))
 
+Base.similar(a::GenericParamBlock) = GenericParamBlock(similar(a.data))
+
 function Base.copyto!(a::GenericParamBlock,b::GenericParamBlock)
   @check size(a) == size(b)
   for i in eachindex(a.data)
@@ -199,6 +201,8 @@ function get_param_entry!(v::AbstractVector,b::TrivialParamBlock,i...)
 end
 
 Base.copy(a::TrivialParamBlock) = TrivialParamBlock(copy(a.data),a.plength)
+
+Base.similar(a::TrivialParamBlock) = TrivialParamBlock(similar(a.data),a.plength)
 
 Base.copyto!(a::TrivialParamBlock,b::TrivialParamBlock) = copyto!(a.data,b.data)
 
@@ -1291,7 +1295,12 @@ end
 function Arrays.return_value(::typeof(*),a::AbstractArray,b::ParamBlock)
   ai = testitem(a)
   ri = return_value(*,ai,b)
+<<<<<<< HEAD
   data = Vector{typeof(ri)}(undef,param_length(a))
+=======
+  data = Vector{typeof(ri)}(undef,param_length(b))
+  fill!(data,ri)
+>>>>>>> f273f7312afc3e582f1f2265d3af774430caf63d
   GenericParamBlock(data)
 end
 
@@ -1310,11 +1319,11 @@ function Arrays.evaluate!(cache,::typeof(*),a::AbstractArray,b::ParamBlock)
 end
 
 function Arrays.return_value(::typeof(*),a::ParamBlock,b::AbstractArray)
-  @check param_length(a) == param_length(b)
   ai = testitem(a)
   bi = testitem(b)
   ri = return_value(*,ai,bi)
   data = Vector{typeof(ri)}(undef,param_length(a))
+  fill!(data,ri)
   GenericParamBlock(data)
 end
 
@@ -1338,6 +1347,10 @@ function Arrays.return_value(::typeof(*),a::ParamBlock,b::ParamBlock)
   bi = testitem(b)
   ri = return_value(*,ai,bi)
   data = Vector{typeof(ri)}(undef,param_length(a))
+<<<<<<< HEAD
+=======
+  fill!(data,ri)
+>>>>>>> f273f7312afc3e582f1f2265d3af774430caf63d
   GenericParamBlock(data)
 end
 
@@ -1357,23 +1370,23 @@ end
 
 function Fields._setsize_as!(d,a::GenericParamBlock)
   for i in eachindex(a.data)
-    Fields._setsize_mul!(param_getindex(d,i),param_getindex(a,i))
+    Fields._setsize_as!(param_getindex(d,i),param_getindex(a,i))
   end
   d
 end
 
-function Arrays.return_value(k::MulAddMap,a::ParamBlock,b::ParamBlock,c::ParamBlock)
+function Arrays.return_value(k::MulAddMap,a,b::ParamBlock,c::ParamBlock)
   x = return_value(*,a,b)
   return_value(+,x,c)
 end
 
-function Arrays.return_cache(k::MulAddMap,a::ParamBlock,b::ParamBlock,c::ParamBlock)
+function Arrays.return_cache(k::MulAddMap,a,b::ParamBlock,c::ParamBlock)
   c1 = CachedArray(a*b+c)
-  c2 = return_cache(unwrap_cached_array,c1)
+  c2 = return_cache(Fields.unwrap_cached_array,c1)
   (c1,c2)
 end
 
-function Arrays.evaluate!(cache,k::MulAddMap,a::ParamBlock,b::ParamBlock,c::ParamBlock)
+function Arrays.evaluate!(cache,k::MulAddMap,a,b::ParamBlock,c::ParamBlock)
   c1,c2 = cache
   Fields._setsize_as!(c1,c)
   Fields._setsize_mul!(c1,a,b)

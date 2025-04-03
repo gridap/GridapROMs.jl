@@ -63,8 +63,6 @@ export TransientParamLinearFEOperator
 export TransientParamLinearFEOpFromWeakForm
 include("TransientParamFEOperators.jl")
 
-include("ODEParamOpFromFEOps.jl")
-
 include("ParamTimeMarching.jl")
 
 export ShiftedSolver

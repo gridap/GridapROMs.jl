@@ -119,6 +119,7 @@ function TProductTriangulation(trian::Triangulation,trians_1d::AbstractVector{<:
   TProductTriangulation(tpmodel,trian,trians_1d)
 end
 
+Base.:(==)(a::TProductTriangulation,b::TProductTriangulation) = a.trian == b.trian
 Geometry.get_background_model(trian::TProductTriangulation) = trian.model
 Geometry.get_grid(trian::TProductTriangulation) = get_grid(trian.trian)
 Geometry.get_glue(trian::TProductTriangulation{Dt},::Val{Dt}) where Dt = get_glue(trian.trian,Val{Dt}())

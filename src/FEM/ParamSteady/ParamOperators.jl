@@ -80,7 +80,6 @@ ODEs.get_res(op::ParamOperator) = ODEs.get_res(get_fe_operator(op))
 get_jac(op::ParamOperator) = get_jac(get_fe_operator(op))
 
 DofMaps.get_dof_map(op::ParamOperator) = get_dof_map(get_fe_operator(op))
-DofMaps.get_internal_dof_map(op::ParamOperator) = get_internal_dof_map(get_fe_operator(op))
 DofMaps.get_sparse_dof_map(op::ParamOperator) = get_sparse_dof_map(get_fe_operator(op))
 get_dof_map_at_domains(op::ParamOperator) = get_dof_map_at_domains(get_fe_operator(op))
 get_sparse_dof_map_at_domains(op::ParamOperator) = get_sparse_dof_map_at_domains(get_fe_operator(op))
@@ -97,12 +96,200 @@ ParamDataStructures.realization(op::ParamOperator;kwargs...) = realization(get_f
 get_param_assembler(op::ParamOperator,r::AbstractRealization) = get_param_assembler(get_fe_operator(op),r)
 FESpaces.assemble_matrix(op::ParamOperator,form::Function) = assemble_matrix(get_fe_operator(op),form)
 
+# basic interface
+
 function ParamAlgebra.allocate_paramcache(op::ParamOperator,μ::AbstractRealization)
   feop = get_fe_operator(op)
   ptrial = get_trial(feop)
   trial = evaluate(ptrial,μ)
   ParamCache(trial,ptrial)
 end
+
+function Algebra.zero_initial_guess(op::ParamOperator,μ::AbstractRealization)
+  ptrial = get_trial(op)
+  trial = evaluate(ptrial,μ)
+  zero_free_values(trial)
+end
+
+function Algebra.allocate_residual(
+  op::JointParamOperator,
+  μ::Realization,
+  u::AbstractVector,
+  paramcache)
+
+  uh = EvaluationFunction(paramcache.trial,u)
+  test = get_test(op)
+  v = get_fe_basis(test)
+  assem = get_param_assembler(op,μ)
+
+  res = get_res(op)
+  dc = res(μ,uh,v)
+  vecdata = collect_cell_vector(test,dc)
+  b = allocate_vector(assem,vecdata)
+
+  b
+end
+
+function Algebra.residual!(
+  b::AbstractVector,
+  op::JointParamOperator,
+  μ::Realization,
+  u::AbstractVector,
+  paramcache;
+  add::Bool=false)
+
+  !add && fill!(b,zero(eltype(b)))
+
+  uh = EvaluationFunction(paramcache.trial,u)
+  test = get_test(op)
+  v = get_fe_basis(test)
+  assem = get_param_assembler(op,μ)
+
+  res = get_res(op)
+  dc = res(μ,uh,v)
+  vecdata = collect_cell_vector(test,dc)
+  assemble_vector_add!(b,assem,vecdata)
+
+  b
+end
+
+function Algebra.allocate_jacobian(
+  op::JointParamOperator,
+  μ::Realization,
+  u::AbstractVector,
+  paramcache)
+
+  uh = EvaluationFunction(paramcache.trial,u)
+  trial = get_trial(op)
+  du = get_trial_fe_basis(trial)
+  test = get_test(op)
+  v = get_fe_basis(test)
+  assem = get_param_assembler(op,μ)
+
+  jac = get_jac(op)
+  matdata = collect_cell_matrix(trial,test,jac(μ,uh,du,v))
+  A = allocate_matrix(assem,matdata)
+
+  A
+end
+
+function ODEs.jacobian_add!(
+  A::AbstractMatrix,
+  op::JointParamOperator,
+  μ::Realization,
+  u::AbstractVector,
+  paramcache)
+
+  uh = EvaluationFunction(paramcache.trial,u)
+  trial = get_trial(op)
+  du = get_trial_fe_basis(trial)
+  test = get_test(op)
+  v = get_fe_basis(test)
+  assem = get_param_assembler(op,μ)
+
+  jac = get_jac(op)
+  dc = jac(μ,uh,du,v)
+  matdata = collect_cell_matrix(trial,test,dc)
+  assemble_matrix_add!(A,assem,matdata)
+
+  A
+end
+
+function Algebra.allocate_residual(
+  op::SplitParamOperator,
+  μ::Realization,
+  u::AbstractVector,
+  paramcache)
+
+  uh = EvaluationFunction(paramcache.trial,u)
+  test = get_test(op)
+  v = get_fe_basis(test)
+  assem = get_param_assembler(op,μ)
+
+  trian_res = get_domains_res(op)
+  res = get_res(op)
+  dc = res(μ,uh,v)
+  contribution(trian_res) do trian
+    vecdata = collect_cell_vector_for_trian(test,dc,trian)
+    allocate_vector(assem,vecdata)
+  end
+end
+
+function Algebra.residual!(
+  b::Contribution,
+  op::SplitParamOperator,
+  μ::Realization,
+  u::AbstractVector,
+  paramcache;
+  add::Bool=false)
+
+  !add && fill!(b,zero(eltype(b)))
+
+  uh = EvaluationFunction(paramcache.trial,u)
+  test = get_test(op)
+  v = get_fe_basis(test)
+  assem = get_param_assembler(op,μ)
+
+  trian_res = get_domains_res(op)
+  res = get_res(op)
+  dc = res(μ,uh,v)
+
+  map(b.values,trian_res) do values,trian
+    vecdata = collect_cell_vector_for_trian(test,dc,trian)
+    assemble_vector_add!(values,assem,vecdata)
+  end
+
+  b
+end
+
+function Algebra.allocate_jacobian(
+  op::SplitParamOperator,
+  μ::Realization,
+  u::AbstractVector,
+  paramcache)
+
+  uh = EvaluationFunction(paramcache.trial,u)
+  trial = get_trial(op)
+  du = get_trial_fe_basis(trial)
+  test = get_test(op)
+  v = get_fe_basis(test)
+  assem = get_param_assembler(op,μ)
+
+  trian_jac = get_domains_jac(op)
+  jac = get_jac(op)
+  dc = jac(μ,uh,du,v)
+  contribution(trian_jac) do trian
+    matdata = collect_cell_matrix_for_trian(trial,test,dc,trian)
+    allocate_matrix(assem,matdata)
+  end
+end
+
+function ODEs.jacobian_add!(
+  A::Contribution,
+  op::SplitParamOperator,
+  μ::Realization,
+  u::AbstractVector,
+  paramcache)
+
+  uh = EvaluationFunction(paramcache.trial,u)
+  trial = get_trial(op)
+  du = get_trial_fe_basis(trial)
+  test = get_test(op)
+  v = get_fe_basis(test)
+  assem = get_param_assembler(op,μ)
+
+  trian_jac = get_domains_jac(op)
+  jac = get_jac(op)
+  dc = jac(μ,uh,du,v)
+  map(A.values,trian_jac) do values,trian
+    matdata = collect_cell_matrix_for_trian(trial,test,dc,trian)
+    assemble_matrix_add!(values,assem,matdata)
+  end
+
+  A
+end
+
+# nonlinear interface
 
 const LinearNonlinearParamOperator{T<:TriangulationStyle} = ParamOperator{LinearNonlinearParamEq,T}
 

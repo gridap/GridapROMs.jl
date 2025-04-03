@@ -33,6 +33,7 @@ function Algebra.solve(fesolver::FESolver,feop::ParamFEOperator,r::Realization)
   U = get_trial(op)(r)
   uh = zero(U)
   solve!(uh,fesolver,feop,r)
+  uh
 end
 
 get_solver(solver::LinearFESolver) = solver.ls

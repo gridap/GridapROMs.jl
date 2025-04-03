@@ -114,21 +114,18 @@ function solution_snapshots(
 end
 
 """
-    residual_snapshots(solver::RBSolver,op::ParamOperator,s::AbstractSnapshots;nparams) -> Contribution
-    residual_snapshots(solver::RBSolver,op::ODEParamOperator,s::AbstractSnapshots;nparams) -> Contribution
+    residual_snapshots(solver::RBSolver,op::ParamOperator,s::AbstractSnapshots) -> Contribution
+    residual_snapshots(solver::RBSolver,op::ODEParamOperator,s::AbstractSnapshots) -> Contribution
 
 Returns a residual `Contribution` relative to the FE operator `op`. The
-quantity `s` denotes the solution snapshots in which we evaluate the residual. Note
-that we can select a smaller number of parameters `nparams` compared to the
-number of parameters used to compute `s`
+quantity `s` denotes the solution snapshots in which we evaluate the residual
 """
 function residual_snapshots(
   solver::RBSolver,
   op::ParamOperator,
-  s::AbstractSnapshots;
-  nparams=res_params(solver))
+  s::AbstractSnapshots)
 
-  sres = select_snapshots(s,nparams)
+  sres = select_snapshots(s,res_params(solver))
   us_res = get_param_data(sres)
   r_res = get_realization(sres)
   b = residual(op,r_res,us_res)
@@ -139,10 +136,9 @@ end
 function residual_snapshots(
   solver::RBSolver,
   op::ParamOperator{LinearParamEq},
-  s::AbstractSnapshots;
-  nparams=res_params(solver))
+  s::AbstractSnapshots)
 
-  sres = select_snapshots(s,nparams)
+  sres = select_snapshots(s,res_params(solver))
   us_res = get_param_data(sres) |> similar
   fill!(us_res,zero(eltype2(us_res)))
   r_res = get_realization(sres)
@@ -151,30 +147,28 @@ function residual_snapshots(
   return Snapshots(b,ib,r_res)
 end
 
-function residual_snapshots(solver::RBSolver,op::ParamOperator{LinearNonlinearParamEq},args...;kwargs...)
-  res_lin = residual_snapshots(solver,get_linear_operator(op),args...;kwargs...)
-  res_nlin = residual_snapshots(solver,get_nonlinear_operator(op),args...;kwargs...)
+function residual_snapshots(solver::RBSolver,op::ParamOperator{LinearNonlinearParamEq},args...)
+  res_lin = residual_snapshots(solver,get_linear_operator(op),args...)
+  res_nlin = residual_snapshots(solver,get_nonlinear_operator(op),args...)
   return (res_lin,res_nlin)
 end
 
 """
-    jacobian_snapshots(solver::RBSolver,op::ParamOperator,s::AbstractSnapshots;nparams) -> Contribution
-    jacobian_snapshots(solver::RBSolver,op::ODEParamOperator,s::AbstractSnapshots;nparams) -> Tuple{Vararg{Contribution}}
+    jacobian_snapshots(solver::RBSolver,op::ParamOperator,s::AbstractSnapshots) -> Contribution
+    jacobian_snapshots(solver::RBSolver,op::ODEParamOperator,s::AbstractSnapshots) -> Tuple{Vararg{Contribution}}
 
 Returns a Jacobian `Contribution` relative to the FE operator `op`. The
-quantity `s` denotes the solution snapshots in which we evaluate the jacobian. Note
-that we can select a smaller number of parameters `nparams` compared to the
-number of parameters used to compute `s`. In transient settings, the output is a
-tuple whose `n`th element is the Jacobian relative to the `n`th temporal derivative
+quantity `s` denotes the solution snapshots in which we evaluate the jacobian.
+In transient settings, the output is a tuple whose `n`th element is the Jacobian
+relative to the `n`th temporal derivative
 """
 function jacobian_snapshots(
   solver::RBSolver,
   op::ParamOperator,
-  s::AbstractSnapshots;
-  nparams=jac_params(solver))
+  s::AbstractSnapshots)
 
   fesolver = get_fe_solver(solver)
-  sjac = select_snapshots(s,nparams)
+  sjac = select_snapshots(s,jac_params(solver))
   us_jac = get_param_data(sjac)
   r_jac = get_realization(sjac)
   A = jacobian(op,r_jac,us_jac)
@@ -185,11 +179,10 @@ end
 function jacobian_snapshots(
   solver::RBSolver,
   op::ParamOperator{LinearParamEq},
-  s::AbstractSnapshots;
-  nparams=jac_params(solver))
+  s::AbstractSnapshots)
 
   fesolver = get_fe_solver(solver)
-  sjac = select_snapshots(s,nparams)
+  sjac = select_snapshots(s,jac_params(solver))
   us_jac = get_param_data(sjac) |> similar
   fill!(us_jac,zero(eltype2(us_jac)))
   r_jac = get_realization(sjac)
@@ -201,11 +194,10 @@ end
 function jacobian_snapshots(
   solver::RBSolver,
   op::ParamOperator{LinearNonlinearParamEq},
-  s::AbstractSnapshots;
-  kwargs...)
+  s::AbstractSnapshots)
 
-  jac_lin = jacobian_snapshots(solver,get_linear_operator(op),s;kwargs...)
-  jac_nlin = jacobian_snapshots(solver,get_nonlinear_operator(op),s;kwargs...)
+  jac_lin = jacobian_snapshots(solver,get_linear_operator(op),s)
+  jac_nlin = jacobian_snapshots(solver,get_nonlinear_operator(op),s)
   return (jac_lin,jac_nlin)
 end
 

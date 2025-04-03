@@ -125,7 +125,7 @@ export SparseSnapshots
 export BlockSnapshots
 export get_realization
 export select_snapshots
-export get_indexed_data
+export num_space_dofs
 include("Snapshots.jl")
 
 export TransientSnapshots
@@ -135,6 +135,9 @@ export TransientSnapshotsWithIC
 export UnfoldingTransientSnapshots
 export ModeTransientSnapshots
 export get_initial_data
+export get_initial_param_data
+export get_mode1
+export get_mode2
 export change_mode
 include("TransientSnapshots.jl")
 

@@ -171,17 +171,17 @@ function get_d_sparse_dofs_to_full_dofs(Tu,Tv,a::TProductSparsity{<:CartesianSpa
   nrows_bg = num_bg_rows(a.sparsity)
   ncols_bg = num_bg_cols(a.sparsity)
   nrows = num_rows(a)
-  dsd2sd = get_d_sparse_dofs_to_full_dofs(Tu,Tv,a,I_bg,J_bg,nrows_bg,ncols_bg)
-  for (k,sdk) in enumerate(dsd2sd)
+  dsd2fd = get_d_sparse_dofs_to_full_dofs(Tu,Tv,a,I_bg,J_bg,nrows_bg,ncols_bg)
+  for (k,sdk) in enumerate(dsd2fd)
     if sdk > 0
       Ik_bg = fast_index(sdk,nrows_bg)
       Jk_bg = slow_index(sdk,nrows_bg)
       Ik = a.sparsity.bg_rows_to_act_rows[Ik_bg]
       Jk = a.sparsity.bg_cols_to_act_cols[Jk_bg]
-      dsd2sd[k] = Ik+(Jk-1)*nrows
+      dsd2fd[k] = Ik+(Jk-1)*nrows
     end
   end
-  return dsd2sd
+  return dsd2fd
 end
 
 function get_d_sparse_dofs_to_full_dofs(
@@ -204,16 +204,16 @@ function _scalar_d_sparse_dofs_to_full_dofs(a::TProductSparsity,I,J,nrows,ncols)
 
   D = length(a.sparsities_1d)
   cache = zeros(Int,D)
-  dsd2sd = zeros(Int,nnz_sizes...)
+  dsd2fd = zeros(Int,nnz_sizes...)
 
   for k in eachindex(I)
     rows_1d = _index_to_d_indices(I[k],rows)
     cols_1d = _index_to_d_indices(J[k],cols)
     _row_col_pair_to_nz_index!(cache,rows_1d,cols_1d,d_to_nz_pairs)
-    dsd2sd[cache...] = I[k]+(J[k]-1)*nrows
+    dsd2fd[cache...] = I[k]+(J[k]-1)*nrows
   end
 
-  return dsd2sd
+  return dsd2fd
 end
 
 function _multivalue_d_sparse_dofs_to_full_dofs(a::TProductSparsity,I,J,nrows,ncols,ncomps_col,ncomps_row)
@@ -229,7 +229,7 @@ function _multivalue_d_sparse_dofs_to_full_dofs(a::TProductSparsity,I,J,nrows,nc
 
   D = length(a.sparsities_1d)
   cache = zeros(Int,D)
-  dsd2sd = zeros(Int,nnz_sizes...,ncomps)
+  dsd2fd = zeros(Int,nnz_sizes...,ncomps)
 
   for k in eachindex(I)
     I_node,I_comp = _fast_and_slow_index(I[k],nrows_no_comps)
@@ -238,10 +238,10 @@ function _multivalue_d_sparse_dofs_to_full_dofs(a::TProductSparsity,I,J,nrows,nc
     rows_1d = _index_to_d_indices(I_node,rows_no_comps)
     cols_1d = _index_to_d_indices(J_node,cols_no_comps)
     _row_col_pair_to_nz_index!(cache,rows_1d,cols_1d,d_to_nz_pairs)
-    dsd2sd[cache...,comp] = I[k]+(J[k]-1)*nrows
+    dsd2fd[cache...,comp] = I[k]+(J[k]-1)*nrows
   end
 
-  return dsd2sd
+  return dsd2fd
 end
 
 # utils

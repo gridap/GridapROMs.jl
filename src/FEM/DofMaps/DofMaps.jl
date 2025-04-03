@@ -1,5 +1,6 @@
 module DofMaps
 
+using BlockArrays
 using LinearAlgebra
 using SparseArrays
 
@@ -47,6 +48,7 @@ export get_dof_eltype
 include("SparsityPatterns.jl")
 
 export AbstractDofMap
+export AbstractSparseDofMap
 export TrivialDofMap
 export InverseDofMap
 export VectorDofMap
@@ -59,8 +61,9 @@ export change_dof_map
 include("DofMapsInterface.jl")
 
 export get_dof_map
-export get_internal_dof_map
 export get_sparse_dof_map
+export get_cell_to_bg_cell
+export get_bg_cell_to_cell
 export get_polynomial_order
 export get_polynomial_orders
 include("DofMapsBuilders.jl")
@@ -76,7 +79,6 @@ include("OrderingMaps.jl")
 
 export OrderedFESpace
 export CartesianFESpace
-export OrderedFEFunction
 include("OrderedFESpaces.jl")
 
 end # module

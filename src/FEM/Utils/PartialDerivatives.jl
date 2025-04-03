@@ -22,11 +22,7 @@ const ∂₂ = PartialDerivative{2}
 """
 const ∂₃ = PartialDerivative{3}
 
-const MixedDerivative = Union{
-  PartialDerivative{(1,1)},PartialDerivative{(2,2)},PartialDerivative{(3,3)},
-  PartialDerivative{(1,2)},PartialDerivative{(1,3)},PartialDerivative{(2,1)},
-  PartialDerivative{(2,3)},PartialDerivative{(3,1)},PartialDerivative{(3,2)}
-  }
+const Divergence = Union{PartialDerivative{(1,2)},PartialDerivative{(1,2,3)}}
 
 function Arrays.evaluate!(cache,::Broadcasting{<:PartialDerivative{N}},f) where N
   Broadcasting(Operation(Component{N}()))(Broadcasting(∇)(f))

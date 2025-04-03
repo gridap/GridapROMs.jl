@@ -35,15 +35,25 @@ function get_dofs_to_cells(
   cell_dof_ids::AbstractArray{<:AbstractArray},
   dofs::AbstractVector)
 
-  cells = Int32[]
+  ncells = length(cell_dof_ids)
+  cells = fill(false,ncells)
   cache = array_cache(cell_dof_ids)
-  for cell = eachindex(cell_dof_ids)
+  for cell in 1:ncells
     celldofs = getindex!(cache,cell_dof_ids,cell)
-    if !isempty(intersect(dofs,celldofs))
-      append!(cells,cell)
+    stop = false
+    if !stop
+      for dof in celldofs
+        for _dof in dofs
+          if dof == _dof
+            cells[cell] = true
+            stop = true
+            break
+          end
+        end
+      end
     end
   end
-  return unique(cells)
+  Int32.(findall(cells))
 end
 
 function get_cells_to_idofs(

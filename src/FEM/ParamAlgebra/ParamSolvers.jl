@@ -7,6 +7,7 @@ function Algebra.solve(
 
   x = allocate_in_domain(A)
   solve!(x,ls,A,b)
+  x
 end
 
 function Algebra.solve!(

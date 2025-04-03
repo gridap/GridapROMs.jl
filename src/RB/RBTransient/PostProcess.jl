@@ -112,8 +112,8 @@ function Utils.compute_relative_error(
   errors = zeros(num_params(sol))
   @inbounds for ip = 1:num_params(sol)
     for it in 1:num_times(sol)
-      solitp = select_snapshots(sol,it,ip)
-      solitp_approx = select_snapshots(sol_approx,it,ip)
+      solitp = param_getindex(sol,it,ip)
+      solitp_approx = param_getindex(sol_approx,it,ip)
       err_norm[it] = induced_norm(solitp-solitp_approx,args...)
       sol_norm[it] = induced_norm(solitp,args...)
     end

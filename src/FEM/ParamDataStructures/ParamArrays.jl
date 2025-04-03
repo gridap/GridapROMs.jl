@@ -269,6 +269,21 @@ function Base.vec(A::ConsecutiveParamArray)
   ConsecutiveParamArray(data′)
 end
 
+function Base.vcat(A::ConsecutiveParamArray,B::ConsecutiveParamArray)
+  data′ = vcat(get_all_data(A),get_all_data(B))
+  ConsecutiveParamArray(data′)
+end
+
+function Base.hcat(A::ConsecutiveParamArray,B::ConsecutiveParamArray)
+  data′ = hcat(get_all_data(A),get_all_data(B))
+  ConsecutiveParamArray(data′)
+end
+
+function Base.stack(A::ConsecutiveParamArray,B::ConsecutiveParamArray)
+  data′ = stack(get_all_data(A),get_all_data(B))
+  ConsecutiveParamArray(data′)
+end
+
 for op in (:+,:-)
   @eval begin
     function ($op)(A::ConsecutiveParamArray,B::ConsecutiveParamArray)

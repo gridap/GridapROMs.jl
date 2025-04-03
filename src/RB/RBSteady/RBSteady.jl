@@ -33,6 +33,10 @@ using GridapROMs.ParamAlgebra
 using GridapROMs.ParamFESpaces
 using GridapROMs.ParamSteady
 using GridapROMs.ParamODEs
+<<<<<<< HEAD
+=======
+using GridapROMs.Extensions
+>>>>>>> f273f7312afc3e582f1f2265d3af774430caf63d
 
 import Base: +,-,*,\
 import PartitionedArrays: tuple_of_arrays
@@ -53,7 +57,7 @@ export AffineReduction
 export PODReduction
 export TTSVDReduction
 export SupremizerReduction
-export AbstractMDEIMReduction
+export HyperReduction
 export MDEIMReduction
 export AdaptiveReduction
 export get_reduction
@@ -118,7 +122,6 @@ include("Projections.jl")
 export RBSpace
 export SingleFieldRBSpace
 export MultiFieldRBSpace
-export EvalRBSpace
 export reduced_subspace
 export reduced_spaces
 export reduced_basis
@@ -137,11 +140,12 @@ export get_cellids_cols
 export get_owned_icells
 include("IntegrationDomains.jl")
 
-export HyperReduction
-export TrivialHyperReduction
+export HRProjection
+export TrivialHRProjection
 export MDEIM
 export AffineContribution
-export BlockHyperReduction
+export BlockHRProjection
+export get_interpolation
 export get_integration_domain
 export reduced_triangulation
 export reduced_jacobian
@@ -174,5 +178,7 @@ export load_operator
 export load_results
 export plot_a_solution
 include("PostProcess.jl")
+
+include("Extensions.jl")
 
 end # module

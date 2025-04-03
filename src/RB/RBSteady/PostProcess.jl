@@ -86,7 +86,7 @@ function load_reduced_subspace(dir,f::FESpace;label="")
   reduced_subspace(f,basis)
 end
 
-for T in (:HyperReduction,:BlockHyperReduction)
+for T in (:HRProjection,:BlockHRProjection)
   @eval begin
     function DrWatson.save(dir,hp::$T;label="")
       hr_dir = get_filename(dir,"hypred",label)
@@ -294,15 +294,8 @@ function eval_performance(
   fesnaps::AbstractSnapshots,
   rbsnaps::AbstractSnapshots,
   festats::CostTracker,
-  rbstats::CostTracker;
-  internal_nodes=false
+  rbstats::CostTracker
   )
-
-  if internal_nodes
-    dof_map_in = get_internal_dof_map(feop)
-    fesnaps = change_dof_map(fesnaps,dof_map_in)
-    rbsnaps = change_dof_map(rbsnaps,dof_map_in)
-  end
 
   state_red = get_state_reduction(solver)
   norm_style = NormStyle(state_red)
@@ -318,13 +311,12 @@ function eval_performance(
   fesnaps::AbstractSnapshots,
   x̂::AbstractParamVector,
   festats::CostTracker,
-  rbstats::CostTracker;
-  kwargs...
+  rbstats::CostTracker
   )
 
   r = get_realization(fesnaps)
   rbsnaps = to_snapshots(get_trial(rbop),x̂,r)
-  eval_performance(solver,feop,fesnaps,rbsnaps,festats,rbstats;kwargs...)
+  eval_performance(solver,feop,fesnaps,rbsnaps,festats,rbstats)
 end
 
 function DrWatson.save(dir,perf::ROMPerformance;label="")
@@ -356,8 +348,8 @@ function Utils.compute_relative_error(
   @check size(sol) == size(sol_approx)
   errors = zeros(num_params(sol))
   @inbounds for ip = 1:num_params(sol)
-    solip = select_snapshots(sol,ip)
-    solip_approx = select_snapshots(sol_approx,ip)
+    solip = param_getindex(sol,ip)
+    solip_approx = param_getindex(sol_approx,ip)
     err_norm = induced_norm(solip-solip_approx,args...)
     sol_norm = induced_norm(solip,args...)
     errors[ip] = err_norm / sol_norm

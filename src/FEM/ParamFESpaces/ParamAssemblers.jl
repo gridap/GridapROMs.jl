@@ -1,13 +1,22 @@
+function FESpaces.SparseMatrixAssembler(
+  trial::SingleFieldParamFESpace,
+  test::SingleFieldFESpace
+  )
+
+  assem = SparseMatrixAssembler(get_fe_space(trial),test)
+  parameterize(assem,param_length(trial))
+end
+
 """
-    parameterize(a::SparseMatrixAssembler,r::AbstractRealization) -> SparseMatrixAssembler
+    parameterize(a::SparseMatrixAssembler,plength::Int) -> SparseMatrixAssembler
 
 Returns an assembler that also stores the parametric length of `r`. This function
 is to be used to assemble parametric residuals and Jacobians. The assembly routines
 follow the same pipeline as in `Gridap`
 """
-function ParamDataStructures.parameterize(a::SparseMatrixAssembler,r::AbstractRealization)
-  matrix_builder = parameterize(get_matrix_builder(a),r)
-  vector_builder = parameterize(get_vector_builder(a),r)
+function ParamDataStructures.parameterize(a::SparseMatrixAssembler,plength::Int)
+  matrix_builder = parameterize(get_matrix_builder(a),plength)
+  vector_builder = parameterize(get_vector_builder(a),plength)
   rows = FESpaces.get_rows(a)
   cols = FESpaces.get_cols(a)
   strategy = FESpaces.get_assembly_strategy(a)
@@ -16,10 +25,10 @@ end
 
 function ParamDataStructures.parameterize(
   a::MultiField.BlockSparseMatrixAssembler{NB,NV,SB,P},
-  r::AbstractRealization) where {NB,NV,SB,P}
+  plength::Int) where {NB,NV,SB,P}
 
-  matrix_builder = parameterize(_getfirst(get_matrix_builder(a)),r)
-  vector_builder = parameterize(_getfirst(get_vector_builder(a)),r)
+  matrix_builder = parameterize(_getfirst(get_matrix_builder(a)),plength)
+  vector_builder = parameterize(_getfirst(get_vector_builder(a)),plength)
   rows = FESpaces.get_rows(a)
   cols = FESpaces.get_cols(a)
   strategy = FESpaces.get_assembly_strategy(a)

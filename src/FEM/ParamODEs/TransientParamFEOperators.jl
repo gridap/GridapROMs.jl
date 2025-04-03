@@ -27,7 +27,7 @@ const JointTransientParamFEOperator{O<:ODEParamOperatorType} = TransientParamFEO
 const SplitTransientParamFEOperator{O<:ODEParamOperatorType} = TransientParamFEOperator{O,SplitDomains}
 
 function FESpaces.get_algebraic_operator(op::TransientParamFEOperator)
-  ParamOpFromFEOp(op)
+  GenericParamOperator(op)
 end
 
 ODEs.get_res(op::TransientParamFEOperator) = @abstractmethod

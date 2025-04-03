@@ -10,7 +10,6 @@ using GridapROMs.Utils
 
 export OrderedFESpace
 export CartesianFESpace
-export OrderedFEFunction
 export slow_index
 export fast_index
 export get_dof_map
@@ -84,6 +83,9 @@ export LinearNonlinearTransientParamFEOperator
 
 include("FEM/ParamODEs/ParamODEs.jl")
 using GridapROMs.ParamODEs
+
+include("FEM/Extensions/Extensions.jl")
+using GridapROMs.Extensions
 
 export Reduction
 export PODReduction

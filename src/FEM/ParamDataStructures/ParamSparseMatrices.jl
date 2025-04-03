@@ -554,6 +554,116 @@ function _vec_of_pointers(a::AbstractVector{<:AbstractSparseMatrix})
   ptrs
 end
 
+# these functions only change the rowval/colptr, not the ordering of the values
+function SparseArrays.sparse(
+  I::AbstractVector{Ti},J::AbstractVector{Ti},V::AbstractMatrix{Tv},
+  m::Integer,n::Integer
+  ) where {Tv,Ti<:Integer}
+
+  coolen = length(I)
+  csrrowptr = Vector{Ti}(undef,m+1)
+  csrcolval = Vector{Ti}(undef,coolen)
+  csccolptr = Vector{Ti}(undef,n+1)
+  klasttouch = Vector{Ti}(undef,n)
+  cscrowval = Vector{Ti}()
+  combine = nothing
+  SparseArrays.sparse!(I,J,V,m,n,combine,klasttouch,csrrowptr,csrcolval,csccolptr,cscrowval)
+end
+
+function SparseArrays.sparse!(
+  I::AbstractVector{Ti},J::AbstractVector{Ti},V::AbstractMatrix{Tv},
+  m::Integer,n::Integer,combine,klasttouch::Vector{Tj},
+  csrrowptr::Vector{Tj},csrcolval::Vector{Ti},
+  csccolptr::Vector{Ti},cscrowval::Vector{Ti}
+  ) where {Tv,Ti<:Integer,Tj<:Integer}
+
+  SparseArrays.sparse_check_Ti(m,n,Ti)
+  SparseArrays.sparse_check_length("I",I,0,Tj)
+
+  only_sparsity_pattern = combine === nothing
+
+  fill!(csrrowptr,Tj(0))
+  coolen = length(I)
+  length(J) >= coolen || throw(ArgumentError("J need length >= length(I) = $coolen"))
+  only_sparsity_pattern || size(V,1) >= coolen || throw(ArgumentError("V need length >= length(I) = $coolen"))
+
+  @inbounds for k in 1:coolen
+    Ik = I[k]
+    if 1 > Ik || m < Ik
+      throw(ArgumentError("row indices I[k] must satisfy 1 <= I[k] <= m"))
+    end
+    csrrowptr[Ik+1] += Tj(1)
+  end
+
+  countsum = Tj(1)
+  csrrowptr[1] = Tj(1)
+  @inbounds for i in 2:(m+1)
+    overwritten = csrrowptr[i]
+    csrrowptr[i] = countsum
+    countsum += overwritten
+  end
+
+  @inbounds for k in 1:coolen
+    Ik,Jk = I[k],J[k]
+    if Ti(1) > Jk || Ti(n) < Jk
+      throw(ArgumentError("column indices J[k] must satisfy 1 <= J[k] <= n"))
+    end
+    csrk = csrrowptr[Ik+1]
+    @assert csrk >= Tj(1) "index into csrcolval exceeds typemax(Ti)"
+    csrrowptr[Ik+1] = csrk + Tj(1)
+    csrcolval[csrk] = Jk
+  end
+
+  resize!(csccolptr,n + 1)
+
+  fill!(csccolptr,Ti(0))
+  fill!(klasttouch,Tj(0))
+  writek = Tj(1)
+  newcsrrowptri = Ti(1)
+  origcsrrowptri = Tj(1)
+  origcsrrowptrip1 = csrrowptr[2]
+  @inbounds for i in 1:m
+    for readk in origcsrrowptri:(origcsrrowptrip1-Tj(1))
+      j = csrcolval[readk]
+      if klasttouch[j] < newcsrrowptri
+        klasttouch[j] = writek
+        if writek != readk
+          csrcolval[writek] = j
+        end
+        writek += Tj(1)
+        csccolptr[j+1] += Ti(1)
+      end
+    end
+    newcsrrowptri = writek
+    origcsrrowptri = origcsrrowptrip1
+    origcsrrowptrip1 != writek && (csrrowptr[i+1] = writek)
+    i < m && (origcsrrowptrip1 = csrrowptr[i+2])
+  end
+
+  countsum = Tj(1)
+  csccolptr[1] = Ti(1)
+  @inbounds for j in 2:(n+1)
+    overwritten = csccolptr[j]
+    csccolptr[j] = countsum
+    countsum += overwritten
+    Base.hastypemax(Ti) && (countsum <= typemax(Ti) || throw(ArgumentError("more than typemax(Ti)-1 == $(typemax(Ti)-1) entries")))
+  end
+
+  cscnnz = countsum - Tj(1)
+  resize!(cscrowval,cscnnz)
+
+  @inbounds for i in 1:m
+    for csrk in csrrowptr[i]:(csrrowptr[i+1]-Tj(1))
+      j = csrcolval[csrk]
+      csck = csccolptr[j+1]
+      csccolptr[j+1] = csck + Ti(1)
+      cscrowval[csck] = i
+    end
+  end
+
+  ConsecutiveParamSparseMatrixCSC(m,n,csccolptr,cscrowval,V)
+end
+
 const ConsecutiveParamSparseMatrix{Tv,Ti} = Union{
   ConsecutiveParamSparseMatrixCSC{Tv,Ti},
   ConsecutiveParamSparseMatrixCSR{<:Any,Tv,Ti}}

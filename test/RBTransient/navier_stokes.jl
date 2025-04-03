@@ -85,7 +85,7 @@ function main(
   else method == :ttsvd
     tolranks = fill(tolrank,4)
     ttcoupling((du,dp),(v,q)) = ∫(dp*∂₁(v))dΩ + ∫(dp*∂₂(v))dΩ
-    state_reduction = SupremizerReduction(ttcoupling,tolranks,energy;nparams,unsafe)
+    state_reduction = TransientReduction(ttcoupling,tolranks,energy;nparams,unsafe)
   end
 
   θ = 0.5

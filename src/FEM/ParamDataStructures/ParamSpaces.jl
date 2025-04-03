@@ -547,6 +547,10 @@ function ParamFunction(f::Function,pt::TransientRealizationAt)
   ParamFunction(f,get_params(pt))
 end
 
+function parameterize(a::Any,p::AbstractRealization)
+  parameterize(a,param_length(p))
+end
+
 """
     parameterize(f::Function,r::Realization) -> ParamFunction
     parameterize(f::Function,r::TransientRealization) -> TransientParamFunction

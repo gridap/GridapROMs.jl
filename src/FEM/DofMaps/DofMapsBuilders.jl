@@ -11,24 +11,8 @@ function get_dof_map(f::SingleFieldFESpace,args...)
   VectorDofMap(n)
 end
 
-"""
-    get_internal_dof_map(space::FESpace) -> VectorDofMap
-
-Returns the internal dofs sorted by coordinate order, for every dimension. If `space` is a
-D-dimensional, scalar `FESpace`, the output index map will be a subtype of
-`AbstractDofMap{<:Integer,D}`. If `space` is a D-dimensional, vector-valued `FESpace`,
-the output index map will be a subtype of `AbstractDofMap{D+1}`.
-"""
-function get_internal_dof_map(f::SingleFieldFESpace,args...)
-  get_dof_map(f,args...)
-end
-
 function get_dof_map(f::MultiFieldFESpace,args...)
   map(f -> get_dof_map(f,args...),f.spaces)
-end
-
-function get_internal_dof_map(f::MultiFieldFESpace,args...)
-  map(f -> get_internal_dof_map(f,args...),f.spaces)
 end
 
 function get_sparse_dof_map(a::SparsityPattern,U::FESpace,V::FESpace,args...)
@@ -38,9 +22,16 @@ end
 function get_sparse_dof_map(a::TProductSparsity,U::FESpace,V::FESpace,args...)
   Tu = get_dof_eltype(U)
   Tv = get_dof_eltype(V)
-  full_ids = get_d_sparse_dofs_to_full_dofs(Tu,Tv,a)
-  sparse_ids = sparsify_indices(full_ids)
-  SparseMatrixDofMap(sparse_ids,full_ids,a)
+  try
+    full_ids = get_d_sparse_dofs_to_full_dofs(Tu,Tv,a)
+    sparse_ids = sparsify_indices(full_ids)
+    SparseMatrixDofMap(sparse_ids,full_ids,a)
+  catch
+    msg = "Could not build sparse tensor-product dof mapping. Must represent the
+    jacobian using a linear dof map"
+    println(msg)
+    get_sparse_dof_map(a.sparsity,U,V,args...)
+  end
 end
 
 """
@@ -194,12 +185,21 @@ function get_polynomial_orders(basis)
   get_orders(shapefun.fields)
 end
 
-function _get_bg_cell_to_act_cell(f::SingleFieldFESpace)
+function get_cell_to_bg_cell(f::SingleFieldFESpace)
   trian = get_triangulation(f)
-  _get_bg_cell_to_act_cell(trian)
+  D = num_cell_dims(trian)
+  glue = get_glue(trian,Val(D))
+  glue.tface_to_mface
 end
 
-function _get_bg_cell_to_act_cell(trian::Triangulation)
+function get_bg_cell_to_cell(f::SingleFieldFESpace)
+  trian = get_triangulation(f)
+  D = num_cell_dims(trian)
+  glue = get_glue(trian,Val(D))
+  glue.mface_to_tface
+end
+
+function get_cell_to_bg_cell(trian::Triangulation)
   Utils.get_tface_to_mface(trian)
 end
 

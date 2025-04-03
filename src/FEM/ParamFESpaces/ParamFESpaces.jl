@@ -23,11 +23,8 @@ using GridapROMs.ParamDataStructures
 using GridapROMs.ParamAlgebra
 
 import Test: @test
-import ArraysOfArrays: _innerlength
 import Gridap.Algebra: residual!,jacobian!
 import Gridap.FESpaces: FEFunction,SparseMatrixAssembler,EvaluationFunction
-
-include("ParamAssemblers.jl")
 
 export SingleFieldParamFESpace
 export get_vector_type2
@@ -50,5 +47,7 @@ export ParamFEFunction
 export SingleFieldParamFEFunction
 export MultiFieldParamFEFunction
 include("ParamFEFunctions.jl")
+
+include("ParamAssemblers.jl")
 
 end # module

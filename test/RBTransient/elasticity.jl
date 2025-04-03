@@ -70,7 +70,7 @@ function main(
     state_reduction = TransientReduction(tolrank,energy;nparams,sketch)
   else method == :ttsvd
     tolranks = fill(tolrank,4)
-    state_reduction = TTSVDReduction(tolranks,energy;nparams,unsafe)
+    state_reduction = TransientReduction(tolranks,energy;nparams,unsafe)
   end
 
   θ = 0.5

@@ -86,13 +86,55 @@ for T in (:RBParamVector,:RBVector)
   end
 end
 
-for (F,T) in zip((:SingleFieldParamFESpace,:SingleFieldFESpace),(:RBParamVector,:RBVector))
+for (F,S,T) in zip(
+  (:SingleFieldParamFESpace,:SingleFieldFESpace),
+  (:RBParamVector,:RBVector),
+  (:AbstractParamVector,:AbstractVector))
   @eval begin
-    function FESpaces.scatter_free_and_dirichlet_values(f::$F,fv::$T,dv)
+    function FESpaces.scatter_free_and_dirichlet_values(f::$F,fv::$S,dv::$T)
       scatter_free_and_dirichlet_values(f,fv.fe_data,dv)
     end
 
-    function FESpaces.gather_free_and_dirichlet_values!(fv::$T,dv,f::$F,cv)
+    function FESpaces.gather_free_and_dirichlet_values!(fv::$S,dv::$T,f::$F,cv)
+      gather_free_and_dirichlet_values!(fv.fe_data,dv,f,cv)
+    end
+  end
+end
+
+for T in (
+  :FESpaceWithLinearConstraints,
+  :(FESpaceWithConstantFixed{FESpaces.FixConstant}),
+  :(FESpaceWithConstantFixed{FESpaces.DoNotFixConstant})
+  )
+  @eval begin
+    function FESpaces.scatter_free_and_dirichlet_values(
+      f::SingleFieldParamFESpace{<:$T},
+      fv::RBParamVector,
+      dv::AbstractParamVector)
+
+      scatter_free_and_dirichlet_values(f,fv.fe_data,dv)
+    end
+    function FESpaces.scatter_free_and_dirichlet_values(
+      f::SingleFieldParamFESpace{<:OrderedFESpace{<:$T}},
+      fv::RBParamVector,
+      dv::AbstractParamVector)
+
+      scatter_free_and_dirichlet_values(f,fv.fe_data,dv)
+    end
+    function FESpaces.gather_free_and_dirichlet_values!(
+      fv::RBParamVector,
+      dv::AbstractParamVector,
+      f::SingleFieldParamFESpace{<:$T},
+      cv)
+
+      gather_free_and_dirichlet_values!(fv.fe_data,dv,f,cv)
+    end
+    function FESpaces.gather_free_and_dirichlet_values!(
+      fv::RBParamVector,
+      dv::AbstractParamVector,
+      f::SingleFieldParamFESpace{<:OrderedFESpace{<:$T}},
+      cv)
+
       gather_free_and_dirichlet_values!(fv.fe_data,dv,f,cv)
     end
   end

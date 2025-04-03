@@ -118,6 +118,10 @@ FESpaces.get_dirichlet_dof_tag(f::TProductFESpace) = get_dirichlet_dof_tag(f.spa
 
 FESpaces.scatter_free_and_dirichlet_values(f::TProductFESpace,fv,dv) = scatter_free_and_dirichlet_values(f.space,fv,dv)
 
+function FESpaces.gather_free_and_dirichlet_values!(fv,dv,f::TProductFESpace,cv)
+  gather_free_and_dirichlet_values!(fv,dv,f.space,cv)
+end
+
 function DofMaps.get_sparsity(U::TProductFESpace,V::TProductFESpace,args...)
   @check length(U.spaces_1d) == length(V.spaces_1d)
   sparsity = get_sparsity(U.space,V.space,args...)
@@ -127,14 +131,10 @@ function DofMaps.get_sparsity(U::TProductFESpace,V::TProductFESpace,args...)
   return TProductSparsity(sparsity,sparsities_1d)
 end
 
-for f in (:(DofMaps.get_dof_map),:(DofMaps.get_internal_dof_map))
-  @eval begin
-    function $f(V::TProductFESpace,args...)
-      T = get_dof_eltype(V)
-      dof_map = $f(V.space,args...)
-      get_tp_dof_map(T,V.spaces_1d,dof_map)
-    end
-  end
+function DofMaps.get_dof_map(V::TProductFESpace,args...)
+  T = get_dof_eltype(V)
+  dof_map = get_dof_map(V.space,args...)
+  get_tp_dof_map(T,V.spaces_1d,dof_map)
 end
 
 function get_tp_dof_map(::Type{T},spaces_1d,dof_map) where T

@@ -120,6 +120,11 @@ function Algebra.jacobian!(
   A
 end
 
+function Algebra.zero_initial_guess(op::LinNonlinParamOperator)
+  v = get_vector(op.cache_linear)
+  copy(v)
+end
+
 # utils
 
 function compatible_cache(a::SystemCache,b::SystemCache)

@@ -213,6 +213,10 @@ function Algebra.jacobian!(
   jacobian!(A,nlop.op,nlop.μ,x,nlop.paramcache)
 end
 
+function Algebra.zero_initial_guess(nlop::GenericParamNonlinearOperator)
+  zero_initial_guess(nlop.op,nlop.μ)
+end
+
 function allocate_systemcache(nlop::GenericParamNonlinearOperator)
   xh = zero(nlop.paramcache.trial)
   x = get_free_dof_values(xh)
