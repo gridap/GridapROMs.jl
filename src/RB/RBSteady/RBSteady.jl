@@ -33,10 +33,7 @@ using GridapROMs.ParamAlgebra
 using GridapROMs.ParamFESpaces
 using GridapROMs.ParamSteady
 using GridapROMs.ParamODEs
-<<<<<<< HEAD
-=======
 using GridapROMs.Extensions
->>>>>>> f273f7312afc3e582f1f2265d3af774430caf63d
 
 import Base: +,-,*,\
 import PartitionedArrays: tuple_of_arrays

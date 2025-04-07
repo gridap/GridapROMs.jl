@@ -44,6 +44,7 @@ export BlockRankTensor
 export MatrixOrTensor
 export get_factors
 export get_decomposition
+export get_crossnorm
 include("RankTensors.jl")
 
 include("TProductCellData.jl")

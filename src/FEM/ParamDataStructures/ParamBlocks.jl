@@ -1295,12 +1295,8 @@ end
 function Arrays.return_value(::typeof(*),a::AbstractArray,b::ParamBlock)
   ai = testitem(a)
   ri = return_value(*,ai,b)
-<<<<<<< HEAD
-  data = Vector{typeof(ri)}(undef,param_length(a))
-=======
   data = Vector{typeof(ri)}(undef,param_length(b))
   fill!(data,ri)
->>>>>>> f273f7312afc3e582f1f2265d3af774430caf63d
   GenericParamBlock(data)
 end
 
@@ -1347,10 +1343,7 @@ function Arrays.return_value(::typeof(*),a::ParamBlock,b::ParamBlock)
   bi = testitem(b)
   ri = return_value(*,ai,bi)
   data = Vector{typeof(ri)}(undef,param_length(a))
-<<<<<<< HEAD
-=======
   fill!(data,ri)
->>>>>>> f273f7312afc3e582f1f2265d3af774430caf63d
   GenericParamBlock(data)
 end
 

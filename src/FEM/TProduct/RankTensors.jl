@@ -52,6 +52,7 @@ end
 get_decomposition(a::Rank1Tensor,k::Integer) = k == 1 ? a : error("Exceeded rank 1 with rank $k")
 Base.size(a::Rank1Tensor) = (dimension(a),)
 Base.getindex(a::Rank1Tensor,d::Integer) = get_factors(a)[d]
+Base.setindex!(a::Rank1Tensor,v,d::Integer) = (get_factors(a)[d]=v)
 
 function LinearAlgebra.cholesky(a::Rank1Tensor)
   cholesky.(get_factors(a))
@@ -79,14 +80,20 @@ get_factor(a::GenericRankTensor,d::Integer,k::Integer) = get_factors(get_decompo
 Base.size(a::GenericRankTensor) = (rank(a),)
 Base.getindex(a::GenericRankTensor,k::Integer) = get_decomposition(a,k)
 
-function LinearAlgebra.cholesky(a::GenericRankTensor{D,K}) where {D,K}
-  map(1:D) do d
-    factor = get_factor(a,d,1)
-    for k = 2:K
-      factor += get_factor(a,d,k)
+function get_crossnorm(a::GenericRankTensor{D,K}) where {D,K}
+  factors = get_factors(get_decomposition(a,1))
+  for k in 2:K
+    factors_k = get_decomposition(a,k)
+    for d in 1:D
+      factors[d] += factors_k[d]
     end
-    cholesky(factor)
   end
+  Rank1Tensor(factors)
+end
+
+# this is not true, but it is sufficient to correctly run the supremizing procedure
+function LinearAlgebra.cholesky(a::GenericRankTensor{D,K}) where {D,K}
+  cholesky(get_crossnorm(a))
 end
 
 """

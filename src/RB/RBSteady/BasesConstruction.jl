@@ -262,7 +262,7 @@ function ttsvd(
   # compute euclidean tt cores
   cores,remainder = ttsvd(red_style,A)
   # tt orthogonality
-  remainder′ = orthogonalize!(red_style,cores,remainder,X)
+  orthogonalize!(red_style,cores,X)
   return cores,remainder′
 end
 
@@ -294,17 +294,16 @@ function steady_ttsvd(
   X::GenericRankTensor{D,K}
   ) where {T,N,D,K}
 
-  # compute initial tt decompositions
-  cores_k,remainders_k = map(k -> steady_ttsvd(red_style,A,X[k]),1:K) |> tuple_of_arrays
+  # convert to the closest crossnorm
+  X′ = get_crossnorm(X)
 
-  # tt decomposition of the sum
-  cores = block_cores(cores_k)
-  remainder = block_cat(remainders_k;dims=1)
+  # decomposition w.r.t. the crossnorm
+  cores,remainder = ttsvd(red_style,A,X′)
 
-  # tt orthogonality
-  remainder′ = orthogonalize!(red_style,cores,remainder,X)
+  # tt X-orthogonality
+  orthogonalize!(red_style,cores,X)
 
-  return cores,remainder′
+  return cores,remainder
 end
 
 function generalized_ttsvd(
@@ -342,60 +341,22 @@ function orthogonalize!(
   X::AbstractRankTensor{D}
   ) where D
 
-  local R
   weight = ones(1,rank(X),1)
   decomp = get_decomposition(X)
   for d in 1:D
-    cur_core = cores[d]
+    core = cores[d]
     if d == D
       XW = ttnorm_array(X,weight)
-      cur_core′,R = reduce_rank(red_style[d],cur_core,XW)
-      cores[d] = cur_core′
-      if d < length(cores)
-        next_core = cores[d+1]
-        cores[d+1] = absorb(next_core,R)
-      end
+      mat = reshape(core,:,size(core,3))
+      Ur,Sr,Vr = tpod(red_style[d],mat,XW)
+      core′ = reshape(Ur,size(core,1),size(core,2),:)
+      cores[d] = core′
     else
-      next_core = cores[d+1]
       X_d = getindex.(decomp,d)
-      cur_core′,R = reduce_rank(red_style[d],cur_core)
-      cores[d] = cur_core′
-      cores[d+1] = absorb(next_core,R)
-      weight = weight_array(weight,cur_core′,X_d)
+      weight = weight_array(weight,core,X_d)
     end
   end
-  for d in D+1:length(cores)
-    cur_core = cores[d]
-    cur_core′,R = reduce_rank(red_style[d],cur_core)
-    cores[d] = cur_core′
-    d == length(cores) && break
-    next_core = cores[d+1]
-    next_core′ = absorb(next_core,R)
-    cores[d+1] = next_core′
-  end
-  return R
-end
-
-function orthogonalize!(
-  red_style::ReductionStyle,
-  cores::AbstractVector)
-
-  local R
-  for d in 1:length(cores)-1
-    cur_core = cores[d]
-    next_core = cores[d+1]
-    cur_core′,R = reduce_rank(red_style[d],cur_core)
-    next_core′ = absorb(next_core,R)
-    cores[d] = cur_core′
-    cores[d+1] = next_core′
-  end
-  return R
-end
-
-function orthogonalize!(red_style,cores,remainder,args...)
-  R = orthogonalize!(red_style,cores,args...)
-  remainder′ = absorb(remainder,R)
-  return remainder′
+  return
 end
 
 function reduce_rank(red_style::ReductionStyle,core::AbstractArray{T,3},args...) where T
