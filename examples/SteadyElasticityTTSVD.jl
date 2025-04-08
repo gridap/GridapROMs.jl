@@ -63,7 +63,7 @@ fesolver = LUSolver()
 
 tol = fill(1e-5,4)
 energy(du,v) = ∫(v⋅du)dΩ + ∫(∇(v)⊙∇(du))dΩ
-state_reduction = Reduction(tol,energy;nparams=80,unsafe=true)
+state_reduction = Reduction(tol,energy;nparams=80)
 rbsolver = RBSolver(fesolver,state_reduction;nparams_res=40,nparams_jac=40)
 
 dir = datadir("elasticity_ttsvd")

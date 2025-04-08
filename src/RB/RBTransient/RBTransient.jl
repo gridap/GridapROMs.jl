@@ -36,6 +36,8 @@ import UnPack: @unpack
 import GridapROMs.RBSteady: reduced_cells,_get_label
 
 export TransientReduction
+export TransientKroneckerReduction
+export TransientLinearReduction
 export TransientMDEIMReduction
 include("ReductionMethods.jl")
 

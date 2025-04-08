@@ -11,7 +11,7 @@ tol_or_rank(tol,rank::Int) = rank
 function main(
   method=:pod;
   tol=1e-4,rank=nothing,nparams=50,nparams_res=floor(Int,nparams/3),
-  nparams_jac=floor(Int,nparams/4),nparams_djac=1,sketch=:sprn,unsafe=false
+  nparams_jac=floor(Int,nparams/4),nparams_djac=1,sketch=:sprn
   )
 
   @assert method ∈ (:pod,:ttsvd) "Unrecognized reduction method! Should be one of (:pod,:ttsvd)"
@@ -71,7 +71,7 @@ function main(
     state_reduction = TransientReduction(tolrank,energy;nparams,sketch)
   else method == :ttsvd
     tolranks = fill(tolrank,4)
-    state_reduction = TransientReduction(tolranks,energy;nparams,unsafe)
+    state_reduction = TransientReduction(tolranks,energy;nparams,)
   end
 
   θ = 0.5

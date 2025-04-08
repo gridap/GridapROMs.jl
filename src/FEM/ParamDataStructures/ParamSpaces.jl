@@ -258,7 +258,9 @@ function generate_param(::NormalSampling,param_domain)
 end
 
 """
-    struct HaltonSampling <: SamplingStyle end
+    struct HaltonSampling <: SamplingStyle
+      start::Int
+    end
 
 Sampling according to a Halton sequence
 
@@ -267,11 +269,15 @@ Sampling according to a Halton sequence
   realizations since the draws are not randomized; to draw different parameters,
   one needs to provide a starting point in the sequence (start = 1 by default)
 """
-struct HaltonSampling <: SamplingStyle end
+struct HaltonSampling <: SamplingStyle
+  start::Int
+end
 
-function _generate_params(::HaltonSampling,param_domain,nparams;start=1,kwargs...)
+HaltonSampling() = HaltonSampling(1)
+
+function _generate_params(s::HaltonSampling,param_domain,nparams)
   d = length(param_domain)
-  hs = HaltonPoint(d;length=nparams,start=start)
+  hs = HaltonPoint(d;length=nparams,start=s.start)
   hs′ = collect(hs)
   for x in hs′
     for (di,xdi) in enumerate(x)
@@ -372,13 +378,13 @@ function _generate_params(::TensorialUniformSampling,param_domain,nparams)
   return params
 end
 
-function _sampling_to_style(sampling::Symbol=:halton)
+function _sampling_to_style(;sampling::Symbol=:halton,start=1)
   if sampling == :uniform
     UniformSampling()
   elseif sampling == :normal
     NormalSampling()
   elseif sampling == :halton
-    HaltonSampling()
+    HaltonSampling(start)
   elseif sampling == :latin_hypercube
     LatinHypercubeSampling()
   elseif sampling == :tensorial_uniform
@@ -406,23 +412,18 @@ end
 
 get_sampling_style(p::ParamSpace) = p.sampling_style
 
-function ParamSpace(param_domain::AbstractVector{<:AbstractVector},sampling::Symbol)
-  style = _sampling_to_style(sampling)
-  ParamSpace(param_domain,style)
-end
-
-function ParamSpace(domain_tuple::NTuple{N,T},args...) where {N,T}
+function ParamSpace(domain_tuple::NTuple{N,T},style=HaltonSampling()) where {N,T}
   @notimplementedif !isconcretetype(T)
   @notimplementedif isodd(N)
   param_domain = Vector{Vector{T}}(undef,Int(N/2))
   for (i,n) in enumerate(1:2:N)
     param_domain[i] = [domain_tuple[n],domain_tuple[n+1]]
   end
-  ParamSpace(param_domain,args...)
+  ParamSpace(param_domain,style)
 end
 
-function ParamSpace(param_domain;sampling=:halton)
-  style = _sampling_to_style(sampling)
+function ParamSpace(param_domain;kwargs...)
+  style = _sampling_to_style(;kwargs...)
   ParamSpace(param_domain,style)
 end
 

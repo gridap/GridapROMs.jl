@@ -71,34 +71,22 @@ function ReductionStyle(rank::Int;sketch=nothing,kwargs...)
   isa(sketch,Symbol) ? LRApproxRank(rank;sketch,kwargs...) : FixedSVDRank(rank)
 end
 
-abstract type TTSVDStyle end
-struct SafeTTSVD <: TTSVDStyle end
-struct UnsafeTTSVD <: TTSVDStyle end
-
-TTSVDStyle(unsafe::Val{false}) = SafeTTSVD()
-TTSVDStyle(unsafe::Val{true}) = UnsafeTTSVD()
-
 """
-    struct TTSVDRanks{T<:TTSVDStyle} <: ReductionStyle
+    struct TTSVDRanks <: ReductionStyle
       style::Vector{<:ReductionStyle}
-      unsafe::T
     end
 
 Struct employed when the chosen reduction algorithm is a TTSVD, with reduction
 algorithm at each step specified in the vector of reduction styles `style`. Check
 [this](https://doi.org/10.1137/090752286) reference for more details on the TTSVD algorithm
 """
-struct TTSVDRanks{T<:TTSVDStyle} <: ReductionStyle
+struct TTSVDRanks <: ReductionStyle
   style::Vector{<:ReductionStyle}
-  unsafe::T
 end
 
-const SafeTTSVDRanks = TTSVDRanks{SafeTTSVD}
-const UnsafeTTSVDRanks = TTSVDRanks{UnsafeTTSVD}
-
-function TTSVDRanks(tolranks::Vector{<:Union{Float64,Int}},args...;unsafe=false,kwargs...)
+function TTSVDRanks(tolranks::Vector{<:Union{Float64,Int}},args...;kwargs...)
   style = map(tolrank -> ReductionStyle(tolrank,args...;kwargs...),tolranks)
-  TTSVDRanks(style,TTSVDStyle(Val(unsafe)))
+  TTSVDRanks(style)
 end
 
 function TTSVDRanks(tolrank::Union{Float64,Int},D=3,args...;kwargs...)

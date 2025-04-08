@@ -12,7 +12,7 @@ tol_or_rank(tol,rank::Int) = rank
 function main(
   method=:pod,n=20;
   tol=1e-4,rank=nothing,nparams=50,nparams_res=floor(Int,nparams/3),
-  nparams_jac=floor(Int,nparams/4),sketch=:sprn,unsafe=false
+  nparams_jac=floor(Int,nparams/4),sketch=:sprn
   )
 
   @assert method ∈ (:pod,:ttsvd) "Unrecognized reduction method! Should be one of (:pod,:ttsvd)"
@@ -85,7 +85,7 @@ function main(
     test = TProductFESpace(Ωact,Ωbg,reffe;conformity=:H1)
     tolranks = fill(tolrank,3)
     ttenergy(du,v) = ∫(v*du)dΩbg + ∫(∇(v)⋅∇(du))dΩbg
-    state_reduction = Reduction(tolranks,ttenergy;nparams,unsafe)
+    state_reduction = Reduction(tolranks,ttenergy;nparams)
   end
 
   trial = ParamTrialFESpace(test)

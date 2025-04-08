@@ -62,6 +62,14 @@ function TransientReduction(red_style::ReductionStyle,args...;kwargs...)
   TransientReduction(red_style,red_style,args...;kwargs...)
 end
 
+"""
+    struct TransientLinearReduction{A,B,R<:Reduction{A,B}} <: TransientReduction{A,B}
+      reduction::R
+    end
+
+Wrapper for reduction methods in transient problems, when the temporal reduction
+is performed concurrently to the spatial one.
+"""
 struct TransientLinearReduction{A,B,R<:Reduction{A,B}} <: TransientReduction{A,B}
   reduction::R
 end

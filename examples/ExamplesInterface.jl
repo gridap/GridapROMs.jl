@@ -96,7 +96,7 @@ end
 
 update_redstyle(rs::SearchSVDRank,tol) = SearchSVDRank(tol)
 update_redstyle(rs::LRApproxRank,tol) = LRApproxRank(tol)
-update_redstyle(rs::TTSVDRanks,tol) = TTSVDRanks(map(s->update_redstyle(s,tol),rs.style),rs.unsafe)
+update_redstyle(rs::TTSVDRanks,tol) = TTSVDRanks(map(s->update_redstyle(s,tol),rs.style))
 
 function update_reduction(red::Reduction,tol)
   @abstractmethod
@@ -122,11 +122,15 @@ function update_reduction(red::MDEIMReduction,tol)
   MDEIMReduction(update_reduction(red.reduction,tol))
 end
 
-function update_reduction(red::TransientReduction,tol)
-  TransientReduction(
+function update_reduction(red::TransientKroneckerReduction,tol)
+  TransientKroneckerReduction(
     update_reduction(red.reduction_space,tol),
     update_reduction(red.reduction_time,tol)
     )
+end
+
+function update_reduction(red::TransientLinearReduction,tol)
+  TransientLinearReduction(update_reduction(red.reduction,tol))
 end
 
 function update_reduction(red::TransientMDEIMReduction,tol)

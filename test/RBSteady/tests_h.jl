@@ -43,7 +43,7 @@ end
 
 function main_poisson_2d(n;
   tol=1e-4,rank=nothing,nparams=50,nparams_res=floor(Int,nparams/3),
-  nparams_jac=floor(Int,nparams/4),sketch=:sprn,unsafe=false
+  nparams_jac=floor(Int,nparams/4),sketch=:sprn
   )
 
   pdomain = (1,10,-1,5,1,2)
@@ -71,7 +71,7 @@ function main_poisson_2d(n;
   rhs(μ,v,dΩ,dΓn) = ∫(fμ(μ)*v)dΩ + ∫(hμ(μ)*v)dΓn
   res(μ,u,v,dΩ,dΓn) = stiffness(μ,u,v,dΩ) - rhs(μ,v,dΩ,dΓn)
 
-  energy(du,v,dΩ) = ∫(v*du)dΩ #+ ∫(∇(v)⋅∇(du))dΩ
+  energy(du,v,dΩ) = ∫(v*du)dΩ + ∫(∇(v)⋅∇(du))dΩ
 
   reffe = ReferenceFE(lagrangian,Float64,order)
 
@@ -102,10 +102,6 @@ function main_poisson_2d(n;
   fesnaps, = solution_snapshots(rbsolver,feop)
   reduced_spaces(rbsolver,feop,fesnaps)
 
-  println("pod no randomized")
-  rbsolver = RBSolver(fesolver,PODReduction(tolrank,(du,v)->energy(du,v,dΩ);nparams);nparams_res,nparams_jac)
-  reduced_spaces(rbsolver,feop,fesnaps)
-
   method = :ttsvd
   println("$(method) test poisson 2d n = $n")
 
@@ -123,7 +119,7 @@ function main_poisson_2d(n;
   feop = LinearParamOperator(res,stiffness,pspace,trial,test,domains)
 
   tolranks = fill(tolrank,3)
-  state_reduction = Reduction(tolranks,(du,v)->energy(du,v,dΩ);nparams,unsafe,sketch)
+  state_reduction = Reduction(tolranks,(du,v)->energy(du,v,dΩ);nparams,sketch)
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac)
 
   dof_map = get_dof_map(test)
@@ -137,7 +133,7 @@ end
 
 function main_poisson_3d(n;
   tol=1e-4,rank=nothing,nparams=50,nparams_res=floor(Int,nparams/3),
-  nparams_jac=floor(Int,nparams/4),sketch=:sprn,unsafe=false
+  nparams_jac=floor(Int,nparams/4),sketch=:sprn
   )
 
   pdomain = (1,10,-1,5,1,2)
@@ -220,7 +216,7 @@ function main_poisson_3d(n;
   feop = LinearParamOperator(res,stiffness,pspace,trial,test,domains)
 
   tolranks = fill(tolrank,4)
-  state_reduction = Reduction(tolranks,(du,v)->energy(du,v,dΩ);nparams,unsafe,sketch)
+  state_reduction = Reduction(tolranks,(du,v)->energy(du,v,dΩ);nparams,sketch)
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac)
 
   dof_map = get_dof_map(test)
@@ -234,7 +230,7 @@ end
 
 function main_heateq_2d(n;
   tol=1e-4,rank=nothing,nparams=50,nparams_res=floor(Int,nparams/3),
-  nparams_jac=floor(Int,nparams/4),nparams_djac=1,sketch=:sprn,unsafe=false
+  nparams_jac=floor(Int,nparams/4),nparams_djac=1,sketch=:sprn
   )
 
   pdomain = (1,10,-1,5,1,2)
@@ -330,7 +326,7 @@ function main_heateq_2d(n;
   uh0μ(μ) = interpolate_everywhere(u0μ(μ),trial(μ,t0))
 
   tolranks = fill(tolrank,4)
-  state_reduction = TTSVDReduction(tolranks,(du,v)->energy(du,v,dΩ);nparams,unsafe,sketch)
+  state_reduction = TTSVDReduction(tolranks,(du,v)->energy(du,v,dΩ);nparams,sketch)
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,nparams_djac)
 
   dof_map = get_dof_map(test)
@@ -344,7 +340,7 @@ end
 
 function main_heateq_3d(n;
   tol=1e-4,rank=nothing,nparams=50,nparams_res=floor(Int,nparams/3),
-  nparams_jac=floor(Int,nparams/4),nparams_djac=1,sketch=:sprn,unsafe=false
+  nparams_jac=floor(Int,nparams/4),nparams_djac=1,sketch=:sprn
   )
 
   pdomain = (1,10,-1,5,1,2)
@@ -440,7 +436,7 @@ function main_heateq_3d(n;
   uh0μ(μ) = interpolate_everywhere(u0μ(μ),trial(μ,t0))
 
   tolranks = fill(tolrank,4)
-  state_reduction = TTSVDReduction(tolranks,(du,v)->energy(du,v,dΩ);nparams,unsafe,sketch)
+  state_reduction = TTSVDReduction(tolranks,(du,v)->energy(du,v,dΩ);nparams,sketch)
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,nparams_djac)
 
   dof_map = get_dof_map(test)
@@ -601,205 +597,16 @@ function d_cholesky(partition::NTuple{D}) where D
   println("Running $D - dimensional cholesky test with Ns = $(length(x))")
 
   X = assemble_matrix(feop,energy)
-  println(nnz(X))
-  # t1 = @btimed assemble_matrix($feop,$energy)
-  # X = t1.value
-  # t2 = @btimed cholesky($X)
-  # H = t2.value
-  # t3 = @btimed $H \ $x
+  t1 = @btimed assemble_matrix($feop,$energy)
+  X = t1.value
+  t2 = @btimed cholesky($X)
+  H = t2.value
+  t3 = @btimed $H \ $x
 
-  # println(CostTracker(t1,name="X assembly, Nz(X) = $(nnz(X))"))
-  # println(CostTracker(t2,name="H = cholesky(X)"))
-  # println(CostTracker(t3,name="H div x"))
+  println(CostTracker(t1,name="X assembly, Nz(X) = $(nnz(X))"))
+  println(CostTracker(t2,name="H = cholesky(X)"))
+  println(CostTracker(t3,name="H div x"))
   println("---------------------------------")
 end
-
-N1 = [5000,10000,20000,50000,100000,200000]
-N2 = map(n -> ceil(Int,n^(1/2)),N1)
-N3 = map(n -> ceil(Int,n^(1/3)),N1)
-
-for n in N1
-  d_cholesky((n,))
-end
-
-for n in N2
-  d_cholesky((n,n))
-end
-
-for n in N3
-  d_cholesky((n,n,n))
-end
-
-using Plots
-
-Nz1 = [15001,30001,60001,150001,300001,600001]
-Nz2 = [45796,90601,182329,452929,906304,1809025]
-Nz3 = [166375,300763,614125,1404928,2863288,5639752]
-
-chol1 = [1.561952,3.121952,6.241952,15.601952,31.201952,62.401952]
-chol2 = [6.255296,12.55808,26.708984,66.988352,136.641928,279.794976]
-chol3 = [71.879736,147.821236,342.193236,922.940512,2161.654584,4863.986732]
-
-dir = pwd()
-file = joinpath(dir,"chol.png")
-
-p = plot(N1,reshape(chol1,:,1),lw=3,label="d=1",legend=:topleft)
-plot!(N1,reshape(chol2,:,1),lw=3,label="d=2")
-plot!(N1,reshape(chol3,:,1),lw=3,label="d=3")
-# plot!(N1,reshape(N1,:,1),lw=3)
-# plot!(N1,reshape(N1.^2,:,1),lw=3)
-# plot!(N1,reshape(N1.^(1.5),:,1),lw=3)
-plot!(xscale=:log2,yscale=:log2)
-xlabel!("Nₛ")
-ylabel!("Memory [Mb]")
-title!("Factorization cost")
-savefig(p,file)
-
-div1 = [0.280744,0.560744,1.120744,2.800744,5.600744,11.200744]
-div2 = [0.16756,0.328256,0.65696,1.623536,3.240176,6.457072]
-div3 = [0.223136,0.394304,0.78792,1.76848,3.558864,6.94344]
-file = joinpath(dir,"div.png")
-
-p = plot(N1,reshape(div1,:,1),lw=3,label="d=1",legend=:topleft)
-plot!(N1,reshape(div2,:,1),lw=3,label="d=2")
-plot!(N1,reshape(div3,:,1),lw=3,label="d=3")
-# plot!(N1,reshape(N1,:,1),lw=3)
-plot!(xscale=:log2,yscale=:log2)
-xlabel!("Nₛ")
-ylabel!("Memory [Mb]")
-title!("Sparse lower-triangular system cost")
-savefig(p,file)
-
-n = 40
-tol=1e-4
-rank=nothing
-nparams=50
-nparams_res=floor(Int,nparams/3)
-nparams_jac=floor(Int,nparams/4)
-sketch=:sprn
-unsafe=false
-
-pdomain = (1,10,-1,5,1,2)
-pspace = ParamSpace(pdomain)
-
-domain = (0,1,0,1,0,1)
-partition = (n,n,n)
-
-order = 1
-degree = 2*order
-
-a(μ) = x -> μ[1]
-aμ(μ) = ParamFunction(a,μ)
-
-f(μ) = x -> 1.
-fμ(μ) = ParamFunction(f,μ)
-
-g(μ) = x -> μ[1]
-gμ(μ) = ParamFunction(g,μ)
-
-h(μ) = x -> μ[3]
-hμ(μ) = ParamFunction(h,μ)
-
-stiffness(μ,u,v,dΩ) = ∫(aμ(μ)*∇(v)⋅∇(u))dΩ
-rhs(μ,v,dΩ,dΓn) = ∫(fμ(μ)*v)dΩ + ∫(hμ(μ)*v)dΓn
-res(μ,u,v,dΩ,dΓn) = stiffness(μ,u,v,dΩ) - rhs(μ,v,dΩ,dΓn)
-
-energy(du,v,dΩ) = ∫(v*du)dΩ + ∫(∇(v)⋅∇(du))dΩ
-
-reffe = ReferenceFE(lagrangian,Float64,order)
-
-fesolver = LUSolver()
-
-method = :pod
-println("$(method) test poisson 2d n = $n")
-
-model = CartesianDiscreteModel(domain,partition)
-Ω = Triangulation(model)
-dΩ = Measure(Ω,degree)
-Γn = BoundaryTriangulation(model,tags=[26])
-dΓn = Measure(Γn,degree)
-trian_res = (Ω,Γn)
-trian_stiffness = (Ω,)
-domains = FEDomains(trian_res,trian_stiffness)
-
-test = TestFESpace(Ω,reffe;conformity=:H1,dirichlet_tags=[1,3,5,7,13,15,17,19,25])
-trial = ParamTrialFESpace(test,gμ)
-feop = LinearParamOperator(res,stiffness,pspace,trial,test,domains)
-
-println("poisson 2d n = $n --------> Nh = $(num_free_dofs(test))")
-
-tolrank = tol_or_rank(tol,rank)
-state_reduction = PODReduction(tolrank,(du,v)->energy(du,v,dΩ);nparams,sketch)
-rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac)
-
-fesnaps, = solution_snapshots(rbsolver,feop)
-# reduced_spaces(rbsolver,feop,fesnaps)
-
-# using BenchmarkTools
-# using LinearAlgebra
-# using GridapROMs.RBSteady
-
-# style = state_reduction.red_style
-# X = assemble_matrix(feop,(du,v)->energy(du,v,dΩ))
-# H = cholesky(X)
-# A = fesnaps
-# Φ = tpod(style,A,X)
-# @btime tpod($style,$A,$X)
-
-# L,p = RBSteady._cholesky_decomp(X)
-# XA = RBSteady._forward_cholesky(A,L,p)
-# Ũr,Sr,Vr = RBSteady.truncated_svd(style,XA)
-# Ur = RBSteady._backward_cholesky(Ũr,L,p)
-
-# @btime RBSteady._cholesky_decomp($X)
-# @btime RBSteady._forward_cholesky($A,$L,$p)
-# @btime RBSteady.truncated_svd($style,$XA)
-# @btime RBSteady._backward_cholesky($Ũr,$L,$p)
-
-# method = :ttsvd
-# println("$(method) test poisson 2d n = $n")
-
-# model = TProductDiscreteModel(domain,partition)
-# Ω = Triangulation(model)
-# dΩ = Measure(Ω,degree)
-# Γn = BoundaryTriangulation(model,tags=[8])
-# dΓn = Measure(Γn,degree)
-# trian_res = (Ω,Γn)
-# trian_stiffness = (Ω,)
-# domains = FEDomains(trian_res,trian_stiffness)
-
-# test = TestFESpace(Ω,reffe;conformity=:H1,dirichlet_tags=[1,3,7])
-# trial = ParamTrialFESpace(test,gμ)
-# feop = LinearParamOperator(res,stiffness,pspace,trial,test,domains)
-
-# tolranks = fill(tolrank,3)
-# state_reduction = Reduction(tolranks,(du,v)->energy(du,v,dΩ);nparams,unsafe,sketch)
-# rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac)
-
-# dof_map = get_dof_map(test)
-# fesnaps′ = change_dof_map(fesnaps,dof_map)
-# reduced_spaces(rbsolver,feop,fesnaps′)
-
-# style′ = state_reduction.red_style
-# X′ = assemble_matrix(feop,(du,v)->energy(du,v,dΩ))
-# # H′ = cholesky(X′)
-# A′ = fesnaps′
-# Φ′ = ttsvd(style′,A′,X′)
-# @btime ttsvd($style′,$A′,$X′)
-
-# Ã′ = X′*A′
-
-# @btime $X′*$A′
-
-# X′.decompositions[1]*A′
-
-# c = similar(A′)
-# d = 1
-# N = ndims(c)
-# p = [d,setdiff(1:N,d)...]
-# invp = sortperm(p)
-# bd = reshape(permutedims(A′,p),size(A′,d),:)
-# cd = X′.decompositions[1][d]*bd
-
 
 end

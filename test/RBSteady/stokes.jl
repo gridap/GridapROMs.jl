@@ -15,7 +15,7 @@ tol_or_rank(tol,rank::Int) = rank
 function main(
   method=:pod;
   tol=1e-4,rank=nothing,nparams=50,nparams_res=floor(Int,nparams/3),
-  nparams_jac=floor(Int,nparams/4),sketch=:sprn,unsafe=false
+  nparams_jac=floor(Int,nparams/4),sketch=:sprn
   )
 
   @assert method ∈ (:pod,:ttsvd) "Unrecognized reduction method! Should be one of (:pod,:ttsvd)"
@@ -66,7 +66,7 @@ function main(
   else method == :ttsvd
     tolranks = fill(tolrank,4)
     ttcoupling((du,dp),(v,q)) = ∫(dp*∂₁(v))dΩ + ∫(dp*∂₂(v))dΩ
-    state_reduction = SupremizerReduction(ttcoupling,tolranks,energy;nparams,unsafe)
+    state_reduction = SupremizerReduction(ttcoupling,tolranks,energy;nparams)
   end
 
   fesolver = LUSolver()

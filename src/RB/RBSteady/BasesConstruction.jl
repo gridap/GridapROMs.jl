@@ -253,19 +253,6 @@ function ttsvd(
   end
 end
 
-function ttsvd(
-  red_style::UnsafeTTSVDRanks,
-  A::AbstractArray{T,N},
-  X::AbstractRankTensor{D}
-  ) where {T,N,D}
-
-  # compute euclidean tt cores
-  cores,remainder = ttsvd(red_style,A)
-  # tt orthogonality
-  orthogonalize!(red_style,cores,X)
-  return cores,remainder′
-end
-
 function ttsvd(red_style::TTSVDRanks,A::AbstractArray,X::AbstractSparseMatrix)
   tpod(first(red_style),reshape(A,size(A,1),:),X)
 end
@@ -298,7 +285,7 @@ function steady_ttsvd(
   X′ = get_crossnorm(X)
 
   # decomposition w.r.t. the crossnorm
-  cores,remainder = ttsvd(red_style,A,X′)
+  cores,remainder = steady_ttsvd(red_style,A,X′)
 
   # tt X-orthogonality
   orthogonalize!(red_style,cores,X)
