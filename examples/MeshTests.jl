@@ -209,7 +209,7 @@ function get_offline_online_solutions(dir::String,feop::ParamOperator,method=:po
   fesnaps,(x,festats)
 end
 
-function get_poisson_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,sampling=:halton,start=1)
+function get_2d_poisson_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,sampling=:halton,start=1)
   order = 1
   degree = 2*order
 
@@ -246,6 +246,55 @@ function get_poisson_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,sa
 
   reffe = ReferenceFE(lagrangian,Float64,order)
   test = TestFESpace(Ω,reffe;conformity=:H1,dirichlet_tags=[1,3,7])
+  trial = ParamTrialFESpace(test,gμ)
+  feop = LinearParamOperator(res,stiffness,pspace,trial,test,domains)
+
+  energy(du,v) = ∫(v*du)dΩ + ∫(∇(v)⋅∇(du))dΩ
+  state_reduction = method==:pod ? Reduction(1e-4,energy;nparams) : Reduction(fill(1e-4,2),energy;nparams)
+
+  fesolver = LUSolver()
+  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac)
+
+  return feop,rbsolver
+end
+
+function get_3d_poisson_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,sampling=:halton,start=1)
+  order = 1
+  degree = 2*order
+
+  domain = (0,1,0,1,0,1)
+  partition = (M,M,M)
+  model = method==:pod ? CartesianDiscreteModel(domain,partition) : TProductDiscreteModel(domain,partition)
+  Ω = Triangulation(model)
+  dΩ = Measure(Ω,degree)
+  Γn = BoundaryTriangulation(model,tags=[26])
+  dΓn = Measure(Γn,degree)
+
+  pdomain = (1,10,1,10,1,10,1,10,1,10)
+  pspace = sampling==:halton ? ParamSpace(pdomain;sampling,start) : ParamSpace(pdomain;sampling)
+
+  ν(μ) = x -> μ[1]*exp(-μ[2]*x[1])
+  νμ(μ) = parameterize(ν,μ)
+
+  f(μ) = x -> μ[3]
+  fμ(μ) = parameterize(f,μ)
+
+  g(μ) = x -> exp(-μ[4]*x[2])
+  gμ(μ) = parameterize(g,μ)
+
+  h(μ) = x -> μ[5]
+  hμ(μ) = parameterize(h,μ)
+
+  stiffness(μ,u,v,dΩ) = ∫(νμ(μ)*∇(v)⋅∇(u))dΩ
+  rhs(μ,v,dΩ,dΓn) = ∫(fμ(μ)*v)dΩ + ∫(hμ(μ)*v)dΓn
+  res(μ,u,v,dΩ,dΓn) = stiffness(μ,u,v,dΩ) - rhs(μ,v,dΩ,dΓn)
+
+  trian_res = (Ω,Γn)
+  trian_stiffness = (Ω,)
+  domains = FEDomains(trian_res,trian_stiffness)
+
+  reffe = ReferenceFE(lagrangian,Float64,order)
+  test = TestFESpace(Ω,reffe;conformity=:H1,dirichlet_tags=[1,3,5,7,13,15,17,19,25])
   trial = ParamTrialFESpace(test,gμ)
   feop = LinearParamOperator(res,stiffness,pspace,trial,test,domains)
 
@@ -393,8 +442,10 @@ function get_elasticity_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2
 end
 
 function get_test_info(args...;label="heateq",nparams_djac=1,kwargs...)
-  if label=="poisson"
-    get_poisson_info(args...;kwargs...)
+  if label=="2d_poisson"
+    get_2d_poisson_info(args...;kwargs...)
+  elseif label=="3d_poisson"
+    get_3d_poisson_info(args...;kwargs...)
   elseif label=="heateq"
     get_heateq_info(args...;nparams_djac,kwargs...)
   else label=="elasticity"
@@ -413,6 +464,7 @@ function generate_snaps(M;label="heateq",id=string(Int(rand(1:1e4))),kwargs...)
 
   feop,rbsolver,args... = get_test_info(M;label,sampling,start,kwargs...)
 
+  println("Generating snapshots for problem: $label, id: $id, M: $M")
   fesnaps,festats = solution_snapshots(rbsolver,feop,args...)
   ressnaps = residual_snapshots(rbsolver,feop,fesnaps)
   jacsnaps = jacobian_snapshots(rbsolver,feop,fesnaps)
@@ -436,18 +488,18 @@ function generate_snaps(M;label="heateq",id=string(Int(rand(1:1e4))),kwargs...)
 end
 
 function main_snapshots(;
-  M_poisson=(100,200,500),
-  M_heateq=(100,200,500),
+  M_poisson=(50,100,200),
+  M_heateq=(50,100,200),
   M_elasticity=(100,200,500),
   kwargs...
   )
 
   for M in M_poisson
-    generate_snaps(M;label="poisson",kwargs...)
+    generate_snaps(M;label="2d_poisson",kwargs...)
   end
 
-  for M in M_heateq
-    generate_snaps(M;label="heateq",kwargs...)
+  for M in M_poisson
+    generate_snaps(M;label="3d_poisson",kwargs...)
   end
 
   for M in M_elasticity
@@ -475,10 +527,9 @@ function try_loading_reduced_operator(dir_tol,rbsolver,feop,fesnaps,method=:pod)
   end
 end
 
-function main_rb(method=:pod;M_test=(100,200,500),tols=(1e-1,1e-2,1e-3,1e-4,1e-5),label="heateq")
-  method = :pod
+function main_rb(;method=:pod,M_test=(100,200,500),tols=(1e-1,1e-2,1e-3,1e-4,1e-5),label="heateq")
   for M in M_test
-    feop,rbsolver,args... = get_test_info(M,method;nparams=50,nparams_res=50,nparams_jac=20,nparams_djac=1)
+    feop,rbsolver,args... = get_test_info(M,method;label,nparams=50,nparams_res=50,nparams_jac=20,nparams_djac=1)
 
     dir = datadir(label*"_$M")
     fesnaps,(x,festats) = get_offline_online_solutions(dir,feop,method)
@@ -500,66 +551,27 @@ function main_rb(method=:pod;M_test=(100,200,500),tols=(1e-1,1e-2,1e-3,1e-4,1e-5
   end
 end
 
-# generate_snaps(5;label="poisson")
-# dir = datadir("poisson_5")
-# get_offline_snapshots(joinpath(dir,"sol"))
-# get_online_snapshots(joinpath(dir,"sol"))
-# generate_snaps(5;offline=false,label="poisson")
-# get_online_snapshots(joinpath(dir,"sol"))
+function run_rb(
+  M_poisson=(25,50,100),
+  M_heateq=(25,50,100),
+  M_elasticity=(100,200,500)
+  )
 
-# feop,rbsolver,args... = get_test_info(5;label="poisson")
-# get_offline_snapshots(joinpath(dir,"res"),feop)
-# get_offline_snapshots(joinpath(dir,"jac"),feop)
+  main_rb(;method=:pod,M_test=M_poisson,label="2d_poisson",kwargs...)
+  main_rb(;method=:ttsvd,M_test=M_poisson,label="2d_poisson",kwargs...)
 
-for M in (5,6)
-  generate_snaps(M;label="poisson",id="7")
-  generate_snaps(M;label="poisson",id="8")
-  generate_snaps(M;label="poisson",id="online")
-end
-for M in (5,6)
-  generate_snaps(M;label="heateq",id="7")
-  generate_snaps(M;label="heateq",id="8")
-  generate_snaps(M;label="heateq",id="online")
-end
-for M in (8,12)
-  generate_snaps(M;label="elasticity",id="7")
-  generate_snaps(M;label="elasticity",id="8")
-  generate_snaps(M;label="elasticity",id="online")
+  main_rb(;method=:pod,M_test=M_poisson,label="3d_poisson",kwargs...)
+  main_rb(;method=:ttsvd,M_test=M_poisson,label="3d_poisson",kwargs...)
+
+  main_rb(;method=:pod,M_test=M_elasticity,label="elasticity",kwargs...)
+  main_rb(;method=:ttsvd,M_test=M_elasticity,label="elasticity",kwargs...)
+
 end
 
-method = :ttsvd
-M = 8
-label = "elasticity"
-feop,rbsolver,args... = get_test_info(M,method;label,nparams=10,nparams_res=10,nparams_jac=4,nparams_djac=1)
+for id in (string(1),) #(string.(6:5:50)...,"online")
+  generate_snaps(50;id,label="3d_poisson")
+end
 
-dir = datadir(label*"_$M")
-fesnaps,(x,festats) = get_offline_online_solutions(dir,feop,method)
-μ = get_realization(x)
-
-tol = 1e-4
-dir_tol = joinpath(dir,string(method)*"_"*string(tol))
-create_dir(dir_tol)
-
-rbsolver = ExamplesInterface.update_solver(rbsolver,tol)
-
-_res = get_offline_snapshots(joinpath(dir,"res"),feop)
-_jac = get_offline_snapshots(joinpath(dir,"jac"),feop)
-res = change_dof_map(_res,get_dof_map_at_domains(feop))
-jac = change_dof_map(_jac,get_sparse_dof_map_at_domains(feop))
-
-A = RBTransient.swap_param_time(jac[1][1])
-
-s = jac[1][1]
-reduction = get_reduction(rbsolver.jacobian_reduction[1])
-basis = projection(reduction,s)
-proj_basis = project(test,basis)
-(rows,indices_time),interp = empirical_interpolation(basis)
-factor = lu(interp)
-domain = vector_domain(reduction,trian,test,rows,indices_time)
-
-# rbop = try_loading_reduced_operator(dir_tol,rbsolver,feop,fesnaps,method)
-# x̂,rbstats = solve(rbsolver,rbop,μ,args...)
-
-# perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
+main_rb(;method=:pod,M_test=(50,),label="3d_poisson")
 
 end

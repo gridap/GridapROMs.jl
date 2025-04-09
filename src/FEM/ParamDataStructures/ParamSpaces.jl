@@ -437,7 +437,7 @@ function _generate_params(sampling::SamplingStyle,param_domain,nparams;kwargs...
 end
 
 function _generate_params(sampling::Symbol,args...;kwargs...)
-  style = _sampling_to_style(sampling)
+  style = _sampling_to_style(;sampling)
   _generate_params(style,args...;kwargs...)
 end
 
