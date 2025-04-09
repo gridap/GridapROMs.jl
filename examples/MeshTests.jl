@@ -221,19 +221,19 @@ function get_2d_poisson_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2
   Γn = BoundaryTriangulation(model,tags=[8])
   dΓn = Measure(Γn,degree)
 
-  pdomain = (1,10,1,10,1,10)
+  pdomain = (1,5,1,5,1,5,1,5,1,5)
   pspace = sampling==:halton ? ParamSpace(pdomain;sampling,start) : ParamSpace(pdomain;sampling)
 
-  ν(μ) = x -> μ[1]*exp(-μ[2]*x[1]+μ[3])
+  ν(μ) = x -> μ[1]*exp(-μ[2]*x[1])
   νμ(μ) = parameterize(ν,μ)
 
-  f(μ) = x -> μ[1]
+  f(μ) = x -> μ[3]
   fμ(μ) = parameterize(f,μ)
 
-  g(μ) = x -> exp(-μ[2]*x[2])
+  g(μ) = x -> exp(-μ[4]*x[2])
   gμ(μ) = parameterize(g,μ)
 
-  h(μ) = x -> μ[3]*x[2]
+  h(μ) = x -> μ[5]
   hμ(μ) = parameterize(h,μ)
 
   stiffness(μ,u,v,dΩ) = ∫(νμ(μ)*∇(v)⋅∇(u))dΩ
@@ -270,7 +270,7 @@ function get_3d_poisson_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2
   Γn = BoundaryTriangulation(model,tags=[26])
   dΓn = Measure(Γn,degree)
 
-  pdomain = (1,10,1,10,1,10,1,10,1,10)
+  pdomain = (1,5,1,5,1,5,1,5,1,5)
   pspace = sampling==:halton ? ParamSpace(pdomain;sampling,start) : ParamSpace(pdomain;sampling)
 
   ν(μ) = x -> μ[1]*exp(-μ[2]*x[1])
@@ -307,7 +307,69 @@ function get_3d_poisson_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2
   return feop,rbsolver
 end
 
-function get_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,nparams_djac=1,sampling=:halton,start=1)
+function get_2d_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,nparams_djac=1,sampling=:halton,start=1)
+  order = 1
+  degree = 2*order
+
+  domain = (0,1,0,1)
+  partition = (M,M)
+  model = method==:pod ? CartesianDiscreteModel(domain,partition) : TProductDiscreteModel(domain,partition)
+  Ω = Triangulation(model)
+  dΩ = Measure(Ω,degree)
+  Γn = BoundaryTriangulation(model,tags=[8])
+  dΓn = Measure(Γn,degree)
+
+  θ = 0.5
+  dt = 0.0025
+  t0 = 0.0
+  tf = M*dt
+
+  pdomain = (1,5,1,5,1,5,1,5,1,5,1,5)
+  tdomain = t0:dt:tf
+  ptspace = sampling==:halton ? TransientParamSpace(pdomain,tdomain;sampling,start) : TransientParamSpace(pdomain,tdomain;sampling)
+
+  ν(μ,t) = x -> μ[1]*exp(-μ[2]*sin(2pi*t/tf)*x[1])
+  νμt(μ,t) = parameterize(ν,μ,t)
+
+  f(μ,t) = x -> μ[3]
+  fμt(μ,t) = parameterize(f,μ,t)
+
+  g(μ,t) = x -> exp(-μ[4]*x[2])*(1-cos(2pi*t/tf)+sin(2pi*t/tf)/μ[5])
+  gμt(μ,t) = parameterize(g,μ,t)
+
+  h(μ,t) = x -> μ[6]
+  hμt(μ,t) = parameterize(h,μ,t)
+
+  u0(μ) = x -> 0.0
+  u0μ(μ) = ParamFunction(u0,μ)
+
+  stiffness(μ,t,u,v,dΩ) = ∫(νμt(μ,t)*∇(v)⋅∇(u))dΩ
+  mass(μ,t,uₜ,v,dΩ) = ∫(v*uₜ)dΩ
+  rhs(μ,t,v,dΩ,dΓn) = ∫(fμt(μ,t)*v)dΩ + ∫(hμt(μ,t)*v)dΓn
+  res(μ,t,u,v,dΩ,dΓn) = mass(μ,t,∂t(u),v,dΩ) + stiffness(μ,t,u,v,dΩ) - rhs(μ,t,v,dΩ,dΓn)
+
+  trian_res = (Ω,Γn)
+  trian_stiffness = (Ω,)
+  trian_mass = (Ω,)
+  domains = FEDomains(trian_res,(trian_stiffness,trian_mass))
+
+  reffe = ReferenceFE(lagrangian,Float64,order)
+  test = TestFESpace(Ω,reffe;conformity=:H1,dirichlet_tags=[1,3,7])
+  trial = TransientTrialParamFESpace(test,gμt)
+  feop = TransientParamLinearOperator((stiffness,mass),res,ptspace,trial,test,domains)
+  uh0μ(μ) = interpolate_everywhere(u0μ(μ),trial(μ,t0))
+
+  energy(du,v) = ∫(v*du)dΩ + ∫(∇(v)⋅∇(du))dΩ
+
+  state_reduction = method==:pod ? TransientReduction(1e-4,energy;nparams) : TransientReduction(fill(1e-4,3),energy;nparams)
+
+  fesolver = ThetaMethod(LUSolver(),dt,θ)
+  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,nparams_djac)
+
+  return feop,rbsolver,uh0μ
+end
+
+function get_3d_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,nparams_djac=1,sampling=:halton,start=1)
   order = 1
   degree = 2*order
 
@@ -324,20 +386,20 @@ function get_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,npa
   t0 = 0.0
   tf = M*dt
 
-  pdomain = (1,10,1,10,1,10)
+  pdomain = (1,5,1,5,1,5,1,5,1,5,1,5)
   tdomain = t0:dt:tf
   ptspace = sampling==:halton ? TransientParamSpace(pdomain,tdomain;sampling,start) : TransientParamSpace(pdomain,tdomain;sampling)
 
-  ν(μ,t) = x -> μ[1]*exp(sin(t)*(-μ[2]*x[1]+μ[3]))
+  ν(μ,t) = x -> μ[1]*exp(-μ[2]*sin(2pi*t/tf)*x[1])
   νμt(μ,t) = parameterize(ν,μ,t)
 
-  f(μ,t) = x -> μ[1]
+  f(μ,t) = x -> μ[3]
   fμt(μ,t) = parameterize(f,μ,t)
 
-  g(μ,t) = x -> exp(-μ[2]*x[2])*(1-cos(2pi*t/tf)+sin(2pi*t*μ[1]/tf)/μ[3])
+  g(μ,t) = x -> exp(-μ[4]*x[2])*(1-cos(2pi*t/tf)+sin(2pi*t/tf)/μ[5])
   gμt(μ,t) = parameterize(g,μ,t)
 
-  h(μ,t) = x -> sin(2pi*t*μ[1]/tf)
+  h(μ,t) = x -> μ[6]
   hμt(μ,t) = parameterize(h,μ,t)
 
   u0(μ) = x -> 0.0
@@ -441,19 +503,21 @@ function get_elasticity_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2
   return feop,rbsolver,uh0μ
 end
 
-function get_test_info(args...;label="heateq",nparams_djac=1,kwargs...)
+function get_test_info(args...;label="2d_heateq",nparams_djac=1,kwargs...)
   if label=="2d_poisson"
     get_2d_poisson_info(args...;kwargs...)
   elseif label=="3d_poisson"
     get_3d_poisson_info(args...;kwargs...)
-  elseif label=="heateq"
-    get_heateq_info(args...;nparams_djac,kwargs...)
+  elseif label=="2d_heateq"
+    get_2d_heateq_info(args...;nparams_djac,kwargs...)
+  elseif label=="3d_heateq"
+    get_3d_heateq_info(args...;nparams_djac,kwargs...)
   else label=="elasticity"
     get_elasticity_info(args...;nparams_djac,kwargs...)
   end
 end
 
-function generate_snaps(M;label="heateq",id=string(Int(rand(1:1e4))),kwargs...)
+function generate_snaps(M;label="2d_heateq",id=string(Int(rand(1:1e4))),kwargs...)
   if id == "online"
     sampling = :uniform
     start = nothing
@@ -527,9 +591,9 @@ function try_loading_reduced_operator(dir_tol,rbsolver,feop,fesnaps,method=:pod)
   end
 end
 
-function main_rb(;method=:pod,M_test=(100,200,500),tols=(1e-1,1e-2,1e-3,1e-4,1e-5),label="heateq")
+function main_rb(;method=:pod,M_test=(25,50,100),tols=(1e-1,1e-2,1e-3,1e-4,1e-5),label="2d_heateq")
   for M in M_test
-    feop,rbsolver,args... = get_test_info(M,method;label,nparams=50,nparams_res=50,nparams_jac=20,nparams_djac=1)
+    feop,rbsolver,args... = get_test_info(M,method;label,nparams=80,nparams_res=80,nparams_jac=20,nparams_djac=1)
 
     dir = datadir(label*"_$M")
     fesnaps,(x,festats) = get_offline_online_solutions(dir,feop,method)
@@ -554,7 +618,7 @@ end
 function run_rb(
   M_poisson=(25,50,100),
   M_heateq=(25,50,100),
-  M_elasticity=(100,200,500)
+  M_elasticity=(25,50,100)
   )
 
   main_rb(;method=:pod,M_test=M_poisson,label="2d_poisson",kwargs...)
@@ -563,15 +627,18 @@ function run_rb(
   main_rb(;method=:pod,M_test=M_poisson,label="3d_poisson",kwargs...)
   main_rb(;method=:ttsvd,M_test=M_poisson,label="3d_poisson",kwargs...)
 
-  main_rb(;method=:pod,M_test=M_elasticity,label="elasticity",kwargs...)
-  main_rb(;method=:ttsvd,M_test=M_elasticity,label="elasticity",kwargs...)
+  main_rb(;method=:pod,M_test=M_heateq,label="3d_heateq",kwargs...)
+  main_rb(;method=:ttsvd,M_test=M_heateq,label="3d_heateq",kwargs...)
+
+  # main_rb(;method=:pod,M_test=M_elasticity,label="elasticity",kwargs...)
+  # main_rb(;method=:ttsvd,M_test=M_elasticity,label="elasticity",kwargs...)
 
 end
 
-for id in (string(1),) #(string.(6:5:50)...,"online")
-  generate_snaps(50;id,label="3d_poisson")
-end
+# for id in (string.(6:5:50)...,"online")
+#   generate_snaps(50;id,label="3d_poisson")
+# end
 
-main_rb(;method=:pod,M_test=(50,),label="3d_poisson")
+# main_rb(;method=:pod,M_test=(50,),label="3d_poisson")
 
 end
