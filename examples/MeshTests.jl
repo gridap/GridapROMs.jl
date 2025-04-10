@@ -18,13 +18,57 @@ import GridapROMs.RBSteady: load_stats
 
 include("ExamplesInterface.jl")
 
-function get_offline_dirs_sol(dir::String)
+get_id(path::String) = split(path,"_")[end][1:end-4]
+
+# function get_id(path::String,label::String)
+#   _id = get_id(path)
+#   if _id == "online"
+#     "online"
+#   else
+#     if length(label) == 1
+#       split(path,"_")[end-1]
+#     else
+#       @assert length(label) == 3
+#       split(path,"_")[end-2]
+#     end
+#   end
+# end
+
+function get_ids(dir::String)
   dirs = readdir(dir,join=true)
-  offline_dirs = String[]
+  ids = Int[]
   for path in dirs
-    if split(path,"/")[end] != "snaps_online.jld"
-      push!(offline_dirs,path)
+    id = get_id(path)
+    try
+      push!(ids,parse(Int,id))
+    catch
+      @assert id == "online" "$(id)"
     end
+  end
+  sort(ids)
+end
+
+# function get_ids(dir::String,label="1")
+#   ext_lab = label*".jld"
+#   ids = Int[]
+#   for path in dirs
+#     parts = split(path,"_")
+#     if (length(label) == 1 && parts[end] == ext_lab) || (join((parts[end-1],parts[end]),"_") == ext_lab)
+#       id = get_id(path,label)
+#       println(id)
+#       push!(ids,parse(Int,id))
+#     end
+#   end
+#   sort(ids)
+# end
+
+get_parent_dir(dir::String) = join(split(dir,"/")[1:end-1],"/")
+
+function get_offline_dirs_sol(dir::String)
+  ids = get_ids(dir)
+  offline_dirs = String[]
+  for id in ids
+    push!(offline_dirs,joinpath(dir,"snaps_"*string(id)*".jld"))
   end
   return offline_dirs
 end
@@ -37,20 +81,12 @@ function get_online_dir_sol(dir::String)
 end
 
 function get_offline_dirs_resjac(dir::String;label="1")
-  @assert length(label) == 1 || length(label) == 3
-  dirs = readdir(dir,join=true)
+  parent_dir = get_parent_dir(dir)
+  sol_dir = joinpath(parent_dir,"sol")
+  ids = get_ids(sol_dir)
   offline_dirs = String[]
-  for path in dirs
-    parts = split(path,"_")
-    if length(label) == 1
-      if parts[end-1] != "online" && parts[end] == label*".jld"
-        push!(offline_dirs,path)
-      end
-    else
-      if parts[end-2] != "online" && join((parts[end-1],parts[end]),"_") == label*".jld"
-        push!(offline_dirs,path)
-      end
-    end
+  for id in ids
+    push!(offline_dirs,joinpath(dir,"snaps_"*string(id)*"_"*label*".jld"))
   end
   return offline_dirs
 end
@@ -435,8 +471,9 @@ function get_elasticity_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2
   order = 2
   degree = 2*order
 
-  domain = (0,1,0,1/4,0,1/4)
-  partition = (M,Int(M/4),Int(M/4))
+  Myz = Int(M/8)
+  domain = (0,1,0,1/8,0,1/8)
+  partition = (M,Myz,Myz)
   model = method==:pod ? CartesianDiscreteModel(domain,partition) : TProductDiscreteModel(domain,partition)
   Ω = Triangulation(model)
   dΩ = Measure(Ω,degree)
@@ -450,7 +487,7 @@ function get_elasticity_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2
   θ = 0.5
   dt = 0.0025
   t0 = 0.0
-  tf = M*dt
+  tf = 60*dt
 
   pdomain = (1e10,9*1e10,0.25,0.42,-4*1e5,4*1e5,-4*1e5,4*1e5,-4*1e5,4*1e5)
   tdomain = t0:dt:tf
@@ -542,19 +579,19 @@ function generate_snaps(M;label="2d_heateq",id=string(Int(rand(1:1e4))),kwargs..
   create_dir(dir_sol)
   save(dir_sol,fesnaps;label=id)
 
-  dir_res = joinpath(dir,"res")
-  create_dir(dir_res)
-  save(dir_res,ressnaps;label=id)
+  # dir_res = joinpath(dir,"res")
+  # create_dir(dir_res)
+  # save(dir_res,ressnaps;label=id)
 
-  dir_jac = joinpath(dir,"jac")
-  create_dir(dir_jac)
-  save(dir_jac,jacsnaps,feop;label=id)
+  # dir_jac = joinpath(dir,"jac")
+  # create_dir(dir_jac)
+  # save(dir_jac,jacsnaps,feop;label=id)
 end
 
 function main_snapshots(;
   M_poisson=(50,100,200),
   M_heateq=(50,100,200),
-  M_elasticity=(100,200,500),
+  M_elasticity=(48,64,80),
   kwargs...
   )
 
@@ -578,14 +615,15 @@ function try_loading_reduced_operator(dir_tol,rbsolver,feop,fesnaps,method=:pod)
     return rbop
   catch
     println("Load reduced operator at $dir_tol failed, must run offline phase")
-    dir = joinpath(splitpath(dir_tol)[1:end-1])
-    res = get_offline_snapshots(joinpath(dir,"res"),feop)
-    jac = get_offline_snapshots(joinpath(dir,"jac"),feop)
-    if method != :pod
-      res = change_dof_map(res,get_dof_map_at_domains(feop))
-      jac = change_dof_map(jac,get_sparse_dof_map_at_domains(feop))
-    end
-    rbop = reduced_operator(rbsolver,feop,fesnaps,jac,res)
+    # dir = joinpath(splitpath(dir_tol)[1:end-1])
+    # res = get_offline_snapshots(joinpath(dir,"res"),feop)
+    # jac = get_offline_snapshots(joinpath(dir,"jac"),feop)
+    # if method != :pod
+    #   res = change_dof_map(res,get_dof_map_at_domains(feop))
+    #   jac = change_dof_map(jac,get_sparse_dof_map_at_domains(feop))
+    # end
+    # rbop = reduced_operator(rbsolver,feop,fesnaps,jac,res)
+    rbop = reduced_operator(rbsolver,feop,fesnaps)
     save(dir_tol,rbop)
     return rbop
   end
@@ -618,7 +656,7 @@ end
 function run_rb(
   M_poisson=(25,50,100),
   M_heateq=(25,50,100),
-  M_elasticity=(25,50,100)
+  M_elasticity=(48,64,80)
   )
 
   main_rb(;method=:pod,M_test=M_poisson,label="2d_poisson",kwargs...)
@@ -635,10 +673,15 @@ function run_rb(
 
 end
 
-# for id in (string.(6:5:50)...,"online")
-#   generate_snaps(50;id,label="3d_poisson")
-# end
+M_test = (25,50,100)
+for M in M_test
+  for id in (string.(1:5:80)...,"online")
+    generate_snaps(M;id,label="2d_poisson")
+  end
+end
 
-# main_rb(;method=:pod,M_test=(50,),label="3d_poisson")
+main_rb(;method=:pod,M_test,label="2d_poisson")
+main_rb(;method=:ttsvd,M_test,label="2d_poisson")
 
+main_rb(;method=:ttsvd,M_test=(50,),tols=(1e-4,),label="2d_poisson")
 end
