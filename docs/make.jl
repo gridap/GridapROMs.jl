@@ -31,5 +31,5 @@ makedocs(;
 )
 
 deploydocs(
-  repo = "github.com:nichomueller/GridapROMs.jl.git",
+  repo = "github.com:gridap/GridapROMs.jl.git",
 )
