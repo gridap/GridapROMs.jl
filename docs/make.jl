@@ -23,7 +23,7 @@ makedocs(;
         "Home" => "index.md",
         "Usage" => ["steady.md","transient.md"],
         "FEM Interface" => fem_interface,
-        "GridapROMs Interface" => rom_interface,
+        "ROM Interface" => rom_interface,
         "Contributing" => "contributing.md",
     ],
     sitename="GridapROMs.jl",

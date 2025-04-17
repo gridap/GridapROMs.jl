@@ -11,17 +11,17 @@ of a differential problem. This procedure can be summarized in the following ste
 
 1. compute a snapshots tensor `T`
 2. construct a `Projection` `Φ` by running the function `reduction` on `T`
-3. find the EIM quantities `i`,`Φi` by running the function `empirical_interpolation`
+3. find the EIM quantities `(Φi,i)`, by running the function `empirical_interpolation`
   on `Φ`
 
-The triplet (`Φ`, `Φi`,`i`) represents the minimum information needed to run the
+The triplet `(Φ,Φi,i)` represents the minimum information needed to run the
 online phase of the hyper-reduction. However, we recall that a RB method requires
 the (Petrov-)Galerkin projection of residuals/Jacobianson a reduced subspace
 built from solution snapshots, instead of providing the projection `Φ` we return
 the reduced projection `Φrb`, where
 
-- for residuals: `Φrb = test_basis' * Φ`
-- for Jacobians: `Φrb = test_basis' * Φ * trial_basis`
+- for residuals: `Φrb = test_basisᵀ Φ`
+- for Jacobians: `Φrb = test_basisᵀ Φ trial_basis`
 
 The output of this operation is a ReducedProjection. Therefore, a HyperReduction
 is completely characterized by the triplet `(Φrb,Φi,i)`.

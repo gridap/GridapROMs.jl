@@ -33,7 +33,7 @@ get_domains_jac(d::FEDomains) = d.domains_jac
 """
     abstract type ParamFEOperator{O<:UnEvalOperatorType,T<:TriangulationStyle} <: FEOperator end
 
-Parametric extension of a `FEOperator` in `Gridap`. Compared to
+Parametric extension of a `FEOperator` in [`Gridap`](@ref). Compared to
 a standard FEOperator, there are the following novelties:
 
 - a ParamSpace is provided, so that parametric realizations can be extracted

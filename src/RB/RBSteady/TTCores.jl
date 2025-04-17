@@ -170,22 +170,6 @@ for f in (:first_block,:block_core)
   end
 end
 
-"""
-    block_cores(a::AbstractVector{<:AbstractArray{T,3}}...) -> AbstractVector{<:AbstractArray{T,3}}
-
-Given a series of tensor train decompositions `a = (a1, ..., aN)` such that
-
-  `an = an1 ⋅ an2 ⋅ ⋯ ⋅ anD`
-
-for any `n ∈ {1,...,N}`, returns the tensor train decomposition `b` such that
-
-  `b1 = [a11, ..., aN1]
-  b2 = diag(b12, ..., bN2)
-  ⋮
-  bD = diag(b1D, ..., bND)`
-
-Note that `b` represents the tensor train decomposition of `a1 + ... + aN`
-"""
 function block_cores(a::AbstractVector{<:AbstractVector{<:AbstractArray{T,3}}}) where T
   D = length(first(a))
   @check all(length(ai)==D for ai in a)

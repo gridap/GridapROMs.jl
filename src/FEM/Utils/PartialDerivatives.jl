@@ -1,7 +1,7 @@
 """
     struct PartialDerivative{N} <: Function end
 
-`Gridap` Map that implements a partial derivative
+[`Gridap`](@ref) `Map` that implements a partial derivative
 """
 struct PartialDerivative{N} <: Function end
 

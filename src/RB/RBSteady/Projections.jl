@@ -2,7 +2,7 @@
     abstract type Projection <: Map end
 
 Represents a basis for a `n`-dimensional vector subspace of a `N`-dimensional
-vector space (where `N` ≫ `n`), to be used as a Galerkin projection operator.
+vector space (where `N >> n`), to be used as a Galerkin projection operator.
 The kernel of a Projection is `n`-dimensional, whereas its image is
 `N`-dimensional.
 
@@ -585,7 +585,7 @@ end
     struct BlockProjection{A,N} <: Projection end
 
 Block container for Projection of type `A` in a `MultiField` setting. This
-type is conceived similarly to `ArrayBlock` in `Gridap`
+type is conceived similarly to `ArrayBlock` in [`Gridap`](@ref)
 """
 struct BlockProjection{A<:Projection,N} <: Projection
   array::Array{A,N}

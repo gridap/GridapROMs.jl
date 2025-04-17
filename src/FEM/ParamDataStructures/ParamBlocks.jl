@@ -3,7 +3,7 @@
 
 Type representing cell-wise quantities defined during the integration routine.
 They are primarily used when lazily evaluating parametric quantities on the mesh.
-The implementation of the lazy interface mimics that of `ArrayBlock` in `Gridap`.
+The implementation of the lazy interface mimics that of `ArrayBlock` in [`Gridap`](@ref).
 Subtypes:
 -[`GenericParamBlock`](@ref)
 -[`TrivialParamBlock`](@ref)

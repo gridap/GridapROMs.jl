@@ -1,7 +1,7 @@
 """
     abstract type ODEParamOperatorType <: UnEvalOperatorType end
 
-Parametric extension of the type `ODEOperatorType` in `Gridap`.
+Parametric extension of the type `ODEOperatorType` in [`Gridap`](@ref).
 
 Subtypes:
 

@@ -83,7 +83,7 @@ get_background_matrix(a::SparsityCSC) = a.matrix
 
 Fields:
 
-  - `sparsity`: the [`SparsityPattern`](@ref) of a matrix assembled on an (active) geometry
+  - `sparsity`: the [`SparsityPattern`](@ref) of a matrix assembled on a (active) geometry
     which is either Cartesian, or it is defined from a (background) Cartesian geometry
   - `bg_rows_to_act_rows`: a vector that maps a row of the Cartesian background
     geometry, to a row of the active geometry

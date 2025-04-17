@@ -1,7 +1,7 @@
 """
     const TransientParamFEOperator{O<:ODEParamOperatorType,T<:TriangulationStyle} = ParamFEOperator{O,T}
 
-Parametric extension of a `TransientFEOperator` in `Gridap`. Compared to
+Parametric extension of a `TransientFEOperator` in [`Gridap`](@ref). Compared to
 a standard TransientFEOperator, there are the following novelties:
 
 - a [`TransientParamSpace`](@ref) is provided, so that parametric realizations can be extracted
