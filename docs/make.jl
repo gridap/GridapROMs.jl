@@ -18,7 +18,7 @@ rom_interface = [
 
 makedocs(;
     modules=[GridapROMs],
-    format=Documenter.HTML(size_threshold=nothing),
+    format=Documenter.LaTeX(),#Documenter.HTML(size_threshold=nothing),
     pages=[
         "Home" => "index.md",
         "Usage" => ["steady.md","transient.md"],
