@@ -3,7 +3,7 @@
 
 Type representing a tensor `a` of dimension `D` and rank `K`, i.e. assuming the form
 
-  ``a = \sum\limits\_{k=1}\^K a\_1\^k \otimes \cdots \otimes a\_D\^k``
+  ``a = \sum\limits_{k=1}^K a_1^k \otimes \cdots \otimes a_D^k``
 
 Subtypes:
 
@@ -21,9 +21,11 @@ get_decomposition(a::AbstractRankTensor) = ntuple(k -> get_decomposition(a,k),Va
 
 For a tensor `a` of dimension `D` and rank `K` assuming the form
 
-  ``a = a\_1 \otimes \cdots \otimes a\_D``
+  ``a = \sum\limits_{k=1}^K a_1^k \otimes \cdots \otimes a_D^k``
 
-returns the decomposition relative to the `k`th rank `[a\_1\^k, \cdots, a\_D\^k]`
+returns the decomposition relative to the `k`th rank:
+
+``[a_1^k, \hdots , a_D^k]``
 """
 get_decomposition(a::AbstractRankTensor,k::Integer) = @abstractmethod
 
@@ -34,7 +36,7 @@ get_decomposition(a::AbstractRankTensor,k::Integer) = @abstractmethod
 
 Structure representing rank-1 tensors, i.e. assuming the form
 
-  ``a = a\_1 \otimes \cdots \otimes a\_D``
+  ``a = a_1 \otimes \cdots \otimes a_D``
 """
 struct Rank1Tensor{D,A<:AbstractArray} <: AbstractRankTensor{D,1}
   factors::Vector{A}
@@ -64,7 +66,7 @@ end
 
 Structure representing a generic rank-K tensor, i.e. assuming the form
 
-  ``a = \sum\limits\_{k=1}\^K a\_1\^k \otimes \cdots \otimes a\_D\^k``
+  ``a = \sum\limits_{k=1}^K a_1^k \otimes \cdots \otimes a_D^k``
 """
 struct GenericRankTensor{D,K,A<:AbstractArray} <: AbstractRankTensor{D,K}
   decompositions::Vector{Rank1Tensor{D,A}}
