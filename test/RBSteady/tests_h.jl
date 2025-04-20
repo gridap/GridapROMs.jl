@@ -46,7 +46,7 @@ function main_poisson_2d(n;
   nparams_jac=floor(Int,nparams/4),sketch=:sprn
   )
 
-  pdomain = (1,10,-1,5,1,2)
+  pdomain = (1,5,1,5,1,5,1,5,1,5)
   pspace = ParamSpace(pdomain)
 
   domain = (0,1,0,1)
@@ -55,17 +55,17 @@ function main_poisson_2d(n;
   order = 1
   degree = 2*order
 
-  a(μ) = x -> μ[1]
-  aμ(μ) = ParamFunction(a,μ)
+  ν(μ) = x -> μ[1]*exp(-μ[2]*x[1])
+  νμ(μ) = parameterize(ν,μ)
 
-  f(μ) = x -> 1.
-  fμ(μ) = ParamFunction(f,μ)
+  f(μ) = x -> μ[3]
+  fμ(μ) = parameterize(f,μ)
 
-  g(μ) = x -> μ[1]
-  gμ(μ) = ParamFunction(g,μ)
+  g(μ) = x -> exp(-μ[4]*x[2])
+  gμ(μ) = parameterize(g,μ)
 
-  h(μ) = x -> μ[3]
-  hμ(μ) = ParamFunction(h,μ)
+  h(μ) = x -> μ[5]
+  hμ(μ) = parameterize(h,μ)
 
   stiffness(μ,u,v,dΩ) = ∫(aμ(μ)*∇(v)⋅∇(u))dΩ
   rhs(μ,v,dΩ,dΓn) = ∫(fμ(μ)*v)dΩ + ∫(hμ(μ)*v)dΓn
@@ -100,6 +100,7 @@ function main_poisson_2d(n;
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac)
 
   fesnaps, = solution_snapshots(rbsolver,feop)
+  save(dir,fesnaps)
   reduced_spaces(rbsolver,feop,fesnaps)
 
   method = :ttsvd
@@ -161,7 +162,7 @@ function main_poisson_3d(n;
   rhs(μ,v,dΩ,dΓn) = ∫(fμ(μ)*v)dΩ + ∫(hμ(μ)*v)dΓn
   res(μ,u,v,dΩ,dΓn) = stiffness(μ,u,v,dΩ) - rhs(μ,v,dΩ,dΓn)
 
-  energy(du,v,dΩ) = ∫(v*du)dΩ #+ ∫(∇(v)⋅∇(du))dΩ
+  energy(du,v,dΩ) = ∫(v*du)dΩ + ∫(∇(v)⋅∇(du))dΩ
 
   reffe = ReferenceFE(lagrangian,Float64,order)
 

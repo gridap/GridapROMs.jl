@@ -178,4 +178,8 @@ include("PostProcess.jl")
 
 include("Extensions.jl")
 
+export UnsafeTTSVDReduction
+export old_reduced_operator
+include("OldBasesConstruction.jl")
+
 end # module

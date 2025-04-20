@@ -5,19 +5,43 @@
 Given an array (of snapshots) `A`, returns a reduced basis obtained by means of
 the reduction strategy `red`
 """
-function reduction(red::Reduction,A::AbstractArray)
+function reduction(red::Reduction,A::AbstractArray,args...)
+  iszero(A) ? _zero_reduction(red,A,args...) : _reduction(red,A,args...)
+end
+
+function _reduction(red::Reduction,A::AbstractArray,args...)
   @abstractmethod
 end
 
-function reduction(red::PODReduction,A::AbstractArray,args...)
+function _reduction(red::PODReduction,A::AbstractArray,args...)
   red_style = ReductionStyle(red)
   U,S,V = tpod(red_style,A,args...)
   return U
 end
 
-function reduction(red::TTSVDReduction,A::AbstractArray,args...)
+function _reduction(red::TTSVDReduction,A::AbstractArray,args...)
   red_style = ReductionStyle(red)
   cores,remainder = ttsvd(red_style,A,args...)
+  return cores
+end
+
+function _zero_reduction(red::Reduction,A::AbstractArray,args...)
+  @abstractmethod
+end
+
+function _zero_reduction(red::PODReduction,A::AbstractArray)
+  U = zeros(size(A,1),1)
+  U[1] = 1.0
+  return U
+end
+
+function _zero_reduction(red::TTSVDReduction,A::AbstractArray{T,N}) where {T,N}
+  cores = Vector{Array{T,3}}(undef,N-1)
+  for d in 1:N-1
+    core = zeros(1,size(A,d),1)
+    core[1] = 1.0
+    cores[d] = core
+  end
   return cores
 end
 
@@ -103,7 +127,7 @@ function truncated_svd(red_style::FixedSVDRank,A::AbstractMatrix;issquare=false)
 end
 
 function truncated_svd(red_style::LRApproxRank,A::AbstractMatrix;kwargs...)
-  iszero(A) ? truncated_svd(FixedSVDRank(1),A;kwargs...) : psvd(A,red_style.opts)
+  psvd(A,red_style.opts)
 end
 
 """
@@ -239,29 +263,17 @@ function ttsvd(
   return cores,remainder
 end
 
-function ttsvd(
-  red_style::TTSVDRanks,
-  A::AbstractArray{T,N},
-  X::AbstractRankTensor{D}
-  ) where {T,N,D}
-
-  @check D ≤ N-1
-  if D == N - 1
-    steady_ttsvd(red_style,A,X)
-  else
-    generalized_ttsvd(red_style,A,X)
-  end
-end
-
 function ttsvd(red_style::TTSVDRanks,A::AbstractArray,X::AbstractSparseMatrix)
   tpod(first(red_style),reshape(A,size(A,1),:),X)
 end
 
-function steady_ttsvd(
+function ttsvd(
   red_style::TTSVDRanks,
   A::AbstractArray{T,N},
   X::Rank1Tensor{D}
   ) where {T,N,D}
+
+  @check D ≤ N-1
 
   cores = Array{T,3}[]
   remainder = first_unfold(A)
@@ -271,40 +283,32 @@ function steady_ttsvd(
     remainder = reshape(cur_remainder,oldrank,size(A,d+1),:)
     push!(cores,cur_core)
   end
+  for d = D+1:N-1
+    cur_core,cur_remainder = ttsvd_loop(red_style[d],remainder)
+    remainder = reshape(cur_remainder,size(cur_core,3),size(A,d+1),:)
+    push!(cores,cur_core)
+  end
 
   return cores,remainder
 end
 
-function steady_ttsvd(
+function _ttmul(X::GenericRankTensor,A::AbstractArray)
+  Xk = kron(X)
+  N = size(Xk,2)
+  M̃ = Xk*reshape(A,N,:)
+  reshape(M̃,size(A))
+end
+
+function ttsvd(
   red_style::TTSVDRanks,
   A::AbstractArray{T,N},
   X::GenericRankTensor{D,K}
   ) where {T,N,D,K}
 
-  # convert to the closest crossnorm
-  X′ = get_crossnorm(X)
-
-  # decomposition w.r.t. the crossnorm
-  cores,remainder = steady_ttsvd(red_style,A,X′)
-
-  # tt X-orthogonality
+  @check D ≤ N-1
+  Ã = _ttmul(X,A)
+  cores,remainder = ttsvd(red_style,Ã)
   orthogonalize!(red_style,cores,X)
-
-  return cores,remainder
-end
-
-function generalized_ttsvd(
-  red_style::TTSVDRanks,
-  A::AbstractArray{T,N},
-  X::AbstractRankTensor{D}
-  ) where {T,N,D}
-
-  cores,remainder = steady_ttsvd(red_style,A,X)
-  for d = D+1:N-1
-    cur_core,cur_remainder = RBSteady.ttsvd_loop(red_style[d],remainder)
-    remainder = reshape(cur_remainder,size(cur_core,3),size(A,d+1),:)
-    push!(cores,cur_core)
-  end
   return cores,remainder
 end
 

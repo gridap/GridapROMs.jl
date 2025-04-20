@@ -96,6 +96,12 @@ end
 
 const TransientReshapedSnapshots{T,N,I,R<:TransientRealization,A,B} = ReshapedSnapshots{T,N,I,R,A,B}
 
+function get_param_data(s::TransientReshapedSnapshots)
+  data = get_all_data(s)
+  ncols = num_times(s)*num_params(s)
+  ConsecutiveParamArray(reshape(data,:,ncols))
+end
+
 function Snapshots(s::AbstractParamMatrix,i::AbstractDofMap,r::TransientRealization)
   data = get_all_data(s)
   param_data = s

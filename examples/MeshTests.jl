@@ -20,20 +20,6 @@ include("ExamplesInterface.jl")
 
 get_id(path::String) = split(path,"_")[end][1:end-4]
 
-# function get_id(path::String,label::String)
-#   _id = get_id(path)
-#   if _id == "online"
-#     "online"
-#   else
-#     if length(label) == 1
-#       split(path,"_")[end-1]
-#     else
-#       @assert length(label) == 3
-#       split(path,"_")[end-2]
-#     end
-#   end
-# end
-
 function get_ids(dir::String)
   dirs = readdir(dir,join=true)
   ids = Int[]
@@ -47,20 +33,6 @@ function get_ids(dir::String)
   end
   sort(ids)
 end
-
-# function get_ids(dir::String,label="1")
-#   ext_lab = label*".jld"
-#   ids = Int[]
-#   for path in dirs
-#     parts = split(path,"_")
-#     if (length(label) == 1 && parts[end] == ext_lab) || (join((parts[end-1],parts[end]),"_") == ext_lab)
-#       id = get_id(path,label)
-#       println(id)
-#       push!(ids,parse(Int,id))
-#     end
-#   end
-#   sort(ids)
-# end
 
 get_parent_dir(dir::String) = join(split(dir,"/")[1:end-1],"/")
 
@@ -260,13 +232,13 @@ function get_2d_poisson_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2
   pdomain = (1,5,1,5,1,5,1,5,1,5)
   pspace = sampling==:halton ? ParamSpace(pdomain;sampling,start) : ParamSpace(pdomain;sampling)
 
-  ν(μ) = x -> μ[1]*exp(-μ[2]*x[1])
+  ν(μ) = x -> μ[1]#*exp(-μ[2]*x[1])
   νμ(μ) = parameterize(ν,μ)
 
   f(μ) = x -> μ[3]
   fμ(μ) = parameterize(f,μ)
 
-  g(μ) = x -> exp(-μ[4]*x[2])
+  g(μ) = x -> μ[4]#exp(-μ[4]*x[2])
   gμ(μ) = parameterize(g,μ)
 
   h(μ) = x -> μ[5]
@@ -358,7 +330,7 @@ function get_2d_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,
   θ = 0.5
   dt = 0.0025
   t0 = 0.0
-  tf = M*dt
+  tf = 10*dt
 
   pdomain = (1,5,1,5,1,5,1,5,1,5,1,5)
   tdomain = t0:dt:tf
@@ -420,7 +392,7 @@ function get_3d_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,
   θ = 0.5
   dt = 0.0025
   t0 = 0.0
-  tf = M*dt
+  tf = 10*dt
 
   pdomain = (1,5,1,5,1,5,1,5,1,5,1,5)
   tdomain = t0:dt:tf
@@ -485,12 +457,12 @@ function get_elasticity_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2
   dΓn3 = Measure(Γn3,degree)
 
   θ = 0.5
-  dt = 0.0025
+  dt = 0.01
   t0 = 0.0
-  tf = 60*dt
+  tf = 10*dt
+  tdomain = t0:dt:tf
 
   pdomain = (1e10,9*1e10,0.25,0.42,-4*1e5,4*1e5,-4*1e5,4*1e5,-4*1e5,4*1e5)
-  tdomain = t0:dt:tf
   ptspace = sampling==:halton ? TransientParamSpace(pdomain,tdomain;sampling,start) : TransientParamSpace(pdomain,tdomain;sampling)
 
   λ(μ) = μ[1]*μ[2]/((1+μ[2])*(1-2*μ[2]))
@@ -673,15 +645,38 @@ function run_rb(
 
 end
 
-M_test = (25,50,100)
-for M in M_test
-  for id in (string.(1:5:80)...,"online")
-    generate_snaps(M;id,label="2d_poisson")
-  end
-end
+# M_test = (320,700)
+# for M in M_test
+#   for id in (string.(1:5:80)...,"online")
+#     generate_snaps(M;id,label="2d_poisson")
+#   end
+# end
 
-main_rb(;method=:pod,M_test,label="2d_poisson")
-main_rb(;method=:ttsvd,M_test,label="2d_poisson")
+# M_test = (50,80)
+# for M in M_test
+#   for id in (string.(1:5:80)...,"online")
+#     generate_snaps(M;id,label="3d_poisson")
+#   end
+# end
 
-main_rb(;method=:ttsvd,M_test=(50,),tols=(1e-4,),label="2d_poisson")
+dir = datadir("3d_heateq_50_pod")
+fesnaps = load_snapshots(dir)
+x = load_snapshots(dir;label="online")
+# festats = ExamplesInterface.load_stats(dir;label="online")
+
+# fesnaps,(x,festats) = get_offline_online_solutions(dir,feop,:pod)
+# println(typeof(fesnaps))
+# println(size(fesnaps))
+# save(dir,fesnaps)
+# save(dir,x;label="online")
+
+ttdir = datadir("3d_heateq_50_ttsvd")
+create_dir(ttdir)
+ttfeop,ttrbsolver = get_3d_heateq_info(50,:ttsvd)
+dof_map = get_dof_map(ttfeop)
+ttfesnaps = change_snaps_dof_map(fesnaps,dof_map)
+ttx = change_snaps_dof_map(x,dof_map)
+save(ttdir,ttfesnaps)
+save(ttdir,ttx;label="online")
+# save(ttdir,festats;label="online")
 end
