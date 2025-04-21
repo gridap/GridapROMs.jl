@@ -81,14 +81,16 @@ Base.size(a::GenericRankTensor) = (rank(a),)
 Base.getindex(a::GenericRankTensor,k::Integer) = get_decomposition(a,k)
 
 function get_crossnorm(a::GenericRankTensor{D,K}) where {D,K}
-  factors = get_factors(get_decomposition(a,1))
-  for k in 2:K
-    factors_k = get_decomposition(a,k)
-    for d in 1:D
-      factors[d] += factors_k[d]
+  sd = 0
+  dim = 1
+  for d in 1:D
+    factor = get_factor(a,d,1)
+    if size(factor,1) > sd
+      sd = size(factor,1)
+      dim = d
     end
   end
-  Rank1Tensor(factors)
+  get_decomposition(a,dim)
 end
 
 # this is not true, but it is sufficient to correctly run the supremizing procedure
