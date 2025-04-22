@@ -83,12 +83,6 @@ end
 
 # Constructors
 
-function OrderedFESpace(trian::Triangulation,args...;kwargs...)
-  act_f = OrderedFESpace(get_active_model(trian),args...;trian=act_trian,kwargs...)
-  bg_f = OrderedFESpace(get_background_model(trian),args...;kwargs...)
-  CartesianFESpace(act_f,bg_f)
-end
-
 function OrderedFESpace(model::CartesianDiscreteModel,args...;kwargs...)
   CartesianFESpace(FESpace(model,args...;kwargs...))
 end
@@ -113,10 +107,6 @@ end
 
 function CartesianFESpace(model::DiscreteModel,args...;kwargs...)
   CartesianFESpace(FESpace(model,args...;kwargs...))
-end
-
-function CartesianFESpace(f::SingleFieldFESpace,g::SingleFieldFESpace)
-  @notimplemented "Implement!"
 end
 
 FESpaces.get_fe_space(f::CartesianFESpace) = f.space
@@ -196,7 +186,7 @@ end
 function get_dof_to_odof(
   fe_dof_basis::LagrangianDofBasis{P,V},
   cell_dofs_ids::AbstractArray,
-  cells::AbstractVector{CartesianIndex{D}},
+  cells::AbstractArray{CartesianIndex{D}},
   onodes::LinearIndices{D},
   orders::NTuple{D,Int}
   ) where {D,P,V}

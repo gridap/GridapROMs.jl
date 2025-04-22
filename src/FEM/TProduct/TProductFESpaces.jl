@@ -36,19 +36,6 @@ function TProductFESpace(
   TProductFESpace(space,spaces_1d,trian)
 end
 
-# The FE space is defined on a triangulation that isn't tensor-product, which
-# however admits a background tensor-product triangulation
-function TProductFESpace(
-  trian::Triangulation,
-  tptrian::TProductTriangulation,
-  reffe::Tuple{<:ReferenceFEName,Any,Any};
-  kwargs...)
-
-  @check Utils.is_included(trian,tptrian.trian)
-  space = OrderedFESpace(trian,reffe;kwargs...)
-  TProductFESpace(space,tptrian,reffe;kwargs...)
-end
-
 function TProductFESpace(
   space::FESpace,
   tptrian::TProductTriangulation,

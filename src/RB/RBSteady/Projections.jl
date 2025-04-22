@@ -316,7 +316,7 @@ union_bases(a::PODProjection,b::PODProjection,args...) = union_bases(a,get_basis
 
 function union_bases(a::PODProjection,basis_b::AbstractMatrix,args...)
   basis_a = get_basis(a)
-  basis_ab, = gram_schmidt(basis_b,basis_a,args...)
+  basis_ab = gram_schmidt(basis_b,basis_a,args...)
   PODProjection(basis_ab)
 end
 

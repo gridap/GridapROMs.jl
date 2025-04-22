@@ -91,6 +91,10 @@ function TransientReduction(supr_op::Function,args...;supr_tol=1e-2,kwargs...)
   SupremizerReduction(reduction,supr_op,supr_tol)
 end
 
+function TransientReduction(red::TransientReduction,args...;kwargs...)
+  red
+end
+
 abstract type TransientHyperReduction{A} <: HyperReduction{A} end
 
 """

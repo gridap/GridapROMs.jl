@@ -5,19 +5,43 @@
 Given an array (of snapshots) `A`, returns a reduced basis obtained by means of
 the reduction strategy `red`
 """
-function reduction(red::Reduction,A::AbstractArray)
+function reduction(red::Reduction,A::AbstractArray,args...)
+  iszero(A) ? _zero_reduction(red,A,args...) : _reduction(red,A,args...)
+end
+
+function _reduction(red::Reduction,A::AbstractArray,args...)
   @abstractmethod
 end
 
-function reduction(red::PODReduction,A::AbstractArray,args...)
+function _reduction(red::PODReduction,A::AbstractArray,args...)
   red_style = ReductionStyle(red)
   U,S,V = tpod(red_style,A,args...)
   return U
 end
 
-function reduction(red::TTSVDReduction,A::AbstractArray,args...)
+function _reduction(red::TTSVDReduction,A::AbstractArray,args...)
   red_style = ReductionStyle(red)
   cores,remainder = ttsvd(red_style,A,args...)
+  return cores
+end
+
+function _zero_reduction(red::Reduction,A::AbstractArray,args...)
+  @abstractmethod
+end
+
+function _zero_reduction(red::PODReduction,A::AbstractArray)
+  U = zeros(size(A,1),1)
+  U[1] = 1.0
+  return U
+end
+
+function _zero_reduction(red::TTSVDReduction,A::AbstractArray{T,N}) where {T,N}
+  cores = Vector{Array{T,3}}(undef,N-1)
+  for d in 1:N-1
+    core = zeros(1,size(A,d),1)
+    core[1] = 1.0
+    cores[d] = core
+  end
   return cores
 end
 
@@ -103,7 +127,7 @@ function truncated_svd(red_style::FixedSVDRank,A::AbstractMatrix;issquare=false)
 end
 
 function truncated_svd(red_style::LRApproxRank,A::AbstractMatrix;kwargs...)
-  iszero(A) ? truncated_svd(FixedSVDRank(1),A;kwargs...) : psvd(A,red_style.opts)
+  psvd(A,red_style.opts)
 end
 
 """
@@ -213,6 +237,20 @@ function ttsvd_loop(red_style::ReductionStyle,A::AbstractArray{T,3},X::AbstractS
   return core,remainder
 end
 
+function matching_ttsvd_loop(red_style::ReductionStyle,A::AbstractArray{T,3},X::AbstractSparseMatrix) where T
+  prev_rank = size(A,1)
+  cur_size = size(A,2)
+  A′ = reshape(A,prev_rank*cur_size,:)
+
+  #TODO make this more efficient
+  L,p = _cholesky_decomp(X)
+  Ur,Sr,Vr = tpod(red_style,A′,L,p)
+
+  core = reshape(Ur,prev_rank,cur_size,:)
+  remainder = Sr.*Vr'
+  return core,remainder
+end
+
 """
     ttsvd(red_style::TTSVDRanks,A::AbstractArray) -> AbstractVector{<:AbstractArray}
     ttsvd(red_style::TTSVDRanks,A::AbstractArray,X::AbstractRankTensor) -> AbstractVector{<:AbstractArray}
@@ -239,72 +277,62 @@ function ttsvd(
   return cores,remainder
 end
 
-function ttsvd(
-  red_style::TTSVDRanks,
-  A::AbstractArray{T,N},
-  X::AbstractRankTensor{D}
-  ) where {T,N,D}
-
-  @check D ≤ N-1
-  if D == N - 1
-    steady_ttsvd(red_style,A,X)
-  else
-    generalized_ttsvd(red_style,A,X)
-  end
-end
-
 function ttsvd(red_style::TTSVDRanks,A::AbstractArray,X::AbstractSparseMatrix)
   tpod(first(red_style),reshape(A,size(A,1),:),X)
 end
 
-function steady_ttsvd(
+function ttsvd(
   red_style::TTSVDRanks,
   A::AbstractArray{T,N},
   X::Rank1Tensor{D}
   ) where {T,N,D}
 
+  @check D ≤ N-1
+
   cores = Array{T,3}[]
   remainder = first_unfold(A)
-  for d in 1:D
-    cur_core,cur_remainder = ttsvd_loop(red_style[d],remainder,X[d])
-    oldrank = size(cur_core,3)
-    remainder = reshape(cur_remainder,oldrank,size(A,d+1),:)
+  for d in 1:N-1
+    if d ≤ D
+      cur_core,cur_remainder = ttsvd_loop(red_style[d],remainder,X[d])
+    else
+      cur_core,cur_remainder = ttsvd_loop(red_style[d],remainder)
+    end
+    remainder = reshape(cur_remainder,size(cur_core,3),size(A,d+1),:)
     push!(cores,cur_core)
   end
 
   return cores,remainder
 end
 
-function steady_ttsvd(
+function ttsvd(
   red_style::TTSVDRanks,
   A::AbstractArray{T,N},
   X::GenericRankTensor{D,K}
   ) where {T,N,D,K}
 
-  # convert to the closest crossnorm
+  @check D ≤ N-1
+
+  weight = ones(1,rank(X),1)
+  decomp = get_decomposition(X)
   X′ = get_crossnorm(X)
 
-  # decomposition w.r.t. the crossnorm
-  cores,remainder = steady_ttsvd(red_style,A,X′)
-
-  # tt X-orthogonality
-  orthogonalize!(red_style,cores,X)
-
-  return cores,remainder
-end
-
-function generalized_ttsvd(
-  red_style::TTSVDRanks,
-  A::AbstractArray{T,N},
-  X::AbstractRankTensor{D}
-  ) where {T,N,D}
-
-  cores,remainder = steady_ttsvd(red_style,A,X)
-  for d = D+1:N-1
-    cur_core,cur_remainder = RBSteady.ttsvd_loop(red_style[d],remainder)
+  cores = Array{T,3}[]
+  remainder = first_unfold(A)
+  for d in 1:N-1
+    if d ≤ D-1
+      cur_core,cur_remainder = ttsvd_loop(red_style[d],remainder,X′[d])
+      X_d = getindex.(decomp,d)
+      weight = weight_array(weight,cur_core,X_d)
+    elseif d == D
+      XW = ttnorm_array(X,weight)
+      cur_core,cur_remainder = matching_ttsvd_loop(red_style[d],remainder,XW)
+    else
+      cur_core,cur_remainder = ttsvd_loop(red_style[d],remainder)
+    end
     remainder = reshape(cur_remainder,size(cur_core,3),size(A,d+1),:)
     push!(cores,cur_core)
   end
+
   return cores,remainder
 end
 
@@ -454,25 +482,6 @@ function orth_complement!(
   v .-= orth_projection(v,basis,args...)
 end
 
-for f in (:pivoted_qr,:pivoted_qr!)
-  g = f==:pivoted_qr ? :qr : :qr!
-  @eval begin
-    function $f(A,tol=1e-10)
-      C = $g(A,ColumnNorm())
-      r = findlast(abs.(diag(C.R)) .> tol)
-      Qr = C.Q[:,1:r]
-      Rr = _truncate_row!(C.R,r)
-      Base.invpermutecols!(Rr,C.jpvt)
-      return Qr,Rr
-    end
-
-    $f(A,red_style::SearchSVDRank) = $f(A,red_style.tol)
-    $f(A,red_style::FixedSVDRank) = $f(A)
-    $f(A,red_style::LRApproxRank) = $f(A,red_style.opts.rtol)
-    $f(A,red_style::TTSVDRanks) = $f(A,first(red_style.style))
-  end
-end
-
 """
     gram_schmidt(A::AbstractMatrix,args...) -> AbstractMatrix
     gram_schmidt(A::AbstractMatrix,X::AbstractSparseMatrix,args...) -> AbstractMatrix
@@ -481,21 +490,31 @@ Gram-Schmidt orthogonalization for a matrix `A` under a Euclidean norm. A
 (positive definite) sparse matrix `X` representing an inner product on the row space
 of `A` can be provided to make the result orthogonal under a different norm
 """
-function gram_schmidt() end
+function gram_schmidt end
 
 for (f,g) in zip((:gram_schmidt,:gram_schmidt!),(:pivoted_qr,:pivoted_qr!))
+  h = g==:pivoted_qr ? :qr : :qr!
   @eval begin
     function $f(A::AbstractMatrix,args...)
-      Q,R = $g(A,args...)
-      return Q,R
+      Q, = $g(A,args...)
+      return Q
     end
 
     function $f(A::AbstractMatrix,X::AbstractSparseMatrix,args...)
       L,p = _cholesky_decomp(X)
       XA = _forward_cholesky(A,L,p)
-      Q̃,R = $g(XA,args...)
+      Q̃, = $g(XA,args...)
       Q = _backward_cholesky(Q̃,L,p)
-      return Q,R
+      return Q
+    end
+
+    function $g(A,tol=1e-10)
+      C = $h(A,ColumnNorm())
+      r = findlast(abs.(diag(C.R)) .> tol)
+      Qr = C.Q[:,1:r]
+      Rr = _truncate_row!(C.R,r)
+      Base.invpermutecols!(Rr,C.jpvt)
+      return Qr,Rr
     end
   end
 end
@@ -503,8 +522,7 @@ end
 for f in (:gram_schmidt,:gram_schmidt!)
   @eval begin
     function $f(A::AbstractMatrix,basis::AbstractMatrix,args...)
-      Q,R = $f(hcat(basis,A),args...)
-      return Q,R
+      $f(hcat(basis,A),args...)
     end
   end
 end

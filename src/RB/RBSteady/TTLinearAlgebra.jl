@@ -247,7 +247,7 @@ function galerkin_projection(
   cores::Vector{<:AbstractArray{T,3}}
   ) where T
 
-  rcores = contraction.(cores_test,cores)
+  rcores = map(contraction,cores_test,cores)
   rcore = sequential_product(rcores...)
   dropdims(rcore;dims=(1,2))
 end
@@ -278,7 +278,12 @@ function galerkin_projection(
   cores_trial::Vector{<:AbstractArray{T,3}}
   ) where T
 
-  rcores = unbalanced_contractions(cores_test,cores,cores_trial)
+  if length(cores_test) == length(cores) == length(cores_trial)
+    rcores = map(contraction,cores_test,cores,cores_trial)
+  else
+    rcores = unbalanced_contractions(cores_test,cores,cores_trial)
+  end
+
   rcore = sequential_product(rcores...)
   dropdims(rcore;dims=(1,2,3))
 end
