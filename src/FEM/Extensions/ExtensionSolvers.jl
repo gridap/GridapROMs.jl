@@ -107,7 +107,11 @@ function pad_solution!(u_bg::AbstractVector,ext::HarmonicExtension,f::SingleFiel
   fout = get_out_space(f)
   uh_out = harmonic_extension(fout,uh_bg)
 
-  _bg_vals_from_complem_vals!(u_bg,f,get_free_dof_values(uh_out))
+  bg_fv = get_free_dof_values(uh_bg)
+  bg_dv = get_dirichlet_dof_values(uh_bg)
+  cfv = get_free_dof_values(uh_out)
+  cdv = get_dirichlet_dof_values(uh_out)
+  _bg_vals_from_vals!(bg_fv,bg_dv,fout,cfv,cdv)
 end
 
 function pad_solution!(u_bg::AbstractVector,f::FESpace)

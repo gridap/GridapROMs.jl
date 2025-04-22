@@ -3,23 +3,10 @@ struct DirectSumFESpace{S<:EmbeddedFESpace} <: SingleFieldFESpace
   complementary::EmbeddedFESpace
 end
 
-function DirectSumFESpace(
-  bg_space::SingleFieldFESpace,
-  act_space::SingleFieldFESpace,
-  inact_space::SingleFieldFESpace
-  )
-
+function DirectSumFESpace(bg_space::SingleFieldFESpace,act_space::SingleFieldFESpace)
   space = EmbeddedFESpace(act_space,bg_space)
-  complementary = EmbeddedFESpace(inact_space,bg_space)
+  complementary = complementary_space(space)
   DirectSumFESpace(space,complementary)
-end
-
-function DirectSumFESpace(
-  bg_space::SingleFieldFESpace,
-  act_space::SingleFieldFESpace
-  )
-
-  @notimplemented "Write a setdiff for FE spaces"
 end
 
 FESpaces.ConstraintStyle(::Type{<:DirectSumFESpace{S}}) where S = ConstraintStyle(S)
@@ -71,8 +58,10 @@ end
 get_emb_space(f::DirectSumFESpace) = get_emb_space(f.space)
 get_act_space(f::DirectSumFESpace) = get_act_space(f.space)
 get_bg_space(f::DirectSumFESpace) = get_bg_space(f.space)
-get_active_fdof_to_bg_fdofs(f::DirectSumFESpace) = get_active_fdof_to_bg_fdofs(f.space)
-get_active_ddof_to_bg_ddofs(f::DirectSumFESpace) = get_active_ddof_to_bg_ddofs(f.space)
+get_fdof_to_bg_fdof(f::DirectSumFESpace) = get_fdof_to_bg_fdof(f.space)
+get_ddof_to_bg_ddof(f::DirectSumFESpace) = get_ddof_to_bg_ddof(f.space)
+get_active_fdof_to_bg_fdof(f::DirectSumFESpace) = get_active_fdof_to_bg_fdof(f.space)
+get_active_ddof_to_bg_ddof(f::DirectSumFESpace) = get_active_ddof_to_bg_ddof(f.space)
 
 get_space(f::DirectSumFESpace) = f.space
 get_out_space(f::DirectSumFESpace) = f.complementary
@@ -123,7 +112,6 @@ function (⊕)(uh::FEFunction,vh::FEFunction)
   cdv = get_dirichlet_dof_values(vh)
   _bg_vals_from_vals!(bg_fv,bg_dv,complementary,cfv,cdv)
 
-  # the overlapping dofs are filled with the correct values
   fv = get_free_dof_values(uh)
   dv = get_dirichlet_dof_values(uh)
   _bg_vals_from_vals!(bg_fv,bg_dv,space,fv,dv)
@@ -145,52 +133,6 @@ end
 
 FESpaces.get_dirichlet_dof_values(uh::SingleFieldFEFunction) = uh.dirichlet_values
 FESpaces.get_dirichlet_dof_values(uh::SingleFieldParamFEFunction) = uh.dirichlet_values
-
-for T in (:SingleFieldParamFESpace,:UnEvalTrialFESpace,:TransientTrialFESpace,:TrialFESpace)
-  @eval begin
-    function _bg_vals_from_complem_vals!(bg_fv,f::$T,out_fv)
-      _bg_vals_from_complem_vals!(bg_fv,f.space,out_fv)
-    end
-  end
-end
-
-function _bg_vals_from_complem_vals!(bg_fv,f::DirectSumFESpace,out_fv)
-  fdof_to_bg_fdofs = f.space.fdof_to_bg_fdofs
-  cfdof_to_bg_fdofs = f.complementary.fdof_to_bg_fdofs
-  inout_dofs = intersect(cfdof_to_bg_fdofs,fdof_to_bg_fdofs)
-  out_dofs = copy(cfdof_to_bg_fdofs)
-  T = eltype(out_dofs)
-  for (cfdof,bg_fdof) in enumerate(cfdof_to_bg_fdofs)
-    if bg_fdof ∈ inout_dofs
-      out_dofs[cfdof] = zero(T)
-    end
-  end
-  _bg_vals_from_complem_vals!(bg_fv,out_fv,out_dofs)
-end
-
-function _bg_vals_from_complem_vals!(bg_fv,out_fv,out_fdofs)
-  for (fdof,bg_fdof) in enumerate(out_fdofs)
-    bg_fv[bg_fdof] = out_fv[fdof]
-  end
-end
-
-function _bg_vals_from_complem_vals!(
-  bg_fv::ConsecutiveParamVector,
-  out_fv::ConsecutiveParamVector,
-  out_fdofs
-  )
-
-  bg_fdata = get_all_data(bg_fv)
-  fdata = get_all_data(out_fv)
-
-  for k in param_eachindex(bg_fv)
-    for (fdof,bg_fdof) in enumerate(out_fdofs)
-      if bg_fdof > 0
-        bg_fdata[bg_fdof,k] = fdata[fdof,k]
-      end
-    end
-  end
-end
 
 # dof map utils
 

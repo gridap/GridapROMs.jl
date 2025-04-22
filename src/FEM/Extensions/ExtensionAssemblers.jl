@@ -8,8 +8,8 @@ function ExtensionAssembler(trial::FESpace,test::FESpace)
   bg_trial = get_bg_space(trial)
   bg_test = get_bg_space(test)
   assem = SparseMatrixAssembler(bg_trial,bg_test)
-  trial_fdof_to_bg_fdofs = get_active_fdof_to_bg_fdofs(trial)
-  test_fdof_to_bg_fdofs = get_active_fdof_to_bg_fdofs(test)
+  trial_fdof_to_bg_fdofs = get_fdof_to_bg_fdof(trial)
+  test_fdof_to_bg_fdofs = get_fdof_to_bg_fdof(test)
   ExtensionAssembler(assem,trial_fdof_to_bg_fdofs,test_fdof_to_bg_fdofs)
 end
 

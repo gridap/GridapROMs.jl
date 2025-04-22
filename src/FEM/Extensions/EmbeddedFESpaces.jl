@@ -59,16 +59,19 @@ end
 get_emb_space(f::SingleFieldFESpace) = @abstractmethod
 get_act_space(f::SingleFieldFESpace) = @abstractmethod
 get_bg_space(f::SingleFieldFESpace) = @abstractmethod
-get_active_fdof_to_bg_fdofs(f::SingleFieldFESpace) = @abstractmethod
-get_active_ddof_to_bg_ddofs(f::SingleFieldFESpace) = @abstractmethod
+get_active_fdof_to_bg_fdof(f::SingleFieldFESpace) = @abstractmethod
+get_active_ddof_to_bg_ddof(f::SingleFieldFESpace) = @abstractmethod
 
 get_emb_space(f::EmbeddedFESpace) = f
 get_act_space(f::EmbeddedFESpace) = f.space
 get_bg_space(f::EmbeddedFESpace) = f.bg_space
-get_active_fdof_to_bg_fdofs(f::EmbeddedFESpace) = f.fdof_to_bg_fdofs
-get_active_ddof_to_bg_ddofs(f::EmbeddedFESpace) = f.ddof_to_bg_ddofs
+get_fdof_to_bg_fdof(f::EmbeddedFESpace) = get_fdof_to_bg_fdof(f.bg_space,f.space)
+get_ddof_to_bg_ddof(f::EmbeddedFESpace) = get_ddof_to_bg_ddof(f.bg_space,f.space)
+get_active_fdof_to_bg_fdof(f::EmbeddedFESpace) = f.fdof_to_bg_fdofs
+get_active_ddof_to_bg_ddof(f::EmbeddedFESpace) = f.ddof_to_bg_ddofs
 
-for F in (:get_emb_space,:get_act_space,:get_bg_space,:get_active_fdof_to_bg_fdofs,:get_active_ddof_to_bg_ddofs)
+for F in (:get_emb_space,:get_act_space,:get_bg_space,:get_fdof_to_bg_fdof,
+          :get_ddof_to_bg_ddof,:get_active_fdof_to_bg_fdof,:get_active_ddof_to_bg_ddof)
   for T in (:SingleFieldParamFESpace,:UnEvalTrialFESpace,:TransientTrialFESpace,:TrialFESpace)
     if !(F∈(:get_act_space,:get_bg_space) && T==:SingleFieldParamFESpace)
       @eval begin
@@ -376,12 +379,113 @@ function Arrays.evaluate!(c,k::BGCellDofIds,i::Int)
   return r
 end
 
-function get_bg_cell_dof_ids(f::EmbeddedFESpace,args...)
-  cell_ids = get_cell_dof_ids(f,args...)
-  k = BGCellDofIds(cell_ids,f.fdof_to_bg_fdofs,f.ddof_to_bg_ddofs)
-  lazy_map(k,1:length(cell_ids))
+for (F,G,Gd) in zip(
+  (:get_bg_cell_dof_ids,:get_active_bg_cell_dof_ids),
+  (:get_fdof_to_bg_fdof,:get_active_fdof_to_bg_fdof),
+  (:get_ddof_to_bg_ddof,:get_active_ddof_to_bg_ddof)
+  )
+  @eval begin
+    function $F(f::EmbeddedFESpace,args...)
+      cell_ids = get_cell_dof_ids(f,args...)
+      k = BGCellDofIds(cell_ids,$G(f),$Gd(f))
+      lazy_map(k,1:length(cell_ids))
+    end
+
+    function $F(f::SingleFieldFESpace,args...)
+      $F(get_emb_space(f),args...)
+    end
+  end
 end
 
-function get_bg_cell_dof_ids(f::SingleFieldFESpace,args...)
-  get_bg_cell_dof_ids(get_emb_space(f),args...)
+# complementary space interface
+
+function complementary_space(space::EmbeddedFESpace)
+  bg_space = space.bg_space
+
+  bg_trian = get_triangulation(bg_space)
+  trian = get_triangulation(space)
+  D = num_cell_dims(trian)
+  glue = get_glue(trian,Val(D))
+  cface_to_mface = findall(x->x<0,glue.mface_to_tface)
+  bg_model = get_active_model(bg_trian)
+  ctrian = Triangulation(bg_model,cface_to_mface)
+
+  T = get_dof_value_type(bg_space)
+  order = get_polynomial_order(bg_space)
+  reffe = ReferenceFE(lagrangian,T,order)
+  _cspace = FESpace(ctrian,reffe,conformity=:H1)
+
+  bg_cell_dof_ids = get_cell_dof_ids(bg_space)
+  fcdof_to_bg_fcdof = get_dofs_at_cells(bg_cell_dof_ids,cface_to_mface)
+  shared_dofs = intersect(fcdof_to_bg_fcdof,space.fdof_to_bg_fdofs)
+  fdof_to_bg_fdofs = setdiff(fcdof_to_bg_fcdof,shared_dofs)
+  cell_dof_ids = get_cell_dof_ids(_cspace)
+
+  isdiri = zeros(Bool,num_free_dofs(_cspace))
+  for ldof in eachindex(isdiri)
+    bg_dof = fcdof_to_bg_fcdof[ldof]
+    if bg_dof ∈ shared_dofs
+      isdiri[ldof] = 1
+    end
+  end
+
+  ndiri = cumsum(isdiri)
+  for (idof,ldof) in enumerate(cell_dof_ids.data)
+    if isdiri[ldof] == 0
+      cell_dof_ids.data[idof] = ldof-ndiri[ldof]
+    else
+      cell_dof_ids.data[idof] = -ndiri[ldof]
+    end
+  end
+
+  ndirichlet = last(ndiri)
+  nfree = num_free_dofs(_cspace)-ndirichlet
+  # dirichlet_cells = get_dirichlet_cells(cell_dof_ids)
+  # _cspace.cell_is_dirichlet[dirichlet_cells] .= true
+  # dirichlet_dof_tag = fill(one(Int8),ndirichlet)
+  # ntags = 1
+
+  cspace = UnconstrainedFESpace(
+    _cspace.vector_type,
+    nfree,
+    ndirichlet,
+    cell_dof_ids,
+    _cspace.fe_basis,
+    _cspace.fe_dof_basis,
+    _cspace.cell_is_dirichlet,
+    _cspace.dirichlet_dof_tag,
+    _cspace.dirichlet_cells,
+    _cspace.ntags)
+
+  EmbeddedFESpace(cspace,bg_space,fdof_to_bg_fdofs,Int32[])
+end
+
+function get_dofs_at_cells(cell_dof_ids,cells)
+  touched = zeros(Bool,maximum(cell_dof_ids.data))
+  for cell in cells
+    pini = cell_dof_ids.ptrs[cell]
+    pend = cell_dof_ids.ptrs[cell+1]-1
+    for p in pini:pend
+      dof = cell_dof_ids.data[p]
+      touched[dof] = true
+    end
+  end
+  findall(touched)
+end
+
+function get_dirichlet_cells(cell_dof_ids)
+  isdiri_cell = zeros(Bool,length(cell_dof_ids))
+  for cell in 1:length(cell_dof_ids)
+    pini = cell_dof_ids.ptrs[cell]
+    pend = cell_dof_ids.ptrs[cell+1]-1
+    for p in pini:pend
+      dof = cell_dof_ids.data[p]
+      if dof<0
+        isdiri_cell[cell] = true
+        break
+      end
+    end
+  end
+  diri_cells = findall(isdiri_cell)
+  convert(Vector{Int32},diri_cells)
 end
