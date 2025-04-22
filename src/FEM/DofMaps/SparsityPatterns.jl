@@ -7,7 +7,6 @@ Jacobian in a FE problem.
 Subtypes:
 
 - [`SparsityCSC`](@ref)
-- [`CartesianSparsity`](@ref)
 - [`TProductSparsity`](@ref)
 """
 abstract type SparsityPattern end
@@ -75,46 +74,6 @@ end
 get_background_matrix(a::SparsityCSC) = a.matrix
 
 """
-    struct CartesianSparsity{A<:SparsityPattern,B<:AbstractVector,C<:AbstractVector} <: SparsityPattern
-      sparsity::A
-      bg_rows_to_act_rows::B
-      bg_cols_to_act_cols::C
-    end
-
-Fields:
-
-  - `sparsity`: the [`SparsityPattern`](@ref) of a matrix assembled on an (active) geometry
-    which is either Cartesian, or it is defined from a (background) Cartesian geometry
-  - `bg_rows_to_act_rows`: a vector that maps a row of the Cartesian background
-    geometry, to a row of the active geometry
-  - `bg_cols_to_act_cols`: a vector that maps a column of the Cartesian background
-    geometry, to a column of the active geometry
-"""
-struct CartesianSparsity{A<:SparsityPattern,B<:AbstractVector,C<:AbstractVector} <: SparsityPattern
-  sparsity::A
-  bg_rows_to_act_rows::B
-  bg_cols_to_act_cols::C
-end
-
-CartesianSparsity(a::SparsityPattern,::IdentityVector,::IdentityVector) = a
-
-get_background_matrix(a::CartesianSparsity) = get_background_matrix(a.sparsity)
-
-num_bg_rows(a::CartesianSparsity) = length(a.bg_rows_to_act_rows)
-num_bg_cols(a::CartesianSparsity) = length(a.bg_cols_to_act_cols)
-
-function bg_findnz(a::CartesianSparsity)
-  I,J,V = findnz(a.sparsity)
-  bg_rows = findall(!iszero,a.bg_rows_to_act_rows)
-  bg_cols = findall(!iszero,a.bg_cols_to_act_cols)
-  for k in eachindex(I)
-    I[k] = bg_rows[I[k]]
-    J[k] = bg_cols[J[k]]
-  end
-  return I,J,V
-end
-
-"""
     struct TProductSparsity{A<:SparsityPattern,B<:SparsityPattern} <: SparsityPattern
       sparsity::A
       sparsities_1d::Vector{B}
@@ -164,24 +123,6 @@ function get_d_sparse_dofs_to_full_dofs(Tu,Tv,a::TProductSparsity)
   nrows = num_rows(a)
   ncols = num_cols(a)
   get_d_sparse_dofs_to_full_dofs(Tu,Tv,a,I,J,nrows,ncols)
-end
-
-function get_d_sparse_dofs_to_full_dofs(Tu,Tv,a::TProductSparsity{<:CartesianSparsity})
-  I_bg,J_bg, = bg_findnz(a.sparsity)
-  nrows_bg = num_bg_rows(a.sparsity)
-  ncols_bg = num_bg_cols(a.sparsity)
-  nrows = num_rows(a)
-  dsd2fd = get_d_sparse_dofs_to_full_dofs(Tu,Tv,a,I_bg,J_bg,nrows_bg,ncols_bg)
-  for (k,sdk) in enumerate(dsd2fd)
-    if sdk > 0
-      Ik_bg = fast_index(sdk,nrows_bg)
-      Jk_bg = slow_index(sdk,nrows_bg)
-      Ik = a.sparsity.bg_rows_to_act_rows[Ik_bg]
-      Jk = a.sparsity.bg_cols_to_act_cols[Jk_bg]
-      dsd2fd[k] = Ik+(Jk-1)*nrows
-    end
-  end
-  return dsd2fd
 end
 
 function get_d_sparse_dofs_to_full_dofs(

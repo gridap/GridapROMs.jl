@@ -433,6 +433,17 @@ function ttnorm_array(X::AbstractRankTensor{D,K},WD) where {D,K}
   return sparse(XW)
 end
 
+function tucker(red::AbstractVector{<:Reduction},A::AbstractArray{T,N},args...) where {T,N}
+  @assert length(red) == N-1
+  bases = Vector{Float64}(undef,N-1)
+  remainder = A
+  for n in 1:N-1
+    Ur,remainder = n == 1 ? reduction(red[n],remainder,args...) : reduction(red[n],remainder)
+    bases[n] = Ur
+  end
+  return bases
+end
+
 """
     orth_projection(v::AbstractVector, basis::AbstractMatrix, args...) -> AbstractVector
 

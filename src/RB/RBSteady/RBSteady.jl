@@ -36,6 +36,7 @@ using GridapROMs.ParamODEs
 using GridapROMs.Extensions
 
 import Base: +,-,*,\
+import FillArrays: Fill
 import PartitionedArrays: tuple_of_arrays
 import GridapROMs.TProduct: get_factor
 

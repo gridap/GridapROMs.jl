@@ -1,5 +1,5 @@
-struct DirectSumFESpace{S<:EmbeddedFESpace} <: SingleFieldFESpace
-  space::S
+struct DirectSumFESpace{S<:SingleFieldFESpace,T<:SingleFieldFESpace} <: SingleFieldFESpace
+  space::EmbeddedFESpace{S,T}
   complementary::EmbeddedFESpace
 end
 
@@ -62,6 +62,7 @@ get_fdof_to_bg_fdof(f::DirectSumFESpace) = get_fdof_to_bg_fdof(f.space)
 get_ddof_to_bg_ddof(f::DirectSumFESpace) = get_ddof_to_bg_ddof(f.space)
 get_active_fdof_to_bg_fdof(f::DirectSumFESpace) = get_active_fdof_to_bg_fdof(f.space)
 get_active_ddof_to_bg_ddof(f::DirectSumFESpace) = get_active_ddof_to_bg_ddof(f.space)
+get_bg_cell_dof_ids(f::DirectSumFESpace) = get_bg_cell_dof_ids(f.space)
 
 get_space(f::DirectSumFESpace) = f.space
 get_out_space(f::DirectSumFESpace) = f.complementary
@@ -82,22 +83,6 @@ for f in (:get_space,:get_out_space)
       TrialParamFESpace($f(f.space),f.dirichlet_values)
     end
   end
-end
-
-function get_cells_to_bg_cells(f::DirectSumFESpace)
-  get_cell_to_bg_cell(f.space)
-end
-
-function get_bg_cells_to_cells(f::DirectSumFESpace)
-  get_bg_cell_to_cell(f.space)
-end
-
-function get_complem_cells_to_bg_cells(f::DirectSumFESpace)
-  get_cell_to_bg_cell(f.complementary)
-end
-
-function get_bg_cells_to_complem_cells(f::DirectSumFESpace)
-  get_bg_cell_to_cell(f.complementary)
 end
 
 function (⊕)(uh::FEFunction,vh::FEFunction)
@@ -140,12 +125,28 @@ function DofMaps.get_dof_map(f::DirectSumFESpace,args...)
   get_dof_map(get_bg_space(f),args...)
 end
 
-function ParamSteady._assemble_matrix(f,U::FESpace,V::DirectSumFESpace)
-  ParamSteady._assemble_matrix(f,get_bg_space(U),get_bg_space(V))
+function ParamSteady._assemble_matrix(f,V::DirectSumFESpace)
+  ParamSteady._assemble_matrix(f,get_bg_space(V))
+end
+
+function DofMaps.get_sparsity(
+  U::DirectSumFESpace{S,<:TProductFESpace},
+  V::DirectSumFESpace{S,<:TProductFESpace},
+  args...
+  ) where S
+
+  Ubg = get_bg_space(U)
+  Vbg = get_bg_space(V)
+  @check length(Ubg.spaces_1d) == length(Vbg.spaces_1d)
+  sparsity = SparsityPattern(U,V,args...)
+  sparsities_1d = map(1:length(Ubg.spaces_1d)) do d
+    get_sparsity(Ubg.spaces_1d[d],Vbg.spaces_1d[d])
+  end
+  return TProductSparsity(sparsity,sparsities_1d)
 end
 
 function DofMaps.SparsityPattern(
-  U::SingleFieldFESpace,
+  U::DirectSumFESpace,
   V::DirectSumFESpace,
   trian=DofMaps._get_common_domain(U,V)
   )

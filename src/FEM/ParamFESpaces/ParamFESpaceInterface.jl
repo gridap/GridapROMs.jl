@@ -5,7 +5,7 @@ get_dirichlet_cells(f::FESpaceWithConstantFixed) = get_dirichlet_cells(f.space)
 get_dirichlet_cells(f::ZeroMeanFESpace) = get_dirichlet_cells(f.space)
 get_dirichlet_cells(f::TrialFESpace) = get_dirichlet_cells(f.space)
 get_dirichlet_cells(f::TProductFESpace) = get_dirichlet_cells(f.space)
-get_dirichlet_cells(f::CartesianFESpace) = get_dirichlet_cells(f.space)
+get_dirichlet_cells(f::OrderedFESpace) = get_dirichlet_cells(f.space)
 
 ParamDataStructures.param_length(f::FESpace) = 0
 
@@ -539,5 +539,5 @@ end
 
 remove_layer(f::SingleFieldFESpace) = @abstractmethod
 remove_layer(f::SingleFieldParamFESpace{<:UnconstrainedFESpace}) = f
-remove_layer(f::SingleFieldParamFESpace{<:CartesianFESpace{<:UnconstrainedFESpace}}) = f
-remove_layer(f::CartesianFESpace) = CartesianFESpace(f.space.space,f.cell_odofs_ids,f.bg_odofs_to_act_odofs)
+remove_layer(f::SingleFieldParamFESpace{<:OrderedFESpace{<:UnconstrainedFESpace}}) = f
+remove_layer(f::OrderedFESpace) = OrderedFESpace(f.space.space,f.cell_odofs_ids,f.bg_odofs_to_act_odofs)

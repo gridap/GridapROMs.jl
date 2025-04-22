@@ -9,7 +9,6 @@ include("FEM/Utils/Utils.jl")
 using GridapROMs.Utils
 
 export OrderedFESpace
-export CartesianFESpace
 export slow_index
 export fast_index
 export get_dof_map

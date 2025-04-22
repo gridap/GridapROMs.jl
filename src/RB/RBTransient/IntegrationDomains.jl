@@ -51,9 +51,7 @@ function get_cells_to_spacetime_idofs(
   dofs::AbstractVector,
   times::AbstractVector)
 
-  _correct_idof(is,li) = li
-  _correct_idof(is::OIdsToIds,li) = is.terms[li]
-
+  correct_idof = RBSteady.get_idof_correction(cell_dof_ids)
   cache = array_cache(cell_dof_ids)
 
   ncells = length(cells)
@@ -79,7 +77,7 @@ function get_cells_to_spacetime_idofs(
         dof = dofs[idof]
         for (_icelldof,celldof) in enumerate(celldofs)
           if dof == celldof
-            icelldof = _correct_idof(celldofs,_icelldof)
+            icelldof = correct_idof(_icelldof)
             data[ptrs[icell]-1+icelldof][iuidof] = idof
           end
         end

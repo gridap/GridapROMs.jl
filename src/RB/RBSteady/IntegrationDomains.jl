@@ -56,14 +56,17 @@ function get_dofs_to_cells(
   Int32.(findall(cells))
 end
 
+get_idof_correction(a) = i -> i
+get_idof_correction(a::OTable) = i -> a.terms[i]
+get_idof_correction(a::LazyArray{<:Fill{<:Reindex}}) = get_idof_correction(a.maps[1].values)
+get_idof_correction(a::AppendedArray) = get_idof_correction(a.a)
+
 function get_cells_to_idofs(
   cell_dof_ids::AbstractArray{<:AbstractArray},
   cells::AbstractVector,
   dofs::AbstractVector)
 
-  _correct_idof(is,li) = li
-  _correct_idof(is::OIdsToIds,li) = is.terms[li]
-
+  correct_idof = get_idof_correction(cell_dof_ids)
   cache = array_cache(cell_dof_ids)
 
   ncells = length(cells)
@@ -80,7 +83,7 @@ function get_cells_to_idofs(
     for (idof,dof) in enumerate(dofs)
       for (_icelldof,celldof) in enumerate(celldofs)
         if dof == celldof
-          icelldof = _correct_idof(celldofs,_icelldof)
+          icelldof = correct_idof(_icelldof)
           data[ptrs[icell]-1+icelldof] = idof
         end
       end

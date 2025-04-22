@@ -355,10 +355,18 @@ function Projection(red::TTSVDReduction,s::AbstractArray,args...)
 end
 
 function Projection(red::TTSVDReduction,s::SparseSnapshots,args...)
+  dof_map = get_dof_map(s)
+  Projection(red,s,dof_map,args...)
+end
+
+function Projection(red::TTSVDReduction,s::SparseSnapshots,dof_map,args...)
   cores = reduction(red,s,args...)
   cores′ = recast(cores,s)
-  dof_map = get_dof_map(s)
   TTSVDProjection(cores′,dof_map)
+end
+
+function Projection(red::TTSVDReduction,s::SparseSnapshots,dof_map::TrivialSparseMatrixDofMap,args...)
+  Projection(PODReduction(red),s,args...)
 end
 
 get_cores(a::Projection) = @notimplemented

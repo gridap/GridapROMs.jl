@@ -98,6 +98,8 @@ ReductionStyle(tolrank::Vector{<:Union{Float64,Int}};kwargs...) = TTSVDRanks(tol
 
 Base.size(r::TTSVDRanks) = (length(r.style),)
 Base.getindex(r::TTSVDRanks,i::Integer) = r.style[i]
+Base.iterate(r::TTSVDRanks,state...) = iterate(r.style,state...)
+Base.repeat(r::ReductionStyle,D::Int) = TTSVDRanks(fill(r,D))
 
 """
     abstract type NormStyle end
@@ -275,6 +277,20 @@ Base.getindex(r::TTSVDReduction,i::Integer) = Reduction(r.red_style[i],r.norm_st
 ReductionStyle(r::TTSVDReduction) = r.red_style
 NormStyle(r::TTSVDReduction) = r.norm_style
 ParamDataStructures.num_params(r::TTSVDReduction) = r.nparams
+
+function PODReduction(r::TTSVDReduction)
+  pod_style = first(ReductionStyle(r))
+  norm_style = NormStyle(r)
+  nparams = num_params(r)
+  PODReduction(pod_style,norm_style,nparams)
+end
+
+function TTSVDReduction(r::PODReduction,D=3)
+  ttsvd_style = repeat(ReductionStyle(r),D)
+  norm_style = NormStyle(r)
+  nparams = num_params(r)
+  TTSVDReduction(ttsvd_style,norm_style,nparams)
+end
 
 """
     struct SupremizerReduction{A,R<:Reduction{A,EnergyNorm}} <: Reduction{A,EnergyNorm}

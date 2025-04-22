@@ -128,33 +128,28 @@ end
 # unpacking the trial and test spaces
 function FESpaces.assemble_matrix(op::ParamFEOperator,form::Function)
   test = get_test(op)
-  trial = evaluate(get_trial(op),nothing)
-  _assemble_matrix(form,trial,test)
+  _assemble_matrix(form,test)
 end
 
-function _assemble_matrix(f,U::FESpace,V::FESpace)
-  assemble_matrix(f,U,V)
+function _assemble_matrix(f,V::FESpace)
+  assemble_matrix(f,V,V)
 end
 
-function _assemble_matrix(f,U::TProductFESpace,V::TProductFESpace)
-  a = SparseMatrixAssembler(U,V)
+function _assemble_matrix(f,V::TProductFESpace)
+  a = TProductSparseMatrixAssembler(V,V)
   v = get_tp_fe_basis(V)
-  u = get_tp_trial_fe_basis(U)
-  assemble_matrix(a,collect_cell_matrix(U,V,f(u,v)))
+  u = get_tp_trial_fe_basis(V)
+  assemble_matrix(a,collect_cell_matrix(V,V,f(u,v)))
 end
 
-function _assemble_matrix(f,U::TrialFESpace{<:TProductFESpace},V::TProductFESpace)
-  _assemble_matrix(f,U.space,V)
-end
-
-function _assemble_matrix(f,U::MultiFieldFESpace,V::MultiFieldFESpace)
+function _assemble_matrix(f,V::MultiFieldFESpace)
   if all(isa.(V.spaces,TProductFESpace))
-    a = TProductBlockSparseMatrixAssembler(U,V)
+    a = TProductBlockSparseMatrixAssembler(V,V)
     v = get_tp_fe_basis(V)
-    u = get_tp_trial_fe_basis(U)
-    assemble_matrix(a,collect_cell_matrix(U,V,f(u,v)))
+    u = get_tp_trial_fe_basis(V)
+    assemble_matrix(a,collect_cell_matrix(V,V,f(u,v)))
   else
-    assemble_matrix(f,U,V)
+    assemble_matrix(f,V,V)
   end
 end
 

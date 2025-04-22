@@ -7,7 +7,7 @@ struct TProductSparseMatrixAssembler{A<:SparseMatrixAssembler} <: SparseMatrixAs
   assems_1d::Vector{A}
 end
 
-function FESpaces.SparseMatrixAssembler(
+function TProductSparseMatrixAssembler(
   mat,
   vec,
   trial::TProductFESpace,
@@ -20,14 +20,17 @@ function FESpaces.SparseMatrixAssembler(
   TProductSparseMatrixAssembler(assems_1d)
 end
 
-function FESpaces.SparseMatrixAssembler(
-  mat,
-  vec,
-  trial::TrialFESpace{<:TProductFESpace},
-  test::TProductFESpace,
-  strategy::AssemblyStrategy=DefaultAssemblyStrategy())
+function TProductSparseMatrixAssembler(mat,trial::TProductFESpace,test::TProductFESpace)
+  mat_builder = SparseMatrixBuilder(mat)
+  T = eltype(get_array_type(mat_builder))
+  TProductSparseMatrixAssembler(mat_builder,Vector{T},trial,test)
+end
 
-  SparseMatrixAssembler(mat,vec,trial.space,test,strategy)
+function TProductSparseMatrixAssembler(trial::TProductFESpace,test::TProductFESpace)
+  T = get_dof_value_type(trial)
+  matrix_type = SparseMatrixCSC{T,Int}
+  vector_type = Vector{T}
+  TProductSparseMatrixAssembler(matrix_type,vector_type,trial,test)
 end
 
 function FESpaces.collect_cell_matrix(

@@ -1,3 +1,8 @@
+function RBSteady.reduction(red::TransientKroneckerReduction,A::TransientSnapshots{T,N},args...) where {T,N}
+  redvec = [get_reduction_space(red),get_reduction_time(red)]
+  tucker(redvec,swap_param_time(A),args...)
+end
+
 function RBSteady.reduction(red::TTSVDReduction,A::TransientSnapshots{T,N},args...) where {T,N}
   reduction(red,swap_param_time(A),args...)
 end

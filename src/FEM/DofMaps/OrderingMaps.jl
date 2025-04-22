@@ -1,12 +1,12 @@
 """
-    struct OIdsToIds{T,A<:AbstractVector{<:Integer}} <: AbstractVector{T}
+    struct OIdsToIds{T,S} <: AbstractVector{T}
       indices::Vector{T}
-      terms::A
+      terms::Vector{S}
     end
 """
-struct OIdsToIds{T,A<:AbstractVector{<:Integer}} <: AbstractVector{T}
+struct OIdsToIds{T,S} <: AbstractVector{T}
   indices::Vector{T}
-  terms::A
+  terms::Vector{S}
 end
 
 Base.size(a::OIdsToIds) = size(a.indices)
@@ -68,8 +68,7 @@ end
 
 function Arrays.return_cache(k::DofsToODofs{D},cell::CartesianIndex{D}) where D
   local_ndofs = length(k.odof_to_dof)
-  odofs = OIdsToIds(zeros(Int32,local_ndofs),k.odof_to_dof)
-  return odofs
+  zeros(Int32,local_ndofs)
 end
 
 function Arrays.evaluate!(cache,k::DofsToODofs{D},cell::CartesianIndex{D}) where D
@@ -86,77 +85,6 @@ function Arrays.evaluate!(cache,k::DofsToODofs{D},cell::CartesianIndex{D}) where
     end
   end
   return cache
-end
-
-function Arrays.return_value(k::Broadcasting{typeof(_sum_if_first_positive)},dofs::OIdsToIds,o::Integer)
-  evaluate(k,dofs,o)
-end
-
-function Arrays.return_cache(k::Broadcasting{typeof(_sum_if_first_positive)},dofs::OIdsToIds,o::Integer)
-  c = return_cache(k,dofs.indices,o)
-  odofs = OIdsToIds(evaluate(k,dofs.indices,o),dofs.terms)
-  c,odofs
-end
-
-function Arrays.evaluate!(cache,k::Broadcasting{typeof(_sum_if_first_positive)},dofs::OIdsToIds,o::Integer)
-  c,odofs = cache
-  r = evaluate!(c,k,dofs.indices,o)
-  copyto!(odofs.indices,r)
-  odofs
-end
-
-# Assembly-related functions
-
-@inline function Algebra.add_entries!(combine::Function,A,vs,is::OIdsToIds,js::OIdsToIds)
-  add_ordered_entries!(combine,A,vs,is,js)
-end
-
-for T in (:Any,:(Algebra.ArrayCounter))
-  @eval begin
-    @inline function Algebra.add_entries!(combine::Function,A::$T,vs,is::OIdsToIds)
-      add_ordered_entries!(combine,A,vs,is)
-    end
-  end
-end
-
-"""
-    add_ordered_entries!(combine::Function,A,vs,is::OIdsToIds,js::OIdsToIds)
-
-Adds several ordered entries only for positive input indices. Returns `A`
-"""
-@inline function add_ordered_entries!(combine::Function,A,vs::Nothing,is::OIdsToIds,js::OIdsToIds)
-  Algebra._add_entries!(combine,A,vs,is.indices,js.indices)
-end
-
-@inline function add_ordered_entries!(combine::Function,A,vs,is::OIdsToIds,js::OIdsToIds)
-  for (lj,j) in enumerate(js)
-    if j>0
-      ljp = js.terms[lj]
-      for (li,i) in enumerate(is)
-        if i>0
-          lip = is.terms[li]
-          vij = vs[lip,ljp]
-          add_entry!(combine,A,vij,i,j)
-        end
-      end
-    end
-  end
-  A
-end
-
-@inline function add_ordered_entries!(combine::Function,A,vs::Nothing,is::OIdsToIds)
-  Algebra._add_entries!(combine,A,vs,is.indices)
-end
-
-@inline function add_ordered_entries!(combine::Function,A,vs,is::OIdsToIds)
-  for (li,i) in enumerate(is)
-    if i>0
-      lip = is.terms[li]
-      vi = vs[lip]
-      add_entry!(A,vi,i)
-    end
-  end
-  A
 end
 
 """
@@ -186,31 +114,114 @@ function Arrays.evaluate!(cache,k::OReindex,values::AbstractVector)
   return cache
 end
 
-"""
-    struct DofToCell{A} <: Map
-      cellids::A
-    end
-
-Inverse map of a standard connectivity structure: providing an input dof, returns
-a list of all the cells containing the dof
-"""
-struct DofToCell{A} <: Map
-  cellids::A
+struct OTable{T,Vd<:AbstractVector{T},Vp<:AbstractVector} <: AbstractVector{Vector{T}}
+  values::Table{T,Vd,Vp}
+  terms::Vector{Int32}
 end
 
-function Arrays.return_cache(k::DofToCell,dof::Int)
-  array_cache(k.cellids)
+function OTable(cell_odofs::LazyArray{<:Fill{<:DofsToODofs}})
+  values = Table(cell_odofs)
+  k = first(cell_odofs.maps)
+  OTable(values,k.odof_to_dof)
 end
 
-function Arrays.evaluate!(cache,k::DofToCell,dof::Int)
-  cells = Int32[]
-  for cell in 1:length(k.cellids)
-    cell_dofs = getindex!(cache,k.cellids,cell)
-    if dof ∈ cell_dofs
-      append!(cells,cell)
+Base.size(a::OTable) = size(a.values)
+Base.IndexStyle(::Type{<:OTable}) = IndexLinear()
+
+function Base.getproperty(a::OTable,sym::Symbol)
+  if sym in (:data,:ptrs)
+    getproperty(a.values,sym)
+  else
+    getfield(a,sym)
+  end
+end
+
+Base.view(a::OTable,i::Integer) = view(a.values,i)
+Base.view(a::OTable,ids::UnitRange{<:Integer}) = OTable(view(a.values,ids),a.terms)
+Base.getindex(a::OTable,i) = getindex(a.values,i)
+
+Arrays.array_cache(a::OTable) = array_cache(a.values)
+Arrays.getindex!(c,a::OTable,i::Integer) = getindex!(c,a.values,i)
+
+function FESpaces.get_cell_fe_data(fun,sface_to_data::OTable,sglue::FaceToFaceGlue,tglue::FaceToFaceGlue)
+  error("need to implement this")
+  # mface_to_sface = sglue.mface_to_tface
+  # tface_to_mface = tglue.tface_to_mface
+  # mface_to_data = extend(sface_to_data,mface_to_sface)
+  # tface_to_data = lazy_map(Reindex(mface_to_data),tface_to_mface)
+  # tface_to_data
+end
+
+# Assembly-related functions
+
+@noinline function FESpaces._numeric_loop_matrix!(mat,caches,cell_vals,cell_rows::OTable,cell_cols::OTable)
+  add_cache,vals_cache,rows_cache,cols_cache = caches
+  row_terms,col_terms = cell_rows.terms,cell_cols.terms
+  add! = Arrays.AddEntriesMap(+)
+  for cell in 1:length(cell_cols)
+    orows = getindex!(rows_cache,cell_rows,cell)
+    ocols = getindex!(cols_cache,cell_cols,cell)
+    vals = getindex!(vals_cache,cell_vals,cell)
+    rows = OIdsToIds(orows,row_terms)
+    cols = OIdsToIds(ocols,col_terms)
+    evaluate!(add_cache,add!,mat,vals,rows,cols)
+  end
+end
+
+@noinline function FESpaces._numeric_loop_vector!(vec,caches,cell_vals,cell_rows::OTable)
+  add_cache,vals_cache,rows_cache = caches
+  row_terms = cell_rows.terms
+  add! = Arrays.AddEntriesMap(+)
+  for cell in 1:length(cell_rows)
+    orows = getindex!(rows_cache,cell_rows,cell)
+    vals = getindex!(vals_cache,cell_vals,cell)
+    rows = OIdsToIds(orows,row_terms)
+    evaluate!(add_cache,add!,vec,vals,rows)
+  end
+end
+
+@inline function Algebra.add_entries!(combine::Function,A,vs,is::OIdsToIds,js::OIdsToIds)
+  add_ordered_entries!(combine,A,vs,is,js)
+end
+
+for T in (:Any,:(Algebra.ArrayCounter))
+  @eval begin
+    @inline function Algebra.add_entries!(combine::Function,A::$T,vs,is::OIdsToIds)
+      add_ordered_entries!(combine,A,vs,is)
     end
   end
-  cells
+end
+
+"""
+    add_ordered_entries!(combine::Function,A,vs,is::OIdsToIds,js::OIdsToIds)
+
+Adds several ordered entries only for positive input indices. Returns `A`
+"""
+@inline function add_ordered_entries!(combine::Function,A,vs,is::OIdsToIds,js::OIdsToIds)
+  for (lj,j) in enumerate(js)
+    if j>0
+      ljp = js.terms[lj]
+      for (li,i) in enumerate(is)
+        if i>0
+          lip = is.terms[li]
+          vij = vs[lip,ljp]
+          add_entry!(combine,A,vij,i,j)
+        end
+      end
+    end
+  end
+  A
+end
+
+@inline function add_ordered_entries!(combine::Function,A,vs,is::OIdsToIds)
+  for (li,i) in enumerate(is)
+    if i>0
+      lip = is.terms[li]
+      vi = vs[lip]
+      add_entry!(A,vi,i)
+    end
+  end
+  A
 end
 
 # utils

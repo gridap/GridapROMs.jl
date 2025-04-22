@@ -211,15 +211,32 @@ Uext = ParamTrialFESpace(Vext,gμ)
 feop = ExtensionLinearParamOperator(res,a,pspace,Uext,Vext,domains)
 
 solver = ExtensionSolver(LUSolver())
-energy(u,v) = ∫(∇(v)⋅∇(u))dΩbg
-state_reduction = PODReduction(1e-4,energy;nparams=50)
+energy(u,v) = ∫(v*u)dΩbg + ∫(∇(v)⋅∇(u))dΩbg
+state_reduction = Reduction(fill(1e-4,2),energy;nparams=50)
 rbsolver = RBSolver(solver,state_reduction;nparams_res=50,nparams_jac=20)
 
-μ = realization(feop;nparams=50)
-fesnaps, = solution_snapshots(rbsolver,feop,μ)
+fesnaps, = solution_snapshots(rbsolver,feop)
 
 rbop = reduced_operator(rbsolver,feop,fesnaps)
 μon = realization(feop;nparams=10,sampling=:uniform)
 x̂,rbstats = solve(rbsolver,rbop,μon)
 x,festats = solution_snapshots(rbsolver,feop,μon)
 perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
+
+red_trial,red_test = reduced_spaces(rbsolver,feop,fesnaps)
+jacs = jacobian_snapshots(rbsolver,feop,fesnaps)
+
+red = rbsolver.jacobian_reduction.reduction
+basis = projection(red,jacs[1])
+proj_basis = project(red_test,basis,red_trial)
+(rows,cols),interp = empirical_interpolation(basis)
+# factor = lu(interp)
+domain = matrix_domain(jacs.trians[1],red_trial,red_test,rows,cols)
+
+trian = jacs.trians[1]
+cells_trial = RBSteady.reduced_cells(red_trial,trian,cols)
+cells_test = RBSteady.reduced_cells(red_test,trian,rows)
+cells = union(cells_trial,cells_test)
+# icols = RBSteady.reduced_idofs(Extensions.get_fe_space(red_trial).space,trian,cells,cols)
+ff = Extensions.get_fe_space(red_trial).space
+cell_dof_ids = get_bg_cell_dof_ids(ff,trian)

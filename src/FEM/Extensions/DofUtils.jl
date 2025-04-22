@@ -151,7 +151,7 @@ function get_dof_to_cells(cell_dofs::AbstractVector)
   inverse_table(Table(cell_dofs))
 end
 
-function inverse_table(cell_dofs::Table)
+function inverse_table(cell_dofs::Union{Table,OTable})
   ndofs = maximum(cell_dofs.data)
   ptrs = zeros(Int32,ndofs+1)
   for dof in cell_dofs.data

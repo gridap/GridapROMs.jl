@@ -1,20 +1,38 @@
 """
-    abstract type OrderedFESpace{S} <: SingleFieldFESpace end
+    struct OrderedFESpace{S<:SingleFieldFESpace} <: SingleFieldFESpace
+      space::S
+      cell_odofs_ids::AbstractArray
+    end
 
 Interface for FE spaces that feature a DOF reordering
 """
-abstract type OrderedFESpace{S} <: SingleFieldFESpace end
+struct OrderedFESpace{S<:SingleFieldFESpace} <: SingleFieldFESpace
+  space::S
+  cell_odofs_ids::AbstractArray
+end
+
+# Constructors
+
+function OrderedFESpace(f::UnconstrainedFESpace)
+  cell_odofs_ids = get_cell_odof_ids(f)
+  OrderedFESpace(f,cell_odofs_ids)
+end
+
+function OrderedFESpace(f::SingleFieldFESpace)
+  @notimplemented "For now, only implemented for an UnconstrainedFESpace"
+end
+
+function OrderedFESpace(model::CartesianDiscreteModel,args...;kwargs...)
+  OrderedFESpace(FESpace(model,args...;kwargs...))
+end
+
+function OrderedFESpace(::DiscreteModel,args...;kwargs...)
+  @notimplemented "Background model must be cartesian for the selected dof reordering"
+end
 
 # FESpace interface
 
-FESpaces.get_fe_space(f::OrderedFESpace) = @abstractmethod
-
-"""
-    get_cell_odof_ids(f::OrderedFESpace) -> AbstractArray
-
-Fetches the ordered connectivity structure
-"""
-get_cell_odof_ids(f::OrderedFESpace) = @abstractmethod
+FESpaces.get_fe_space(f::OrderedFESpace) = f.space
 
 FESpaces.ConstraintStyle(::Type{<:OrderedFESpace{S}}) where S = ConstraintStyle(S)
 
@@ -24,7 +42,7 @@ FESpaces.get_triangulation(f::OrderedFESpace) = get_triangulation(get_fe_space(f
 
 FESpaces.get_dof_value_type(f::OrderedFESpace) = get_dof_value_type(get_fe_space(f))
 
-FESpaces.get_cell_dof_ids(f::OrderedFESpace) = get_cell_odof_ids(f)
+FESpaces.get_cell_dof_ids(f::OrderedFESpace) = f.cell_odofs_ids
 
 FESpaces.get_fe_basis(f::OrderedFESpace) = get_fe_basis(get_fe_space(f))
 
@@ -76,52 +94,7 @@ function FESpaces.gather_free_and_dirichlet_values!(fv,dv,f::OrderedFESpace,cv)
 end
 
 function get_dof_map(f::OrderedFESpace,args...)
-  bg_dof_to_act_dof = get_bg_dof_to_act_dof(f,args...)
-  bg_ndofs = length(bg_dof_to_act_dof)
-  return VectorDofMap(bg_ndofs,bg_dof_to_act_dof)
-end
-
-# Constructors
-
-function OrderedFESpace(model::CartesianDiscreteModel,args...;kwargs...)
-  CartesianFESpace(FESpace(model,args...;kwargs...))
-end
-
-function OrderedFESpace(::DiscreteModel,args...;kwargs...)
-  @notimplemented "Background model must be cartesian for the selected dof reordering"
-end
-
-struct CartesianFESpace{S<:SingleFieldFESpace} <: OrderedFESpace{S}
-  space::S
-  cell_odofs_ids::AbstractArray
-  odofs_to_bg_odofs::AbstractVector
-  bg_odofs_to_odofs::AbstractVector
-end
-
-function CartesianFESpace(f::SingleFieldFESpace)
-  cell_odofs_ids = get_cell_odof_ids(f)
-  odofs_to_bg_odofs = IdentityVector(num_free_dofs(f))
-  bg_odofs_to_odofs = IdentityVector(num_free_dofs(f))
-  CartesianFESpace(f,cell_odofs_ids,odofs_to_bg_odofs,bg_odofs_to_odofs)
-end
-
-function CartesianFESpace(model::DiscreteModel,args...;kwargs...)
-  CartesianFESpace(FESpace(model,args...;kwargs...))
-end
-
-FESpaces.get_fe_space(f::CartesianFESpace) = f.space
-
-get_cell_odof_ids(f::CartesianFESpace) = f.cell_odofs_ids
-
-get_bg_dof_to_act_dof(f::CartesianFESpace) = f.bg_odofs_to_odofs
-
-get_act_dof_to_bg_dof(f::CartesianFESpace) = f.odofs_to_bg_odofs
-
-function get_sparsity(f::CartesianFESpace,g::CartesianFESpace,args...)
-  sparsity = SparsityPattern(f,g,args...)
-  bg_rows_to_act_rows = get_bg_dof_to_act_dof(g)
-  bg_cols_to_act_cols = get_bg_dof_to_act_dof(f)
-  CartesianSparsity(sparsity,bg_rows_to_act_rows,bg_cols_to_act_cols)
+  return VectorDofMap(num_free_dofs(f))
 end
 
 # dof reordering
@@ -158,7 +131,7 @@ function _get_cell_odof_info(
 
   dofs_to_odofs = get_dof_to_odof(fe_dof_basis,cell_dofs_ids,pcells,onodes,orders)
   cell_odof_ids = lazy_map(DofsToODofs(fe_dof_basis,dofs_to_odofs,orders),pcells)
-  return cell_odof_ids
+  return OTable(cell_odof_ids)
 end
 
 function get_dof_to_odof(fe_basis::AbstractVector{<:Dof},args...)
@@ -263,13 +236,13 @@ end
 
 function cell_ovalue_to_value(f::OrderedFESpace,cv)
   cell_dof_ids = get_cell_dof_ids(f)
-  odof_to_dof = cell_dof_ids.maps[1].odof_to_dof
+  odof_to_dof = cell_dof_ids.terms
   lazy_map(OReindex(odof_to_dof),cv)
 end
 
 function cell_value_to_ovalue(f::OrderedFESpace,cv)
   cell_dof_ids = get_cell_dof_ids(f)
-  odof_to_dof = cell_dof_ids.maps[1].odof_to_dof
+  odof_to_dof = cell_dof_ids.terms
   dof_to_odof = invperm(odof_to_dof)
   lazy_map(OReindex(dof_to_odof),cv)
 end
@@ -284,8 +257,3 @@ cubic_polytope(::Val{d}) where d = @abstractmethod
 cubic_polytope(::Val{1}) = SEGMENT
 cubic_polytope(::Val{2}) = QUAD
 cubic_polytope(::Val{3}) = HEX
-
-_get_parent_model(model::DiscreteModel) = @abstractmethod
-_get_parent_model(model::MappedDiscreteModel) = model.model
-_get_parent_model(model::DiscreteModelPortion) = model.parent_model
-_get_parent_model(model::CartesianDiscreteModel) = model

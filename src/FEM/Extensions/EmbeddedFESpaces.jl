@@ -1,13 +1,36 @@
-struct EmbeddedFESpace{S<:SingleFieldFESpace} <: SingleFieldFESpace
+"""
+    struct EmbeddedFESpace{S<:SingleFieldFESpace,T<:SingleFieldFESpace} <: SingleFieldFESpace
+      space::S
+      bg_space::T
+      fdof_to_bg_fdofs::AbstractVector
+      ddof_to_bg_ddofs::AbstractVector
+      bg_cell_dof_ids::AbstractArray
+    end
+
+Represents a FE space `space` embedded in a background FE space `bg_space`. Fields:
+
+- `space`: target FE space
+- `bg_space`: background FE space, which can be envisioned as the parent of `space`
+- `fdof_to_bg_fdofs`: maps the active free DOFs in `space` to the active free
+DOFs in `bg_space`
+- `ddof_to_bg_ddofs`: maps the active dirichlet DOFs in `space` to the active dirichlet
+DOFs in `bg_space`
+- `bg_cell_dof_ids`: connectivity of `space` on the background mesh, meaning that
+the dof range and the number of cells are that of `bg_space`. NOTE: the DOFs here
+are NOT active, they are the internal ones
+"""
+struct EmbeddedFESpace{S<:SingleFieldFESpace,T<:SingleFieldFESpace} <: SingleFieldFESpace
   space::S
-  bg_space::SingleFieldFESpace
+  bg_space::T
   fdof_to_bg_fdofs::AbstractVector
   ddof_to_bg_ddofs::AbstractVector
+  bg_cell_dof_ids::AbstractArray
 end
 
 function EmbeddedFESpace(space::SingleFieldFESpace,bg_space::SingleFieldFESpace)
   fdof_to_bg_fdofs,ddof_to_bg_ddofs = get_active_dof_to_bg_dof(bg_space,space)
-  EmbeddedFESpace(space,bg_space,fdof_to_bg_fdofs,ddof_to_bg_ddofs)
+  bg_cell_dof_ids = get_bg_cell_dof_ids(space,bg_space)
+  EmbeddedFESpace(space,bg_space,fdof_to_bg_fdofs,ddof_to_bg_ddofs,bg_cell_dof_ids)
 end
 
 FESpaces.ConstraintStyle(::Type{<:EmbeddedFESpace{S}}) where S = ConstraintStyle(S)
@@ -379,22 +402,34 @@ function Arrays.evaluate!(c,k::BGCellDofIds,i::Int)
   return r
 end
 
-for (F,G,Gd) in zip(
-  (:get_bg_cell_dof_ids,:get_active_bg_cell_dof_ids),
-  (:get_fdof_to_bg_fdof,:get_active_fdof_to_bg_fdof),
-  (:get_ddof_to_bg_ddof,:get_active_ddof_to_bg_ddof)
-  )
-  @eval begin
-    function $F(f::EmbeddedFESpace,args...)
-      cell_ids = get_cell_dof_ids(f,args...)
-      k = BGCellDofIds(cell_ids,$G(f),$Gd(f))
-      lazy_map(k,1:length(cell_ids))
-    end
+function get_bg_cell_dof_ids(f::EmbeddedFESpace)
+  f.bg_cell_dof_ids
+end
 
-    function $F(f::SingleFieldFESpace,args...)
-      $F(get_emb_space(f),args...)
-    end
-  end
+function get_bg_cell_dof_ids(f::EmbeddedFESpace,trian::Triangulation)
+  FESpaces.get_cell_fe_data(get_bg_cell_dof_ids,f,trian)
+end
+
+function get_bg_cell_dof_ids(f::SingleFieldFESpace,args...)
+  get_bg_cell_dof_ids(get_emb_space(f),args...)
+end
+
+function get_bg_cell_dof_ids(space::SingleFieldFESpace,bg_space::SingleFieldFESpace)
+  bg_cell_dof_ids = _get_bg_cell_dof_ids(space,bg_space)
+  Table(bg_cell_dof_ids)
+end
+
+function get_bg_cell_dof_ids(space::SingleFieldFESpace,bg_space::TProductFESpace)
+  bg_cell_dof_ids = _get_bg_cell_dof_ids(space,bg_space)
+  terms = bg_space.space.cell_odofs_ids.terms
+  OTable(bg_cell_dof_ids,terms)
+end
+
+function _get_bg_cell_dof_ids(space::SingleFieldFESpace,bg_space::SingleFieldFESpace)
+  fdof_to_bg_fdofs,ddof_to_bg_ddofs = get_dof_to_bg_dof(bg_space,space)
+  cellids = get_cell_dof_ids(space)
+  k = BGCellDofIds(cellids,fdof_to_bg_fdofs,ddof_to_bg_ddofs)
+  Table(lazy_map(k,1:length(cellids)))
 end
 
 # complementary space interface
@@ -453,10 +488,10 @@ function complementary_space(space::EmbeddedFESpace)
     _cspace.dirichlet_cells,
     _cspace.ntags)
 
-  EmbeddedFESpace(cspace,bg_space,fdof_to_bg_fdofs,Int32[])
+  EmbeddedFESpace(cspace,bg_space,fdof_to_bg_fdofs,Int32[],Int32[])
 end
 
-function get_dofs_at_cells(cell_dof_ids::Table,cells)
+function get_dofs_at_cells(cell_dof_ids::Union{Table,OTable},cells)
   touched = zeros(Bool,maximum(cell_dof_ids.data))
   for cell in cells
     pini = cell_dof_ids.ptrs[cell]

@@ -21,7 +21,7 @@ using GridapROMs
 using GridapROMs.Utils
 
 import FillArrays: Fill
-import Gridap.MultiField: MultiFieldFEFunction,restrict_to_field,_sum_if_first_positive
+import Gridap.MultiField: MultiFieldFEFunction,restrict_to_field
 import PartitionedArrays: tuple_of_arrays
 import SparseArrays: AbstractSparseMatrix
 import SparseMatricesCSR: SparseMatrixCSR
@@ -74,11 +74,11 @@ include("DofMapArrays.jl")
 export OIdsToIds
 export DofsToODofs
 export OReindex
+export OTable
 export add_ordered_entries!
 include("OrderingMaps.jl")
 
 export OrderedFESpace
-export CartesianFESpace
 include("OrderedFESpaces.jl")
 
 end # module
