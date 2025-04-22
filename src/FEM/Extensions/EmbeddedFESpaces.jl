@@ -440,10 +440,6 @@ function complementary_space(space::EmbeddedFESpace)
 
   ndirichlet = last(ndiri)
   nfree = num_free_dofs(_cspace)-ndirichlet
-  # dirichlet_cells = get_dirichlet_cells(cell_dof_ids)
-  # _cspace.cell_is_dirichlet[dirichlet_cells] .= true
-  # dirichlet_dof_tag = fill(one(Int8),ndirichlet)
-  # ntags = 1
 
   cspace = UnconstrainedFESpace(
     _cspace.vector_type,
@@ -460,7 +456,7 @@ function complementary_space(space::EmbeddedFESpace)
   EmbeddedFESpace(cspace,bg_space,fdof_to_bg_fdofs,Int32[])
 end
 
-function get_dofs_at_cells(cell_dof_ids,cells)
+function get_dofs_at_cells(cell_dof_ids::Table,cells)
   touched = zeros(Bool,maximum(cell_dof_ids.data))
   for cell in cells
     pini = cell_dof_ids.ptrs[cell]
@@ -471,21 +467,4 @@ function get_dofs_at_cells(cell_dof_ids,cells)
     end
   end
   findall(touched)
-end
-
-function get_dirichlet_cells(cell_dof_ids)
-  isdiri_cell = zeros(Bool,length(cell_dof_ids))
-  for cell in 1:length(cell_dof_ids)
-    pini = cell_dof_ids.ptrs[cell]
-    pend = cell_dof_ids.ptrs[cell+1]-1
-    for p in pini:pend
-      dof = cell_dof_ids.data[p]
-      if dof<0
-        isdiri_cell[cell] = true
-        break
-      end
-    end
-  end
-  diri_cells = findall(isdiri_cell)
-  convert(Vector{Int32},diri_cells)
 end

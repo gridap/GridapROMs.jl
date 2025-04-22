@@ -41,7 +41,7 @@ function main(
     bgmodel = CartesianDiscreteModel(pmin,pmax,partition)
   end
 
-  order = 1
+  order = 2
   degree = 2*order
 
   cutgeo = cut(bgmodel,geo)
@@ -56,37 +56,45 @@ function main(
 
   nΓ = get_normal_vector(Γ)
 
+  const γd = 10.0
+  const hd = dp[1]/n
+
   ν(μ) = x->μ[3]
   νμ(μ) = ParamFunction(ν,μ)
 
   f(μ) = x->μ[1]*x[1] - μ[2]*x[2]
   fμ(μ) = ParamFunction(f,μ)
 
-  g(μ) = x->0
+  h(μ) = x->1
+  hμ(μ) = ParamFunction(h,μ)
+
+  g(μ) = x->μ[3]*x[1]-x[2]
   gμ(μ) = ParamFunction(g,μ)
 
-  # non-symmetric formulation
-
-  a(μ,u,v,dΩ,dΓ) = ∫( νμ(μ)*∇(v)⋅∇(u) )dΩ - ∫( νμ(μ)*v*(nΓ⋅∇(u)) - νμ(μ)*(nΓ⋅∇(v))*u )dΓ
-  b(μ,u,v,dΩ,dΓ) = a(μ,u,v,dΩ,dΓ) - ∫( v*fμ(μ) )dΩ - ∫( νμ(μ)*(nΓ⋅∇(v))*gμ(μ) )dΓ
+  a(μ,u,v,dΩ,dΓ) = ∫(νμ(μ)*∇(v)⋅∇(u))dΩ + ∫( (γd/hd)*v*u  - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u )dΓ
+  l(μ,v,dΩ,dΓ,dΓn) = ∫(fμ(μ)⋅v)dΩ + ∫(hμ(μ)⋅v)dΓn + ∫( (γd/hd)*v*gμ(μ) - (n_Γ⋅∇(v))*gμ(μ) )dΓ
+  res(μ,u,v,dΩ,dΓ,dΓn) =  a(μ,u,v,dΩ,dΓ) - l(μ,v,dΩ,dΓ,dΓn)
 
   trian_a = (Ω,Γ)
-  trian_b = (Ω,Γ)
-  domains = FEDomains(trian_b,trian_a)
+  trian_res = (Ω,Γ,Γn)
+  domains = FEDomains(trian_res,trian_a)
 
   reffe = ReferenceFE(lagrangian,Float64,order)
 
+  # agfem
+  strategy = AggregateAllCutCells()
+  aggregates = aggregate(strategy,cutgeo)
+  testbg = FESpace(Ωbg,reffe,conformity=:H1)
+  testact = FESpace(Ωact,reffe,conformity=:H1)
+  testagg = AgFEMSpace(testact,aggregates)
+
+  test = DirectSumFESpace(testbg,testagg)
+  trial = ParamTrialFESpace(test,gμ)
+  feop = ExtensionLinearParamOperator(res,a,pspace,trial,test,domains)
+
+  energy(du,v) = ∫(v*du)dΩbg + ∫(∇(v)⋅∇(du))dΩbg
   tolrank = tol_or_rank(tol,rank)
-  if method == :pod
-    test = TestFESpace(Ωact,reffe;conformity=:H1)
-    energy(du,v) = ∫(v*du)dΩ + ∫(∇(v)⋅∇(du))dΩ
-    state_reduction = PODReduction(tolrank,energy;nparams,sketch)
-  else method == :ttsvd
-    test = TProductFESpace(Ωact,Ωbg,reffe;conformity=:H1)
-    tolranks = fill(tolrank,3)
-    ttenergy(du,v) = ∫(v*du)dΩbg + ∫(∇(v)⋅∇(du))dΩbg
-    state_reduction = Reduction(tolranks,ttenergy;nparams)
-  end
+  state_reduction = Reduction(tolrank,energy;nparams,sketch)
 
   trial = ParamTrialFESpace(test)
   feop = LinearParamOperator(b,a,pspace,trial,test,domains)
@@ -147,7 +155,7 @@ dp = pmax - pmin
 geo1 = disk(R,x0=Point(0.5,0.5))
 geo2 = ! geo1
 
-model = CartesianDiscreteModel(pmin,pmax,partition)
+model = TProductDiscreteModel(pmin,pmax,partition)
 cutgeo = cut(model,geo2)
 
 strategy = AggregateAllCutCells()
