@@ -415,21 +415,18 @@ function get_bg_cell_dof_ids(f::SingleFieldFESpace,args...)
 end
 
 function get_bg_cell_dof_ids(space::SingleFieldFESpace,bg_space::SingleFieldFESpace)
-  bg_cell_dof_ids = _get_bg_cell_dof_ids(space,bg_space)
-  Table(bg_cell_dof_ids)
-end
-
-function get_bg_cell_dof_ids(space::SingleFieldFESpace,bg_space::TProductFESpace)
-  bg_cell_dof_ids = _get_bg_cell_dof_ids(space,bg_space)
-  terms = bg_space.space.cell_odofs_ids.terms
-  OTable(bg_cell_dof_ids,terms)
-end
-
-function _get_bg_cell_dof_ids(space::SingleFieldFESpace,bg_space::SingleFieldFESpace)
   fdof_to_bg_fdofs,ddof_to_bg_ddofs = get_dof_to_bg_dof(bg_space,space)
   cellids = get_cell_dof_ids(space)
   k = BGCellDofIds(cellids,fdof_to_bg_fdofs,ddof_to_bg_ddofs)
   Table(lazy_map(k,1:length(cellids)))
+end
+
+function get_bg_cell_dof_ids(space::SingleFieldFESpace,bg_space::TProductFESpace)
+  term_to_bg_terms = get_term_to_bg_terms(bg_space,space)
+  fdof_to_bg_fdofs,ddof_to_bg_ddofs = get_dof_to_bg_dof(bg_space,space)
+  cellids = get_cell_dof_ids(space)
+  k = BGCellDofIds(cellids,fdof_to_bg_fdofs,ddof_to_bg_ddofs)
+  OTable(Table(lazy_map(k,1:length(cellids))),term_to_bg_terms)
 end
 
 # complementary space interface

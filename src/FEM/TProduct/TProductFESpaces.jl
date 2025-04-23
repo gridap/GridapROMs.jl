@@ -109,6 +109,20 @@ function FESpaces.gather_free_and_dirichlet_values!(fv,dv,f::TProductFESpace,cv)
   gather_free_and_dirichlet_values!(fv,dv,f.space,cv)
 end
 
+function GridapEmbedded.AgFEMSpace(
+  bg_f::TProductFESpace,
+  f::SingleFieldFESpace,
+  bgcell_to_bgcellin::AbstractVector,
+  g::SingleFieldFESpace=f,
+  args...)
+
+  AgFEMSpace(bg_f.space,f,bgcell_to_bgcellin,g,args...)
+end
+
+function DofMaps.get_term_to_bg_terms(bg_space::TProductFESpace,space::SingleFieldFESpace)
+  get_term_to_bg_terms(bg_space.space,space)
+end
+
 function DofMaps.get_sparsity(U::TProductFESpace,V::TProductFESpace,args...)
   @check length(U.spaces_1d) == length(V.spaces_1d)
   sparsity = get_sparsity(U.space,V.space,args...)

@@ -247,6 +247,31 @@ function cell_value_to_ovalue(f::OrderedFESpace,cv)
   lazy_map(OReindex(dof_to_odof),cv)
 end
 
+function get_term_to_bg_terms(bg_space::OrderedFESpace,space::SingleFieldFESpace)
+  bg_cells = get_cell_to_bg_cell(space)
+  bg_terms = get_local_ordering(bg_space)
+  ptrs = zeros(eltype(bg_terms.ptrs),length(bg_cells)+1)
+  for (i,bg_cell) in enumerate(bg_cells)
+    pini = bg_terms.ptrs[i]
+    pend = bg_terms.ptrs[i+1]
+    ptrs[i+1] = pend-pini
+  end
+  length_to_ptrs!(ptrs)
+  data = zeros(eltype(bg_terms.data),ptrs[end]-1)
+  for (i,bg_cell) in enumerate(bg_cells)
+    pini = ptrs[i]
+    pend = ptrs[i+1]-1
+    for p in pini:pend
+      data[p] = bg_terms.data[p]
+    end
+  end
+  Table(data,ptrs)
+end
+
+function get_term_to_bg_terms(bg_space::OrderedFESpace,space::OrderedFESpace)
+  get_local_ordering(space)
+end
+
 function _local_node_to_pnode(p::Polytope,orders)
   _nodes, = Gridap.ReferenceFEs._compute_nodes(p,orders)
   pnodes = Gridap.ReferenceFEs._coords_to_terms(_nodes,orders)

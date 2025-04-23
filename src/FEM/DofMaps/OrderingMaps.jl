@@ -21,7 +21,7 @@ end
 """
     struct DofsToODofs{D,P,V} <: Map
       b::LagrangianDofBasis{P,V}
-      odof_to_dof::Vector{Int32}
+      odof_to_dof::Vector{Int8}
       node_and_comps_to_odof::Array{V,D}
       orders::NTuple{D,Int}
     end
@@ -31,7 +31,7 @@ belonging to a space whose DOFs are lexicographically-ordered
 """
 struct DofsToODofs{D,P,V} <: Map
   b::LagrangianDofBasis{P,V}
-  odof_to_dof::Vector{Int32}
+  odof_to_dof::Vector{Int8}
   node_and_comps_to_odof::Array{V,D}
   orders::NTuple{D,Int}
 end
@@ -114,9 +114,17 @@ function Arrays.evaluate!(cache,k::OReindex,values::AbstractVector)
   return cache
 end
 
-struct OTable{T,Vd<:AbstractVector{T},Vp<:AbstractVector} <: AbstractVector{Vector{T}}
-  values::Table{T,Vd,Vp}
-  terms::Vector{Int32}
+struct OTable{T,S,A<:Table{T},B<:Table{S}} <: AbstractVector{OIdsToIds{T,S}}
+  values::A
+  terms::B
+end
+
+function OTable(vals::AbstractVector{<:AbstractVector},odof_to_dof::AbstractVector)
+  values = Table(vals)
+  data = repeat(odof_to_dof,length(values))
+  ptrs = copy(values.ptrs)
+  terms = Table(data,ptrs)
+  OTable(values,terms)
 end
 
 function OTable(cell_odofs::LazyArray{<:Fill{<:DofsToODofs}})
@@ -136,49 +144,60 @@ function Base.getproperty(a::OTable,sym::Symbol)
   end
 end
 
-Base.view(a::OTable,i::Integer) = view(a.values,i)
-Base.view(a::OTable,ids::UnitRange{<:Integer}) = OTable(view(a.values,ids),a.terms)
-Base.getindex(a::OTable,i) = getindex(a.values,i)
+Base.view(a::OTable,i::Integer) = OIdsToIds(view(a.values,i),view(a.terms,i))
+Base.view(a::OTable,ids::UnitRange{<:Integer}) = OTable(view(a.values,ids),view(a.terms,ids))
+Base.getindex(a::OTable,i::Integer) = OIdsToIds(getindex(a.values,i),getindex(a.terms,i))
+Base.getindex(a::OTable,ids::UnitRange{<:Integer}) = OTable(getindex(a.values,ids),getindex(a.terms,ids))
 
-Arrays.array_cache(a::OTable) = array_cache(a.values)
-Arrays.getindex!(c,a::OTable,i::Integer) = getindex!(c,a.values,i)
+function Arrays.array_cache(a::OTable)
+  valscache = array_cache(a.values)
+  termcache = array_cache(a.terms)
+  return valscache,termcache
+end
 
-function FESpaces.get_cell_fe_data(fun,sface_to_data::OTable,sglue::FaceToFaceGlue,tglue::FaceToFaceGlue)
-  error("need to implement this")
-  # mface_to_sface = sglue.mface_to_tface
-  # tface_to_mface = tglue.tface_to_mface
-  # mface_to_data = extend(sface_to_data,mface_to_sface)
-  # tface_to_data = lazy_map(Reindex(mface_to_data),tface_to_mface)
-  # tface_to_data
+function Arrays.getindex!(c,a::OTable,i::Integer)
+  valscache,termcache = c
+  pini = a.values.ptrs[i]
+  l = a.values.ptrs[i+1] - pini
+  setsize!(valscache,(l,))
+  setsize!(termcache,(l,))
+  pini -= 1
+  v = valscache.array
+  t = termcache.array
+  for j in 1:l
+    @inbounds v[j] = a.values.data[pini+j]
+    @inbounds t[j] = a.terms.data[pini+j]
+  end
+  OIdsToIds(v,t)
+end
+
+inverse_table(a::OTable) = inverse_table(a.values)
+
+function get_local_ordering(f::SingleFieldFESpace)
+  get_local_ordering(get_cell_dof_ids(f))
+end
+
+function get_local_ordering(a::AbstractArray)
+  get_local_ordering(Table(a))
+end
+
+function get_local_ordering(a::Table)
+  terms = copy(a)
+  for cell in 1:length(terms)
+    pini = terms.ptrs[cell]
+    pend = terms.ptrs[cell+1]-1
+    for (ldof,p) in enumerate(pini:pend)
+      terms.data[p] = ldof
+    end
+  end
+  return terms
+end
+
+function get_local_ordering(a::OTable)
+  a.terms
 end
 
 # Assembly-related functions
-
-@noinline function FESpaces._numeric_loop_matrix!(mat,caches,cell_vals,cell_rows::OTable,cell_cols::OTable)
-  add_cache,vals_cache,rows_cache,cols_cache = caches
-  row_terms,col_terms = cell_rows.terms,cell_cols.terms
-  add! = Arrays.AddEntriesMap(+)
-  for cell in 1:length(cell_cols)
-    orows = getindex!(rows_cache,cell_rows,cell)
-    ocols = getindex!(cols_cache,cell_cols,cell)
-    vals = getindex!(vals_cache,cell_vals,cell)
-    rows = OIdsToIds(orows,row_terms)
-    cols = OIdsToIds(ocols,col_terms)
-    evaluate!(add_cache,add!,mat,vals,rows,cols)
-  end
-end
-
-@noinline function FESpaces._numeric_loop_vector!(vec,caches,cell_vals,cell_rows::OTable)
-  add_cache,vals_cache,rows_cache = caches
-  row_terms = cell_rows.terms
-  add! = Arrays.AddEntriesMap(+)
-  for cell in 1:length(cell_rows)
-    orows = getindex!(rows_cache,cell_rows,cell)
-    vals = getindex!(vals_cache,cell_vals,cell)
-    rows = OIdsToIds(orows,row_terms)
-    evaluate!(add_cache,add!,vec,vals,rows)
-  end
-end
 
 @inline function Algebra.add_entries!(combine::Function,A,vs,is::OIdsToIds,js::OIdsToIds)
   add_ordered_entries!(combine,A,vs,is,js)
@@ -243,7 +262,7 @@ function _local_odof_to_dof(b::LagrangianDofBasis,orders::NTuple{D,Int}) where D
   node_to_pnode = Gridap.ReferenceFEs._coords_to_terms(_nodes,orders)
   node_to_pnode_linear = LinearIndices(orders.+1)[node_to_pnode]
 
-  odof_to_dof = zeros(Int32,ndofs)
+  odof_to_dof = zeros(Int8,ndofs)
   for (inode,ipnode) in enumerate(node_to_pnode_linear)
     for icomp in b.dof_to_comp
       local_shift = (icomp-1)*nnodes

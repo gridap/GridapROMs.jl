@@ -1,6 +1,7 @@
 module DofMaps
 
 using BlockArrays
+using DataStructures
 using LinearAlgebra
 using SparseArrays
 
@@ -62,10 +63,19 @@ include("DofMapsInterface.jl")
 
 export get_dof_map
 export get_sparse_dof_map
-export get_cell_to_bg_cell
-export get_bg_cell_to_cell
 export get_polynomial_order
 export get_polynomial_orders
+export get_cell_to_bg_cell
+export get_bg_cell_to_cell
+export get_bg_dof_to_dof
+export get_dof_to_bg_dof
+export get_bg_dof_to_active_dof
+export get_active_dof_to_bg_dof
+export get_bg_fdof_to_fdof
+export get_fdof_to_bg_fdof
+export get_bg_ddof_to_ddof
+export get_ddof_to_bg_ddof
+export get_dof_to_cells
 include("DofMapsBuilders.jl")
 
 export DofMapArray
@@ -75,10 +85,15 @@ export OIdsToIds
 export DofsToODofs
 export OReindex
 export OTable
+export get_term_to_bg_terms
 export add_ordered_entries!
 include("OrderingMaps.jl")
 
 export OrderedFESpace
 include("OrderedFESpaces.jl")
+
+export OrderedAgFEMSpace
+export OrderedFESpaceWithLinearConstraints
+include("OrderedAgFEMSpaces.jl")
 
 end # module

@@ -29,12 +29,6 @@ using GridapROMs.ParamODEs
 
 import Gridap.FESpaces: LinearConstraintsMap
 
-export get_bg_dof_to_dof
-export get_dof_to_bg_dof
-include("DofUtils.jl")
-
-include("ODofUtils.jl")
-
 export EmbeddedFESpace
 export get_bg_cell_dof_ids
 include("EmbeddedFESpaces.jl")
