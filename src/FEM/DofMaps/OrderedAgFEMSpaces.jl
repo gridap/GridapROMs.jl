@@ -49,7 +49,7 @@ function OrderedAgFEMSpace(
   acell_to_proj = dofs_g(shfns_f)
   acell_to_dof_ids = get_cell_dof_ids(f)
 
-  aggdof_to_fdof,aggdof_to_dofs,aggdof_to_coeffs,fdof_to_terms = _setup_oagfem_constraints(
+  aggdof_to_fdof,aggdof_to_dofs,aggdof_to_coeffs,aggdof_to_term = _setup_oagfem_constraints(
     num_free_dofs(f),
     acell_to_acellin,
     acell_to_terms,
@@ -62,7 +62,8 @@ function OrderedAgFEMSpace(
     aggdof_to_fdof,
     aggdof_to_dofs,
     aggdof_to_coeffs,
-    fdof_to_terms,
+    acell_to_terms,
+    aggdof_to_term,
     f)
 end
 
@@ -79,9 +80,7 @@ function _setup_oagfem_constraints(
   fdof_to_isagg = fill(true,n_fdofs)
   fdof_to_acell = zeros(Int32,n_fdofs)
   fdof_to_ldof = zeros(Int16,n_fdofs)
-  fdof_to_term = zeros(Int8,n_fdofs)
   cache = array_cache(acell_to_dof_ids)
-  tcache = array_cache(acell_to_terms)
   for acell in 1:n_acells
     acellin = acell_to_acellin[acell]
     iscut = acell != acellin
@@ -101,54 +100,43 @@ function _setup_oagfem_constraints(
   end
 
   aggdof_to_fdof = findall(fdof_to_isagg)
-
   n_aggdofs = length(aggdof_to_fdof)
-  aggdof_to_dofs_ptrs = zeros(Int32,n_aggdofs+1)
-  fdof_to_terms_ptrs = zeros(Int32,n_fdofs+1)
-  aggdof = 0
-  for fdof in 1:n_fdofs
-    if fdof_to_isagg[fdof]
-      aggdof += 1
-      acell = fdof_to_acell[fdof]
-      acellin = acell_to_acellin[acell]
-      dofs = getindex!(cache,acell_to_dof_ids,acellin)
-      aggdof_to_dofs_ptrs[aggdof+1] = length(dofs)
-      fdof_to_terms_ptrs[fdof+1] = length(dofs)
-    else
-      fdof_to_terms_ptrs[fdof+1] = 1
-    end
-  end
 
-  length_to_ptrs!(aggdof_to_dofs_ptrs)
-  length_to_ptrs!(fdof_to_terms_ptrs)
-
-  naggdata = aggdof_to_dofs_ptrs[end]-1
-  aggdof_to_dofs_data = zeros(Int,naggdata)
-  nfdata = fdof_to_terms_ptrs[end]-1
-  fdof_to_terms_data = zeros(Int8,nfdata)
-
-  aggdof = 0
-  for fdof in 1:n_fdofs
+  tcache = array_cache(acell_to_terms)
+  aggdof_to_term = zeros(Int8,n_aggdofs)
+  for (aggdof,fdof) in enumerate(aggdof_to_fdof)
+    ldof = fdof_to_ldof[fdof]
     acell = fdof_to_acell[fdof]
     acellin = acell_to_acellin[acell]
     terms = getindex!(tcache,acell_to_terms,acellin)
-    ldof = fdof_to_ldof[fdof]
-    pf = fdof_to_terms_ptrs[fdof]-1
-    if fdof_to_isagg[fdof]
-      aggdof += 1
-      dofs = getindex!(cache,acell_to_dof_ids,acellin)
-      pagg = aggdof_to_dofs_ptrs[aggdof]-1
-      for i in eachindex(dofs)
-        aggdof_to_dofs_data[pagg+i] = dofs[i]
-        fdof_to_terms_data[pf+i] = terms[i]
-      end
-    else
-      fdof_to_terms_data[pf+1] = terms[ldof]
+    aggdof_to_term[aggdof] = terms[ldof]
+  end
+
+  aggdof_to_dofs_ptrs = zeros(Int32,n_aggdofs+1)
+  for aggdof in 1:n_aggdofs
+    fdof = aggdof_to_fdof[aggdof]
+    acell = fdof_to_acell[fdof]
+    acellin = acell_to_acellin[acell]
+    dofs = getindex!(cache,acell_to_dof_ids,acellin)
+    aggdof_to_dofs_ptrs[aggdof+1] = length(dofs)
+  end
+
+  length_to_ptrs!(aggdof_to_dofs_ptrs)
+  ndata = aggdof_to_dofs_ptrs[end]-1
+  aggdof_to_dofs_data = zeros(Int,ndata)
+
+  for aggdof in 1:n_aggdofs
+    fdof = aggdof_to_fdof[aggdof]
+    acell = fdof_to_acell[fdof]
+    acellin = acell_to_acellin[acell]
+    dofs = getindex!(cache,acell_to_dof_ids,acellin)
+    p = aggdof_to_dofs_ptrs[aggdof]-1
+    for (i,dof) in enumerate(dofs)
+      aggdof_to_dofs_data[p+i] = dof
     end
   end
 
   aggdof_to_dofs = Table(aggdof_to_dofs_data,aggdof_to_dofs_ptrs)
-  fdof_to_terms = Table(fdof_to_terms_data,fdof_to_terms_ptrs)
 
   cache2 = array_cache(acell_to_coeffs)
   cache3 = array_cache(acell_to_proj)
@@ -156,7 +144,7 @@ function _setup_oagfem_constraints(
   T = eltype(eltype(acell_to_coeffs))
   z = zero(T)
 
-  aggdof_to_coeffs_data = zeros(T,naggdata)
+  aggdof_to_coeffs_data = zeros(T,ndata)
   for aggdof in 1:n_aggdofs
     fdof = aggdof_to_fdof[aggdof]
     acell = fdof_to_acell[fdof]
@@ -175,7 +163,7 @@ function _setup_oagfem_constraints(
 
   aggdof_to_coeffs = Table(aggdof_to_coeffs_data,aggdof_to_dofs_ptrs)
 
-  aggdof_to_fdof,aggdof_to_dofs,aggdof_to_coeffs,fdof_to_terms
+  aggdof_to_fdof,aggdof_to_dofs,aggdof_to_coeffs,aggdof_to_term
 end
 
 struct OrderedFESpaceWithLinearConstraints{S<:SingleFieldFESpace} <: SingleFieldFESpace
@@ -193,7 +181,8 @@ function OrderedFESpaceWithLinearConstraints(
   sDOF_to_dof::AbstractVector{<:Integer},
   sDOF_to_dofs::Table,
   sDOF_to_coeffs::Table,
-  DOF_to_terms::Table,
+  acell_to_terms::Table,
+  sDOF_to_term::AbstractVector{<:Integer},
   space::SingleFieldFESpace)
 
   n_fdofs = num_free_dofs(space)
@@ -207,65 +196,65 @@ function OrderedFESpaceWithLinearConstraints(
     n_fdofs,
     n_DOFs)
 
-  OrderedFESpaceWithLinearConstraints!(DOF_to_DOFs,DOF_to_coeffs,cell_to_terms,space)
+  OrderedFESpaceWithLinearConstraints!(DOF_to_DOFs,DOF_to_coeffs,acell_to_terms,sDOF_to_term,space)
 end
 
-# function _prepare_oDOF_to_oDOFs(
-#   sDOF_to_dof,sDOF_to_dofs,sDOF_to_coeffs,_DOF_to_terms,n_fdofs,n_DOFs)
+function _prepare_oDOF_to_oDOFs(
+  sDOF_to_dof,sDOF_to_dofs,sDOF_to_coeffs,_DOF_to_terms,n_fdofs,n_DOFs)
 
-#   Tp = eltype(sDOF_to_dofs.ptrs)
-#   Td = eltype(sDOF_to_dofs.data)
-#   Tc = eltype(sDOF_to_coeffs.data)
-#   Tt = eltype(_DOF_to_terms.data)
+  Tp = eltype(sDOF_to_dofs.ptrs)
+  Td = eltype(sDOF_to_dofs.data)
+  Tc = eltype(sDOF_to_coeffs.data)
+  Tt = eltype(_DOF_to_terms.data)
 
-#   DOF_to_DOFs_ptrs = ones(Tp,n_DOFs+1)
+  DOF_to_DOFs_ptrs = ones(Tp,n_DOFs+1)
 
-#   n_sDOFs = length(sDOF_to_dof)
+  n_sDOFs = length(sDOF_to_dof)
 
-#   for sDOF in 1:n_sDOFs
-#     a = sDOF_to_dofs.ptrs[sDOF]
-#     b = sDOF_to_dofs.ptrs[sDOF+1]
-#     dof = sDOF_to_dof[sDOF]
-#     DOF = FESpaces._dof_to_DOF(dof,n_fdofs)
-#     DOF_to_DOFs_ptrs[DOF+1] = b-a
-#   end
+  for sDOF in 1:n_sDOFs
+    a = sDOF_to_dofs.ptrs[sDOF]
+    b = sDOF_to_dofs.ptrs[sDOF+1]
+    dof = sDOF_to_dof[sDOF]
+    DOF = FESpaces._dof_to_DOF(dof,n_fdofs)
+    DOF_to_DOFs_ptrs[DOF+1] = b-a
+  end
 
-#   length_to_ptrs!(DOF_to_DOFs_ptrs)
-#   ndata = DOF_to_DOFs_ptrs[end]-1
-#   DOF_to_DOFs_data = zeros(Td,ndata)
-#   DOF_to_coeffs_data = ones(Tc,ndata)
-#   DOF_to_terms_data = zeros(Tt,ndata)
+  length_to_ptrs!(DOF_to_DOFs_ptrs)
+  ndata = DOF_to_DOFs_ptrs[end]-1
+  DOF_to_DOFs_data = zeros(Td,ndata)
+  DOF_to_coeffs_data = ones(Tc,ndata)
+  DOF_to_terms_data = zeros(Tt,ndata)
 
-#   for DOF in 1:n_DOFs
-#     q = DOF_to_DOFs_ptrs[DOF]
-#     DOF_to_DOFs_data[q] = DOF
-#     term = _DOF_to_terms.data[q]
-#     DOF_to_terms_data[q] = term
-#   end
+  for DOF in 1:n_DOFs
+    q = DOF_to_DOFs_ptrs[DOF]
+    DOF_to_DOFs_data[q] = DOF
+    term = _DOF_to_terms.data[q]
+    DOF_to_terms_data[q] = term
+  end
 
-#   for sDOF in 1:n_sDOFs
-#     dof = sDOF_to_dof[sDOF]
-#     DOF = FESpaces._dof_to_DOF(dof,n_fdofs)
-#     q = DOF_to_DOFs_ptrs[DOF]-1
-#     pini = sDOF_to_dofs.ptrs[sDOF]
-#     pend = sDOF_to_dofs.ptrs[sDOF+1]-1
-#     for (i,p) in enumerate(pini:pend)
-#       _dof = sDOF_to_dofs.data[p]
-#       _DOF = FESpaces._dof_to_DOF(_dof,n_fdofs)
-#       coeff = sDOF_to_coeffs.data[p]
-#       term = _DOF_to_terms.data[_DOF]
-#       DOF_to_DOFs_data[q+i] = _DOF
-#       DOF_to_coeffs_data[q+i] = coeff
-#       DOF_to_terms_data[q+i] = term
-#     end
-#   end
+  for sDOF in 1:n_sDOFs
+    dof = sDOF_to_dof[sDOF]
+    DOF = FESpaces._dof_to_DOF(dof,n_fdofs)
+    q = DOF_to_DOFs_ptrs[DOF]-1
+    pini = sDOF_to_dofs.ptrs[sDOF]
+    pend = sDOF_to_dofs.ptrs[sDOF+1]-1
+    for (i,p) in enumerate(pini:pend)
+      _dof = sDOF_to_dofs.data[p]
+      _DOF = FESpaces._dof_to_DOF(_dof,n_fdofs)
+      coeff = sDOF_to_coeffs.data[p]
+      term = sDOF_to_terms.data[p]
+      DOF_to_DOFs_data[q+i] = _DOF
+      DOF_to_coeffs_data[q+i] = coeff
+      DOF_to_terms_data[q+i] = term
+    end
+  end
 
-#   DOF_to_DOFs = Table(DOF_to_DOFs_data,DOF_to_DOFs_ptrs)
-#   DOF_to_coeffs = Table(DOF_to_coeffs_data,DOF_to_DOFs_ptrs)
-#   DOF_to_terms = Table(DOF_to_terms_data,DOF_to_DOFs_ptrs)
+  DOF_to_DOFs = Table(DOF_to_DOFs_data,DOF_to_DOFs_ptrs)
+  DOF_to_coeffs = Table(DOF_to_coeffs_data,DOF_to_DOFs_ptrs)
+  DOF_to_terms = Table(DOF_to_terms_data,DOF_to_DOFs_ptrs)
 
-#   DOF_to_DOFs,DOF_to_coeffs,DOF_to_terms
-# end
+  DOF_to_DOFs,DOF_to_coeffs,DOF_to_terms
+end
 
 function OrderedFESpaceWithLinearConstraints!(
   DOF_to_DOFs::Table,DOF_to_coeffs::Table,cell_to_terms::Table,space::SingleFieldFESpace)
@@ -322,7 +311,7 @@ function _setup_cell_to_lomdof_to_omdof(
 
   ndata = cell_to_lmdof_to_mdof_ptrs[end]-1
   cell_to_lmdof_to_mdof_data = zeros(eltype(cell_to_ldof_to_dof.data),ndata)
-  cell_to_lmdof_to_term_data = zeros(Int8,ndata)
+  cell_to_lmdof_to_term_data = zeros(eltype(cell_to_terms.data),ndata)
 
   for cell in 1:n_cells
     modofs = OrderedDict{Int,Int8}()
