@@ -77,7 +77,7 @@ function get_cells_to_spacetime_idofs(
         dof = dofs[idof]
         for (_icelldof,celldof) in enumerate(celldofs)
           if dof == celldof
-            icelldof = correct_idof(_icelldof)
+            icelldof = correct_idof(_icelldof,celldofs)
             data[ptrs[icell]-1+icelldof][iuidof] = idof
           end
         end

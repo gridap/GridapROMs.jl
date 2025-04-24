@@ -225,120 +225,20 @@ perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
 
 red_trial,red_test = reduced_spaces(rbsolver,feop,fesnaps)
 jacs = jacobian_snapshots(rbsolver,feop,fesnaps)
-
-bgcell_to_bgcellin = aggregates
-trian_a = get_triangulation(Vact)
-shfns_g = get_fe_basis(Vact)
-dofs_g = get_fe_dof_basis(Vact)
-bgcell_to_gcell = 1:length(bgcell_to_bgcellin)
-bg_cell_dofs = get_cell_dof_ids(V)
-
-D = num_cell_dims(trian_a)
-glue = get_glue(trian_a,Val(D))
-acell_to_bgcell = glue.tface_to_mface
-bgcell_to_acell = glue.mface_to_tface
-acell_to_bgcellin = collect(lazy_map(Reindex(bgcell_to_bgcellin),acell_to_bgcell))
-acell_to_acellin = collect(lazy_map(Reindex(bgcell_to_acell),acell_to_bgcellin))
-acell_to_gcell = lazy_map(Reindex(bgcell_to_gcell),acell_to_bgcell)
-
-acell_phys_shapefuns_g = get_array(change_domain(shfns_g,PhysicalDomain()))
-acell_phys_root_shapefuns_g = lazy_map(Reindex(acell_phys_shapefuns_g),acell_to_acellin)
-root_shfns_g = GenericCellField(acell_phys_root_shapefuns_g,trian_a,PhysicalDomain())
-
-dofs_f = get_fe_dof_basis(Vact)
-shfns_f = get_fe_basis(Vact)
-acell_to_coeffs = dofs_f(root_shfns_g)
-acell_to_proj = dofs_g(shfns_f)
-acell_to_dof_ids = get_cell_dof_ids(Vact)
-
-acell_to_terms = DofMaps.get_term_to_bg_terms(V,Vact)
-
-aggdof_to_fdof,aggdof_to_dofs,aggdof_to_coeffs,fdof_to_terms = DofMaps._setup_oagfem_constraints(
-  num_free_dofs(Vact),
-  acell_to_acellin,
-  acell_to_terms,
-  acell_to_dof_ids,
-  acell_to_coeffs,
-  acell_to_proj,
-  acell_to_gcell)
-
-n_fdofs = num_free_dofs(Vact)
-n_ddofs = num_dirichlet_dofs(Vact)
-n_DOFs = n_fdofs+n_ddofs
-
-(sDOF_to_dof,
-sDOF_to_dofs,
-sDOF_to_coeffs,
-DOF_to_term,
-sDOF_to_terms) = aggdof_to_fdof,aggdof_to_dofs,aggdof_to_coeffs,fdof_to_term,aggdof_to_terms
-
-DOF_to_DOFs,DOF_to_coeffs,DOF_to_terms = DofMaps._prepare_oDOF_to_oDOFs(
-  sDOF_to_dof,
-  sDOF_to_dofs,
-  sDOF_to_coeffs,
-  DOF_to_term,
-  sDOF_to_terms,
-  n_fdofs,
-  n_DOFs)
-
-mDOF_to_DOF,n_fmdofs = FESpaces._find_master_dofs(DOF_to_DOFs,n_fdofs)
-DOF_to_mDOFs = FESpaces._renumber_constraints!(DOF_to_DOFs,mDOF_to_DOF)
-cellids = DofMaps._setup_cell_to_lomdof_to_omdof(
-  Vact.cell_dofs_ids,DOF_to_mDOFs,DOF_to_terms,n_fdofs,n_fmdofs)
-
-
-  Tp = eltype(sDOF_to_dofs.ptrs)
-  Td = eltype(sDOF_to_dofs.data)
-  Tc = eltype(sDOF_to_coeffs.data)
-  Tt = eltype(sDOF_to_terms.data)
-
-  DOF_to_DOFs_ptrs = ones(Tp,n_DOFs+1)
-
-  n_sDOFs = length(sDOF_to_dof)
-
-  for sDOF in 1:n_sDOFs
-    aa = sDOF_to_dofs.ptrs[sDOF]
-    bb = sDOF_to_dofs.ptrs[sDOF+1]
-    dof = sDOF_to_dof[sDOF]
-    DOF = FESpaces._dof_to_DOF(dof,n_fdofs)
-    DOF_to_DOFs_ptrs[DOF+1] = bb-aa
-  end
-
-  length_to_ptrs!(DOF_to_DOFs_ptrs)
-  ndata = DOF_to_DOFs_ptrs[end]-1
-  DOF_to_DOFs_data = zeros(Td,ndata)
-  DOF_to_coeffs_data = ones(Tc,ndata)
-  DOF_to_terms_data = zeros(Tt,ndata)
-
-  for DOF in 1:n_DOFs
-    q = DOF_to_DOFs_ptrs[DOF]
-    DOF_to_DOFs_data[q] = DOF
-    term = sDOF_to_terms.data[DOF]
-    DOF_to_terms_data[q] = term
-  end
-
-  for sDOF in 1:n_sDOFs
-    dof = sDOF_to_dof[sDOF]
-    DOF = FESpaces._dof_to_DOF(dof,n_fdofs)
-    q = DOF_to_DOFs_ptrs[DOF]-1
-    pini = sDOF_to_dofs.ptrs[sDOF]
-    pend = sDOF_to_dofs.ptrs[sDOF+1]-1
-    for (i,p) in enumerate(pini:pend)
-      _dof = sDOF_to_dofs.data[p]
-      _DOF = FESpaces._dof_to_DOF(_dof,n_fdofs)
-      coeff = sDOF_to_coeffs.data[p]
-      term = sDOF_to_terms.data[p]
-      DOF_to_DOFs_data[q+i] = _DOF
-      DOF_to_coeffs_data[q+i] = coeff
-      DOF_to_terms_data[q+i] = term
-    end
-  end
-
-  DOF_to_DOFs = Table(DOF_to_DOFs_data,DOF_to_DOFs_ptrs)
-
-  # ndofs = maximum(cellids.data)
-  # for dof in 1:ndofs
-  #   ids = findall(cellids.data.==dof)
-  #   i1 = first(ids)
-  #   @assert all(cellids.terms[ids].==cellids.terms[i1])
-  # end
+ress = residual_snapshots(rbsolver,feop,fesnaps)
+reduction = get_reduction(rbsolver.jacobian_reduction)
+# basis = projection(reduction,jacs[1])
+basis = projection(reduction,ress[2])
+# (rows,cols),interp = empirical_interpolation(basis)
+rows,interp = empirical_interpolation(basis)
+# trian = jacs.trians[1]
+trian = ress.trians[2]
+# cells_trial = RBSteady.reduced_cells(red_trial,trian,cols)
+cells_test = RBSteady.reduced_cells(red_test,trian,rows)
+# cells = union(cells_trial,cells_test)
+# icols = RBSteady.reduced_idofs(red_trial,trian,cells,cols)
+RBSteady.reduced_idofs(red_test,trian,cells,rows)
+cell_dof_ids = Extensions.get_bg_cell_dof_ids(red_test.space,trian)
+RBSteady.get_cells_to_idofs(cell_dof_ids,cells,rows)
+RBSteady.get_idof_correction(cell_dof_ids)
+cellids = Vext.space.bg_cell_dof_ids

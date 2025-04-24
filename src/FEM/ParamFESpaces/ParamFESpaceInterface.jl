@@ -180,29 +180,6 @@ function FESpaces.scatter_free_and_dirichlet_values(
   scatter_free_and_dirichlet_values(f.space,fv,dv)
 end
 
-function FESpaces.scatter_free_and_dirichlet_values(
-  f::FESpaceWithLinearConstraints,
-  fmdof_to_val::AbstractParamVector,
-  dmdof_to_val::AbstractParamVector)
-
-  @check param_length(fmdof_to_val) == param_length(dmdof_to_val)
-  plength = param_length(fmdof_to_val)
-  fdof_to_val = global_parameterize(zero_free_values(f.space),plength)
-  ddof_to_val = global_parameterize(zero_dirichlet_values(f.space),plength)
-
-  FESpaces._setup_dof_to_val!(
-    fdof_to_val,
-    ddof_to_val,
-    fmdof_to_val,
-    dmdof_to_val,
-    f.DOF_to_mDOFs,
-    f.DOF_to_coeffs,
-    f.n_fdofs,
-    f.n_fmdofs)
-
-  scatter_free_and_dirichlet_values(f.space,fdof_to_val,ddof_to_val)
-end
-
 function FESpaces.gather_free_and_dirichlet_values(
   pf::SingleFieldParamFESpace{<:FESpaceWithConstantFixed{T}},
   cv) where T<:FESpaces.FixConstant
@@ -233,30 +210,57 @@ function FESpaces.gather_free_and_dirichlet_values!(
   (fv,dv)
 end
 
-function FESpaces.gather_free_and_dirichlet_values!(
-  fmdof_to_val::AbstractParamVector,
-  dmdof_to_val::AbstractParamVector,
-  f::FESpaceWithLinearConstraints,
-  cell_to_ludof_to_val)
+for T in (:FESpaceWithLinearConstraints,:OrderedFESpaceWithLinearConstraints)
+  @eval begin
+    function FESpaces.scatter_free_and_dirichlet_values(
+      f::$T,
+      fmdof_to_val::AbstractParamVector,
+      dmdof_to_val::AbstractParamVector)
 
-  @check param_length(fmdof_to_val) == param_length(dmdof_to_val)
-  plength = param_length(fmdof_to_val)
+      @check param_length(fmdof_to_val) == param_length(dmdof_to_val)
+      plength = param_length(fmdof_to_val)
+      fdof_to_val = global_parameterize(zero_free_values(f.space),plength)
+      ddof_to_val = global_parameterize(zero_dirichlet_values(f.space),plength)
 
-  _fv,_dv = zero_free_and_dirichlet_values(f.space)
-  fdof_to_val = global_parameterize(_fv,plength)
-  ddof_to_val = global_parameterize(_dv,plength)
-  gather_free_and_dirichlet_values!(fdof_to_val,ddof_to_val,f.space,cell_to_ludof_to_val)
+      FESpaces._setup_dof_to_val!(
+        fdof_to_val,
+        ddof_to_val,
+        fmdof_to_val,
+        dmdof_to_val,
+        f.DOF_to_mDOFs,
+        f.DOF_to_coeffs,
+        f.n_fdofs,
+        f.n_fmdofs)
 
-  FESpaces._setup_mdof_to_val!(
-    fmdof_to_val,
-    dmdof_to_val,
-    fdof_to_val,
-    ddof_to_val,
-    f.mDOF_to_DOF,
-    f.n_fdofs,
-    f.n_fmdofs)
+      scatter_free_and_dirichlet_values(f.space,fdof_to_val,ddof_to_val)
+    end
 
-  fmdof_to_val,dmdof_to_val
+    function FESpaces.gather_free_and_dirichlet_values!(
+      fmdof_to_val::AbstractParamVector,
+      dmdof_to_val::AbstractParamVector,
+      f::$T,
+      cell_to_ludof_to_val)
+
+      @check param_length(fmdof_to_val) == param_length(dmdof_to_val)
+      plength = param_length(fmdof_to_val)
+
+      _fv,_dv = zero_free_and_dirichlet_values(f.space)
+      fdof_to_val = global_parameterize(_fv,plength)
+      ddof_to_val = global_parameterize(_dv,plength)
+      gather_free_and_dirichlet_values!(fdof_to_val,ddof_to_val,f.space,cell_to_ludof_to_val)
+
+      FESpaces._setup_mdof_to_val!(
+        fmdof_to_val,
+        dmdof_to_val,
+        fdof_to_val,
+        ddof_to_val,
+        f.mDOF_to_DOF,
+        f.n_fdofs,
+        f.n_fmdofs)
+
+      fmdof_to_val,dmdof_to_val
+    end
+  end
 end
 
 function FESpaces._fill_dirichlet_values_for_tag!(

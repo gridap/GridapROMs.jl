@@ -88,27 +88,21 @@ function Arrays.evaluate!(cache,k::DofsToODofs{D},cell::CartesianIndex{D}) where
 end
 
 """
-    struct OReindex{T<:Integer} <: Map
-      indices::Vector{T}
-    end
-
-Map used to reindex according to the vector of integers `indices`
+    struct OReindex <: Map end
 """
-struct OReindex{T<:Integer} <: Map
-  indices::Vector{T}
-end
+struct OReindex <: Map end
 
-function Arrays.return_value(k::OReindex,values)
+function Arrays.return_value(k::OReindex,indices,values)
   values
 end
 
-function Arrays.return_cache(k::OReindex,values::AbstractVector)
-  @check length(values) == length(k.indices)
+function Arrays.return_cache(k::OReindex,indices::AbstractVector,values::AbstractVector)
+  @check length(values) == length(indices)
   similar(values)
 end
 
-function Arrays.evaluate!(cache,k::OReindex,values::AbstractVector)
-  for (i,oi) in enumerate(k.indices)
+function Arrays.evaluate!(cache,k::OReindex,indices::AbstractVector,values::AbstractVector)
+  for (i,oi) in enumerate(indices)
     cache[oi] = values[i]
   end
   return cache
@@ -216,6 +210,10 @@ end
 
 Adds several ordered entries only for positive input indices. Returns `A`
 """
+@inline function add_ordered_entries!(combine::Function,A,vs::Nothing,is::OIdsToIds,js::OIdsToIds)
+  Algebra._add_entries!(combine,A,vs,is.indices,js.indices)
+end
+
 @inline function add_ordered_entries!(combine::Function,A,vs,is::OIdsToIds,js::OIdsToIds)
   for (lj,j) in enumerate(js)
     if j>0
@@ -230,6 +228,10 @@ Adds several ordered entries only for positive input indices. Returns `A`
     end
   end
   A
+end
+
+@inline function add_ordered_entries!(combine::Function,A,vs::Nothing,is::OIdsToIds)
+  Algebra._add_entries!(combine,A,vs,is.indices)
 end
 
 @inline function add_ordered_entries!(combine::Function,A,vs,is::OIdsToIds)

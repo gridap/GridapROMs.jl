@@ -108,22 +108,22 @@ for T in (:ParamReindex,:PosNegParamReindex)
   end
 end
 
-function Arrays.return_cache(k::OReindex,values::Union{ParamBlock,AbstractParamVector})
+function Arrays.return_cache(k::OReindex,indices::AbstractVector,values::Union{ParamBlock,AbstractParamVector})
   v = testitem(values)
-  c = return_cache(k,v)
-  a = evaluate!(c,k,v)
+  c = return_cache(k,indices,v)
+  a = evaluate!(c,k,indices,v)
   data = parameterize(a,param_length(values))
   cache = Vector{typeof(c)}(undef,param_length(values))
   for i = param_eachindex(values)
-    cache[i] = return_cache(k,param_getindex(values,i))
+    cache[i] = return_cache(k,indices,param_getindex(values,i))
   end
   cache,data
 end
 
-function Arrays.evaluate!(cache,k::OReindex,values::Union{ParamBlock,AbstractParamVector})
+function Arrays.evaluate!(cache,k::OReindex,indices::AbstractVector,values::Union{ParamBlock,AbstractParamVector})
   c,data = cache
   @inbounds for i = param_eachindex(values)
-    vi = evaluate!(c[i],k,param_getindex(values,i))
+    vi = evaluate!(c[i],k,indices,param_getindex(values,i))
     param_setindex!(data,vi,i)
   end
   data

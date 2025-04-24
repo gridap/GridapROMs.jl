@@ -102,7 +102,7 @@ for (F,S,T) in zip(
 end
 
 for T in (
-  :FESpaceWithLinearConstraints,
+  :FESpaceWithLinearConstraints,:OrderedFESpaceWithLinearConstraints,
   :(FESpaceWithConstantFixed{FESpaces.FixConstant}),
   :(FESpaceWithConstantFixed{FESpaces.DoNotFixConstant})
   )

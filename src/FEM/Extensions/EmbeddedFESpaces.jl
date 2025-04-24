@@ -88,13 +88,13 @@ get_active_ddof_to_bg_ddof(f::SingleFieldFESpace) = @abstractmethod
 get_emb_space(f::EmbeddedFESpace) = f
 get_act_space(f::EmbeddedFESpace) = f.space
 get_bg_space(f::EmbeddedFESpace) = f.bg_space
-get_fdof_to_bg_fdof(f::EmbeddedFESpace) = get_fdof_to_bg_fdof(f.bg_space,f.space)
-get_ddof_to_bg_ddof(f::EmbeddedFESpace) = get_ddof_to_bg_ddof(f.bg_space,f.space)
+DofMaps.get_fdof_to_bg_fdof(f::EmbeddedFESpace) = get_fdof_to_bg_fdof(f.bg_space,f.space)
+DofMaps.get_ddof_to_bg_ddof(f::EmbeddedFESpace) = get_ddof_to_bg_ddof(f.bg_space,f.space)
 get_active_fdof_to_bg_fdof(f::EmbeddedFESpace) = f.fdof_to_bg_fdofs
 get_active_ddof_to_bg_ddof(f::EmbeddedFESpace) = f.ddof_to_bg_ddofs
 
-for F in (:get_emb_space,:get_act_space,:get_bg_space,:get_fdof_to_bg_fdof,
-          :get_ddof_to_bg_ddof,:get_active_fdof_to_bg_fdof,:get_active_ddof_to_bg_ddof)
+for F in (:get_emb_space,:get_act_space,:get_bg_space,:(DofMaps.get_fdof_to_bg_fdof),
+          :(DofMaps.get_ddof_to_bg_ddof),:get_active_fdof_to_bg_fdof,:get_active_ddof_to_bg_ddof)
   for T in (:SingleFieldParamFESpace,:UnEvalTrialFESpace,:TransientTrialFESpace,:TrialFESpace)
     if !(F∈(:get_act_space,:get_bg_space) && T==:SingleFieldParamFESpace)
       @eval begin
@@ -288,82 +288,85 @@ function _bg_vals_from_vals!(
   end
 end
 
+for T in (:FESpaceWithLinearConstraints,:OrderedFESpaceWithLinearConstraints)
+  @eval begin
+    function _bg_vals_from_vals!(
+      bg_fv,
+      bg_dv,
+      f::EmbeddedFESpace{<:$T},
+      fv,
+      dv
+      )
 
-function _bg_vals_from_vals!(
-  bg_fv,
-  bg_dv,
-  f::EmbeddedFESpace{<:FESpaceWithLinearConstraints},
-  fv,
-  dv
-  )
+      T = eltype(bg_fv)
 
-  T = eltype(bg_fv)
-
-  for DOF in 1:length(f.space.DOF_to_mDOFs)
-    pini = f.space.DOF_to_mDOFs.ptrs[DOF]
-    pend = f.space.DOF_to_mDOFs.ptrs[DOF+1]-1
-    val = zero(T)
-    for p in pini:pend
-      mDOF = f.space.DOF_to_mDOFs.data[p]
-      coeff = f.space.DOF_to_coeffs.data[p]
-      mdof = FESpaces._DOF_to_dof(mDOF,f.space.n_fmdofs)
-      if mdof > 0
-        val += fv[mdof]*coeff
-      else
-        val += dv[-mdof]*coeff
-      end
-    end
-    dof = FESpaces._DOF_to_dof(DOF,f.space.n_fdofs)
-    if dof > 0
-      bg_fdof = f.fdof_to_bg_fdofs[dof]
-      bg_fv[bg_fdof] = val
-    else
-      bg_ddof = f.ddof_to_bg_ddofs[-dof]
-      bg_dv[-bg_ddof] = val
-    end
-  end
-end
-
-function _bg_vals_from_vals!(
-  bg_fv::ConsecutiveParamVector,
-  bg_dv::ConsecutiveParamVector,
-  f::EmbeddedFESpace{<:FESpaceWithLinearConstraints},
-  fv::ConsecutiveParamVector,
-  dv::ConsecutiveParamVector
-  )
-
-  bg_fdata = get_all_data(bg_fv)
-  bg_ddata = get_all_data(bg_dv)
-  fdata = get_all_data(fv)
-  ddata = get_all_data(dv)
-
-  T = eltype(fdata)
-  plength = param_length(fv)
-
-  for DOF in 1:length(f.space.DOF_to_mDOFs)
-    pini = f.space.DOF_to_mDOFs.ptrs[DOF]
-    pend = f.space.DOF_to_mDOFs.ptrs[DOF+1]-1
-    val = zeros(T,plength)
-    for p in pini:pend
-      mDOF = f.space.DOF_to_mDOFs.data[p]
-      coeff = f.space.DOF_to_coeffs.data[p]
-      mdof = FESpaces._DOF_to_dof(mDOF,f.space.n_fmdofs)
-      for k in param_eachindex(bg_fv)
-        if mdof > 0
-          val[k] += fdata[mdof,k]*coeff
+      for DOF in 1:length(f.space.DOF_to_mDOFs)
+        pini = f.space.DOF_to_mDOFs.ptrs[DOF]
+        pend = f.space.DOF_to_mDOFs.ptrs[DOF+1]-1
+        val = zero(T)
+        for p in pini:pend
+          mDOF = f.space.DOF_to_mDOFs.data[p]
+          coeff = f.space.DOF_to_coeffs.data[p]
+          mdof = FESpaces._DOF_to_dof(mDOF,f.space.n_fmdofs)
+          if mdof > 0
+            val += fv[mdof]*coeff
+          else
+            val += dv[-mdof]*coeff
+          end
+        end
+        dof = FESpaces._DOF_to_dof(DOF,f.space.n_fdofs)
+        if dof > 0
+          bg_fdof = f.fdof_to_bg_fdofs[dof]
+          bg_fv[bg_fdof] = val
         else
-          val[k] += ddata[-mdof,k]*coeff
+          bg_ddof = f.ddof_to_bg_ddofs[-dof]
+          bg_dv[-bg_ddof] = val
         end
       end
     end
-    dof = FESpaces._DOF_to_dof(DOF,f.space.n_fdofs)
-    for k in param_eachindex(bg_fv)
-      if dof > 0
-        bg_fdof = f.fdof_to_bg_fdofs[dof]
-        bg_fdata[bg_fdof,k] = val[k]
-      else
-        bg_ddof = f.ddof_to_bg_ddofs[-dof]
-        bg_ddata[-bg_ddof,k] = val[k]
+
+    function _bg_vals_from_vals!(
+      bg_fv::ConsecutiveParamVector,
+      bg_dv::ConsecutiveParamVector,
+      f::EmbeddedFESpace{<:$T},
+      fv::ConsecutiveParamVector,
+      dv::ConsecutiveParamVector
+      )
+
+      bg_fdata = get_all_data(bg_fv)
+      bg_ddata = get_all_data(bg_dv)
+      fdata = get_all_data(fv)
+      ddata = get_all_data(dv)
+
+      T = eltype(fdata)
+      plength = param_length(fv)
+
+      for DOF in 1:length(f.space.DOF_to_mDOFs)
+        pini = f.space.DOF_to_mDOFs.ptrs[DOF]
+        pend = f.space.DOF_to_mDOFs.ptrs[DOF+1]-1
+        val = zeros(T,plength)
+        for p in pini:pend
+          mDOF = f.space.DOF_to_mDOFs.data[p]
+          coeff = f.space.DOF_to_coeffs.data[p]
+          mdof = FESpaces._DOF_to_dof(mDOF,f.space.n_fmdofs)
+          for k in param_eachindex(bg_fv)
+            if mdof > 0
+              val[k] += fdata[mdof,k]*coeff
+            else
+              val[k] += ddata[-mdof,k]*coeff
+            end
+          end
+        end
+        dof = FESpaces._DOF_to_dof(DOF,f.space.n_fdofs)
+        for k in param_eachindex(bg_fv)
+          if dof > 0
+            bg_fdof = f.fdof_to_bg_fdofs[dof]
+            bg_fdata[bg_fdof,k] = val[k]
+          else
+            bg_ddof = f.ddof_to_bg_ddofs[-dof]
+            bg_ddata[-bg_ddof,k] = val[k]
+          end
+        end
       end
     end
   end
@@ -470,7 +473,7 @@ function complementary_space(space::EmbeddedFESpace)
     end
   end
 
-  ndirichlet = last(ndiri)
+  ndirichlet = isempty(ndiri) ? 0 : last(ndiri)
   nfree = num_free_dofs(_cspace)-ndirichlet
 
   cspace = UnconstrainedFESpace(
