@@ -167,7 +167,7 @@ aggregates = aggregate(strategy,cutgeo)
 Γ = EmbeddedBoundary(cutgeo)
 n_Γ = get_normal_vector(Γ)
 
-order = 2
+order = 1
 degree = 2*order
 
 dΩbg = Measure(Ωbg,degree)
@@ -234,11 +234,11 @@ rows,interp = empirical_interpolation(basis)
 # trian = jacs.trians[1]
 trian = ress.trians[2]
 # cells_trial = RBSteady.reduced_cells(red_trial,trian,cols)
-cells_test = RBSteady.reduced_cells(red_test,trian,rows)
+cells = RBSteady.reduced_cells(red_test,trian,rows)
 # cells = union(cells_trial,cells_test)
 # icols = RBSteady.reduced_idofs(red_trial,trian,cells,cols)
 RBSteady.reduced_idofs(red_test,trian,cells,rows)
 cell_dof_ids = Extensions.get_bg_cell_dof_ids(red_test.space,trian)
-RBSteady.get_cells_to_idofs(cell_dof_ids,cells,rows)
+# RBSteady.get_cells_to_idofs(cell_dof_ids,cells,rows)
 RBSteady.get_idof_correction(cell_dof_ids)
 cellids = Vext.space.bg_cell_dof_ids
