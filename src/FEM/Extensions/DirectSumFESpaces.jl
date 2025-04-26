@@ -62,7 +62,7 @@ DofMaps.get_fdof_to_bg_fdof(f::DirectSumFESpace) = get_fdof_to_bg_fdof(f.space)
 DofMaps.get_ddof_to_bg_ddof(f::DirectSumFESpace) = get_ddof_to_bg_ddof(f.space)
 get_active_fdof_to_bg_fdof(f::DirectSumFESpace) = get_active_fdof_to_bg_fdof(f.space)
 get_active_ddof_to_bg_ddof(f::DirectSumFESpace) = get_active_ddof_to_bg_ddof(f.space)
-get_bg_cell_dof_ids(f::DirectSumFESpace) = get_bg_cell_dof_ids(f.space)
+get_bg_cell_dof_ids(f::DirectSumFESpace,args...) = get_bg_cell_dof_ids(f.space,args...)
 
 get_space(f::DirectSumFESpace) = f.space
 get_out_space(f::DirectSumFESpace) = f.complementary

@@ -85,7 +85,6 @@ export OIdsToIds
 export DofsToODofs
 export OReindex
 export OTable
-export get_term_to_bg_terms
 export add_ordered_entries!
 include("OrderingMaps.jl")
 

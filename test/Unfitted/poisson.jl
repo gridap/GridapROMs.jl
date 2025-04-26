@@ -167,7 +167,7 @@ aggregates = aggregate(strategy,cutgeo)
 Γ = EmbeddedBoundary(cutgeo)
 n_Γ = get_normal_vector(Γ)
 
-order = 1
+order = 2
 degree = 2*order
 
 dΩbg = Measure(Ωbg,degree)
@@ -180,7 +180,7 @@ reffe = ReferenceFE(lagrangian,Float64,order)
 
 V = FESpace(Ωbg,reffe,conformity=:H1)
 Vact = FESpace(Ωact,reffe,conformity=:H1)
-Vagg = AgFEMSpace(V,Vact,aggregates)
+Vagg = AgFEMSpace(Vact,aggregates)
 
 const γd = 10.0
 const hd = dp[1]/n
@@ -226,9 +226,9 @@ perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
 red_trial,red_test = reduced_spaces(rbsolver,feop,fesnaps)
 jacs = jacobian_snapshots(rbsolver,feop,fesnaps)
 ress = residual_snapshots(rbsolver,feop,fesnaps)
-reduction = get_reduction(rbsolver.jacobian_reduction)
-# basis = projection(reduction,jacs[1])
-basis = projection(reduction,ress[2])
+red = get_reduction(rbsolver.jacobian_reduction)
+# basis = projection(red,jacs[1])
+basis = projection(red,ress[2])
 # (rows,cols),interp = empirical_interpolation(basis)
 rows,interp = empirical_interpolation(basis)
 # trian = jacs.trians[1]
@@ -242,3 +242,16 @@ cell_dof_ids = Extensions.get_bg_cell_dof_ids(red_test.space,trian)
 # RBSteady.get_cells_to_idofs(cell_dof_ids,cells,rows)
 RBSteady.get_idof_correction(cell_dof_ids)
 cellids = Vext.space.bg_cell_dof_ids
+
+VV = FESpace(Ωbg.trian,reffe,conformity=:H1)
+cellids = Extensions.get_bg_cell_dof_ids(Vagg,VV)
+
+space = Vagg
+bg_space = V
+
+fdof_to_bg_fdofs,ddof_to_bg_ddofs = get_odof_to_bg_odof(V.space,Vagg)
+cellids = get_cell_dof_ids(space)
+k = Extensions.BGCellDofIds(cellids,fdof_to_bg_fdofs,ddof_to_bg_ddofs)
+map1 = Table(lazy_map(k,1:length(cellids)))
+
+aa,_=get_dof_to_bg_dof(V.space,Vagg.space)

@@ -128,3 +128,40 @@ recast(v::AbstractVector,a::SparseMatrixCSC) = SparseMatrixCSC(a.m,a.n,a.colptr,
 recast(v::AbstractVector,a::SparseMatrixCSR{Bi}) where Bi = SparseMatrixCSR{Bi}(a.m,a.n,a.rowptr,a.colval,v)
 
 sparsify(a::AbstractArray) = nonzeros(a)
+
+function compose_index(i1_to_i2,i2_to_i3)
+  T_i3 = eltype(i2_to_i3)
+  n_i1 = length(i1_to_i2)
+  i1_to_i3 = zeros(T_i3,n_i1)
+  for (i1,i2) in enumerate(i1_to_i2)
+    if i2 > 0
+      i1_to_i3[i1] = i2_to_i3[i2]
+    end
+  end
+  return i1_to_i3
+end
+
+function inverse_table(cell_dofs::Table)
+  ndofs = maximum(cell_dofs.data)
+  ptrs = zeros(Int32,ndofs+1)
+  for dof in cell_dofs.data
+    ptrs[dof+1] += 1
+  end
+  length_to_ptrs!(ptrs)
+
+  data = Vector{Int32}(undef,ptrs[end]-1)
+  for cell in 1:length(cell_dofs)
+    pini = cell_dofs.ptrs[cell]
+    pend = cell_dofs.ptrs[cell+1]-1
+    for p in pini:pend
+      dof = cell_dofs.data[p]
+      if dof > 0
+        data[ptrs[dof]] = cell
+        ptrs[dof] += 1
+      end
+    end
+  end
+  rewind_ptrs!(ptrs)
+
+  Table(data,ptrs)
+end

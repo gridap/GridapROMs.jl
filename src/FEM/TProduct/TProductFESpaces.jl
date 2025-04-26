@@ -109,20 +109,6 @@ function FESpaces.gather_free_and_dirichlet_values!(fv,dv,f::TProductFESpace,cv)
   gather_free_and_dirichlet_values!(fv,dv,f.space,cv)
 end
 
-function GridapEmbedded.AgFEMSpace(
-  bg_f::TProductFESpace,
-  f::SingleFieldFESpace,
-  bgcell_to_bgcellin::AbstractVector,
-  g::SingleFieldFESpace=f,
-  args...)
-
-  AgFEMSpace(bg_f.space,f,bgcell_to_bgcellin,g,args...)
-end
-
-function DofMaps.get_term_to_bg_terms(bg_space::TProductFESpace,space::SingleFieldFESpace)
-  get_term_to_bg_terms(bg_space.space,space)
-end
-
 function DofMaps.get_sparsity(U::TProductFESpace,V::TProductFESpace,args...)
   @check length(U.spaces_1d) == length(V.spaces_1d)
   sparsity = get_sparsity(U.space,V.space,args...)
@@ -147,6 +133,16 @@ function get_tp_dof_map(::Type{T},spaces_1d,dof_map) where T<:MultiValue
   nnodes_1d = map(num_free_dofs,spaces_1d)
   ncomps = Int(length(dof_map)/prod(nnodes_1d))
   reshape(dof_map,nnodes_1d...,ncomps)
+end
+
+for F in (:(DofMaps.get_bg_dof_to_dof),:(DofMaps.get_dof_to_bg_dof))
+  for T in (:SingleFieldFESpace,:FESpaceWithLinearConstraints)
+    @eval begin
+      function $F(bg_f::TProductFESpace,f::$T)
+        $F(bg_f.space,f)
+      end
+    end
+  end
 end
 
 get_tp_triangulation(f::TProductFESpace) = f.trian

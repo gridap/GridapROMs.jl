@@ -245,31 +245,6 @@ function cell_value_to_ovalue(f::OrderedFESpace,cv)
   lazy_map(OReindex(),odof_to_dof,cv)
 end
 
-function get_term_to_bg_terms(bg_space::OrderedFESpace,space::SingleFieldFESpace)
-  bg_cells = get_cell_to_bg_cell(space)
-  bg_terms = get_local_ordering(bg_space)
-  ptrs = zeros(eltype(bg_terms.ptrs),length(bg_cells)+1)
-  for (i,bg_cell) in enumerate(bg_cells)
-    pini = bg_terms.ptrs[i]
-    pend = bg_terms.ptrs[i+1]
-    ptrs[i+1] = pend-pini
-  end
-  length_to_ptrs!(ptrs)
-  data = zeros(eltype(bg_terms.data),ptrs[end]-1)
-  for (i,bg_cell) in enumerate(bg_cells)
-    pini = ptrs[i]
-    pend = ptrs[i+1]-1
-    for p in pini:pend
-      data[p] = bg_terms.data[p]
-    end
-  end
-  Table(data,ptrs)
-end
-
-function get_term_to_bg_terms(bg_space::OrderedFESpace,space::OrderedFESpace)
-  get_local_ordering(space)
-end
-
 function _local_node_to_pnode(p::Polytope,orders)
   _nodes, = Gridap.ReferenceFEs._compute_nodes(p,orders)
   pnodes = Gridap.ReferenceFEs._coords_to_terms(_nodes,orders)
@@ -280,3 +255,77 @@ cubic_polytope(::Val{d}) where d = @abstractmethod
 cubic_polytope(::Val{1}) = SEGMENT
 cubic_polytope(::Val{2}) = QUAD
 cubic_polytope(::Val{3}) = HEX
+
+function get_bg_dof_to_dof(bg_f::OrderedFESpace,f::SingleFieldFESpace)
+  bg_fdof_to_fdof = zeros(Int,num_unconstrained_free_dofs(bg_f))
+  bg_ddof_to_ddof = zeros(Int,num_dirichlet_dofs(bg_f))
+  bg_cell_ids = get_cell_dof_ids(bg_f)
+  cell_ids = get_cell_dof_ids(f)
+  oldof_to_ldof = get_local_ordering(bg_f)
+  bg_cache = array_cache(bg_cell_ids)
+  cache = array_cache(cell_ids)
+  ocache = array_cache(oldof_to_ldof)
+  cell_to_bg_cell = get_cell_to_bg_cell(f)
+  for (cell,bg_cell) in enumerate(cell_to_bg_cell)
+    bg_odofs = getindex!(bg_cache,bg_cell_ids,bg_cell)
+    dofs = getindex!(cache,cell_ids,cell)
+    ldofs = getindex!(ocache,oldof_to_ldof,cell)
+    lodofs = invperm(ldofs)
+    for (oldof,dof) in enumerate(dofs)
+      bg_dof = bg_odofs[lodofs[oldof]]
+      if bg_dof > 0
+        @check dof > 0
+        bg_fdof_to_fdof[bg_dof] = dof
+      else
+        @check dof < 0
+        bg_ddof_to_ddof[-bg_dof] = -dof
+      end
+    end
+  end
+  return bg_fdof_to_fdof,bg_ddof_to_ddof
+end
+
+function get_dof_to_bg_dof(bg_f::OrderedFESpace,f::SingleFieldFESpace)
+  fdof_to_bg_fdof = zeros(Int,num_free_dofs(f))
+  ddof_to_bg_ddof = zeros(Int,num_dirichlet_dofs(f))
+  bg_cell_ids = get_cell_dof_ids(bg_f)
+  cell_ids = get_cell_dof_ids(f)
+  oldof_to_ldof = get_local_ordering(bg_f)
+  bg_cache = array_cache(bg_cell_ids)
+  cache = array_cache(cell_ids)
+  ocache = array_cache(oldof_to_ldof)
+  cell_to_bg_cell = get_cell_to_bg_cell(f)
+  for (cell,bg_cell) in enumerate(cell_to_bg_cell)
+    bg_odofs = getindex!(bg_cache,bg_cell_ids,bg_cell)
+    dofs = getindex!(cache,cell_ids,cell)
+    ldofs = getindex!(ocache,oldof_to_ldof,cell)
+    lodofs = invperm(ldofs)
+    for (oldof,dof) in enumerate(dofs)
+      bg_dof = bg_odofs[lodofs[oldof]]
+      if dof > 0
+        @check bg_dof > 0
+        fdof_to_bg_fdof[dof] = bg_dof
+      else
+        @check bg_dof < 0
+        ddof_to_bg_ddof[-dof] = -bg_dof
+      end
+    end
+  end
+  return fdof_to_bg_fdof,ddof_to_bg_ddof
+end
+
+function get_bg_dof_to_dof(bg_f::OrderedFESpace,agg_f::FESpaceWithLinearConstraints)
+  act_fdof_to_agg_fdof,act_ddof_to_agg_ddof = get_dof_to_mdof(agg_f)
+  bg_fdof_to_act_fdof,bg_ddof_to_act_ddof = get_bg_dof_to_dof(bg_f,agg_f.space)
+  bg_fdof_to_agg_fdof = compose_index(bg_fdof_to_act_fdof,act_fdof_to_agg_fdof)
+  bg_ddof_to_agg_ddof = compose_index(bg_ddof_to_act_ddof,act_ddof_to_agg_ddof)
+  return bg_fdof_to_agg_fdof,bg_ddof_to_agg_ddof
+end
+
+function get_dof_to_bg_dof(bg_f::OrderedFESpace,agg_f::FESpaceWithLinearConstraints)
+  agg_fdof_to_act_fdof,agg_ddof_to_act_ddof = get_mdof_to_dof(agg_f)
+  act_fdof_to_bg_fdof,act_ddof_to_bg_ddof = get_dof_to_bg_dof(bg_f,agg_f.space)
+  agg_fdof_to_bg_fdof = compose_index(agg_fdof_to_act_fdof,act_fdof_to_bg_fdof)
+  agg_ddof_to_bg_ddof = compose_index(agg_ddof_to_act_ddof,act_ddof_to_bg_ddof)
+  return agg_fdof_to_bg_fdof,agg_ddof_to_bg_ddof
+end

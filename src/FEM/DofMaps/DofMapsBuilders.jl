@@ -241,45 +241,8 @@ function get_active_dof_to_bg_dof(bg_f::SingleFieldFESpace,f::FESpaceWithLinearC
   get_dof_to_bg_dof(bg_f,f.space)
 end
 
-function compose_index(i1_to_i2,i2_to_i3)
-  T_i3 = eltype(i2_to_i3)
-  n_i1 = length(i1_to_i2)
-  i1_to_i3 = zeros(T_i3,n_i1)
-  for (i1,i2) in enumerate(i1_to_i2)
-    if i2 > 0
-      i1_to_i3[i1] = i2_to_i3[i2]
-    end
-  end
-  return i1_to_i3
-end
-
 function get_dof_to_cells(cell_dofs::AbstractVector)
   inverse_table(Table(cell_dofs))
-end
-
-function inverse_table(cell_dofs::Table)
-  ndofs = maximum(cell_dofs.data)
-  ptrs = zeros(Int32,ndofs+1)
-  for dof in cell_dofs.data
-    ptrs[dof+1] += 1
-  end
-  length_to_ptrs!(ptrs)
-
-  data = Vector{Int32}(undef,ptrs[end]-1)
-  for cell in 1:length(cell_dofs)
-    pini = cell_dofs.ptrs[cell]
-    pend = cell_dofs.ptrs[cell+1]-1
-    for p in pini:pend
-      dof = cell_dofs.data[p]
-      if dof > 0
-        data[ptrs[dof]] = cell
-        ptrs[dof] += 1
-      end
-    end
-  end
-  rewind_ptrs!(ptrs)
-
-  Table(data,ptrs)
 end
 
 num_unconstrained_free_dofs(f::SingleFieldFESpace) = num_free_dofs(f)
