@@ -83,6 +83,16 @@ export LinearNonlinearTransientParamFEOperator
 include("FEM/ParamODEs/ParamODEs.jl")
 using GridapROMs.ParamODEs
 
+export DirectSumFESpace
+export EmbeddedFESpace
+export ExtensionParamOperator
+export ExtensionLinearParamOperator
+export ExtensionLinearNonlinearParamOperator
+export ZeroExtension
+export FunctionExtension
+export HarmonicExtension
+export ExtensionSolver
+export extend_solution
 include("FEM/Extensions/Extensions.jl")
 using GridapROMs.Extensions
 

@@ -91,8 +91,4 @@ include("OrderingMaps.jl")
 export OrderedFESpace
 include("OrderedFESpaces.jl")
 
-export OrderedAgFEMSpace
-export OrderedFESpaceWithLinearConstraints
-include("OrderedAgFEMSpaces.jl")
-
 end # module

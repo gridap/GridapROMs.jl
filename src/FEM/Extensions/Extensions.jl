@@ -50,7 +50,6 @@ export FunctionExtension
 export HarmonicExtension
 export ExtensionSolver
 export extend_solution
-export pad_solution!
 include("ExtensionSolvers.jl")
 
 end # module

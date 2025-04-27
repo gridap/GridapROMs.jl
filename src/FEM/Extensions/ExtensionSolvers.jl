@@ -95,25 +95,3 @@ function harmonic_extension(fout::SingleFieldFESpace,uh_in_bg::FEFunction)
 
   FEFunction(fout,uout)
 end
-
-function pad_solution!(u_bg::AbstractVector,ext::ZeroExtension,f::FESpace)
-  u_bg
-end
-
-function pad_solution!(u_bg::AbstractVector,ext::HarmonicExtension,f::SingleFieldFESpace)
-  fbg = get_bg_space(f)
-  uh_bg = FEFunction(fbg,u_bg)
-
-  fout = get_out_space(f)
-  uh_out = harmonic_extension(fout,uh_bg)
-
-  bg_fv = get_free_dof_values(uh_bg)
-  bg_dv = get_dirichlet_dof_values(uh_bg)
-  cfv = get_free_dof_values(uh_out)
-  cdv = get_dirichlet_dof_values(uh_out)
-  _bg_vals_from_vals!(bg_fv,bg_dv,fout,cfv,cdv)
-end
-
-function pad_solution!(u_bg::AbstractVector,f::FESpace)
-  pad_solution!(u_bg,HarmonicExtension(),f)
-end

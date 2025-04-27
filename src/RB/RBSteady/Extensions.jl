@@ -14,7 +14,6 @@ function to_snapshots(
 
   rμ = r(μ)
   x = inv_project(Extensions.get_bg_space(rμ),x̂)
-  # pad_solution!(x,get_fe_space(rμ))
   i = get_dof_map(rμ)
   Snapshots(x,i,μ)
 end

@@ -33,25 +33,6 @@ end
 
 const JointExtensionParamOperator{O<:UnEvalOperatorType} = ExtensionParamOperator{O,JointDomains}
 
-function allocate_extended_residual(
-  extop::JointExtensionParamOperator,
-  μ::Realization,
-  u::AbstractVector,
-  paramcache)
-
-  uh = EvaluationFunction(paramcache.trial,u)
-  test = get_test(extop)
-  v = get_fe_basis(test)
-  assem = get_param_extended_assembler(extop,μ)
-
-  res = get_res(extop)
-  dc = res(μ,uh,v)
-  vecdata = collect_cell_vector(test,dc)
-  b = allocate_vector(assem,vecdata)
-
-  b
-end
-
 function Algebra.residual!(
   b::AbstractVector,
   extop::JointExtensionParamOperator,
@@ -212,11 +193,3 @@ function ODEs.jacobian_add!(
 
   A
 end
-
-# # transient
-
-struct ODEExtensionParamOperator{O,T} <: ODEParamOperator{O,T}
-  op::ODEParamOperator{O,T}
-end
-
-ParamSteady.get_fe_operator(extop::ODEExtensionParamOperator) = get_fe_operator(extop.op)
