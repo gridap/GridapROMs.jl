@@ -47,7 +47,7 @@ function Base.iterate(sol::ODEParamSolution,state)
   return (rf,uf),state
 end
 
-function Base.collect(sol::ODEParamSolution{V}) where V
+function Base.collect(sol::ODEParamSolution)
   values = _collect_param_solutions(sol)
   t = @timed values = _collect_param_solutions(sol)
   tracker = CostTracker(t;name="FEM time marching",nruns=num_params(sol.r))

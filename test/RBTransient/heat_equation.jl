@@ -84,14 +84,14 @@ function main(
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,nparams_djac)
 
   ptspace_uniform = TransientParamSpace(pdomain,tdomain;sampling=:uniform)
-  feop_uniform = TransientParamLinearOperator((stiffness,mass),res,ptspace_uniform,trial,test,domains)
+  feop_uniform = TransientLinearParamOperator((stiffness,mass),res,ptspace_uniform,trial,test,domains)
   μon = realization(feop_uniform;nparams=10)
   x,festats = solution_snapshots(rbsolver,feop_uniform,μon,uh0μ)
 
   for sampling in (:uniform,:halton,:latin_hypercube,:tensorial_uniform)
     println("Running $method test with sampling strategy $sampling")
     ptspace = TransientParamSpace(pdomain,tdomain;sampling)
-    feop = TransientParamLinearOperator((stiffness,mass),res,ptspace,trial,test,domains)
+    feop = TransientLinearParamOperator((stiffness,mass),res,ptspace,trial,test,domains)
 
     fesnaps, = solution_snapshots(rbsolver,feop,uh0μ)
     rbop = reduced_operator(rbsolver,feop,fesnaps)

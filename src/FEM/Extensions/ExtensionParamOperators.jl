@@ -21,175 +21,35 @@ end
 
 ParamSteady.get_fe_operator(extop::ExtensionParamOperator) = get_fe_operator(extop.op)
 
-function get_extended_assembler(extop::ExtensionParamOperator)
+function ODEs.get_assembler(extop::ExtensionParamOperator)
   trial = get_trial(extop)
   test = get_test(extop)
   ExtensionAssembler(trial,test)
 end
 
-function get_param_extended_assembler(extop::ExtensionParamOperator,r::Realization)
-  parameterize(get_extended_assembler(extop),r)
+function ParamSteady.set_domains(extop::ExtensionParamOperator,args...)
+  ExtensionParamOperator(set_domains(extop.op,args...))
 end
 
-const JointExtensionParamOperator{O<:UnEvalOperatorType} = ExtensionParamOperator{O,JointDomains}
-
-function Algebra.residual!(
-  b::AbstractVector,
-  extop::JointExtensionParamOperator,
-  μ::Realization,
-  u::AbstractVector,
-  paramcache;
-  add::Bool=false)
-
-  !add && fill!(b,zero(eltype(b)))
-
-  uh = EvaluationFunction(paramcache.trial,u)
-  test = get_test(extop)
-  v = get_fe_basis(test)
-  assem = get_param_extended_assembler(extop,μ)
-
-  res = get_res(extop)
-  dc = res(μ,uh,v)
-  vecdata = collect_cell_vector(test,dc)
-  assemble_vector_add!(b,assem,vecdata)
-
-  b
+function ParamSteady.change_domains(extop::ExtensionParamOperator,args...)
+  ExtensionParamOperator(change_domains(extop.op,args...))
 end
 
-function Algebra.allocate_jacobian(
-  extop::JointExtensionParamOperator,
-  μ::Realization,
-  u::AbstractVector,
-  paramcache)
+# transient
 
-  uh = EvaluationFunction(paramcache.trial,u)
-  trial = get_trial(extop)
-  du = get_trial_fe_basis(trial)
-  test = get_test(extop)
-  v = get_fe_basis(test)
-  assem = get_param_extended_assembler(extop,μ)
+const ODEExtensionParamOperator{O<:ODEParamOperatorType,T<:TriangulationStyle} = ExtensionParamOperator{O,T}
 
-  jac = get_jac(extop)
-  matdata = collect_cell_matrix(trial,test,jac(μ,uh,du,v))
-  A = allocate_matrix(assem,matdata)
-
-  A
+function TransientExtensionLinearParamOperator(args...;kwargs...)
+  op = TransientLinearParamOperator(args...;kwargs...)
+  ExtensionParamOperator(op)
 end
 
-function ODEs.jacobian_add!(
-  A::AbstractMatrix,
-  extop::JointExtensionParamOperator,
-  μ::Realization,
-  u::AbstractVector,
-  paramcache)
-
-  uh = EvaluationFunction(paramcache.trial,u)
-  trial = get_trial(extop)
-  du = get_trial_fe_basis(trial)
-  test = get_test(extop)
-  v = get_fe_basis(test)
-  assem = get_param_extended_assembler(extop,μ)
-
-  jac = get_jac(extop)
-  dc = jac(μ,uh,du,v)
-  matdata = collect_cell_matrix(trial,test,dc)
-  assemble_matrix_add!(A,assem,matdata)
-
-  A
+function TransientExtensionParamOperator(args...;kwargs...)
+  op = TransientParamOperator(args...;kwargs...)
+  ExtensionParamOperator(op)
 end
 
-const SplitExtensionParamOperator{O<:UnEvalOperatorType} = ExtensionParamOperator{O,SplitDomains}
-
-function Algebra.allocate_residual(
-  extop::SplitExtensionParamOperator,
-  μ::Realization,
-  u::AbstractVector,
-  paramcache)
-
-  uh = EvaluationFunction(paramcache.trial,u)
-  test = get_test(extop)
-  v = get_fe_basis(test)
-  assem = get_param_extended_assembler(extop,μ)
-
-  trian_res = get_domains_res(extop)
-  res = get_res(extop)
-  dc = res(μ,uh,v)
-  contribution(trian_res) do trian
-    vecdata = collect_cell_vector_for_trian(test,dc,trian)
-    allocate_vector(assem,vecdata)
-  end
-end
-
-function Algebra.residual!(
-  b::Contribution,
-  extop::SplitExtensionParamOperator,
-  μ::Realization,
-  u::AbstractVector,
-  paramcache;
-  add::Bool=false)
-
-  !add && fill!(b,zero(eltype(b)))
-
-  uh = EvaluationFunction(paramcache.trial,u)
-  test = get_test(extop)
-  v = get_fe_basis(test)
-  assem = get_param_extended_assembler(extop,μ)
-
-  trian_res = get_domains_res(extop)
-  res = get_res(extop)
-  dc = res(μ,uh,v)
-
-  map(b.values,trian_res) do values,trian
-    vecdata = collect_cell_vector_for_trian(test,dc,trian)
-    assemble_vector_add!(values,assem,vecdata)
-  end
-
-  b
-end
-
-function Algebra.allocate_jacobian(
-  extop::SplitExtensionParamOperator,
-  μ::Realization,
-  u::AbstractVector,
-  paramcache)
-
-  uh = EvaluationFunction(paramcache.trial,u)
-  trial = get_trial(extop)
-  du = get_trial_fe_basis(trial)
-  test = get_test(extop)
-  v = get_fe_basis(test)
-  assem = get_param_extended_assembler(extop,μ)
-
-  trian_jac = get_domains_jac(extop)
-  jac = get_jac(extop)
-  dc = jac(μ,uh,du,v)
-  contribution(trian_jac) do trian
-    matdata = collect_cell_matrix_for_trian(trial,test,dc,trian)
-    allocate_matrix(assem,matdata)
-  end
-end
-
-function ODEs.jacobian_add!(
-  A::Contribution,
-  extop::SplitExtensionParamOperator,
-  μ::Realization,
-  u::AbstractVector,
-  paramcache)
-
-  uh = EvaluationFunction(paramcache.trial,u)
-  trial = get_trial(extop)
-  du = get_trial_fe_basis(trial)
-  test = get_test(extop)
-  v = get_fe_basis(test)
-  assem = get_param_extended_assembler(extop,μ)
-
-  trian_jac = get_domains_jac(extop)
-  jac = get_jac(extop)
-  dc = jac(μ,uh,du,v)
-  map(A.values,trian_jac) do values,trian
-    matdata = collect_cell_matrix_for_trian(trial,test,dc,trian)
-    assemble_matrix_add!(values,assem,matdata)
-  end
-
-  A
+function TransientExtensionLinearNonlinearParamOperator(op_lin::ParamOperator,op_nlin::ParamOperator)
+  op = TransientLinearNonlinearParamOperator(op_lin,op_nlin)
+  ExtensionParamOperator(op)
 end

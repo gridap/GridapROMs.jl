@@ -93,7 +93,8 @@ get_domains_jac(op::ParamOperator) = get_domains_jac(get_fe_operator(op))
 get_param_space(op::ParamOperator) = get_param_space(get_fe_operator(op))
 ParamDataStructures.realization(op::ParamOperator;kwargs...) = realization(get_fe_operator(op);kwargs...)
 
-get_param_assembler(op::ParamOperator,r::AbstractRealization) = get_param_assembler(get_fe_operator(op),r)
+ODEs.get_assembler(op::ParamOperator) = get_assembler(get_fe_operator(op))
+get_param_assembler(op::ParamOperator,r::AbstractRealization) = parameterize(get_assembler(op),r)
 FESpaces.assemble_matrix(op::ParamOperator,form::Function) = assemble_matrix(get_fe_operator(op),form)
 
 # basic interface

@@ -47,7 +47,7 @@ export ODEParamOperator
 export JointODEParamOperator
 export SplitODEParamOperator
 export LinearNonlinearODEParamOperator
-export TransientParamLinearOperator
+export TransientLinearParamOperator
 export TransientParamOperator
 export LinearNonlinearTransientParamOperator
 include("ODEParamOperators.jl")
@@ -68,6 +68,7 @@ include("ParamTimeMarching.jl")
 export ShiftedSolver
 include("ShiftedSolvers.jl")
 
+export ODEParamSolution
 export initial_condition
 include("ODEParamSolutions.jl")
 

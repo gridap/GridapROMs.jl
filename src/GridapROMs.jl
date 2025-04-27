@@ -71,7 +71,7 @@ include("FEM/ParamSteady/ParamSteady.jl")
 using GridapROMs.ParamSteady
 
 export ODEParamOperator
-export TransientParamLinearOperator
+export TransientLinearParamOperator
 export TransientParamOperator
 export LinearNonlinearTransientParamOperator
 export TransientTrialParamFESpace
@@ -88,6 +88,9 @@ export EmbeddedFESpace
 export ExtensionParamOperator
 export ExtensionLinearParamOperator
 export ExtensionLinearNonlinearParamOperator
+export TransientExtensionParamOperator
+export TransientExtensionLinearParamOperator
+export TransientExtensionLinearNonlinearParamOperator
 export ZeroExtension
 export FunctionExtension
 export HarmonicExtension

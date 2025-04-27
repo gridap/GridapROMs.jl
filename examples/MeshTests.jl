@@ -364,7 +364,7 @@ function get_2d_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,
   reffe = ReferenceFE(lagrangian,Float64,order)
   test = TestFESpace(Ω,reffe;conformity=:H1,dirichlet_tags=[1,3,7])
   trial = TransientTrialParamFESpace(test,gμt)
-  feop = TransientParamLinearOperator((stiffness,mass),res,ptspace,trial,test,domains)
+  feop = TransientLinearParamOperator((stiffness,mass),res,ptspace,trial,test,domains)
   uh0μ(μ) = interpolate_everywhere(u0μ(μ),trial(μ,t0))
 
   energy(du,v) = ∫(v*du)dΩ + ∫(∇(v)⋅∇(du))dΩ
@@ -426,7 +426,7 @@ function get_3d_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,
   reffe = ReferenceFE(lagrangian,Float64,order)
   test = TestFESpace(Ω,reffe;conformity=:H1,dirichlet_tags=[1,3,5,7,13,15,17,19,25])
   trial = TransientTrialParamFESpace(test,gμt)
-  feop = TransientParamLinearOperator((stiffness,mass),res,ptspace,trial,test,domains)
+  feop = TransientLinearParamOperator((stiffness,mass),res,ptspace,trial,test,domains)
   uh0μ(μ) = interpolate_everywhere(u0μ(μ),trial(μ,t0))
 
   energy(du,v) = ∫(v*du)dΩ + ∫(∇(v)⋅∇(du))dΩ
@@ -499,7 +499,7 @@ function get_elasticity_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2
   reffe = ReferenceFE(lagrangian,VectorValue{3,Float64},order)
   test = TestFESpace(Ω,reffe;conformity=:H1,dirichlet_tags=[1,3,5,7,13,15,17,19,25])
   trial = TransientTrialParamFESpace(test,gμt)
-  feop = TransientParamLinearOperator((stiffness,mass),res,ptspace,trial,test,domains)
+  feop = TransientLinearParamOperator((stiffness,mass),res,ptspace,trial,test,domains)
   uh0μ(μ) = interpolate_everywhere(u0μ(μ),trial(μ,t0))
 
   energy(du,v) = ∫(v⋅du)dΩ + ∫(∇(v)⊙∇(du))dΩ

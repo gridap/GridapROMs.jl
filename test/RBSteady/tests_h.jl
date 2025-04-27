@@ -289,7 +289,7 @@ function main_heateq_2d(n;
 
   test = TestFESpace(Ω,reffe;conformity=:H1,dirichlet_tags=[1,3,7])
   trial = TransientTrialParamFESpace(test,gμt)
-  feop = TransientParamLinearOperator((stiffness,mass),res,ptspace,trial,test,domains)
+  feop = TransientLinearParamOperator((stiffness,mass),res,ptspace,trial,test,domains)
   uh0μ(μ) = interpolate_everywhere(u0μ(μ),trial(μ,t0))
 
   println("heateq 2d n = $n --------> Nh = $(num_free_dofs(test))")
@@ -323,7 +323,7 @@ function main_heateq_2d(n;
 
   test = TestFESpace(Ω,reffe;conformity=:H1,dirichlet_tags=[1,3,7])
   trial = TransientTrialParamFESpace(test,gμt)
-  feop = TransientParamLinearOperator((stiffness,mass),res,ptspace,trial,test,domains)
+  feop = TransientLinearParamOperator((stiffness,mass),res,ptspace,trial,test,domains)
   uh0μ(μ) = interpolate_everywhere(u0μ(μ),trial(μ,t0))
 
   tolranks = fill(tolrank,4)
@@ -399,7 +399,7 @@ function main_heateq_3d(n;
 
   test = TestFESpace(Ω,reffe;conformity=:H1,dirichlet_tags=[1,3,5,7,13,15,17,19,25])
   trial = TransientTrialParamFESpace(test,gμt)
-  feop = TransientParamLinearOperator((stiffness,mass),res,ptspace,trial,test,domains)
+  feop = TransientLinearParamOperator((stiffness,mass),res,ptspace,trial,test,domains)
   uh0μ(μ) = interpolate_everywhere(u0μ(μ),trial(μ,t0))
 
   println("heateq 3d n = $n --------> Nh = $(num_free_dofs(test))")
@@ -433,7 +433,7 @@ function main_heateq_3d(n;
 
   test = TestFESpace(Ω,reffe;conformity=:H1,dirichlet_tags=[1,3,5,7,13,15,17,19,25])
   trial = TransientTrialParamFESpace(test,gμt)
-  feop = TransientParamLinearOperator((stiffness,mass),res,ptspace,trial,test,domains)
+  feop = TransientLinearParamOperator((stiffness,mass),res,ptspace,trial,test,domains)
   uh0μ(μ) = interpolate_everywhere(u0μ(μ),trial(μ,t0))
 
   tolranks = fill(tolrank,4)

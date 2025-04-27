@@ -43,6 +43,9 @@ include("ExtensionAssemblers.jl")
 export ExtensionParamOperator
 export ExtensionLinearParamOperator
 export ExtensionLinearNonlinearParamOperator
+export TransientExtensionParamOperator
+export TransientExtensionLinearParamOperator
+export TransientExtensionLinearNonlinearParamOperator
 include("ExtensionParamOperators.jl")
 
 export ZeroExtension

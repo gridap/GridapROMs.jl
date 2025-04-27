@@ -98,7 +98,7 @@ function main(
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,nparams_djac)
 
   ptspace_uniform = TransientParamSpace(pdomain,tdomain;sampling=:uniform)
-  feop_lin_uniform = TransientParamLinearOperator((stiffness,mass),res,ptspace_uniform,
+  feop_lin_uniform = TransientLinearParamOperator((stiffness,mass),res,ptspace_uniform,
     trial,test,domains_lin;constant_forms=(false,true))
   feop_nlin_uniform = TransientParamOperator(res_nlin,jac_nlin,ptspace_uniform,
     trial,test,domains_nlin)
@@ -109,7 +109,7 @@ function main(
   for sampling in (:uniform,:halton,:latin_hypercube,:tensorial_uniform)
     println("Running $method test with sampling strategy $sampling")
     ptspace = TransientParamSpace(pdomain,tdomain;sampling)
-    feop_lin = TransientParamLinearOperator((stiffness,mass),res,ptspace,
+    feop_lin = TransientLinearParamOperator((stiffness,mass),res,ptspace,
       trial,test,domains_lin)
     feop_nlin = TransientParamOperator(res_nlin,jac_nlin,ptspace,
       trial,test,domains_nlin)

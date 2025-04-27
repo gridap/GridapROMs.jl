@@ -196,6 +196,20 @@ function RBSteady.projection(red::TransientLinearReduction,s::TransientSnapshots
   LinearProjection(proj)
 end
 
+function RBSteady.projection(red::TransientLinearReduction,s::TransientSparseSnapshots)
+  dof_map = get_dof_map(s)
+  projection(red,s,dof_map)
+end
+
+function RBSteady.projection(red::TransientLinearReduction,s::TransientSparseSnapshots,dof_map)
+  proj = projection(get_reduction(red),s,dof_map)
+  LinearProjection(proj)
+end
+
+function RBSteady.projection(red::TransientLinearReduction,s::TransientSparseSnapshots,dof_map::TrivialSparseMatrixDofMap)
+  projection(KroneckerProjection(red),s)
+end
+
 #TODO when new projection operators are implemented, this will have to change
 RBSteady.get_cores(a::LinearProjection) = get_cores(a.projection)
 get_cores_space(a::LinearProjection) = get_cores(a)[1:end-1]

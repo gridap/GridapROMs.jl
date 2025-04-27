@@ -154,6 +154,10 @@ function _get_param_data(pdata::ConsecutiveParamSparseMatrixCSC,prange,trange)
   pdata
 end
 
+"""
+"""
+const TransientSparseSnapshots{T,N,I<:AbstractSparseDofMap,R<:TransientRealization,A} = TransientSnapshots{T,N,I,R,A}
+
 # block snapshots
 
 function Snapshots(

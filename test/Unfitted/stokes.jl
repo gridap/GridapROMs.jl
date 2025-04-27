@@ -72,7 +72,7 @@ function main(
     ∫( - v⋅(nΓ⋅∇(u))*νμ(μ) + (nΓ⋅∇(v))⋅u*νμ(μ) + (p*nΓ)⋅v + (q*nΓ)⋅u )dΓ
   )
 
-  l(μ,(u,p),(v,q),dΩ) = ∫( νμ(μ)*∇(v)⊙∇(u) - p*(∇⋅(v)) - q*(∇⋅(u)) )dΩ
+  res(μ,(u,p),(v,q),dΩ) = ∫( νμ(μ)*∇(v)⊙∇(u) - p*(∇⋅(v)) - q*(∇⋅(u)) )dΩ
 
   trian_res = (Ω,)
   trian_jac = (Ω,Γ)
@@ -81,27 +81,34 @@ function main(
   reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
   reffe_p = ReferenceFE(lagrangian,Float64,order-1)
 
+  strategy = AggregateAllCutCells()
+  aggregates = aggregate(strategy,cutgeo)
+  testbg_u = FESpace(Ωbg,reffe_u,conformity=:H1,dirichlet_tags="dirichlet")
+  testbg_u = FESpace(Ωbg,reffe_p,conformity=:H1)
+  testact_u = FESpace(Ωact,reffe_u,conformity=:H1,dirichlet_tags="dirichlet")
+  testact_p = FESpace(Ωact,reffe_u,conformity=:H1,dirichlet_tags="dirichlet")
+  testagg_u = AgFEMSpace(testact_u,aggregates)
+  testagg_p = AgFEMSpace(testact_p,aggregates)
+
+  test_u = DirectSumFESpace(testbg_u,testagg_u)
+  test_p = DirectSumFESpace(testbg_p,testagg_p)
+  trial_u = ParamTrialFESpace(test_u,gμ)
+  trial_p = ParamTrialFESpace(test_p)
+  test = MultiFieldParamFESpace([test_u,test_p];style=BlockMultiFieldStyle())
+  trial = MultiFieldParamFESpace([trial_u,trial_p];style=BlockMultiFieldStyle())
+  feop = ExtensionLinearParamOperator(res,a,pspace,trial,test,domains)
+
   tolrank = tol_or_rank(tol,rank)
   if method == :pod
-    test_u = TestFESpace(Ωact,reffe_u;conformity=:H1,dirichlet_tags="dirichlet")
-    test_p = TestFESpace(Ωact,reffe_p;conformity=:H1)
     energy((du,dp),(v,q)) = ∫(du⋅v)dΩ  + ∫(dp*q)dΩ + ∫(∇(v)⊙∇(du))dΩ
     coupling((du,dp),(v,q)) = ∫(dp*(∇⋅(v)))dΩ
     state_reduction = SupremizerReduction(coupling,tolrank,energy;nparams,sketch)
   else method == :ttsvd
-    test_u = TProductFESpace(Ωact,Ωbg,reffe_u;conformity=:H1,dirichlet_tags="dirichlet")
-    test_p = TProductFESpace(Ωact,Ωbg,reffe_p;conformity=:H1)
     tolranks = fill(tolrank,3)
     ttenergy((du,dp),(v,q)) = ∫(du⋅v)dΩbg  + ∫(dp*q)dΩbg + ∫(∇(v)⊙∇(du))dΩbg
     ttcoupling((du,dp),(v,q)) = ∫(dp*∂₁(v))dΩbg + ∫(dp*∂₂(v))dΩbg
     state_reduction = SupremizerReduction(ttcoupling,tolranks,ttenergy;nparams)
   end
-
-  trial_u = ParamTrialFESpace(test_u,gμ)
-  trial_p = ParamTrialFESpace(test_p)
-  test = MultiFieldParamFESpace([test_u,test_p];style=BlockMultiFieldStyle())
-  trial = MultiFieldParamFESpace([trial_u,trial_p];style=BlockMultiFieldStyle())
-  feop = LinearParamOperator(l,a,pspace,trial,test,domains)
 
   fesolver = LUSolver()
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac)
