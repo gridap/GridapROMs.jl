@@ -37,15 +37,16 @@ In this example we solve a parameter dependent Poisson equation
 where `Ω` is a sufficiently regular spatial domain, `ν` is a (positive) conductivity coefficient, `u` is the problem's unknown, `f` is a forcing term, and `h` a Neumann datum defined on the Neumann boundary `Γn`. In this problem, we consider `Ω = [0,1]^2` and `Γn` to be the right leg of the square. The remaining boundary is Dirichlet, and here we impose a manufactured, parameter-dependent solution. We consider the problem given by the following data: 
 
 ```julia
-ν(μ) = exp(-sum(μ))
+ν(μ) = x -> exp(-μ[1]*x[1])
 u(μ) = x -> μ[1]*x[1] + μ[2]*x[2]
-f(μ) = x -> -ν(μ)*Δ(u(x,μ))
+f(μ) = x -> -ν(μ)(x)*Δ(u(μ))(x)
 h(μ) = x -> 1
 ```
 
 Next, we parameterize the data defined above exclusively by `μ` in the following manner:
 
 ```julia
+νₚ(μ) = ParamFunction(ν,μ)
 uₚ(μ) = ParamFunction(u,μ)
 fₚ(μ) = ParamFunction(f,μ)
 hₚ(μ) = ParamFunction(h,μ)
@@ -71,10 +72,10 @@ Once the discrete geometry is introduced, we define a tuple of trial, test space
 order = 1
 reffe = ReferenceFE(lagrangian,Float64,order)
 V = TestFESpace(Ωₕ,reffe;dirichlet_tags=[1,3,5,6,7])
-U = TrialParamFESpace(V,uₚ)
+U = ParamTrialFESpace(V,uₚ)
 ```
 
-A `TrialParamFESpace` extends a traditional `TrialFESpace` in Gridap, as it allows to provide a `μ`-dependent Dirichlet datum. The tags provided occupy the left, upper and bottom legs of the square (extrema excluded for the upper and bottom legs).
+A `ParamTrialFESpace` extends a traditional `TrialFESpace` in Gridap, as it allows to provide a `μ`-dependent Dirichlet datum. The tags provided occupy the left, upper and bottom legs of the square (extrema excluded for the upper and bottom legs).
 
 ## Space of parameters 
 
@@ -112,7 +113,7 @@ Before introducing the weak formulation of the problem, we define the quantities
 ```julia 
 degree = 2*order
 τₕ = Triangulation(Ωₕ)
-Γₕ = BoundaryTriangulation(Ω;tags=[2,4,8])
+Γₕ = BoundaryTriangulation(Ωₕ;tags=[2,4,8])
 dΩₕ = Measure(τₕ,degree)
 dΓₕ = Measure(Γₕ,degree)
 ```
@@ -124,8 +125,8 @@ The physical entities corresponding to the tags provided when defining `Γₕ` a
 Multiplying the Poisson equation by a test function `v ∈ V` and integrating by parts yields the weak formulation of the problem, whose left- and right-hand (LHS & RHS) side are
 
 ```julia
-a(μ,u,v,dΩₕ) = ∫(ν(μ)*∇(v)⋅∇(u))dΩₕ 
-l(μ,v,dΩₕ,dΓₕ) = a(μ,u,v,dΩₕ) - ∫(fₚ(μ)*v)dΩₕ - ∫(hₚ(μ)*v)dΓₕ
+a(μ,u,v,dΩₕ) = ∫(νₚ(μ)*∇(v)⋅∇(u))dΩₕ 
+l(μ,u,v,dΩₕ,dΓₕ) = a(μ,u,v,dΩₕ) - ∫(fₚ(μ)*v)dΩₕ - ∫(hₚ(μ)*v)dΓₕ
 ```
 
 Note that, in contrast to a traditional Gridap code, the measures involved in the forms are passed as arguments to the forms themselves. (This prevents us from defining a FE operator just by defining a bilinear form for the LHS and a linear form for the RHS as in Gridap: we must actually write the full expression of the residual). 
@@ -135,13 +136,13 @@ Note that, in contrast to a traditional Gridap code, the measures involved in th
 At this point, we can build a FE operator representing the Poisson equation: 
 
 ```julia 
-τₕ_l = (Ωₕ,Γₕ)
-τₕ_a = (Ωₕ,)
+τₕ_l = (τₕ,Γₕ)
+τₕ_a = (τₕ,)
 domains = FEDomains(τₕ_l,τₕ_a)
-feop = ParamLinearFEOperator(l,a,D,U,V,domains)
+feop = LinearParamOperator(l,a,D,U,V,domains)
 ```
 
-The structure [`FEDomains`](@ref) collects the triangulations relative to the LHS & RHS. With respect to a traditional FE operator in Gridap, a [`ParamLinearFEOperator`](@ref) provides the aforementioned `FEDomains` for the LHS & RHS, as well as the parametric domain `D`.
+The structure [`FEDomains`](@ref) collects the triangulations relative to the LHS & RHS. With respect to a traditional FE operator in Gridap, a [`LinearParamOperator`](@ref) provides the aforementioned `FEDomains` for the LHS & RHS, as well as the parametric domain `D`.
 
 ## FE solver 
 
@@ -229,6 +230,10 @@ The load might fail, for e.g., if
 The offline structures are completely contained in the variable `rbop`, which is the reduced version of the FE operator `feop`. To understand better the meaning of this variable, we report the content of the function `reduced_operator`:
 
 ```julia
+using GridapROMs.Utils 
+using GridapROMs.ParamSteady
+using GridapROMs.RBSteady 
+
 # compute the solution snapshots 
 fesnaps, = solution_snapshots(rbsolver,feop) 
 # compute the reduced trial and test spaces 
@@ -239,9 +244,9 @@ â,l̂ = reduced_weak_form(rbsolver,feop,Û,V̂,fesnaps)
 # fetch the reduced FEDomains
 τₕ_l̂,τₕ_â = get_domains(l̂),get_domains(â)
 # replace the original FEDomains with the reduced ones  
-op′ = change_domains(op,τₕ_l̂,τₕ_â)
+feop′ = change_domains(feop,τₕ_l̂,τₕ_â)
 # definition of reduced operator 
-rbop = GenericRBOperator(op′,Û,V̂,â,l̂)
+rbop = GenericRBOperator(feop′,Û,V̂,â,l̂)
 ```
 
 ## Online phase 
@@ -249,13 +254,13 @@ rbop = GenericRBOperator(op′,Û,V̂,â,l̂)
 This step consists in computing the GridapROMs approximation for any desired parameter. We consider, for e.g., 10 parameters distributed uniformly on `D`
 
 ```julia
-μon = realization(D;nparams=10,rand=true)
+μₒₙ = realization(D;nparams=10,sampling=:uniform)
 ```
 
 and we solve the reduced problem 
 
 ```julia
-x̂on,rbstats = solve(rbsolver,rbop,μon)
+x̂on,rbstats = solve(rbsolver,rbop,μₒₙ)
 ```
 
 ## Post processing 
@@ -263,13 +268,13 @@ x̂on,rbstats = solve(rbsolver,rbop,μon)
 In order to test the quality of the approximation `x̂on`, we can run the following post-processing code 
 
 ```julia
-xon,festats = solve(rbsolver,feop,μon)
+xon,festats = solution_snapshots(solver,feop,μₒₙ)
 perf = eval_performance(rbsolver,feop,rbop,xon,x̂on,festats,rbstats)
 println(perf)
 ```
 
-In other words, we first compute the HF solution `xon` in the online parameters `μon`, and then we run the performance tester, which in particular returns
+In other words, we first compute the HF solution `xon` in the online parameters `μₒₙ`, and then we run the performance tester, which in particular returns
 
-* The relative error ||xon - x̂on|| / ||xon||, averaged on the 10 parameters in `μon`. The norm is the one specified by `inner_prod`, so in our case the `H^1_0` product.
+* The relative error ||xon - x̂on|| / ||xon||, averaged on the 10 parameters in `μₒₙ`. The norm is the one specified by `inner_prod`, so in our case the `H^1_0` product.
 
 * The speedup in terms of time and memory achieved with respect to the HF simulations. This is done by comparing the variables `rbstats` and `festats`, which contain the time (in seconds) and memory allocations (in Gb) of the two algorithms.

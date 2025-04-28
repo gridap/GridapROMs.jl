@@ -2,9 +2,9 @@
     abstract type UnEvalOperatorType <: GridapType end
 
 Type representing operators that are not evaluated yet. This may include operators
-representing transient problems (although the implementation in `Gridap`
+representing transient problems (although the implementation in [`Gridap`](@ref)
 differs), parametric problems, and a combination thereof. Could become a supertype
-of `ODEOperatorType` in `Gridap`
+of `ODEOperatorType` in [`Gridap`](@ref)
 """
 abstract type UnEvalOperatorType <: GridapType end
 
@@ -38,7 +38,7 @@ abstract type TriangulationStyle <: GridapType end
 
 Trait for a FE operator indicating that residuals/Jacobiansin this operator
 should be computed summing the contributions relative to each triangulation as
-occurs in `Gridap`
+occurs in [`Gridap`](@ref)
 """
 struct JointDomains <: TriangulationStyle end
 

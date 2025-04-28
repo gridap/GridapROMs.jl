@@ -93,7 +93,7 @@ abstract type AbstractParamCache <: GridapType end
 """
     allocate_paramcache(nlop::NonlinearParamOperator,μ::AbstractRealization) -> AbstractParamCache
 
-Similar to `allocate_odecache` in `Gridap`, when dealing with parametric problems
+Similar to `allocate_odecache` in [`Gridap`](@ref), when dealing with parametric problems
 """
 function allocate_paramcache(nlop::NonlinearParamOperator,μ::AbstractRealization)
   @abstractmethod
@@ -102,7 +102,7 @@ end
 """
     update_paramcache!(paramcache::AbstractParamCache,nlop::NonlinearParamOperator,μ::AbstractRealization) -> AbstractParamCache
 
-Similar to `update_odecache!` in `Gridap`, when dealing with parametric problems
+Similar to `update_odecache!` in [`Gridap`](@ref), when dealing with parametric problems
 """
 function update_paramcache!(paramcache::AbstractParamCache,nlop::NonlinearParamOperator,μ::AbstractRealization)
   @abstractmethod

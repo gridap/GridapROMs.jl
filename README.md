@@ -4,11 +4,11 @@ This package provides a set of tools for the solution of parameterized partial d
 
 | **Documentation** |
 |:------------ |
-| [![docdev](https://img.shields.io/badge/docs-dev-blue.svg)](https://nichomueller.github.io/GridapROMs.jl/dev/) |
+| [![docdev](https://img.shields.io/badge/docs-dev-blue.svg)](https://gridap.github.io/GridapROMs.jl/dev/) | 
 | **Citation** |
 | [![DOI](https://img.shields.io/badge/DOI-10.1016%2Fj.jcp.2022.111162-blue)](https://arxiv.org/abs/2503.15994) |
 |**Build Status** |
-| [![CI](https://github.com/nichomueller/GridapROMs.jl/workflows/CI/badge.svg)](https://github.com:nichomueller/GridapROMs.jl/actions?query=workflow%3ACI) [![codecov](https://codecov.io/gh/github.com:nichomueller/GridapROMs.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/github.com:nichomueller/GridapROMs.jl) |
+| [![CI](https://github.com/gridap/GridapROMs.jl/workflows/CI/badge.svg)](https://github.com:gridap/GridapROMs.jl/actions?query=workflow%3ACI) [![codecov](https://codecov.io/gh/github.com:gridap/GridapROMs.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/github.com:gridap/GridapROMs.jl) |
 
 ## Installation
 
@@ -19,7 +19,7 @@ pkg> add GridapROMs
 
 ## Examples
 
-Before running the following examples, it is necessary to import from file some geometries which can be found [here](https://nichomueller.github.io/GridapROMs.jl/docs/assets). The file name is `models.zip`. The geometries must be unzipped and moved to a directory where the numerical experiments are ran. This directory should be placed inside the `data` directory of the `Julia` project which is being used to run these experiments. To find this directory, first add the package `DrWatson` with 
+Before running the following examples, it is necessary to import from file some geometries which can be found [here](https://github.com/gridap/GridapROMs.jl/tree/main/docs/src/assets). The file name is `models.zip`. The geometries must be unzipped and moved to a directory where the numerical experiments are ran. This directory should be placed inside the `data` directory of the `Julia` project which is being used to run these experiments. To find this directory, first add the package `DrWatson` with 
 
 ```julia
 # Type ] to enter package mode
@@ -105,13 +105,13 @@ Solution - velocity          |  Solution - pressure        |  Convergence
 In order to give credit to the `ROManifolds` contributors, we simply ask you to cite the references below in any publication in which you have made use of the `ROManifolds` project. 
 
 ```
-@misc{mueller2025frameworkefficientreducedorder,
-    title={A framework for efficient reduced order modelling in the Julia programming language}, 
-    author={Nicholas Mueller and Santiago Badia},
-    year={2025},
-    eprint={2503.15994},
-    archivePrefix={arXiv},
-    primaryClass={math.NA},
-    url={https://arxiv.org/abs/2503.15994}, 
+@misc{mueller2025gridapromsjlefficientreducedorder,
+      title={GridapROMs.jl: Efficient reduced order modelling in the Julia programming language}, 
+      author={Nicholas Mueller and Santiago Badia},
+      year={2025},
+      eprint={2503.15994},
+      archivePrefix={arXiv},
+      primaryClass={math.NA},
+      url={https://arxiv.org/abs/2503.15994}, 
 }
 ```

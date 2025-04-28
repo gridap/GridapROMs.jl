@@ -18,7 +18,6 @@ using Gridap.Helpers
 using GridapEmbedded
 using GridapEmbedded.Interfaces
 
-using GridapROMs
 using GridapROMs.Utils
 
 import FillArrays: Fill

@@ -102,8 +102,8 @@ end
 
 abstract type TransientHyperReduction{A} <: HyperReduction{A} end
 
-"""
-    struct TransientMDEIMReduction{A,R<:TransientReduction{A,EuclideanNorm}} <: TransientHyperReduction{A}
+@doc raw"""
+    struct TransientMDEIMReduction{A,R<:Reduction{A,EuclideanNorm}} <: AbstractMDEIMReduction{A}
       reduction::R
       combine::Function
     end
@@ -112,49 +112,78 @@ MDEIM struct employed in transient problems. The field `combine` is a function
 used to group the reductions relative to the various Jacobians(in general, more
 than one in transient problems) in a smart way. We consider, for example, the ODE
 
-`du/dt - νΔu = f in Ω × [0,T]`
+``\tfrac{du}{dt} - \nu \Delta u = f \ \ \text{in} \ \ Ω \times [0,T]``
 
 subject to initial/boundary conditions. Upon applying a FE discretization in space,
-and a `θ`-method in time, one gets the space-time system `Aθ * uθ = fθ`, where
+and a `θ`-method in time, one gets the space-time system
 
-  ```Aθ = [
-  A₁ + M / (θ*Δt)          0               0          ⋯          0            0
-    - M / (θ*Δt)    A₂ + M / (θ*Δt)       0          ⋯          0            0
-        0              - M / (θ*Δt)  A₃ + M / (θ*Δt)            0            0
-        ⋱                 ⋱              ⋱          ⋯          ⋯            ⋯
-        0                  0              0          ⋯      - M / (θ*Δt)  Aₙ + M / (θ*Δt)
-                                                                                          ]
-    = tridiag(- M/(θ*Δt), Aₖ + M/(θ*Δt), 0)
-  uθ = [(1-θ)u₀ + θu₁, (1-θ)u₁ + θu₂ ⋯ (1-θ)uₙ₋₁ + θuₙ]
-  fθ = [f₁, f₂  ⋯ fₙ]```
+``A_{\theta} u_{\theta} = f_{\theta}``
 
-where `Aₖ = A(tₖ₋₁ + θ*Δt) and fₖ = f(tₖ₋₁ + θ*Δt)`.
+where
 
-Note: instead of multiplying `Aθ` by `uθ`, we multiply `Ãθ` by `u`, where
+```math
+A_{\theta} = \begin{bmatrix}
+A_1 + M / (\theta \Delta t) & & & & & \\
+- M / (\theta \Delta t) & A_2 + M / (\theta \Delta t) & & & & \\
+& - M / (\theta \Delta t) & A_3 + M / (\theta \Delta t) & & & \\
+& & \ddots & \ddots & & \\
+& & & & - M / (\theta \Delta t) & A_n + M / (\theta \Delta t)
+\end{bmatrix};
+```
 
-  ```Ãθ = tridiag((1-θ)Aₖ₋₁ - M/Δt, θAₖ + M/Δt, 0)
-  u = [u₁, u₂ ⋯ uₙ]```
+```math
+u_{\theta} = \left[(1-\theta)u_0 + \theta u_1, \hdots, (1-\theta)u_{n-1} + \theta u_n\right]^T;
+```
 
-We now denote with Φ, Ψ the spatial and temporal basis obtained by reducing the
-snapshots associated to the state variable `u`. The Galerkin projection of the
-space-time system is equal to `Âθ * û = f̂θ`, where `û` is the unknown, and
+```math
+f_{\theta} = \left[f_1, \hdots, f_n\right]^T;
+```
 
-  ```Âθ = ∑ₖⁿ⁻¹ ( (1-θ)*ΦᵀAₖΦ - ΦᵀMΦ / Δt ) ⊗ Ψ[k-1,:]ᵀΨ[k,:]
-    + ∑ₖⁿ   (     θ*ΦᵀAₖΦ + ΦᵀMΦ / Δt ) ⊗ Ψ[k,:]ᵀΨ[k,:]
-  f̂θ = ∑ₖⁿ Φᵀfₖ ⊗ Ψ[k,:]```
+```math
+A_k = A(t_{k-1} + \theta \Delta t);
+```
 
-We notice that the expression of Âθ can be written in a more general form as
+```math
+f_k = f(t_{k-1} + \theta \Delta t).
+```
 
-  `Âθ = combine_A(A shift back, A) + combine_M(M shift back, M)`
+Note: instead of multiplying ``A_{\theta}`` by ``u_{\theta}``, we multiply ``\tilde{A}_{\theta}`` by ``u``, where
+
+```math
+\tilde{A}_{\theta} = tridiag((1-\theta)A_{k-1} - M / \Delta t, \theta A_k + M / \Delta t, 0).
+```
+
+We now denote with ``\Phi`` and ``\Psi`` the spatial and temporal basis obtained by reducing the
+snapshots associated to the state variable ``u``. The Galerkin projection of the
+space-time system is equal to ``\hat{A}_{\theta}\hat{u} = \hat{f}_{\theta}``, where ``\hat{u}`` is the unknown, and
+
+```math
+\begin{align*}
+\hat{A}_{\theta} &= \sum\limits_{k=1}^{n-1} ( (1-θ) \Phi^T A_k \Phi - \Phi^T M \Phi / \Delta t) \otimes \Psi[k-1,:]^T \Psi[k,:]
+  + \sum\limits_{k=1}^n (\theta \Phi^T A_k \Phi + \Phi^T M \Phi / \Delta t) \otimes \Psi[k,:]^T \Psi[k,:] \\
+  &= \theta A_{backwards} + (1-\theta)A_{forwards} + (M_{backwards} + M_{forwards}) / \Delta t \\
+\hat{f}_{\theta} &= \sum\limits_{k=1}^n \Phi^T f_k \otimes \Psi[k,:]
+\end{align*}
+```
+
+We notice that the expression of ``\hat{A}_{\theta}`` can be written in a more general form as
+
+```math
+\hat{A}_{\theta} = combine_A(A_{backwards},A_{forwards}) + combine_M(M_{backwards},M_{forwards}),
+```
 
 where combine_A and combine_M are two function specific to A and M:
 
-  ```combine_A(x,y) = θ*y + (1-θ)*y
-  combine_M(x,y) = (x - y) / Δt```
+```math
+\begin{align*}
+combine_A(x,y) &= \theta y + (1-\theta)y \\
+combine_M(x,y) &= (x - y) / \Delta t
+\end{align*}
+```
 
 The same can be said of any time marching scheme. This is the meaning of the
-function combine. Note that for a time marching with `p` interpolation points (e.g.
-for `θ` method, `p = 2`) the combine functions will have to accept `p` arguments.
+function `combine`. Note that for a time marching with ``p`` interpolation points (e.g.
+for ``\theta`` method, ``p = 2``) the `combine` functions will have to accept ``p`` arguments.
 """
 struct TransientMDEIMReduction{A,R<:Reduction{A,EuclideanNorm}} <: TransientHyperReduction{A}
   reduction::R

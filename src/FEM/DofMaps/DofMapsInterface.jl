@@ -124,9 +124,9 @@ Fields:
 
 More in detail, if `size = (n1,...,nD)`, we can think of this mapping as a function
 
-  `n1 × ... × nD ⟶ {0,1,...,nact}`
+  `n1 × ... × nD ⟶ {0,1,...,Nact}`
 
-where `nact` is the number of active DOFs. The output of this map is an index according
+where `Nact` is the number of active DOFs. The output of this map is an index according
 to which we reindex FE vectors. We follow the convention that, when indexed by zero,
 the FE vectors return a zero. This is acceptable, since the FE vector does not
 actually hold a value when indexed at an inactive DOF.

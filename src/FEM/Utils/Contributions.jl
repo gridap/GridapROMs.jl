@@ -1,9 +1,8 @@
 """
     abstract type Contribution end
 
-Represents quantitites whose values vary upon a triangulation. The values can
-be accessed by indexing a the corresponding triangulation. See `DomainContribution`
-in `Gridap` for more details.
+Collection of values corresponding to a set of triangulations. Similarly to `DomainContribution`,
+the values can be accessed by indexing the corresponding triangulation.
 """
 abstract type Contribution end
 
@@ -22,7 +21,11 @@ Base.eachindex(a::Contribution) = eachindex(a.values)
 
 Constructor of a [`Contribution`](@ref) that allows do-block syntax. `f` is a
 function such that
-  `values[i] = f(trians[i]) for i...`
+
+
+`values[i] = f(trians[i]) for i...`
+
+
 This constructor first builds the tuple of values, then builds the `Contribution`
 object from `values` and `trians`
 """

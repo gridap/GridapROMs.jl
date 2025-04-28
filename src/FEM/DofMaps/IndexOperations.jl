@@ -5,7 +5,7 @@ Input:
   - a sparse matrix `a` of size `(M,N)` and a number of nonzero entries `Nnz`
   - an array of indices `sids` with values `∈ {1,...,Nnz}` (sparse indices)
 Output:
-  - an array of indices `fids` with values `∈ {1,...,M⋅N}` (full indices), whose
+  - an array of indices `fids` with values `∈ {1,...,MN}` (full indices), whose
   entries are associated to those of `sids`. Zero entries are preserved
 """
 function recast_indices(sids::AbstractArray,a::AbstractSparseMatrix)
@@ -54,7 +54,7 @@ end
 
 Input:
   - a sparse matrix `a` of size `(M,N)` and a number of nonzero entries `Nnz`
-  - an array of indices `fids` with values `∈ {1,...,M⋅N}` (full indices)
+  - an array of indices `fids` with values `∈ {1,...,MN}` (full indices)
 Output:
   - an array of indices `sids` with values `∈ {1,...,Nnz}` (sparse indices), whose
   entries are associated to those of `fids`. Zero entries are preserved
@@ -88,11 +88,11 @@ end
 
 Returns the slow index in a tensor product structure. Suppose we have two matrices
 `A` and `B` of sizes `Ra × Ca` and `Rb × Rb`. Their kronecker product `AB = A ⊗ B`,
-of size `Ra*Rb × Ca*Cb`, can be indexed as
+of size `RaRb × CaCb`, can be indexed as
 
-  `AB[i,j] = A[slow_index(i,RbCb)] * B[fast_index(i,RbCb)]`,
+  `AB[i,j] = A[slow_index(i,RbCb)]B[fast_index(i,RbCb)]`,
 
-where `nfast == Rb*Cb`. In other words, this function converts an index belonging
+where `nfast == RbCb`. In other words, this function converts an index belonging
 to `AB` to an index belonging to `A`
 
 """
@@ -105,11 +105,11 @@ to `AB` to an index belonging to `A`
 
 Returns the fast index in a tensor product structure. Suppose we have two matrices
 `A` and `B` of sizes `Ra × Ca` and `Rb × Rb`. Their kronecker product `AB = A ⊗ B`,
-of size `Ra*Rb × Ca*Cb`, can be indexed as
+of size `RaRb × CaCb`, can be indexed as
 
   `AB[i,j] = A[slow_index(i,RbCb)] * B[fast_index(i,RbCb)]`,
 
-where `nfast == Rb*Cb`. In other words, this function converts an index belonging
+where `nfast == RbCb`. In other words, this function converts an index belonging
 to `AB` to an index belonging to `B`
 
 """

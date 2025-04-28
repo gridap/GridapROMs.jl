@@ -11,11 +11,18 @@ Fields:
 - `fecache`: represents a parametric residual/Jacobian computed via integration
   on an [`IntegrationDomain`](@ref)
 - `coeff`: parameter-dependent coefficient computed during the online phase
-  according to the formula `coeff = Φi⁻¹ * fecache[i,:]`, where `(Φi,i)` are
-  stored in a `HRProjection` object
+  according to the formula
+
+  `coeff = Φi⁻¹ fecache[i,:]`
+
+  where `(Φi,i)` are the interpolation and the reduced integration domain stored
+  in a `HyperReduction` object.
 - `hypred`: the ouptut of the online phase of a hyper-reduction strategy, acoording
-  to the formula `hypred = Φrb * coeff`, where `Φrb` is stored in a
-  `HRProjection` object
+  to the formula
+
+  `hypred = Φrb * coeff`
+
+  where `Φrb` is the basis stored in a `HyperReduction` object
 """
 struct HRParamArray{T,N,A,B,C<:ParamArray{T,N}} <: ParamArray{T,N}
   fecache::A

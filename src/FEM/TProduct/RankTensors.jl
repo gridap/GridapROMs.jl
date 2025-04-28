@@ -1,9 +1,9 @@
-"""
+@doc raw"""
     abstract type AbstractRankTensor{D,K} end
 
 Type representing a tensor `a` of dimension `D` and rank `K`, i.e. assuming the form
 
-  `a = ∑_{k=1}^{K} a_1^k ⊗ ⋯ ⊗ a_D^k`
+  ``a = \sum\limits_{k=1}^K a_1^k \otimes \cdots \otimes a_D^k``
 
 Subtypes:
 
@@ -16,25 +16,27 @@ dimension(a::AbstractRankTensor{D,K}) where {D,K} = D
 LinearAlgebra.rank(a::AbstractRankTensor{D,K}) where {D,K} = K
 get_decomposition(a::AbstractRankTensor) = ntuple(k -> get_decomposition(a,k),Val{rank(a)}())
 
-"""
+@doc raw"""
     get_decomposition(a::AbstractRankTensor,k::Integer) -> Vector{<:AbstractArray}
 
 For a tensor `a` of dimension `D` and rank `K` assuming the form
 
-  `a = ∑_{k=1}^{K} a_1^k ⊗ ⋯ ⊗ a_D^k`
+  ``a = \sum\limits_{k=1}^K a_1^k \otimes \cdots \otimes a_D^k``
 
-returns the decomposition relative to the `k`th rank `[a_1^k, ⋯, a_D^k]`
+returns the decomposition relative to the `k`th rank:
+
+``[a_1^k, \hdots , a_D^k]``
 """
 get_decomposition(a::AbstractRankTensor,k::Integer) = @abstractmethod
 
-"""
+@doc raw"""
     struct Rank1Tensor{D,A<:AbstractArray} <: AbstractRankTensor{D,1}
       factors::Vector{A}
     end
 
 Structure representing rank-1 tensors, i.e. assuming the form
 
-  `a = a_1 ⊗ ⋯ ⊗ a_D`
+  ``a = a_1 \otimes \cdots \otimes a_D``
 """
 struct Rank1Tensor{D,A<:AbstractArray} <: AbstractRankTensor{D,1}
   factors::Vector{A}
@@ -58,14 +60,14 @@ function LinearAlgebra.cholesky(a::Rank1Tensor)
   cholesky.(get_factors(a))
 end
 
-"""
+@doc raw"""
     struct GenericRankTensor{D,K,A<:AbstractArray} <: AbstractRankTensor{D,K}
       decompositions::Vector{Rank1Tensor{D,A}}
     end
 
 Structure representing a generic rank-K tensor, i.e. assuming the form
 
-  `a = ∑_{k=1}^{K} a_1^k ⊗ ⋯ ⊗ a_D^k`
+  ``a = \sum\limits_{k=1}^K a_1^k \otimes \cdots \otimes a_D^k``
 """
 struct GenericRankTensor{D,K,A<:AbstractArray} <: AbstractRankTensor{D,K}
   decompositions::Vector{Rank1Tensor{D,A}}

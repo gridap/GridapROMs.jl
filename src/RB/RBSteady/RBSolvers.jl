@@ -6,12 +6,12 @@
       jacobian_reduction::B
     end
 
-Wrapper around a FE solver (e.g. `NonlinearSolver` or `ODESolver` in `Gridap`) with
+Wrapper around a FE solver (e.g. `NonlinearSolver` or `ODESolver` in [`Gridap`](@ref)) with
 additional information on the reduced basis (RB) method employed to solve a given
 problem dependent on a set of parameters. A RB method is a projection-based
 reduced order model where
 
-1. a suitable subspace of a FESpace is sought, of dimension n ≪ Nₕ
+1. a suitable subspace of a FESpace is sought, of dimension n << Nₕ
 2. a matrix-based discrete empirical interpolation method (MDEIM) is performed
   to approximate the manifold of the parametric residuals and jacobians
 3. the EIM approximations are compressed with (Petrov-)Galerkin projections
@@ -21,10 +21,10 @@ reduced order model where
 
 In particular:
 
-- ϵ: tolerance used in the projection-based truncated proper orthogonal
+- tol: tolerance used in the projection-based truncated proper orthogonal
   decomposition (TPOD) or in the tensor train singular value decomposition (TT-SVD),
-  where a basis spanning the reduced subspace is computed; the value of ϵ is
-  responsible for selecting the dimension of the subspace, i.e. n = n(ϵ)
+  where a basis spanning the reduced subspace is computed; the value of tol is
+  responsible for selecting the dimension of the subspace, i.e. n = n(tol)
 - nparams_state: number of snapshots considered when running TPOD or TT-SVD
 - nparams_res: number of snapshots considered when running MDEIM for the residual
 - nparams_jac: number of snapshots considered when running MDEIM for the jacobian
