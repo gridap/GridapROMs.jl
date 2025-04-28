@@ -241,7 +241,7 @@ end
 
 function cell_value_to_ovalue(f::OrderedFESpace,cv)
   odof_to_dof = get_local_ordering(f)
-  dof_to_odof = invperm(odof_to_dof)
+  dof_to_odof = invperm_table(odof_to_dof)
   lazy_map(OReindex(),odof_to_dof,cv)
 end
 
