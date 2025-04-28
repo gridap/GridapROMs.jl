@@ -21,6 +21,16 @@ end
 function reduced_operator(
   solver::RBSolver,
   feop::ParamOperator,
+  args...;
+  kwargs...)
+
+  fesnaps,festats = solution_snapshots(solver,feop,args...;kwargs...)
+  reduced_operator(solver,feop,fesnaps)
+end
+
+function reduced_operator(
+  solver::RBSolver,
+  feop::ParamOperator,
   s::AbstractSnapshots)
 
   red_trial,red_test = reduced_spaces(solver,feop,s)

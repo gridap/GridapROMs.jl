@@ -1,11 +1,10 @@
 name = "GridapROMs"
 uuid = "9ec1d169-1b02-4ed6-9618-ff21f43ad569"
-authors = ["Nicholas Mueller"]
-version = "1.0.0-DEV"
+authors = ["Nicholas Mueller <nicholas.mueller@monash.edu>"]
+version = "0.1.0"
 
 [deps]
 ArraysOfArrays = "65a8f2f4-9b39-5baf-92e2-a9cc46fdf018"
-BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 BlockArrays = "8e7c35d0-a365-5155-bbbb-fb81a777f24e"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
@@ -23,7 +22,6 @@ LowRankApprox = "898213cb-b102-5a47-900c-97e73b919f73"
 MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
 PartitionedArrays = "5a9dfac6-5c52-46f7-8278-5e2210713be9"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 SparseMatricesCSR = "a0a7dd2c-ebf4-11e9-1f05-cf50bc540ca1"
@@ -44,11 +42,12 @@ HaltonSequences = "0.2.0"
 LatinHypercubeSampling = "1.9.0"
 LowRankApprox = "0.5.5"
 MPI = "0.20.22"
+PartitionedArrays = "0.3"
 Plots = "1.40.9"
-Revise = "3.6.2"
 SparseMatricesCSR = "0.6.7"
 Statistics = "1.11.1"
 StatsBase = "0.34.4"
+UnPack = "1"
 julia = "1.11"
 
 [extras]

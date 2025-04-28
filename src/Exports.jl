@@ -40,10 +40,10 @@ end
 @publish ParamDataStructures Snapshots
 @publish ParamDataStructures select_snapshots
 
-@publish ParamFESpaces ParamTrialFESpace
 @publish ParamFESpaces TrialParamFESpace
 @publish ParamFESpaces MultiFieldParamFESpace
 
+@publish ParamSteady ParamTrialFESpace
 @publish ParamSteady ParamOperator
 @publish ParamSteady LinearParamOperator
 @publish ParamSteady LinearNonlinearParamOperator

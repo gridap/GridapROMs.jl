@@ -183,7 +183,7 @@ end
       subspace::Projection
     end
 
-Reduced basis subspace of a `SingleFieldFESpace` in `Gridap`
+Reduced basis subspace of a `SingleFieldFESpace` in [`Gridap`](@ref)
 """
 struct SingleFieldRBSpace{S<:SingleFieldFESpace} <: RBSpace{S}
   space::S
@@ -203,7 +203,7 @@ get_reduced_subspace(r::SingleFieldRBSpace) = r.subspace
       subspace::BlockProjection
     end
 
-Reduced basis subspace of a `MultiFieldFESpace` in `Gridap`
+Reduced basis subspace of a `MultiFieldFESpace` in [`Gridap`](@ref)
 """
 struct MultiFieldRBSpace{S<:MultiFieldFESpace} <: RBSpace{S}
   space::S

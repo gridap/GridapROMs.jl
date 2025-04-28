@@ -12,7 +12,7 @@ ParamDataStructures.param_length(f::FESpace) = 0
 """
     abstract type SingleFieldParamFESpace{S} <: SingleFieldFESpace end
 
-Parametric extension of a `SingleFieldFESpace` in `Gridap`. The
+Parametric extension of a `SingleFieldFESpace` in [`Gridap`](@ref). The
 FE spaces inhereting are (trial) spaces on which we can easily define a
 `ParamFEFunction`.
 
@@ -91,7 +91,7 @@ get_vector_type2(f::SingleFieldParamFESpace) = get_vector_type(get_fe_space(f))
 """
     param_zero_free_values(f::FESpace) -> AbstractParamVector
 
-Parametric version of the function `zero_free_values` in `Gridap`
+Parametric version of the function `zero_free_values` in [`Gridap`](@ref)
 """
 function param_zero_free_values(f::FESpace)
   V = get_vector_type2(f)
@@ -105,7 +105,7 @@ end
 """
     param_zero_dirichlet_values(f::FESpace) -> AbstractParamVector
 
-Parametric version of the function `zero_dirichlet_values` in `Gridap`
+Parametric version of the function `zero_dirichlet_values` in [`Gridap`](@ref)
 """
 function param_zero_dirichlet_values(f::FESpace)
   V = get_vector_type2(f)
