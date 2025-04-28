@@ -141,7 +141,7 @@ function get_bg_dof_to_dof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace)
         bg_fdof_to_fdof[bg_dof] = dof
       else
         @check dof < 0
-        bg_ddof_to_ddof[-bg_dof] = -dof
+        bg_ddof_to_ddof[-bg_dof] = dof
       end
     end
   end
@@ -173,7 +173,7 @@ function get_dof_to_bg_dof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace)
         fdof_to_bg_fdof[dof] = bg_dof
       else
         @check bg_dof < 0
-        ddof_to_bg_ddof[-dof] = -bg_dof
+        ddof_to_bg_ddof[-dof] = bg_dof
       end
     end
   end
@@ -199,9 +199,11 @@ function get_dof_to_mdof(f::FESpaceWithLinearConstraints)
     for mDOF in mDOFs
       mdof = FESpaces._DOF_to_dof(mDOF,f.n_fmdofs)
       if dof > 0
+        @check mdof > 0
         fdof_to_mfdof[dof] = mdof
       else
-        ddof_to_mddof[-dof] = -mdof
+        @check mdof < 0
+        ddof_to_mddof[-dof] = mdof
       end
     end
   end
@@ -217,9 +219,11 @@ function get_mdof_to_dof(f::FESpaceWithLinearConstraints)
     mdof = FESpaces._DOF_to_dof(mDOF,f.n_fmdofs)
     dof = FESpaces._DOF_to_dof(DOF,f.n_fdofs)
     if mdof > 0
+      @check dof > 0
       mfdof_to_fdof[mdof] = dof
     else
-      mddof_to_ddof[-mdof] = -dof
+      @check dof < 0
+      mddof_to_ddof[-mdof] = dof
     end
   end
   return mfdof_to_fdof,mddof_to_ddof

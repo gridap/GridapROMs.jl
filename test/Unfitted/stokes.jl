@@ -84,9 +84,9 @@ function main(
   strategy = AggregateAllCutCells()
   aggregates = aggregate(strategy,cutgeo)
   testbg_u = FESpace(Ωbg,reffe_u,conformity=:H1,dirichlet_tags="dirichlet")
-  testbg_u = FESpace(Ωbg,reffe_p,conformity=:H1)
+  testbg_p = FESpace(Ωbg,reffe_p,conformity=:H1)
   testact_u = FESpace(Ωact,reffe_u,conformity=:H1,dirichlet_tags="dirichlet")
-  testact_p = FESpace(Ωact,reffe_u,conformity=:H1,dirichlet_tags="dirichlet")
+  testact_p = FESpace(Ωact,reffe_p,conformity=:H1)
   testagg_u = AgFEMSpace(testact_u,aggregates)
   testagg_p = AgFEMSpace(testact_p,aggregates)
 
@@ -136,13 +136,14 @@ end
 using Gridap
 using GridapEmbedded
 using GridapROMs
+using Gridap.MultiField
 
 tol_or_rank(tol,rank) = @assert false "Provide either a tolerance or a rank for the reduction step"
 tol_or_rank(tol::Real,rank) = tol
 tol_or_rank(tol::Real,rank::Int) = tol
 tol_or_rank(tol,rank::Int) = rank
 
-method=:ttsvd
+method=:pod
 n=20
 tol=1e-4
 rank=nothing
@@ -195,9 +196,6 @@ nΓ = get_normal_vector(Γ)
 g(μ) = x -> VectorValue(-(μ[2]*x[2]+μ[3])*x[2]*(1.0-x[2]),0.0)*(x[1]==0.0)
 gμ(μ) = ParamFunction(g,μ)
 
-f(μ) = x -> VectorValue(0.0,0.0)
-fμ(μ) = ParamFunction(f,μ)
-
 g_0(μ) = x -> VectorValue(0.0,0.0)
 gμ_0(μ) = ParamFunction(g_0,μ)
 
@@ -218,9 +216,9 @@ reffe_p = ReferenceFE(lagrangian,Float64,order-1)
 strategy = AggregateAllCutCells()
 aggregates = aggregate(strategy,cutgeo)
 testbg_u = FESpace(Ωbg,reffe_u,conformity=:H1,dirichlet_tags="dirichlet")
-testbg_u = FESpace(Ωbg,reffe_p,conformity=:H1)
+testbg_p = FESpace(Ωbg,reffe_p,conformity=:H1)
 testact_u = FESpace(Ωact,reffe_u,conformity=:H1,dirichlet_tags="dirichlet")
-testact_p = FESpace(Ωact,reffe_u,conformity=:H1,dirichlet_tags="dirichlet")
+testact_p = FESpace(Ωact,reffe_p,conformity=:H1)
 testagg_u = AgFEMSpace(testact_u,aggregates)
 testagg_p = AgFEMSpace(testact_p,aggregates)
 
@@ -244,7 +242,7 @@ else method == :ttsvd
   state_reduction = SupremizerReduction(ttcoupling,tolranks,ttenergy;nparams)
 end
 
-fesolver = LUSolver()
+fesolver = ExtensionSolver(LUSolver(),BlockExtension([HarmonicExtension(),ZeroExtension()]))
 rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac)
 
 # offline
@@ -259,3 +257,67 @@ x̂,rbstats = solve(rbsolver,rbop,μon)
 x,festats = solution_snapshots(rbsolver,feop,μon)
 perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
 println(perf)
+
+uu, = solve(fesolver.solver,feop.op,r)
+
+using DrWatson
+u,p = fesnaps
+r = get_realization(u)
+uh = FEFunction(trial(r)[1],get_param_data(u))
+ph = FEFunction(trial(r)[2],get_param_data(p))
+uh1 = param_getindex(uh,1)
+ph1 = param_getindex(ph,1)
+writevtk(Ωbg,datadir("plts/sol"),cellfields=["uh"=>uh1,"ph"=>ph1])
+writevtk(Ω,datadir("plts/solin"),cellfields=["uh"=>uh1,"ph"=>ph1])
+
+#
+
+test_u = testagg_u
+test_p = testagg_p
+trial_u = ParamTrialFESpace(test_u,gμ)
+trial_p = ParamTrialFESpace(test_p)
+test = MultiFieldParamFESpace([test_u,test_p];style=BlockMultiFieldStyle())
+trial = MultiFieldParamFESpace([trial_u,trial_p];style=BlockMultiFieldStyle())
+feop = LinearParamOperator(res,a,pspace,trial,test,domains)
+u,stats = solve(fesolver.solver,feop,r)
+
+#
+
+act_model = get_active_model(Ωact)
+V_cell_fe_std = FiniteElements(PhysicalDomain(),
+                               act_model,
+                               lagrangian,
+                               VectorValue{2,Float64},
+                               order)
+# V = FESpace(Ωbg,V_cell_fe_std,dirichlet_tags="dirichlet")
+Vstd = FESpace(Ωact,V_cell_fe_std,dirichlet_tags="dirichlet")
+
+V_cell_fe_ser = FiniteElements(PhysicalDomain(),
+                               act_model,
+                               lagrangian,
+                               VectorValue{2,Float64},
+                               order,
+                               space=:S,
+                               conformity=:L2)
+# RMK: we don't neet to impose continuity since
+# we only use the cell dof basis / shapefuns
+Vser = FESpace(Ωact,V_cell_fe_ser,dirichlet_tags="dirichlet")
+
+Q_cell_fe_std = FiniteElements(PhysicalDomain(),
+                               act_model,
+                               lagrangian,
+                                Float64,
+                               order-1)
+# Q = FESpace(Ωbg,Q_cell_fe_std)
+Qstd = FESpace(Ωact,Q_cell_fe_std)
+
+Vagg = AgFEMSpace(Vstd,aggregates,Vser)
+Qagg = AgFEMSpace(Qstd,aggregates)
+
+test_u = DirectSumFESpace(testbg_u,Vagg)
+test_p = DirectSumFESpace(testbg_p,Qagg)
+trial_u = ParamTrialFESpace(test_u,gμ)
+trial_p = ParamTrialFESpace(test_p)
+test = MultiFieldParamFESpace([test_u,test_p];style=BlockMultiFieldStyle())
+trial = MultiFieldParamFESpace([trial_u,trial_p];style=BlockMultiFieldStyle())
+feop = ExtensionLinearParamOperator(res,a,pspace,trial,test,domains)

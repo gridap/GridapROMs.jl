@@ -107,7 +107,7 @@ for F in (:get_act_space,:get_bg_space)
     end
 
     function $F(f::TrialParamFESpace)
-      TrialParamFESpace($F(f.space),f.dirichlet_values)
+      TrialParamFESpace(f.dirichlet_values,$F(f.space))
     end
   end
 end
@@ -429,7 +429,7 @@ function complementary_space(space::EmbeddedFESpace)
   bg_model = get_active_model(bg_trian)
   ctrian = Triangulation(bg_model,cface_to_mface)
 
-  T = get_dof_value_type(bg_space)
+  T = get_dof_eltype(bg_space)
   order = get_polynomial_order(bg_space)
   reffe = ReferenceFE(lagrangian,T,order)
   _cspace = FESpace(ctrian,reffe,conformity=:H1)
@@ -482,6 +482,7 @@ function get_dofs_at_cells(cell_dof_ids::Union{Table,OTable},cells)
     pend = cell_dof_ids.ptrs[cell+1]-1
     for p in pini:pend
       dof = cell_dof_ids.data[p]
+      @check dof > 0 "No Dirichlet dofs are allowed for the complementary FE space"
       touched[dof] = true
     end
   end

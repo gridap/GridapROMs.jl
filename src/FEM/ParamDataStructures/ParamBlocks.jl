@@ -1390,6 +1390,27 @@ function Arrays.evaluate!(cache,k::MulAddMap,a,b::ParamBlock,c::ParamBlock)
   d
 end
 
+function Fields._mymul!(cIJ::ParamBlock,aIK::ParamBlock,bKJ::ParamBlock,α)
+  @check param_length(cIJ)==param_length(aIK)==param_length(bKJ)
+  for i in param_eachindex(cIJ)
+    Fields._mymul!(param_getindex(cIJ,i),param_getindex(aIK,i),param_getindex(bKJ,i),α)
+  end
+end
+
+function Fields._mymul!(cIJ::ParamBlock,aIK::ParamBlock,bKJ::AbstractArray,α)
+  @check param_length(cIJ)==param_length(aIK)
+  for i in param_eachindex(cIJ)
+    Fields._mymul!(param_getindex(cIJ,i),param_getindex(aIK,i),bKJ,α)
+  end
+end
+
+function Fields._mymul!(cIJ::ParamBlock,aIK::AbstractArray,bKJ::ParamBlock,α)
+  @check param_length(cIJ)==param_length(bKJ)
+  for i in param_eachindex(cIJ)
+    Fields._mymul!(param_getindex(cIJ,i),aIK,param_getindex(bKJ,i),α)
+  end
+end
+
 # Autodiff related
 
 function Arrays.return_cache(k::Arrays.ConfigMap{typeof(ForwardDiff.gradient)},x::GenericParamBlock)

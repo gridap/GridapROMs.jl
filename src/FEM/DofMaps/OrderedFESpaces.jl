@@ -278,7 +278,7 @@ function get_bg_dof_to_dof(bg_f::OrderedFESpace,f::SingleFieldFESpace)
         bg_fdof_to_fdof[bg_dof] = dof
       else
         @check dof < 0
-        bg_ddof_to_ddof[-bg_dof] = -dof
+        bg_ddof_to_ddof[-bg_dof] = dof
       end
     end
   end
@@ -307,7 +307,7 @@ function get_dof_to_bg_dof(bg_f::OrderedFESpace,f::SingleFieldFESpace)
         fdof_to_bg_fdof[dof] = bg_dof
       else
         @check bg_dof < 0
-        ddof_to_bg_ddof[-dof] = -bg_dof
+        ddof_to_bg_ddof[-dof] = bg_dof
       end
     end
   end

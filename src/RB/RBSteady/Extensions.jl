@@ -28,7 +28,7 @@ end
 
 for T in (
   :(RBSpace{<:DirectSumFESpace}),
-  :(RBSpace{<:SingleFieldParamFESpace{<:DirectSumFESpace}})
+  :(RBSpace{<:AbstractTrialFESpace{<:DirectSumFESpace}})
   )
   @eval begin
     function reduced_cells(
@@ -69,4 +69,6 @@ function _get_rb_bg_space(r::RBSpace{<:SingleFieldParamFESpace{<:DirectSumFESpac
 end
 
 _get_dsum_fe_space(r::RBSpace{<:DirectSumFESpace}) = get_fe_space(r)
-_get_dsum_fe_space(r::RBSpace{<:AbstractTrialFESpace{<:DirectSumFESpace}}) = _get_dsum_fe_space(get_fe_space(r))
+function _get_dsum_fe_space(r::RBSpace{<:AbstractTrialFESpace{<:DirectSumFESpace}})
+  get_fe_space(get_fe_space(r))
+end

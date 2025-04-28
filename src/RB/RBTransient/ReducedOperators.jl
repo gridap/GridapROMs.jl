@@ -144,7 +144,7 @@ function _reduce_trial(trial::TrialParamFESpace,hr_ids::AbstractVector)
 end
 
 function _reduce_trial(trial::TrivialParamFESpace,hr_ids::AbstractVector)
-  trial′ = TrialParamFESpace(trial.space,length(hr_ids))
+  trial′ = TrivialParamFESpace(trial.space,length(hr_ids))
   return trial′
 end
 
