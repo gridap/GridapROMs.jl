@@ -1,6 +1,6 @@
 for T in (
   :(RBSpace{<:DirectSumFESpace}),
-  :(RBSpace{<:SingleFieldParamFESpace{<:DirectSumFESpace}})
+  :(RBSpace{<:AbstractTrialFESpace{<:DirectSumFESpace}})
   )
   @eval begin
     function reduced_spacetime_idofs(

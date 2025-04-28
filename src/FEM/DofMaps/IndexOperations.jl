@@ -165,3 +165,18 @@ function inverse_table(cell_dofs::Table)
 
   Table(data,ptrs)
 end
+
+function invperm_table(a::Table)
+  b = copy(a)
+  cache = array_cache(a)
+  for i in 1:length(a)
+    ai = getindex!(cache,a,i)
+    bi = invperm(ai)
+    pini = a.ptrs[i]
+    pend = a.ptrs[i+1]-1
+    for (ip,p) in enumerate(pini:pend)
+      b.data[p] = bi[ip]
+    end
+  end
+  return b
+end

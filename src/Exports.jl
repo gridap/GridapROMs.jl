@@ -73,8 +73,10 @@ end
 @publish Extensions ZeroExtension
 @publish Extensions FunctionExtension
 @publish Extensions HarmonicExtension
+@publish Extensions BlockExtension
 @publish Extensions ExtensionSolver
 @publish Extensions extend_solution
+using GridapROMs.Extensions: ⊕; export ⊕
 
 @publish RBSteady Reduction
 @publish RBSteady PODReduction

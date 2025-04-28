@@ -27,6 +27,7 @@ using GridapROMs.ParamAlgebra
 using GridapROMs.ParamFESpaces
 using GridapROMs.ParamSteady
 using GridapROMs.ParamODEs
+using GridapROMs.Extensions
 
 using GridapROMs.RBSteady
 
@@ -34,7 +35,6 @@ import Base: +,-,*,\
 import StatsBase: countmap
 import UnPack: @unpack
 import GridapROMs.RBSteady: reduced_cells,_get_label
-import GridapROMs.Extensions: DirectSumFESpace
 
 export TransientReduction
 export TransientKroneckerReduction

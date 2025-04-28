@@ -80,7 +80,7 @@ for f in (:get_space,:get_out_space)
     end
 
     function $f(f::TrialParamFESpace)
-      TrialParamFESpace($f(f.space),f.dirichlet_values)
+      TrialParamFESpace(f.dirichlet_values,$f(f.space))
     end
   end
 end

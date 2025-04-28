@@ -84,9 +84,9 @@ function main(
   strategy = AggregateAllCutCells()
   aggregates = aggregate(strategy,cutgeo)
   testbg_u = FESpace(Ωbg,reffe_u,conformity=:H1,dirichlet_tags="dirichlet")
-  testbg_u = FESpace(Ωbg,reffe_p,conformity=:H1)
+  testbg_p = FESpace(Ωbg,reffe_p,conformity=:H1)
   testact_u = FESpace(Ωact,reffe_u,conformity=:H1,dirichlet_tags="dirichlet")
-  testact_p = FESpace(Ωact,reffe_u,conformity=:H1,dirichlet_tags="dirichlet")
+  testact_p = FESpace(Ωact,reffe_p,conformity=:H1)
   testagg_u = AgFEMSpace(testact_u,aggregates)
   testagg_p = AgFEMSpace(testact_p,aggregates)
 

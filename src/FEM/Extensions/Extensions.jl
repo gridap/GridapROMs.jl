@@ -48,9 +48,11 @@ export TransientExtensionLinearParamOperator
 export TransientExtensionLinearNonlinearParamOperator
 include("ExtensionParamOperators.jl")
 
+export ExtensionStyle
 export ZeroExtension
 export FunctionExtension
 export HarmonicExtension
+export BlockExtension
 export ExtensionSolver
 export extend_solution
 include("ExtensionSolvers.jl")
