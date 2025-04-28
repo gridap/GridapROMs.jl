@@ -33,3 +33,17 @@ function RBSteady.galerkin_projection(
 
   combine(proj_basis,proj_basis′)
 end
+
+function RBSteady.galerkin_projection(
+  core_left::AbstractArray{T,3},
+  basis::AbstractMatrix,
+  core_right::AbstractArray{S,3},
+  combine::Function
+  ) where {T,S}
+
+  s1,s2,s3 = size(core_left)
+  s4,s5,s6 = size(core_right)
+  @check s2 == s5
+  core = reshape(basis,:,s2,size(basis,2))
+  contraction(core_left,core,core_right,combine)
+end

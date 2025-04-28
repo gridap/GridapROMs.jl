@@ -1,4 +1,4 @@
-module PoissonEquation
+module MappedModel
 
 using Gridap
 using GridapROMs
@@ -70,60 +70,19 @@ function main(
   fesolver = LUSolver()
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac)
 
-  pspace_uniform = ParamSpace(pdomain;sampling=:uniform)
-  feop_uniform = LinearParamOperator(res,stiffness,pspace_uniform,trial,test,domains)
-  μon = realization(feop_uniform;nparams=10)
-  x,festats = solution_snapshots(rbsolver,feop_uniform,μon)
+  pspace = ParamSpace(pdomain;sampling)
+  feop = LinearParamOperator(res,stiffness,pspace,trial,test,domains)
 
-  for sampling in (:uniform,:halton,:latin_hypercube,:tensorial_uniform)
-    println("Running $method test with sampling strategy $sampling")
-    pspace = ParamSpace(pdomain;sampling)
-    feop = LinearParamOperator(res,stiffness,pspace,trial,test,domains)
+  fesnaps, = solution_snapshots(rbsolver,feop)
+  rbop = reduced_operator(rbsolver,feop,fesnaps)
+  x̂,rbstats = solve(rbsolver,rbop,μon)
+  perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
 
-    fesnaps, = solution_snapshots(rbsolver,feop)
-    rbop = reduced_operator(rbsolver,feop,fesnaps)
-    x̂,rbstats = solve(rbsolver,rbop,μon)
-    perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
-
-    println(perf)
-  end
+  println(perf)
 
 end
 
 main(:pod)
 main(:ttsvd)
 
-end
-
-using Gridap
-using GridapROMs
-using DrWatson
-
-using GridapROMs.RBSteady
-
-dir = datadir("paper_results")
-
-for test in ("2d_poisson","3d_poisson")
-  M = test == "2d_poisson" ? (250,350,460) : (40,50,60)
-  for method in ("pod",)#,"ttsvd"
-    for m in M
-      dirm = joinpath(dir,test*"_$(m)_"*method)
-      stats = RBSteady.load_stats(dirm)
-      println(stats)
-    end
-  end
-end
-
-for test in ("2d_poisson","3d_poisson")
-  M = test == "2d_poisson" ? (250,350,460) : (40,50,60)
-  for method in ("ttsvd",)#,"ttsvd"
-    for m in M
-      for tol in (1e-2,1e-3,1e-4)
-        dirm = joinpath(joinpath(dir,test*"_$(m)_"*method),"$tol")
-        basis = RBSteady.load_projection(dirm;label="test")
-        n = num_reduced_dofs(basis)
-        println("ndofs at path = $dirm are: $n")
-      end
-    end
-  end
 end

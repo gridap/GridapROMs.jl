@@ -114,6 +114,17 @@ ODEs.allocate_space(U::FESpace,r) = U
 Arrays.evaluate!(Upt::FESpace,U::FESpace,r::AbstractRealization) = U
 Arrays.evaluate(U::FESpace,r) = U
 
+# Useful for dispatching
+
+const AbstractTrialFESpace{S} = Union{
+  SingleFieldParamFESpace{S},
+  UnEvalTrialFESpace{S},
+  TransientTrialFESpace{S},
+  TrialFESpace{S}
+  }
+
+FESpaces.get_fe_space(f::AbstractTrialFESpace) = f.space
+
 # Define the interface for MultiField
 
 function has_param(U::MultiFieldFESpace)

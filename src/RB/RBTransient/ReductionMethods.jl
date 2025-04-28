@@ -95,19 +95,10 @@ function TransientReduction(red::TransientReduction,args...;kwargs...)
   red
 end
 
-# function TransientKroneckerReduction(r::TransientLinearReduction)
-#   kron_style = first(ReductionStyle(r))
-#   norm_style = NormStyle(r)
-#   nparams = num_params(r)
-#   PODReduction(kron_style,norm_style,nparams)
-# end
-
-# function TransientLinearReduction(r::TransientKroneckerReduction,D=3)
-#   lin_style = repeat(ReductionStyle(r),D)
-#   norm_style = NormStyle(r)
-#   nparams = num_params(r)
-#   TTSVDReduction(lin_style,norm_style,nparams)
-# end
+function TransientKroneckerReduction(r::TransientLinearReduction)
+  reduction = PODReduction(r.reduction)
+  TransientKroneckerReduction(reduction,reduction)
+end
 
 abstract type TransientHyperReduction{A} <: HyperReduction{A} end
 

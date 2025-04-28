@@ -207,13 +207,18 @@ function RBSteady.projection(red::TransientLinearReduction,s::TransientSparseSna
 end
 
 function RBSteady.projection(red::TransientLinearReduction,s::TransientSparseSnapshots,dof_map::TrivialSparseMatrixDofMap)
-  projection(KroneckerProjection(red),s)
+  core_space,core_time = reduction(get_reduction(red),s)
+  basis_space,basis_time = cores2basis(core_space),cores2basis(core_time)
+  basis_space′ = recast(basis_space,s)
+  KroneckerProjection(PODProjection(basis_space′),PODProjection(basis_time))
 end
 
 #TODO when new projection operators are implemented, this will have to change
 RBSteady.get_cores(a::LinearProjection) = get_cores(a.projection)
 get_cores_space(a::LinearProjection) = get_cores(a)[1:end-1]
 get_core_time(a::LinearProjection) = get_cores(a)[end]
+get_basis_space(a::LinearProjection) = cores2basis(get_cores_space(a)...)
+get_basis_time(a::LinearProjection) = @notimplemented
 
 ParamDataStructures.num_space_dofs(a::LinearProjection) = prod(map(c -> size(c,2),get_cores_space(a)))
 ParamDataStructures.num_times(a::LinearProjection) = size(get_core_time(a),2)
@@ -268,7 +273,21 @@ function RBSteady.galerkin_projection(
   proj_right::LinearProjection,
   combine)
 
-  @notimplemented "Write this function!"
+  p_space = galerkin_projection(
+    get_basis_space(proj_left),
+    get_basis_space(a),
+    get_basis_space(proj_right))
+
+  p_time = galerkin_projection(
+    get_core_time(proj_left),
+    get_basis_time(a),
+    get_core_time(proj_right),
+    combine)
+
+  p = sequential_product(reshape(p_space,1,1,1,size(p_space)...),p_time)
+  proj_cores = dropdims(p;dims=(1,2,3))
+
+  return ReducedProjection(proj_cores)
 end
 
 function RBSteady.project!(x̂::AbstractVector{<:Number},a::LinearProjection,x::AbstractVector{<:Number})

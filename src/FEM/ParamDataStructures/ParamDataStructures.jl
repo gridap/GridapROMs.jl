@@ -131,6 +131,7 @@ include("Snapshots.jl")
 export TransientSnapshots
 export TransientGenericSnapshots
 export TransientSnapshotsWithIC
+export TransientSparseSnapshots
 export UnfoldingTransientSnapshots
 export ModeTransientSnapshots
 export get_initial_data

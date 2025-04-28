@@ -108,12 +108,8 @@ function _same_background_space(space::SingleFieldFESpace,complementary::SingleF
   get_bg_space(space)==get_bg_space(complementary)
 end
 
-for T in (:SingleFieldParamFESpace,:UnEvalTrialFESpace,:TransientTrialFESpace,:TrialFESpace)
-  @eval begin
-    function _same_background_space(space::$T,complementary::$T)
-      _same_background_space(space.space,complementary.space)
-    end
-  end
+function _same_background_space(space::AbstractTrialFESpace,complementary::AbstractTrialFESpace)
+  _same_background_space(get_fe_space(space),get_fe_space(complementary))
 end
 
 FESpaces.get_dirichlet_dof_values(uh::SingleFieldFEFunction) = uh.dirichlet_values

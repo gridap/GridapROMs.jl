@@ -94,13 +94,9 @@ get_active_fdof_to_bg_fdof(f::EmbeddedFESpace) = f.fdof_to_bg_fdofs
 get_active_ddof_to_bg_ddof(f::EmbeddedFESpace) = f.ddof_to_bg_ddofs
 
 for F in (:get_emb_space,:get_act_space,:get_bg_space,:(DofMaps.get_fdof_to_bg_fdof),
-          :(DofMaps.get_ddof_to_bg_ddof),:get_active_fdof_to_bg_fdof,:get_active_ddof_to_bg_ddof)
-  for T in (:SingleFieldParamFESpace,:UnEvalTrialFESpace,:TransientTrialFESpace,:TrialFESpace)
-    if !(F∈(:get_act_space,:get_bg_space) && T==:SingleFieldParamFESpace)
-      @eval begin
-        $F(f::$T) = $F(f.space)
-      end
-    end
+  :(DofMaps.get_ddof_to_bg_ddof),:get_active_fdof_to_bg_fdof,:get_active_ddof_to_bg_ddof)
+  @eval begin
+    $F(f::AbstractTrialFESpace) = $F(get_fe_space(f))
   end
 end
 

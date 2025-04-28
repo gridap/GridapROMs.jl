@@ -35,6 +35,7 @@ import GridapROMs.Utils: CostTracker,change_domains,set_domains
 
 export UnEvalTrialFESpace
 export ParamTrialFESpace
+export AbstractTrialFESpace
 include("ParamTrialFESpaces.jl")
 
 export UnEvalOperatorType

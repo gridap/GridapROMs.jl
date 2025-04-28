@@ -6,6 +6,14 @@ function FESpaces.zero_free_values(r::RBSpace{<:SingleFieldParamFESpace{<:Direct
   zero_free_values(_get_rb_bg_space(r))
 end
 
+function Extensions.get_bg_cell_dof_ids(r::RBSpace{<:DirectSumFESpace},args...)
+  get_bg_cell_dof_ids(get_fe_space(r),args...)
+end
+
+function Extensions.get_bg_cell_dof_ids(r::RBSpace{<:AbstractTrialFESpace{<:DirectSumFESpace}},args...)
+  get_bg_cell_dof_ids(_get_dsum_fe_space(r),args...)
+end
+
 function to_snapshots(
   r::RBSpace{<:UnEvalTrialFESpace{<:DirectSumFESpace}},
   x̂::AbstractParamVector,
@@ -18,79 +26,31 @@ function to_snapshots(
   Snapshots(x,i,μ)
 end
 
-function reduced_cells(
-  f::DirectSumFESpace,
-  trian::Triangulation,
-  dofs::AbstractVector
+for T in (
+  :(RBSpace{<:DirectSumFESpace}),
+  :(RBSpace{<:SingleFieldParamFESpace{<:DirectSumFESpace}})
   )
-
-  cell_dof_ids = get_bg_cell_dof_ids(f,trian)
-  cells = get_dofs_to_cells(cell_dof_ids,dofs)
-  return cells
-end
-
-function reduced_cells(
-  r::RBSpace{<:DirectSumFESpace},
-  trian::Triangulation,
-  dofs::AbstractVector)
-
-  reduced_cells(get_fe_space(r),trian,dofs)
-end
-
-function reduced_idofs(
-  f::DirectSumFESpace,
-  trian::Triangulation,
-  cells::AbstractVector,
-  dofs::AbstractVector)
-
-  cell_dof_ids = get_bg_cell_dof_ids(f,trian)
-  idofs = get_cells_to_idofs(cell_dof_ids,cells,dofs)
-  return idofs
-end
-
-function reduced_idofs(
-  r::RBSpace{<:DirectSumFESpace},
-  trian::Triangulation,
-  cells::AbstractVector,
-  dofs::AbstractVector)
-
-  reduced_idofs(get_fe_space(r),trian,cells,dofs)
-end
-
-for T in (:SingleFieldParamFESpace,:UnEvalTrialFESpace,:TransientTrialFESpace,:TrialFESpace)
   @eval begin
     function reduced_cells(
-      f::$T{<:DirectSumFESpace},
+      f::$T,
       trian::Triangulation,
-      dofs::AbstractVector)
+      dofs::AbstractVector
+      )
 
-      reduced_cells(f.space,trian,dofs)
-    end
-
-    function reduced_cells(
-      r::RBSpace{<:$T{<:DirectSumFESpace}},
-      trian::Triangulation,
-      dofs::AbstractVector)
-
-      reduced_cells(get_fe_space(r),trian,dofs)
+      cell_dof_ids = get_bg_cell_dof_ids(f,trian)
+      cells = get_dofs_to_cells(cell_dof_ids,dofs)
+      return cells
     end
 
     function reduced_idofs(
-      f::$T{<:DirectSumFESpace},
+      f::$T,
       trian::Triangulation,
       cells::AbstractVector,
       dofs::AbstractVector)
 
-      reduced_idofs(f.space,trian,cells,dofs)
-    end
-
-    function reduced_idofs(
-      r::RBSpace{<:$T{<:DirectSumFESpace}},
-      trian::Triangulation,
-      cells::AbstractVector,
-      dofs::AbstractVector)
-
-      reduced_idofs(get_fe_space(r),trian,cells,dofs)
+      cell_dof_ids = get_bg_cell_dof_ids(f,trian)
+      idofs = get_cells_to_idofs(cell_dof_ids,cells,dofs)
+      return idofs
     end
   end
 end
@@ -107,3 +67,6 @@ function _get_rb_bg_space(r::RBSpace{<:SingleFieldParamFESpace{<:DirectSumFESpac
   fbgμ = Extensions.get_bg_space(fμ)
   reduced_subspace(fbgμ,get_reduced_subspace(r))
 end
+
+_get_dsum_fe_space(r::RBSpace{<:DirectSumFESpace}) = get_fe_space(r)
+_get_dsum_fe_space(r::RBSpace{<:AbstractTrialFESpace{<:DirectSumFESpace}}) = _get_dsum_fe_space(get_fe_space(r))
