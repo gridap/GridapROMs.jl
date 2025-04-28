@@ -19,7 +19,7 @@ pkg> add GridapROMs
 
 ## Examples
 
-Before running the following examples, it is necessary to import from file some geometries which can be found [here](https://gridap.github.io/GridapROMs.jl/docs/assets). The file name is `models.zip`. The geometries must be unzipped and moved to a directory where the numerical experiments are ran. This directory should be placed inside the `data` directory of the `Julia` project which is being used to run these experiments. To find this directory, first add the package `DrWatson` with 
+Before running the following examples, it is necessary to import from file some geometries which can be found [here](https://github.com/gridap/GridapROMs.jl/tree/main/docs/src/assets). The file name is `models.zip`. The geometries must be unzipped and moved to a directory where the numerical experiments are ran. This directory should be placed inside the `data` directory of the `Julia` project which is being used to run these experiments. To find this directory, first add the package `DrWatson` with 
 
 ```julia
 # Type ] to enter package mode
