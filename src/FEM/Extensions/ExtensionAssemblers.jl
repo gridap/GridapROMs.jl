@@ -57,10 +57,18 @@ function get_assem(a::BlockExtensionAssembler{NB,NV,SB,P}) where {NB,NV,SB,P}
   BlockSparseMatrixAssembler{NB,NV,SB,P}(block_assem)
 end
 
-for f in (:get_rows_to_bg_rows,:get_cols_to_bg_cols,:get_drows_to_bg_drows,:get_dcols_to_bg_dcols)
+for f in (:get_rows_to_bg_rows,:get_drows_to_bg_drows)
   @eval begin
     function $f(a::BlockExtensionAssembler{NB}) where NB
-      ArrayBlock(map(i -> $f(a.block_assemblers[i]),1:NB),fill(true,NB))
+      ArrayBlock(map(i -> $f(a.block_assemblers[i,1]),1:NB),fill(true,NB))
+    end
+  end
+end
+
+for f in (:get_cols_to_bg_cols,:get_dcols_to_bg_dcols)
+  @eval begin
+    function $f(a::BlockExtensionAssembler{NB}) where NB
+      ArrayBlock(map(i -> $f(a.block_assemblers[1,i]),1:NB),fill(true,NB))
     end
   end
 end

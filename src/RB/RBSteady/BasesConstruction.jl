@@ -358,9 +358,9 @@ function orthogonalize!(cores::AbstractVector,X::AbstractRankTensor{D}) where D
   for d in eachindex(cores)
     cur_core = cores[d]
     if d < D
-      X_d = getindex.(decomp,d)
-      weight = weight_array(weight,cur_core,X_d)
       cur_core′,remainder = reduce_rank(red_style,cur_core)
+      X_d = getindex.(decomp,d)
+      weight = weight_array(weight,cur_core′,X_d)
     elseif d == D
       XW = ttnorm_array(X,weight)
       cur_core′,remainder = reduce_rank(red_style,cur_core,XW)
