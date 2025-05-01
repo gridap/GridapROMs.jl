@@ -354,17 +354,23 @@ function orthogonalize!(cores::AbstractVector,X::AbstractRankTensor{D}) where D
   red_style = LRApproxRank(1e-10)
   weight = ones(1,rank(X),1)
   decomp = get_decomposition(X)
-  for d in 1:D
-    core = cores[d]
-    if d == D
-      XW = ttnorm_array(X,weight)
-      mat = reshape(core,:,size(core,3))
-      Ur,Sr,Vr = tpod(red_style,mat,XW)
-      core′ = reshape(Ur,size(core,1),size(core,2),:)
-      cores[d] = core′
-    else
+  local remainder
+  for d in eachindex(cores)
+    cur_core = cores[d]
+    if d < D
       X_d = getindex.(decomp,d)
-      weight = weight_array(weight,core,X_d)
+      weight = weight_array(weight,cur_core,X_d)
+      cur_core′,remainder = reduce_rank(red_style,cur_core)
+    elseif d == D
+      XW = ttnorm_array(X,weight)
+      cur_core′,remainder = reduce_rank(red_style,cur_core,XW)
+    else d > D
+      cur_core′,remainder = reduce_rank(red_style,cur_core)
+    end
+    cores[d] = cur_core′
+    if d < length(cores)
+      next_core = cores[d+1]
+      cores[d+1] = absorb(next_core,remainder)
     end
   end
   return

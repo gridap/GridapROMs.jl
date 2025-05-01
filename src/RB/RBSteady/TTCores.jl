@@ -173,8 +173,8 @@ end
 function block_cores(a::AbstractVector{<:AbstractVector{<:AbstractArray{T,3}}}) where T
   D = length(first(a))
   @check all(length(ai)==D for ai in a)
-  abfirst = first_block(getindex.(a,1))
-  ablasts = map(d -> block_core(getindex.(a,d)),2:D)
+  abfirst = first_block(map(x -> getindex(x,1),a))
+  ablasts = map(d -> block_core(map(x -> getindex(x,d),a)),2:D)
   return [abfirst,ablasts...]
 end
 

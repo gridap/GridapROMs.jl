@@ -21,7 +21,7 @@ using GridapEmbedded.Interfaces
 using GridapROMs.Utils
 
 import FillArrays: Fill
-import Gridap.MultiField: MultiFieldFEFunction,restrict_to_field
+import Gridap.MultiField: MultiFieldFEFunction,restrict_to_field,_sum_if_first_positive
 import PartitionedArrays: tuple_of_arrays
 import SparseArrays: AbstractSparseMatrix
 import SparseMatricesCSR: SparseMatrixCSR

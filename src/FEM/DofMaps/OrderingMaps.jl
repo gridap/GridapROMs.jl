@@ -87,6 +87,23 @@ function Arrays.evaluate!(cache,k::DofsToODofs{D},cell::CartesianIndex{D}) where
   return cache
 end
 
+function Arrays.return_value(k::Broadcasting{typeof(_sum_if_first_positive)},dofs::OIdsToIds,o::Integer)
+  evaluate(k,dofs,o)
+end
+
+function Arrays.return_cache(k::Broadcasting{typeof(_sum_if_first_positive)},dofs::OIdsToIds,o::Integer)
+  c = return_cache(k,dofs.indices,o)
+  odofs = OIdsToIds(evaluate(k,dofs.indices,o),dofs.terms)
+  c,odofs
+end
+
+function Arrays.evaluate!(cache,k::Broadcasting{typeof(_sum_if_first_positive)},dofs::OIdsToIds,o::Integer)
+  c,odofs = cache
+  r = evaluate!(c,k,dofs.indices,o)
+  copyto!(odofs.indices,r)
+  odofs
+end
+
 """
     struct OReindex <: Map end
 """
