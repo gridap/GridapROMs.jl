@@ -173,7 +173,7 @@ end
 function FESpaces.FEFunction(r::RBSpace,x̂::AbstractVector)
   x = inv_project(r,x̂)
   fe = get_fe_space(r)
-  xdir = get_dirichlet_values(fe)
+  xdir = get_dirichlet_dof_values(fe)
   return FEFunction(fe,x,xdir)
 end
 
@@ -236,6 +236,11 @@ end
 MultiField.MultiFieldStyle(r::MultiFieldRBSpace) = MultiFieldStyle(get_fe_space(r))
 MultiField.num_fields(r::MultiFieldRBSpace) = num_fields(get_fe_space(r))
 Base.length(r::MultiFieldRBSpace) = num_fields(r)
+
+function FESpaces.zero_free_values(r::MultiFieldRBSpace)
+  x̂ = mortar(map(zero_free_values,r))
+  unfold(x̂)
+end
 
 # utils
 

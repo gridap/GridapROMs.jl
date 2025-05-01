@@ -8,7 +8,7 @@ function RBSteady.collect_cell_hr_matrix(
 
   cell_irows = get_cellids_rows(hr)
   cell_icols = get_cellids_cols(hr)
-  icells = get_owned_icells(hr)
+  icells = get_owned_icells(hr,strian)
   locations = get_param_itimes(hr,common_indices)
 
   scell_mat = get_contribution(a,strian)
@@ -27,7 +27,7 @@ function RBSteady.collect_cell_hr_vector(
   common_indices::AbstractVector)
 
   cell_irows = get_cellids_rows(hr)
-  icells = get_owned_icells(hr)
+  icells = get_owned_icells(hr,strian)
   locations = get_param_itimes(hr,common_indices)
 
   scell_vec = get_contribution(a,strian)

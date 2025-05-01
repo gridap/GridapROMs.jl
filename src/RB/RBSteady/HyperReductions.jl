@@ -48,11 +48,11 @@ returns `i`
 """
 get_integration_domain(a::HRProjection) = @abstractmethod
 
-get_integration_cells(a::HRProjection) = get_integration_cells(get_integration_domain(a))
+get_integration_cells(a::HRProjection,args...) = get_integration_cells(get_integration_domain(a),args...)
 get_cellids_rows(a::HRProjection) = get_cellids_rows(get_integration_domain(a))
 get_cellids_cols(a::HRProjection) = get_cellids_cols(get_integration_domain(a))
-get_owned_icells(a::HRProjection) = get_owned_icells(a,get_integration_cells(a))
-get_owned_icells(a::HRProjection,cells) = get_owned_icells(get_integration_domain(a),cells)
+get_owned_icells(a::HRProjection,args...) = get_owned_icells(a,get_integration_cells(a,args...))
+get_owned_icells(a::HRProjection,cells::AbstractVector) = get_owned_icells(get_integration_domain(a),cells)
 
 num_reduced_dofs(a::HRProjection) = num_reduced_dofs(get_basis(a))
 num_reduced_dofs_left_projector(a::HRProjection) = num_reduced_dofs_left_projector(get_basis(a))
@@ -404,27 +404,32 @@ for f in (:get_cellids_rows,:get_cellids_cols)
   end
 end
 
-function Arrays.return_cache(::typeof(get_integration_cells),a::BlockHRProjection)
+function Arrays.return_cache(::typeof(get_integration_cells),a::BlockHRProjection,args...)
   ntouched = length(findall(a.touched))
-  cache = get_integration_cells(testitem(a))
+  cache = get_integration_cells(testitem(a),args...)
   block_cache = Vector{typeof(cache)}(undef,ntouched)
   return block_cache
 end
 
-function get_integration_cells(a::BlockHRProjection)
-  cache = return_cache(get_integration_cells,a)
+function get_integration_cells(a::BlockHRProjection,args...)
+  _union(a) = a
+  _union(a,b) = union(a,b)
+  _union(a::AppendedArray,b::AppendedArray) = lazy_append(union(a.a,b.a),union(a.b,b.b))
+  _union(a,b,c...) = _union(_union(a,b),c...)
+
+  cache = return_cache(get_integration_cells,a,args...)
   count = 0
   for i in eachindex(a)
     if a.touched[i]
       count += 1
-      cache[count] = get_integration_cells(a[i])
+      cache[count] = get_integration_cells(a[i],args...)
     end
   end
-  return union(cache...)
+  return _union(cache...)
 end
 
-function get_owned_icells(a::BlockHRProjection)
-  cells = get_integration_cells(a)
+function get_owned_icells(a::BlockHRProjection,args...)
+  cells = get_integration_cells(a,args...)
   get_owned_icells(a,cells)
 end
 

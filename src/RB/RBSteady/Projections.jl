@@ -399,22 +399,11 @@ function union_bases(
   args...
   )
 
-  red_style = TTSVDReduction(fill(1e-4,length(cores_a)))
-  union_bases(a,cores_b,red_style,args...)
-end
-
-function union_bases(
-  a::TTSVDProjection,
-  cores_b::AbstractVector{<:AbstractArray},
-  red_style::ReductionStyle,
-  args...
-  )
-
   cores_a = get_cores(a)
   @check length(cores_a) == length(cores_b)
 
   cores_ab = block_cores([cores_a,cores_b])
-  orthogonalize!(red_style,cores_ab,args...)
+  orthogonalize!(cores_ab,args...)
   TTSVDProjection(cores_ab,get_dof_map(a))
 end
 
@@ -725,7 +714,6 @@ function enrich!(
   supr_matrix::BlockMatrix)
 
   @check a.touched[1] "Primal field not defined"
-  red_style = ReductionStyle(red)
   a_primal,a_dual... = a.array
   X_primal = norm_matrix[Block(1,1)]
   H_primal = cholesky(X_primal)
@@ -733,7 +721,7 @@ function enrich!(
     dual_i = get_basis(a_dual[i])
     C_primal_dual_i = supr_matrix[Block(1,i+1)]
     supr_i = H_primal \ C_primal_dual_i * dual_i
-    a_primal = union_bases(a_primal,supr_i,X_primal,red_style)
+    a_primal = union_bases(a_primal,supr_i,X_primal)
   end
   a[1] = a_primal
   return
@@ -747,7 +735,6 @@ function enrich!(
   ) where A
 
   @check a.touched[1] "Primal field not defined"
-  red_style = ReductionStyle(red)
   a_primal,a_dual... = a.array
   primal_map = get_dof_map(a_primal)
   X_primal = norm_matrix[Block(1,1)]
@@ -755,7 +742,7 @@ function enrich!(
     dual_i = get_cores(a_dual[i])
     C_primal_dual_i = supr_matrix[Block(1,i+1)]
     supr_i = tt_supremizer(X_primal,C_primal_dual_i,dual_i)
-    a_primal = union_bases(a_primal,supr_i,red_style,X_primal)
+    a_primal = union_bases(a_primal,supr_i,X_primal)
   end
   a[1] = a_primal
   return

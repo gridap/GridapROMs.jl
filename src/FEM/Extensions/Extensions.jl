@@ -28,6 +28,7 @@ using GridapROMs.ParamSteady
 using GridapROMs.ParamODEs
 
 import Gridap.FESpaces: LinearConstraintsMap
+import Gridap.MultiField: BlockSparseMatrixAssembler
 
 export EmbeddedFESpace
 export get_bg_cell_dof_ids

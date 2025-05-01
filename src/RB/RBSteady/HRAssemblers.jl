@@ -7,7 +7,7 @@ function collect_cell_hr_matrix(
 
   cell_irows = get_cellids_rows(hr)
   cell_icols = get_cellids_cols(hr)
-  icells = get_owned_icells(hr)
+  icells = get_owned_icells(hr,strian)
   scell_mat = get_contribution(a,strian)
   cell_mat,trian = move_contributions(scell_mat,strian)
   @assert ndims(eltype(cell_mat)) == 2
@@ -23,7 +23,7 @@ function collect_cell_hr_vector(
   hr::Projection)
 
   cell_irows = get_cellids_rows(hr)
-  icells = get_owned_icells(hr)
+  icells = get_owned_icells(hr,strian)
   scell_vec = get_contribution(a,strian)
   cell_vec,trian = move_contributions(scell_vec,strian)
   @assert ndims(eltype(cell_vec)) == 1

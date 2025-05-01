@@ -12,10 +12,6 @@ struct RBVector{T,A<:AbstractVector{T},B} <: AbstractVector{T}
   fe_data::B
 end
 
-function RBVector(data::ParamVector,fe_data::ParamVector)
-  RBParamVector(data,fe_data)
-end
-
 Base.size(a::RBVector) = size(a.data)
 Base.getindex(a::RBVector,i::Integer) = getindex(a.data,i)
 Base.setindex!(a::RBVector,v,i::Integer) = setindex!(a.data,v,i)
@@ -34,10 +30,6 @@ struct RBParamVector{T,A<:ParamVector{T},B} <: ParamArray{T,1}
   fe_data::B
 end
 
-function RBVector(data::AbstractVector,fe_data::AbstractVector)
-  RBVector(data,fe_data)
-end
-
 Base.size(a::RBParamVector) = size(a.data)
 Base.getindex(a::RBParamVector,i::Integer) = getindex(a.data,i)
 Base.setindex!(a::RBParamVector,v,i::Integer) = setindex!(a.data,v,i)
@@ -53,13 +45,13 @@ for T in (:RBParamVector,:RBVector)
       RBParamVector(data′,fe_data′)
     end
 
-    function Base.similar(A::$T{R},::Type{S}) where {R,S<:AbstractVector}
+    function Base.similar(a::$T{R},::Type{S}) where {R,S<:AbstractVector}
       data′ = similar(a.data,S)
       fe_data′ = copy(a.fe_data)
       $T(data′,fe_data′)
     end
 
-    function Base.similar(A::$T{R},::Type{S},dims::Dims{1}) where {R,S<:AbstractVector}
+    function Base.similar(a::$T{R},::Type{S},dims::Dims{1}) where {R,S<:AbstractVector}
       data′ = similar(a.data,S,dims)
       fe_data′ = similar(a.fe_data,S,dims)
       $T(data′,fe_data′)
@@ -138,4 +130,13 @@ for T in (
       gather_free_and_dirichlet_values!(fv.fe_data,dv,f,cv)
     end
   end
+end
+
+function unfold(a::BlockParamVector{T,<:AbstractVector{<:RBParamVector{T}}}) where T
+  _data(a::RBParamVector) = a.data
+  _fe_data(a::RBParamVector) = a.fe_data
+  ax = axes(a)
+  data = BlockParamArray(map(_data,blocks(a)),ax)
+  fe_data = BlockParamArray(map(_fe_data,blocks(a)),ax)
+  RBParamVector(data,fe_data)
 end

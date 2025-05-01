@@ -131,7 +131,7 @@ function FESpaces.assemble_matrix(op::ParamFEOperator,form::Function)
   _assemble_matrix(form,test)
 end
 
-function _assemble_matrix(f,V::FESpace)
+function _assemble_matrix(f,V::SingleFieldFESpace)
   assemble_matrix(f,V,V)
 end
 
@@ -143,14 +143,20 @@ function _assemble_matrix(f,V::TProductFESpace)
 end
 
 function _assemble_matrix(f,V::MultiFieldFESpace)
-  if all(isa.(V.spaces,TProductFESpace))
-    a = TProductBlockSparseMatrixAssembler(V,V)
-    v = get_tp_fe_basis(V)
-    u = get_tp_trial_fe_basis(V)
-    assemble_matrix(a,collect_cell_matrix(V,V,f(u,v)))
-  else
-    assemble_matrix(f,V,V)
-  end
+  _assemble_matrix(f,V.spaces)
+end
+
+function _assemble_matrix(f,spaces::Vector{<:SingleFieldFESpace})
+  V = MultiFieldFESpace(spaces,style=BlockMultiFieldStyle())
+  assemble_matrix(f,V,V)
+end
+
+function _assemble_matrix(f,spaces::Vector{<:TProductFESpace})
+  V = MultiFieldFESpace(spaces,style=BlockMultiFieldStyle())
+  a = TProductBlockSparseMatrixAssembler(V,V)
+  v = get_tp_fe_basis(V)
+  u = get_tp_trial_fe_basis(V)
+  assemble_matrix(a,collect_cell_matrix(V,V,f(u,v)))
 end
 
 """

@@ -134,9 +134,9 @@ function compose_index(i1_to_i2,i2_to_i3)
   n_i1 = length(i1_to_i2)
   i1_to_i3 = zeros(T_i3,n_i1)
   for (i1,i2) in enumerate(i1_to_i2)
-    if i2 > 0
-      i1_to_i3[i1] = i2_to_i3[i2]
-    end
+    i3 = i2 > 0 ? i2_to_i3[i2] : i2_to_i3[-i2]
+    @check sign(i2) == sign(i3)
+    i1_to_i3[i1] = i3
   end
   return i1_to_i3
 end
@@ -145,7 +145,9 @@ function inverse_table(cell_dofs::Table)
   ndofs = maximum(cell_dofs.data)
   ptrs = zeros(Int32,ndofs+1)
   for dof in cell_dofs.data
-    ptrs[dof+1] += 1
+    if dof > 0
+      ptrs[dof+1] += 1
+    end
   end
   length_to_ptrs!(ptrs)
 

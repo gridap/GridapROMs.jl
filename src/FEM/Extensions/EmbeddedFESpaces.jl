@@ -93,8 +93,15 @@ DofMaps.get_ddof_to_bg_ddof(f::EmbeddedFESpace) = get_ddof_to_bg_ddof(f.bg_space
 get_active_fdof_to_bg_fdof(f::EmbeddedFESpace) = f.fdof_to_bg_fdofs
 get_active_ddof_to_bg_ddof(f::EmbeddedFESpace) = f.ddof_to_bg_ddofs
 
-for F in (:get_emb_space,:get_act_space,:get_bg_space,:(DofMaps.get_fdof_to_bg_fdof),
-  :(DofMaps.get_ddof_to_bg_ddof),:get_active_fdof_to_bg_fdof,:get_active_ddof_to_bg_ddof)
+for F in (:(DofMaps.get_dof_to_bg_dof),:(DofMaps.get_fdof_to_bg_fdof),:(DofMaps.get_ddof_to_bg_ddof),)
+  @eval begin
+    $F(f::EmbeddedFESpace) = $F(f.bg_space,f.space)
+  end
+end
+
+for F in (:get_emb_space,:get_act_space,:get_bg_space,
+  :(DofMaps.get_dof_to_bg_dof),:(DofMaps.get_fdof_to_bg_fdof),:(DofMaps.get_ddof_to_bg_ddof),
+  :get_active_fdof_to_bg_fdof,:get_active_ddof_to_bg_ddof)
   @eval begin
     $F(f::AbstractTrialFESpace) = $F(get_fe_space(f))
   end
@@ -364,16 +371,10 @@ function _bg_vals_from_vals!(
   end
 end
 
-struct BGCellDofIds{A<:AbstractArray,FI<:AbstractVector,FD<:AbstractVector} <: Map
+struct BGCellDofIds{A,B,C} <: Map
   cell_dof_ids::A
-  fdof_to_bg_fdofs::FI
-  ddof_to_bg_ddofs::FD
-end
-
-function BGCellDofIds(cell_dof_ids::AbstractArray,fdof_to_bg_fdofs::AbstractArray)
-  nddof_approx = maximum(fdof_to_bg_fdofs)
-  ddof_to_bg_ddofs = IdentityVector(nddof_approx)
-  BGCellDofIds(cell_dof_ids,fdof_to_bg_fdofs,ddof_to_bg_ddofs)
+  fdof_to_bg_fdofs::B
+  ddof_to_bg_ddofs::C
 end
 
 function Arrays.return_cache(k::BGCellDofIds,i::Int)
@@ -385,16 +386,28 @@ end
 function Arrays.evaluate!(c,k::BGCellDofIds,i::Int)
   cache,a = c
   ids = getindex!(cache,k.cell_dof_ids,i)
-  setsize!(a,size(ids))
-  r = a.array
+  Fields._setsize_as!(a,ids)
+  r = Fields.unwrap_cached_array(a)
+  _set_bgcelldof!(r,k.fdof_to_bg_fdofs,k.ddof_to_bg_ddofs,ids)
+  return r
+end
+
+function _set_bgcelldof!(r,fdofs,ddofs,ids)
   for (j,idsj) in enumerate(ids)
     if idsj > 0
-      r[j] = k.fdof_to_bg_fdofs[idsj]
+      r[j] = fdofs[idsj]
     else
-      r[j] = k.ddof_to_bg_ddofs[-idsj]
+      r[j] = ddofs[-idsj]
     end
   end
-  return r
+end
+
+function _set_bgcelldof!(r::ArrayBlock,fdofs::ArrayBlock,ddofs::ArrayBlock,ids::ArrayBlock)
+  for i in eachindex(r.touched)
+    if r.touched[i]
+      _set_bgcelldof!(r.array[i],fdofs.array[i],ddofs.array[i],ids.array[i])
+    end
+  end
 end
 
 function get_bg_cell_dof_ids(f::EmbeddedFESpace)

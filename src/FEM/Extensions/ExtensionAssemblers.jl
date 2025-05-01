@@ -1,16 +1,35 @@
 struct ExtensionAssembler <: SparseMatrixAssembler
   assem::SparseMatrixAssembler
-  trial_fdof_to_bg_fdofs::AbstractVector
-  test_fdof_to_bg_fdofs::AbstractVector
+  trial_dof_to_bg_dofs::NTuple{2,AbstractVector}
+  test_dof_to_bg_dofs::NTuple{2,AbstractVector}
 end
 
-function ExtensionAssembler(trial::FESpace,test::FESpace)
+function ExtensionAssembler(trial::SingleFieldFESpace,test::SingleFieldFESpace)
   bg_trial = get_bg_space(trial)
   bg_test = get_bg_space(test)
   assem = SparseMatrixAssembler(bg_trial,bg_test)
-  trial_fdof_to_bg_fdofs = get_fdof_to_bg_fdof(trial)
-  test_fdof_to_bg_fdofs = get_fdof_to_bg_fdof(test)
-  ExtensionAssembler(assem,trial_fdof_to_bg_fdofs,test_fdof_to_bg_fdofs)
+  trial_dof_to_bg_dofs = get_dof_to_bg_dof(trial)
+  test_dof_to_bg_dofs = get_dof_to_bg_dof(test)
+  ExtensionAssembler(assem,trial_dof_to_bg_dofs,test_dof_to_bg_dofs)
+end
+
+function ExtensionAssembler(
+  ::BlockMultiFieldStyle{NB,SB,P},
+  trial::MultiFieldFESpace,
+  test::MultiFieldFESpace
+  ) where {NB,SB,P}
+
+  NV = length(test.spaces)
+  block_idx = CartesianIndices((NB,NB))
+  block_assem = map(block_idx) do idx
+    ExtensionAssembler(trial[idx[2]],test[idx[1]])
+  end
+  BlockSparseMatrixAssembler{NB,NV,SB,P}(block_assem)
+end
+
+function ExtensionAssembler(trial::MultiFieldFESpace,test::MultiFieldFESpace)
+  mfs = MultiFieldStyle(test)
+  ExtensionAssembler(mfs,trial,test)
 end
 
 FESpaces.get_vector_type(a::ExtensionAssembler) = get_vector_type(a.assem)
@@ -23,7 +42,30 @@ FESpaces.get_assembly_strategy(a::ExtensionAssembler) = FESpaces.get_assembly_st
 FESpaces.get_matrix_builder(a::ExtensionAssembler)= get_matrix_builder(a.assem)
 FESpaces.get_vector_builder(a::ExtensionAssembler) = get_vector_builder(a.assem)
 
-function extend_vecdata(a::ExtensionAssembler,act_vecdata)
+
+const BlockExtensionAssembler{NB,NV,SB,P} = BlockSparseMatrixAssembler{NB,NV,SB,P,ExtensionAssembler}
+const AbstractExtensionAssembler = Union{ExtensionAssembler,BlockExtensionAssembler}
+
+get_assem(a::ExtensionAssembler) = a.assem
+get_rows_to_bg_rows(a::ExtensionAssembler) = a.test_dof_to_bg_dofs[1]
+get_cols_to_bg_cols(a::ExtensionAssembler) = a.trial_dof_to_bg_dofs[1]
+get_drows_to_bg_drows(a::ExtensionAssembler) = a.test_dof_to_bg_dofs[2]
+get_dcols_to_bg_dcols(a::ExtensionAssembler) = a.trial_dof_to_bg_dofs[2]
+
+function get_assem(a::BlockExtensionAssembler{NB,NV,SB,P}) where {NB,NV,SB,P}
+  block_assem = map(get_assem,a.block_assemblers)
+  BlockSparseMatrixAssembler{NB,NV,SB,P}(block_assem)
+end
+
+for f in (:get_rows_to_bg_rows,:get_cols_to_bg_cols,:get_drows_to_bg_drows,:get_dcols_to_bg_dcols)
+  @eval begin
+    function $f(a::BlockExtensionAssembler{NB}) where NB
+      ArrayBlock(map(i -> $f(a.block_assemblers[i]),1:NB),fill(true,NB))
+    end
+  end
+end
+
+function extend_vecdata(a::AbstractExtensionAssembler,act_vecdata)
   cellvals,cellrows = act_vecdata
   for k in eachindex(cellrows)
     cellrows[k] = to_bg_cellrows(cellrows[k],a)
@@ -31,7 +73,7 @@ function extend_vecdata(a::ExtensionAssembler,act_vecdata)
   return (cellvals,cellrows)
 end
 
-function extend_matdata(a::ExtensionAssembler,act_matdata)
+function extend_matdata(a::AbstractExtensionAssembler,act_matdata)
   cellvals,cellrows,cellcols = act_matdata
   for k in eachindex(cellrows)
     cellrows[k] = to_bg_cellrows(cellrows[k],a)
@@ -40,63 +82,106 @@ function extend_matdata(a::ExtensionAssembler,act_matdata)
   return (cellvals,cellrows,cellcols)
 end
 
-function FESpaces.allocate_vector(a::ExtensionAssembler,vecdata)
+function FESpaces.allocate_vector(a::AbstractExtensionAssembler,vecdata)
   bg_vecdata = extend_vecdata(a,vecdata)
-  allocate_vector(a.assem,bg_vecdata)
+  allocate_vector(get_assem(a),bg_vecdata)
 end
 
-function FESpaces.assemble_vector(a::ExtensionAssembler,vecdata)
+function FESpaces.assemble_vector(a::AbstractExtensionAssembler,vecdata)
   bg_vecdata = extend_vecdata(a,vecdata)
-  assemble_vector(a.assem,bg_vecdata)
+  assemble_vector(get_assem(a),bg_vecdata)
+end
+
+function FESpaces.allocate_matrix(a::AbstractExtensionAssembler,matdata)
+  bg_matdata = extend_matdata(a,matdata)
+  allocate_matrix(get_assem(a),bg_matdata)
+end
+
+function FESpaces.assemble_matrix(a::AbstractExtensionAssembler,matdata)
+  bg_matdata = extend_matdata(a,matdata)
+  assemble_matrix(get_assem(a),bg_matdata)
 end
 
 function FESpaces.assemble_vector!(b,a::ExtensionAssembler,vecdata)
   bg_vecdata = extend_vecdata(a,vecdata)
-  assemble_vector!(b,a.assem,bg_vecdata)
+  assemble_vector!(b,get_assem(a),bg_vecdata)
   b
 end
 
 function FESpaces.assemble_vector_add!(b,a::ExtensionAssembler,vecdata)
   bg_vecdata = extend_vecdata(a,vecdata)
-  assemble_vector_add!(b,a.assem,bg_vecdata)
+  assemble_vector_add!(b,get_assem(a),bg_vecdata)
   b
-end
-
-function FESpaces.allocate_matrix(a::ExtensionAssembler,matdata)
-  bg_matdata = extend_matdata(a,matdata)
-  allocate_matrix(a.assem,bg_matdata)
-end
-
-function FESpaces.assemble_matrix(a::ExtensionAssembler,matdata)
-  bg_matdata = extend_matdata(a,matdata)
-  assemble_matrix(a.assem,bg_matdata)
 end
 
 function FESpaces.assemble_matrix!(A,a::ExtensionAssembler,matdata)
   bg_matdata = extend_matdata(a,matdata)
-  assemble_matrix!(A,a.assem,bg_matdata)
+  assemble_matrix!(A,get_assem(a),bg_matdata)
   A
 end
 
 function FESpaces.assemble_matrix_add!(A,a::ExtensionAssembler,matdata)
   bg_matdata = extend_matdata(a,matdata)
-  assemble_matrix_add!(A,a.assem,bg_matdata)
+  assemble_matrix_add!(A,get_assem(a),bg_matdata)
   A
+end
+
+for T in (:AbstractBlockVector,:BlockParamVector)
+  @eval begin
+    function FESpaces.assemble_vector!(b::$T,a::BlockExtensionAssembler,vecdata)
+      bg_vecdata = extend_vecdata(a,vecdata)
+      assemble_vector!(b,get_assem(a),bg_vecdata)
+      b
+    end
+
+    function FESpaces.assemble_vector_add!(b::$T,a::BlockExtensionAssembler,vecdata)
+      bg_vecdata = extend_vecdata(a,vecdata)
+      assemble_vector_add!(b,get_assem(a),bg_vecdata)
+      b
+    end
+  end
+end
+
+for T in (:AbstractBlockMatrix,:BlockParamMatrix)
+  @eval begin
+    function FESpaces.assemble_matrix!(A::$T,a::BlockExtensionAssembler,matdata)
+      bg_matdata = extend_matdata(a,matdata)
+      assemble_matrix!(A,get_assem(a),bg_matdata)
+      A
+    end
+
+    function FESpaces.assemble_matrix_add!(A::$T,a::BlockExtensionAssembler,matdata)
+      bg_matdata = extend_matdata(a,matdata)
+      assemble_matrix_add!(A,get_assem(a),bg_matdata)
+      A
+    end
+  end
 end
 
 # utils
 
-function to_bg_cellrows(cellids,a::ExtensionAssembler)
-  k = BGCellDofIds(cellids,a.test_fdof_to_bg_fdofs)
+function to_bg_cellrows(cellids,a::AbstractExtensionAssembler)
+  k = BGCellDofIds(cellids,get_rows_to_bg_rows(a),get_drows_to_bg_drows(a))
   lazy_map(k,1:length(cellids))
 end
 
-function to_bg_cellcols(cellids,a::ExtensionAssembler)
-  k = BGCellDofIds(cellids,a.trial_fdof_to_bg_fdofs)
+function to_bg_cellcols(cellids,a::AbstractExtensionAssembler)
+  k = BGCellDofIds(cellids,get_cols_to_bg_cols(a),get_dcols_to_bg_dcols(a))
   lazy_map(k,1:length(cellids))
 end
 
-function ParamDataStructures.parameterize(a::ExtensionAssembler,r::AbstractRealization)
-  assem = parameterize(a.assem,r)
-  ExtensionAssembler(assem,a.trial_fdof_to_bg_fdofs,a.test_fdof_to_bg_fdofs)
+function ParamDataStructures.parameterize(a::ExtensionAssembler,plength::Int)
+  assem = parameterize(get_assem(a),plength)
+  ExtensionAssembler(assem,a.trial_dof_to_bg_dofs,a.test_dof_to_bg_dofs)
+end
+
+function ParamDataStructures.parameterize(
+  a::BlockExtensionAssembler{NB,NV,SB,P},
+  plength::Int) where {NB,NV,SB,P}
+
+  block_idx = CartesianIndices((NB,NB))
+  block_assemblers = map(block_idx) do idx
+    parameterize(a.block_assemblers[idx],plength)
+  end
+  BlockSparseMatrixAssembler{NB,NV,SB,P}(block_assemblers)
 end

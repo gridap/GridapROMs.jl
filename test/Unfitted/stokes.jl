@@ -134,6 +134,7 @@ end
 
 
 using Gridap
+using Gridap.MultiField
 using GridapEmbedded
 using GridapROMs
 
@@ -142,7 +143,7 @@ tol_or_rank(tol::Real,rank) = tol
 tol_or_rank(tol::Real,rank::Int) = tol
 tol_or_rank(tol,rank::Int) = rank
 
-method=:ttsvd
+method=:pod
 n=20
 tol=1e-4
 rank=nothing
@@ -158,6 +159,8 @@ pspace = ParamSpace(pdomain)
 R = 0.3
 pmin = Point(0,0)
 pmax = Point(1,1)
+dp = pmax - pmin
+const h = dp[1]/n
 n = 20
 partition = (n,n)
 
@@ -189,6 +192,8 @@ dΓ = Measure(Γ,degree)
 
 nΓ = get_normal_vector(Γ)
 
+const γ = order*(order+1)
+
 ν(μ) = x -> μ[1]
 νμ(μ) = ParamFunction(ν,μ)
 
@@ -203,7 +208,7 @@ gμ_0(μ) = ParamFunction(g_0,μ)
 
 a(μ,(u,p),(v,q),dΩ,dΓ) = (
   ∫( ∇(v)⊙∇(u) - p*(∇⋅(v)) - q*(∇⋅(u)) )dΩ +
-  ∫( - v⋅(nΓ⋅∇(u)) + (nΓ⋅∇(v))⋅u + (p*nΓ)⋅v + (q*nΓ)⋅u )dΓ
+  ∫( (γ/h)*v⋅u - v⋅(nΓ⋅∇(u)) + (nΓ⋅∇(v))⋅u + (p*nΓ)⋅v + (q*nΓ)⋅u )dΓ
 )
 
 res(μ,(u,p),(v,q),dΩ) = ∫( ∇(v)⊙∇(u) - p*(∇⋅(v)) - q*(∇⋅(u)) )dΩ
@@ -218,9 +223,9 @@ reffe_p = ReferenceFE(lagrangian,Float64,order-1)
 strategy = AggregateAllCutCells()
 aggregates = aggregate(strategy,cutgeo)
 testbg_u = FESpace(Ωbg,reffe_u,conformity=:H1,dirichlet_tags="dirichlet")
-testbg_u = FESpace(Ωbg,reffe_p,conformity=:H1)
+testbg_p = FESpace(Ωbg,reffe_p,conformity=:H1)
 testact_u = FESpace(Ωact,reffe_u,conformity=:H1,dirichlet_tags="dirichlet")
-testact_p = FESpace(Ωact,reffe_u,conformity=:H1,dirichlet_tags="dirichlet")
+testact_p = FESpace(Ωact,reffe_p,conformity=:H1)
 testagg_u = AgFEMSpace(testact_u,aggregates)
 testagg_p = AgFEMSpace(testact_p,aggregates)
 
@@ -233,18 +238,18 @@ trial = MultiFieldParamFESpace([trial_u,trial_p];style=BlockMultiFieldStyle())
 feop = ExtensionLinearParamOperator(res,a,pspace,trial,test,domains)
 
 tolrank = tol_or_rank(tol,rank)
+energy((du,dp),(v,q)) = ∫(du⋅v)dΩbg  + ∫(dp*q)dΩbg + ∫(∇(v)⊙∇(du))dΩbg
 if method == :pod
-  energy((du,dp),(v,q)) = ∫(du⋅v)dΩ  + ∫(dp*q)dΩ + ∫(∇(v)⊙∇(du))dΩ
   coupling((du,dp),(v,q)) = ∫(dp*(∇⋅(v)))dΩ
   state_reduction = SupremizerReduction(coupling,tolrank,energy;nparams,sketch)
 else method == :ttsvd
   tolranks = fill(tolrank,3)
-  ttenergy((du,dp),(v,q)) = ∫(du⋅v)dΩbg  + ∫(dp*q)dΩbg + ∫(∇(v)⊙∇(du))dΩbg
   ttcoupling((du,dp),(v,q)) = ∫(dp*∂₁(v))dΩbg + ∫(dp*∂₂(v))dΩbg
-  state_reduction = SupremizerReduction(ttcoupling,tolranks,ttenergy;nparams)
+  state_reduction = SupremizerReduction(ttcoupling,tolranks,energy;nparams)
 end
 
-fesolver = LUSolver()
+extension = BlockExtension([HarmonicExtension(),ZeroExtension()])
+fesolver = ExtensionSolver(LUSolver(),extension)
 rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac)
 
 # offline
@@ -252,10 +257,46 @@ fesnaps, = solution_snapshots(rbsolver,feop)
 rbop = reduced_operator(rbsolver,feop,fesnaps)
 
 # online
-μon = realization(feop;nparams=10,sampling=:uniform)
+μon = realization(feop;nparams=1,sampling=:uniform)
 x̂,rbstats = solve(rbsolver,rbop,μon)
 
 # test
 x,festats = solution_snapshots(rbsolver,feop,μon)
 perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
 println(perf)
+
+using Gridap.FESpaces
+using GridapROMs.RBSteady
+using GridapROMs.ParamAlgebra
+using Gridap.Algebra
+
+op,r = rbop,μon
+U = get_trial(op)(r)
+x̂ = zero_free_values(U)
+
+nlop = parameterize(op,r)
+syscache = allocate_systemcache(nlop,x̂)
+
+b,A = syscache.b,syscache.A
+residual!(b,nlop,x̂)
+jacobian!(A,nlop,x̂)
+
+using Gridap.FESpaces
+using GridapROMs.Extensions
+using GridapROMs.ParamDataStructures
+
+μ = realization(pspace;sampling=:uniform)
+u, = solve(fesolver.solver,feop.op,μ)
+U = get_trial(feop)(μ)
+# u_bg = extend_solution(solver.extension,U,u)
+U = param_getindex(U[1],1)
+u = u[1]
+fin = Extensions.get_space(U)
+uh_in = FEFunction(fin,u)
+uh_in_bg = Extensions.ExtendedFEFunction(f,u)
+
+fout = Extensions.get_out_space(f)
+uh_out = Extensions.harmonic_extension(fout,uh_in_bg)
+
+uh_bg = uh_in ⊕ uh_out
+get_free_dof_values(uh_bg)

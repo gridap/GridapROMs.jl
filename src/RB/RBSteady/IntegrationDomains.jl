@@ -126,7 +126,7 @@ Subtypes:
 """
 abstract type IntegrationDomain end
 
-get_integration_cells(i::IntegrationDomain) = @abstractmethod
+get_integration_cells(i::IntegrationDomain,args...) = @abstractmethod
 get_cellids_rows(i::IntegrationDomain) = @abstractmethod
 get_cellids_cols(i::IntegrationDomain) = @abstractmethod
 
@@ -202,3 +202,32 @@ end
 get_integration_cells(i::MatrixDomain) = i.cells
 get_cellids_rows(i::MatrixDomain) = i.cell_irows
 get_cellids_cols(i::MatrixDomain) = i.cell_icols
+
+function get_integration_cells(i::IntegrationDomain,trian::Triangulation)
+  get_integration_cells(i)
+end
+
+function get_integration_cells(i::IntegrationDomain,trian::AppendedTriangulation)
+  cells = get_integration_cells(i)
+  parent = get_parent(trian)
+  parent_ncellsa = num_cells(parent.a)
+  cell_to_istriana = zeros(Bool,num_cells(trian))
+  for (icell,cell) in enumerate(cells)
+    cell_to_istriana[icell] = cell <= parent_ncellsa
+  end
+  ncellsa = length(findall(cell_to_istriana))
+  a = Vector{eltype(cells)}(undef,ncellsa)
+  b = Vector{eltype(cells)}(undef,length(cells)-ncellsa)
+  na = 0
+  nb = 0
+  for (icell,cell) in enumerate(cells)
+    if cell_to_istriana[icell]
+      na += 1
+      a[na] = cell
+    else
+      nb += 1
+      b[nb] = cell
+    end
+  end
+  lazy_append(a,b)
+end

@@ -58,11 +58,14 @@ end
 get_emb_space(f::DirectSumFESpace) = get_emb_space(f.space)
 get_act_space(f::DirectSumFESpace) = get_act_space(f.space)
 get_bg_space(f::DirectSumFESpace) = get_bg_space(f.space)
-DofMaps.get_fdof_to_bg_fdof(f::DirectSumFESpace) = get_fdof_to_bg_fdof(f.space)
-DofMaps.get_ddof_to_bg_ddof(f::DirectSumFESpace) = get_ddof_to_bg_ddof(f.space)
-get_active_fdof_to_bg_fdof(f::DirectSumFESpace) = get_active_fdof_to_bg_fdof(f.space)
-get_active_ddof_to_bg_ddof(f::DirectSumFESpace) = get_active_ddof_to_bg_ddof(f.space)
 get_bg_cell_dof_ids(f::DirectSumFESpace,args...) = get_bg_cell_dof_ids(f.space,args...)
+
+for F in (:(DofMaps.get_dof_to_bg_dof),:(DofMaps.get_fdof_to_bg_fdof),
+  :(DofMaps.get_ddof_to_bg_ddof),:get_active_fdof_to_bg_fdof,:get_active_ddof_to_bg_ddof)
+  @eval begin
+    $F(f::DirectSumFESpace) = $F(f.space)
+  end
+end
 
 get_space(f::DirectSumFESpace) = f.space
 get_out_space(f::DirectSumFESpace) = f.complementary
@@ -104,6 +107,25 @@ function (⊕)(uh::FEFunction,vh::FEFunction)
   FEFunction(get_bg_space(space),bg_fv,bg_dv)
 end
 
+function (⊕)(uh::FEFunction,t::Tuple)
+  complementary,cfv = t
+
+  space = get_fe_space(uh)
+  @check _same_background_space(space,complementary)
+
+  bg_fv = zero_bg_free_values(space)
+  bg_dv = zero_bg_dirichlet_values(space)
+
+  cdv = get_dirichlet_dof_values(complementary)
+  _bg_vals_from_vals!(bg_fv,bg_dv,complementary,cfv,cdv)
+
+  fv = get_free_dof_values(uh)
+  dv = get_dirichlet_dof_values(uh)
+  _bg_vals_from_vals!(bg_fv,bg_dv,space,fv,dv)
+
+  FEFunction(get_bg_space(space),bg_fv,bg_dv)
+end
+
 function _same_background_space(space::SingleFieldFESpace,complementary::SingleFieldFESpace)
   get_bg_space(space)==get_bg_space(complementary)
 end
@@ -123,6 +145,10 @@ end
 
 function ParamSteady._assemble_matrix(f,V::DirectSumFESpace)
   ParamSteady._assemble_matrix(f,get_bg_space(V))
+end
+
+function ParamSteady._assemble_matrix(f,spaces::Vector{<:DirectSumFESpace})
+  ParamSteady._assemble_matrix(f,get_bg_space.(spaces))
 end
 
 function DofMaps.get_sparsity(

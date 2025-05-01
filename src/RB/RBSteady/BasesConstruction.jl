@@ -350,12 +350,8 @@ function first_unfold(A::Snapshots)
   first_unfold(get_all_data(A))
 end
 
-function orthogonalize!(
-  red_style::ReductionStyle,
-  cores::AbstractVector,
-  X::AbstractRankTensor{D}
-  ) where D
-
+function orthogonalize!(cores::AbstractVector,X::AbstractRankTensor{D}) where D
+  red_style = LRApproxRank(1e-10)
   weight = ones(1,rank(X),1)
   decomp = get_decomposition(X)
   for d in 1:D
@@ -363,7 +359,7 @@ function orthogonalize!(
     if d == D
       XW = ttnorm_array(X,weight)
       mat = reshape(core,:,size(core,3))
-      Ur,Sr,Vr = tpod(red_style[d],mat,XW)
+      Ur,Sr,Vr = tpod(red_style,mat,XW)
       core′ = reshape(Ur,size(core,1),size(core,2),:)
       cores[d] = core′
     else
