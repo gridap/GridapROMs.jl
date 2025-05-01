@@ -120,6 +120,16 @@ end
 
 function contraction(
   factor1::AbstractArray{T,3},
+  factor2::TrivialSparseCore{S},
+  factor3::AbstractArray{U,3}
+  ) where {T,S,U}
+
+  factor = galerkin_projection(cores2basis(factor1),cores2basis(factor2),cores2basis(factor3))
+  reshape(factor,1,1,1,size(factor)...)
+end
+
+function contraction(
+  factor1::AbstractArray{T,3},
   factor2::SparseCore{S,3},
   factor3::AbstractArray{U,3}
   ) where {T,S,U}
@@ -216,7 +226,6 @@ end
 
 """
     cores2basis(cores::AbstractArray{T,3}...) -> AbstractMatrix
-    cores2basis(dof_map::AbstractDofMap{D},cores::AbstractArray{T,3}...) -> AbstractMatrix
 
 Returns a basis in a matrix format from a list of tensor train cores `cores`. When
 also supplying the indexing strategy `dof_map`, the result is reindexed accordingly
@@ -230,16 +239,8 @@ function cores2basis(cores::AbstractArray{T,3}...) where T
   dropdims(core;dims=1)
 end
 
-function cores2basis(dof_map::AbstractDofMap{D},cores::AbstractArray{T,3}...) where {T,D}
-  @check length(cores) ≥ D
-  coresD = sequential_product(cores[1:D]...)
-  invmap = invert(dof_map)
-  coresD′ = DofMapCore(coresD,invmap)
-  if length(cores) == D
-    dropdims(coresD′;dims=1)
-  else
-    cores2basis(coresD′,cores[D+1:end]...)
-  end
+function basis2core(basis::AbstractMatrix)
+  reshape(basis,1,size(basis)...)
 end
 
 function galerkin_projection(
@@ -459,20 +460,26 @@ function _get_indices(
   return space_indices,time_indices
 end
 
-function _get_indices(k::Val{1},cores_indices::Table,dof_map::SparseMatrixDofMap)
-  space_indices = _get_indices(k,cores_indices,dof_map.d_sparse_dofs_to_sparse_dofs)
-  recast_split_indices(space_indices,dof_map)
-end
+get_basis_indices(k,cores_indices,dof_map) = _get_indices(k,cores_indices,dof_map)
 
-function _get_indices(k::Val{2},cores_indices::Table,dof_map::SparseMatrixDofMap)
-  space_indices,time_indices = _get_indices(k,cores_indices,dof_map.d_sparse_dofs_to_sparse_dofs)
-  space_indices′ = recast_split_indices(space_indices,dof_map)
-  return space_indices′,time_indices
+for T in (:TrivialSparseMatrixDofMap,:SparseMatrixDofMap)
+  @eval begin
+    function get_basis_indices(k::Val{1},cores_indices::Table,dof_map::$T)
+      space_indices = _get_indices(k,cores_indices,dof_map)
+      recast_split_indices(space_indices,dof_map)
+    end
+
+    function get_basis_indices(k::Val{2},cores_indices::Table,dof_map::$T)
+      space_indices,time_indices = _get_indices(k,cores_indices,dof_map)
+      space_indices′ = recast_split_indices(space_indices,dof_map)
+      return space_indices′,time_indices
+    end
+  end
 end
 
 function get_basis_indices(cores_indices::Table,dof_map::AbstractArray{Ti,D}) where {Ti,D}
   L = length(cores_indices)
   N = L - D + 1
   @check N ∈ (1,2)
-  _get_indices(Val{N}(),cores_indices,dof_map)
+  get_basis_indices(Val{N}(),cores_indices,dof_map)
 end

@@ -268,7 +268,7 @@ function ttsvd(
 
   cores = Array{T,3}[]
   remainder = first_unfold(A)
-  for d in 1:N-1
+  for d in 1:last_dim(A)
     cur_core,cur_remainder = ttsvd_loop(red_style[d],remainder)
     oldrank = size(cur_core,3)
     remainder = reshape(cur_remainder,oldrank,size(A,d+1),:)
@@ -287,11 +287,11 @@ function ttsvd(
   X::Rank1Tensor{D}
   ) where {T,N,D}
 
-  @check D ≤ N-1
+  @check D ≤ last_dim(A)
 
   cores = Array{T,3}[]
   remainder = first_unfold(A)
-  for d in 1:N-1
+  for d in 1:last_dim(A)
     if d ≤ D
       cur_core,cur_remainder = ttsvd_loop(red_style[d],remainder,X[d])
     else
@@ -310,7 +310,7 @@ function ttsvd(
   X::GenericRankTensor{D,K}
   ) where {T,N,D,K}
 
-  @check D ≤ N-1
+  @check D ≤ last_dim(A)
 
   weight = ones(1,rank(X),1)
   decomp = get_decomposition(X)
@@ -318,7 +318,7 @@ function ttsvd(
 
   cores = Array{T,3}[]
   remainder = first_unfold(A)
-  for d in 1:N-1
+  for d in 1:last_dim(A)
     if d ≤ D-1
       cur_core,cur_remainder = ttsvd_loop(red_style[d],remainder,X′[d])
       X_d = getindex.(decomp,d)
@@ -336,6 +336,7 @@ function ttsvd(
   return cores,remainder
 end
 
+last_dim(A::AbstractArray{T,N}) where {T,N} = N-1
 first_unfold(A::AbstractArray{T,N}) where {T,N} = reshape(A,1,size(A,1),:)
 
 function first_unfold(A::SubArray{T,N}) where {T,N}

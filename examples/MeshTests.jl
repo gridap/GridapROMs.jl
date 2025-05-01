@@ -440,7 +440,7 @@ function get_3d_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,
 end
 
 function get_elasticity_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,nparams_djac=1,sampling=:halton,start=1)
-  order = 2
+  order = 1
   degree = 2*order
 
   Myz = Int(M/8)
@@ -463,7 +463,7 @@ function get_elasticity_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2
   tdomain = t0:dt:tf
 
   pdomain = (1e10,9*1e10,0.25,0.42,-4*1e5,4*1e5,-4*1e5,4*1e5,-4*1e5,4*1e5)
-  ptspace = sampling==:halton ? TransientParamSpace(pdomain,tdomain;sampling,start) : TransientParamSpace(pdomain,tdomain;sampling)
+  ptspace = TransientParamSpace(pdomain,tdomain)
 
   λ(μ) = μ[1]*μ[2]/((1+μ[2])*(1-2*μ[2]))
   p(μ) = μ[1]/(2(1+μ[2]))
@@ -474,19 +474,19 @@ function get_elasticity_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2
   g(μ,t) = x -> VectorValue(0.0,0.0,0.0)
   gμt(μ,t) = parameterize(g,μ,t)
 
-  h1(μ,t) = x -> VectorValue(μ[3]*exp(sin(2pi*t/tf)),0.0,0.0)
+  h1(μ,t) = x -> VectorValue(μ[3]*sin(2pi*t/tf),0.0,0.0)
   h1μt(μ,t) = parameterize(h1,μ,t)
 
-  h2(μ,t) = x -> VectorValue(0.0,μ[4]*exp(sin(2pi*t/tf)),0.0)
+  h2(μ,t) = x -> VectorValue(0.0,μ[4]*sin(2pi*t/tf),0.0)
   h2μt(μ,t) = parameterize(h2,μ,t)
 
-  h3(μ,t) = x -> VectorValue(0.0,0.0,μ[5]*(1+t))
+  h3(μ,t) = x -> VectorValue(0.0,0.0,μ[5]*t)
   h3μt(μ,t) = parameterize(h3,μ,t)
 
   u0(μ) = x -> VectorValue(0.0,0.0,0.0)
   u0μ(μ) = ParamFunction(u0,μ)
 
-  stiffness(μ,t,u,v,dΩ) = ∫( ε(v) ⊙ (σμt(μ,t)∘ε(u)) )*dΩ
+  stiffness(μ,t,u,v,dΩ) = ∫( ε(v) ⊙ (σμt(μ,t)∘ε(u)) )dΩ
   mass(μ,t,uₜ,v,dΩ) = ∫(v⋅uₜ)dΩ
   rhs(μ,t,v,dΓn1,dΓn2,dΓn3) = ∫(h1μt(μ,t)⋅v)dΓn1 + ∫(h2μt(μ,t)⋅v)dΓn2 + ∫(h3μt(μ,t)⋅v)dΓn3
   res(μ,t,u,v,dΩ,dΓn1,dΓn2,dΓn3) = mass(μ,t,∂t(u),v,dΩ) + stiffness(μ,t,u,v,dΩ) - rhs(μ,t,v,dΓn1,dΓn2,dΓn3)
@@ -659,10 +659,10 @@ end
 #   end
 # end
 
-dir = datadir("3d_heateq_50_pod")
+dir = datadir("3d_elasticity_120_pod")
 fesnaps = load_snapshots(dir)
 x = load_snapshots(dir;label="online")
-# festats = ExamplesInterface.load_stats(dir;label="online")
+festats = ExamplesInterface.load_stats(dir;label="online")
 
 # fesnaps,(x,festats) = get_offline_online_solutions(dir,feop,:pod)
 # println(typeof(fesnaps))
@@ -670,13 +670,13 @@ x = load_snapshots(dir;label="online")
 # save(dir,fesnaps)
 # save(dir,x;label="online")
 
-ttdir = datadir("3d_heateq_50_ttsvd")
+ttdir = datadir("3d_elasticity_120_ttsvd")
 create_dir(ttdir)
-ttfeop,ttrbsolver = get_3d_heateq_info(50,:ttsvd)
+ttfeop,ttrbsolver = get_elasticity_info(120,:ttsvd)
 dof_map = get_dof_map(ttfeop)
 ttfesnaps = change_snaps_dof_map(fesnaps,dof_map)
 ttx = change_snaps_dof_map(x,dof_map)
 save(ttdir,ttfesnaps)
 save(ttdir,ttx;label="online")
-# save(ttdir,festats;label="online")
+save(ttdir,festats;label="online")
 end

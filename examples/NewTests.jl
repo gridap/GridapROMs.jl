@@ -207,7 +207,7 @@ end
 function elasticity_3d(M,method=:pod,sketch=:sprn)
   println("Running 3d elasticity test with M = $M, method = $method")
 
-  order = 2
+  order = 1
   degree = 2*order
 
   Myz = Int(M/8)
@@ -241,13 +241,13 @@ function elasticity_3d(M,method=:pod,sketch=:sprn)
   g(μ,t) = x -> VectorValue(0.0,0.0,0.0)
   gμt(μ,t) = parameterize(g,μ,t)
 
-  h1(μ,t) = x -> VectorValue(μ[3]*exp(sin(2pi*t/tf)),0.0,0.0)
+  h1(μ,t) = x -> VectorValue(μ[3]*sin(2pi*t/tf),0.0,0.0)
   h1μt(μ,t) = parameterize(h1,μ,t)
 
-  h2(μ,t) = x -> VectorValue(0.0,μ[4]*exp(sin(2pi*t/tf)),0.0)
+  h2(μ,t) = x -> VectorValue(0.0,μ[4]*sin(2pi*t/tf),0.0)
   h2μt(μ,t) = parameterize(h2,μ,t)
 
-  h3(μ,t) = x -> VectorValue(0.0,0.0,μ[5]*(1+t))
+  h3(μ,t) = x -> VectorValue(0.0,0.0,μ[5]*t)
   h3μt(μ,t) = parameterize(h3,μ,t)
 
   u0(μ) = x -> VectorValue(0.0,0.0,0.0)
@@ -287,7 +287,7 @@ function elasticity_3d(M,method=:pod,sketch=:sprn)
   dir = datadir("3d_elasticity_$(M)_$(method)")
   create_dir(dir)
 
-  tols = [1e-4,]
+  tols = [1e-1,1e-2,1e-3,1e-4]
   ExamplesInterface.run_test(dir,rbsolver,feop,tols,uh0μ)
 end
 
@@ -306,7 +306,7 @@ end
 #   heateq_3d(M,:ttsvd)
 # end
 
-for M in (56,)
+for M in (120,)
   # elasticity_3d(M,:pod)
   elasticity_3d(M,:ttsvd)
 end

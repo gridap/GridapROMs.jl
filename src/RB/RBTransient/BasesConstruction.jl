@@ -1,25 +1,37 @@
-function RBSteady.reduction(red::TransientKroneckerReduction,A::TransientSnapshots{T,N},args...) where {T,N}
-  redvec = [get_reduction_space(red),get_reduction_time(red)]
-  tucker(redvec,swap_param_time(A),args...)
+# function RBSteady.reduction(red::TransientKroneckerReduction,A::TransientSnapshots{T,N},args...) where {T,N}
+#   redvec = [get_reduction_space(red),get_reduction_time(red)]
+#   tucker(redvec,swap_param_time(A),args...)
+# end
+
+function RBSteady._zero_reduction(red::TTSVDReduction,A::TransientSnapshots{T,N}) where {T,N}
+  cores = Vector{Array{T,3}}(undef,N-1)
+  for d in 1:N-1
+    s = d == N-1 ? size(A,N) : size(A,d)
+    core = zeros(1,s,1)
+    core[1] = 1.0
+    cores[d] = core
+  end
+  return cores
 end
 
-function RBSteady.reduction(red::TTSVDReduction,A::TransientSnapshots{T,N},args...) where {T,N}
-  reduction(red,swap_param_time(A),args...)
+function RBSteady._reduction(red::TTSVDReduction,A::TransientSnapshots,args...)
+  red_style = ReductionStyle(red)
+  cores,remainder = ttsvd(red_style,A,args...)
+  add_temporal_core!(cores,red_style[end],remainder)
+  return cores
 end
 
-function swap_param_time(A::TransientSnapshots{T,N}) where {T,N}
-  data = get_all_data(A)
-  keepdims = ntuple(i -> i,Val{N-2}())
-  changedims = (N,N-1)
-  permutedims(data,(keepdims...,changedims...))
-end
+RBSteady.last_dim(A::TransientSnapshots{T,N}) where {T,N} = N-2
 
-function _permutedims(data::AbstractArray,dims::Dims)
-  permutedims(data,dims)
-end
+function add_temporal_core!(
+  cores::Vector{<:AbstractArray{T,3}},
+  red_style::ReductionStyle,
+  remainder::AbstractArray{T,3}
+  ) where T
 
-function _permutedims(data::SubArray,dims::Dims{N}) where N
-  data′ = permutedims(data.parent,dims)
-  indices′ = ntuple(i -> data.indices[dims[i]],Val{N}())
-  view(data′,indices′...)
+  remainder = permutedims(remainder,(1,3,2))
+  cur_core,cur_remainder = RBSteady.ttsvd_loop(red_style,remainder)
+  remainder = reshape(cur_remainder,size(cur_core,3),size(remainder,3),:)
+  push!(cores,cur_core)
+  return
 end

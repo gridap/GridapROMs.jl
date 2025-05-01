@@ -1,8 +1,23 @@
-function DofMaps.recast(a::AbstractVector{<:AbstractArray{T,3}},i::SparseMatrixDofMap) where T
-  N = length(a)
+function DofMaps.recast(
+  a::AbstractVector{<:AbstractArray{T,3}},
+  i::TrivialSparseMatrixDofMap
+  ) where T
+
+  a′ = Vector{AbstractArray{T,3}}(undef,length(a))
+  for n in eachindex(a)
+    a′[n] = n == 1 ? SparseCore(a[n],i) : a[n]
+  end
+  return a′
+end
+
+function DofMaps.recast(
+  a::AbstractVector{<:AbstractArray{T,3}},
+  i::SparseMatrixDofMap
+  ) where T
+
   sparsities_1d = i.sparsity.sparsities_1d
-  @check length(sparsities_1d) ≤ N
-  a′ = Vector{AbstractArray{T,3}}(undef,N)
+  @check length(sparsities_1d) ≤ length(a)
+  a′ = Vector{AbstractArray{T,3}}(undef,length(a))
   for n in eachindex(a)
     a′[n] = n ≤ length(sparsities_1d) ? SparseCore(a[n],sparsities_1d[n]) : a[n]
   end
@@ -58,10 +73,33 @@ Subtypes:
 """
 abstract type SparseCore{T,N} <: AbstractTTCore{T,N} end
 
+function SparseCore(array::Array{T,3},sparsity::TrivialSparseMatrixDofMap) where T
+  sparsity′ = get_sparsity(sparsity)
+  TrivialSparseCore(array,sparsity′)
+end
+
+"""
+    struct TrivialSparseCore{T,A<:SparsityPattern} <: SparseCore{T,3}
+      array::Array{T,3}
+      sparsity::A
+    end
+
+Trivial tensor train core for sparse matrices format
+"""
+struct TrivialSparseCore{T,A<:SparsityPattern} <: SparseCore{T,3}
+  array::Array{T,3}
+  sparsity::A
+end
+
 function SparseCore(array::Array{T,3},sparsity::SparsityPattern) where T
   sparsity′ = DofMaps.get_background_sparsity(sparsity)
   SparseCore(array,sparsity′)
 end
+
+Base.size(a::TrivialSparseCore) = size(a.array)
+Base.getindex(a::TrivialSparseCore,i::Vararg{Integer,3}) = getindex(a.array,i...)
+
+cores2basis(a::TrivialSparseCore) = recast(cores2basis(a.array),a.sparsity)
 
 """
     struct SparseCoreCSC{T,Ti} <: SparseCore{T,3}

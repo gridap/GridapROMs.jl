@@ -170,10 +170,6 @@ function change_dof_map(i::VectorDofMap,i′::VectorDofMap)
   i′
 end
 
-abstract type SparseDofMapStyle end
-struct SparseDofMapIndexing <: SparseDofMapStyle end
-struct FullDofMapIndexing <: SparseDofMapStyle end
-
 """
     struct TrivialSparseMatrixDofMap{A<:SparsityPattern} <: TrivialDofMap{Int}
       sparsity::A
@@ -199,69 +195,30 @@ function flatten(i::TrivialSparseMatrixDofMap)
 end
 
 """
-    struct SparseMatrixDofMap{D,Ti,A<:SparsityPattern,B<:SparseDofMapStyle} <: AbstractDofMap{D,Ti}
+    struct SparseMatrixDofMap{D,Ti,A<:SparsityPattern} <: AbstractDofMap{D,Ti}
       d_sparse_dofs_to_sparse_dofs::Array{Ti,D}
       d_sparse_dofs_to_full_dofs::Array{Ti,D}
       sparsity::A
-      index_style::B
     end
 
 Index map used to select the nonzero entries of a sparse matrix of sparsity `sparsity`.
 The nonzero entries are sorted according to the field `d_sparse_dofs_to_sparse_dofs`
 by default. For more details, check the function [`get_d_sparse_dofs_to_full_dofs`](@ref)
 """
-struct SparseMatrixDofMap{D,Ti,A<:SparsityPattern,B<:SparseDofMapStyle} <: AbstractDofMap{D,Ti}
+struct SparseMatrixDofMap{D,Ti,A<:SparsityPattern} <: AbstractDofMap{D,Ti}
   d_sparse_dofs_to_sparse_dofs::Array{Ti,D}
   d_sparse_dofs_to_full_dofs::Array{Ti,D}
   sparsity::A
-  index_style::B
-end
-
-function SparseMatrixDofMap(
-  d_sparse_dofs_to_sparse_dofs::AbstractArray,
-  d_sparse_dofs_to_full_dofs::AbstractArray,
-  sparsity::SparsityPattern)
-
-  index_style = SparseDofMapIndexing()
-  SparseMatrixDofMap(d_sparse_dofs_to_sparse_dofs,d_sparse_dofs_to_full_dofs,sparsity,index_style)
-end
-
-SparseDofMapStyle(i::SparseMatrixDofMap) = i.index_style
-
-function FullDofMapIndexing(i::SparseMatrixDofMap)
-  SparseMatrixDofMap(
-    i.d_sparse_dofs_to_sparse_dofs,
-    i.d_sparse_dofs_to_full_dofs,
-    i.sparsity,
-    FullDofMapIndexing()
-    )
-end
-
-function SparseDofMapIndexing(i::SparseMatrixDofMap)
-  SparseMatrixDofMap(
-    i.d_sparse_dofs_to_sparse_dofs,
-    i.d_sparse_dofs_to_full_dofs,
-    i.sparsity,
-    SparseDofMapIndexing()
-    )
 end
 
 Base.size(i::SparseMatrixDofMap) = size(i.d_sparse_dofs_to_sparse_dofs)
 
-function Base.getindex(i::SparseMatrixDofMap{D,Ti,A,SparseDofMapIndexing},j::Integer) where {D,Ti,A}
+function Base.getindex(i::SparseMatrixDofMap,j::Integer)
   getindex(i.d_sparse_dofs_to_sparse_dofs,j)
 end
 
-function Base.setindex!(i::SparseMatrixDofMap{D,Ti,A,SparseDofMapIndexing},v,j::Integer) where {D,Ti,A}
+function Base.setindex!(i::SparseMatrixDofMap,v,j::Integer)
   setindex!(i.d_sparse_dofs_to_sparse_dofs,v,j)
-end
-
-function Base.getindex(i::SparseMatrixDofMap{D,Ti,A,FullDofMapIndexing},j::Integer) where {D,Ti,A}
-  getindex(i.d_sparse_dofs_to_full_dofs,j)
-end
-
-function Base.setindex!(i::SparseMatrixDofMap{D,Ti,A,FullDofMapIndexing},v,j::Integer) where {D,Ti,A}
-  setindex!(i.d_sparse_dofs_to_full_dofs,v,j)
 end
 
 function flatten(i::SparseMatrixDofMap)

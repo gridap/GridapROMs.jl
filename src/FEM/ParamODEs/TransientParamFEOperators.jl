@@ -46,7 +46,8 @@ function ParamSteady.get_sparse_dof_map_at_domains(op::TransientParamFEOperator)
   map(domains_jacs) do domains_jac
     sparse_dof_map_at_domains = ()
     for trian in domains_jac
-      sparse_dof_map = get_sparse_dof_map(trial,test,trian)
+      @warn "remove this"
+      sparse_dof_map = flatten(get_sparse_dof_map(trial,test,trian))
       sparse_dof_map_at_domains = (sparse_dof_map_at_domains...,sparse_dof_map)
     end
     Contribution(sparse_dof_map_at_domains,domains_jac)
