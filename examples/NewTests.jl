@@ -306,7 +306,7 @@ end
 #   heateq_3d(M,:ttsvd)
 # end
 
-for M in (120,)
+for M in (104,)
   # elasticity_3d(M,:pod)
   elasticity_3d(M,:ttsvd)
 end

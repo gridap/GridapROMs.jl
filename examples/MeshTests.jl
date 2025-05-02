@@ -659,7 +659,7 @@ end
 #   end
 # end
 
-dir = datadir("3d_elasticity_120_pod")
+dir = datadir("3d_elasticity_104_pod")
 fesnaps = load_snapshots(dir)
 x = load_snapshots(dir;label="online")
 festats = ExamplesInterface.load_stats(dir;label="online")
@@ -670,9 +670,9 @@ festats = ExamplesInterface.load_stats(dir;label="online")
 # save(dir,fesnaps)
 # save(dir,x;label="online")
 
-ttdir = datadir("3d_elasticity_120_ttsvd")
+ttdir = datadir("3d_elasticity_104_ttsvd")
 create_dir(ttdir)
-ttfeop,ttrbsolver = get_elasticity_info(120,:ttsvd)
+ttfeop,ttrbsolver = get_elasticity_info(104,:ttsvd)
 dof_map = get_dof_map(ttfeop)
 ttfesnaps = change_snaps_dof_map(fesnaps,dof_map)
 ttx = change_snaps_dof_map(x,dof_map)
