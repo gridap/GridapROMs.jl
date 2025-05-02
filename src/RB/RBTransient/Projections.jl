@@ -196,23 +196,6 @@ function RBSteady.projection(red::TransientLinearReduction,s::TransientSnapshots
   LinearProjection(proj)
 end
 
-function RBSteady.projection(red::TransientLinearReduction,s::TransientSparseSnapshots)
-  dof_map = get_dof_map(s)
-  projection(red,s,dof_map)
-end
-
-function RBSteady.projection(red::TransientLinearReduction,s::TransientSparseSnapshots,dof_map)
-  proj = projection(get_reduction(red),s,dof_map)
-  LinearProjection(proj)
-end
-
-function RBSteady.projection(red::TransientLinearReduction,s::TransientSparseSnapshots,dof_map::TrivialSparseMatrixDofMap)
-  core_space,core_time = reduction(get_reduction(red),s)
-  basis_space,basis_time = cores2basis(core_space),cores2basis(core_time)
-  basis_space′ = recast(basis_space,s)
-  KroneckerProjection(PODProjection(basis_space′),PODProjection(basis_time))
-end
-
 #TODO when new projection operators are implemented, this will have to change
 RBSteady.get_cores(a::LinearProjection) = get_cores(a.projection)
 get_cores_space(a::LinearProjection) = get_cores(a)[1:end-1]
@@ -249,6 +232,16 @@ function RBSteady.galerkin_projection(
   proj_right::LinearProjection,
   combine)
 
+  _galerkin_projection(get_dof_map(a),proj_left,a,proj_right,combine)
+end
+
+function _galerkin_projection(
+  ::AbstractDofMap,
+  proj_left::LinearProjection,
+  a::LinearProjection,
+  proj_right::LinearProjection,
+  combine)
+
   # space
   pl_space = get_cores_space(proj_left)
   a_space = get_cores_space(a)
@@ -267,24 +260,28 @@ function RBSteady.galerkin_projection(
   return ReducedProjection(proj_cores)
 end
 
-function RBSteady.galerkin_projection(
+function _galerkin_projection(
+  ::TrivialDofMap,
   proj_left::LinearProjection,
-  a::KroneckerProjection,
+  a::LinearProjection,
   proj_right::LinearProjection,
   combine)
 
-  p_space = galerkin_projection(
-    get_basis_space(proj_left),
-    get_basis_space(a),
-    get_basis_space(proj_right))
+  get_core_space(a) = RBSteady.basis2core(get_basis_space(a))
 
-  p_time = galerkin_projection(
-    get_core_time(proj_left),
-    get_basis_time(a),
-    get_core_time(proj_right),
-    combine)
+  # space
+  pl_space = get_core_space(proj_left)
+  a_space = first(get_cores(a))
+  pr_space = get_core_space(proj_right)
+  p_space = contraction(pl_space,a_space,pr_space)
 
-  p = sequential_product(reshape(p_space,1,1,1,size(p_space)...),p_time)
+  # time
+  pl_time = get_core_time(proj_left)
+  a_time = get_core_time(a)
+  pr_time = get_core_time(proj_right)
+  p_time = contraction(pl_time,a_time,pr_time,combine)
+
+  p = sequential_product(p_space,p_time)
   proj_cores = dropdims(p;dims=(1,2,3))
 
   return ReducedProjection(proj_cores)

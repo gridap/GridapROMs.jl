@@ -344,10 +344,6 @@ struct TTSVDProjection <: Projection
   dof_map::AbstractDofMap
 end
 
-function Projection(red::TTSVDReduction,s::AbstractMatrix,args...)
-  Projection(first(red),s,args...)
-end
-
 function Projection(red::TTSVDReduction,s::AbstractArray,args...)
   cores = reduction(red,s,args...)
   dof_map = get_dof_map(s)
@@ -355,18 +351,10 @@ function Projection(red::TTSVDReduction,s::AbstractArray,args...)
 end
 
 function Projection(red::TTSVDReduction,s::SparseSnapshots,args...)
-  dof_map = get_dof_map(s)
-  Projection(red,s,dof_map,args...)
-end
-
-function Projection(red::TTSVDReduction,s::SparseSnapshots,dof_map,args...)
   cores = reduction(red,s,args...)
   cores′ = recast(cores,s)
+  dof_map = get_dof_map(s)
   TTSVDProjection(cores′,dof_map)
-end
-
-function Projection(red::TTSVDReduction,s::SparseSnapshots,dof_map::TrivialSparseMatrixDofMap,args...)
-  Projection(PODReduction(red),s,args...)
 end
 
 get_cores(a::Projection) = @notimplemented
@@ -414,11 +402,37 @@ function galerkin_projection(proj_left::TTSVDProjection,a::TTSVDProjection)
   return ReducedProjection(proj_basis)
 end
 
-function galerkin_projection(proj_left::TTSVDProjection,a::TTSVDProjection,proj_right::TTSVDProjection)
+function galerkin_projection(
+  proj_left::TTSVDProjection,
+  a::TTSVDProjection,
+  proj_right::TTSVDProjection
+  )
+
+  _galerkin_projection(get_dof_map(a),proj_left,a,proj_right)
+end
+
+function _galerkin_projection(
+  ::AbstractDofMap,
+  proj_left::TTSVDProjection,
+  a::TTSVDProjection,
+  proj_right::TTSVDProjection
+  )
+
   cores_left = get_cores(proj_left)
   cores = get_cores(a)
   cores_right = get_cores(proj_right)
   proj_basis = galerkin_projection(cores_left,cores,cores_right)
+  return ReducedProjection(proj_basis)
+end
+
+function _galerkin_projection(
+  ::TrivialDofMap,
+  proj_left::TTSVDProjection,
+  a::TTSVDProjection,
+  proj_right::TTSVDProjection
+  )
+
+  proj_basis = galerkin_projection(get_basis(proj_left),get_basis(a),get_basis(proj_right))
   return ReducedProjection(proj_basis)
 end
 

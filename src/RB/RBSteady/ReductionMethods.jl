@@ -99,6 +99,7 @@ ReductionStyle(tolrank::Vector{<:Union{Float64,Int}};kwargs...) = TTSVDRanks(tol
 Base.size(r::TTSVDRanks) = (length(r.style),)
 Base.getindex(r::TTSVDRanks,i::Integer) = r.style[i]
 Base.iterate(r::TTSVDRanks,state...) = iterate(r.style,state...)
+Base.lastindex(r::TTSVDRanks) = lastindex(r.style)
 Base.repeat(r::ReductionStyle,D::Int) = TTSVDRanks(fill(r,D))
 
 """
