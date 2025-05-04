@@ -94,36 +94,3 @@ main(:pod)
 main(:ttsvd)
 
 end
-
-using Gridap
-using GridapROMs
-using DrWatson
-
-using GridapROMs.RBSteady
-
-dir = datadir("paper_results")
-
-for test in ("2d_poisson","3d_poisson")
-  M = test == "2d_poisson" ? (250,350,460) : (40,50,60)
-  for method in ("pod",)#,"ttsvd"
-    for m in M
-      dirm = joinpath(dir,test*"_$(m)_"*method)
-      stats = RBSteady.load_stats(dirm)
-      println(stats)
-    end
-  end
-end
-
-for test in ("2d_poisson","3d_poisson")
-  M = test == "2d_poisson" ? (250,350,460) : (40,50,60)
-  for method in ("ttsvd",)#,"ttsvd"
-    for m in M
-      for tol in (1e-2,1e-3,1e-4)
-        dirm = joinpath(joinpath(dir,test*"_$(m)_"*method),"$tol")
-        basis = RBSteady.load_projection(dirm;label="test")
-        n = num_reduced_dofs(basis)
-        println("ndofs at path = $dirm are: $n")
-      end
-    end
-  end
-end

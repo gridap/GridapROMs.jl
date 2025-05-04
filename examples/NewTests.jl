@@ -288,7 +288,7 @@ function elasticity_3d(M,method=:pod,sketch=:sprn)
   create_dir(dir)
 
   tols = [1e-1,1e-2,1e-3,1e-4]
-  ExamplesInterface.run_test(dir,rbsolver,feop,tols,uh0μ)
+  ExamplesInterface.run_cost(dir,rbsolver,feop,tols,uh0μ)
 end
 
 # for M in (250,350,460)
@@ -306,9 +306,39 @@ end
 #   heateq_3d(M,:ttsvd)
 # end
 
-for M in (104,)
-  # elasticity_3d(M,:pod)
+for M in (104,120,)
+  elasticity_3d(M,:pod)
   elasticity_3d(M,:ttsvd)
 end
+
+# using GridapROMs.RBSteady
+
+# dir = datadir()
+
+# for test in ("3d_elasticity",)
+#   M = (104,120)
+#   for method in ("pod","ttsvd")
+#     for m in M
+#       dirm = joinpath(dir,test*"_$(m)_"*method)
+#       stats = RBSteady.load_stats(dirm)
+#       println(stats)
+#     end
+#   end
+# end
+
+# for test in ("3d_elasticity",)
+#   M = (104,120)
+#   for method in ("pod","ttsvd")
+#     for m in M
+#       for tol in (1e-2,1e-3,1e-4)
+#         dirm = joinpath(joinpath(dir,test*"_$(m)_"*method),"$tol")
+#         basis = RBSteady.load_projection(dirm;label="test")
+#         n = num_reduced_dofs(basis)
+#         println("ndofs at path = $dirm are: $n")
+#       end
+#     end
+#   end
+# end
+
 
 end

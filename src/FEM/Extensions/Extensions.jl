@@ -1,6 +1,7 @@
 module Extensions
 
 using BlockArrays
+using Distributed
 using FillArrays
 using LinearAlgebra
 using SparseArrays

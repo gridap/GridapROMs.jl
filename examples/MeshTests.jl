@@ -551,13 +551,13 @@ function generate_snaps(M;label="2d_heateq",id=string(Int(rand(1:1e4))),kwargs..
   create_dir(dir_sol)
   save(dir_sol,fesnaps;label=id)
 
-  # dir_res = joinpath(dir,"res")
-  # create_dir(dir_res)
-  # save(dir_res,ressnaps;label=id)
+  dir_res = joinpath(dir,"res")
+  create_dir(dir_res)
+  save(dir_res,ressnaps;label=id)
 
-  # dir_jac = joinpath(dir,"jac")
-  # create_dir(dir_jac)
-  # save(dir_jac,jacsnaps,feop;label=id)
+  dir_jac = joinpath(dir,"jac")
+  create_dir(dir_jac)
+  save(dir_jac,jacsnaps,feop;label=id)
 end
 
 function main_snapshots(;
@@ -587,15 +587,14 @@ function try_loading_reduced_operator(dir_tol,rbsolver,feop,fesnaps,method=:pod)
     return rbop
   catch
     println("Load reduced operator at $dir_tol failed, must run offline phase")
-    # dir = joinpath(splitpath(dir_tol)[1:end-1])
-    # res = get_offline_snapshots(joinpath(dir,"res"),feop)
-    # jac = get_offline_snapshots(joinpath(dir,"jac"),feop)
-    # if method != :pod
-    #   res = change_dof_map(res,get_dof_map_at_domains(feop))
-    #   jac = change_dof_map(jac,get_sparse_dof_map_at_domains(feop))
-    # end
-    # rbop = reduced_operator(rbsolver,feop,fesnaps,jac,res)
-    rbop = reduced_operator(rbsolver,feop,fesnaps)
+    dir = joinpath(splitpath(dir_tol)[1:end-1])
+    res = get_offline_snapshots(joinpath(dir,"res"),feop)
+    jac = get_offline_snapshots(joinpath(dir,"jac"),feop)
+    if method != :pod
+      res = change_dof_map(res,get_dof_map_at_domains(feop))
+      jac = change_dof_map(jac,get_sparse_dof_map_at_domains(feop))
+    end
+    rbop = reduced_operator(rbsolver,feop,fesnaps,jac,res)
     save(dir_tol,rbop)
     return rbop
   end
@@ -640,43 +639,15 @@ function run_rb(
   main_rb(;method=:pod,M_test=M_heateq,label="3d_heateq",kwargs...)
   main_rb(;method=:ttsvd,M_test=M_heateq,label="3d_heateq",kwargs...)
 
-  # main_rb(;method=:pod,M_test=M_elasticity,label="elasticity",kwargs...)
-  # main_rb(;method=:ttsvd,M_test=M_elasticity,label="elasticity",kwargs...)
+  main_rb(;method=:pod,M_test=M_elasticity,label="elasticity",kwargs...)
+  main_rb(;method=:ttsvd,M_test=M_elasticity,label="elasticity",kwargs...)
 
 end
 
-# M_test = (320,700)
-# for M in M_test
-#   for id in (string.(1:5:80)...,"online")
-#     generate_snaps(M;id,label="2d_poisson")
-#   end
-# end
-
-# M_test = (50,80)
-# for M in M_test
-#   for id in (string.(1:5:80)...,"online")
-#     generate_snaps(M;id,label="3d_poisson")
-#   end
-# end
-
-dir = datadir("3d_elasticity_104_pod")
-fesnaps = load_snapshots(dir)
-x = load_snapshots(dir;label="online")
-festats = ExamplesInterface.load_stats(dir;label="online")
-
-# fesnaps,(x,festats) = get_offline_online_solutions(dir,feop,:pod)
-# println(typeof(fesnaps))
-# println(size(fesnaps))
-# save(dir,fesnaps)
-# save(dir,x;label="online")
-
-ttdir = datadir("3d_elasticity_104_ttsvd")
-create_dir(ttdir)
-ttfeop,ttrbsolver = get_elasticity_info(104,:ttsvd)
-dof_map = get_dof_map(ttfeop)
-ttfesnaps = change_snaps_dof_map(fesnaps,dof_map)
-ttx = change_snaps_dof_map(x,dof_map)
-save(ttdir,ttfesnaps)
-save(ttdir,ttx;label="online")
-save(ttdir,festats;label="online")
+M_test = (320,700)
+for M in M_test
+  for id in (string.(1:5:80)...,"online")
+    generate_snaps(M;id,label="2d_poisson")
+  end
+end
 end

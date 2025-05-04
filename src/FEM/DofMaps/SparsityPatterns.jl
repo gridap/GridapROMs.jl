@@ -56,6 +56,11 @@ for f in (:recast,:recast_indices,:recast_split_indices,:sparsify_indices)
   end
 end
 
+function get_common_sparsity(a::SparsityPattern...)
+  common_matrix = get_common_sparsity(map(get_background_matrix,a)...)
+  SparsityPattern(common_matrix)
+end
+
 """
     struct SparsityCSC{Tv,Ti} <: SparsityPattern
       matrix::SparseMatrixCSC{Tv,Ti}
@@ -186,6 +191,15 @@ function _multivalue_d_sparse_dofs_to_full_dofs(a::TProductSparsity,I,J,nrows,nc
 end
 
 # utils
+
+function get_common_sparsity(a::AbstractSparseMatrix...)
+  for ai in a
+    fill!(a,one(eltype(a)))
+  end
+  b = sum(a...)
+  fill!(b,zero(eltype(b)))
+  return b
+end
 
 """
     get_dof_eltype(f::FESpace) -> Type

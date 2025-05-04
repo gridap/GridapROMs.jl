@@ -266,10 +266,14 @@ function run_test(
   return perfs
 end
 
-function run_cost(dir::String,rbsolver::RBSolver,feop::ParamOperator,args...)
+function run_cost(
+  dir::String,rbsolver::RBSolver,feop::ParamOperator,
+  tols=[1e-1,1e-2,1e-3,1e-4,1e-5],args...)
+
   fesnaps, = try_loading_fe_snapshots(dir,rbsolver,feop,args...)
-  reduced_spaces(rbsolver,feop,fesnaps)
-  reduced_spaces(rbsolver,feop,fesnaps)
+  for tol in tols
+    reduced_spaces(rbsolver,feop,fesnaps)
+  end
 end
 
 export DrWatson
