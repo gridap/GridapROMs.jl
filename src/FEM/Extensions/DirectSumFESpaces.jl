@@ -60,8 +60,7 @@ get_act_space(f::DirectSumFESpace) = get_act_space(f.space)
 get_bg_space(f::DirectSumFESpace) = get_bg_space(f.space)
 get_bg_cell_dof_ids(f::DirectSumFESpace,args...) = get_bg_cell_dof_ids(f.space,args...)
 
-for F in (:(DofMaps.get_dof_to_bg_dof),:(DofMaps.get_fdof_to_bg_fdof),
-  :(DofMaps.get_ddof_to_bg_ddof),:get_active_fdof_to_bg_fdof,:get_active_ddof_to_bg_ddof)
+for F in (:(DofMaps.get_dof_to_bg_dof),:(DofMaps.get_fdof_to_bg_fdof),:(DofMaps.get_ddof_to_bg_ddof))
   @eval begin
     $F(f::DirectSumFESpace) = $F(f.space)
   end

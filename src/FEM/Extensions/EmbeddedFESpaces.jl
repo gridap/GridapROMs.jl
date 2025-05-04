@@ -82,16 +82,10 @@ end
 get_emb_space(f::SingleFieldFESpace) = @abstractmethod
 get_act_space(f::SingleFieldFESpace) = @abstractmethod
 get_bg_space(f::SingleFieldFESpace) = @abstractmethod
-get_active_fdof_to_bg_fdof(f::SingleFieldFESpace) = @abstractmethod
-get_active_ddof_to_bg_ddof(f::SingleFieldFESpace) = @abstractmethod
 
 get_emb_space(f::EmbeddedFESpace) = f
 get_act_space(f::EmbeddedFESpace) = f.space
 get_bg_space(f::EmbeddedFESpace) = f.bg_space
-DofMaps.get_fdof_to_bg_fdof(f::EmbeddedFESpace) = get_fdof_to_bg_fdof(f.bg_space,f.space)
-DofMaps.get_ddof_to_bg_ddof(f::EmbeddedFESpace) = get_ddof_to_bg_ddof(f.bg_space,f.space)
-get_active_fdof_to_bg_fdof(f::EmbeddedFESpace) = f.fdof_to_bg_fdofs
-get_active_ddof_to_bg_ddof(f::EmbeddedFESpace) = f.ddof_to_bg_ddofs
 
 for F in (:(DofMaps.get_dof_to_bg_dof),:(DofMaps.get_fdof_to_bg_fdof),:(DofMaps.get_ddof_to_bg_ddof),)
   @eval begin
@@ -100,8 +94,8 @@ for F in (:(DofMaps.get_dof_to_bg_dof),:(DofMaps.get_fdof_to_bg_fdof),:(DofMaps.
 end
 
 for F in (:get_emb_space,:get_act_space,:get_bg_space,
-  :(DofMaps.get_dof_to_bg_dof),:(DofMaps.get_fdof_to_bg_fdof),:(DofMaps.get_ddof_to_bg_ddof),
-  :get_active_fdof_to_bg_fdof,:get_active_ddof_to_bg_ddof)
+  :(DofMaps.get_dof_to_bg_dof),:(DofMaps.get_fdof_to_bg_fdof),:(DofMaps.get_ddof_to_bg_ddof)
+  )
   @eval begin
     $F(f::AbstractTrialFESpace) = $F(get_fe_space(f))
   end

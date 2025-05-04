@@ -29,6 +29,7 @@ import Gridap.ReferenceFEs: get_order
 import GridapROMs.ParamSteady: get_domains_res,get_domains_jac
 import GridapROMs.Utils: change_domains,set_domains
 
+export ∂ₚt,∂ₚtt
 include("TimeDerivatives.jl")
 
 include("TransientParamCellFields.jl")

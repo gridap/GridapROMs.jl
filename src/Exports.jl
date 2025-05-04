@@ -61,6 +61,7 @@ end
 @publish ParamODEs TransientParamFEOperator
 @publish ParamODEs TransientParamLinearFEOperator
 @publish ParamODEs LinearNonlinearTransientParamFEOperator
+using GridapROMs.ParamODEs: ∂ₚt,∂ₚtt; export ∂ₚt,∂ₚtt
 
 @publish Extensions DirectSumFESpace
 @publish Extensions EmbeddedFESpace

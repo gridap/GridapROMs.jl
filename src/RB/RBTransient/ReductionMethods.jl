@@ -132,11 +132,15 @@ A_1 + M / (\theta \Delta t) & & & & & \\
 ```
 
 ```math
-u_{\theta} = \left[(1-\theta)u_0 + \theta u_1, \hdots, (1-\theta)u_{n-1} + \theta u_n\right]^T;
+u_{\theta} = \begin{bmatrix}
+& (1-\theta)u_0 + \theta u_1 & \hdots & (1-\theta)u_{n-1} + \theta u_n
+\end{bmatrix}^T;
 ```
 
 ```math
-f_{\theta} = \left[f_1, \hdots, f_n\right]^T;
+f_{\theta} = \begin{bmatrix}
+& f_1 & \hdots & f_n
+\end{bmatrix}^T;
 ```
 
 ```math
