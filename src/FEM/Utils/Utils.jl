@@ -48,4 +48,7 @@ export change_domains
 export set_domains
 include("Contributions.jl")
 
+export LinearOperator
+include("LinearOperators.jl")
+
 end # module

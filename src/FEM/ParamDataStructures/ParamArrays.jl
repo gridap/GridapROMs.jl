@@ -279,8 +279,8 @@ function Base.hcat(A::ConsecutiveParamArray,B::ConsecutiveParamArray)
   ConsecutiveParamArray(data′)
 end
 
-function Base.stack(A::ConsecutiveParamArray,B::ConsecutiveParamArray)
-  data′ = stack(get_all_data(A),get_all_data(B))
+function param_cat(A::Vector{<:ConsecutiveParamArray{T,N}}) where {T,N}
+  data′ = cat(map(get_all_data,A)...;dims=N+1)
   ConsecutiveParamArray(data′)
 end
 
@@ -415,6 +415,19 @@ function Base.vec(A::GenericParamVector)
   A
 end
 
+function param_cat(A::Vector{<:GenericParamVector})
+  A1, = A
+  data = copy(A1.data)
+  ptrs = copy(A1.ptrs)
+  for (i,Ai) in enumerate(A)
+    if i != 1
+      append!(data,Ai.data)
+      append_ptrs!(ptrs,Ai.ptrs)
+    end
+  end
+  GenericParamVector(data,ptrs)
+end
+
 for op in (:+,:-)
   @eval begin
     function ($op)(A::GenericParamVector,B::GenericParamVector)
@@ -467,6 +480,17 @@ function get_param_entry(A::GenericParamVector{T},i::Integer) where T
   v = Vector{T}(undef,param_length(A))
   get_param_entry!(v,A,i)
   v
+end
+
+function ConsecutiveParamArray(A::GenericParamVector)
+  msg = "Cannot transform this GenericParamVector to a ConsecutiveParamVector"
+  δ = A.ptrs[2]-A.ptrs[1]
+  for i in 2:length(A.ptrs)-1
+    @check A.ptrs[i+1]-A.ptrs[i] == δ msg
+  end
+  plength = param_length(A)
+  data = reshape(A.data,:,plength)
+  ConsecutiveParamArray(data)
 end
 
 """
@@ -565,6 +589,21 @@ function Base.vec(A::GenericParamMatrix)
   GenericParamVector(data,ptrs)
 end
 
+function param_cat(A::Vector{<:GenericParamMatrix})
+  A1, = A
+  data = copy(A1.data)
+  ptrs = copy(A1.ptrs)
+  rows = copy(A1.rows)
+  for (i,Ai) in enumerate(A)
+    if i != 1
+      append!(data,Ai.data)
+      append_ptrs!(ptrs,Ai.ptrs)
+      append!(rows,Ai.rows)
+    end
+  end
+  GenericParamMatrix(data,ptrs,rows)
+end
+
 for op in (:+,:-)
   @eval begin
     function ($op)(A::GenericParamMatrix,B::GenericParamMatrix)
@@ -603,6 +642,17 @@ function get_param_entry(A::GenericParamMatrix{T},i::Integer,j::Integer) where T
   v = Vector{T}(undef,param_length(A))
   get_param_entry!(v,A,i,j)
   v
+end
+
+function ConsecutiveParamArray(A::GenericParamMatrix)
+  msg = "Cannot transform this GenericParamMatrix to a ConsecutiveParamMatrix"
+  δ = A.ptrs[2]-A.ptrs[1]
+  for i in 2:length(A.ptrs)-1
+    @check A.ptrs[i+1]-A.ptrs[i] == δ msg
+  end
+  plength = param_length(A)
+  data = reshape(A.data,first(A.nrows),:,plength)
+  ConsecutiveParamArray(data)
 end
 
 """
@@ -673,6 +723,16 @@ end
 function Base.vec(A::ArrayOfArrays)
   data′ = map(vec,A.data)
   ArrayOfArrays(data′)
+end
+
+function param_cat(A::Vector{<:ArrayOfArrays})
+  A1, = A
+  for (i,Ai) in enumerate(A)
+    if i != 1
+      append!(data,Ai.data)
+    end
+  end
+  ArrayOfArrays(data)
 end
 
 function Base.setindex!(

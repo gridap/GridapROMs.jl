@@ -92,16 +92,19 @@ function get_bg_cell_to_cell(f::SingleFieldFESpace)
   get_bg_cell_to_cell(get_triangulation(f))
 end
 
-function get_cell_to_bg_cell(trian::Triangulation)
-  D = num_cell_dims(trian)
-  glue = get_glue(trian,Val(D))
+function get_cell_to_bg_cell(trian::Triangulation{Dt,Dp}) where {Dt,Dp}
+  glue = get_glue(trian,Val(Dp))
   glue.tface_to_mface
 end
 
-function get_bg_cell_to_cell(trian::Triangulation)
-  D = num_cell_dims(trian)
-  glue = get_glue(trian,Val(D))
-  glue.mface_to_tface
+function get_bg_cell_to_cell(trian::Triangulation{Dt,Dp}) where {Dt,Dp}
+  cell_to_bg_cell = get_cell_to_bg_cell(trian)
+  bgmodel = get_background_model(trian)
+  ncells = num_cells(trian)
+  nbgcells = num_cells(bgmodel)
+  bg_cell_to_cell = zeros(eltype(cell_to_bg_cell),nbgcells)
+  bg_cell_to_cell[cell_to_bg_cell] .= 1:ncells
+  return bg_cell_to_cell
 end
 
 function get_bg_fdof_to_fdof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace)

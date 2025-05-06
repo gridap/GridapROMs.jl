@@ -44,6 +44,7 @@ export SparsityPattern
 export SparsityCSC
 export TProductSparsity
 export get_sparsity
+export get_common_sparsity
 export get_dof_eltype
 include("SparsityPatterns.jl")
 

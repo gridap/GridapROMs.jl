@@ -10,6 +10,7 @@ end
 @publish Utils ∂₁
 @publish Utils ∂₂
 @publish Utils ∂₃
+@publish Utils LinearOperator
 
 @publish DofMaps OrderedFESpace
 @publish DofMaps slow_index
@@ -65,6 +66,8 @@ using GridapROMs.ParamODEs: ∂ₚt,∂ₚtt; export ∂ₚt,∂ₚtt
 
 @publish Extensions DirectSumFESpace
 @publish Extensions EmbeddedFESpace
+@publish Extensions ExtensionOperator
+@publish Extensions ExtensionLinearOperator
 @publish Extensions ExtensionParamOperator
 @publish Extensions ExtensionLinearParamOperator
 @publish Extensions ExtensionLinearNonlinearParamOperator

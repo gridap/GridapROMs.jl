@@ -1,11 +1,12 @@
 module RBSteady
 
+using BlockArrays
+using Distributed
+using DrWatson
 using LinearAlgebra
 using LowRankApprox
-using BlockArrays
-using SparseArrays
-using DrWatson
 using Serialization
+using SparseArrays
 
 using Gridap
 using Gridap.Algebra
@@ -35,6 +36,7 @@ using GridapROMs.ParamSteady
 using GridapROMs.ParamODEs
 using GridapROMs.Extensions
 
+import ArraysOfArrays: _ncolons
 import Base: +,-,*,\
 import FillArrays: Fill
 import PartitionedArrays: tuple_of_arrays

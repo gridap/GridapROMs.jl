@@ -75,8 +75,8 @@ function Algebra.solve!(
   solve!(u_bg,solver.solver,op,cache)
 end
 
-function Algebra.solve(solver::ExtensionSolver,op::NonlinearOperator)
-  u = solve(solver.solver,op)
+function Algebra.solve(solver::ExtensionSolver,op::ExtensionOperator)
+  u = solve(solver.solver,op.op)
   u_bg = extend_solution(solver.extension,get_trial(op),u)
   return u_bg
 end
@@ -139,7 +139,7 @@ function harmonic_extension(fout::SingleFieldFESpace,uh_in_bg::FEFunction)
   dΩout = Measure(Ωout,degree)
 
   a(u,v) = ∫(∇(u)⊙∇(v))dΩout
-  l(v) = ∫(∇(uh_in_bg)⊙∇(v))dΩout
+  l(v) = (-1)*∫(∇(uh_in_bg)⊙∇(v))dΩout
   assem = SparseMatrixAssembler(fout,fout)
 
   A = assemble_matrix(a,assem,fout,fout)

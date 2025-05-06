@@ -169,6 +169,10 @@ function Base.copyto!(A::BlockParamArray,B::BlockParamArray)
   A
 end
 
+function param_cat(A::Vector{<:BlockParamArray})
+  mortar(map(param_cat,blocks(A)))
+end
+
 for op in (:+,:-)
   @eval begin
     function ($op)(A::BlockParamArray,B::BlockParamArray)

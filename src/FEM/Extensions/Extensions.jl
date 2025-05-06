@@ -1,7 +1,6 @@
 module Extensions
 
 using BlockArrays
-using Distributed
 using FillArrays
 using LinearAlgebra
 using SparseArrays
@@ -42,6 +41,10 @@ include("DirectSumFESpaces.jl")
 export ExtensionAssembler
 include("ExtensionAssemblers.jl")
 
+export ExtensionOperator
+export ExtensionLinearOperator
+include("ExtensionOperators.jl")
+
 export ExtensionParamOperator
 export ExtensionLinearParamOperator
 export ExtensionLinearNonlinearParamOperator
@@ -58,5 +61,12 @@ export BlockExtension
 export ExtensionSolver
 export extend_solution
 include("ExtensionSolvers.jl")
+
+export UnCommonParamOperator
+export param_operator
+export allocate_batchvector
+export allocate_batchmatrix
+export batchseries
+include("UnCommon.jl")
 
 end # module

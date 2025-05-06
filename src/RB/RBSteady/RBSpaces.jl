@@ -127,7 +127,7 @@ ParamDataStructures.param_length(r::RBSpace) = param_length(get_fe_space(r))
 function FESpaces.zero_free_values(r::RBSpace)
   x = zero_free_values(get_fe_space(r))
   x̂ = project(r,x)
-  RBParamVector(x̂,x)
+  reduced_vector(x̂,x)
 end
 
 FESpaces.zero_dirichlet_values(r::RBSpace) = zero_dirichlet_values(get_fe_space(r))

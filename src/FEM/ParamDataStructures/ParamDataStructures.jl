@@ -93,6 +93,7 @@ export GenericParamVector
 export GenericParamMatrix
 export ArrayOfArrays
 export get_all_data
+export param_cat
 include("ParamArrays.jl")
 
 export ParamSparseMatrix

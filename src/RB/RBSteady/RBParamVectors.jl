@@ -12,9 +12,17 @@ struct RBVector{T,A<:AbstractVector{T},B} <: AbstractVector{T}
   fe_data::B
 end
 
+function reduced_vector(data::AbstractVector,fe_data::AbstractVector)
+  RBVector(data,fe_data)
+end
+
 Base.size(a::RBVector) = size(a.data)
 Base.getindex(a::RBVector,i::Integer) = getindex(a.data,i)
 Base.setindex!(a::RBVector,v,i::Integer) = setindex!(a.data,v,i)
+
+function Algebra.allocate_vector(::Type{V},n::Int) where V<:RBVector
+  allocate_vector(Vector{eltype(V)},n)
+end
 
 """
     struct RBParamVector{T,A<:ParamVector{T},B} <: ParamArray{T,1}
@@ -28,6 +36,10 @@ parametric FE vector `fe_data`, which is stored (but mostly unused) for convenie
 struct RBParamVector{T,A<:ParamVector{T},B} <: ParamArray{T,1}
   data::A
   fe_data::B
+end
+
+function reduced_vector(data::AbstractParamVector,fe_data::AbstractParamVector)
+  RBParamVector(data,fe_data)
 end
 
 Base.size(a::RBParamVector) = size(a.data)
