@@ -91,7 +91,7 @@ CellData.get_domains(feop::GenericFEDomainOperator) = feop.domains
 
 function LinearFEOperator(res::Function,jac::Function,trial::FESpace,test::FESpace,domains::FEDomains)
   jac′(u,du,v,args...) = jac(du,v,args...)
-  res′,jac′′ = set_domains(res,jac′,test,trial,domains)
+  res′,jac′′ = _set_domains(res,jac′,test,trial,domains)
   assem = SparseMatrixAssembler(trial,test)
   feop = FEOperator(res′,jac′′,trial,test,assem)
   GenericFEDomainOperator{LinearEq}(feop,domains)
@@ -102,7 +102,7 @@ function LinearFEOperator(res::Function,jac::Function,trial::FESpace,test::FESpa
 end
 
 function FESpaces.FEOperator(res::Function,jac::Function,trial::FESpace,test::FESpace,domains::FEDomains)
-  res′,jac′ = set_domains(res,jac,test,trial,domains)
+  res′,jac′ = _set_domains(res,jac,test,trial,domains)
   assem = SparseMatrixAssembler(trial,test)
   feop = FEOperator(res′,jac′,trial,test,assem)
   GenericFEDomainOperator{NonlinearEq}(feop,domains)
@@ -204,7 +204,7 @@ for f in (:set_domains,:change_domains)
     function $f(feop::GenericFEDomainOperator{O},trians_res,trians_jac) where O
       trian_res′ = order_domains(get_domains_res(feop),trians_res)
       trian_jac′ = order_domains(get_domains_jac(feop),trians_jac)
-      res′,jac′ = set_domains(
+      res′,jac′ = _set_domains(
         get_res(feop),get_jac(feop),get_trial(feop),get_test(feop),trian_res′,trian_jac′
       )
       domains′ = FEDomains(trian_res′,trian_jac′)
@@ -214,7 +214,7 @@ for f in (:set_domains,:change_domains)
   end
 end
 
-function set_domains(
+function _set_domains(
   res::Function,
   jac::Function,
   test::FESpace,
@@ -229,7 +229,7 @@ function set_domains(
   return res′,jac′
 end
 
-function set_domains(
+function _set_domains(
   res::Function,
   jac::Function,
   test::FESpace,
@@ -238,7 +238,7 @@ function set_domains(
 
   trian_res = get_domains_res(domains)
   trian_jac = get_domains_jac(domains)
-  set_domains(res,jac,test,trial,trian_res,trian_jac)
+  _set_domains(res,jac,test,trial,trian_res,trian_jac)
 end
 
 function _set_domain_jac(

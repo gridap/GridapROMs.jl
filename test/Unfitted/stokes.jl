@@ -10,14 +10,6 @@ tol_or_rank(tol::Real,rank) = tol
 tol_or_rank(tol::Real,rank::Int) = tol
 tol_or_rank(tol,rank::Int) = rank
 
-function coupling(method=:pod)
-  if method == :pod
-    ((du,dp),(v,q)) -> ∫(dp*(∇⋅(v)))dΩ
-  else method == :ttsvd
-    ((du,dp),(v,q)) -> ∫(dp*∂₁(v))dΩbg + ∫(dp*∂₂(v))dΩbg
-  end
-end
-
 function main(
   method=:pod,n=20;
   tol=1e-4,rank=nothing,nparams=50,nparams_res=floor(Int,nparams/3),
@@ -110,9 +102,10 @@ function main(
   trial = MultiFieldParamFESpace([trial_u,trial_p];style=BlockMultiFieldStyle())
   feop = ExtensionLinearParamOperator(res,a,pspace,trial,test,domains)
 
-  tolrank = tol_or_rank(tol,rank)
+  tolrank = method==:ttsvd ? fill(tol_or_rank(tol,rank),3) : tol_or_rank(tol,rank)
   energy((du,dp),(v,q)) = ∫(du⋅v)dΩbg  + ∫(dp*q)dΩbg + ∫(∇(v)⊙∇(du))dΩbg
-  state_reduction = SupremizerReduction(coupling(method),tolrank,energy;nparams,sketch)
+  coupling((du,dp),(v,q)) = method==:pod ? ∫(dp*(∇⋅(v)))dΩbg : ∫(dp*∂₁(v))dΩbg + ∫(dp*∂₂(v))dΩbg
+  state_reduction = SupremizerReduction(coupling,tolrank,energy;nparams,sketch)
 
   extension = BlockExtension([HarmonicExtension(),ZeroExtension()])
   fesolver = ExtensionSolver(LUSolver(),extension)
@@ -186,7 +179,7 @@ function main_transient(
 
   u(μ,t) = x -> t*VectorValue(x[1]*exp(-μ[1]*x[1]),μ[2]*x[2])
   p(μ,t) = x -> t*x[1] - sin(μ[3]*x[2])
-  f(μ,t) = x -> - Δ(u(μ,t))(x) + ∇(p(μ))(x)
+  f(μ,t) = x -> - Δ(u(μ,t))(x) + ∇(p(μ,t))(x)
   g(μ,t) = x -> (∇⋅u(μ,t))(x)
   u0(μ) = x -> VectorValue(0.0,0.0)
   p0(μ) = x -> 0.0
@@ -242,7 +235,8 @@ function main_transient(
 
   tolrank = method==:ttsvd ? fill(tol_or_rank(tol,rank),4) : tol_or_rank(tol,rank)
   energy((du,dp),(v,q)) = ∫(du⋅v)dΩbg  + ∫(dp*q)dΩbg + ∫(∇(v)⊙∇(du))dΩbg
-  state_reduction = TransientReduction(coupling(method),tolrank,energy;nparams,sketch)
+  coupling((du,dp),(v,q)) = method==:pod ? ∫(dp*(∇⋅(v)))dΩbg : ∫(dp*∂₁(v))dΩbg + ∫(dp*∂₂(v))dΩbg
+  state_reduction = TransientReduction(coupling,tolrank,energy;nparams,sketch)
 
   extension = BlockExtension([HarmonicExtension(),ZeroExtension()])
   fesolver = ThetaMethod(ExtensionSolver(LUSolver(),extension),dt,θ)
@@ -262,7 +256,9 @@ function main_transient(
   println(perf)
 end
 
-main_transient(:pod)
-main_transient(:ttsvd)
+# main(:pod)
+# main(:ttsvd)
+main_transient(:pod,40)
+main_transient(:ttsvd,40)
 
 end

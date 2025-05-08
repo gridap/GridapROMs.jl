@@ -96,7 +96,7 @@ function TransientParamFEOperator(
   res::Function,jacs::Tuple{Vararg{Function}},tpspace,trial,test,domains::FEDomains)
 
   order = length(jacs) - 1
-  res′,jacs′ = set_domains(res,jacs,test,trial,domains)
+  res′,jacs′ = _set_domains(res,jacs,test,trial,domains)
   assem = SparseMatrixAssembler(trial,test)
   TransientParamFEOpFromWeakForm{SplitDomains}(
     res′,jacs′,tpspace,assem,trial,test,domains,order)
@@ -213,7 +213,7 @@ function TransientParamLinearFEOperator(
 
   order = length(forms) - 1
   jacs = ntuple(k -> ((μ,t,u,duk,v,args...) -> forms[k](μ,t,duk,v,args...)),length(forms))
-  res′,jacs′ = set_domains(res,jacs,test,trial,domains)
+  res′,jacs′ = _set_domains(res,jacs,test,trial,domains)
   assem = SparseMatrixAssembler(trial,test)
   TransientParamLinearFEOpFromWeakForm{SplitDomains}(
     res′,jacs′,constant_forms,tpspace,assem,trial,test,domains,order)
@@ -263,7 +263,7 @@ for f in (:set_domains,:change_domains)
     function $f(op::SplitTransientParamFEOpFromWeakForm,trian_res,trian_jacs)
       trian_res′ = order_domains(get_domains_res(op),trian_res)
       trian_jacs′ = map(order_domains,get_domains_jac(op),trian_jacs)
-      res′,jacs′ = set_domains(op.res,op.jacs,op.test,op.trial,trian_res′,trian_jacs′)
+      res′,jacs′ = _set_domains(op.res,op.jacs,op.test,op.trial,trian_res′,trian_jacs′)
       domains′ = FEDomains(trian_res′,trian_jacs′)
       TransientParamFEOpFromWeakForm{$T}(
         res′,jacs′,op.tpspace,op.assem,op.trial,op.test,domains′,op.order)
@@ -272,7 +272,7 @@ for f in (:set_domains,:change_domains)
     function $f(op::SplitTransientParamLinearFEOpFromWeakForm,trian_res,trian_jacs)
       trian_res′ = order_domains(get_domains_res(op),trian_res)
       trian_jacs′ = map(order_domains,get_domains_jac(op),trian_jacs)
-      res′,jacs′ = set_domains(op.res,op.jacs,op.test,op.trial,trian_res′,trian_jacs′)
+      res′,jacs′ = _set_domains(op.res,op.jacs,op.test,op.trial,trian_res′,trian_jacs′)
       domains′ = FEDomains(trian_res′,trian_jacs′)
       TransientParamLinearFEOpFromWeakForm{$T}(
         res′,jacs′,op.constant_forms,op.tpspace,op.assem,op.trial,op.test,domains′,op.order)
@@ -287,9 +287,9 @@ function _set_domain_jac(
 
   degree = 2*order
   meas = Measure.(trian,degree)
-  newjac(μ,t,u,du,v,args...) = jac(μ,t,u,du,v,args...)
-  newjac(μ,t,u,du,v) = newjac(μ,t,u,du,v,meas...)
-  return newjac
+  jac′(μ,t,u,du,v,args...) = jac(μ,t,u,du,v,args...)
+  jac′(μ,t,u,du,v) = jac′(μ,t,u,du,v,meas...)
+  return jac′
 end
 
 function _set_domain_jacs(
@@ -297,11 +297,11 @@ function _set_domain_jacs(
   trians::Tuple{Vararg{Tuple{Vararg{Triangulation}}}},
   order)
 
-  newjacs = ()
+  jacs′ = ()
   for (jac,trian) in zip(jacs,trians)
-    newjacs = (newjacs...,_set_domain_jac(jac,trian,order))
+    jacs′ = (jacs′...,_set_domain_jac(jac,trian,order))
   end
-  return newjacs
+  return jacs′
 end
 
 function _set_domain_form(
@@ -311,12 +311,12 @@ function _set_domain_form(
 
   degree = 2*order
   meas = Measure.(trian,degree)
-  newres(μ,t,u,v,args...) = res(μ,t,u,v,args...)
-  newres(μ,t,u,v) = newres(μ,t,u,v,meas...)
-  return newres
+  res′(μ,t,u,v,args...) = res(μ,t,u,v,args...)
+  res′(μ,t,u,v) = res′(μ,t,u,v,meas...)
+  return res′
 end
 
-function Utils.set_domains(
+function _set_domains(
   res::Function,
   jacs::Tuple{Vararg{Function}},
   test::FESpace,
@@ -331,7 +331,7 @@ function Utils.set_domains(
   return res′,jacs′
 end
 
-function Utils.set_domains(
+function _set_domains(
   res::Function,
   jacs::Tuple{Vararg{Function}},
   test::FESpace,
@@ -340,7 +340,7 @@ function Utils.set_domains(
 
   trian_res = get_domains_res(domains)
   trian_jacs = get_domains_jac(domains)
-  set_domains(res,jacs,test,trial,trian_res,trian_jacs)
+  _set_domains(res,jacs,test,trial,trian_res,trian_jacs)
 end
 
 function LinearNonlinearTransientParamFEOperator(

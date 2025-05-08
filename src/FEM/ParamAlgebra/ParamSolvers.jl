@@ -165,3 +165,13 @@ function Algebra._solve_nr!(
   LinearSolvers.finalize!(log,res)
   return x
 end
+
+# logs
+
+for f in (:(GridapSolvers.init!),:(GridapSolvers.update!),:(GridapSolvers.finalize!))
+  @eval begin
+    function $f(log::GridapSolvers.ConvergenceLog{T},res::Vector{T}) where T
+      $f(log,maximum(res))
+    end
+  end
+end
