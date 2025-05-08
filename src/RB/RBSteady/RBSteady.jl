@@ -1,7 +1,6 @@
 module RBSteady
 
 using BlockArrays
-using Distributed
 using DrWatson
 using LinearAlgebra
 using LowRankApprox
@@ -36,7 +35,6 @@ using GridapROMs.ParamSteady
 using GridapROMs.ParamODEs
 using GridapROMs.Extensions
 
-import ArraysOfArrays: _ncolons
 import Base: +,-,*,\
 import FillArrays: Fill
 import PartitionedArrays: tuple_of_arrays
@@ -180,5 +178,7 @@ export plot_a_solution
 include("PostProcess.jl")
 
 include("Extensions.jl")
+
+include("UnCommonParamOperators.jl")
 
 end # module

@@ -11,6 +11,7 @@ using Gridap.FESpaces
 using Gridap.Fields
 using Gridap.Geometry
 using Gridap.Helpers
+using Gridap.ODEs
 using Gridap.ReferenceFEs
 using Gridap.TensorValues
 
@@ -48,7 +49,22 @@ export change_domains
 export set_domains
 include("Contributions.jl")
 
-export LinearOperator
-include("LinearOperators.jl")
+export FEDomains
+export OperatorType
+export LinearEq
+export NonlinearEq
+export FEDomainOperator
+export LinearFEOperator
+export NonlinearDomainOperator
+export GenericFEDomainOperator
+export GenericDomainOperator
+export get_fe_operator
+export get_jac
+export get_domains
+export get_domains_res
+export get_domains_jac
+export get_polynomial_order
+export get_polynomial_orders
+include("FEDomains.jl")
 
 end # module

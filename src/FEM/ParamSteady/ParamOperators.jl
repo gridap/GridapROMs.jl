@@ -67,17 +67,11 @@ const JointParamOperator{O<:UnEvalOperatorType} = ParamOperator{O,JointDomains}
 """
 const SplitParamOperator{O<:UnEvalOperatorType} = ParamOperator{O,SplitDomains}
 
-"""
-    get_fe_operator(op::ParamOperator) -> ParamFEOperator
-
-Fetches the underlying FE operator of an algebraic operator `op`
-"""
 get_fe_operator(op::ParamOperator) = @abstractmethod
-
 FESpaces.get_test(op::ParamOperator) = get_test(get_fe_operator(op))
 FESpaces.get_trial(op::ParamOperator) = get_trial(get_fe_operator(op))
 ODEs.get_res(op::ParamOperator) = ODEs.get_res(get_fe_operator(op))
-get_jac(op::ParamOperator) = get_jac(get_fe_operator(op))
+Utils.get_jac(op::ParamOperator) = get_jac(get_fe_operator(op))
 
 DofMaps.get_dof_map(op::ParamOperator) = get_dof_map(get_fe_operator(op))
 DofMaps.get_sparse_dof_map(op::ParamOperator) = get_sparse_dof_map(get_fe_operator(op))
@@ -87,8 +81,8 @@ CellData.get_domains(op::ParamOperator) = get_domains(get_fe_operator(op))
 
 set_domains(op::ParamOperator,args...) = get_algebraic_operator(set_domains(get_fe_operator(op),args...))
 change_domains(op::ParamOperator,args...) = get_algebraic_operator(change_domains(get_fe_operator(op),args...))
-get_domains_res(op::ParamOperator) = get_domains_res(get_fe_operator(op))
-get_domains_jac(op::ParamOperator) = get_domains_jac(get_fe_operator(op))
+Utils.get_domains_res(op::ParamOperator) = get_domains_res(get_fe_operator(op))
+Utils.get_domains_jac(op::ParamOperator) = get_domains_jac(get_fe_operator(op))
 
 get_param_space(op::ParamOperator) = get_param_space(get_fe_operator(op))
 ParamDataStructures.realization(op::ParamOperator;kwargs...) = realization(get_fe_operator(op);kwargs...)

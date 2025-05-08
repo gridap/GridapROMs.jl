@@ -106,7 +106,7 @@ end
 
 FESpaces.get_trial(op::GenericRBOperator) = op.trial
 FESpaces.get_test(op::GenericRBOperator) = op.test
-ParamSteady.get_fe_operator(op::GenericRBOperator) = op.op
+Utils.get_fe_operator(op::GenericRBOperator) = op.op
 
 function Algebra.allocate_residual(
   op::GenericRBOperator,
@@ -201,7 +201,7 @@ ParamAlgebra.get_nonlinear_operator(op::LinearNonlinearRBOperator) = op.op_nonli
 FESpaces.get_trial(op::LinearNonlinearRBOperator) = get_trial(get_nonlinear_operator(op))
 FESpaces.get_test(op::LinearNonlinearRBOperator) = get_test(get_nonlinear_operator(op))
 
-ParamSteady.get_fe_operator(op::LinearNonlinearRBOperator) = get_fe_operator(get_nonlinear_operator(op))
+Utils.get_fe_operator(op::LinearNonlinearRBOperator) = get_fe_operator(get_nonlinear_operator(op))
 
 function ParamAlgebra.allocate_paramcache(op::LinearNonlinearRBOperator,μ::AbstractRealization)
   op_nlin = get_nonlinear_operator(op)

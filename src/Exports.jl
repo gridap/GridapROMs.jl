@@ -10,7 +10,12 @@ end
 @publish Utils ∂₁
 @publish Utils ∂₂
 @publish Utils ∂₃
-@publish Utils LinearOperator
+@publish Utils FEDomains
+@publish Utils FEDomainOperator
+@publish Utils LinearFEOperator
+@publish Utils NonlinearDomainOperator
+@publish Utils GenericFEDomainOperator
+@publish Utils GenericDomainOperator
 
 @publish DofMaps OrderedFESpace
 @publish DofMaps slow_index
@@ -48,7 +53,6 @@ end
 @publish ParamSteady ParamOperator
 @publish ParamSteady LinearParamOperator
 @publish ParamSteady LinearNonlinearParamOperator
-@publish ParamSteady FEDomains
 @publish ParamSteady ParamFEOperator
 @publish ParamSteady LinearParamFEOperator
 @publish ParamSteady LinearNonlinearParamFEOperator
@@ -67,7 +71,6 @@ using GridapROMs.ParamODEs: ∂ₚt,∂ₚtt; export ∂ₚt,∂ₚtt
 @publish Extensions DirectSumFESpace
 @publish Extensions EmbeddedFESpace
 @publish Extensions ExtensionOperator
-@publish Extensions ExtensionLinearOperator
 @publish Extensions ExtensionParamOperator
 @publish Extensions ExtensionLinearParamOperator
 @publish Extensions ExtensionLinearNonlinearParamOperator

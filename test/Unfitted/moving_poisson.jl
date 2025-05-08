@@ -6,6 +6,7 @@ using GridapROMs
 
 using Gridap.Algebra
 using GridapROMs.RBSteady
+using GridapROMs.Extensions
 
 tol_or_rank(tol,rank) = @assert false "Provide either a tolerance or a rank for the reduction step"
 tol_or_rank(tol::Real,rank) = tol
@@ -62,7 +63,7 @@ rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac)
 const γd = 10.0
 const hd = dp[1]/n
 
-function get_fe_operator(μ)
+function def_fe_operator(μ)
   x0 = Point(μ[1],μ[2])
   geo = !disk(R,x0=x0)
   cutgeo = cut(bgmodel,geo)
@@ -76,8 +77,13 @@ function get_fe_operator(μ)
 
   n_Γ = get_normal_vector(Γ)
 
-  a(u,v) = ∫(∇(v)⋅∇(u))dΩ + ∫( (γd/hd)*v*u  - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u )dΓ
-  l(v) = ∫(f⋅v)dΩ + ∫( (γd/hd)*v*g - (n_Γ⋅∇(v))*g )dΓ
+  a(u,v,dΩ,dΓ) = ∫(∇(v)⋅∇(u))dΩ + ∫( (γd/hd)*v*u  - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u )dΓ
+  l(v,dΩ,dΓ) = ∫(f⋅v)dΩ + ∫( (γd/hd)*v*g - (n_Γ⋅∇(v))*g )dΓ
+  res(u,v,dΩ,dΓ) = ∫(∇(v)⋅∇(u))dΩ - l(v,dΩ,dΓ)
+
+  trian_a = (Ω,Γ)
+  trian_res = (Ω,Γ)
+  domains = FEDomains(trian_res,trian_a)
 
   # agfem
   strategy = AggregateAllCutCells()
@@ -87,29 +93,38 @@ function get_fe_operator(μ)
 
   test = DirectSumFESpace(testbg,testagg)
   trial = TrialFESpace(test,g)
-  ExtensionLinearOperator(a,l,trial,test)
+  ExtensionLinearOperator(res,a,trial,test,domains)
 end
 
 μ = realization(pspace;nparams=50)
 
-feop = param_operator(μ.params) do μ
+feop = param_operator(μ) do μ
   println("------------------")
-  get_fe_operator(μ)
+  def_fe_operator(μ)
 end
 
-x = solve(fesolver,feop)
-i = get_dof_map(testbg)
-fesnaps = Snapshots(x,i,μ)
+# x = solve(fesolver,feop)
+# i = get_dof_map(testbg)
+# fesnaps = Snapshots(x,i,μ)
 
-basis = reduced_basis(state_reduction,fesnaps,X)
-red_test = reduced_subspace(testbg,basis)
-red_trial = red_test
+# basis = reduced_basis(state_reduction,fesnaps,X)
+# red_test = reduced_subspace(testbg,basis)
+# red_trial = red_test
+
+fesnaps, = solution_snapshots(rbsolver,feop)
+red_trial,red_test = reduced_spaces(rbsolver,feop,fesnaps)
+
+using Gridap.FESpaces
+using Gridap.Algebra
+using GridapROMs.Utils
 
 # Φ = get_basis(basis)
 # fesnaps - Φ*Φ'*X*fesnaps
 # μtest = realization(pspace;sampling=:uniform)
 # xtest = solve(fesolver,get_fe_operator(μtest.params[1]))
 # xtest - Φ*Φ'*X*xtest
+
+ress = residual_snapshots(rbsolver,feop,fesnaps)
 
 x0 = similar(x)
 x0 = fill!(x0,0.0)

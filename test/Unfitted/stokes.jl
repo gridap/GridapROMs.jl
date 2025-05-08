@@ -84,7 +84,7 @@ function main(
     ∫( (γ/h)*v⋅uμ(μ) - (nΓ⋅∇(v))⋅uμ(μ) + (q*nΓ)⋅uμ(μ) ) * dΓ +
     ∫( v⋅(nΓn⋅∇(uμ(μ))) - (nΓn⋅v)*pμ(μ) ) * dΓn
 
-  res(μ,(u,p),(v,q),dΩ,dΓ,dΓn) = ∫( ∇(v)⊙∇(u) - q*(∇⋅u) - (∇⋅v)*p ) * dΩ - l(μ,(v,q),dΩ,dΓ,dΓn)
+  res(μ,(u,p),(v,q),dΩ,dΓ,dΓn) = a(μ,(u,p),(v,q),dΩ,dΓ) - l(μ,(v,q),dΩ,dΓ,dΓn)
 
   trian_res = (Ω,Γ,Γn)
   trian_jac = (Ω,Γ)
@@ -211,8 +211,7 @@ function main_transient(
     ∫( (γ/h)*v⋅uμt(μ,t) - (nΓ⋅∇(v))⋅uμt(μ,t) + (q*nΓ)⋅uμt(μ,t) ) * dΓ +
     ∫( v⋅(nΓn⋅∇(uμt(μ,t))) - (nΓn⋅v)*pμt(μ,t) ) * dΓn
 
-  res(μ,t,(u,p),(v,q),dΩ,dΓ,dΓn) =
-    ∫( v⋅∂t(u) + ∇(v)⊙∇(u) - q*(∇⋅u) - (∇⋅v)*p ) * dΩ - l(μ,t,(v,q),dΩ,dΓ,dΓn)
+  res(μ,t,(u,p),(v,q),dΩ,dΓ,dΓn) = ∫( v⋅∂t(u) )*dΩ + a(μ,t,(u,p),(v,q),dΩ,dΓ) - l(μ,t,(v,q),dΩ,dΓ,dΓn)
 
   trian_res = (Ω,Γ,Γn)
   trian_a = (Ω,Γ)
@@ -263,7 +262,7 @@ function main_transient(
   println(perf)
 end
 
-main(:pod)
-main(:ttsvd)
+main_transient(:pod)
+main_transient(:ttsvd)
 
 end

@@ -63,8 +63,6 @@ include("DofMapsInterface.jl")
 
 export get_dof_map
 export get_sparse_dof_map
-export get_polynomial_order
-export get_polynomial_orders
 export get_cell_to_bg_cell
 export get_bg_cell_to_cell
 export get_bg_dof_to_dof

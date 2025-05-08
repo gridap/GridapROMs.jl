@@ -110,12 +110,6 @@ function ExtensionODEParamSolution(
   ExtensionODEParamSolution(extension,odesol)
 end
 
-function Base.collect(sol::ExtensionODEParamSolution)
-  u,stats = collect(sol.odesol)
-  u_bg = extend_solution(sol.extension,get_trial(sol.odesol.odeop)(sol.odesol.r),u)
-  return u_bg,stats
-end
-
 function ParamODEs.ODEParamSolution(
   solver::ODESolver,
   odeop::ODEExtensionParamOperator,
@@ -123,6 +117,12 @@ function ParamODEs.ODEParamSolution(
   u0::V) where V
 
   ExtensionODEParamSolution(solver,odeop,r,u0)
+end
+
+function Base.collect(sol::ExtensionODEParamSolution)
+  u,stats = collect(sol.odesol)
+  u_bg = extend_solution(sol.extension,get_trial(sol.odesol.odeop)(sol.odesol.r),u)
+  return u_bg,stats
 end
 
 function ParamODEs.initial_condition(sol::ExtensionODEParamSolution)

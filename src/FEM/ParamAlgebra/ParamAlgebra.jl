@@ -48,6 +48,4 @@ include("LinearNonlinearParamOperators.jl")
 
 include("ParamSolvers.jl")
 
-include("ParamIterativeSolvers.jl")
-
 end # module

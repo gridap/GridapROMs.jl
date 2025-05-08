@@ -1,18 +1,51 @@
-struct UnCommonParamOperator{O,T,S} <: ParamOperator{O,T}
-  operators::Vector{S}
+struct UnCommonParamOperator{O<:UnEvalOperatorType,T<:NonlinearDomainOperator} <: ParamOperator{O,JointDomains}
+  operators::Vector{T}
+  μ::AbstractRealization
+
+  function UnCommonParamOperator(
+    operators::Vector{T},
+    μ::Realization
+    ) where {T<:NonlinearDomainOperator{LinearEq}}
+
+    @check param_length(μ) == length(operators)
+    new{LinearParamEq,T}(operators,μ)
+  end
+
+  function UnCommonParamOperator(
+    operators::Vector{T},
+    μ::Realization
+    ) where {T<:NonlinearDomainOperator{NonlinearEq}}
+
+    @check param_length(μ) == length(operators)
+    new{NonlinearParamEq,T}(operators,μ)
+  end
 end
 
-ParamDataStructures.param_length(op::UnCommonParamOperator) = length(op.operators)
+ParamDataStructures.param_length(op::UnCommonParamOperator) = param_length(op.μ)
 
-@inline function param_operator(f,args...)
-  operators = map(f,args...)
-  UnCommonParamOperator(operators)
+function ParamDataStructures.realization(op::UnCommonParamOperator;nparams=1)
+  @assert nparams ≤ param_length(op)
+  op.μ[1:nparams]
+end
+
+FESpaces.get_test(op::UnCommonParamOperator) = get_bg_space(get_test(first(op.operators)))
+FESpaces.get_trial(op::UnCommonParamOperator) = get_bg_space(get_trial(first(op.operators)))
+
+DofMaps.get_dof_map(op::UnCommonParamOperator) = get_dof_map(get_test(op))
+DofMaps.get_sparse_dof_map(op::UnCommonParamOperator) = get_sparse_dof_map(get_trial(op),get_test(op))
+
+FESpaces.assemble_matrix(op::UnCommonParamOperator,form::Function) = ParamSteady._assemble_matrix(form,get_test(op))
+
+@inline function param_operator(f,μ::AbstractRealization)
+  operators = map(f,μ)
+  UnCommonParamOperator(operators,μ)
 end
 
 function Algebra.solve(solver::ExtensionSolver,op::UnCommonParamOperator)
   op_batch = batchseries(op)
-  x = pmap(op -> batchsolve(solver,op),op_batch)
-  _to_consecutive(x)
+  t = @timed x = pmap(op -> batchsolve(solver,op),op_batch)
+  stats = CostTracker(t,name="Solver";nruns=param_length(op))
+  _to_consecutive(x),stats
 end
 
 function Algebra.residual(op::UnCommonParamOperator,x::AbstractParamVector)
@@ -29,6 +62,18 @@ function Algebra.jacobian(op::UnCommonParamOperator,x::AbstractParamVector)
   _to_consecutive(jac)
 end
 
+function Algebra.solve(solver::NonlinearSolver,op::UnCommonParamOperator,μ::Realization)
+  solve(solver,_get_at_param(op,μ))
+end
+
+function Algebra.residual(op::UnCommonParamOperator,μ::Realization,x::AbstractParamVector)
+  residual(_get_at_param(op,μ),x)
+end
+
+function Algebra.jacobian(op::UnCommonParamOperator,μ::Realization,x::AbstractParamVector)
+  jacobian(_get_at_param(op,μ),x)
+end
+
 function batchsolve(solver,op::UnCommonParamOperator)
   x = allocate_batchvector(op)
   for i in 1:length(op.operators)
@@ -38,14 +83,16 @@ function batchsolve(solver,op::UnCommonParamOperator)
   return x
 end
 
-for (f,g,h) in zip(
+for (f,g,h,k) in zip(
   (:batchresidual,:batchjacobian),
   (:residual,:jacobian),
-  (:allocate_batchvector,:allocate_batchmatrix)
+  (:allocate_batchvector,:allocate_batchmatrix),
+  (:allocate_firstresidual,:allocate_firstjacobian),
   )
   @eval begin
     function $f(op::UnCommonParamOperator,x::AbstractParamVector)
       y = $h(op)
+      cache = $k(op)
       for i in 1:length(op.operators)
         xi = param_getindex(x,i)
         yi = $g(op.operators[i],xi)
@@ -127,7 +174,7 @@ _num_dofs_at_field(op::NonlinearOperator,n::Int) = _num_dofs(get_test(op)[n])
 _batchtype(a,pini,pend) = typeof(_get_batch(a,pini,pend))
 
 function _get_batch(a::UnCommonParamOperator,pini,pend)
-  UnCommonParamOperator(a.operators[pini:pend])
+  UnCommonParamOperator(a.operators[pini:pend],a.μ[pini:pend])
 end
 
 function _get_batch(a::ConsecutiveParamArray{T,N},pini,pend) where {T,N}
@@ -135,10 +182,8 @@ function _get_batch(a::ConsecutiveParamArray{T,N},pini,pend) where {T,N}
   ConsecutiveParamArray(data)
 end
 
-function _get_batch(a::Realization,pini,pend)
-  Realization(a.params[pini:pend])
+# TODO write this properly
+function _get_at_param(op::UnCommonParamOperator,μ::AbstractRealization)
+  l = param_length(get_params(μ))
+  UnCommonParamOperator(op.operators[1:l],μ)
 end
-
-# function _get_batch(a::GenericTransientRealization,pini,pend)
-#   GenericTransientRealization(_get_batch(a.params),a.times,a.t0)
-# end

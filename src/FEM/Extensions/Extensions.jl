@@ -1,6 +1,7 @@
 module Extensions
 
 using BlockArrays
+using Distributed
 using FillArrays
 using LinearAlgebra
 using SparseArrays
@@ -27,6 +28,7 @@ using GridapROMs.ParamFESpaces
 using GridapROMs.ParamSteady
 using GridapROMs.ParamODEs
 
+import ArraysOfArrays: _ncolons
 import Gridap.FESpaces: LinearConstraintsMap
 import Gridap.MultiField: BlockSparseMatrixAssembler
 
@@ -67,6 +69,6 @@ export param_operator
 export allocate_batchvector
 export allocate_batchmatrix
 export batchseries
-include("UnCommon.jl")
+include("UnCommonParamOperators.jl")
 
 end # module

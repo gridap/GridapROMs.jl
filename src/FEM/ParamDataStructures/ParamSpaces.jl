@@ -88,6 +88,8 @@ num_times(r::TransientRealization) = length(get_times(r))
 
 Base.length(r::TransientRealization) = num_params(r)*num_times(r)
 
+Base.getindex(r::TransientRealization,i) = getindex(r,i,:)
+
 """
     struct GenericTransientRealization{P,T,A} <: TransientRealization{P,T}
       params::P
@@ -208,7 +210,7 @@ _get_params(r::TransientRealizationAt) = _get_params(r.params)
 get_times(r::TransientRealizationAt) = r.t[]
 
 function Base.getindex(r::TransientRealizationAt,i,j)
-  @assert j == 1
+  @assert j ∈ (1,Colon())
   new_param = getindex(get_params(r),i)
   TransientRealizationAt(new_param,r.t)
 end

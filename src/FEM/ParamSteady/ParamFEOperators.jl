@@ -1,35 +1,3 @@
-_filter_domains(a) = a
-_filter_domains(a::Tuple) = map(_filter_domains,a)
-_filter_domains(a::TProductTriangulation) = a.trian
-
-"""
-    struct FEDomains{A,B}
-      domains_res::A
-      domains_jac::B
-    end
-
-Fields:
-- `domains_res`: triangulations relative to the residual (nothing by default)
-- `domains_jac`: triangulations relative to the Jacobian (nothing by default)
-"""
-struct FEDomains{A,B}
-  domains_res::A
-  domains_jac::B
-
-  function FEDomains(domains_res,domains_jac)
-    domains_res′ = _filter_domains(domains_res)
-    domains_jac′ = _filter_domains(domains_jac)
-    A = typeof(domains_res′)
-    B = typeof(domains_jac′)
-    new{A,B}(domains_res′,domains_jac′)
-  end
-end
-
-FEDomains(args...) = FEDomains(nothing,nothing)
-
-get_domains_res(d::FEDomains) = d.domains_res
-get_domains_jac(d::FEDomains) = d.domains_jac
-
 """
     abstract type ParamFEOperator{O<:UnEvalOperatorType,T<:TriangulationStyle} <: FEOperator end
 
@@ -86,8 +54,8 @@ ParamDataStructures.realization(op::ParamFEOperator;kwargs...) = realization(get
 get_param_assembler(op::ParamFEOperator,r::AbstractRealization) = parameterize(get_assembler(op),r)
 
 CellData.get_domains(op::ParamFEOperator) = @abstractmethod
-get_domains_res(op::ParamFEOperator) = get_domains_res(get_domains(op))
-get_domains_jac(op::ParamFEOperator) = get_domains_jac(get_domains(op))
+Utils.get_domains_res(op::ParamFEOperator) = get_domains_res(get_domains(op))
+Utils.get_domains_jac(op::ParamFEOperator) = get_domains_jac(get_domains(op))
 
 DofMaps.get_dof_map(op::ParamFEOperator) = get_dof_map(get_trial(op))
 DofMaps.get_sparse_dof_map(op::ParamFEOperator) = get_sparse_dof_map(get_trial(op),get_test(op))
@@ -193,7 +161,7 @@ function ParamFEOperator(res::Function,jac::Function,pspace,trial,test)
 end
 
 function ParamFEOperator(res::Function,jac::Function,pspace,trial,test,domains::FEDomains)
-  res′,jac′ = _set_domains(res,jac,test,trial,domains)
+  res′,jac′ = set_domains(res,jac,test,trial,domains)
   assem = SparseMatrixAssembler(trial,test)
   ParamFEOpFromWeakForm{NonlinearParamEq,SplitDomains}(
     res′,jac′,pspace,assem,trial,test,domains)
@@ -215,7 +183,7 @@ end
 
 function LinearParamFEOperator(res::Function,jac::Function,pspace,trial,test,domains::FEDomains)
   jac′(μ,u,du,v,args...) = jac(μ,du,v,args...)
-  res′,jac′′ = _set_domains(res,jac′,test,trial,domains)
+  res′,jac′′ = set_domains(res,jac′,test,trial,domains)
   assem = SparseMatrixAssembler(trial,test)
   ParamFEOpFromWeakForm{LinearParamEq,SplitDomains}(
     res′,jac′′,pspace,assem,trial,test,domains)
@@ -234,7 +202,7 @@ FESpaces.get_test(op::ParamFEOpFromWeakForm) = op.test
 FESpaces.get_trial(op::ParamFEOpFromWeakForm) = op.trial
 get_param_space(op::ParamFEOpFromWeakForm) = op.pspace
 ODEs.get_res(op::ParamFEOpFromWeakForm) = op.res
-get_jac(op::ParamFEOpFromWeakForm) = op.jac
+Utils.get_jac(op::ParamFEOpFromWeakForm) = op.jac
 ODEs.get_assembler(op::ParamFEOpFromWeakForm) = op.assem
 CellData.get_domains(op::ParamFEOpFromWeakForm) = op.domains
 
@@ -270,7 +238,7 @@ for f in (:set_domains,:change_domains)
     function $f(op::SplitParamFEOpFromWeakForm{O},trians_res,trians_jac) where O
       trian_res′ = order_domains(get_domains_res(op),trians_res)
       trian_jac′ = order_domains(get_domains_jac(op),trians_jac)
-      res′,jac′ = _set_domains(op.res,op.jac,op.trial,op.test,trian_res′,trian_jac′)
+      res′,jac′ = set_domains(op.res,op.jac,op.trial,op.test,trian_res′,trian_jac′)
       domains′ = FEDomains(trian_res′,trian_jac′)
       ParamFEOpFromWeakForm{O,$T}(
         res′,jac′,op.pspace,op.assem,op.trial,op.test,domains′)
@@ -300,31 +268,4 @@ function _set_domain_res(
   res′(μ,u,v,args...) = res(μ,u,v,args...)
   res′(μ,u,v) = res′(μ,u,v,meas...)
   return res′
-end
-
-function _set_domains(
-  res::Function,
-  jac::Function,
-  test::FESpace,
-  trial::FESpace,
-  trian_res::Tuple{Vararg{Triangulation}},
-  trian_jac::Tuple{Vararg{Triangulation}})
-
-  polyn_order = get_polynomial_order(test)
-  @check polyn_order == get_polynomial_order(trial)
-  res′ = _set_domain_res(res,trian_res,polyn_order)
-  jac′ = _set_domain_jac(jac,trian_jac,polyn_order)
-  return res′,jac′
-end
-
-function _set_domains(
-  res::Function,
-  jac::Function,
-  test::FESpace,
-  trial::FESpace,
-  domains::FEDomains)
-
-  trian_res = get_domains_res(domains)
-  trian_jac = get_domains_jac(domains)
-  _set_domains(res,jac,test,trial,trian_res,trian_jac)
 end

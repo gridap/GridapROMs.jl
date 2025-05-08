@@ -19,7 +19,7 @@ function ExtensionLinearNonlinearParamOperator(op_lin::ParamOperator,op_nlin::Pa
   ExtensionParamOperator(op)
 end
 
-ParamSteady.get_fe_operator(extop::ExtensionParamOperator) = get_fe_operator(extop.op)
+Utils.get_fe_operator(extop::ExtensionParamOperator) = get_fe_operator(extop.op)
 
 function ODEs.get_assembler(extop::ExtensionParamOperator)
   trial = get_trial(extop)
@@ -27,11 +27,11 @@ function ODEs.get_assembler(extop::ExtensionParamOperator)
   ExtensionAssembler(trial,test)
 end
 
-function ParamSteady.set_domains(extop::ExtensionParamOperator,args...)
+function Utils.set_domains(extop::ExtensionParamOperator,args...)
   ExtensionParamOperator(set_domains(extop.op,args...))
 end
 
-function ParamSteady.change_domains(extop::ExtensionParamOperator,args...)
+function Utils.change_domains(extop::ExtensionParamOperator,args...)
   ExtensionParamOperator(change_domains(extop.op,args...))
 end
 

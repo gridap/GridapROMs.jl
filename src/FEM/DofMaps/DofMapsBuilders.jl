@@ -56,34 +56,6 @@ end
 
 # utils
 
-"""
-    get_polynomial_order(f::FESpace) -> Integer
-
-Retrieves the polynomial order of `f`
-"""
-get_polynomial_order(f::SingleFieldFESpace) = get_polynomial_order(get_fe_basis(f))
-get_polynomial_order(f::MultiFieldFESpace) = maximum(map(get_polynomial_order,f.spaces))
-
-function get_polynomial_order(basis)
-  cell_basis = get_data(basis)
-  shapefun = testitem(cell_basis)
-  get_order(shapefun.fields)
-end
-
-"""
-    get_polynomial_orders(fs::FESpace) -> Integer
-
-Retrieves the polynomial order of `fs` for every dimension
-"""
-get_polynomial_orders(fs::SingleFieldFESpace) = get_polynomial_orders(get_fe_basis(fs))
-get_polynomial_orders(fs::MultiFieldFESpace) = maximum.(map(get_polynomial_orders,fs.spaces))
-
-function get_polynomial_orders(basis)
-  cell_basis = get_data(basis)
-  shapefun = testitem(cell_basis)
-  get_orders(shapefun.fields)
-end
-
 function get_cell_to_bg_cell(f::SingleFieldFESpace)
   get_cell_to_bg_cell(get_triangulation(f))
 end

@@ -123,6 +123,7 @@ Base.:(==)(a::TProductTriangulation,b::TProductTriangulation) = a.trian == b.tri
 Geometry.get_background_model(trian::TProductTriangulation) = trian.model
 Geometry.get_grid(trian::TProductTriangulation) = get_grid(trian.trian)
 Geometry.get_glue(trian::TProductTriangulation{Dt},::Val{Dt}) where Dt = get_glue(trian.trian,Val{Dt}())
+Utils.filter_domains(trian::TProductTriangulation) = trian.trian
 
 function Geometry.Triangulation(model::TProductDiscreteModel;kwargs...)
   trian = Triangulation(model.model;kwargs...)
