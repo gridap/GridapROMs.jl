@@ -136,16 +136,18 @@ function get_owned_icells(i::IntegrationDomain,cells::AbstractVector)::Vector{In
 end
 
 """
-    struct VectorDomain{T} <: IntegrationDomain
+    struct VectorDomain{T,A} <: IntegrationDomain
       cells::Vector{Int32}
       cell_irows::Table{T,Vector{T},Vector{Int32}}
+      metadata::A
     end
 
 Integration domain for a projection vector operator in a steady problem
 """
-struct VectorDomain{T} <: IntegrationDomain
+struct VectorDomain{T,A} <: IntegrationDomain
   cells::Vector{Int32}
   cell_irows::Table{T,Vector{T},Vector{Int32}}
+  metadata::A
 end
 
 get_integration_cells(i::VectorDomain) = i.cells
@@ -162,22 +164,24 @@ function vector_domain(
 
   cells = reduced_cells(test,trian,rows)
   irows = reduced_idofs(test,trian,cells,rows)
-  VectorDomain(cells,irows)
+  VectorDomain(cells,irows,rows)
 end
 
 """
-    struct MatrixDomain{T,S} <: IntegrationDomain
+    struct MatrixDomain{T,S,A} <: IntegrationDomain
       cells::Vector{Int32}
       cell_irows::Table{T,Vector{T},Vector{Int32}}
       cell_icols::Table{S,Vector{S},Vector{Int32}}
+      metadata::A
     end
 
 Integration domain for a projection vector operator in a steady problem
 """
-struct MatrixDomain{T,S} <: IntegrationDomain
+struct MatrixDomain{T,S,A} <: IntegrationDomain
   cells::Vector{Int32}
   cell_irows::Table{T,Vector{T},Vector{Int32}}
   cell_icols::Table{S,Vector{S},Vector{Int32}}
+  metadata::A
 end
 
 function matrix_domain(args...)
@@ -196,7 +200,7 @@ function matrix_domain(
   cells = union(cells_trial,cells_test)
   icols = reduced_idofs(trial,trian,cells,cols)
   irows = reduced_idofs(test,trian,cells,rows)
-  MatrixDomain(cells,irows,icols)
+  MatrixDomain(cells,irows,icols,(rows,cols))
 end
 
 get_integration_cells(i::MatrixDomain) = i.cells

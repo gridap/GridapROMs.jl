@@ -83,24 +83,24 @@ function batchsolve(solver,op::UnCommonParamOperator)
   return x
 end
 
-for (f,g,h,k) in zip(
-  (:batchresidual,:batchjacobian),
-  (:residual,:jacobian),
-  (:allocate_batchvector,:allocate_batchmatrix),
-  (:allocate_firstresidual,:allocate_firstjacobian),
-  )
-  @eval begin
-    function $f(op::UnCommonParamOperator,x::AbstractParamVector)
-      y = $h(op)
-      cache = $k(op)
-      for i in 1:length(op.operators)
-        xi = param_getindex(x,i)
-        yi = $g(op.operators[i],xi)
-        setindex!(y,yi,i)
-      end
-      return y
-    end
+function batchresidual(op::UnCommonParamOperator,x::AbstractParamVector)
+  b = allocate_batchvector(op)
+  for i in 1:length(op.operators)
+    xi = param_getindex(x,i)
+    bi = residual(op.operators[i],xi)
+    setindex!(b,bi,i)
   end
+  return b
+end
+
+function batchjacobian(op::UnCommonParamOperator,x::AbstractParamVector)
+  cache = allocate_batchmatrix(op)
+  for i in 1:length(op.operators)
+    xi = param_getindex(x,i)
+    Ai = jacobian(op.operators[i],xi)
+    update_batchmatrix!(cache,Ai)
+  end
+  return to_param_sparse_matrix(cache)
 end
 
 # utils
@@ -135,6 +135,86 @@ function allocate_batchvector(::Type{V},op::UnCommonParamOperator) where V<:Bloc
   mortar(data)
 end
 
+function allocate_batchmatrix(op::UnCommonParamOperator)
+  allocate_batchmatrix(_vector_type(op),op)
+end
+
+function allocate_batchmatrix(::Type{V},op::UnCommonParamOperator) where V
+  plength = length(op.operators)
+  n = 0
+  for i in 1:plength
+    n += _num_dofs_test_trial(op.operators[i])
+  end
+  colptr = Vector{Int}(undef,n)
+  rowval = Vector{Int}(undef,n)
+  data = Vector{eltype(V)}(undef,n)
+  ptrs = Vector{Int}(undef,plength+1)
+  s = [0,0]
+  counts = [0,0,1]
+  return (s,colptr,rowval,data,ptrs,counts)
+end
+
+function allocate_batchmatrix(::Type{V},op::UnCommonParamOperator) where V<:BlockVector
+  plength = length(op.operators)
+  nfields_test = num_fields(get_test(first(op.operators)))
+  nfields_trial = num_fields(get_trial(first(op.operators)))
+  array = map(CartesianIndices((nfields_test,nfields_trial))) do i,j
+    n = 0
+    for k in 1:plength
+      n += _num_dofs_test_trial_at_field(op.operators[k],i,j)
+    end
+    colptr = Vector{Int}(undef,n)
+    rowval = Vector{Int}(undef,n)
+    data = Vector{eltype(V)}(undef,n)
+    ptrs = Vector{Int}(undef,plength+1)
+    s = zeros(Int,2)
+    counts = zeros(Int,3)
+    (s,colptr,rowval,data,ptrs,counts)
+  end
+  touched = fill(true,size(array))
+  ArrayBlock(array,touched)
+end
+
+function update_batchmatrix!(cache,mat::SparseMatrixCSC)
+  s,colptr,rowval,data,ptrs,counts = cache
+  s .= size(mat)
+  i,j,k = counts
+  ptrs[k+1] = nnz(mat)
+  for l in 1:nnz(mat)
+    rowval[i+l] = mat.rowval[l]
+    data[i+l] = mat.nzval[l]
+    if l ≤ length(mat.colptr)
+      colptr[j+l] = mat.colptr[l]
+    end
+  end
+  counts .+= (nnz(mat),length(mat.colptr),1)
+  return
+end
+
+function update_batchmatrix!(cache::ArrayBlock,mat::BlockMatrix)
+  for i in eachindex(cache)
+    if cache.touched[i]
+      update_batchmatrix!(cache.array[i],blocks(mat)[i])
+    end
+  end
+end
+
+function to_param_sparse_matrix(cache)
+  s,colptr,rowval,data,ptrs,counts = cache
+  nr,nc = s
+  i,j,k = counts
+  resize!(colptr,j)
+  resize!(rowval,i)
+  resize!(data,i)
+  resize!(ptrs,k)
+  length_to_ptrs!(ptrs)
+  GenericParamSparseMatrixCSC(nr,nc,colptr,rowval,data,ptrs)
+end
+
+function to_param_sparse_matrix(cache::ArrayBlock)
+  mortar(map(to_param_sparse_matrix,cache.array))
+end
+
 function batchseries(a;nbatches=nworkers())
   batchsize = floor(Int,param_length(a) / nbatches)
   ptrs = fill(Int32(batchsize),nbatches+1)
@@ -165,11 +245,20 @@ _vector_type(op::NonlinearOperator) = get_vector_type(get_test(op))
 _vector_type(op::UnCommonParamOperator) = _vector_type(first(op.operators))
 
 _num_dofs(f::SingleFieldFESpace) = num_free_dofs(f)
-_num_dofs(f::DirectSumFESpace) = num_free_dofs(Extensions.get_bg_space(f))
-_num_dofs(f::MultiFieldFESpace) = sum(num_free_dofs(fs) for fs in f)
+_num_dofs(f::DirectSumFESpace) = _num_dofs(Extensions.get_bg_space(f))
 _num_dofs(op::NonlinearOperator) = _num_dofs(get_test(op))
 
+_num_dofs_test_trial(f::SingleFieldFESpace,g::SingleFieldFESpace) = num_free_dofs(f)*num_free_dofs(g)
+function _num_dofs_test_trial(f::DirectSumFESpace,g::SingleFieldFESpace)
+  _num_dofs_test_trial(Extensions.get_bg_space(f),Extensions.get_bg_space(g))
+end
+_num_dofs_test_trial(op::NonlinearOperator) = _num_dofs_test_trial(get_test(op),get_trial(op))
+
 _num_dofs_at_field(op::NonlinearOperator,n::Int) = _num_dofs(get_test(op)[n])
+
+function _num_dofs_test_trial_at_field(op::NonlinearOperator,m::Int,n::Int)
+  _num_dofs_test_trial(get_test(op)[m],get_trial(op)[n])
+end
 
 _batchtype(a,pini,pend) = typeof(_get_batch(a,pini,pend))
 

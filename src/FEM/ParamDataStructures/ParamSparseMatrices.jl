@@ -254,12 +254,12 @@ Base.@propagate_inbounds function Base.getindex(A::GenericParamSparseMatrixCSC{T
     u = one(eltype(A.ptrs))
     pini = A.ptrs[i]
     pend = A.ptrs[i+1]-u
-    colptr = A.colptr[pini:pend]
+    colptr = A.colptr[(i-1)*(A.n+1)+1:i*(A.n+1)]
     rowval = A.rowval[pini:pend]
     data = A.data[pini:pend]
     SparseMatrixCSC(A.m,A.n,colptr,rowval,data)
   else
-    fill(zero(Tv),nrow,ncol)
+    spzeros(innersize(A))
   end
 end
 
@@ -272,7 +272,7 @@ Base.@propagate_inbounds function Base.setindex!(
     u = one(eltype(A.ptrs))
     pini = A.ptrs[i]
     pend = A.ptrs[i+1]-u
-    colptr = A.colptr[pini:pend]
+    colptr = A.colptr[(i-1)*(A.n+1)+1:i*(A.n+1)]
     rowval = A.rowval[pini:pend]
     data = A.data[pini:pend]
     copyto!(colptr,getcolptr(v))
@@ -497,12 +497,12 @@ Base.@propagate_inbounds function Base.getindex(A::GenericParamSparseMatrixCSR{B
     u = one(eltype(A.ptrs))
     pini = A.ptrs[i]
     pend = A.ptrs[i+1]-u
-    rowptr = A.rowptr[pini:pend]
+    rowptr = A.rowptr[(i-1)*(A.m+1)+1:i*(A.m+1)]
     colval = A.colval[pini:pend]
     data = A.data[pini:pend]
     SparseMatrixCSR{Bi}(A.m,A.n,rowptr,colval,data)
   else
-    fill(zero(Tv),nrow,ncol)
+    spzeros(innersize(A))
   end
 end
 
@@ -515,7 +515,7 @@ Base.@propagate_inbounds function Base.setindex!(
     u = one(eltype(A.ptrs))
     pini = A.ptrs[i]
     pend = A.ptrs[i+1]-u
-    rowptr = A.rowptr[pini:pend]
+    rowptr = A.rowptr[(i-1)*(A.m+1)+1:i*(A.m+1)]
     colval = A.colval[pini:pend]
     data = A.data[pini:pend]
     copyto!(rowptr,getrowptr(v))
@@ -547,8 +547,7 @@ function _vec_of_pointers(a::AbstractVector{<:AbstractSparseMatrix})
   n = length(a)
   ptrs = Vector{Int}(undef,n+1)
   @inbounds for i in 1:n
-    ai = a[i]
-    ptrs[i+1] = nnz(ai)
+    ptrs[i+1] = nnz(a[i])
   end
   length_to_ptrs!(ptrs)
   ptrs

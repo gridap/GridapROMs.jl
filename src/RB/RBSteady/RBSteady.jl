@@ -1,9 +1,11 @@
 module RBSteady
 
 using BlockArrays
+using Clustering
 using DrWatson
 using LinearAlgebra
 using LowRankApprox
+using RadialBasisFunctions
 using Serialization
 using SparseArrays
 
@@ -54,6 +56,7 @@ export GreedyReduction
 export AffineReduction
 export PODReduction
 export TTSVDReduction
+export LocalReduction
 export SupremizerReduction
 export HyperReduction
 export MDEIMReduction
@@ -180,5 +183,12 @@ include("PostProcess.jl")
 include("Extensions.jl")
 
 include("UnCommonParamOperators.jl")
+
+export LocalProjection
+export InterpHRProjection
+export BlockInterpHRProjection
+export InterpAffineContribution
+export InterpRBOperator
+include("RBLocal.jl")
 
 end # module

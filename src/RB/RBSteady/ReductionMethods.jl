@@ -294,6 +294,27 @@ function TTSVDReduction(r::PODReduction,D=3)
 end
 
 """
+    struct LocalReduction{A,B} <: Reduction{A,B}
+      reduction::Reduction{A,B}
+      ncentroids::Int
+    end
+"""
+struct LocalReduction{A,B} <: Reduction{A,B}
+  reduction::Reduction{A,B}
+  ncentroids::Int
+end
+
+function LocalReduction(args...;ncentroids=10,kwargs...)
+  reduction = Reduction(args...;kwargs...)
+  LocalReduction(reduction,ncentroids)
+end
+
+get_reduction(r::LocalReduction) = r.reduction
+ReductionStyle(r::LocalReduction) = ReductionStyle(get_reduction(r))
+NormStyle(r::LocalReduction) = NormStyle(get_reduction(r))
+ParamDataStructures.num_params(r::LocalReduction) = num_params(get_reduction(r))
+
+"""
     struct SupremizerReduction{A,R<:Reduction{A,EnergyNorm}} <: Reduction{A,EnergyNorm}
       reduction::R
       supr_op::Function
