@@ -29,6 +29,8 @@ import Test: @test
 import Gridap.Fields: BroadcastOpFieldArray,BroadcastingFieldOpMap,LinearCombinationField,LinearCombinationMap
 import Gridap.ReferenceFEs: LagrangianDofBasis
 import Gridap.TensorValues: ⊗, ⊙
+import SparseArrays.HigherOrderFns: setcolptr!,storedinds,storedvals,widelength
+import SparseArrays.HigherOrderFns: _colboundind_all,_colstartind_all,_fusedupdate_all,_isnotzero,_rowforind_all
 import SparseArrays.getcolptr
 
 export AbstractRealization

@@ -42,23 +42,18 @@ FESpaces.assemble_matrix(op::UnCommonParamOperator,form::Function) = ParamSteady
 end
 
 function Algebra.solve(solver::ExtensionSolver,op::UnCommonParamOperator)
-  op_batch = batchseries(op)
-  t = @timed x = pmap(op -> batchsolve(solver,op),op_batch)
+  t = @timed x = batchsolve(solver,op)
   stats = CostTracker(t,name="Solver";nruns=param_length(op))
   _to_consecutive(x),stats
 end
 
 function Algebra.residual(op::UnCommonParamOperator,x::AbstractParamVector)
-  op_batch = batchseries(op)
-  x_batch = batchseries(x)
-  res = pmap((op,x) -> batchresidual(op,x),op_batch,x_batch)
+  res = batchresidual(op,x)
   _to_consecutive(res)
 end
 
 function Algebra.jacobian(op::UnCommonParamOperator,x::AbstractParamVector)
-  op_batch = batchseries(op)
-  x_batch = batchseries(x)
-  jac = pmap((op,x) -> batchjacobian(op,x),op_batch,x_batch)
+  jac = batchjacobian(op,x)
   _to_consecutive(jac)
 end
 
@@ -215,31 +210,9 @@ function to_param_sparse_matrix(cache::ArrayBlock)
   mortar(map(to_param_sparse_matrix,cache.array))
 end
 
-function batchseries(a;nbatches=nworkers())
-  batchsize = floor(Int,param_length(a) / nbatches)
-  ptrs = fill(Int32(batchsize),nbatches+1)
-  for i in 1:mod(param_length(a),nbatches)
-    ptrs[i] += 1
-  end
-  length_to_ptrs!(ptrs)
-  batchseries(a,ptrs)
-end
-
-function batchseries(a,ptrs::Vector{<:Integer})
-  T = _batchtype(a,ptrs[2],ptrs[1])
-  batches = Vector{T}(undef,length(ptrs)-1)
-  o = one(eltype(ptrs))
-  for i in 1:length(ptrs)-1
-    pini = ptrs[i]
-    pend = ptrs[i+1]-o
-    batches[i] = _get_batch(a,pini,pend)
-  end
-  return batches
-end
-
 _to_consecutive(x::GenericParamVector) = ConsecutiveParamArray(x)
 _to_consecutive(x::BlockParamVector) = mortar(map(_to_consecutive,x.data))
-_to_consecutive(x::Vector{<:AbstractParamArray}) = _to_consecutive(param_cat(x))
+_to_consecutive(x::GenericParamSparseMatrixCSC) = ConsecutiveParamSparseMatrixCSC(x)
 
 _vector_type(op::NonlinearOperator) = get_vector_type(get_test(op))
 _vector_type(op::UnCommonParamOperator) = _vector_type(first(op.operators))
@@ -258,17 +231,6 @@ _num_dofs_at_field(op::NonlinearOperator,n::Int) = _num_dofs(get_test(op)[n])
 
 function _num_dofs_test_trial_at_field(op::NonlinearOperator,m::Int,n::Int)
   _num_dofs_test_trial(get_test(op)[m],get_trial(op)[n])
-end
-
-_batchtype(a,pini,pend) = typeof(_get_batch(a,pini,pend))
-
-function _get_batch(a::UnCommonParamOperator,pini,pend)
-  UnCommonParamOperator(a.operators[pini:pend],a.μ[pini:pend])
-end
-
-function _get_batch(a::ConsecutiveParamArray{T,N},pini,pend) where {T,N}
-  data = view(a.data,_ncolons(Val{N}())...,pini:pend)
-  ConsecutiveParamArray(data)
 end
 
 # TODO write this properly

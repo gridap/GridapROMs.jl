@@ -378,7 +378,6 @@ function Algebra.create_from_nz(a::ParamInserterCSC)
   end
   length_to_ptrs!(a.colptr)
   nnz = a.colptr[end]-1
-  pnnz = nnz*plength
   resize!(a.rowval,nnz)
   δ = Int(length(a.nzval)/plength) - nnz
   if δ > 0
