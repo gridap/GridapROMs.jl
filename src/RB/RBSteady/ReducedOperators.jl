@@ -39,10 +39,11 @@ end
 
 function reduced_operator(
   solver::RBSolver,
-  feop::ParamOperator,
+  feop::ParamOperator{O,SplitDomains},
   red_trial::RBSpace,
   red_test::RBSpace,
-  s::AbstractSnapshots)
+  s::AbstractSnapshots
+  ) where O<:Union{LinearParamEq,NonlinearParamEq}
 
   red_lhs,red_rhs = reduced_weak_form(solver,feop,red_trial,red_test,s)
   trians_rhs = get_domains(red_rhs)
@@ -53,10 +54,23 @@ end
 
 function reduced_operator(
   solver::RBSolver,
+  feop::ParamOperator{O,JointDomains},
+  red_trial::RBSpace,
+  red_test::RBSpace,
+  s::AbstractSnapshots
+  ) where O<:Union{LinearParamEq,NonlinearParamEq}
+
+  red_lhs,red_rhs = reduced_weak_form(solver,feop,red_trial,red_test,s)
+  RBOperator(feop,red_trial,red_test,red_lhs,red_rhs)
+end
+
+function reduced_operator(
+  solver::RBSolver,
   op::ParamOperator{LinearNonlinearParamEq},
   red_trial::RBSpace,
   red_test::RBSpace,
-  s::AbstractSnapshots)
+  s::AbstractSnapshots
+  )
 
   red_op_lin = reduced_operator(solver,get_linear_operator(op),red_trial,red_test,s)
   red_op_nlin = reduced_operator(solver,get_nonlinear_operator(op),red_trial,red_test,s)
@@ -115,6 +129,59 @@ FESpaces.get_trial(op::GenericRBOperator) = op.trial
 FESpaces.get_test(op::GenericRBOperator) = op.test
 get_lhs(op::GenericRBOperator) = op.lhs
 get_rhs(op::GenericRBOperator) = op.lhs
+
+function Algebra.allocate_residual(op::GenericRBOperator,u::AbstractVector)
+  allocate_hypred_cache(op.rhs)
+end
+
+function Algebra.allocate_jacobian(op::GenericRBOperator,u::AbstractVector)
+  allocate_hypred_cache(op.lhs)
+end
+
+function Algebra.residual!(b::HRArray,op::GenericRBOperator,u::AbstractVector)
+  fill!(b,zero(eltype(b)))
+
+  trial = get_trial(op.op)
+  test = get_test(op.op)
+  uh = EvaluationFunction(trial,u)
+  v = get_fe_basis(test)
+
+  trian_res = get_domains_res(op.op)
+  res = get_res(op.op)
+  dc = res(uh,v)
+
+  for strian in trian_res
+    b_strian = b.fecache[strian]
+    rhs_strian = op.rhs[strian]
+    vecdata = collect_cell_hr_vector(test,dc,strian,rhs_strian)
+    assemble_hr_vector_add!(b_strian,vecdata...)
+  end
+
+  inv_project!(b,op.rhs)
+end
+
+function Algebra.jacobian!(A::HRArray,op::GenericRBOperator,u::AbstractVector)
+  fill!(A,zero(eltype(A)))
+
+  trial = get_trial(op.op)
+  test = get_test(op.op)
+  uh = EvaluationFunction(trial,u)
+  du = get_trial_fe_basis(trial)
+  v = get_fe_basis(test)
+
+  trian_jac = get_domains_jac(op.op)
+  jac = get_jac(op.op)
+  dc = jac(r,uh,du,v)
+
+  for strian in trian_jac
+    A_strian = A.fecache[strian]
+    lhs_strian = op.lhs[strian]
+    matdata = collect_cell_hr_matrix(trial,test,dc,strian,lhs_strian)
+    assemble_hr_matrix_add!(A_strian,matdata...)
+  end
+
+  inv_project!(A,op.lhs)
+end
 
 function Algebra.allocate_residual(
   op::GenericRBOperator,
@@ -195,11 +262,11 @@ struct InterpRBOperator{O,A} <: RBOperator{O}
   trial::RBSpace
   test::RBSpace
   lhs::A
-  rhs::HRProjection
+  rhs::AbstractHRProjection
 end
 
 function RBOperator(
-  op::ParamOperator,trial::RBSpace,test::RBSpace,lhs,rhs::HRProjection)
+  op::ParamOperator,trial::RBSpace,test::RBSpace,lhs,rhs::AbstractHRProjection)
 
   InterpRBOperator(op,trial,test,lhs,rhs)
 end
@@ -209,6 +276,24 @@ FESpaces.get_trial(op::InterpRBOperator) = op.trial
 FESpaces.get_test(op::InterpRBOperator) = op.test
 get_lhs(op::InterpRBOperator) = op.lhs
 get_rhs(op::InterpRBOperator) = op.lhs
+
+function Algebra.allocate_residual(op::InterpRBOperator,u::AbstractVector)
+  allocate_hypred_cache(op.rhs)
+end
+
+function Algebra.allocate_jacobian(op::InterpRBOperator,u::AbstractVector)
+  allocate_hypred_cache(op.lhs)
+end
+
+function Algebra.residual!(b::HRArray,op::InterpRBOperator,u::AbstractVector)
+  fill!(b,zero(eltype(b)))
+  inv_project!(b,op.rhs)
+end
+
+function Algebra.jacobian!(A::HRArray,op::InterpRBOperator,u::AbstractVector)
+  fill!(A,zero(eltype(A)))
+  inv_project!(A,op.lhs)
+end
 
 function Algebra.allocate_residual(
   op::InterpRBOperator,
@@ -248,6 +333,48 @@ function Algebra.jacobian!(
 
   fill!(A,zero(eltype(A)))
   inv_project!(A,op.lhs,r)
+end
+
+struct LocalRBOperator{O,A} <: RBOperator{O}
+  op::ParamOperator{O}
+  trial::RBSpace
+  test::RBSpace
+  lhs::A
+  rhs::AbstractLocalProjection
+end
+
+function RBOperator(
+  op::ParamOperator,trial::RBSpace,test::RBSpace,lhs,rhs::AbstractLocalProjection)
+
+  LocalRBOperator(op,trial,test,lhs,rhs)
+end
+
+function get_local(op::LocalRBOperator,μ::AbstractVector)
+  trial = get_local(op.trial,μ)
+  test = get_local(op.test,μ)
+  lhs = get_local(op.lhs,μ)
+  rhs = get_local(op.rhs,μ)
+  RBOperator(op.op,trial,test,lhs,rhs)
+end
+
+function Algebra.solve(
+  solver::RBSolver,
+  op::LocalRBOperator,
+  r::AbstractRealization)
+
+  fesolver = get_fe_solver(solver)
+
+  map(r) do μ
+    opμ = get_local(op,μ)
+
+    trial = get_trial(opμ)
+    x̂ = zero_free_values(trial)
+
+    syscache = allocate_systemcache(opμ,x̂)
+
+    t = @timed solve!(x̂,fesolver,opμ,syscache)
+    stats = CostTracker(t,nruns=num_params(r),name="RB")
+  end
 end
 
 """

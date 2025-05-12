@@ -673,124 +673,28 @@ const ConsecutiveParamSparseMatrix{Tv,Ti} = Union{
   ConsecutiveParamSparseMatrixCSC{Tv,Ti},
   ConsecutiveParamSparseMatrixCSR{<:Any,Tv,Ti}}
 
-function ConsecutiveParamSparseMatrixCSC(A::GenericParamSparseMatrixCSC{Tv,Ti}) where {Tv,Ti}
-  m,n = innersize(A)
+function DofMaps.SparsityPattern(A::ConsecutiveParamSparseMatrix)
+  SparsityPattern(testitem(A))
+end
+
+function ConsecutiveParamSparseMatrixCSC(A::GenericParamSparseMatrixCSC)
   plength = param_length(A)
-  w = widelength(A)
-  maxnnz = _maxnnz(A)
-  spaceA′::Int = min(w,maxnnz)
-  A′ = _allocconsecres(innersize(A),Ti,Tv,spaceA′,plength*spaceA′)
-  rowsentinel = m+1
-  A′k = 1
-  stopks = _colstartind_all(1,A)
-  @inbounds for j in 1:n
-    setcolptr!(A′,j,A′k)
-    ks = stopks
-    stopks = _colboundind_all(j,A)
-    rows = _rowforind_all(rowsentinel,ks,stopks,A)
-    activerow = min(rows...)
-    while activerow < rowsentinel
-      vals,ks,rows = _fusedupdate_all(rowsentinel,activerow,rows,ks,stopks,A)
-      v = sum(vals)
-      if _isnotzero(v)
-        @check A′k ≤ spaceA′
-        storedinds(A′)[A′k] = activerow
-        for l in 1:plength
-          storedvals(A′)[(l-1)*maxnnz+A′k] = vals[l]
-        end
-        A′k += 1
-      end
-      activerow = min(rows...)
+  As = ntuple(i -> param_getindex(A,i),Val(plength))
+  for a in As
+    fill!(a.nzval,one(eltype(a)))
+  end
+  B = sum(As)
+  v = nonzeros(B)
+  resize!(v,length(v)*plength)
+  fill!(v,zero(eltype(B)))
+  data = reshape(v,:,plength)
+  for k in param_eachindex(A)
+    Ak = param_getindex(A,k)
+    i,j,v = findnz(Ak)
+    for l in 1:nnz(Ak)
+      ij = nz_index(B,i[l],j[l])
+      data[ij,k] = v[l]
     end
   end
-  @inbounds setcolptr!(A′,n+1,A′k)
-  _trimstorage!(A′,A′k-1,plength)
-  _check_consecutive_buffers(A′,plength)
-end
-
-widelength(A::GenericParamSparseMatrixCSC) = prod(Int.(innersize(A)))
-
-function _maxnnz(A::GenericParamSparseMatrixCSC)
-  maxnnz = 0
-  for i in 1:param_length(A)
-    maxnnz += A.ptrs[i+1]-A.ptrs[i]
-  end
-  maxnnz
-end
-
-@inline function _allocconsecres(s,Ti,Tv,max_nnz_one_mat,tot_nnz)
-  X = spzeros(Tv,Ti,s)
-  resize!(storedinds(X),max_nnz_one_mat)
-  resize!(storedvals(X),tot_nnz)
-  fill!(storedinds(X),zero(Ti))
-  fill!(storedvals(X),zero(Tv))
-  return X
-end
-
-@inline function _colstartind_all(j,A::GenericParamSparseMatrixCSC)
-  c = ()
-  for i in param_eachindex(A)
-    c = (c...,A.colptr[(A.n+1)*(i-1)+j])
-  end
-  c
-end
-
-@inline function _colboundind_all(j,A::GenericParamSparseMatrixCSC)
-  c = ()
-  for i in param_eachindex(A)
-    c = (c...,A.colptr[(A.n+1)*(i-1)+j+1])
-  end
-  c
-end
-
-@inline function _rowforind_all(
-  rowsentinel,ks,stopks,A::GenericParamSparseMatrixCSC{Tv,Ti}
-  ) where {Tv,Ti}
-
-  r = ()
-  for i in param_eachindex(A)
-    ki = ks[i]
-    ri = ki < stopks[i] ? A.rowval[A.ptrs[i]-1+ki] : convert(Ti,rowsentinel)
-    r = (r...,ri)
-  end
-  r
-end
-
-@inline function _fusedupdate(
-  rowsentinel,activerow,row,k,stopk,A::GenericParamSparseMatrixCSC{Tv,Ti},i
-  ) where {Tv,Ti}
-
-  if row == activerow
-    nextk = k + oneunit(k)
-    (A.data[A.ptrs[i]-1+k],nextk,(nextk < stopk ? A.rowval[A.ptrs[i]-1+nextk] : oftype(row,rowsentinel)))
-  else
-    (zero(Tv),k,row)
-  end
-end
-
-@inline function _fusedupdate_all(rowsentinel,activerow,rows,ks,stopks,A::GenericParamSparseMatrixCSC)
-  vals,nextks,nextrows = (),(),()
-  for i in param_eachindex(A)
-    val,nextk,nextrow = _fusedupdate(rowsentinel,activerow,rows[i],ks[i],stopks[i],A,i)
-    vals,nextks,nextrows = (vals...,val),(nextks...,nextk),(nextrows...,nextrow)
-  end
-  return vals,nextks,nextrows
-end
-
-function _trimstorage!(A::SparseMatrixCSC,maxstored,plength)
-  δ = length(storedinds(A)) - maxstored
-  resize!(storedinds(A),maxstored)
-  if δ > 0
-    for l in 1:plength
-      Base._deleteat!(storedvals(A),l*maxstored+1,δ)
-    end
-  end
-  return
-end
-
-@inline function _check_consecutive_buffers(A::SparseMatrixCSC,plength)
-  @assert length(getcolptr(A)) == size(A,2) + 1 && getcolptr(A)[end] - 1 == length(rowvals(A))
-  @assert plength*length(rowvals(A)) == length(nonzeros(A))
-  data = reshape(nonzeros(A),:,plength)
-  ConsecutiveParamSparseMatrixCSC(A.m,A.n,A.colptr,A.rowval,data)
+  ConsecutiveParamSparseMatrixCSC(B.m,B.n,B.colptr,B.rowval,data)
 end

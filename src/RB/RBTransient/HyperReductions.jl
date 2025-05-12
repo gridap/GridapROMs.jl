@@ -114,11 +114,11 @@ function RBSteady.inv_project!(cache::HRParamArray,a::TupOfAffineContribution)
   inv_project!(cache.hypred,cache.coeff,a,cache.fecache)
 end
 
-function RBSteady.allocate_hypred_cache(a::TupOfAffineContribution,r::TransientRealization)
-  fecache = map(ai -> RBSteady.allocate_coefficient(ai,r),a)
-  coeffs = map(ai -> RBSteady.allocate_coefficient(ai,r),a)
-  hypred = RBSteady.allocate_hyper_reduction(first(a),r)
-  return HRParamArray(fecache,coeffs,hypred)
+function RBSteady.allocate_hypred_cache(a::TupOfAffineContribution,args...)
+  fecache = map(ai -> RBSteady.allocate_coefficient(ai,args...),a)
+  coeffs = map(ai -> RBSteady.allocate_coefficient(ai,args...),a)
+  hypred = RBSteady.allocate_hyper_reduction(first(a),args...)
+  return hr_array(fecache,coeffs,hypred)
 end
 
 function get_common_time_domain(a::TransientHRProjection...)

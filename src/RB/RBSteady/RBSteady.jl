@@ -67,10 +67,14 @@ include("ReductionMethods.jl")
 export galerkin_projection
 include("GalerkinProjections.jl")
 
+export RBVector
 export RBParamVector
+export reduced_vector
 include("RBParamVectors.jl")
 
+export HRArray
 export HRParamArray
+export hr_array
 include("HRParamArrays.jl")
 
 export AbstractTTCore
@@ -162,6 +166,13 @@ export assemble_hr_matrix_add!
 export assemble_hr_vector_add!
 include("HRAssemblers.jl")
 
+export LocalProjection
+export InterpHRProjection
+export BlockInterpHRProjection
+export InterpAffineContribution
+export InterpRBOperator
+include("LocalProjections.jl")
+
 export RBOperator
 export GenericRBOperator
 export LinearNonlinearRBOperator
@@ -183,12 +194,5 @@ include("PostProcess.jl")
 include("Extensions.jl")
 
 include("UnCommonParamOperators.jl")
-
-export LocalProjection
-export InterpHRProjection
-export BlockInterpHRProjection
-export InterpAffineContribution
-export InterpRBOperator
-include("LocalProjections.jl")
 
 end # module

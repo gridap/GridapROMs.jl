@@ -52,8 +52,12 @@ Algebra.nz_index(a::SparsityPattern,row::Integer,col::Integer) = nz_index(get_ba
 
 for f in (:recast,:recast_indices,:recast_split_indices,:sparsify_indices)
   @eval begin
-    $f(A::AbstractArray,a::SparsityPattern) = $f(A,get_background_matrix(a))
+    $f(i::AbstractArray,a::SparsityPattern) = $f(i,get_background_matrix(a))
   end
+end
+
+function sparsify_split_indices(A::AbstractArray,B::AbstractArray,a::SparsityPattern)
+  sparsify_split_indices(A,B,get_background_matrix(a))
 end
 
 function get_common_sparsity(a::SparsityPattern...)

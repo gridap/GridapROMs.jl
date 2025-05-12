@@ -27,6 +27,8 @@ Subtypes:
 """
 abstract type HRProjection{A<:ReducedProjection} <: Projection end
 
+const AbstractHRProjection = Union{HRProjection,BlockProjection{<:HRProjection}}
+
 const HRVecProjection = HRProjection{<:ReducedVecProjection}
 const HRMatProjection = HRProjection{<:ReducedMatProjection}
 
@@ -226,31 +228,29 @@ function reduced_triangulation(trian::Triangulation,a::HRProjection)
   return red_trian
 end
 
-function allocate_coefficient(a::Projection,r::AbstractRealization)
+function allocate_coefficient(a::Projection)
   n = num_reduced_dofs(a)
-  np = num_params(r)
-  coeffvec = zeros(n)
-  coeff = global_parameterize(coeffvec,np)
+  coeff = zeros(n)
   return coeff
 end
 
-function allocate_hyper_reduction(a::HRVecProjection,r::AbstractRealization)
+function allocate_hyper_reduction(a::HRVecProjection)
   nrows = num_reduced_dofs_left_projector(a)
-  np = num_params(r)
-  b = zeros(nrows)
-  hypred = global_parameterize(b,np)
+  hypred = zeros(nrows)
   fill!(hypred,zero(eltype(hypred)))
   return hypred
 end
 
-function allocate_hyper_reduction(a::HRMatProjection,r::AbstractRealization)
+function allocate_hyper_reduction(a::HRMatProjection)
   nrows = num_reduced_dofs_left_projector(a)
   ncols = num_reduced_dofs_right_projector(a)
-  np = num_params(r)
-  M = zeros(nrows,ncols)
-  hypred = global_parameterize(M,np)
+  hypred = zeros(nrows,ncols)
   fill!(hypred,zero(eltype(hypred)))
   return hypred
+end
+
+for f in (:allocate_coefficient,:allocate_hyper_reduction)
+  @eval $f(a::Projection,r::AbstractRealization) = global_parameterize($f(a),num_params(r))
 end
 
 function Utils.Contribution(v::Tuple{Vararg{HRProjection}},t::Tuple{Vararg{Triangulation}})
@@ -279,21 +279,21 @@ struct AffineContribution{A<:Projection,V,K} <: Contribution
   end
 end
 
-function allocate_coefficient(a::AffineContribution,r::AbstractRealization)
+function allocate_coefficient(a::AffineContribution,args...)
   contribution(get_domains(a)) do trian
-    allocate_coefficient(a[trian],r)
+    allocate_coefficient(a[trian],args...)
   end
 end
 
-function allocate_hyper_reduction(a::AffineContribution,r::AbstractRealization)
-  allocate_hyper_reduction(first(get_contributions(a)),r)
+function allocate_hyper_reduction(a::AffineContribution,args...)
+  allocate_hyper_reduction(first(get_contributions(a)),args...)
 end
 
-function allocate_hypred_cache(a::Union{Projection,AffineContribution},r::AbstractRealization)
-  fecache = allocate_coefficient(a,r)
-  coeffs = allocate_coefficient(a,r)
-  hypred = allocate_hyper_reduction(a,r)
-  return HRParamArray(fecache,coeffs,hypred)
+function allocate_hypred_cache(a,args...)
+  fecache = allocate_coefficient(a,args...)
+  coeffs = allocate_coefficient(a,args...)
+  hypred = allocate_hyper_reduction(a,args...)
+  return hr_array(fecache,coeffs,hypred)
 end
 
 function inv_project!(
@@ -581,7 +581,7 @@ end
 function Arrays.return_cache(
   ::typeof(allocate_coefficient),
   a::BlockHRProjection,
-  r::AbstractRealization)
+  args...)
 
   i = findfirst(a.touched)
   @notimplementedif isnothing(i)
@@ -590,11 +590,11 @@ function Arrays.return_cache(
   return block_coeff
 end
 
-function allocate_coefficient(a::BlockHRProjection,r::AbstractRealization)
-  coeff = return_cache(allocate_coefficient,a,r)
+function allocate_coefficient(a::BlockHRProjection,args...)
+  coeff = return_cache(allocate_coefficient,a,args...)
   for i in eachindex(a)
     if a.touched[i]
-      coeff[i] = allocate_coefficient(a[i],r)
+      coeff[i] = allocate_coefficient(a[i],args...)
     end
   end
   return ArrayBlock(coeff,a.touched)
@@ -602,38 +602,43 @@ end
 
 function Arrays.return_cache(
   ::typeof(allocate_hyper_reduction),
-  a::HRVecProjection,
-  r::AbstractRealization)
+  a::HRVecProjection)
 
-  hypvec = testvalue(Vector{Float64})
-  global_parameterize(hypvec,num_params(r))
+  testvalue(Vector{Float64})
 end
 
 function Arrays.return_cache(
   ::typeof(allocate_hyper_reduction),
-  a::HRMatProjection,
+  a::HRMatProjection)
+
+  testvalue(Matrix{Float64})
+end
+
+function Arrays.return_cache(
+  ::typeof(allocate_hyper_reduction),
+  a::HRProjection,
   r::AbstractRealization)
 
-  hypvec = testvalue(Matrix{Float64})
+  hypvec = return_cache(allocate_hyper_reduction,a)
   global_parameterize(hypvec,num_params(r))
 end
 
 function Arrays.return_cache(
   ::typeof(allocate_hyper_reduction),
   a::BlockHRProjection,
-  r::AbstractRealization)
+  args...)
 
   i = findfirst(a.touched)
   @notimplementedif isnothing(i)
-  hypred = return_cache(allocate_hyper_reduction,a[i],r)
+  hypred = return_cache(allocate_hyper_reduction,a[i],args...)
   block_hypred = Array{typeof(hypred),ndims(a)}(undef,size(a))
   return block_hypred
 end
 
-function allocate_hyper_reduction(a::BlockHRProjection,r::AbstractRealization)
-  hypred = return_cache(allocate_hyper_reduction,a,r)
+function allocate_hyper_reduction(a::BlockHRProjection,args...)
+  hypred = return_cache(allocate_hyper_reduction,a,args...)
   for i in eachindex(a)
-    hypred[i] = allocate_hyper_reduction(a.array[i],r)
+    hypred[i] = allocate_hyper_reduction(a.array[i],args...)
   end
   return mortar(hypred)
 end
@@ -686,7 +691,7 @@ end
 function get_at_domain(s::SparseSnapshots,rowscols::Tuple)
   rows,cols = rowscols
   sparsity = get_sparsity(get_dof_map(s))
-  inds = sparsify_indices(sparsity,rows,cols)
+  inds = sparsify_split_indices(rows,cols,sparsity)
   data = get_all_data(s)
   datav = view(data,inds,:)
   ConsecutiveParamArray(datav)

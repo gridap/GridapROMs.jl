@@ -3,6 +3,8 @@ struct LocalProjection{A<:Projection} <: Projection
   k::KmeansResult
 end
 
+const AbstractLocalProjection = Union{<:LocalProjection,BlockProjection{<:LocalProjection}}
+
 function Projection(lred::LocalReduction,s::AbstractArray,args...)
   red = get_reduction(lred)
   k = compute_clusters(lred,s)
@@ -29,13 +31,13 @@ function empirical_interpolation(a::LocalProjection)
   map(empirical_interpolation,a.projections) |> tuple_of_arrays
 end
 
-local_info(a) = @abstractmethod
-local_info(a::LocalProjection) = a.projections
-local_info(a::NormedProjection) = local_info(a.projection)
+local_values(a) = @abstractmethod
+local_values(a::LocalProjection) = a.projections
+local_values(a::NormedProjection) = local_values(a.projection)
 
-function local_info(a::RBSpace)
+function local_values(a::RBSpace)
   space = get_fe_space(a)
-  lsubspace = local_info(get_reduced_subspace(a))
+  lsubspace = local_values(get_reduced_subspace(a))
   map(x -> reduced_subspace(space,x),lsubspace)
 end
 
@@ -44,17 +46,25 @@ get_clusters(a::LocalProjection) = a.k
 get_clusters(a::NormedProjection) = get_clusters(a.projection)
 get_clusters(a::RBSpace) = get_clusters(get_reduced_subspace(a))
 
-get_local(a,r::AbstractRealization) = @abstractmethod
+function get_local(a,r::AbstractRealization)
+  map(r) do μ
+    get_local(a,μ)
+  end
+end
 
-function get_local(a::LocalProjection,r::AbstractRealization)
+function get_local(a::LocalProjection,μ::AbstractVector)
   k = get_clusters(a)
-  lab = get_label(k,r)
+  lab = get_label(k,μ)
   a.projections[lab]
 end
 
-function get_local(a::RBSpace,r::AbstractRealization)
+function get_local(a::NormedProjection,μ::AbstractVector)
+  NormedProjection(get_local(a.projection,μ),a.norm_matrix)
+end
+
+function get_local(a::RBSpace,μ::AbstractVector)
   space = get_fe_space(a)
-  lsubspace = get_local(get_reduced_subspace(a),r)
+  lsubspace = get_local(get_reduced_subspace(a),μ)
   reduced_subspace(space,lsubspace)
 end
 
@@ -62,7 +72,7 @@ function reduced_residual(lred::LocalReduction,test::RBSpace,s::Snapshots)
   red = get_reduction(lred)
   k = get_clusters(test)
   sc = cluster_snapshots(s,k)
-  hr = map(local_info(test),sc) do test,s
+  hr = map(local_values(test),sc) do test,s
     reduced_residual(red,test,s)
   end
   LocalProjection(hr,k)
@@ -73,7 +83,7 @@ function reduced_jacobian(lred::LocalReduction,trial::RBSpace,test::RBSpace,s::S
   red = get_reduction(lred)
   k = get_clusters(test)
   sc = cluster_snapshots(s,k)
-  hr = map(local_info(trial),local_info(test),sc) do trial,test,s
+  hr = map(local_values(trial),local_values(test),sc) do trial,test,s
     reduced_jacobian(red,trial,test,s)
   end
   LocalProjection(hr,k)
@@ -106,10 +116,6 @@ function cluster_snapshots(s::Snapshots,k::KmeansResult)
     svec[label] = _cluster_snaps(s,cluster)
   end
   return svec
-end
-
-function get_label(k::KmeansResult,r::Realization)
-  map(μ -> get_label(k,μ),r)
 end
 
 function get_label(k::KmeansResult,x::AbstractVector)

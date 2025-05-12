@@ -35,8 +35,8 @@ function jacobian_snapshots(
   us_jac = get_param_data(sjac)
   r_jac = get_realization(sjac)
   A = jacobian(op,r_jac,us_jac)
-  sparsity = get_common_sparsity(A)
-  iA = get_sparse_dof_map(sparsity,op)
+  sparsity = SparsityPattern(A)
+  iA = TrivialSparseMatrixDofMap(sparsity)
   return Snapshots(A,iA,r_jac)
 end
 
@@ -51,7 +51,7 @@ function jacobian_snapshots(
   fill!(us_jac,zero(eltype2(us_jac)))
   r_jac = get_realization(sjac)
   A = jacobian(op,r_jac,us_jac)
-  sparsity = get_common_sparsity(A)
-  iA = get_sparse_dof_map(sparsity,op)
+  sparsity = SparsityPattern(A)
+  iA = TrivialSparseMatrixDofMap(sparsity)
   return Snapshots(A,iA,r_jac)
 end

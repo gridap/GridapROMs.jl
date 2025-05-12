@@ -53,9 +53,7 @@ function Algebra.residual(op::UnCommonParamOperator,x::AbstractParamVector)
 end
 
 function Algebra.jacobian(op::UnCommonParamOperator,x::AbstractParamVector)
-  cellrowids = common_cellrowids(get_test(op))
-  cellcolids = common_cellcolids(get_trial(op))
-  jac = batchjacobian(op,x,cellrowids,cellcolids)
+  jac = batchjacobian(op,x)
   _to_consecutive(jac)
 end
 
