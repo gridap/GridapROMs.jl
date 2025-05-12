@@ -84,7 +84,7 @@ end
 function RBSteady.load_operator(dir,feop::ODEParamOperator;kwargs...)
   trial,test = RBSteady._load_fixed_operator_parts(dir,feop;kwargs...)
   feop′,red_lhs,red_rhs = RBSteady._load_trian_operator_parts(dir,feop,trial,test;kwargs...)
-  op = GenericRBOperator(feop′,trial,test,red_lhs,red_rhs)
+  op = RBOperator(feop′,trial,test,red_lhs,red_rhs)
   return op
 end
 
@@ -96,8 +96,8 @@ function RBSteady.load_operator(dir,feop::LinearNonlinearODEParamOperator;label=
     dir,feop_lin,trial,test;label=_get_label("lin",label))
   odeop_nlin,red_lhs_nlin,red_rhs_nlin = RBSteady._load_trian_operator_parts(
     dir,feop_nlin,trial,test;label=_get_label("nlin",label))
-  op_lin = GenericRBOperator(odeop_lin,trial,test,red_lhs_lin,red_rhs_lin)
-  op_nlin = GenericRBOperator(odeop_nlin,trial,test,red_lhs_nlin,red_rhs_nlin)
+  op_lin = RBOperator(odeop_lin,trial,test,red_lhs_lin,red_rhs_lin)
+  op_nlin = RBOperator(odeop_nlin,trial,test,red_lhs_nlin,red_rhs_nlin)
   return LinearNonlinearRBOperator(op_lin,op_nlin)
 end
 

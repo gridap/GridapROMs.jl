@@ -294,13 +294,13 @@ function TTSVDReduction(r::PODReduction,D=3)
 end
 
 """
-    struct LocalReduction{A,B} <: Reduction{A,B}
-      reduction::Reduction{A,B}
+    struct LocalReduction{A,B,R<:Reduction{A,B}} <: Reduction{A,B}
+      reduction::R
       ncentroids::Int
     end
 """
-struct LocalReduction{A,B} <: Reduction{A,B}
-  reduction::Reduction{A,B}
+struct LocalReduction{A,B,R<:Reduction{A,B}} <: Reduction{A,B}
+  reduction::R
   ncentroids::Int
 end
 
@@ -309,6 +309,7 @@ function LocalReduction(args...;ncentroids=10,kwargs...)
   LocalReduction(reduction,ncentroids)
 end
 
+get_ncentroids(r::LocalReduction) = r.ncentroids
 get_reduction(r::LocalReduction) = r.reduction
 ReductionStyle(r::LocalReduction) = ReductionStyle(get_reduction(r))
 NormStyle(r::LocalReduction) = NormStyle(get_reduction(r))
@@ -392,26 +393,66 @@ Subtypes:
 """
 abstract type HyperReduction{A<:ReductionStyle} <: Reduction{A,EuclideanNorm} end
 
+function HyperReduction(args...;kwargs...)
+  reduction = Reduction(args...;kwargs...)
+  MDEIMReduction(reduction)
+end
+
+function HyperReduction(reduction::Reduction;kwargs...)
+  red_style = ReductionStyle(reduction)
+  HyperReduction(red_style;kwargs...)
+end
+
 """
-    struct MDEIMReduction{A,R<:Reduction{A,EuclideanNorm}} <: HyperReduction{A}
-      reduction::R
+    struct MDEIMReduction{A} <: HyperReduction{A}
+      reduction::Reduction{A,EuclideanNorm}
     end
 
 MDEIM struct employed in steady problems
 """
-struct MDEIMReduction{A,R<:Reduction{A,EuclideanNorm}} <: HyperReduction{A}
-  reduction::R
-end
-
-function MDEIMReduction(args...;kwargs...)
-  reduction = Reduction(args...;kwargs...)
-  MDEIMReduction(reduction)
+struct MDEIMReduction{A} <: HyperReduction{A}
+  reduction::Reduction{A,EuclideanNorm}
 end
 
 get_reduction(r::MDEIMReduction) = r.reduction
 ReductionStyle(r::MDEIMReduction) = ReductionStyle(get_reduction(r))
 NormStyle(r::MDEIMReduction) = NormStyle(get_reduction(r))
 ParamDataStructures.num_params(r::MDEIMReduction) = num_params(get_reduction(r))
+
+"""
+    struct InterpHyperReduction{A} <: HyperReduction{A}
+      reduction::Reduction{A,EuclideanNorm}
+      strategy::AbstractRadialBasis
+    end
+"""
+struct InterpHyperReduction{A} <: HyperReduction{A}
+  reduction::Reduction{A,EuclideanNorm}
+  strategy::AbstractRadialBasis
+end
+
+function InterpHyperReduction(args...;kwargs...)
+  reduction = Reduction(args...;kwargs...)
+  strategy = PHS()
+  InterpHyperReduction(reduction,strategy)
+end
+
+function InterpHyperReduction(reduction::Reduction;kwargs...)
+  red_style = ReductionStyle(reduction)
+  InterpHyperReduction(red_style;kwargs...)
+end
+
+get_reduction(r::InterpHyperReduction) = r.reduction
+ReductionStyle(r::InterpHyperReduction) = ReductionStyle(get_reduction(r))
+NormStyle(r::InterpHyperReduction) = NormStyle(get_reduction(r))
+interp_strategy(r::InterpHyperReduction) = r.strategy
+ParamDataStructures.num_params(r::InterpHyperReduction) = num_params(get_reduction(r))
+
+const LocalHyperReduction{A} = LocalReduction{A,EuclideanNorm,<:HyperReduction{A}}
+
+function LocalHyperReduction(args...;interp=true,ncentroids=10,kwargs...)
+  red = interp ? InterpHyperReduction(args...;kwargs...) : HyperReduction(args...;kwargs...)
+  LocalReduction(red;ncentroids)
+end
 
 """
     struct AdaptiveReduction{A,B,R<:DirectReduction{A,B}} <: GreedyReduction{A,B}

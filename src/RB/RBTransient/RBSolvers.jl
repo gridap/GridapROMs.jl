@@ -26,20 +26,18 @@ end
 
 function RBSteady.RBSolver(
   fesolver::ODESolver,
-  state_reduction::Reduction;
+  reduction::Reduction;
   nparams_res=20,
   nparams_jac=20,
   nparams_djac=nparams_jac)
 
-  red_style = ReductionStyle(state_reduction)
   cres,cjac,cdjac = time_combinations(fesolver)
-
-  residual_reduction = TransientMDEIMReduction(cres,red_style;nparams=nparams_res)
-  jac_reduction = TransientMDEIMReduction(cjac,red_style;nparams=nparams_jac)
-  djac_reduction = TransientMDEIMReduction(cdjac,red_style;nparams=nparams_djac)
+  residual_reduction = TransientHyperReduction(cres,reduction;nparams=nparams_res)
+  jac_reduction = TransientHyperReduction(cjac,reduction;nparams=nparams_jac)
+  djac_reduction = TransientHyperReduction(cdjac,reduction;nparams=nparams_djac)
   jacobian_reduction = (jac_reduction,djac_reduction)
 
-  RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
+  RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)
 end
 
 RBSteady.num_jac_params(s::RBSolver{<:ODESolver}) = num_params(first(s.jacobian_reduction))

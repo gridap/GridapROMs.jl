@@ -189,6 +189,6 @@ export InterpHRProjection
 export BlockInterpHRProjection
 export InterpAffineContribution
 export InterpRBOperator
-include("RBLocal.jl")
+include("LocalProjections.jl")
 
 end # module

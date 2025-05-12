@@ -102,6 +102,16 @@ end
 
 abstract type TransientHyperReduction{A} <: HyperReduction{A} end
 
+function TransientHyperReduction(combine::Function,args...;kwargs...)
+  reduction = TransientReduction(args...;kwargs...)
+  TransientMDEIMReduction(reduction,combine)
+end
+
+function TransientHyperReduction(reduction::Reduction,combine::Function;kwargs...)
+  red_style = ReductionStyle(reduction)
+  TransientHyperReduction(combine,red_style;kwargs...)
+end
+
 @doc raw"""
     struct TransientMDEIMReduction{A,R<:Reduction{A,EuclideanNorm}} <: AbstractMDEIMReduction{A}
       reduction::R

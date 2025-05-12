@@ -32,6 +32,8 @@ export sparsify_indices
 export slow_index
 export fast_index
 export recast
+export inverse_table
+export common_table
 include("IndexOperations.jl")
 
 export Range2D

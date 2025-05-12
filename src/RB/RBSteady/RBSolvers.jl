@@ -40,14 +40,25 @@ end
 
 function RBSolver(
   fesolver::GridapType,
-  state_reduction::Reduction;
+  reduction::Reduction;
   nparams_res=20,
   nparams_jac=20)
 
-  red_style = ReductionStyle(state_reduction)
-  residual_reduction = MDEIMReduction(red_style;nparams=nparams_res)
-  jacobian_reduction = MDEIMReduction(red_style;nparams=nparams_jac)
-  RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
+  residual_reduction = HyperReduction(reduction;nparams=nparams_res)
+  jacobian_reduction = HyperReduction(reduction;nparams=nparams_jac)
+  RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)
+end
+
+function RBSolver(
+  fesolver::GridapType,
+  reduction::LocalReduction;
+  nparams_res=20,
+  nparams_jac=20)
+
+  ncentroids = get_ncentroids(reduction)
+  residual_reduction = LocalHyperReduction(reduction;nparams=nparams_res,ncentroids)
+  jacobian_reduction = LocalHyperReduction(reduction;nparams=nparams_jac,ncentroids)
+  RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)
 end
 
 """

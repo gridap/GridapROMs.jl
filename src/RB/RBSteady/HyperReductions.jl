@@ -149,6 +149,67 @@ function HRProjection(
   return MDEIM(proj_basis,factor,domain)
 end
 
+"""
+    struct InterpHRProjection{A} <: HRProjection{A}
+      a::HRProjection{A}
+      interp::Interpolator
+    end
+
+Hyper-reduction with pre-trained online coefficients. During the online phase,
+for any new parameter, we simply need to evaluate the interpolator `interp`, and
+the result will be the new reduced coefficient
+"""
+struct InterpHRProjection{A} <: HRProjection{A}
+  basis::A
+  interpolation::Interpolator
+end
+
+get_basis(a::InterpHRProjection) = a.basis
+get_interpolation(a::InterpHRProjection) = a.interpolation
+
+function HRProjection(
+  hred::InterpHyperReduction,
+  s::Snapshots,
+  test::RBSpace)
+
+  red = get_reduction(hred)
+  basis = projection(red,s)
+  proj_basis = project(test,basis)
+  coeff_interp = get_interpolator(hred,basis,s)
+  return InterpHRProjection(proj_basis,coeff_interp)
+end
+
+function HRProjection(
+  hred::InterpHyperReduction,
+  s::Snapshots,
+  trial::RBSpace,
+  test::RBSpace)
+
+  red = get_reduction(hred)
+  basis = projection(red,s)
+  proj_basis = project(test,basis,trial)
+  coeff_interp = get_interpolator(hred,basis,s)
+  return InterpHRProjection(proj_basis,coeff_interp)
+end
+
+function get_interpolator(red::InterpHyperReduction,a::Projection,s::Snapshots)
+  get_interpolator(interp_strategy(red),a,s)
+end
+
+function get_interpolator(strategy,a::Projection,s::Snapshots)
+  @notimplemented "Only implemented an interpolator with radial bases"
+end
+
+function get_interpolator(strategy::AbstractRadialBasis,a::Projection,s::Snapshots)
+  inds,interp = empirical_interpolation(a)
+  factor = lu(interp)
+  r = get_realization(s)
+  red_data = get_at_domain(s,inds)
+  coeff = allocate_coefficient(a,r)
+  ldiv!(coeff,factor,red_data)
+  Interpolator(r,coeff,strategy)
+end
+
 function reduced_triangulation(trian::Triangulation,a::TrivialHRProjection)
   red_trian = view(trian,Int[])
   return red_trian
@@ -165,7 +226,7 @@ function reduced_triangulation(trian::Triangulation,a::HRProjection)
   return red_trian
 end
 
-function allocate_coefficient(a::HRProjection,r::AbstractRealization)
+function allocate_coefficient(a::Projection,r::AbstractRealization)
   n = num_reduced_dofs(a)
   np = num_params(r)
   coeffvec = zeros(n)
@@ -228,9 +289,7 @@ function allocate_hyper_reduction(a::AffineContribution,r::AbstractRealization)
   allocate_hyper_reduction(first(get_contributions(a)),r)
 end
 
-"""
-"""
-function allocate_hypred_cache(a::AffineContribution,r::AbstractRealization)
+function allocate_hypred_cache(a::Union{Projection,AffineContribution},r::AbstractRealization)
   fecache = allocate_coefficient(a,r)
   coeffs = allocate_coefficient(a,r)
   hypred = allocate_hyper_reduction(a,r)
@@ -251,10 +310,31 @@ function inv_project!(
   return hypred
 end
 
+function inv_project!(
+  b̂::AbstractParamArray,
+  coeff::AbstractParamArray,
+  a::InterpHRProjection,
+  r::AbstractRealization)
+
+  o = one(eltype2(b̂))
+  interp = get_interpolation(a)
+  interpolate!(coeff,interp,r)
+  mul!(b̂,a,coeff,o,o)
+  return b̂
+end
+
+function inv_project!(cache::HRParamArray,a::InterpHRProjection,r::AbstractRealization)
+  inv_project!(cache.hypred,cache.coeff,a,r)
+end
+
 function reduced_form(red::Reduction,s,trian::Triangulation,args...)
   hyper_red = HRProjection(red,s,trian,args...)
   red_trian = reduced_triangulation(trian,hyper_red)
   return hyper_red,red_trian
+end
+
+function reduced_form(red::InterpHyperReduction,s,r::RBSpace,args...)
+  HRProjection(red,s,r,args...)
 end
 
 """
@@ -288,6 +368,12 @@ function reduced_residual(red::Reduction,test::RBSpace,c::ArrayContribution)
   end
   println(CostTracker(t,name="Residual hyper-reduction"))
   return Contribution(a,trians)
+end
+
+function reduced_residual(red::InterpHyperReduction,test::RBSpace,s::Snapshots)
+  t = @timed a = reduced_form(red,s,test)
+  println(CostTracker(t,name="Residual hyper-reduction"))
+  return a
 end
 
 """
@@ -325,6 +411,12 @@ function reduced_jacobian(red::Reduction,trial::RBSpace,test::RBSpace,c::ArrayCo
   end
   println(CostTracker(t,name="Jacobian hyper-reduction"))
   return Contribution(a,trians)
+end
+
+function reduced_jacobian(red::InterpHyperReduction,trial::RBSpace,test::RBSpace,s::Snapshots)
+  t = @timed a = reduced_form(red,s,trial,test)
+  println(CostTracker(t,name="Jacobian hyper-reduction"))
+  return a
 end
 
 """
@@ -581,4 +673,81 @@ function reduced_form(
   red_trian = reduced_triangulation(trian,hyper_red)
 
   return hyper_red,red_trian
+end
+
+# interpolation utils
+
+function get_at_domain(s::Snapshots,rows::AbstractVector{<:Integer})
+  data = get_all_data(s)
+  datav = view(data,rows,:)
+  ConsecutiveParamArray(datav)
+end
+
+function get_at_domain(s::SparseSnapshots,rowscols::Tuple)
+  rows,cols = rowscols
+  sparsity = get_sparsity(get_dof_map(s))
+  inds = sparsify_indices(sparsity,rows,cols)
+  data = get_all_data(s)
+  datav = view(data,inds,:)
+  ConsecutiveParamArray(datav)
+end
+
+function RadialBasisFunctions.Interpolator(
+  x::Realization,
+  y::ConsecutiveParamArray,
+  basis::B=PHS()
+  ) where B<:AbstractRadialBasis
+
+  dim = length(first(x))
+  k = param_length(x)
+  npoly = binomial(dim+basis.poly_deg,basis.poly_deg)
+  n = k + npoly
+  mon = MonomialBasis(dim,basis.poly_deg)
+  data_type = promote_type(eltype(first(x.params)),eltype(first(y)))
+  A = Symmetric(zeros(data_type,n,n))
+  RadialBasisFunctions._build_collocation_matrix!(A,x.params,basis,mon,k)
+  l = length(first(y))
+  b = zeros(data_type,n,l)
+  zl = zeros(data_type,l)
+  for i in 1:n
+    z = i < k ? y[i] : zl
+    for j in 1:l
+      b[i,j] = z[j]
+    end
+  end
+  w = A \ b
+  return Interpolator(x,y,view(w,1:k,:),view(w,1+k:n,:),basis,mon)
+end
+
+(rbfi::Interpolator)(x::AbstractRealization) = interpolate(rbfi,x)
+
+function interpolate(rbfi::Interpolator,x::AbstractRealization)
+  k′ = param_length(x)
+  l = size(rbfi.rbf_weights,2)
+  cache = ConsecutiveParamArray(zeros(l,k′))
+  interpolate!(cache,rbfi,x)
+end
+
+function interpolate!(cache::ConsecutiveParamArray,rbfi::Interpolator,x::AbstractRealization)
+  k′ = param_length(x)
+  l = size(rbfi.rbf_weights,2)
+
+  for j in 1:l
+    for i in 1:k′
+      rbfji = 0.0
+
+      for q in axes(rbfi.rbf_weights,1)
+        rbfji += rbfi.rbf_weights[q,j]*rbfi.rbf_basis(x.params[i],rbfi.x.params[q])
+      end
+
+      if !isempty(rbfi.monomial_weights)
+        val_poly = rbfi.monomial_basis(x.params[i])
+        for (q,val) in enumerate(val_poly)
+          rbfji += rbfi.monomial_weights[q,j]*val
+        end
+      end
+
+      cache.data[j,i] = rbfji
+    end
+  end
 end

@@ -48,7 +48,7 @@ function reduced_operator(
   trians_rhs = get_domains(red_rhs)
   trians_lhs = get_domains(red_lhs)
   feop′ = change_domains(feop,trians_rhs,trians_lhs)
-  GenericRBOperator(feop′,red_trial,red_test,red_lhs,red_rhs)
+  RBOperator(feop′,red_trial,red_test,red_lhs,red_rhs)
 end
 
 function reduced_operator(
@@ -104,9 +104,17 @@ struct GenericRBOperator{O,A} <: RBOperator{O}
   rhs::AffineContribution
 end
 
+function RBOperator(
+  op::ParamOperator,trial::RBSpace,test::RBSpace,lhs,rhs::AffineContribution)
+
+  GenericRBOperator(op,trial,test,lhs,rhs)
+end
+
+Utils.get_fe_operator(op::GenericRBOperator) = op.op
 FESpaces.get_trial(op::GenericRBOperator) = op.trial
 FESpaces.get_test(op::GenericRBOperator) = op.test
-Utils.get_fe_operator(op::GenericRBOperator) = op.op
+get_lhs(op::GenericRBOperator) = op.lhs
+get_rhs(op::GenericRBOperator) = op.lhs
 
 function Algebra.allocate_residual(
   op::GenericRBOperator,
@@ -180,6 +188,66 @@ function Algebra.jacobian!(
   end
 
   inv_project!(A,op.lhs)
+end
+
+struct InterpRBOperator{O,A} <: RBOperator{O}
+  op::ParamOperator{O}
+  trial::RBSpace
+  test::RBSpace
+  lhs::A
+  rhs::HRProjection
+end
+
+function RBOperator(
+  op::ParamOperator,trial::RBSpace,test::RBSpace,lhs,rhs::HRProjection)
+
+  InterpRBOperator(op,trial,test,lhs,rhs)
+end
+
+Utils.get_fe_operator(op::InterpRBOperator) = op.op
+FESpaces.get_trial(op::InterpRBOperator) = op.trial
+FESpaces.get_test(op::InterpRBOperator) = op.test
+get_lhs(op::InterpRBOperator) = op.lhs
+get_rhs(op::InterpRBOperator) = op.lhs
+
+function Algebra.allocate_residual(
+  op::InterpRBOperator,
+  r::Realization,
+  u::AbstractVector,
+  paramcache)
+
+  allocate_hypred_cache(op.rhs,r)
+end
+
+function Algebra.allocate_jacobian(
+  op::InterpRBOperator,
+  r::Realization,
+  u::AbstractVector,
+  paramcache)
+
+  allocate_hypred_cache(op.lhs,r)
+end
+
+function Algebra.residual!(
+  b::HRParamArray,
+  op::InterpRBOperator,
+  r::Realization,
+  u::AbstractVector,
+  paramcache)
+
+  fill!(b,zero(eltype(b)))
+  inv_project!(b,op.rhs,r)
+end
+
+function Algebra.jacobian!(
+  A::HRParamArray,
+  op::InterpRBOperator,
+  r::Realization,
+  u::AbstractVector,
+  paramcache)
+
+  fill!(A,zero(eltype(A)))
+  inv_project!(A,op.lhs,r)
 end
 
 """

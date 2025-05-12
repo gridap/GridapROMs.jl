@@ -190,7 +190,7 @@ function reduced_operator(rbsolver::RBSolver,feop::ParamOperator,red_trial,red_t
   trians_rhs = get_domains(red_rhs)
   trians_lhs = get_domains(red_lhs)
   feop′ = change_domains(feop,trians_rhs,trians_lhs)
-  GenericRBOperator(feop′,red_trial,red_test,red_lhs,red_rhs)
+  RBOperator(feop′,red_trial,red_test,red_lhs,red_rhs)
 end
 
 function reduced_operator(rbsolver::RBSolver,odeop::ODEParamOperator,red_trial,red_test,jac,res)
@@ -201,7 +201,7 @@ function reduced_operator(rbsolver::RBSolver,odeop::ODEParamOperator,red_trial,r
   trians_rhs = get_domains(red_rhs)
   trians_lhs = map(get_domains,red_lhs)
   odeop′ = change_domains(odeop,trians_rhs,trians_lhs)
-  GenericRBOperator(odeop′,red_trial,red_test,red_lhs,red_rhs)
+  RBOperator(odeop′,red_trial,red_test,red_lhs,red_rhs)
 end
 
 for T in (:LinearNonlinearParamEq,:LinearNonlinearParamODE)

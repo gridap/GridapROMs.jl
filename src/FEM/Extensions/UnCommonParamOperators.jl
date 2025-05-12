@@ -53,7 +53,9 @@ function Algebra.residual(op::UnCommonParamOperator,x::AbstractParamVector)
 end
 
 function Algebra.jacobian(op::UnCommonParamOperator,x::AbstractParamVector)
-  jac = batchjacobian(op,x)
+  cellrowids = common_cellrowids(get_test(op))
+  cellcolids = common_cellcolids(get_trial(op))
+  jac = batchjacobian(op,x,cellrowids,cellcolids)
   _to_consecutive(jac)
 end
 
@@ -89,6 +91,16 @@ function batchresidual(op::UnCommonParamOperator,x::AbstractParamVector)
 end
 
 function batchjacobian(op::UnCommonParamOperator,x::AbstractParamVector)
+  cache = allocate_batchmatrix(op)
+  for i in 1:length(op.operators)
+    xi = param_getindex(x,i)
+    Ai = jacobian(op.operators[i],xi)
+    update_batchmatrix!(cache,Ai)
+  end
+  return to_param_sparse_matrix(cache)
+end
+
+function batchjacobian(op::UnCommonParamOperator,x::AbstractParamVector,cellrows,cellcols)
   cache = allocate_batchmatrix(op)
   for i in 1:length(op.operators)
     xi = param_getindex(x,i)
@@ -208,6 +220,21 @@ end
 
 function to_param_sparse_matrix(cache::ArrayBlock)
   mortar(map(to_param_sparse_matrix,cache.array))
+end
+
+for (f,g) in zip((:common_cellrowids,:common_cellcolids),(:get_test,:get_trial))
+  @eval begin
+    function $f(op::UnCommonParamOperator)
+      common_cells = ()
+      common_cellids = ()
+      for opi in op.operators
+        fs = $g(opi)
+        common_cells = (common_cells...,get_cell_to_bg_cell(fs))
+        common_cellids = (common_cellids...,get_bg_cell_dof_ids(fs))
+      end
+      common_table(common_cellids,common_cells)
+    end
+  end
 end
 
 _to_consecutive(x::GenericParamVector) = ConsecutiveParamArray(x)

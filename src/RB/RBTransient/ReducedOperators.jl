@@ -9,7 +9,7 @@ function RBSteady.reduced_operator(
   trians_rhs = get_domains(red_rhs)
   trians_lhs = map(get_domains,red_lhs)
   odeop′ = change_domains(odeop,trians_rhs,trians_lhs)
-  GenericRBOperator(odeop′,red_trial,red_test,red_lhs,red_rhs)
+  RBOperator(odeop′,red_trial,red_test,red_lhs,red_rhs)
 end
 
 function RBSteady.reduced_operator(

@@ -182,3 +182,102 @@ function invperm_table(a::Table)
   end
   return b
 end
+
+function ptrs_to_length!(ptrs::AbstractVector)
+  @inbounds for i in length(ptrs)-1:-1:1
+    ptrs[i+1] -= ptrs[i]
+  end
+  ptrs[1] = zero(eltype(ptrs))
+  return
+end
+
+for T in (:(AbstractVector{<:Table}),:(Tuple{Vararg{Table}}))
+  S = T==:(AbstractVector{<:Table}) ? :(AbstractVector{<:AbstractVector}) : :(Tuple{Vararg{AbstractVector}})
+  @eval begin
+    # we require all the tables to have the same length
+    function common_table(a::$T)
+      a1, = a
+      ptrs = zeros(eltype(a1.ptrs),length(a1.ptrs))
+      for ai in a
+        @check length(ai) == length(a1)
+        ptrs_to_length!(ai.ptrs)
+        ptrs += ai.ptrs
+        length_to_ptrs!(ai.ptrs)
+      end
+      data = zeros(eltype(a1.data),sum(ptrs))
+      offset = 0
+      for i in 1:length(a1)
+        datai = Set{Int}()
+        for ai in a
+          pinii = ai.ptrs[i]
+          pendi = ai.ptrs[i+1]-1
+          for p in pinii:pendi
+            push!(datai,ai.data[p])
+          end
+        end
+        for (k,datak) in enumerate(datai)
+          data[offset+k] = datak
+        end
+        li = length(datai)
+        offset += li
+        deltai = ptrs[i+1]-li
+        ptrs[i+1] = li
+        resize!(data,length(data)-deltai)
+      end
+      length_to_ptrs!(ptrs)
+      Table(data,ptrs)
+    end
+
+    # we do not require all the tables to have the same length
+    function common_table(a::$S,j_to_bg_j::$T)
+      n = 0
+      for j_to_bg_ji in j_to_bg_j
+        n = max(n,maximum(j_to_bg_ji))
+      end
+      a1, = a
+      ptrs = zeros(eltype(a1.ptrs),n+1)
+      for (ai,j_to_bg_ji) in zip(a,j_to_bg_j)
+        ptrs_to_length!(ai.ptrs)
+        for (j,bg_j) in enumerate(j_to_bg_ji)
+          ptrs[bg_j+1] += ai.ptrs[j+1]
+        end
+        length_to_ptrs!(ai.ptrs)
+      end
+      data = zeros(eltype(a1.data),sum(ptrs))
+      offset = 0
+      loc = zeros(Int,length(a))
+      for bg_i in 1:n
+        touchedi = Set{Int}()
+        fill!(loc,zero(Int))
+        for (k,j_to_bg_jk) in enumerate(j_to_bg_j)
+          j = findfirst(j_to_bg_jk .== bg_i)
+          if !isnothing(j)
+            push!(touchedi,k)
+            loc[k] = j
+          end
+        end
+        datai = Set{Int}()
+        for k in touchedi
+          ak = a[k]
+          j_to_bg_jk = j_to_bg_j[k]
+          j = loc[k]
+          pinii = ak.ptrs[j]
+          pendi = ak.ptrs[j+1]-1
+          for p in pinii:pendi
+            push!(datai,ak.data[p])
+          end
+        end
+        for (k,datak) in enumerate(datai)
+          data[offset+k] = datak
+        end
+        li = length(datai)
+        offset += li
+        deltai = ptrs[bg_i+1]-li
+        ptrs[bg_i+1] = li
+        resize!(data,length(data)-deltai)
+      end
+      length_to_ptrs!(ptrs)
+      Table(data,ptrs)
+    end
+  end
+end

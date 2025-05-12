@@ -246,7 +246,7 @@ â,l̂ = reduced_weak_form(rbsolver,feop,Û,V̂,fesnaps)
 # replace the original FEDomains with the reduced ones  
 feop′ = change_domains(feop,τₕ_l̂,τₕ_â)
 # definition of reduced operator 
-rbop = GenericRBOperator(feop′,Û,V̂,â,l̂)
+rbop = RBOperator(feop′,Û,V̂,â,l̂)
 ```
 
 ## Online phase 

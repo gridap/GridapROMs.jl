@@ -178,12 +178,12 @@ function _save_fixed_operator_parts(dir,op;label="")
   save(dir,get_trial(op);label=_get_label(label,"trial"))
 end
 
-function _save_trian_operator_parts(dir,op::GenericRBOperator;label="")
-  save(dir,op.rhs,op.op;label=_get_label(label,"rhs"))
-  save(dir,op.lhs,op.op;label=_get_label(label,"lhs"))
+function _save_trian_operator_parts(dir,op::RBOperator;label="")
+  save(dir,get_rhs(op),get_fe_operator(op);label=_get_label(label,"rhs"))
+  save(dir,get_lhs(op),get_fe_operator(op);label=_get_label(label,"lhs"))
 end
 
-function DrWatson.save(dir,op::GenericRBOperator;kwargs...)
+function DrWatson.save(dir,op::RBOperator;kwargs...)
   _save_fixed_operator_parts(dir,op;kwargs...)
   _save_trian_operator_parts(dir,op;kwargs...)
 end
@@ -215,7 +215,7 @@ saved to file
 function load_operator(dir,feop::ParamOperator;kwargs...)
   trial,test = _load_fixed_operator_parts(dir,feop;kwargs...)
   pop,red_lhs,red_rhs = _load_trian_operator_parts(dir,feop,trial,test;kwargs...)
-  op = GenericRBOperator(pop,trial,test,red_lhs,red_rhs)
+  op = RBOperator(pop,trial,test,red_lhs,red_rhs)
   return op
 end
 
@@ -235,8 +235,8 @@ function load_operator(dir,feop::LinearNonlinearParamOperator;label="")
     dir,feop_lin,trial,test;label=_get_label("lin",label))
   feop_nlin′,red_lhs_nlin,red_rhs_nlin = _load_trian_operator_parts(
     dir,feop_nlin,trial,test;label=_get_label("nlin",label))
-  op_lin = GenericRBOperator(feop_lin′,trial,test,red_lhs_lin,red_rhs_lin)
-  op_nlin = GenericRBOperator(feop_nlin′,trial,test,red_lhs_nlin,red_rhs_nlin)
+  op_lin = RBOperator(feop_lin′,trial,test,red_lhs_lin,red_rhs_lin)
+  op_nlin = RBOperator(feop_nlin′,trial,test,red_lhs_nlin,red_rhs_nlin)
   return LinearNonlinearRBOperator(op_lin,op_nlin)
 end
 
