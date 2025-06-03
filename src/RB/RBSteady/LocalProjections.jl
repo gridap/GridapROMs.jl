@@ -74,12 +74,32 @@ function get_local(a::RBSpace,μ::AbstractVector)
   reduced_subspace(space,lsubspace)
 end
 
+function reduced_residual(lred::LocalReduction,test::RBSpace,c::ArrayContribution)
+  red = get_reduction(lred)
+  k = get_clusters(test)
+  cc = cluster_snapshots(s,k)
+  hr = map(local_values(test),cc) do test,c
+    reduced_residual(red,test,c)
+  end
+  LocalProjection(hr,k)
+end
+
 function reduced_residual(lred::LocalReduction,test::RBSpace,s::Snapshots)
   red = get_reduction(lred)
   k = get_clusters(test)
   sc = cluster_snapshots(s,k)
   hr = map(local_values(test),sc) do test,s
     reduced_residual(red,test,s)
+  end
+  LocalProjection(hr,k)
+end
+
+function reduced_jacobian(lred::LocalReduction,trial::RBSpace,test::RBSpace,c::ArrayContribution)
+  red = get_reduction(lred)
+  k = get_clusters(test)
+  cc = cluster_snapshots(s,k)
+  hr = map(local_values(trial),local_values(test),cc) do trial,test,c
+    reduced_jacobian(red,trial,test,c)
   end
   LocalProjection(hr,k)
 end

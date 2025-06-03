@@ -449,7 +449,7 @@ ParamDataStructures.num_params(r::InterpHyperReduction) = num_params(get_reducti
 
 const LocalHyperReduction{A} = LocalReduction{A,EuclideanNorm,<:HyperReduction{A}}
 
-function LocalHyperReduction(args...;interp=true,ncentroids=10,kwargs...)
+function LocalHyperReduction(args...;interp=false,ncentroids=10,kwargs...)
   red = interp ? InterpHyperReduction(args...;kwargs...) : HyperReduction(args...;kwargs...)
   LocalReduction(red;ncentroids)
 end

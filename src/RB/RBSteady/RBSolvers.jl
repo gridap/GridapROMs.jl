@@ -52,12 +52,13 @@ end
 function RBSolver(
   fesolver::GridapType,
   reduction::LocalReduction;
+  interp=false,
   nparams_res=20,
   nparams_jac=20)
 
   ncentroids = get_ncentroids(reduction)
-  residual_reduction = LocalHyperReduction(reduction;nparams=nparams_res,ncentroids)
-  jacobian_reduction = LocalHyperReduction(reduction;nparams=nparams_jac,ncentroids)
+  residual_reduction = LocalHyperReduction(reduction;nparams=nparams_res,interp,ncentroids)
+  jacobian_reduction = LocalHyperReduction(reduction;nparams=nparams_jac,interp,ncentroids)
   RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)
 end
 
@@ -140,7 +141,7 @@ function residual_snapshots(
   us_res = get_param_data(sres)
   r_res = get_realization(sres)
   b = residual(op,r_res,us_res)
-  ib = get_dof_map_at_domains(op)
+  ib = _get_dof_map(op,b)
   return Snapshots(b,ib,r_res)
 end
 
@@ -154,7 +155,7 @@ function residual_snapshots(
   fill!(us_res,zero(eltype2(us_res)))
   r_res = get_realization(sres)
   b = residual(op,r_res,us_res)
-  ib = get_dof_map_at_domains(op)
+  ib = _get_dof_map(op,b)
   return Snapshots(b,ib,r_res)
 end
 
@@ -183,7 +184,7 @@ function jacobian_snapshots(
   us_jac = get_param_data(sjac)
   r_jac = get_realization(sjac)
   A = jacobian(op,r_jac,us_jac)
-  iA = get_sparse_dof_map_at_domains(op)
+  iA = _get_sparse_dof_map(op,A)
   return Snapshots(A,iA,r_jac)
 end
 
@@ -198,7 +199,7 @@ function jacobian_snapshots(
   fill!(us_jac,zero(eltype2(us_jac)))
   r_jac = get_realization(sjac)
   A = jacobian(op,r_jac,us_jac)
-  iA = get_sparse_dof_map_at_domains(op)
+  iA = _get_sparse_dof_map(op,A)
   return Snapshots(A,iA,r_jac)
 end
 
@@ -211,6 +212,11 @@ function jacobian_snapshots(
   jac_nlin = jacobian_snapshots(solver,get_nonlinear_operator(op),s)
   return (jac_lin,jac_nlin)
 end
+
+_get_dof_map(op::ParamOperator,a::ArrayContribution) = get_dof_map_at_domains(op)
+_get_dof_map(op::ParamOperator,a::AbstractParamArray) = get_dof_map(op)
+_get_sparse_dof_map(op::ParamOperator,a::ArrayContribution) = get_sparse_dof_map_at_domains(op)
+_get_sparse_dof_map(op::ParamOperator,a::AbstractParamArray) = TrivialSparseMatrixDofMap(SparsityPattern(a))
 
 # Solve a POD-MDEIM problem
 

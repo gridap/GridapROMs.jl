@@ -42,3 +42,6 @@ function Extensions.get_bg_space(r::RBSpace{<:SingleFieldParamFESpace{<:DirectSu
   fbgμ = Extensions.get_bg_space(fμ)
   reduced_subspace(fbgμ,get_reduced_subspace(r))
 end
+
+get_global_dof_map(r::RBSpace) = get_dof_map(get_fe_space(r))
+get_global_dof_map(r::DirectSumRBSpace) = get_dof_map(Extensions.get_bg_space(get_fe_space(r)))

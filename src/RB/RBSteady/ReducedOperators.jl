@@ -511,6 +511,12 @@ function to_snapshots(rbop::LocalRBOperator,x̂::AbstractParamVector,r::Abstract
   xvec = map(x̂,r) do x̂,μ
     opμ = get_local(rbop,μ)
     trial = get_trial(opμ)
-    x = inv_project(trial,x̂)
+    inv_project(trial,x̂)
   end
+  @check all(size(x) == size(first(xvec)) for x in xvec)
+  i = get_global_dof_map(rbop)
+  Snapshots(stack(xvec),i,r)
 end
+
+get_global_dof_map(rbop::RBOperator) = get_global_dof_map(get_trial(rbop))
+get_global_dof_map(rbop::LocalRBOperator) = get_global_dof_map(rbop.trial)
