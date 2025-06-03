@@ -315,7 +315,7 @@ function eval_performance(
   )
 
   r = get_realization(fesnaps)
-  rbsnaps = to_snapshots(get_trial(rbop),x̂,r)
+  rbsnaps = to_snapshots(rbop,x̂,r)
   eval_performance(solver,feop,fesnaps,rbsnaps,festats,rbstats)
 end
 
@@ -460,6 +460,6 @@ function plot_a_solution(
   r::AbstractRealization;
   kwargs...)
 
-  rbsnaps = to_snapshots(get_trial(rbop),x̂,r)
+  rbsnaps = to_snapshots(rbop,x̂,r)
   plot_a_solution(dir,feop,fesnaps,rbsnaps;kwargs...)
 end

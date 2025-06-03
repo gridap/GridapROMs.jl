@@ -61,8 +61,8 @@ function Algebra.solve!(
   @unpack A,b = cache
   residual!(b,op,x)
   jacobian!(A,op,x)
-  ns = solve!(x,ls,A,b)
-  Algebra.LinearSolverCache(A,b,ns)
+  solve!(x,ls,A,b)
+  cache
 end
 
 function Algebra.solve!(

@@ -8,18 +8,6 @@ function Extensions.get_bg_cell_dof_ids(r::DirectSumRBSpace,args...)
   get_bg_cell_dof_ids(get_fe_space(r),args...)
 end
 
-function to_snapshots(
-  r::RBSpace{<:UnEvalTrialFESpace{<:DirectSumFESpace}},
-  x̂::AbstractParamVector,
-  μ::AbstractRealization
-  )
-
-  rμ = r(μ)
-  x = inv_project(Extensions.get_bg_space(rμ),x̂)
-  i = get_dof_map(rμ)
-  Snapshots(x,i,μ)
-end
-
 function reduced_cells(
   f::DirectSumRBSpace,
   trian::Triangulation,

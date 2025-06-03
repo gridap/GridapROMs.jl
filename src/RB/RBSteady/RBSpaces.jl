@@ -152,12 +152,12 @@ for (f,f!) in zip((:project,:inv_project),(:project!,:inv_project!))
   end
 end
 
-function project(r::RBSpace,a::RBParamVector)
+function project(r::RBSpace,a::AbstractRBVector)
   project!(a.data,r,a.fe_data)
   return a.data
 end
 
-function inv_project(r::RBSpace,a::RBParamVector)
+function inv_project(r::RBSpace,a::AbstractRBVector)
   inv_project!(a.fe_data,r,a.data)
   return a.fe_data
 end

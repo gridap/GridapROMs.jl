@@ -42,6 +42,8 @@ function reduced_vector(data::AbstractParamVector,fe_data::AbstractParamVector)
   RBParamVector(data,fe_data)
 end
 
+const AbstractRBVector{T} = Union{<:RBVector{T},<:RBParamVector{T}}
+
 Base.size(a::RBParamVector) = size(a.data)
 Base.getindex(a::RBParamVector,i::Integer) = getindex(a.data,i)
 Base.setindex!(a::RBParamVector,v,i::Integer) = setindex!(a.data,v,i)

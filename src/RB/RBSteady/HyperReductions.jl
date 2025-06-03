@@ -61,10 +61,10 @@ num_reduced_dofs_left_projector(a::HRProjection) = num_reduced_dofs_left_project
 num_reduced_dofs_right_projector(a::HRProjection) = num_reduced_dofs_right_projector(get_basis(a))
 
 function inv_project!(
-  b̂::AbstractParamArray,
-  coeff::AbstractParamArray,
+  b̂::AbstractArray,
+  coeff::AbstractArray,
   a::HRProjection,
-  b::AbstractParamArray)
+  b::AbstractArray)
 
   o = one(eltype2(b̂))
   interp = get_interpolation(a)
@@ -212,6 +212,12 @@ function get_interpolator(strategy::AbstractRadialBasis,a::Projection,s::Snapsho
   Interpolator(r,coeff,strategy)
 end
 
+function interpolate(a::InterpHRProjection,r)
+  cache = allocate_hypred_cache(a,r)
+  inv_project!(cache,a,r)
+  return cache
+end
+
 function reduced_triangulation(trian::Triangulation,a::TrivialHRProjection)
   red_trian = view(trian,Int[])
   return red_trian
@@ -228,20 +234,20 @@ function reduced_triangulation(trian::Triangulation,a::HRProjection)
   return red_trian
 end
 
-function allocate_coefficient(a::Projection)
+function allocate_coefficient(a::Projection,args...)
   n = num_reduced_dofs(a)
   coeff = zeros(n)
   return coeff
 end
 
-function allocate_hyper_reduction(a::HRVecProjection)
+function allocate_hyper_reduction(a::HRVecProjection,args...)
   nrows = num_reduced_dofs_left_projector(a)
   hypred = zeros(nrows)
   fill!(hypred,zero(eltype(hypred)))
   return hypred
 end
 
-function allocate_hyper_reduction(a::HRMatProjection)
+function allocate_hyper_reduction(a::HRMatProjection,args...)
   nrows = num_reduced_dofs_left_projector(a)
   ncols = num_reduced_dofs_right_projector(a)
   hypred = zeros(nrows,ncols)
@@ -297,7 +303,7 @@ function allocate_hypred_cache(a,args...)
 end
 
 function inv_project!(
-  hypred::AbstractParamArray,
+  hypred::AbstractArray,
   coeff::ArrayContribution,
   a::AffineContribution,
   b::ArrayContribution)
@@ -310,21 +316,25 @@ function inv_project!(
   return hypred
 end
 
-function inv_project!(
-  b̂::AbstractParamArray,
-  coeff::AbstractParamArray,
-  a::InterpHRProjection,
-  r::AbstractRealization)
+for T in (:AbstractRealization,:AbstractArray)
+  @eval begin
+    function inv_project!(
+      b̂::AbstractArray,
+      coeff::AbstractArray,
+      a::InterpHRProjection,
+      r::$T)
 
-  o = one(eltype2(b̂))
-  interp = get_interpolation(a)
-  interpolate!(coeff,interp,r)
-  mul!(b̂,a,coeff,o,o)
-  return b̂
-end
+      o = one(eltype2(b̂))
+      interp = get_interpolation(a)
+      interpolate!(coeff,interp,r)
+      mul!(b̂,a,coeff,o,o)
+      return b̂
+    end
 
-function inv_project!(cache::HRParamArray,a::InterpHRProjection,r::AbstractRealization)
-  inv_project!(cache.hypred,cache.coeff,a,r)
+    function inv_project!(cache::AbstractHRArray,a::InterpHRProjection,r::$T)
+      inv_project!(cache.hypred,cache.coeff,a,r)
+    end
+  end
 end
 
 function reduced_form(red::Reduction,s,trian::Triangulation,args...)
@@ -542,7 +552,7 @@ function get_owned_icells(a::BlockHRProjection,cells::AbstractVector)
 end
 
 function inv_project!(
-  hypred::BlockParamArray,
+  hypred::Union{BlockParamArray,BlockArray},
   coeff::ArrayBlock,
   a::BlockHRProjection,
   b::ArrayBlock)
@@ -557,7 +567,7 @@ end
 
 for T in (:AffineContribution,:BlockHRProjection)
   @eval begin
-    function inv_project!(cache::HRParamArray,a::$T)
+    function inv_project!(cache::AbstractHRArray,a::$T)
       inv_project!(cache.hypred,cache.coeff,a,cache.fecache)
     end
   end
@@ -724,16 +734,47 @@ function RadialBasisFunctions.Interpolator(
   return Interpolator(x,y,view(w,1:k,:),view(w,1+k:n,:),basis,mon)
 end
 
+(rbfi::Interpolator)(x::AbstractVector) = interpolate(rbfi,x)
 (rbfi::Interpolator)(x::AbstractRealization) = interpolate(rbfi,x)
 
-function interpolate(rbfi::Interpolator,x::AbstractRealization)
+function FESpaces.interpolate(rbfi::Interpolator,x::AbstractVector)
+  l = size(rbfi.rbf_weights,2)
+  cache = zeros(l)
+  interpolate!(cache,rbfi,x)
+  return cache
+end
+
+function FESpaces.interpolate(rbfi::Interpolator,x::AbstractRealization)
   k′ = param_length(x)
   l = size(rbfi.rbf_weights,2)
   cache = ConsecutiveParamArray(zeros(l,k′))
   interpolate!(cache,rbfi,x)
+  return cache
 end
 
-function interpolate!(cache::ConsecutiveParamArray,rbfi::Interpolator,x::AbstractRealization)
+function FESpaces.interpolate!(cache::AbstractVector,rbfi::Interpolator,x::AbstractVector)
+  k′ = param_length(x)
+  l = size(rbfi.rbf_weights,2)
+
+  for j in 1:l
+    rbfji = 0.0
+
+    for q in axes(rbfi.rbf_weights,1)
+      rbfji += rbfi.rbf_weights[q,j]*rbfi.rbf_basis(x,rbfi.x.params[q])
+    end
+
+    if !isempty(rbfi.monomial_weights)
+      val_poly = rbfi.monomial_basis(x)
+      for (q,val) in enumerate(val_poly)
+        rbfji += rbfi.monomial_weights[q,j]*val
+      end
+    end
+
+    cache[j] = rbfji
+  end
+end
+
+function FESpaces.interpolate!(cache::ConsecutiveParamVector,rbfi::Interpolator,x::AbstractRealization)
   k′ = param_length(x)
   l = size(rbfi.rbf_weights,2)
 

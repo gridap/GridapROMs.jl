@@ -335,6 +335,80 @@ function Algebra.jacobian!(
   inv_project!(A,op.lhs,r)
 end
 
+struct AlgebraicRBOperator{O} <: RBOperator{O}
+  op::ParamOperator{O}
+  trial::RBSpace
+  test::RBSpace
+  lhs::AbstractHRArray
+  rhs::AbstractHRArray
+end
+
+function RBOperator(
+  op::ParamOperator,trial::RBSpace,test::RBSpace,lhs::AbstractHRArray,rhs::AbstractHRArray)
+
+  AlgebraicRBOperator(op,trial,test,lhs,rhs)
+end
+
+Utils.get_fe_operator(op::AlgebraicRBOperator) = op.op
+FESpaces.get_trial(op::AlgebraicRBOperator) = op.trial
+FESpaces.get_test(op::AlgebraicRBOperator) = op.test
+get_lhs(op::AlgebraicRBOperator) = op.lhs
+get_rhs(op::AlgebraicRBOperator) = op.lhs
+
+function Algebra.allocate_residual(op::AlgebraicRBOperator,u::AbstractVector)
+  copy(op.rhs)
+end
+
+function Algebra.allocate_jacobian(op::AlgebraicRBOperator,u::AbstractVector)
+  copy(op.lhs)
+end
+
+function Algebra.residual!(b::HRArray,op::AlgebraicRBOperator,u::AbstractVector)
+  copyto!(b,op.rhs)
+end
+
+function Algebra.jacobian!(A::HRArray,op::AlgebraicRBOperator,u::AbstractVector)
+  copyto!(A,op.lhs)
+end
+
+function Algebra.allocate_residual(
+  op::AlgebraicRBOperator,
+  r::Realization,
+  u::AbstractVector,
+  paramcache)
+
+  copy(op.rhs)
+end
+
+function Algebra.allocate_jacobian(
+  op::AlgebraicRBOperator,
+  r::Realization,
+  u::AbstractVector,
+  paramcache)
+
+  copy(op.lhs)
+end
+
+function Algebra.residual!(
+  b::HRParamArray,
+  op::AlgebraicRBOperator,
+  r::Realization,
+  u::AbstractVector,
+  paramcache)
+
+  copyto!(b,op.rhs)
+end
+
+function Algebra.jacobian!(
+  A::HRParamArray,
+  op::AlgebraicRBOperator,
+  r::Realization,
+  u::AbstractVector,
+  paramcache)
+
+  copyto!(A,op.lhs)
+end
+
 struct LocalRBOperator{O,A} <: RBOperator{O}
   op::ParamOperator{O}
   trial::RBSpace
@@ -364,7 +438,7 @@ function Algebra.solve(
 
   fesolver = get_fe_solver(solver)
 
-  map(r) do μ
+  t = @timed x̂vec = map(r) do μ
     opμ = get_local(op,μ)
 
     trial = get_trial(opμ)
@@ -372,9 +446,12 @@ function Algebra.solve(
 
     syscache = allocate_systemcache(opμ,x̂)
 
-    t = @timed solve!(x̂,fesolver,opμ,syscache)
-    stats = CostTracker(t,nruns=num_params(r),name="RB")
+    solve!(x̂,fesolver,opμ,syscache)
+    x̂
   end
+  x̂ = GenericParamVector(x̂vec)
+  stats = CostTracker(t,nruns=num_params(r),name="RB")
+  return (x̂,stats)
 end
 
 """
@@ -422,4 +499,18 @@ function ParamDataStructures.parameterize(op::LinearNonlinearRBOperator,μ::Abst
   op_nlin = parameterize(get_nonlinear_operator(op),μ)
   syscache_lin = allocate_systemcache(op_lin)
   LinNonlinParamOperator(op_lin,op_nlin,syscache_lin)
+end
+
+# utils
+
+function to_snapshots(rbop::RBOperator,x̂::AbstractParamVector,r::AbstractRealization)
+  to_snapshots(get_trial(rbop),x̂,r)
+end
+
+function to_snapshots(rbop::LocalRBOperator,x̂::AbstractParamVector,r::AbstractRealization)
+  xvec = map(x̂,r) do x̂,μ
+    opμ = get_local(rbop,μ)
+    trial = get_trial(opμ)
+    x = inv_project(trial,x̂)
+  end
 end

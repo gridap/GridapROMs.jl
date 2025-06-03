@@ -198,9 +198,10 @@ end
 
 function get_common_sparsity(a::AbstractSparseMatrix...)
   for ai in a
-    fill!(a,one(eltype(a)))
+    nzi = nonzeros(ai)
+    fill!(nzi,one(eltype(ai)))
   end
-  b = sum(a...)
+  b = sum(a)
   fill!(b,zero(eltype(b)))
   return b
 end

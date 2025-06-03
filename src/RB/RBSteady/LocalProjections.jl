@@ -58,6 +58,12 @@ function get_local(a::LocalProjection,μ::AbstractVector)
   a.projections[lab]
 end
 
+function get_local(a::LocalProjection{<:InterpHRProjection},μ::AbstractVector)
+  k = get_clusters(a)
+  lab = get_label(k,μ)
+  interpolate(a.projections[lab],μ)
+end
+
 function get_local(a::NormedProjection,μ::AbstractVector)
   NormedProjection(get_local(a.projection,μ),a.norm_matrix)
 end
