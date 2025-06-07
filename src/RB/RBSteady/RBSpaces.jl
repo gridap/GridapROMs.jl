@@ -91,6 +91,11 @@ function Arrays.evaluate(r::RBSpace,args...)
   reduced_subspace(space,get_reduced_subspace(r))
 end
 
+function Arrays.evaluate(r::RBSpace,::Nothing)
+  space = evaluate(get_fe_space(r),nothing)
+  reduced_subspace(space,get_reduced_subspace(r))
+end
+
 (U::RBSpace)(μ) = evaluate(U,μ)
 
 FESpaces.get_fe_space(r::RBSpace) = @abstractmethod

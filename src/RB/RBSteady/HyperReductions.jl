@@ -259,30 +259,40 @@ for f in (:allocate_coefficient,:allocate_hyper_reduction)
   @eval $f(a::Projection,r::AbstractRealization) = global_parameterize($f(a),num_params(r))
 end
 
+"""
+    struct AffineContribution <: Projection
+      values::Tuple{Vararg{Projection}}
+      trians::Tuple{Vararg{Triangulation}}
+    end
+
+Stores several projections on different triangulations. See [`Contribution`](@ref)
+for more details
+"""
+struct AffineContribution <: Projection
+  values::Tuple{Vararg{HRProjection}}
+  trians::Tuple{Vararg{Triangulation}}
+end
+
 function Utils.Contribution(v::Tuple{Vararg{HRProjection}},t::Tuple{Vararg{Triangulation}})
   AffineContribution(v,t)
 end
 
-"""
-    struct AffineContribution{A,V,K} <: Contribution
+CellData.get_domains(a::AffineContribution) = a.trians
+Utils.get_contributions(a::AffineContribution) = a.values
+Base.length(a::AffineContribution) = length(a.values)
+Base.size(a::AffineContribution,i...) = size(a.values,i...)
+Base.getindex(a::AffineContribution,i...) = a.values[i...]
+Base.setindex!(a::AffineContribution,v,i...) = a.values[i...] = v
+Base.eachindex(a::AffineContribution) = eachindex(a.values)
 
-Contribution whose `values` assume one of the following types:
+function Base.getindex(a::AffineContribution,trian::Triangulation...)
+  perm = Utils.find_trian_permutation(trian,a.trians)
+  getindex(a,perm...)
+end
 
-- [`HRProjection`](@ref) for single field problems
-- [`BlockProjection`](@ref) for multi field problems
-"""
-struct AffineContribution{A<:Projection,V,K} <: Contribution
-  values::V
-  trians::K
-  function AffineContribution(
-    values::V,
-    trians::K
-    ) where {A,V<:Tuple{Vararg{A}},K<:Tuple{Vararg{Triangulation}}}
-
-    @check length(values) == length(trians)
-    @check !any([t === first(trians) for t = trians[2:end]])
-    new{A,V,K}(values,trians)
-  end
+function AffineContribution(values::Tuple{Vararg{Projection}},trians::Tuple{Vararg{Triangulation}})
+  c = Contribution(values,trians)
+  AffineContribution(c)
 end
 
 function allocate_coefficient(a::AffineContribution,args...)

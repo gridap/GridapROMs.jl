@@ -1,19 +1,5 @@
 function RBSteady.reduced_operator(
   solver::RBSolver,
-  odeop::ODEParamOperator,
-  red_trial::RBSpace,
-  red_test::RBSpace,
-  s::AbstractSnapshots)
-
-  red_lhs,red_rhs = reduced_weak_form(solver,odeop,red_trial,red_test,s)
-  trians_rhs = get_domains(red_rhs)
-  trians_lhs = map(get_domains,red_lhs)
-  odeop′ = change_domains(odeop,trians_rhs,trians_lhs)
-  RBOperator(odeop′,red_trial,red_test,red_lhs,red_rhs)
-end
-
-function RBSteady.reduced_operator(
-  solver::RBSolver,
   odeop::ODEParamOperator{LinearNonlinearParamODE},
   red_trial::RBSpace,
   red_test::RBSpace,
@@ -22,6 +8,19 @@ function RBSteady.reduced_operator(
   red_op_lin = reduced_operator(solver,get_linear_operator(odeop),red_trial,red_test,s)
   red_op_nlin = reduced_operator(solver,get_nonlinear_operator(odeop),red_trial,red_test,s)
   LinearNonlinearRBOperator(red_op_lin,red_op_nlin)
+end
+
+function RBSteady.RBOperator(
+  odeop::ODEParamOperator,
+  trial::RBSpace,
+  test::RBSpace,
+  lhs::TupOfAffineContribution,
+  rhs::AffineContribution)
+
+  trians_rhs = get_domains(rhs)
+  trians_lhs = map(get_domains,lhs)
+  odeop′ = change_domains(odeop,trians_rhs,trians_lhs)
+  RBOperator(odeop′,trial,test,lhs,rhs)
 end
 
 const TransientRBOperator{O<:ODEParamOperatorType} = RBOperator{O}

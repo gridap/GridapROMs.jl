@@ -39,26 +39,11 @@ end
 
 function reduced_operator(
   solver::RBSolver,
-  feop::ParamOperator{O,SplitDomains},
+  feop::ParamOperator,
   red_trial::RBSpace,
   red_test::RBSpace,
   s::AbstractSnapshots
-  ) where O<:Union{LinearParamEq,NonlinearParamEq}
-
-  red_lhs,red_rhs = reduced_weak_form(solver,feop,red_trial,red_test,s)
-  trians_rhs = get_domains(red_rhs)
-  trians_lhs = get_domains(red_lhs)
-  feop′ = change_domains(feop,trians_rhs,trians_lhs)
-  RBOperator(feop′,red_trial,red_test,red_lhs,red_rhs)
-end
-
-function reduced_operator(
-  solver::RBSolver,
-  feop::ParamOperator{O,JointDomains},
-  red_trial::RBSpace,
-  red_test::RBSpace,
-  s::AbstractSnapshots
-  ) where O<:Union{LinearParamEq,NonlinearParamEq}
+  )
 
   red_lhs,red_rhs = reduced_weak_form(solver,feop,red_trial,red_test,s)
   RBOperator(feop,red_trial,red_test,red_lhs,red_rhs)
@@ -119,9 +104,16 @@ struct GenericRBOperator{O,A} <: RBOperator{O}
 end
 
 function RBOperator(
-  op::ParamOperator,trial::RBSpace,test::RBSpace,lhs,rhs::AffineContribution)
+  op::ParamOperator,
+  trial::RBSpace,
+  test::RBSpace,
+  lhs::AffineContribution,
+  rhs::AffineContribution)
 
-  GenericRBOperator(op,trial,test,lhs,rhs)
+  trians_rhs = get_domains(rhs)
+  trians_lhs = get_domains(lhs)
+  op′ = change_domains(op,trians_rhs,trians_lhs)
+  GenericRBOperator(op′,trial,test,lhs,rhs)
 end
 
 Utils.get_fe_operator(op::GenericRBOperator) = op.op
@@ -409,26 +401,25 @@ function Algebra.jacobian!(
   copyto!(A,op.lhs)
 end
 
-struct LocalRBOperator{O,A} <: RBOperator{O}
-  op::ParamOperator{O}
-  trial::RBSpace
-  test::RBSpace
-  lhs::A
-  rhs::AbstractLocalProjection
+struct LocalRBOperator{O} <: RBOperator{O}
+  operators::Vector{<:RBOperator{O}}
+  k::KmeansResult
 end
 
 function RBOperator(
-  op::ParamOperator,trial::RBSpace,test::RBSpace,lhs,rhs::AbstractLocalProjection)
+  op::ParamOperator,trial::RBSpace,test::RBSpace,lhs::AbstractLocalProjection,rhs::AbstractLocalProjection)
 
-  LocalRBOperator(op,trial,test,lhs,rhs)
+  operators = map(local_values(trial),local_values(test),local_values(lhs),local_values(rhs)
+  ) do trial,test,lhs,rhs
+    RBOperator(op,trial,test,lhs,rhs)
+  end
+  k = get_clusters(lhs)
+  LocalRBOperator(operators,k)
 end
 
 function get_local(op::LocalRBOperator,μ::AbstractVector)
-  trial = get_local(op.trial,μ)
-  test = get_local(op.test,μ)
-  lhs = get_local(op.lhs,μ)
-  rhs = get_local(op.rhs,μ)
-  RBOperator(op.op,trial,test,lhs,rhs)
+  lab = get_label(op.k,μ)
+  op.operators[lab]
 end
 
 function Algebra.solve(
@@ -441,7 +432,7 @@ function Algebra.solve(
   t = @timed x̂vec = map(r) do μ
     opμ = get_local(op,μ)
 
-    trial = get_trial(opμ)
+    trial = get_trial(opμ)(nothing)
     x̂ = zero_free_values(trial)
 
     syscache = allocate_systemcache(opμ,x̂)

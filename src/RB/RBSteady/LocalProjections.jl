@@ -13,10 +13,6 @@ function Projection(lred::LocalReduction,s::AbstractArray,args...)
   LocalProjection(proj,k)
 end
 
-get_basis(a::LocalProjection) = @notimplemented
-num_fe_dofs(a::LocalProjection) = num_fe_dofs(first(a.projections))
-num_reduced_dofs(a::LocalProjection) = @notimplemented
-
 function galerkin_projection(a::LocalProjection,b::LocalProjection)
   b̂ = map(galerkin_projection,a.projections,b.projections)
   LocalProjection(b̂,b.k)
@@ -77,7 +73,7 @@ end
 function reduced_residual(lred::LocalReduction,test::RBSpace,c::ArrayContribution)
   red = get_reduction(lred)
   k = get_clusters(test)
-  cc = cluster_snapshots(s,k)
+  cc = cluster_snapshots(c,k)
   hr = map(local_values(test),cc) do test,c
     reduced_residual(red,test,c)
   end
@@ -97,7 +93,7 @@ end
 function reduced_jacobian(lred::LocalReduction,trial::RBSpace,test::RBSpace,c::ArrayContribution)
   red = get_reduction(lred)
   k = get_clusters(test)
-  cc = cluster_snapshots(s,k)
+  cc = cluster_snapshots(c,k)
   hr = map(local_values(trial),local_values(test),cc) do trial,test,c
     reduced_jacobian(red,trial,test,c)
   end
@@ -127,21 +123,31 @@ function compute_clusters(red::LocalReduction,s::Snapshots)
   compute_clusters(red,get_realization(s))
 end
 
+function cluster_snapshots(red::LocalReduction,s::ArrayContribution)
+  r = get_realization(first(s.values))
+  k = compute_clusters(red,r)
+  cluster_snapshots(s,k)
+end
+
 function cluster_snapshots(red::LocalReduction,s::Snapshots)
   r = get_realization(s)
   k = compute_clusters(red,r)
   cluster_snapshots(s,k)
 end
 
-function cluster_snapshots(s::Snapshots,k::KmeansResult)
-  a = assignments(k)
-  ncenters = size(k.centers,2)
-  svec = Vector{typeof(s)}(undef,ncenters)
-  for label in 1:ncenters
-    cluster = findall(a .== label)
-    svec[label] = _cluster_snaps(s,cluster)
+for T in (:ArrayContribution,:Snapshots)
+  @eval begin
+    function cluster_snapshots(s::$T,k::KmeansResult)
+      a = assignments(k)
+      ncenters = size(k.centers,2)
+      svec = Vector{typeof(s)}(undef,ncenters)
+      for label in 1:ncenters
+        cluster = findall(a .== label)
+        svec[label] = _cluster_snaps(s,cluster)
+      end
+      return svec
+    end
   end
-  return svec
 end
 
 function get_label(k::KmeansResult,x::AbstractVector)
@@ -162,6 +168,12 @@ end
 
 _get_params_marix(r::Realization) = stack(r.params)
 _get_params_marix(r::AbstractRealization) = _get_params_marix(get_params(r))
+
+function _cluster_snaps(s::ArrayContribution,inds)
+  contribution(get_domains(s)) do trian
+    _cluster_snaps(s[trian],inds)
+  end
+end
 
 function _cluster_snaps(s::Snapshots,inds)
   sinds = select_snapshots(s,inds)
