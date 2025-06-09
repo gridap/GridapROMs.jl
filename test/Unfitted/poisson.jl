@@ -212,8 +212,10 @@ end
 
 
 using Gridap
+using Gridap.FESpaces
 using GridapEmbedded
 using GridapROMs
+using GridapROMs.ParamAlgebra
 using GridapROMs.RBSteady
 using GridapROMs.Extensions
 
@@ -269,8 +271,24 @@ nΓ = get_normal_vector(Γ)
 γd = 10.0
 hd = dp[1]/n
 
+ν(μ) = x->μ[3]
+νμ(μ) = ParamFunction(ν,μ)
+
+f(μ) = x->μ[1]*x[1] - μ[2]*x[2]
+fμ(μ) = ParamFunction(f,μ)
+
+h(μ) = x->1
+hμ(μ) = ParamFunction(h,μ)
+
+g(μ) = x->μ[3]*x[1]-x[2]
+gμ(μ) = ParamFunction(g,μ)
+
+a(μ,u,v,dΩ,dΓ) = ∫(νμ(μ)*∇(v)⋅∇(u))dΩ + ∫( (γd/hd)*v*u  - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u )dΓ
+l(μ,v,dΩ,dΓ,dΓn) = ∫(fμ(μ)⋅v)dΩ + ∫(hμ(μ)⋅v)dΓn + ∫( (γd/hd)*v*gμ(μ) - (n_Γ⋅∇(v))*gμ(μ) )dΓ
+res(μ,u,v,dΩ,dΓ,dΓn) =  a(μ,u,v,dΩ,dΓ) - l(μ,v,dΩ,dΓ,dΓn)
+
 trian_a = (Ω,Γ)
-trian_res = (Ω,Γ)
+trian_res = (Ω,Γ,Γn)
 domains = FEDomains(trian_res,trian_a)
 
 reffe = ReferenceFE(lagrangian,Float64,order)
@@ -283,6 +301,8 @@ testact = FESpace(Ωact,reffe,conformity=:H1)
 testagg = AgFEMSpace(testact,aggregates)
 
 test = DirectSumFESpace(testbg,testagg)
+trial = ParamTrialFESpace(test,gμ)
+feop = ExtensionLinearParamOperator(res,a,pspace,trial,test,domains)
 
 energy(du,v) = ∫(v*du)dΩbg + ∫(∇(v)⋅∇(du))dΩbg
 tolrank = tol_or_rank(tol,rank)
@@ -292,27 +312,6 @@ state_reduction = LocalReduction(tolrank,energy;nparams,ncentroids)
 
 fesolver = ExtensionSolver(LUSolver())
 rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac)
-
-function def_fe_operator(μ)
-  ν = x->μ[3]
-  f = x->μ[1]*x[1] - μ[2]*x[2]
-  h = x->1
-  g = x->μ[3]*x[1]-x[2]
-
-  a(u,v,dΩ,dΓ) = ∫(ν*∇(v)⋅∇(u))dΩ + ∫( (γd/hd)*v*u  - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u )dΓ
-  l(v,dΩ,dΓ) = ∫(f⋅v)dΩ + ∫( (γd/hd)*v*g - (n_Γ⋅∇(v))*g )dΓ
-  res(u,v,dΩ,dΓ) =  a(u,v,dΩ,dΓ) - l(v,dΩ,dΓ)
-
-  trial = TrialFESpace(test,g)
-  ExtensionLinearOperator(res,a,trial,test,domains)
-end
-
-μ = realization(pspace;nparams)
-
-feop = param_operator(μ) do μ
-  println("------------------")
-  def_fe_operator(μ)
-end
 
 # offline
 fesnaps, = solution_snapshots(rbsolver,feop)
@@ -327,9 +326,10 @@ x,festats = solution_snapshots(rbsolver,feop,μon)
 perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
 println(perf)
 
-μ = μon.params[1]
-opμ = RBSteady.get_local(rbop,μ)
-U = get_trial(opμ)(nothing)
+μ = μon[1]
+opμ = RBSteady.get_local(rbop,μ.params)
+solve(rbsolver,opμ,μ)
+U = get_trial(opμ)(μ)
 x̂ = zero_free_values(U)
 syscache = allocate_systemcache(opμ,x̂)
 solve!(x̂,fesolver,opμ,syscache)

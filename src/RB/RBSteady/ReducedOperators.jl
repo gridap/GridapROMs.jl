@@ -425,20 +425,13 @@ end
 function Algebra.solve(
   solver::RBSolver,
   op::LocalRBOperator,
-  r::AbstractRealization)
+  r::Realization)
 
   fesolver = get_fe_solver(solver)
 
   t = @timed x̂vec = map(r) do μ
     opμ = get_local(op,μ)
-
-    trial = get_trial(opμ)(nothing)
-    x̂ = zero_free_values(trial)
-
-    syscache = allocate_systemcache(opμ,x̂)
-
-    solve!(x̂,fesolver,opμ,syscache)
-    x̂
+    solve(solver,opμ,Realization(μ))
   end
   x̂ = GenericParamVector(x̂vec)
   stats = CostTracker(t,nruns=num_params(r),name="RB")

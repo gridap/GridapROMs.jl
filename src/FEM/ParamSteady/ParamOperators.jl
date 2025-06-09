@@ -24,33 +24,6 @@ struct NonlinearParamEq <: UnEvalOperatorType end
 struct LinearNonlinearParamEq <: UnEvalOperatorType end
 
 """
-    abstract type TriangulationStyle <: GridapType end
-
-Subtypes:
-
-- [`JointDomains`](@ref)
-- [`SplitDomains`](@ref)
-"""
-abstract type TriangulationStyle <: GridapType end
-
-"""
-    struct JointDomains <: TriangulationStyle end
-
-Trait for a FE operator indicating that residuals/Jacobiansin this operator
-should be computed summing the contributions relative to each triangulation as
-occurs in [`Gridap`](@ref)
-"""
-struct JointDomains <: TriangulationStyle end
-
-"""
-    struct SplitDomains <: TriangulationStyle end
-
-Trait for a FE operator indicating that residuals/Jacobiansin this operator
-should be computed keeping the contributions relative to each triangulation separate
-"""
-struct SplitDomains <: TriangulationStyle end
-
-"""
     abstract type ParamOperator{O<:UnEvalOperatorType,T<:TriangulationStyle} <: NonlinearParamOperator end
 
 Type representing algebraic operators when solving parametric differential problems

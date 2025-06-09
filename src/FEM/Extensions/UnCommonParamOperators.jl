@@ -1,23 +1,23 @@
-struct UnCommonParamOperator{O<:UnEvalOperatorType,T<:NonlinearDomainOperator} <: ParamOperator{O,JointDomains}
-  operators::Vector{T}
+struct UnCommonParamOperator{O<:UnEvalOperatorType} <: ParamOperator{O,JointDomains}
+  operators::Vector{<:DomainOperator}
   μ::AbstractRealization
 
   function UnCommonParamOperator(
-    operators::Vector{T},
+    operators::Vector{<:DomainOperator{LinearEq}},
     μ::Realization
-    ) where {T<:NonlinearDomainOperator{LinearEq}}
+    )
 
     @check param_length(μ) == length(operators)
-    new{LinearParamEq,T}(operators,μ)
+    new{LinearParamEq}(operators,μ)
   end
 
   function UnCommonParamOperator(
-    operators::Vector{T},
+    operators::Vector{<:DomainOperator{NonlinearEq}},
     μ::Realization
-    ) where {T<:NonlinearDomainOperator{NonlinearEq}}
+    )
 
     @check param_length(μ) == length(operators)
-    new{NonlinearParamEq,T}(operators,μ)
+    new{NonlinearParamEq}(operators,μ)
   end
 end
 

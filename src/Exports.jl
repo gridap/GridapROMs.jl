@@ -13,7 +13,7 @@ end
 @publish Utils FEDomains
 @publish Utils FEDomainOperator
 @publish Utils LinearFEOperator
-@publish Utils NonlinearDomainOperator
+@publish Utils DomainOperator
 @publish Utils GenericFEDomainOperator
 @publish Utils GenericDomainOperator
 

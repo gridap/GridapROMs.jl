@@ -42,9 +42,6 @@ export UnEvalOperatorType
 export NonlinearParamEq
 export LinearParamEq
 export LinearNonlinearParamEq
-export TriangulationStyle
-export JointDomains
-export SplitDomains
 export ParamOperator
 export JointParamOperator
 export SplitParamOperator
@@ -69,8 +66,6 @@ include("LinearNonlinearParamFEOperators.jl")
 
 export GenericParamOperator
 export GenericLinearNonlinearParamOperator
-export collect_cell_matrix_for_trian
-export collect_cell_vector_for_trian
 include("ParamOpFromFEOps.jl")
 
 include("ParamFESolvers.jl")
