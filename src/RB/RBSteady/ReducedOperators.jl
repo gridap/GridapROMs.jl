@@ -407,7 +407,7 @@ struct LocalRBOperator{O} <: RBOperator{O}
 end
 
 function RBOperator(
-  op::ParamOperator,trial::RBSpace,test::RBSpace,lhs::AbstractLocalProjection,rhs::AbstractLocalProjection)
+  op::ParamOperator,trial::RBSpace,test::RBSpace,lhs::LocalProjection,rhs::LocalProjection)
 
   operators = map(local_values(trial),local_values(test),local_values(lhs),local_values(rhs)
   ) do trial,test,lhs,rhs
@@ -431,7 +431,8 @@ function Algebra.solve(
 
   t = @timed x̂vec = map(r) do μ
     opμ = get_local(op,μ)
-    solve(solver,opμ,Realization(μ))
+    x̂,stats = solve(solver,opμ,Realization(μ))
+    testitem(x̂)
   end
   x̂ = GenericParamVector(x̂vec)
   stats = CostTracker(t,nruns=num_params(r),name="RB")
@@ -503,4 +504,4 @@ function to_snapshots(rbop::LocalRBOperator,x̂::AbstractParamVector,r::Abstract
 end
 
 get_global_dof_map(rbop::RBOperator) = get_global_dof_map(get_trial(rbop))
-get_global_dof_map(rbop::LocalRBOperator) = get_global_dof_map(rbop.trial)
+get_global_dof_map(rbop::LocalRBOperator) = get_global_dof_map(first(rbop.operators))

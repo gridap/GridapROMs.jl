@@ -1,9 +1,7 @@
-struct LocalProjection{A<:Projection} <: Projection
+struct LocalProjection{A} <: Projection
   projections::Vector{A}
   k::KmeansResult
 end
-
-const AbstractLocalProjection = Union{<:LocalProjection,BlockProjection{<:LocalProjection}}
 
 function Projection(lred::LocalReduction,s::AbstractArray,args...)
   red = get_reduction(lred)

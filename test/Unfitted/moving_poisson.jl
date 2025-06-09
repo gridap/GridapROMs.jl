@@ -42,7 +42,7 @@ else
 end
 
 f(x) = 1.0
-g(x) = 0.0
+g(x) = x[1]-x[2]
 
 order = 2
 degree = 2*order
@@ -52,6 +52,10 @@ dΩbg = Measure(Ωbg,degree)
 
 reffe = ReferenceFE(lagrangian,Float64,order)
 testbg = FESpace(Ωbg,reffe,conformity=:H1,dirichlet_tags=[1,3,7])
+
+trian_a = (Ωbg,)
+trian_res = (Ωbg,)
+domains = FEDomains(trian_res,trian_a)
 
 energy(du,v) = ∫(v*du)dΩbg + ∫(∇(v)⋅∇(du))dΩbg
 tolrank = tol_or_rank(tol,rank)
@@ -81,13 +85,9 @@ function def_fe_operator(μ)
 
   n_Γ = get_normal_vector(Γ)
 
-  a(u,v,dΩ) = ∫(∇(v)⋅∇(u))dΩ #+ ∫( (γd/hd)*v*u  - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u )dΓ
-  l(v,dΩ) = ∫(f⋅v)dΩ #+ ∫( (γd/hd)*v*g - (n_Γ⋅∇(v))*g )dΓ
-  res(u,v,dΩ) = ∫(∇(v)⋅∇(u))dΩ - l(v,dΩ)
-
-  trian_a = (Ω,)
-  trian_res = (Ω,)
-  domains = FEDomains(trian_res,trian_a)
+  a(u,v) = ∫(∇(v)⋅∇(u))dΩ + ∫( (γd/hd)*v*u  - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u )dΓ
+  l(v) = ∫(f⋅v)dΩ + ∫( (γd/hd)*v*g - (n_Γ⋅∇(v))*g )dΓ
+  res(u,v) = ∫(∇(v)⋅∇(u))dΩ - l(v)
 
   # agfem
   strategy = AggregateAllCutCells()
@@ -97,7 +97,8 @@ function def_fe_operator(μ)
 
   test = DirectSumFESpace(testbg,testagg)
   trial = TrialFESpace(test,g)
-  ExtensionLinearOperator(res,a,trial,test,domains)
+  feop = ExtensionLinearOperator(res,a,trial,test,domains)
+  set_domains(feop)
 end
 
 μ = realization(pspace;nparams)

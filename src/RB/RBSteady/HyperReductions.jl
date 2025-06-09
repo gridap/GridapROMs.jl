@@ -234,20 +234,20 @@ function reduced_triangulation(trian::Triangulation,a::HRProjection)
   return red_trian
 end
 
-function allocate_coefficient(a::Projection,args...)
+function allocate_coefficient(a::Projection)
   n = num_reduced_dofs(a)
   coeff = zeros(n)
   return coeff
 end
 
-function allocate_hyper_reduction(a::HRVecProjection,args...)
+function allocate_hyper_reduction(a::HRVecProjection)
   nrows = num_reduced_dofs_left_projector(a)
   hypred = zeros(nrows)
   fill!(hypred,zero(eltype(hypred)))
   return hypred
 end
 
-function allocate_hyper_reduction(a::HRMatProjection,args...)
+function allocate_hyper_reduction(a::HRMatProjection)
   nrows = num_reduced_dofs_left_projector(a)
   ncols = num_reduced_dofs_right_projector(a)
   hypred = zeros(nrows,ncols)
@@ -260,40 +260,11 @@ for f in (:allocate_coefficient,:allocate_hyper_reduction)
 end
 
 """
-    struct AffineContribution <: Projection
-      values::Tuple{Vararg{Projection}}
-      trians::Tuple{Vararg{Triangulation}}
-    end
+    const AffineContribution{V<:Projection} = Contribution{V}
 
-Stores several projections on different triangulations. See [`Contribution`](@ref)
-for more details
+[`Contribution`](@ref) whose field `values` are Projections
 """
-struct AffineContribution <: Projection
-  values::Tuple{Vararg{HRProjection}}
-  trians::Tuple{Vararg{Triangulation}}
-end
-
-function Utils.Contribution(v::Tuple{Vararg{HRProjection}},t::Tuple{Vararg{Triangulation}})
-  AffineContribution(v,t)
-end
-
-CellData.get_domains(a::AffineContribution) = a.trians
-Utils.get_contributions(a::AffineContribution) = a.values
-Base.length(a::AffineContribution) = length(a.values)
-Base.size(a::AffineContribution,i...) = size(a.values,i...)
-Base.getindex(a::AffineContribution,i...) = a.values[i...]
-Base.setindex!(a::AffineContribution,v,i...) = a.values[i...] = v
-Base.eachindex(a::AffineContribution) = eachindex(a.values)
-
-function Base.getindex(a::AffineContribution,trian::Triangulation...)
-  perm = Utils.find_trian_permutation(trian,a.trians)
-  getindex(a,perm...)
-end
-
-function AffineContribution(values::Tuple{Vararg{Projection}},trians::Tuple{Vararg{Triangulation}})
-  c = Contribution(values,trians)
-  AffineContribution(c)
-end
+const AffineContribution{V<:Projection} = Contribution{V}
 
 function allocate_coefficient(a::AffineContribution,args...)
   contribution(get_domains(a)) do trian
@@ -377,23 +348,20 @@ function reduced_residual(
 
   res = residual_snapshots(solver,op,s)
   res_red = get_residual_reduction(solver)
-  reduced_residual(res_red,red_test,res)
+  t = @timed red_res = reduced_residual(res_red,red_test,res)
+  println(CostTracker(t,name="Residual hyper-reduction"))
+  return red_res
 end
 
 function reduced_residual(red::Reduction,test::RBSpace,c::ArrayContribution)
-  t = @timed begin
-    a,trians = map(get_domains(c),get_contributions(c)) do trian,values
-      reduced_form(red,values,trian,test)
-    end |> tuple_of_arrays
-  end
-  println(CostTracker(t,name="Residual hyper-reduction"))
+  a,trians = map(get_domains(c),get_contributions(c)) do trian,values
+    reduced_form(red,values,trian,test)
+  end |> tuple_of_arrays
   return Contribution(a,trians)
 end
 
 function reduced_residual(red::InterpHyperReduction,test::RBSpace,s::Snapshots)
-  t = @timed a = reduced_form(red,s,test)
-  println(CostTracker(t,name="Residual hyper-reduction"))
-  return a
+  reduced_form(red,s,test)
 end
 
 """
@@ -420,23 +388,20 @@ function reduced_jacobian(
 
   jac = jacobian_snapshots(solver,op,s)
   jac_red = get_jacobian_reduction(solver)
-  reduced_jacobian(jac_red,red_trial,red_test,jac)
+  t = @timed red_jac = reduced_jacobian(jac_red,red_trial,red_test,jac)
+  println(CostTracker(t,name="Jacobian hyper-reduction"))
+  return red_jac
 end
 
 function reduced_jacobian(red::Reduction,trial::RBSpace,test::RBSpace,c::ArrayContribution)
-  t = @timed begin
-    a,trians = map(get_domains(c),get_contributions(c)) do trian,values
-      reduced_form(red,values,trian,trial,test)
-    end |> tuple_of_arrays
-  end
-  println(CostTracker(t,name="Jacobian hyper-reduction"))
+  a,trians = map(get_domains(c),get_contributions(c)) do trian,values
+    reduced_form(red,values,trian,trial,test)
+  end |> tuple_of_arrays
   return Contribution(a,trians)
 end
 
 function reduced_jacobian(red::InterpHyperReduction,trial::RBSpace,test::RBSpace,s::Snapshots)
-  t = @timed a = reduced_form(red,s,trial,test)
-  println(CostTracker(t,name="Jacobian hyper-reduction"))
-  return a
+  reduced_form(red,s,trial,test)
 end
 
 """
@@ -469,13 +434,6 @@ end
     const BlockHRProjection{A<:HRProjection,N} = BlockProjection{A,N}
 """
 const BlockHRProjection{A<:HRProjection,N} = BlockProjection{A,N}
-
-function Utils.Contribution(
-  v::Tuple{Vararg{BlockHRProjection}},
-  t::Tuple{Vararg{Triangulation}})
-
-  AffineContribution(v,t)
-end
 
 for f in (:get_basis,:get_interpolation)
   @eval begin

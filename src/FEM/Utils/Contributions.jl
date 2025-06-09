@@ -1,10 +1,23 @@
 """
-    abstract type Contribution end
+    struct Contribution{V}
+      values::Tuple{Vararg{V}}
+      trians::Tuple{Vararg{Triangulation}}
+    end
 
 Collection of values corresponding to a set of triangulations. Similarly to `DomainContribution`,
 the values can be accessed by indexing the corresponding triangulation.
 """
-abstract type Contribution end
+struct Contribution{V}
+  values::Tuple{Vararg{V}}
+  trians::Tuple{Vararg{Triangulation}}
+  function Contribution(values::Tuple{Vararg{V}},trians::Tuple{Vararg{Triangulation}}) where V
+    @check length(values) == length(trians)
+    @check !any([t === first(trians) for t = trians[2:end]])
+    new{V}(values,trians)
+  end
+end
+
+Contribution(v::V,t::Triangulation) where V = Contribution((v,),(t,))
 
 CellData.get_domains(a::Contribution) = a.trians
 
@@ -47,22 +60,6 @@ function Base.getindex(a::Contribution,trian::Triangulation...)
   getindex(a,perm...)
 end
 
-Contribution(v::V,t::Triangulation) where V = Contribution((v,),(t,))
-
-function Contribution(
-  v::Tuple{Vararg{AbstractArray{T,N}}},
-  t::Tuple{Vararg{Triangulation}}) where {T,N}
-
-  ArrayContribution{T,N}(v,t)
-end
-
-function Contribution(
-  v::Tuple{Vararg{ArrayBlock{T,N}}},
-  t::Tuple{Vararg{Triangulation}}) where {T,N}
-
-  ArrayContribution{T,N}(v,t)
-end
-
 function change_domains(a::Contribution,trians::Tuple{Vararg{Triangulation}})
   values = ()
   for (i,trian) in enumerate(trians)
@@ -81,32 +78,21 @@ function set_domains(a::Contribution,trians::Tuple{Vararg{Triangulation}})
 end
 
 """
-    struct ArrayContribution{T,N,V,K} <: Contribution
-      values::V
-      trians::K
-    end
+    const ArrayContribution{T,N} = Contribution{<:AbstractArray{T,N}}
 
 [`Contribution`](@ref) whose field `values` are `AbstractArray`s
 """
-struct ArrayContribution{T,N,V,K} <: Contribution
-  values::V
-  trians::K
-  function ArrayContribution{T,N}(values::V,trians::K) where {T,N,V,K}
-    @check length(values) == length(trians)
-    @check !any([t === first(trians) for t = trians[2:end]])
-    new{T,N,V,K}(values,trians)
-  end
-end
+const ArrayContribution{T,N} = Contribution{<:AbstractArray{T,N}}
 
 """
-    const VectorContribution{T,V,K} = ArrayContribution{T,1,V,K}
+    const VectorContribution{T} = ArrayContribution{T,1}
 """
-const VectorContribution{T,V,K} = ArrayContribution{T,1,V,K}
+const VectorContribution{T} = ArrayContribution{T,1}
 
 """
-    const MatrixContribution{T,V,K} = ArrayContribution{T,2,V,K}
+    const MatrixContribution{T} = ArrayContribution{T,2}
 """
-const MatrixContribution{T,V,K} = ArrayContribution{T,2,V,K}
+const MatrixContribution{T} = ArrayContribution{T,2}
 
 Base.eltype(::ArrayContribution{T}) where T = T
 Base.eltype(::Type{<:ArrayContribution{T}}) where T = T
