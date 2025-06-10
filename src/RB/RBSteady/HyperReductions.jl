@@ -23,11 +23,9 @@ The output of this operation is a ReducedProjection. Therefore, a HRProjection
 is completely characterized by the triplet `(Φrb,Φi,i)`.
 Subtypes:
 - [`TrivialHRProjection`](@ref)
-- [`MDEIM`](@ref)
+- [`MDEIMProjection`](@ref)
 """
 abstract type HRProjection{A<:ReducedProjection} <: Projection end
-
-const AbstractHRProjection = Union{HRProjection,BlockProjection{<:HRProjection}}
 
 const HRVecProjection = HRProjection{<:ReducedVecProjection}
 const HRMatProjection = HRProjection{<:ReducedMatProjection}
@@ -102,7 +100,7 @@ function HRProjection(red::Reduction,s::Nothing,trian::Triangulation,trial::RBSp
 end
 
 """
-    struct MDEIM{A} <: HRProjection{A}
+    struct MDEIMProjection{A} <: HRProjection{A}
       basis::A
       interpolation::Factorization
       domain::IntegrationDomain
@@ -110,15 +108,15 @@ end
 
 [`HRProjection`](@ref) returned by a matrix-based empirical interpolation method
 """
-struct MDEIM{A} <: HRProjection{A}
+struct MDEIMProjection{A} <: HRProjection{A}
   basis::A
   interpolation::Factorization
   domain::IntegrationDomain
 end
 
-get_basis(a::MDEIM) = a.basis
-get_interpolation(a::MDEIM) = a.interpolation
-get_integration_domain(a::MDEIM) = a.domain
+get_basis(a::MDEIMProjection) = a.basis
+get_interpolation(a::MDEIMProjection) = a.interpolation
+get_integration_domain(a::MDEIMProjection) = a.domain
 
 function HRProjection(
   red::MDEIMReduction,
@@ -132,7 +130,7 @@ function HRProjection(
   rows,interp = empirical_interpolation(basis)
   factor = lu(interp)
   domain = vector_domain(trian,test,rows)
-  return MDEIM(proj_basis,factor,domain)
+  return MDEIMProjection(proj_basis,factor,domain)
 end
 
 function HRProjection(
@@ -148,7 +146,7 @@ function HRProjection(
   (rows,cols),interp = empirical_interpolation(basis)
   factor = lu(interp)
   domain = matrix_domain(trian,trial,test,rows,cols)
-  return MDEIM(proj_basis,factor,domain)
+  return MDEIMProjection(proj_basis,factor,domain)
 end
 
 """
@@ -223,8 +221,21 @@ end
 
 function FESpaces.interpolate(a::InterpHRProjection,r)
   cache = allocate_hypred_cache(a,r)
-  inv_project!(cache,a,r)
+  interpolate!(cache,a,r)
   return cache
+end
+
+function FESpaces.interpolate!(
+  b̂::AbstractArray,
+  coeff::AbstractArray,
+  a::InterpHRProjection,
+  r::AbstractRealization)
+
+  o = one(eltype2(b̂))
+  interp = get_interpolation(a)
+  interpolate!(coeff,interp,r)
+  mul!(b̂,a,coeff,o,o)
+  return b̂
 end
 
 function reduced_triangulation(trian::Triangulation,a::TrivialHRProjection)
@@ -280,6 +291,14 @@ end
 """
 const AffineContribution{V<:Projection} = Contribution{V}
 
+"""
+"""
+const MDEIMContribution = AffineContribution{<:MDEIMProjection}
+
+"""
+"""
+const InterpContribution = AffineContribution{<:InterpHRProjection}
+
 function allocate_coefficient(a::AffineContribution,args...)
   contribution(get_domains(a)) do trian
     allocate_coefficient(a[trian],args...)
@@ -311,25 +330,18 @@ function inv_project!(
   return hypred
 end
 
-for T in (:AbstractRealization,:AbstractArray)
-  @eval begin
-    function inv_project!(
-      b̂::AbstractArray,
-      coeff::AbstractArray,
-      a::InterpHRProjection,
-      r::$T)
+function FESpaces.interpolate!(
+  hypred::AbstractArray,
+  coeff::ArrayContribution,
+  a::AffineContribution,
+  r::AbstractRealization)
 
-      o = one(eltype2(b̂))
-      interp = get_interpolation(a)
-      interpolate!(coeff,interp,r)
-      mul!(b̂,a,coeff,o,o)
-      return b̂
-    end
-
-    function inv_project!(cache::AbstractHRArray,a::InterpHRProjection,r::$T)
-      inv_project!(cache.hypred,cache.coeff,a,r)
-    end
+  @check length(coeff) == length(a)
+  fill!(hypred,zero(eltype(hypred)))
+  for (aval,cval) in zip(get_contributions(a),get_contributions(coeff))
+    interpolate!(hypred,cval,aval,r)
   end
+  return hypred
 end
 
 function reduced_form(red::Reduction,s,trian::Triangulation,args...)
@@ -543,10 +555,28 @@ function inv_project!(
   return hypred
 end
 
+function FESpaces.interpolate!(
+  hypred::Union{BlockParamArray,BlockArray},
+  coeff::ArrayBlock,
+  a::BlockHRProjection,
+  r::AbstractRealization)
+
+  for i in eachindex(a)
+    if a.touched[i]
+      interpolate!(blocks(hypred)[i],coeff[i],a[i],r)
+    end
+  end
+  return hypred
+end
+
 for T in (:AffineContribution,:BlockHRProjection)
   @eval begin
     function inv_project!(cache::AbstractHRArray,a::$T)
       inv_project!(cache.hypred,cache.coeff,a,cache.fecache)
+    end
+
+    function FESpaces.interpolate!(cache::AbstractHRArray,a::$T,r::AbstractRealization)
+      interpolate!(cache.hypred,cache.coeff,a,r)
     end
   end
 end

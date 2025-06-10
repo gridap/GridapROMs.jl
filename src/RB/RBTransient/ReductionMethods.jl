@@ -118,7 +118,7 @@ end
       combine::Function
     end
 
-MDEIM struct employed in transient problems. The field `combine` is a function
+MDEIMProjection struct employed in transient problems. The field `combine` is a function
 used to group the reductions relative to the various Jacobians(in general, more
 than one in transient problems) in a smart way. We consider, for example, the ODE
 

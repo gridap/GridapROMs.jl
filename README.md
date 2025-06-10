@@ -44,7 +44,7 @@ In the following numerical examples, we provide a plot of the convergence errors
 
 ### Test 1 
 
-Solve a steady elasticity problem with a [proper orthogonal decomposition algorithm](https://link.springer.com/book/10.1007/978-3-319-15431-2) (POD). The presence of parameters affecting the problem's LHS/RHS are dealt with by employing a [discrete empirical interpolation method in matrix form](https://www.sciencedirect.com/science/article/pii/S0021999115006543) (MDEIM). 
+Solve a steady elasticity problem with a [proper orthogonal decomposition algorithm](https://link.springer.com/book/10.1007/978-3-319-15431-2) (POD). The presence of parameters affecting the problem's LHS/RHS are dealt with by employing a [discrete empirical interpolation method in matrix form](https://www.sciencedirect.com/science/article/pii/S0021999115006543) (MDEIMProjection). 
 
 ```julia
 julia> include("examples/SteadyElasticityPOD.jl")
@@ -55,7 +55,7 @@ Solution             |  Convergence
 
 ### Test 2
 
-Solve the same problem, but with a tensor-train (TT) decomposition approach. In particular, we employ the [TT-SVD](https://epubs.siam.org/doi/10.1137/090752286) method to compute the reduced approximation subspace, and [TT-MDEIM](https://arxiv.org/abs/2412.14460) for the system approximation. 
+Solve the same problem, but with a tensor-train (TT) decomposition approach. In particular, we employ the [TT-SVD](https://epubs.siam.org/doi/10.1137/090752286) method to compute the reduced approximation subspace, and [TT-MDEIMProjection](https://arxiv.org/abs/2412.14460) for the system approximation. 
 
 ```julia
 julia> include("examples/SteadyElasticityTTSVD.jl")
@@ -66,7 +66,7 @@ Solution             |  Convergence
 
 ### Test 3
 
-Solve a steady Stokes equation with a POD+MDEIM method.
+Solve a steady Stokes equation with a POD+MDEIMProjection method.
 
 ```julia
 julia> include("examples/SteadyStokesPOD.jl")
@@ -78,7 +78,7 @@ Solution - velocity          |  Solution - pressure        |  Convergence
 
 ### Test 4 
 
-Moving to transient applications, we first solve a heat equation with a [space-time RB-MDEIM method](https://www.sciencedirect.com/science/article/pii/S0377042724000165).
+Moving to transient applications, we first solve a heat equation with a [space-time RB-MDEIMProjection method](https://www.sciencedirect.com/science/article/pii/S0377042724000165).
 
 ```julia
 julia> include("examples/HeatEquationSTRB.jl")

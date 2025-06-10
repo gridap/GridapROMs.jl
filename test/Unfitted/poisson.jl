@@ -286,7 +286,7 @@ hd = dp[1]/n
 f(μ) = x->μ[1]*x[1] - μ[2]*x[2]
 fμ(μ) = ParamFunction(f,μ)
 
-g(μ) = x->0
+g(μ) = x->x[1]-x[2]
 gμ(μ) = ParamFunction(g,μ)
 
 a(μ,u,v,dΩ,dΓ) = ∫(νμ(μ)*∇(v)⋅∇(u))dΩ + ∫( (γd/hd)*v*u  - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u )dΓ
@@ -295,7 +295,7 @@ res(μ,u,v,dΩ,dΓ) =  a(μ,u,v,dΩ,dΓ) - l(μ,v,dΩ,dΓ)
 
 reffe = ReferenceFE(lagrangian,Float64,order)
 
-domains = FEDomains((dΩ,dΓ),(dΩ,dΓ))
+domains = FEDomains((Ω,Γ),(Ω,Γ))
 
 # agfem
 strategy = AggregateAllCutCells()
@@ -327,55 +327,3 @@ x̂,rbstats = solve(rbsolver,rbop,μon)
 # test
 x,festats = solution_snapshots(rbsolver,feop,μon)
 perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
-
-red_trial,red_test = reduced_spaces(rbsolver,feop,fesnaps)
-lred = rbsolver.jacobian_reduction
-jacs = jacobian_snapshots(rbsolver,feop,fesnaps)
-ress = residual_snapshots(rbsolver,feop,fesnaps)
-red = get_reduction(lred)
-k = RBSteady.get_clusters(red_trial)
-sc = RBSteady.cluster_snapshots(ress,k)
-
-for i in 1:5
-  println(i)
-  # reduced_jacobian(
-  #   red,RBSteady.local_values(red_trial)[i],RBSteady.local_values(red_test)[i],sc[i])
-  reduced_residual(red,RBSteady.local_values(red_test)[i],sc[i])
-end
-
-i = 1
-# reduced_jacobian(
-    # red,RBSteady.local_values(red_trial)[i],RBSteady.local_values(red_test)[i],sc[i])
-
-basis = projection(RBSteady.get_reduction(red),sc[i])
-# proj_basis = project(RBSteady.local_values(red_test)[i],basis,RBSteady.local_values(red_trial)[i])
-proj_basis = project(RBSteady.local_values(red_test)[i],basis)
-coeff_interp = RBSteady.get_interpolator(red,basis,sc[i])
-
-ri = get_realization(sc[i])
-inds,interp = empirical_interpolation(basis)
-factor = lu(interp)
-red_data = RBSteady.get_at_domain(sc[i],inds)
-coeff = RBSteady.allocate_coefficient(basis,ri)
-ldiv!(coeff,factor,red_data)
-interp = Interpolator(ri,coeff,red.strategy)
-
-interp1 = Interpolator(ri.params,coeff.data[1,:],red.strategy)
-interp2 = Interpolator(ri.params,coeff.data[2,:],red.strategy)
-
-# μ = [[5.0, 3.8, 3.0]]
-# coeffμ = interp(Realization(μ))
-# coeffμ1 = interp1(μ)
-# coeffμ2 = interp2(μ)
-
-fesnapsμ, = solution_snapshots(rbsolver,feop,Realization(μ))
-jacsμ = jacobian_snapshots(rbsolver1,feop,fesnapsμ)
-ressμ = residual_snapshots(rbsolver1,feop,fesnapsμ)
-
-A = jacsμ
-Â = basis.basis.data*coeffμ.data
-_Â = basis.basis.data*coeffμ.data
-
-b = ressμ
-b̂ = basis.basis*coeffμ.data
-norm(b - b̂)

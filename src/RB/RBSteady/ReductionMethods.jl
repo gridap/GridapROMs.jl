@@ -380,8 +380,8 @@ end
 """
     abstract type HyperReduction{A} <: Reduction{A,EuclideanNorm} end
 
-Type representing a hyper-reduction approximation by means of a MDEIM algorithm.
-Check [this](https://doi.org/10.1016/j.jcp.2015.09.046) for more details on MDEIM. This
+Type representing a hyper-reduction approximation by means of a MDEIMProjection algorithm.
+Check [this](https://doi.org/10.1016/j.jcp.2015.09.046) for more details on MDEIMProjection. This
 reduction strategy is usually employed only for the approximation of a residual
 and/or Jacobian of a differential problem. Note that orthogonality with respect
 to a norm other than the euclidean is not required for this reduction type.
@@ -408,7 +408,7 @@ end
       reduction::Reduction{A,EuclideanNorm}
     end
 
-MDEIM struct employed in steady problems
+MDEIMProjection struct employed in steady problems
 """
 struct MDEIMReduction{A} <: HyperReduction{A}
   reduction::Reduction{A,EuclideanNorm}

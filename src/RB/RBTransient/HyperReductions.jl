@@ -9,16 +9,16 @@ get_itimes(a::TransientHRProjection,args...) = get_itimes(get_integration_domain
 """
     struct TransientMDEIM{A,B} <: TransientHRProjection{A,B}
       reduction::A
-      projection::MDEIM{B}
+      projection::MDEIMProjection{B}
     end
 """
 struct TransientMDEIM{A,B} <: TransientHRProjection{A,B}
   reduction::A
-  projection::MDEIM{B}
+  projection::MDEIMProjection{B}
 end
 
 function TransientMDEIM(reduction,proj_basis,factor,domain)
-  projection = MDEIM(proj_basis,factor,domain)
+  projection = MDEIMProjection(proj_basis,factor,domain)
   TransientMDEIM(reduction,projection)
 end
 

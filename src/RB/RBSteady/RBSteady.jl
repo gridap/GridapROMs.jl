@@ -148,7 +148,7 @@ include("IntegrationDomains.jl")
 
 export HRProjection
 export TrivialHRProjection
-export MDEIM
+export MDEIMProjection
 export AffineContribution
 export BlockHRProjection
 export get_interpolation

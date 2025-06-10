@@ -12,7 +12,7 @@ problem dependent on a set of parameters. A RB method is a projection-based
 reduced order model where
 
 1. a suitable subspace of a FESpace is sought, of dimension n << Nₕ
-2. a matrix-based discrete empirical interpolation method (MDEIM) is performed
+2. a matrix-based discrete empirical interpolation method (MDEIMProjection) is performed
   to approximate the manifold of the parametric residuals and jacobians
 3. the EIM approximations are compressed with (Petrov-)Galerkin projections
   onto the subspace
@@ -26,8 +26,8 @@ In particular:
   where a basis spanning the reduced subspace is computed; the value of tol is
   responsible for selecting the dimension of the subspace, i.e. n = n(tol)
 - nparams_state: number of snapshots considered when running TPOD or TT-SVD
-- nparams_res: number of snapshots considered when running MDEIM for the residual
-- nparams_jac: number of snapshots considered when running MDEIM for the jacobian
+- nparams_res: number of snapshots considered when running MDEIMProjection for the residual
+- nparams_jac: number of snapshots considered when running MDEIMProjection for the jacobian
 - nparams_test:  number of snapshots considered when computing the error the RB
   method commits with respect to the FE procedure
 """
@@ -228,7 +228,7 @@ for f in (:_get_dof_map,:_get_sparse_dof_map)
   end
 end
 
-# Solve a POD-MDEIM problem
+# Solve a POD-MDEIMProjection problem
 
 function Algebra.solve(
   solver::RBSolver,

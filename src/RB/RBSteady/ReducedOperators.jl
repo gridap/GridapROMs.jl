@@ -79,12 +79,12 @@ Subtypes:
 abstract type RBOperator{O} <: ParamOperator{O,SplitDomains} end
 
 """
-    struct GenericRBOperator{O,A} <: RBOperator{O}
+    struct GenericRBOperator{O,A,B} <: RBOperator{O}
       op::ParamOperator{O}
       trial::RBSpace
       test::RBSpace
       lhs::A
-      rhs::AffineContribution
+      rhs::B
     end
 
 Fields:
@@ -95,12 +95,12 @@ Fields:
 - `lhs`: hyper-reduced left hand side
 - `rhs`: hyper-reduced right hand side
 """
-struct GenericRBOperator{O,A} <: RBOperator{O}
+struct GenericRBOperator{O,A,B} <: RBOperator{O}
   op::ParamOperator{O}
   trial::RBSpace
   test::RBSpace
   lhs::A
-  rhs::AffineContribution
+  rhs::B
 end
 
 function RBOperator(
@@ -121,59 +121,6 @@ FESpaces.get_trial(op::GenericRBOperator) = op.trial
 FESpaces.get_test(op::GenericRBOperator) = op.test
 get_lhs(op::GenericRBOperator) = op.lhs
 get_rhs(op::GenericRBOperator) = op.lhs
-
-function Algebra.allocate_residual(op::GenericRBOperator,u::AbstractVector)
-  allocate_hypred_cache(op.rhs)
-end
-
-function Algebra.allocate_jacobian(op::GenericRBOperator,u::AbstractVector)
-  allocate_hypred_cache(op.lhs)
-end
-
-function Algebra.residual!(b::HRArray,op::GenericRBOperator,u::AbstractVector)
-  fill!(b,zero(eltype(b)))
-
-  trial = get_trial(op.op)
-  test = get_test(op.op)
-  uh = EvaluationFunction(trial,u)
-  v = get_fe_basis(test)
-
-  trian_res = get_domains_res(op.op)
-  res = get_res(op.op)
-  dc = res(uh,v)
-
-  for strian in trian_res
-    b_strian = b.fecache[strian]
-    rhs_strian = op.rhs[strian]
-    vecdata = collect_cell_hr_vector(test,dc,strian,rhs_strian)
-    assemble_hr_vector_add!(b_strian,vecdata...)
-  end
-
-  inv_project!(b,op.rhs)
-end
-
-function Algebra.jacobian!(A::HRArray,op::GenericRBOperator,u::AbstractVector)
-  fill!(A,zero(eltype(A)))
-
-  trial = get_trial(op.op)
-  test = get_test(op.op)
-  uh = EvaluationFunction(trial,u)
-  du = get_trial_fe_basis(trial)
-  v = get_fe_basis(test)
-
-  trian_jac = get_domains_jac(op.op)
-  jac = get_jac(op.op)
-  dc = jac(r,uh,du,v)
-
-  for strian in trian_jac
-    A_strian = A.fecache[strian]
-    lhs_strian = op.lhs[strian]
-    matdata = collect_cell_hr_matrix(trial,test,dc,strian,lhs_strian)
-    assemble_hr_matrix_add!(A_strian,matdata...)
-  end
-
-  inv_project!(A,op.lhs)
-end
 
 function Algebra.allocate_residual(
   op::GenericRBOperator,
@@ -249,156 +196,26 @@ function Algebra.jacobian!(
   inv_project!(A,op.lhs)
 end
 
-struct InterpRBOperator{O,A} <: RBOperator{O}
-  op::ParamOperator{O}
-  trial::RBSpace
-  test::RBSpace
-  lhs::A
-  rhs::AbstractHRProjection
-end
-
-function RBOperator(
-  op::ParamOperator,trial::RBSpace,test::RBSpace,lhs,rhs::AbstractHRProjection)
-
-  InterpRBOperator(op,trial,test,lhs,rhs)
-end
-
-Utils.get_fe_operator(op::InterpRBOperator) = op.op
-FESpaces.get_trial(op::InterpRBOperator) = op.trial
-FESpaces.get_test(op::InterpRBOperator) = op.test
-get_lhs(op::InterpRBOperator) = op.lhs
-get_rhs(op::InterpRBOperator) = op.lhs
-
-function Algebra.allocate_residual(op::InterpRBOperator,u::AbstractVector)
-  allocate_hypred_cache(op.rhs)
-end
-
-function Algebra.allocate_jacobian(op::InterpRBOperator,u::AbstractVector)
-  allocate_hypred_cache(op.lhs)
-end
-
-function Algebra.residual!(b::HRArray,op::InterpRBOperator,u::AbstractVector)
-  fill!(b,zero(eltype(b)))
-  inv_project!(b,op.rhs)
-end
-
-function Algebra.jacobian!(A::HRArray,op::InterpRBOperator,u::AbstractVector)
-  fill!(A,zero(eltype(A)))
-  inv_project!(A,op.lhs)
-end
-
-function Algebra.allocate_residual(
-  op::InterpRBOperator,
-  r::Realization,
-  u::AbstractVector,
-  paramcache)
-
-  allocate_hypred_cache(op.rhs,r)
-end
-
-function Algebra.allocate_jacobian(
-  op::InterpRBOperator,
-  r::Realization,
-  u::AbstractVector,
-  paramcache)
-
-  allocate_hypred_cache(op.lhs,r)
-end
-
 function Algebra.residual!(
   b::HRParamArray,
-  op::InterpRBOperator,
+  op::GenericRBOperator{O,A,<:InterpContribution},
   r::Realization,
   u::AbstractVector,
-  paramcache)
+  paramcache) where {O,A}
 
   fill!(b,zero(eltype(b)))
-  inv_project!(b,op.rhs,r)
+  interpolate!(b,op.rhs,r)
 end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::InterpRBOperator,
+  op::GenericRBOperator{O,<:InterpContribution,B},
   r::Realization,
   u::AbstractVector,
-  paramcache)
+  paramcache) where {O,B}
 
   fill!(A,zero(eltype(A)))
-  inv_project!(A,op.lhs,r)
-end
-
-struct AlgebraicRBOperator{O} <: RBOperator{O}
-  op::ParamOperator{O}
-  trial::RBSpace
-  test::RBSpace
-  lhs::AbstractHRArray
-  rhs::AbstractHRArray
-end
-
-function RBOperator(
-  op::ParamOperator,trial::RBSpace,test::RBSpace,lhs::AbstractHRArray,rhs::AbstractHRArray)
-
-  AlgebraicRBOperator(op,trial,test,lhs,rhs)
-end
-
-Utils.get_fe_operator(op::AlgebraicRBOperator) = op.op
-FESpaces.get_trial(op::AlgebraicRBOperator) = op.trial
-FESpaces.get_test(op::AlgebraicRBOperator) = op.test
-get_lhs(op::AlgebraicRBOperator) = op.lhs
-get_rhs(op::AlgebraicRBOperator) = op.lhs
-
-function Algebra.allocate_residual(op::AlgebraicRBOperator,u::AbstractVector)
-  copy(op.rhs)
-end
-
-function Algebra.allocate_jacobian(op::AlgebraicRBOperator,u::AbstractVector)
-  copy(op.lhs)
-end
-
-function Algebra.residual!(b::HRArray,op::AlgebraicRBOperator,u::AbstractVector)
-  copyto!(b,op.rhs)
-end
-
-function Algebra.jacobian!(A::HRArray,op::AlgebraicRBOperator,u::AbstractVector)
-  copyto!(A,op.lhs)
-end
-
-function Algebra.allocate_residual(
-  op::AlgebraicRBOperator,
-  r::Realization,
-  u::AbstractVector,
-  paramcache)
-
-  copy(op.rhs)
-end
-
-function Algebra.allocate_jacobian(
-  op::AlgebraicRBOperator,
-  r::Realization,
-  u::AbstractVector,
-  paramcache)
-
-  copy(op.lhs)
-end
-
-function Algebra.residual!(
-  b::HRParamArray,
-  op::AlgebraicRBOperator,
-  r::Realization,
-  u::AbstractVector,
-  paramcache)
-
-  copyto!(b,op.rhs)
-end
-
-function Algebra.jacobian!(
-  A::HRParamArray,
-  op::AlgebraicRBOperator,
-  r::Realization,
-  u::AbstractVector,
-  paramcache)
-
-  copyto!(A,op.lhs)
+  interpolate!(A,op.lhs,r)
 end
 
 struct LocalRBOperator{O} <: RBOperator{O}
