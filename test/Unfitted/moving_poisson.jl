@@ -109,62 +109,12 @@ end
 
 fesnaps, = solution_snapshots(rbsolver,feop)
 red_trial,red_test = reduced_spaces(rbsolver,feop,fesnaps)
-red_lhs,red_rhs = RBSteady.reduced_weak_form(rbsolver,feop,red_trial,red_test,fesnaps)
-rbop = RBOperator(feop,red_trial,red_test,red_lhs,red_rhs)
 
-μon = realization(pspace;nparams=10,sampling=:uniform)
-x̂,rbstats = solve(rbsolver,rbop,μon)
+# reduce a1(u,v) = ∫(∇(v)⋅∇(u))dΩ
 
-x,festats = solution_snapshots(rbsolver,feop,μon)
-perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
 
-xvec = map(x̂,μon) do x̂,μ
-  opμ = RBSteady.get_local(rbop,μ)
-  trial = RBSteady.get_trial(opμ)
-  x = inv_project(trial,x̂)
-end
+# reduce a2(u,v) = ∫( (γd/hd)*v*u  - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u )dΓ
 
-S = stack(xvec)
-i = VectorDofMap(size(S,1))
-s = Snapshots(S,i,μon)
+# reduce l1(u,v) = ∫(∇(v)⋅∇(u))dΩ - ∫(f⋅v)dΩ
 
-jacs = jacobian_snapshots(rbsolver,feop,fesnaps)
-ress = residual_snapshots(rbsolver,feop,fesnaps)
-
-hrres = reduced_residual(rbsolver.residual_reduction,red_test,ress)
-hrjac = reduced_jacobian(rbsolver.jacobian_reduction,red_trial,red_test,jacs)
-
-μ = μon[1]
-hrresμ = RBSteady.get_local(hrres,μ)[1]
-
-b = allocate_hypred_cache(hrresμ)
-
-fill!(b,zero(eltype(b)))
-
-opμ = def_fe_operator(μ.params)
-
-# U = get_trial(opμ)
-# V = get_test(opμ)
-U = RBSteady.get_local(red_trial,μ)[1]
-V = RBSteady.get_local(red_test,μ)[1]
-u = zero_free_values(U)
-uh = EvaluationFunction(U,u)
-v = get_fe_basis(V)
-
-trian_res = get_domains(hrresμ)
-
-dc = get_res(opμ.op)(uh,v)
-
-strian = trian_res[1]
-b_strian = b.fecache[strian]
-rhs_strian = hrresμ[strian]
-vecdata = collect_cell_hr_vector(V,dc,strian,rhs_strian)
-assemble_hr_vector_add!(b_strian,vecdata...)
-
-inv_project!(b,op.rhs)
-
-s = ress[1]
-red = rbsolver.residual_reduction.reduction.reduction
-basis = projection(red,s)
-proj_basis = project(RBSteady.local_values(red_test)[1],basis)
-rows,interp = empirical_interpolation(basis)
+# reduce l2(u,v) = ∫( (-1)*(γd/hd)*v*g + (n_Γ⋅∇(v))*g )dΓ
