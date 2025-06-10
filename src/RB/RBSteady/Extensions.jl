@@ -1,7 +1,7 @@
 const DirectSumRBSpace = Union{RBSpace{<:DirectSumFESpace},RBSpace{<:AbstractTrialFESpace{<:DirectSumFESpace}}}
 
 function FESpaces.zero_free_values(r::DirectSumRBSpace)
-  zero_free_values(Extensions.get_bg_space(r))
+  zero_free_values(get_bg_space(r))
 end
 
 function Extensions.get_bg_cell_dof_ids(r::DirectSumRBSpace,args...)
@@ -33,15 +33,15 @@ end
 # utils
 
 function Extensions.get_bg_space(r::RBSpace)
-  fbg = Extensions.get_bg_space(get_fe_space(r))
+  fbg = get_bg_space(get_fe_space(r))
   reduced_subspace(fbg,get_reduced_subspace(r))
 end
 
 function Extensions.get_bg_space(r::RBSpace{<:SingleFieldParamFESpace{<:DirectSumFESpace}})
   fμ = get_fe_space(r)
-  fbgμ = Extensions.get_bg_space(fμ)
+  fbgμ = get_bg_space(fμ)
   reduced_subspace(fbgμ,get_reduced_subspace(r))
 end
 
 get_global_dof_map(r::RBSpace) = get_dof_map(get_fe_space(r))
-get_global_dof_map(r::DirectSumRBSpace) = get_dof_map(Extensions.get_bg_space(get_fe_space(r)))
+get_global_dof_map(r::DirectSumRBSpace) = get_dof_map(get_bg_space(get_fe_space(r)))

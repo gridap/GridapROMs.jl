@@ -20,6 +20,8 @@ include("FEM/ParamODEs/ParamODEs.jl")
 
 include("FEM/Extensions/Extensions.jl")
 
+include("FEM/Uncommon/Uncommon.jl")
+
 include("RB/RBSteady/RBSteady.jl")
 
 include("RB/RBTransient/RBTransient.jl")

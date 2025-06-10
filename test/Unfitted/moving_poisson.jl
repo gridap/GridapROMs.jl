@@ -97,13 +97,12 @@ function def_fe_operator(μ)
 
   test = DirectSumFESpace(testbg,testagg)
   trial = TrialFESpace(test,g)
-  feop = ExtensionLinearOperator(res,a,trial,test,domains)
-  set_domains(feop)
+  ExtensionLinearOperator(res,a,trial,test)
 end
 
 μ = realization(pspace;nparams)
 
-feop = param_operator(μ) do μ
+feop = param_operator(μ,domains) do μ
   println("------------------")
   def_fe_operator(μ)
 end
@@ -128,3 +127,44 @@ end
 S = stack(xvec)
 i = VectorDofMap(size(S,1))
 s = Snapshots(S,i,μon)
+
+jacs = jacobian_snapshots(rbsolver,feop,fesnaps)
+ress = residual_snapshots(rbsolver,feop,fesnaps)
+
+hrres = reduced_residual(rbsolver.residual_reduction,red_test,ress)
+hrjac = reduced_jacobian(rbsolver.jacobian_reduction,red_trial,red_test,jacs)
+
+μ = μon[1]
+hrresμ = RBSteady.get_local(hrres,μ)[1]
+
+b = allocate_hypred_cache(hrresμ)
+
+fill!(b,zero(eltype(b)))
+
+opμ = def_fe_operator(μ.params)
+
+# U = get_trial(opμ)
+# V = get_test(opμ)
+U = RBSteady.get_local(red_trial,μ)[1]
+V = RBSteady.get_local(red_test,μ)[1]
+u = zero_free_values(U)
+uh = EvaluationFunction(U,u)
+v = get_fe_basis(V)
+
+trian_res = get_domains(hrresμ)
+
+dc = get_res(opμ.op)(uh,v)
+
+strian = trian_res[1]
+b_strian = b.fecache[strian]
+rhs_strian = hrresμ[strian]
+vecdata = collect_cell_hr_vector(V,dc,strian,rhs_strian)
+assemble_hr_vector_add!(b_strian,vecdata...)
+
+inv_project!(b,op.rhs)
+
+s = ress[1]
+red = rbsolver.residual_reduction.reduction.reduction
+basis = projection(red,s)
+proj_basis = project(RBSteady.local_values(red_test)[1],basis)
+rows,interp = empirical_interpolation(basis)

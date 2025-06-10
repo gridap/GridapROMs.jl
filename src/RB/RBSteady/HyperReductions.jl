@@ -172,6 +172,15 @@ get_interpolation(a::InterpHRProjection) = a.interpolation
 function HRProjection(
   hred::InterpHyperReduction,
   s::Snapshots,
+  trian::Triangulation,
+  args...)
+
+  HRProjection(hred,s,args...)
+end
+
+function HRProjection(
+  hred::InterpHyperReduction,
+  s::Snapshots,
   test::RBSpace)
 
   red = get_reduction(hred)
@@ -212,7 +221,7 @@ function get_interpolator(strategy::AbstractRadialBasis,a::Projection,s::Snapsho
   Interpolator(r,coeff,strategy)
 end
 
-function interpolate(a::InterpHRProjection,r)
+function FESpaces.interpolate(a::InterpHRProjection,r)
   cache = allocate_hypred_cache(a,r)
   inv_project!(cache,a,r)
   return cache
@@ -231,6 +240,11 @@ Returns the triangulation view of `trian` on the integration cells contained in 
 function reduced_triangulation(trian::Triangulation,a::HRProjection)
   red_cells = get_integration_cells(a)
   red_trian = view(trian,red_cells)
+  return red_trian
+end
+
+function reduced_triangulation(trian::Triangulation,a::InterpHRProjection)
+  red_trian = trian
   return red_trian
 end
 
@@ -324,10 +338,6 @@ function reduced_form(red::Reduction,s,trian::Triangulation,args...)
   return hyper_red,red_trian
 end
 
-function reduced_form(red::InterpHyperReduction,s,r::RBSpace,args...)
-  HRProjection(red,s,r,args...)
-end
-
 """
     reduced_residual(
       solver::RBSolver,
@@ -360,7 +370,7 @@ function reduced_residual(red::Reduction,test::RBSpace,c::ArrayContribution)
   return Contribution(a,trians)
 end
 
-function reduced_residual(red::InterpHyperReduction,test::RBSpace,s::Snapshots)
+function reduced_residual(red::Reduction,test::RBSpace,s::Snapshots)
   reduced_form(red,s,test)
 end
 
@@ -400,7 +410,7 @@ function reduced_jacobian(red::Reduction,trial::RBSpace,test::RBSpace,c::ArrayCo
   return Contribution(a,trians)
 end
 
-function reduced_jacobian(red::InterpHyperReduction,trial::RBSpace,test::RBSpace,s::Snapshots)
+function reduced_jacobian(red::Reduction,trial::RBSpace,test::RBSpace,s::Snapshots)
   reduced_form(red,s,trial,test)
 end
 
@@ -686,31 +696,24 @@ function RadialBasisFunctions.Interpolator(
   npoly = binomial(dim+basis.poly_deg,basis.poly_deg)
   n = k + npoly
   mon = MonomialBasis(dim,basis.poly_deg)
-  data_type = promote_type(eltype(first(x.params)),eltype(first(y)))
+  data_type = promote_type(eltype(first(x.params)),eltype2(y))
   A = Symmetric(zeros(data_type,n,n))
   RadialBasisFunctions._build_collocation_matrix!(A,x.params,basis,mon,k)
-  l = length(first(y))
+  factor = factorize(A)
+  l = innerlength(y)
+  w = zeros(data_type,n,l)
   b = zeros(data_type,n,l)
-  zl = zeros(data_type,l)
-  for i in 1:n
-    z = i < k ? y[i] : zl
-    for j in 1:l
-      b[i,j] = z[j]
+  z = zero(data_type)
+  for j in 1:l
+    for i in 1:n
+      b[i,j] = i < k ? y.data[j,i] : z
     end
   end
-  w = A \ b
+  ldiv!(w,factor,b)
   return Interpolator(x,y,view(w,1:k,:),view(w,1+k:n,:),basis,mon)
 end
 
-(rbfi::Interpolator)(x::AbstractVector) = interpolate(rbfi,x)
 (rbfi::Interpolator)(x::AbstractRealization) = interpolate(rbfi,x)
-
-function FESpaces.interpolate(rbfi::Interpolator,x::AbstractVector)
-  l = size(rbfi.rbf_weights,2)
-  cache = zeros(l)
-  interpolate!(cache,rbfi,x)
-  return cache
-end
 
 function FESpaces.interpolate(rbfi::Interpolator,x::AbstractRealization)
   k′ = param_length(x)
@@ -720,28 +723,6 @@ function FESpaces.interpolate(rbfi::Interpolator,x::AbstractRealization)
   return cache
 end
 
-function FESpaces.interpolate!(cache::AbstractVector,rbfi::Interpolator,x::AbstractVector)
-  k′ = param_length(x)
-  l = size(rbfi.rbf_weights,2)
-
-  for j in 1:l
-    rbfji = 0.0
-
-    for q in axes(rbfi.rbf_weights,1)
-      rbfji += rbfi.rbf_weights[q,j]*rbfi.rbf_basis(x,rbfi.x.params[q])
-    end
-
-    if !isempty(rbfi.monomial_weights)
-      val_poly = rbfi.monomial_basis(x)
-      for (q,val) in enumerate(val_poly)
-        rbfji += rbfi.monomial_weights[q,j]*val
-      end
-    end
-
-    cache[j] = rbfji
-  end
-end
-
 function FESpaces.interpolate!(cache::ConsecutiveParamVector,rbfi::Interpolator,x::AbstractRealization)
   k′ = param_length(x)
   l = size(rbfi.rbf_weights,2)
@@ -749,7 +730,6 @@ function FESpaces.interpolate!(cache::ConsecutiveParamVector,rbfi::Interpolator,
   for j in 1:l
     for i in 1:k′
       rbfji = 0.0
-
       for q in axes(rbfi.rbf_weights,1)
         rbfji += rbfi.rbf_weights[q,j]*rbfi.rbf_basis(x.params[i],rbfi.x.params[q])
       end

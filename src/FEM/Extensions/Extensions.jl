@@ -33,6 +33,9 @@ import Gridap.MultiField: BlockSparseMatrixAssembler
 
 export EmbeddedFESpace
 export get_bg_cell_dof_ids
+export get_emb_space
+export get_act_space
+export get_bg_space
 include("EmbeddedFESpaces.jl")
 
 export DirectSumFESpace
@@ -62,12 +65,5 @@ export BlockExtension
 export ExtensionSolver
 export extend_solution
 include("ExtensionSolvers.jl")
-
-export UnCommonParamOperator
-export param_operator
-export allocate_batchvector
-export allocate_batchmatrix
-export batchseries
-include("UnCommonParamOperators.jl")
 
 end # module

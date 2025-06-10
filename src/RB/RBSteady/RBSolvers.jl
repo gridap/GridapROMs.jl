@@ -218,6 +218,16 @@ _get_dof_map(op::ParamOperator,a::AbstractParamArray) = get_dof_map(op)
 _get_sparse_dof_map(op::ParamOperator,a::ArrayContribution) = get_sparse_dof_map_at_domains(op)
 _get_sparse_dof_map(op::ParamOperator,a::AbstractParamArray) = TrivialSparseMatrixDofMap(SparsityPattern(a))
 
+for f in (:_get_dof_map,:_get_sparse_dof_map)
+  @eval begin
+    function $f(op::UncommonParamOperator,a::ArrayContribution)
+      contribution(get_domains(a)) do trian
+        $f(op,a[trian])
+      end
+    end
+  end
+end
+
 # Solve a POD-MDEIM problem
 
 function Algebra.solve(

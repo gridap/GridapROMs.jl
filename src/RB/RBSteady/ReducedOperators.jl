@@ -431,7 +431,7 @@ function Algebra.solve(
 
   t = @timed x̂vec = map(r) do μ
     opμ = get_local(op,μ)
-    x̂,stats = solve(solver,opμ,Realization(μ))
+    x̂,stats = solve(solver,opμ,Realization([μ]))
     testitem(x̂)
   end
   x̂ = GenericParamVector(x̂vec)

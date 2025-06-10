@@ -85,6 +85,11 @@ using GridapROMs.ParamODEs: ∂ₚt,∂ₚtt; export ∂ₚt,∂ₚtt
 @publish Extensions extend_solution
 using GridapROMs.Extensions: ⊕; export ⊕
 
+@publish Uncommon UncommonParamOperator
+@publish Uncommon param_operator
+@publish Uncommon allocate_batchvector
+@publish Uncommon allocate_batchmatrix
+
 @publish RBSteady Reduction
 @publish RBSteady PODReduction
 @publish RBSteady TTSVDReduction

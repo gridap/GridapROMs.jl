@@ -19,7 +19,7 @@ red_trialμ = RBSteady.get_local(red_trial,μon)[1]
 xon - Φμ*Φμ'*X*xon
 
 μtest = Realization([[0.58,]])
-feoptest = UnCommonParamOperator([def_fe_operator(μtest.params[1])],μtest)
+feoptest = UncommonParamOperator([def_fe_operator(μtest.params[1])],μtest)
 stest, = solution_snapshots(rbsolver,feoptest,μtest)
 rtest = residual_snapshots(rbsolver1,feoptest,stest)
 jtest = jacobian_snapshots(rbsolver1,feoptest,stest)
