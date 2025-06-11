@@ -1,6 +1,7 @@
 module Uncommon
 
 export UncommonParamOperator
+export UncommonContribution
 export param_operator
 export allocate_batchvector
 export allocate_batchmatrix
@@ -31,17 +32,24 @@ using GridapROMs.Extensions
 
 struct UncommonParamOperator{O<:UnEvalOperatorType,T<:TriangulationStyle} <: ParamOperator{O,T}
   operators::Vector{<:DomainOperator}
-  domains::FEDomains
   μ::AbstractRealization
 
-  function UncommonParamOperator{O,T}(
-    operators::Vector{<:DomainOperator},
-    domains::FEDomains,
+  function UncommonParamOperator(
+    operators::Vector{<:DomainOperator{LinearEq,T}},
     μ::AbstractRealization
-    ) where {O,T}
+    ) where T
 
     @check param_length(μ) == length(operators)
-    new{O,T}(operators,domains,μ)
+    new{LinearParamEq,T}(operators,μ)
+  end
+
+  function UncommonParamOperator(
+    operators::Vector{<:DomainOperator{NonlinearEq,T}},
+    μ::AbstractRealization
+    ) where T
+
+    @check param_length(μ) == length(operators)
+    new{NonlinearParamEq,T}(operators,μ)
   end
 end
 
@@ -49,50 +57,9 @@ const JointUncommonParamOperator{O<:UnEvalOperatorType} = UncommonParamOperator{
 
 const SplitUncommonParamOperator{O<:UnEvalOperatorType} = UncommonParamOperator{O,SplitDomains}
 
-function UncommonParamOperator(
-  operators::Vector{<:DomainOperator{LinearEq}},
-  μ::AbstractRealization
-  )
-
-  domains = FEDomains()
-  UncommonParamOperator{NonlinearParamEq,JointDomains}(operators,domains,μ)
-end
-
-function UncommonParamOperator(
-  operators::Vector{<:DomainOperator{LinearEq}},
-  μ::AbstractRealization,
-  domains::FEDomains
-  )
-
-  UncommonParamOperator{LinearParamEq,SplitDomains}(operators,domains,μ)
-end
-
-function UncommonParamOperator(
-  operators::Vector{<:DomainOperator{NonlinearEq}},
-  μ::AbstractRealization)
-
-  domains = FEDomains()
-  UncommonParamOperator{NonlinearParamEq,JointDomains}(operators,domains,μ)
-end
-
-function UncommonParamOperator(
-  operators::Vector{<:DomainOperator{NonlinearEq}},
-  μ::AbstractRealization,
-  domains::FEDomains)
-
-  UncommonParamOperator{NonlinearParamEq,SplitDomains}(operators,domains,μ)
-end
-
-function UncommonParamOperator(
-  operators::Vector{<:DomainOperator{O,SplitDomains}},
-  args...) where O<:OperatorType
-
-  @notimplemented "The input FE operators must not be split on multiple domains"
-end
-
-@inline function param_operator(f,μ::AbstractRealization,args...)
+@inline function param_operator(f,μ::AbstractRealization)
   operators = map(f,μ)
-  UncommonParamOperator(operators,μ,args...)
+  UncommonParamOperator(operators,μ)
 end
 
 ParamDataStructures.param_length(op::UncommonParamOperator) = param_length(op.μ)
@@ -103,30 +70,24 @@ function ParamDataStructures.realization(op::UncommonParamOperator;nparams=1)
 end
 
 FESpaces.get_test(op::UncommonParamOperator) = get_bg_space(get_test(first(op.operators)))
-FESpaces.get_trial(op::UncommonParamOperator) = get_bg_space(get_trial(first(op.operators)))
+FESpaces.get_trial(op::UncommonParamOperator) = parameterize(get_bg_space(get_trial(first(op.operators))),1)
 
-Utils.get_domains(op::UncommonParamOperator) = op.domains
-Utils.get_domains_res(op::UncommonParamOperator) = get_domains_res(get_domains(op))
-Utils.get_domains_jac(op::UncommonParamOperator) = get_domains_jac(get_domains(op))
-
-function Utils.set_domains(op::UncommonParamOperator{O}) where O
-  UncommonParamOperator{O,JointDomains}(op.operators,op.domains,op.μ)
-end
-
-function Utils.change_domains(op::UncommonParamOperator{O,T},args...) where {O,T}
-  domains = FEDomains(args...)
-  UncommonParamOperator{O,T}(op.operators,domains,op.μ)
-end
+Utils.change_domains(op::UncommonParamOperator,args...) = op
+Utils.set_domains(op::SplitUncommonParamOperator) = UncommonParamOperator(set_domains.(op.operators),op.μ)
 
 DofMaps.get_dof_map(op::UncommonParamOperator) = get_dof_map(get_test(op))
 DofMaps.get_sparse_dof_map(op::UncommonParamOperator) = get_sparse_dof_map(get_trial(op),get_test(op))
 
 FESpaces.assemble_matrix(op::UncommonParamOperator,form::Function) = ParamSteady._assemble_matrix(form,get_test(op))
 
-function Algebra.solve(solver::ExtensionSolver,op::UncommonParamOperator)
+function Algebra.solve(solver::ExtensionSolver,op::JointUncommonParamOperator)
   t = @timed x = batchsolve(solver,op)
   stats = CostTracker(t,name="Solver";nruns=param_length(op))
   _to_consecutive(x),stats
+end
+
+function Algebra.solve(solver::ExtensionSolver,op::SplitUncommonParamOperator)
+  solve(solver,set_domains(op))
 end
 
 function Algebra.residual(op::UncommonParamOperator,x::AbstractParamVector)
@@ -165,39 +126,37 @@ function batchresidual(op::UncommonParamOperator,x::AbstractParamVector)
   for i in 1:length(op.operators)
     xi = param_getindex(x,i)
     bi = residual(op.operators[i],xi)
-    setindex!(b,bi,i)
+    update_batchvector!(b,bi,i)
   end
   return b
 end
 
 function batchjacobian(op::UncommonParamOperator,x::AbstractParamVector)
-  cache = allocate_batchmatrix(op)
+  A = allocate_batchmatrix(op)
   for i in 1:length(op.operators)
     xi = param_getindex(x,i)
     Ai = jacobian(op.operators[i],xi)
-    update_batchmatrix!(cache,Ai)
+    update_batchmatrix!(A,Ai,i)
   end
-  return to_param_sparse_matrix(cache)
-end
-
-function batchresidual(op::SplitUncommonParamOperator,x::AbstractParamVector)
-  b = batchresidual(set_domains(op),x)
-  contribution(get_domains_res(op)) do trian
-    b
-  end
-end
-
-function batchjacobian(op::SplitUncommonParamOperator,x::AbstractParamVector)
-  A = batchjacobian(set_domains(op),x)
-  contribution(get_domains_jac(op)) do trian
-    A
-  end
+  return to_param_sparse_matrix(A)
 end
 
 # utils
 
-function allocate_batchvector(op::UncommonParamOperator)
-  allocate_batchvector(_vector_type(op),op)
+for f in (:allocate_batchvector,:allocate_batchmatrix)
+  g = f==:allocate_batchvector ? :get_domains_res : :get_domains_jac
+  @eval begin
+    function $f(op::JointUncommonParamOperator)
+      $f(_vector_type(op),op)
+    end
+
+    function $f(op::SplitUncommonParamOperator)
+      trians = $g(first(op.operators))
+      contribution(trians) do trian
+        $f(_vector_type(op),op)
+      end
+    end
+  end
 end
 
 function allocate_batchvector(::Type{V},op::UncommonParamOperator) where V
@@ -226,10 +185,6 @@ function allocate_batchvector(::Type{V},op::UncommonParamOperator) where V<:Bloc
   mortar(data)
 end
 
-function allocate_batchmatrix(op::UncommonParamOperator)
-  allocate_batchmatrix(_vector_type(op),op)
-end
-
 function allocate_batchmatrix(::Type{V},op::UncommonParamOperator) where V
   plength = length(op.operators)
   n = 0
@@ -241,7 +196,7 @@ function allocate_batchmatrix(::Type{V},op::UncommonParamOperator) where V
   data = Vector{eltype(V)}(undef,n)
   ptrs = Vector{Int}(undef,plength+1)
   s = [0,0]
-  counts = [0,0,1]
+  counts = [0,0]
   return (s,colptr,rowval,data,ptrs,counts)
 end
 
@@ -259,17 +214,21 @@ function allocate_batchmatrix(::Type{V},op::UncommonParamOperator) where V<:Bloc
     data = Vector{eltype(V)}(undef,n)
     ptrs = Vector{Int}(undef,plength+1)
     s = zeros(Int,2)
-    counts = zeros(Int,3)
+    counts = zeros(Int,2)
     (s,colptr,rowval,data,ptrs,counts)
   end
   touched = fill(true,size(array))
   ArrayBlock(array,touched)
 end
 
-function update_batchmatrix!(cache,mat::SparseMatrixCSC)
+function update_batchvector!(cache,vec::AbstractVector,k::Int)
+  setindex!(cache,vec,k)
+end
+
+function update_batchmatrix!(cache,mat::SparseMatrixCSC,k::Int)
   s,colptr,rowval,data,ptrs,counts = cache
   s .= size(mat)
-  i,j,k = counts
+  i,j = counts
   ptrs[k+1] = nnz(mat)
   for l in 1:nnz(mat)
     rowval[i+l] = mat.rowval[l]
@@ -278,14 +237,24 @@ function update_batchmatrix!(cache,mat::SparseMatrixCSC)
       colptr[j+l] = mat.colptr[l]
     end
   end
-  counts .+= (nnz(mat),length(mat.colptr),1)
+  counts .+= (nnz(mat),length(mat.colptr))
   return
 end
 
-function update_batchmatrix!(cache::ArrayBlock,mat::BlockMatrix)
-  for i in eachindex(cache)
-    if cache.touched[i]
-      update_batchmatrix!(cache.array[i],blocks(mat)[i])
+for f in (:update_batchvector!,:update_batchmatrix!)
+  @eval begin
+    function $f(cache::ArrayBlock,matvec::BlockArray,k::Int)
+      for i in eachindex(cache)
+        if cache.touched[i]
+          $f(cache.array[i],blocks(matvec)[i],k)
+        end
+      end
+    end
+
+    function $f(cache::Contribution,matvec::Contribution,k::Int)
+      map(eachindex(matvec)) do i
+        $f(cache[i],matvec[i],k)
+      end
     end
   end
 end
@@ -293,17 +262,22 @@ end
 function to_param_sparse_matrix(cache)
   s,colptr,rowval,data,ptrs,counts = cache
   nr,nc = s
-  i,j,k = counts
+  i,j = counts
   resize!(colptr,j)
   resize!(rowval,i)
   resize!(data,i)
-  resize!(ptrs,k)
   length_to_ptrs!(ptrs)
   GenericParamSparseMatrixCSC(nr,nc,colptr,rowval,data,ptrs)
 end
 
 function to_param_sparse_matrix(cache::ArrayBlock)
   mortar(map(to_param_sparse_matrix,cache.array))
+end
+
+function to_param_sparse_matrix(cache::Contribution)
+  contribution(get_domains(cache)) do trian
+    to_param_sparse_matrix(cache[trian])
+  end
 end
 
 _to_consecutive(x::GenericParamVector) = ConsecutiveParamArray(x)
@@ -338,7 +312,7 @@ end
 # TODO write this properly
 function _get_at_param(op::UncommonParamOperator,μ::AbstractRealization)
   l = param_length(get_params(μ))
-  UncommonParamOperator(op.operators[1:l],μ,op.domains)
+  UncommonParamOperator(op.operators[1:l],μ)
 end
 
 end # end module

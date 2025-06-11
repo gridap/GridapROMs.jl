@@ -36,6 +36,7 @@ export get_bg_cell_dof_ids
 export get_emb_space
 export get_act_space
 export get_bg_space
+export complementary_space
 include("EmbeddedFESpaces.jl")
 
 export DirectSumFESpace

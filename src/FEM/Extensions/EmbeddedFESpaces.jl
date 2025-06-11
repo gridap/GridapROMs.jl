@@ -447,25 +447,13 @@ function complementary_space(space::EmbeddedFESpace)
   fdof_to_bg_fdofs = setdiff(fcdof_to_bg_fcdof,shared_dofs)
   cell_dof_ids = get_cell_dof_ids(_cspace)
 
-  isdiri = zeros(Bool,num_free_dofs(_cspace))
-  for ldof in eachindex(isdiri)
-    bg_dof = fcdof_to_bg_fcdof[ldof]
-    if bg_dof ∈ shared_dofs
-      isdiri[ldof] = 1
-    end
-  end
+  nfree = num_free_dofs(_cspace)
+  dof_to_shared_dof = get_dof_to_shared_dof(
+    cell_dof_ids,bg_cell_dof_ids,shared_dofs,cface_to_mface,nfree)
+  _change_shared_to_diri_dofs!(cell_dof_ids,dof_to_shared_dof)
 
-  ndiri = cumsum(isdiri)
-  for (idof,ldof) in enumerate(cell_dof_ids.data)
-    if isdiri[ldof] == 0
-      cell_dof_ids.data[idof] = ldof-ndiri[ldof]
-    else
-      cell_dof_ids.data[idof] = -ndiri[ldof]
-    end
-  end
-
-  ndirichlet = isempty(ndiri) ? 0 : last(ndiri)
-  nfree = num_free_dofs(_cspace)-ndirichlet
+  ndirichlet = length(shared_dofs)
+  nfree -= ndirichlet
 
   cspace = UnconstrainedFESpace(
     _cspace.vector_type,
@@ -494,4 +482,46 @@ function get_dofs_at_cells(cell_dof_ids::Union{Table,OTable},cells)
     end
   end
   findall(touched)
+end
+
+function get_dof_to_shared_dof(
+  ext_cell_dof_ids::Table,
+  bg_cell_dof_ids,
+  shared_dofs,
+  ext_cell_to_bg_cells,
+  n_ext_dofs
+  )
+
+  get_idof_correction(a::Table) = idof -> idof
+  get_idof_correction(a::OTable) = idof -> a.terms.data[idof]
+  correct_idof = get_idof_correction(bg_cell_dof_ids)
+
+  ext_dof_to_isdiri = zeros(Bool,n_ext_dofs)
+  for (ext_cell,bg_cell) in enumerate(ext_cell_to_bg_cells)
+    pini = ext_cell_dof_ids.ptrs[ext_cell]
+    pend = ext_cell_dof_ids.ptrs[ext_cell+1]-1
+    bg_pini = bg_cell_dof_ids.ptrs[bg_cell]
+    bg_pend = bg_cell_dof_ids.ptrs[bg_cell+1]-1
+    for _idof in bg_pini:bg_pend
+      idof = correct_idof(_idof)
+      bg_dof = bg_cell_dof_ids.data[_idof]
+      if bg_dof ∈ shared_dofs
+        dof = ext_cell_dof_ids.data[pini+idof-1]
+        ext_dof_to_isdiri[dof] = true
+      end
+    end
+  end
+
+  return ext_dof_to_isdiri
+end
+
+function _change_shared_to_diri_dofs!(cell_dof_ids,ext_dof_to_isdiri)
+  ext_dof_to_nprev_diri = cumsum(ext_dof_to_isdiri)
+  for (ldof,ext_dof) in enumerate(cell_dof_ids.data)
+    if ext_dof_to_isdiri[ext_dof] == 0
+      cell_dof_ids.data[ldof] = ext_dof-ext_dof_to_nprev_diri[ext_dof]
+    else
+      cell_dof_ids.data[ldof] = -ext_dof_to_nprev_diri[ext_dof]
+    end
+  end
 end

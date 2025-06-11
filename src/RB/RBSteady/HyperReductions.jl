@@ -382,10 +382,6 @@ function reduced_residual(red::Reduction,test::RBSpace,c::ArrayContribution)
   return Contribution(a,trians)
 end
 
-function reduced_residual(red::Reduction,test::RBSpace,s::Snapshots)
-  reduced_form(red,s,test)
-end
-
 """
     reduced_jacobian(
       solver::RBSolver,
@@ -420,10 +416,6 @@ function reduced_jacobian(red::Reduction,trial::RBSpace,test::RBSpace,c::ArrayCo
     reduced_form(red,values,trian,trial,test)
   end |> tuple_of_arrays
   return Contribution(a,trians)
-end
-
-function reduced_jacobian(red::Reduction,trial::RBSpace,test::RBSpace,s::Snapshots)
-  reduced_form(red,s,trial,test)
 end
 
 """
@@ -701,7 +693,7 @@ end
 # interpolation utils
 
 function get_at_domain(s::Snapshots,rows::AbstractVector{<:Integer})
-  data = get_all_data(s)
+  data = reshape(get_all_data(s),:,num_params(s))
   datav = view(data,rows,:)
   ConsecutiveParamArray(datav)
 end

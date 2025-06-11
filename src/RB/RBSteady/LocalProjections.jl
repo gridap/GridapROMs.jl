@@ -27,7 +27,7 @@ end
 
 local_values(a) = @abstractmethod
 local_values(a::LocalProjection) = a.projections
-local_values(a::NormedProjection) = local_values(a.projection)
+local_values(a::NormedProjection) = map(p->NormedProjection(p,a.norm_matrix),local_values(a.projection))
 
 function local_values(a::RBSpace)
   space = get_fe_space(a)
@@ -72,33 +72,12 @@ function reduced_residual(lred::LocalReduction,test::RBSpace,c::ArrayContributio
   LocalProjection(hr,k)
 end
 
-function reduced_residual(lred::LocalReduction,test::RBSpace,s::Snapshots)
-  red = get_reduction(lred)
-  k = get_clusters(test)
-  sc = cluster_snapshots(s,k)
-  hr = map(local_values(test),sc) do test,s
-    reduced_residual(red,test,s)
-  end
-  LocalProjection(hr,k)
-end
-
 function reduced_jacobian(lred::LocalReduction,trial::RBSpace,test::RBSpace,c::ArrayContribution)
   red = get_reduction(lred)
   k = get_clusters(test)
   cc = cluster_snapshots(c,k)
   hr = map(local_values(trial),local_values(test),cc) do trial,test,c
     reduced_jacobian(red,trial,test,c)
-  end
-  LocalProjection(hr,k)
-end
-
-function reduced_jacobian(lred::LocalReduction,trial::RBSpace,test::RBSpace,s::Snapshots)
-  @check get_clusters(trial) == get_clusters(test)
-  red = get_reduction(lred)
-  k = get_clusters(test)
-  sc = cluster_snapshots(s,k)
-  hr = map(local_values(trial),local_values(test),sc) do trial,test,s
-    reduced_jacobian(red,trial,test,s)
   end
   LocalProjection(hr,k)
 end
@@ -130,14 +109,26 @@ end
 for T in (:ArrayContribution,:Snapshots)
   @eval begin
     function cluster_snapshots(s::$T,k::KmeansResult)
+      cache = return_cache(cluster_snapshots,s,k)
+      evaluate!(cache,cluster_snapshots,s,k)
+      return cache
+    end
+
+    function Arrays.return_cache(::typeof(cluster_snapshots),s::$T,k::KmeansResult)
+      ncenters = size(k.centers,2)
+      cluster = Int[1]
+      T = typeof(_cluster_snaps(s,cluster))
+      Vector{T}(undef,ncenters)
+    end
+
+    function Arrays.evaluate!(cache,::typeof(cluster_snapshots),s::$T,k::KmeansResult)
       a = assignments(k)
       ncenters = size(k.centers,2)
-      svec = Vector{typeof(s)}(undef,ncenters)
       for label in 1:ncenters
         cluster = findall(a .== label)
-        svec[label] = _cluster_snaps(s,cluster)
+        cache[label] = _cluster_snaps(s,cluster)
       end
-      return svec
+      return cache
     end
   end
 end
@@ -167,17 +158,14 @@ function _cluster_snaps(s::ArrayContribution,inds)
   end
 end
 
-function _cluster_snaps(s::Snapshots,inds)
+function _cluster_snaps(s::GenericSnapshots,inds)
   sinds = select_snapshots(s,inds)
-  _get_snaps_with_collect_data(sinds)
+  data = collect(get_all_data(sinds))
+  GenericSnapshots(data,get_dof_map(sinds),get_realization(sinds))
 end
 
-function _get_snaps_with_collect_data(s::GenericSnapshots)
-  data = collect(get_all_data(s))
-  GenericSnapshots(data,get_dof_map(s),get_realization(s))
-end
-
-function _get_snaps_with_collect_data(s::ParamDataStructures.ReshapedSnapshots)
-  data = collect(get_all_data(s))
-  ReshapedSnapshots(data,get_param_data(s),get_dof_map(s),get_realization(s))
+function _cluster_snaps(s::ReshapedSnapshots,inds)
+  sinds = select_snapshots(s,inds)
+  data = collect(get_all_data(sinds))
+  ReshapedSnapshots(data,get_param_data(sinds),get_dof_map(sinds),get_realization(sinds))
 end
