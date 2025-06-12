@@ -85,6 +85,7 @@ end
 # local utils
 
 function compute_clusters(red::LocalReduction,r::AbstractRealization)
+  Random.seed!(1234)
   pmat = _get_params_marix(r)
   k = kmeans(pmat,red.ncentroids)
   return k

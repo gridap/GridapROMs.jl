@@ -309,10 +309,10 @@ function _num_dofs_test_trial_at_field(op::NonlinearOperator,m::Int,n::Int)
   _num_dofs_test_trial(get_test(op)[m],get_trial(op)[n])
 end
 
-# TODO write this properly
+# TODO maybe use K means here as well?
 function _get_at_param(op::UncommonParamOperator,μ::AbstractRealization)
-  l = param_length(get_params(μ))
-  UncommonParamOperator(op.operators[1:l],μ)
+  @assert all(μi == ξi for (μi,ξi) in zip(μ,op.μ))
+  op
 end
 
 end # end module

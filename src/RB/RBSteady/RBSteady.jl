@@ -6,6 +6,7 @@ using DrWatson
 using LinearAlgebra
 using LowRankApprox
 using RadialBasisFunctions
+using Random
 using Serialization
 using SparseArrays
 

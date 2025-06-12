@@ -450,7 +450,7 @@ function complementary_space(space::EmbeddedFESpace)
   nfree = num_free_dofs(_cspace)
   dof_to_shared_dof = get_dof_to_shared_dof(
     cell_dof_ids,bg_cell_dof_ids,shared_dofs,cface_to_mface,nfree)
-  _change_shared_to_diri_dofs!(cell_dof_ids,dof_to_shared_dof)
+  change_shared_to_diri_dofs!(cell_dof_ids,dof_to_shared_dof)
 
   ndirichlet = length(shared_dofs)
   nfree -= ndirichlet
@@ -492,8 +492,8 @@ function get_dof_to_shared_dof(
   n_ext_dofs
   )
 
-  get_idof_correction(a::Table) = idof -> idof
-  get_idof_correction(a::OTable) = idof -> a.terms.data[idof]
+  get_idof_correction(a::Table) = (_idof,p) -> _idof
+  get_idof_correction(a::OTable) = (_idof,p) -> a.terms.data[p]
   correct_idof = get_idof_correction(bg_cell_dof_ids)
 
   ext_dof_to_isdiri = zeros(Bool,n_ext_dofs)
@@ -502,9 +502,9 @@ function get_dof_to_shared_dof(
     pend = ext_cell_dof_ids.ptrs[ext_cell+1]-1
     bg_pini = bg_cell_dof_ids.ptrs[bg_cell]
     bg_pend = bg_cell_dof_ids.ptrs[bg_cell+1]-1
-    for _idof in bg_pini:bg_pend
-      idof = correct_idof(_idof)
-      bg_dof = bg_cell_dof_ids.data[_idof]
+    for (_idof,p) in enumerate(bg_pini:bg_pend)
+      idof = correct_idof(_idof,p)
+      bg_dof = bg_cell_dof_ids.data[p]
       if bg_dof ∈ shared_dofs
         dof = ext_cell_dof_ids.data[pini+idof-1]
         ext_dof_to_isdiri[dof] = true
@@ -515,7 +515,7 @@ function get_dof_to_shared_dof(
   return ext_dof_to_isdiri
 end
 
-function _change_shared_to_diri_dofs!(cell_dof_ids,ext_dof_to_isdiri)
+function change_shared_to_diri_dofs!(cell_dof_ids,ext_dof_to_isdiri)
   ext_dof_to_nprev_diri = cumsum(ext_dof_to_isdiri)
   for (ldof,ext_dof) in enumerate(cell_dof_ids.data)
     if ext_dof_to_isdiri[ext_dof] == 0

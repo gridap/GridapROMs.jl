@@ -20,9 +20,9 @@ method=:pod
 n=20
 tol=1e-4
 rank=nothing
-nparams=250
-nparams_res=250
-nparams_jac=250
+nparams=25#0
+nparams_res=25#0
+nparams_jac=25#0
 
 @assert method ∈ (:pod,:ttsvd) "Unrecognized reduction method! Should be one of (:pod,:ttsvd)"
 
@@ -56,7 +56,7 @@ testbg = FESpace(Ωbg,reffe,conformity=:H1)
 energy(du,v) = ∫(v*du)dΩbg + ∫(∇(v)⋅∇(du))dΩbg
 tolrank = tol_or_rank(tol,rank)
 tolrank = method == :ttsvd ? fill(tolrank,2) : tolrank
-ncentroids = 16
+ncentroids = 5
 state_reduction = LocalReduction(tolrank,energy;nparams,ncentroids)
 
 fesolver = ExtensionSolver(LUSolver())
@@ -103,25 +103,24 @@ feop = param_operator(μ) do μ
   def_fe_operator(μ)
 end
 
-# POD
-
 fesnaps, = solution_snapshots(rbsolver,feop)
-# red_trial,red_test = reduced_spaces(rbsolver,feop,fesnaps)
-# jacs = jacobian_snapshots(rbsolver,feop,fesnaps)
-# red_jac = reduced_jacobian(rbsolver.jacobian_reduction,red_trial,red_test,jacs)
-# ress = residual_snapshots(rbsolver,feop,fesnaps)
-# red_res = reduced_residual(rbsolver.residual_reduction,red_test,ress)
-# rbop = RBOperator(feop,red_trial,red_test,red_jac,red_res)
 rbop = reduced_operator(rbsolver,feop,fesnaps)
 
-μon = realization(pspace;nparams=1)#10,sampling=:uniform)
+# μon = realization(pspace;nparams=1,sampling=:uniform)
+μon = Realization([[0.684117676992132]])
 
 x̂,rbstats = solve(rbsolver,rbop,μon)
 
-x,festats = solution_snapshots(rbsolver,feop,μon)
-perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
+feopon = param_operator(μon) do μ
+  println("------------------")
+  def_fe_operator(μ)
+end
+x,festats = solution_snapshots(rbsolver,feopon,μon)
+perf = eval_performance(rbsolver,feopon,rbop,x,x̂,festats,rbstats)
 
-# TT
+rbsnaps = RBSteady.to_snapshots(rbop,x̂,μon)
+
+# # TT
 
 _bgmodel = TProductDiscreteModel(pmin,pmax,partition)
 _Ωbg = Triangulation(_bgmodel)
@@ -175,122 +174,22 @@ _rbop = reduced_operator(_rbsolver,_feop,_fesnaps)
 
 _x̂, = solve(_rbsolver,_rbop,μon)
 
-_x, = solution_snapshots(_rbsolver,_feop,μon)
-_perf = eval_performance(_rbsolver,_feop,_rbop,_x,_x̂,festats,rbstats)
+_feopon = param_operator(μon) do μ
+  println("------------------")
+  _def_fe_operator(μ)
+end
 
-# compare POD with TT
-
-x0 = Point(μ.params[1][1],μ.params[1][1])
-geo = !disk(R,x0=x0)
-cutgeo = cut(_bgmodel,geo)
-
-Ωact = Triangulation(cutgeo,ACTIVE)
-
-strategy = AggregateAllCutCells()
-aggregates = aggregate(strategy,cutgeo)
-testact = FESpace(Ωact,reffe,conformity=:H1)
-testagg = AgFEMSpace(testact,aggregates)
-
-test = DirectSumFESpace(testbg,testagg)
-
-fdof_to_bg_fdofs,ddof_to_bg_ddofs = Extensions.get_active_dof_to_bg_dof(testbg,testagg)
-bg_cell_dof_ids = Extensions.get_bg_cell_dof_ids(testagg,testbg)
-
-_test = DirectSumFESpace(_testbg,testagg)
-
-_fdof_to_bg_fdofs,_ddof_to_bg_ddofs = Extensions.get_active_dof_to_bg_dof(_testbg,testagg)
-_bg_cell_dof_ids = Extensions.get_bg_cell_dof_ids(testagg,_testbg)
-
-op = feop.operators[1]
-_op = _feop.operators[1]
-
-solve(fesolver.solver,op.op) ≈ solve(fesolver.solver,_op.op)
-
-u = solve(fesolver.solver,op.op)
-_u = solve(fesolver.solver,_op.op)
-
-# u_bg = extend_solution(fesolver.extension,get_trial(op),u)
-fs = get_trial(op)
-fin = Extensions.get_space(fs)
-uh_in = FEFunction(fin,u)
-uh_in_bg = Extensions.ExtendedFEFunction(fs,u)
-
-fout = Extensions.get_out_space(fs)
-uh_out = Extensions.harmonic_extension(fout,uh_in_bg)
-
-# Extensions.harmonic_extension(fout,uh_in_bg)
-Ωout = get_triangulation(fout)
-dΩout = Measure(Ωout,degree)
-
-a(u,v) = ∫(∇(u)⊙∇(v))dΩout
-l(v) = (-1)*∫(∇(uh_in_bg)⊙∇(v))dΩout
-assem = SparseMatrixAssembler(fout,fout)
-
-A = assemble_matrix(a,assem,fout,fout)
-b = assemble_vector(l,assem,fout)
-uout = solve(LUSolver(),A,b)
+_x, = solution_snapshots(_rbsolver,_feopon,μon)
+_perf = eval_performance(_rbsolver,_feopon,_rbop,_x,_x̂,festats,rbstats)
 
 #
 
-_fs = get_trial(_op)
-_fin = Extensions.get_space(_fs)
-_uh_in = FEFunction(_fin,_u)
-_uh_in_bg = Extensions.ExtendedFEFunction(_fs,_u)
+bgmodel = TProductDiscreteModel(Point(0,0),Point(1,1),(2,2))
+Ωbg = Triangulation(bgmodel)
+Ωact = view(Ωbg,[2,3])
+testbg = FESpace(Ωbg,reffe,conformity=:H1)
+testact = FESpace(Ωact,reffe,conformity=:H1)
+test = DirectSumFESpace(testbg,testact)
 
-_fout = Extensions.get_out_space(_fs)
-_uh_out = Extensions.harmonic_extension(_fout,_uh_in_bg)
-
-_Ωout = get_triangulation(_fout)
-_dΩout = Measure(_Ωout,degree)
-
-_a(u,v) = ∫(∇(u)⊙∇(v))_dΩout
-_l(v) = (-1)*∫(∇(_uh_in_bg)⊙∇(v))_dΩout
-_assem = SparseMatrixAssembler(_fout,_fout)
-
-_A = assemble_matrix(_a,_assem,_fout,_fout)
-_b = assemble_vector(_l,_assem,_fout)
-_uout = solve(LUSolver(),_A,_b)
-
-# _test = DirectSumFESpace(_testbg,testagg)
-space = EmbeddedFESpace(testagg,_testbg)
-# complementary = complementary_space(space)
-bg_space = testbg
-
-bg_trian = get_triangulation(bg_space)
-trian = get_triangulation(space)
-D = num_cell_dims(trian)
-glue = get_glue(trian,Val(D))
-cface_to_mface = findall(x->x<0,glue.mface_to_tface)
-bg_model = Extensions.get_active_model(bg_trian)
-ctrian = Triangulation(bg_model,cface_to_mface)
-
-T = Float64
-order = get_polynomial_order(bg_space)
-reffe = ReferenceFE(lagrangian,T,order)
-_cspace = FESpace(ctrian,reffe,conformity=:H1)
-
-bg_cell_dof_ids = get_cell_dof_ids(bg_space)
-fcdof_to_bg_fcdof = Extensions.get_dofs_at_cells(bg_cell_dof_ids,cface_to_mface)
-shared_dofs = intersect(fcdof_to_bg_fcdof,space.fdof_to_bg_fdofs)
-fdof_to_bg_fdofs = setdiff(fcdof_to_bg_fcdof,shared_dofs)
-cell_dof_ids = get_cell_dof_ids(_cspace)
-
-isdiri = zeros(Bool,num_free_dofs(_cspace))
-for ldof in eachindex(isdiri)
-  bg_dof = fcdof_to_bg_fcdof[ldof]
-  if bg_dof ∈ shared_dofs
-    isdiri[ldof] = true
-  end
-end
-
-ndiri = cumsum(isdiri)
-for (idof,ldof) in enumerate(cell_dof_ids.data)
-  if isdiri[ldof] == 0
-    cell_dof_ids.data[idof] = ldof-ndiri[ldof]
-  else
-    cell_dof_ids.data[idof] = -ndiri[ldof]
-  end
-end
-
-ndirichlet = isempty(ndiri) ? 0 : last(ndiri)
-nfree = num_free_dofs(_cspace)-ndirichlet
+space = test.space
+compl = test.complementary
