@@ -104,9 +104,19 @@ function get_bg_dof_to_dof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace)
   bg_ddof_to_ddof = zeros(Int,num_dirichlet_dofs(bg_f))
   bg_cell_ids = get_cell_dof_ids(bg_f)
   cell_ids = get_cell_dof_ids(f)
+  cell_to_bg_cell = get_cell_to_bg_cell(f)
+  get_bg_dof_to_dof!(fdof_to_bg_fdof,ddof_to_bg_ddof,bg_cell_ids,cell_ids,cell_to_bg_cell)
+end
+
+function get_bg_dof_to_dof!(
+  bg_fdof_to_fdof,bg_ddof_to_ddof,
+  bg_cell_ids::AbstractArray,
+  cell_ids::AbstractArray,
+  cell_to_bg_cell::AbstractVector
+  )
+
   bg_cache = array_cache(bg_cell_ids)
   cache = array_cache(cell_ids)
-  cell_to_bg_cell = get_cell_to_bg_cell(f)
   for (cell,bg_cell) in enumerate(cell_to_bg_cell)
     bg_dofs = getindex!(bg_cache,bg_cell_ids,bg_cell)
     dofs = getindex!(cache,cell_ids,cell)
@@ -136,9 +146,19 @@ function get_dof_to_bg_dof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace)
   ddof_to_bg_ddof = zeros(Int,num_dirichlet_dofs(f))
   bg_cell_ids = get_cell_dof_ids(bg_f)
   cell_ids = get_cell_dof_ids(f)
+  cell_to_bg_cell = get_cell_to_bg_cell(f)
+  get_dof_to_bg_dof!(fdof_to_bg_fdof,ddof_to_bg_ddof,bg_cell_ids,cell_ids,cell_to_bg_cell)
+end
+
+function get_dof_to_bg_dof!(
+  fdof_to_bg_fdof,ddof_to_bg_ddof,
+  bg_cell_ids::AbstractArray,
+  cell_ids::AbstractArray,
+  cell_to_bg_cell::AbstractVector
+  )
+
   bg_cache = array_cache(bg_cell_ids)
   cache = array_cache(cell_ids)
-  cell_to_bg_cell = get_cell_to_bg_cell(f)
   for (cell,bg_cell) in enumerate(cell_to_bg_cell)
     bg_dofs = getindex!(bg_cache,bg_cell_ids,bg_cell)
     dofs = getindex!(cache,cell_ids,cell)
@@ -152,7 +172,7 @@ function get_dof_to_bg_dof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace)
       end
     end
   end
-  return fdof_to_bg_fdof,ddof_to_bg_ddof
+  fdof_to_bg_fdof,ddof_to_bg_ddof
 end
 
 function get_dof_to_bg_dof(bg_f::SingleFieldFESpace,agg_f::FESpaceWithLinearConstraints)

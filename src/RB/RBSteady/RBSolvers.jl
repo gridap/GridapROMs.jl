@@ -52,13 +52,14 @@ end
 function RBSolver(
   fesolver::GridapType,
   reduction::LocalReduction;
-  interp=false,
   nparams_res=20,
-  nparams_jac=20)
+  nparams_jac=20,
+  ncentroids_res=get_ncentroids(reduction),
+  ncentroids_jac=get_ncentroids(reduction),
+  kwargs...)
 
-  ncentroids = get_ncentroids(reduction)
-  residual_reduction = LocalHyperReduction(reduction;nparams=nparams_res,interp,ncentroids)
-  jacobian_reduction = LocalHyperReduction(reduction;nparams=nparams_jac,interp,ncentroids)
+  residual_reduction = LocalHyperReduction(reduction;nparams=nparams_res,ncentroids=ncentroids_res,kwargs...)
+  jacobian_reduction = LocalHyperReduction(reduction;nparams=nparams_jac,ncentroids=ncentroids_jac,kwargs...)
   RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)
 end
 

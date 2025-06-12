@@ -312,7 +312,8 @@ end
 # TODO maybe use K means here as well?
 function _get_at_param(op::UncommonParamOperator,μ::AbstractRealization)
   @assert all(μi == ξi for (μi,ξi) in zip(μ,op.μ))
-  op
+  opμ = op.operators[1:num_params(μ)]
+  UncommonParamOperator(opμ,μ)
 end
 
 end # end module
