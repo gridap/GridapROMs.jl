@@ -1,5 +1,8 @@
+module MovingPoisson
+
 using DrWatson
-using LinearAlgebra
+using Serialization
+
 using Gridap
 using GridapEmbedded
 using GridapROMs
@@ -8,7 +11,6 @@ using Gridap.Algebra
 using Gridap.FESpaces
 using GridapROMs.RBSteady
 using GridapROMs.Extensions
-using GridapROMs.ParamAlgebra
 using GridapROMs.Utils
 
 tol_or_rank(tol,rank) = @assert false "Provide either a tolerance or a rank for the reduction step"
@@ -16,17 +18,17 @@ tol_or_rank(tol::Real,rank) = tol
 tol_or_rank(tol::Real,rank::Int) = tol
 tol_or_rank(tol,rank::Int) = rank
 
-method=:pod
+method=:ttsvd
 n=20
 tol=1e-4
 rank=nothing
 nparams=200
-nparams_res=100
-nparams_jac=100
+nparams_res=200
+nparams_jac=200
 
 @assert method ∈ (:pod,:ttsvd) "Unrecognized reduction method! Should be one of (:pod,:ttsvd)"
 
-pdomain = (0.5,1.5)
+pdomain = (0.5,1.5,0.25,0.35)
 pspace = ParamSpace(pdomain)
 
 R = 0.3
@@ -59,7 +61,7 @@ tolrank = method == :ttsvd ? fill(tolrank,2) : tolrank
 ncentroids = 16
 state_reduction = LocalReduction(tolrank,energy;nparams,ncentroids)
 
-ncentroids_res = ncentroids_jac = 4
+ncentroids_res = ncentroids_jac = 10
 fesolver = ExtensionSolver(LUSolver())
 rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,ncentroids_res,ncentroids_jac,interp=true)
 
@@ -68,7 +70,7 @@ const hd = dp[1]/n
 
 function def_fe_operator(μ)
   x0 = Point(μ[1],μ[1])
-  geo = !disk(R,x0=x0)
+  geo = !disk(μ[2],x0=x0)
   cutgeo = cut(bgmodel,geo)
 
   Ωact = Triangulation(cutgeo,ACTIVE)
@@ -97,25 +99,69 @@ function def_fe_operator(μ)
   ExtensionLinearOperator(res,a,trial,test,domains)
 end
 
-μ = realization(pspace;nparams)
+function RBSteady.reduced_operator(rbsolver::RBSolver,feop::ParamOperator,sol,jac,res)
+  red_trial,red_test = reduced_spaces(rbsolver,feop,sol)
+  jac_red = RBSteady.get_jacobian_reduction(rbsolver)
+  red_lhs = reduced_jacobian(jac_red,red_trial,red_test,jac)
+  res_red = RBSteady.get_residual_reduction(rbsolver)
+  red_rhs = reduced_residual(res_red,red_test,res)
+  RBOperator(feop,red_trial,red_test,red_lhs,red_rhs)
+end
 
+function plot_sol(rbop,x,x̂,μon,dir)
+  rbsnaps = RBSteady.to_snapshots(rbop,x̂,μon)
+
+  uh = FEFunction(testbg,vec(x[:,:,1]))
+  ûh = FEFunction(testbg,vec(rbsnaps[:,:,1]))
+  eh = FEFunction(testbg,vec(x[:,:,1]-rbsnaps[:,:,1]))
+
+  x0 = Point(μon.params[1][1],μon.params[1][1])
+  geo = !disk(μon.params[1][2],x0=x0)
+  cutgeo = cut(bgmodel,geo)
+  Ω = Triangulation(cutgeo,PHYSICAL)
+
+  writevtk(Ωbg.trian,joinpath(dir,"bgtrian"),cellfields=["uh"=>uh,"ûh"=>ûh,"eh"=>eh])
+  writevtk(Ω,joinpath(dir,"trian"),cellfields=["uh"=>uh,"ûh"=>ûh,"eh"=>eh])
+end
+
+test_dir = datadir("moving_poisson_diri")
+create_dir(test_dir)
+
+μ = realization(pspace;nparams)
 feop = param_operator(μ) do μ
   println("------------------")
   def_fe_operator(μ)
 end
 
-fesnaps, = solution_snapshots(rbsolver,feop)
-rbop = reduced_operator(rbsolver,feop,fesnaps)
-
-μon = realization(pspace;nparams=1,sampling=:uniform)
-
-x̂,rbstats = solve(rbsolver,rbop,μon)
-
+μon = realization(pspace;nparams=10,sampling=:uniform)
 feopon = param_operator(μon) do μ
   println("------------------")
   def_fe_operator(μ)
 end
-x,festats = solution_snapshots(rbsolver,feopon,μon)
-perf = eval_performance(rbsolver,feopon,rbop,x,x̂,festats,rbstats)
 
-# rbsnaps = RBSteady.to_snapshots(rbop,x̂,μon)
+fesnaps, = solution_snapshots(rbsolver,feop)
+x,festats = solution_snapshots(rbsolver,feopon,μon)
+
+jacs = jacobian_snapshots(rbsolver,feop,fesnaps)
+ress = residual_snapshots(rbsolver,feop,fesnaps)
+
+perfs = ROMPerformance[]
+
+for tol in (1e-1,1e-2,1e-3,1e-4,1e-5)
+  state_reduction = LocalReduction(fill(tol,2),energy;nparams,ncentroids)
+  rbsolver = RBSolver(
+    fesolver,state_reduction;nparams_res,nparams_jac,ncentroids_res,ncentroids_jac,interp=true)
+  rbop = reduced_operator(rbsolver,feop,fesnaps,jacs,ress)
+  x̂,rbstats = solve(rbsolver,rbop,μon)
+  perf = eval_performance(rbsolver,feopon,rbop,x,x̂,festats,rbstats)
+  println(perf)
+  push!(perfs,perf)
+
+  dir = joinpath(test_dir,string(tol))
+  create_dir(dir)
+  plot_sol(rbop,x,x̂,μon,dir)
+end
+
+serialize(joinpath(test_dir,"results"),perfs)
+
+end

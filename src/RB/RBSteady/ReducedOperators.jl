@@ -218,25 +218,32 @@ function Algebra.jacobian!(
   interpolate!(A,op.lhs,r)
 end
 
-struct LocalRBOperator{O} <: RBOperator{O}
-  operators::Vector{<:RBOperator{O}}
-  k::KmeansResult
+struct LocalRBOperator{O,A,B} <: RBOperator{O}
+  op::ParamOperator{O}
+  trial::RBSpace
+  test::RBSpace
+  lhs::A
+  rhs::B
 end
+
+Utils.get_fe_operator(op::LocalRBOperator) = op.op
+FESpaces.get_trial(op::LocalRBOperator) = op.trial
+FESpaces.get_test(op::LocalRBOperator) = op.test
+get_lhs(op::LocalRBOperator) = op.lhs
+get_rhs(op::LocalRBOperator) = op.lhs
 
 function RBOperator(
   op::ParamOperator,trial::RBSpace,test::RBSpace,lhs::LocalProjection,rhs::LocalProjection)
 
-  operators = map(local_values(trial),local_values(test),local_values(lhs),local_values(rhs)
-  ) do trial,test,lhs,rhs
-    RBOperator(op,trial,test,lhs,rhs)
-  end
-  k = get_clusters(lhs)
-  LocalRBOperator(operators,k)
+  LocalRBOperator(op,trial,test,lhs,rhs)
 end
 
-function get_local(op::LocalRBOperator,μ::AbstractVector)
-  lab = get_label(op.k,μ)
-  op.operators[lab]
+function get_local(op::LocalRBOperator,μ)
+  trialμ = get_local(op.trial,μ)
+  testμ = get_local(op.test,μ)
+  lhsμ = get_local(op.lhs,μ)
+  rhsμ = get_local(op.rhs,μ)
+  GenericRBOperator(op.op,trialμ,testμ,lhsμ,rhsμ)
 end
 
 function Algebra.solve(
@@ -321,4 +328,3 @@ function to_snapshots(rbop::LocalRBOperator,x̂::AbstractParamVector,r::Abstract
 end
 
 get_global_dof_map(rbop::RBOperator) = get_global_dof_map(get_trial(rbop))
-get_global_dof_map(rbop::LocalRBOperator) = get_global_dof_map(first(rbop.operators))

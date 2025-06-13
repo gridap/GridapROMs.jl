@@ -1,7 +1,12 @@
-struct LocalProjection{A} <: Projection
-  projections::Vector{A}
-  k::KmeansResult
+struct LocalProjection{A,N} <: Projection
+  projections::Array{A,N}
+  k::NTuple{N,KmeansResult}
 end
+
+LocalProjection(projections::AbstractVector,k::KmeansResult) = LocalProjection(projections,(k,))
+
+const VecLocalProjection{A} = LocalProjection{A,1}
+const MatLocalProjection{A} = LocalProjection{A,2}
 
 function Projection(lred::LocalReduction,s::AbstractArray,args...)
   red = get_reduction(lred)
@@ -19,10 +24,6 @@ end
 function galerkin_projection(a::LocalProjection,b::LocalProjection,c::LocalProjection,args...)
   b̂ = map((pa,pb,pc) -> galerkin_projection(pa,pb,pc,args...),a.projections,b.projections,c.projections)
   LocalProjection(b̂,b.k)
-end
-
-function empirical_interpolation(a::LocalProjection)
-  map(empirical_interpolation,a.projections) |> tuple_of_arrays
 end
 
 local_values(a) = @abstractmethod
@@ -46,10 +47,17 @@ function get_local(a,r::AbstractRealization)
   end
 end
 
-function get_local(a::LocalProjection,μ::AbstractVector)
-  k = get_clusters(a)
+function get_local(a::VecLocalProjection,μ::AbstractVector)
+  k, = get_clusters(a)
   lab = get_label(k,μ)
   a.projections[lab]
+end
+
+function get_local(a::MatLocalProjection,μ::AbstractVector)
+  k,l = get_clusters(a)
+  labk = get_label(k,μ)
+  labl = get_label(l,μ)
+  a.projections[labk,labl]
 end
 
 function get_local(a::NormedProjection,μ::AbstractVector)
@@ -64,22 +72,39 @@ end
 
 function reduced_residual(lred::LocalReduction,test::RBSpace,c::ArrayContribution)
   red = get_reduction(lred)
-  k = get_clusters(test)
-  cc = cluster_snapshots(c,k)
-  hr = map(local_values(test),cc) do test,c
-    reduced_residual(red,test,c)
+  kc = compute_clusters(lred,c)
+  kr, = get_clusters(test)
+  cc = cluster_snapshots(c,kc)
+
+  hr = Matrix{AffineContribution}(undef,length(kc.counts),length(kr.counts))
+  for i in eachindex(kc.counts)
+    ci = cc[i]
+    for (j,centerj) in enumerate(eachcol(kr.centers))
+      testj = get_local(test,centerj)
+      hr[i,j] = reduced_residual(red,testj,ci)
+    end
   end
-  LocalProjection(hr,k)
+
+  LocalProjection(hr,(kc,kr))
 end
 
 function reduced_jacobian(lred::LocalReduction,trial::RBSpace,test::RBSpace,c::ArrayContribution)
   red = get_reduction(lred)
-  k = get_clusters(test)
-  cc = cluster_snapshots(c,k)
-  hr = map(local_values(trial),local_values(test),cc) do trial,test,c
-    reduced_jacobian(red,trial,test,c)
+  kc = compute_clusters(lred,c)
+  kr, = get_clusters(test)
+  cc = cluster_snapshots(c,kc)
+
+  hr = Matrix{AffineContribution}(undef,length(kc.counts),length(kr.counts))
+  for i in eachindex(kc.counts)
+    ci = cc[i]
+    for (j,centerj) in enumerate(eachcol(kr.centers))
+      trialj = get_local(trial,centerj)
+      testj = get_local(test,centerj)
+      hr[i,j] = reduced_jacobian(red,trialj,testj,ci)
+    end
   end
-  LocalProjection(hr,k)
+
+  LocalProjection(hr,(kc,kr))
 end
 
 # local utils
@@ -95,14 +120,18 @@ function compute_clusters(red::LocalReduction,s::Snapshots)
   compute_clusters(red,get_realization(s))
 end
 
-function cluster_snapshots(red::LocalReduction,s::ArrayContribution)
-  r = get_realization(first(s.values))
-  k = compute_clusters(red,r)
-  cluster_snapshots(s,k)
+function compute_clusters(red::LocalReduction,s::ArrayContribution)
+  compute_clusters(red,first(s.values))
 end
 
 function cluster_snapshots(red::LocalReduction,s::Snapshots)
   r = get_realization(s)
+  k = compute_clusters(red,r)
+  cluster_snapshots(s,k)
+end
+
+function cluster_snapshots(red::LocalReduction,s::ArrayContribution)
+  r = get_realization(first(s.values))
   k = compute_clusters(red,r)
   cluster_snapshots(s,k)
 end
