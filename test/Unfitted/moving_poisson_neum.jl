@@ -1,4 +1,5 @@
-module MovingPoisson
+module MovingPoissonNeumann
+
 
 using DrWatson
 using Serialization
@@ -54,7 +55,7 @@ degree = 2*order
 dΩbg = Measure(Ωbg,degree)
 
 reffe = ReferenceFE(lagrangian,Float64,order)
-testbg = FESpace(Ωbg,reffe,conformity=:H1)
+testbg = FESpace(Ωbg,reffe,conformity=:H1,dirichlet_tags=[1,3,7])
 
 energy(du,v) = ∫(v*du)dΩbg + ∫(∇(v)⋅∇(du))dΩbg
 tolrank = tol_or_rank(tol,rank)
@@ -84,20 +85,19 @@ function def_fe_operator(μ)
   Γ = EmbeddedBoundary(cutgeo)
 
   dΩ = Measure(Ω,degree)
-  dΓ = Measure(Γ,degree)
 
   n_Γ = get_normal_vector(Γ)
 
-  a(u,v,dΩ,dΓ) = ∫(∇(v)⋅∇(u))dΩ + ∫( (γd/hd)*v*u  - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u )dΓ
-  l(v,dΩ,dΓ) = ∫(f⋅v)dΩ + ∫( (γd/hd)*v*g - (n_Γ⋅∇(v))*g )dΓ
-  res(u,v,dΩ,dΓ) = ∫(∇(v)⋅∇(u))dΩ - l(v,dΩ,dΓ)
+  a(u,v,dΩ) = ∫(∇(v)⋅∇(u))dΩ
+  l(v,dΩ) = ∫(f⋅v)dΩ
+  res(u,v,dΩ) = ∫(∇(v)⋅∇(u))dΩ - l(v,dΩ)
 
-  domains = FEDomains((Ω,Γ),(Ω,Γ))
+  domains = FEDomains((Ω,),(Ω,))
 
   # agfem
   strategy = AggregateAllCutCells()
   aggregates = aggregate(strategy,cutgeo)
-  testact = FESpace(Ωact,reffe,conformity=:H1)
+  testact = FESpace(Ωact,reffe,conformity=:H1,dirichlet_tags=[1,3,7])
   testagg = AgFEMSpace(testact,aggregates)
 
   test = DirectSumFESpace(testbg,testagg)
@@ -136,10 +136,10 @@ function compute_err(x,x̂,μ)
 
   strategy = AggregateAllCutCells()
   aggregates = aggregate(strategy,cutgeo)
-  testact = FESpace(Ωact,reffe,conformity=:H1)
+  testact = FESpace(Ωact,reffe,conformity=:H1,dirichlet_tags=[1,3,7])
   testagg = AgFEMSpace(testact,aggregates)
 
-  energy(u,v) = ∫( v*u + ∇(v)⋅∇(u) )dΩ + ∫( (γd/hd)*v*u - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u )dΓ
+  energy(u,v) = ∫( v*u + ∇(v)⋅∇(u) )dΩ
   X = assemble_matrix(energy,testagg,testagg)
 
   d2bgd = Extensions.get_fdof_to_bg_fdof(testbg,testagg)
@@ -225,7 +225,7 @@ function max_subspace_size(a::LocalProjection)
   return maxsize
 end
 
-test_dir = datadir("moving_poisson")
+test_dir = datadir("moving_poisson_neumann")
 create_dir(test_dir)
 
 μ = realization(pspace;nparams)

@@ -62,6 +62,7 @@ export LocalReduction
 export SupremizerReduction
 export HyperReduction
 export MDEIMReduction
+export LocalHyperReduction
 export AdaptiveReduction
 export get_reduction
 include("ReductionMethods.jl")
@@ -178,6 +179,7 @@ include("LocalProjections.jl")
 export RBOperator
 export GenericRBOperator
 export LinearNonlinearRBOperator
+export LocalRBOperator
 export reduced_operator
 include("ReducedOperators.jl")
 

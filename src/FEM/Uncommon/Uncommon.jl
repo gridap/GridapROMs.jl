@@ -230,13 +230,25 @@ function update_batchmatrix!(cache,mat::SparseMatrixCSC,k::Int)
   s .= size(mat)
   i,j = counts
   ptrs[k+1] = nnz(mat)
-  for l in 1:nnz(mat)
-    rowval[i+l] = mat.rowval[l]
-    data[i+l] = mat.nzval[l]
-    if l ≤ length(mat.colptr)
+
+  if nnz(mat) ≥ length(mat.colptr)
+    for l in 1:nnz(mat)
+      rowval[i+l] = mat.rowval[l]
+      data[i+l] = mat.nzval[l]
+      if l ≤ length(mat.colptr)
+        colptr[j+l] = mat.colptr[l]
+      end
+    end
+  else
+    for l in 1:length(mat.colptr)
       colptr[j+l] = mat.colptr[l]
+      if l ≤ nnz(mat)
+        rowval[i+l] = mat.rowval[l]
+        data[i+l] = mat.nzval[l]
+      end
     end
   end
+
   counts .+= (nnz(mat),length(mat.colptr))
   return
 end

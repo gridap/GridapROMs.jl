@@ -145,10 +145,11 @@ for T in (:ArrayContribution,:Snapshots)
     end
 
     function Arrays.return_cache(::typeof(cluster_snapshots),s::$T,k::KmeansResult)
+      a = assignments(k)
       ncenters = size(k.centers,2)
-      cluster = Int[1]
-      T = typeof(_cluster_snaps(s,cluster))
-      Vector{T}(undef,ncenters)
+      cluster = findall(a .== 1)
+      S = typeof(_cluster_snaps(s,cluster))
+      Vector{S}(undef,ncenters)
     end
 
     function Arrays.evaluate!(cache,::typeof(cluster_snapshots),s::$T,k::KmeansResult)
