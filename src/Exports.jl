@@ -131,6 +131,9 @@ using GridapROMs.Extensions: ⊕; export ⊕
 @publish RBSteady reduced_residual
 @publish RBSteady reduced_weak_form
 
+@publish RBSteady LocalProjection
+@publish RBSteady compute_ncentroids
+
 @publish RBSteady RBOperator
 @publish RBSteady reduced_operator
 

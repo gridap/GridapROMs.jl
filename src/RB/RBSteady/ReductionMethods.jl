@@ -430,9 +430,8 @@ struct InterpHyperReduction{A} <: HyperReduction{A}
   strategy::AbstractRadialBasis
 end
 
-function InterpHyperReduction(args...;kwargs...)
+function InterpHyperReduction(args...;strategy=PHS(),kwargs...)
   reduction = Reduction(args...;kwargs...)
-  strategy = PHS()
   InterpHyperReduction(reduction,strategy)
 end
 

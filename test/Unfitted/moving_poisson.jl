@@ -25,7 +25,7 @@ method=:ttsvd
 n=20
 tol=1e-4
 rank=nothing
-nparams=250
+Ntop,Nbot = 400,200
 
 @assert method ∈ (:pod,:ttsvd) "Unrecognized reduction method! Should be one of (:pod,:ttsvd)"
 
@@ -228,7 +228,7 @@ end
 test_dir = datadir("moving_poisson")
 create_dir(test_dir)
 
-μ = realization(pspace;nparams)
+μ = realization(pspace;nparams=Ntop)
 feop = param_operator(μ) do μ
   println("------------------")
   def_fe_operator(μ)
@@ -240,7 +240,7 @@ feopon = param_operator(μon) do μ
   def_fe_operator(μ)
 end
 
-rbsolver = rb_solver(tolrank,nparams)
+rbsolver = rb_solver(tolrank,Ntop)
 fesnaps, = solution_snapshots(rbsolver,feop)
 x,festats = solution_snapshots(rbsolver,feopon,μon)
 
@@ -250,8 +250,8 @@ ress = residual_snapshots(rbsolver,feop,fesnaps)
 perfs = ROMPerformance[]
 maxsizes = Vector{Int}[]
 
-for nparams in 250:-10:150
-  if nparams == 250
+for nparams in Ntop:-10:Nbot
+  if nparams == Ntop
     _feop,_rbsolver,_fesnaps,_jacs,_ress = feop,rbsolver,fesnaps,jacs,ress
   else
     _feop = Uncommon._get_at_param(feop,μ[1:nparams])

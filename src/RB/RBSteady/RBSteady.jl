@@ -171,9 +171,10 @@ include("HRAssemblers.jl")
 
 export LocalProjection
 export InterpHRProjection
-export BlockInterpHRProjection
-export InterpAffineContribution
-export InterpRBOperator
+export compute_ncentroids
+export get_local
+export local_values
+export get_clusters
 include("LocalProjections.jl")
 
 export RBOperator

@@ -26,7 +26,7 @@ method=:ttsvd
 n=20
 tol=1e-4
 rank=nothing
-nparams=250
+Ntop,Nbot = 400,200
 
 @assert method ∈ (:pod,:ttsvd) "Unrecognized reduction method! Should be one of (:pod,:ttsvd)"
 
@@ -46,7 +46,7 @@ else
 end
 
 f(x) = 1.0
-g(x) = x[1]-x[2]
+g(x) = 0.0
 
 order = 2
 degree = 2*order
@@ -60,8 +60,9 @@ testbg = FESpace(Ωbg,reffe,conformity=:H1,dirichlet_tags=[1,3,7])
 energy(du,v) = ∫(v*du)dΩbg + ∫(∇(v)⋅∇(du))dΩbg
 tolrank = tol_or_rank(tol,rank)
 tolrank = method == :ttsvd ? fill(tolrank,2) : tolrank
+μ = realization(pspace;nparams=Ntop)
 ncentroids = 16
-ncentroids_res = ncentroids_jac = 12
+ncentroids_res = ncentroids_jac = 8
 fesolver = ExtensionSolver(LUSolver())
 
 const γd = 10.0
@@ -228,7 +229,6 @@ end
 test_dir = datadir("moving_poisson_neumann")
 create_dir(test_dir)
 
-μ = realization(pspace;nparams)
 feop = param_operator(μ) do μ
   println("------------------")
   def_fe_operator(μ)
@@ -240,7 +240,7 @@ feopon = param_operator(μon) do μ
   def_fe_operator(μ)
 end
 
-rbsolver = rb_solver(tolrank,nparams)
+rbsolver = rb_solver(tolrank,Ntop)
 fesnaps, = solution_snapshots(rbsolver,feop)
 x,festats = solution_snapshots(rbsolver,feopon,μon)
 
@@ -250,8 +250,8 @@ ress = residual_snapshots(rbsolver,feop,fesnaps)
 perfs = ROMPerformance[]
 maxsizes = Vector{Int}[]
 
-for nparams in 250:-10:150
-  if nparams == 250
+for nparams in Ntop:-10:Nbot
+  if nparams == Ntop
     _feop,_rbsolver,_fesnaps,_jacs,_ress = feop,rbsolver,fesnaps,jacs,ress
   else
     _feop = Uncommon._get_at_param(feop,μ[1:nparams])
@@ -277,3 +277,10 @@ serialize(joinpath(test_dir,"results"),perfs)
 serialize(joinpath(test_dir,"maxsizes"),maxsizes)
 
 end
+
+# using Plots
+# maxs = deserialize(joinpath(test_dir,"maxsizes"))
+# perfs = deserialize(joinpath(test_dir,"results"))
+# N = first.(maxs)
+# errs = map(x -> x.error,perfs)
+# plot(N,reshape(errs,:,1))

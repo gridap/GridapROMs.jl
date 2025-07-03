@@ -180,6 +180,51 @@ function centroid_distances(k::KmeansResult,x::AbstractVector)
   return dists
 end
 
+function centroid_distances(k::KmeansResult,x::AbstractMatrix)
+  dists = zeros(size(x,2))
+  for i in axes(x,2)
+    xi = view(x,:,i)
+    dists[i] = centroid_distances(k,xi)
+  end
+  return dists
+end
+
+function compute_ncentroids(
+  r::AbstractRealization;
+  init=min(4,num_params(r)),
+  iend=min(16,floor(Int,num_params(r)/2))
+  )
+
+  Random.seed!(1234)
+  pmat = _get_params_marix(r)
+  kvars = zeros(iend-init+1)
+  all_ncentroids = init:iend
+  for (i,ncentroids) in enumerate(all_ncentroids)
+    k = kmeans(pmat,ncentroids)
+    kvars[i] = kmeans_variance(k,pmat)
+  end
+  elbow = _compute_elbow(kvars)
+  all_ncentroids[elbow]
+end
+
+function kmeans_variance(k::KmeansResult,pmat::AbstractMatrix)
+  errs = 0.0
+  for α in eachcol(pmat)
+    lab = get_label(k,α)
+    β = view(k.centers,:,lab)
+    errs += norm(α-β)^2
+  end
+  return errs
+end
+
+function _compute_elbow(v::AbstractVector)
+  dv = zeros(length(v)-1)
+  for i in 1:length(dv)
+    dv[i] = abs(v[i+1]-v[i]) / v[i]
+  end
+  argmin(dv)
+end
+
 _get_params_marix(r::Realization) = stack(r.params)
 _get_params_marix(r::AbstractRealization) = _get_params_marix(get_params(r))
 
