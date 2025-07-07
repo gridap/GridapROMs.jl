@@ -187,10 +187,7 @@ end
 
 function allocate_batchmatrix(::Type{V},op::UncommonParamOperator) where V
   plength = length(op.operators)
-  n = 0
-  for i in 1:plength
-    n += _num_dofs_test_trial(op.operators[i])
-  end
+  n = 2*plength*_max_num_nonzeros(op)
   colptr = Vector{Int}(undef,n)
   rowval = Vector{Int}(undef,n)
   data = Vector{eltype(V)}(undef,n)
@@ -205,10 +202,7 @@ function allocate_batchmatrix(::Type{V},op::UncommonParamOperator) where V<:Bloc
   nfields_test = num_fields(get_test(first(op.operators)))
   nfields_trial = num_fields(get_trial(first(op.operators)))
   array = map(CartesianIndices((nfields_test,nfields_trial))) do i,j
-    n = 0
-    for k in 1:plength
-      n += _num_dofs_test_trial_at_field(op.operators[k],i,j)
-    end
+    n = 2*plength*_max_num_nonzeros(op,i,j)
     colptr = Vector{Int}(undef,n)
     rowval = Vector{Int}(undef,n)
     data = Vector{eltype(V)}(undef,n)
@@ -225,11 +219,22 @@ function update_batchvector!(cache,vec::AbstractVector,k::Int)
   setindex!(cache,vec,k)
 end
 
-function update_batchmatrix!(cache,mat::SparseMatrixCSC,k::Int)
+function update_batchmatrix!(cache,mat::SparseMatrixCSC,k::Int;α=1)
   s,colptr,rowval,data,ptrs,counts = cache
   s .= size(mat)
   i,j = counts
   ptrs[k+1] = nnz(mat)
+
+  if length(rowval)-i < nnz(mat)
+    @warn "Need to expand sparse structures size; consider allocating larger structures"
+    resize!(rowval,length(rowval)+α*nnz(mat))
+    resize!(data,length(rowval)+α*nnz(mat))
+  end
+
+  if length(colptr)-j < length(mat.colptr)
+    @warn "Need to expand sparse structures size; consider allocating larger structures"
+    resize!(colptr,length(colptr)+α*length(mat.colptr))
+  end
 
   if nnz(mat) ≥ length(mat.colptr)
     for l in 1:nnz(mat)
@@ -309,16 +314,25 @@ _num_dofs(f::SingleFieldFESpace) = num_free_dofs(f)
 _num_dofs(f::DirectSumFESpace) = _num_dofs(get_bg_space(f))
 _num_dofs(op::NonlinearOperator) = _num_dofs(get_test(op))
 
-_num_dofs_test_trial(f::SingleFieldFESpace,g::SingleFieldFESpace) = num_free_dofs(f)*num_free_dofs(g)
-function _num_dofs_test_trial(f::DirectSumFESpace,g::SingleFieldFESpace)
-  _num_dofs_test_trial(get_bg_space(f),get_bg_space(g))
+function _max_num_nonzeros(f::SingleFieldFESpace,g::SingleFieldFESpace)
+  sparsity = get_sparsity(f,g)
+  nnz(sparsity)
 end
-_num_dofs_test_trial(op::NonlinearOperator) = _num_dofs_test_trial(get_test(op),get_trial(op))
+
+function _max_num_nonzeros(f::DirectSumFESpace,g::SingleFieldFESpace)
+  _max_num_nonzeros(get_bg_space(f),get_bg_space(g))
+end
+
+function _max_num_nonzeros(op::UncommonParamOperator)
+  ndofs = map(opi -> num_free_dofs(get_test(opi)),op.operators)
+  maxid = findfirst(ndofs .== maximum(ndofs))
+  _max_num_nonzeros(get_trial(op.operators[maxid]),get_test(op.operators[maxid]))
+end
 
 _num_dofs_at_field(op::NonlinearOperator,n::Int) = _num_dofs(get_test(op)[n])
 
-function _num_dofs_test_trial_at_field(op::NonlinearOperator,m::Int,n::Int)
-  _num_dofs_test_trial(get_test(op)[m],get_trial(op)[n])
+function _max_num_nonzeros_at_field(op::NonlinearOperator,m::Int,n::Int)
+  _max_num_nonzeros(get_test(op)[m],get_trial(op)[n])
 end
 
 # TODO maybe use K means here as well?

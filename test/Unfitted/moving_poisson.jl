@@ -22,17 +22,16 @@ tol_or_rank(tol::Real,rank::Int) = tol
 tol_or_rank(tol,rank::Int) = rank
 
 method=:ttsvd
-n=20
+n=40
 tol=1e-4
 rank=nothing
-Ntop,Nbot = 400,200
+nparams = 300
 
 @assert method ∈ (:pod,:ttsvd) "Unrecognized reduction method! Should be one of (:pod,:ttsvd)"
 
 pdomain = (0.5,1.5,0.25,0.35)
 pspace = ParamSpace(pdomain)
 
-R = 0.3
 pmin = Point(0,0)
 pmax = Point(2,2)
 dp = pmax - pmin
@@ -47,7 +46,7 @@ end
 f(x) = 1.0
 g(x) = x[1]-x[2]
 
-order = 2
+order = 1
 degree = 2*order
 
 Ωbg = Triangulation(bgmodel)
@@ -60,7 +59,7 @@ energy(du,v) = ∫(v*du)dΩbg + ∫(∇(v)⋅∇(du))dΩbg
 tolrank = tol_or_rank(tol,rank)
 tolrank = method == :ttsvd ? fill(tolrank,2) : tolrank
 ncentroids = 16
-ncentroids_res = ncentroids_jac = 12
+ncentroids_res = ncentroids_jac = 8
 fesolver = ExtensionSolver(LUSolver())
 
 const γd = 10.0
@@ -146,7 +145,12 @@ function compute_err(x,x̂,μ)
   xd = x[d2bgd]
   x̂d = x̂[d2bgd]
 
-  compute_relative_error(xd,x̂d,X)
+  Y = (assemble_matrix((u,v)->∫( v*u + ∇(v)⋅∇(u) )dΩbg,testbg,testbg))[d2bgd,d2bgd]
+
+  errH1 = compute_relative_error(xd,x̂d,X)
+  _errH1 = compute_relative_error(xd,x̂d,Y)
+  errl2 = compute_relative_error(xd,x̂d)
+  return (errH1,_errH1,errl2)
 end
 
 function RBSteady.reduced_operator(rbsolver::RBSolver,feop::ParamOperator,sol,jac,res)
@@ -158,8 +162,7 @@ function RBSteady.reduced_operator(rbsolver::RBSolver,feop::ParamOperator,sol,ja
   RBOperator(feop,red_trial,red_test,red_lhs,red_rhs)
 end
 
-function plot_sol(rbop,x,x̂,μon,dir,i=num_params(μon))
-
+function plot_sol(rbop,x,x̂,μon,dir,i=1)
   if method==:ttsvd
     u,û,e,bgΩ = vec(x[:,:,i]),vec(x̂[:,:,i]),abs.(vec(x[:,:,i]-x̂[:,:,i])),Ωbg.trian
   else
@@ -190,19 +193,19 @@ function postprocess(
   rbsnaps = RBSteady.to_snapshots(rbop,x̂,μon)
   plot_sol(rbop,fesnaps,rbsnaps,μon,dir)
 
-  error = 0.0
+  error = [0.0,0.0,0.0]
   for (i,μ) in enumerate(μon)
     if method==:ttsvd
       xi,x̂i = vec(fesnaps[:,:,i]),vec(rbsnaps[:,:,i])
     else
       xi,x̂i = fesnaps[:,i],rbsnaps[:,i]
     end
-    error += compute_err(xi,x̂i,μ)
+    error .+= compute_err(xi,x̂i,μ)
   end
-  error /= param_length(μon)
+  error ./= param_length(μon)
 
   speedup = compute_speedup(festats,rbstats)
-  ROMPerformance(error,speedup)
+  map(e -> ROMPerformance(e,speedup),error)
 end
 
 function max_subspace_size(rbop::LocalRBOperator)
@@ -228,7 +231,7 @@ end
 test_dir = datadir("moving_poisson")
 create_dir(test_dir)
 
-μ = realization(pspace;nparams=Ntop)
+μ = realization(pspace;nparams)
 feop = param_operator(μ) do μ
   println("------------------")
   def_fe_operator(μ)
@@ -240,40 +243,47 @@ feopon = param_operator(μon) do μ
   def_fe_operator(μ)
 end
 
-rbsolver = rb_solver(tolrank,Ntop)
+for opon in feopon.operators
+  println(num_free_dofs(get_test(opon)))
+end
+
+rbsolver = rb_solver(tolrank,nparams)
 fesnaps, = solution_snapshots(rbsolver,feop)
 x,festats = solution_snapshots(rbsolver,feopon,μon)
 
 jacs = jacobian_snapshots(rbsolver,feop,fesnaps)
 ress = residual_snapshots(rbsolver,feop,fesnaps)
 
-perfs = ROMPerformance[]
+perfsH1 = ROMPerformance[]
+_perfsH1 = ROMPerformance[]
+perfsl2 = ROMPerformance[]
 maxsizes = Vector{Int}[]
 
-for nparams in Ntop:-10:Nbot
-  if nparams == Ntop
-    _feop,_rbsolver,_fesnaps,_jacs,_ress = feop,rbsolver,fesnaps,jacs,ress
-  else
-    _feop = Uncommon._get_at_param(feop,μ[1:nparams])
-    _rbsolver = rb_solver(tolrank,nparams)
-    _fesnaps = select_snapshots(fesnaps,1:nparams)
-    _jacs,_ress = select_snapshots(jacs,1:nparams),select_snapshots(ress,1:nparams)
-  end
+for tol in (1e-0,1e-1,1e-2,1e-3,1e-4)
+  tolrank = tol_or_rank(tol,rank)
+  tolrank = method == :ttsvd ? fill(tolrank,2) : tolrank
+  rbsolver = rb_solver(tolrank,nparams)
 
-  dir = joinpath(test_dir,string(nparams))
+  dir = joinpath(test_dir,string(tol))
   create_dir(dir)
 
-  rbop = reduced_operator(_rbsolver,_feop,_fesnaps,_jacs,_ress)
-  x̂,rbstats = solve(_rbsolver,rbop,μon)
+  rbop = reduced_operator(rbsolver,feop,fesnaps,jacs,ress)
+  x̂,rbstats = solve(rbsolver,rbop,μon)
 
-  perf = postprocess(dir,_rbsolver,feopon,rbop,x,x̂,festats,rbstats)
+  perfH1,_perfH1,perfl2 = postprocess(dir,rbsolver,feopon,rbop,x,x̂,festats,rbstats)
   maxsize = max_subspace_size(rbop)
-  println(perf)
-  push!(perfs,perf)
+
+  println(μon[1])
+  println(_perfsH1)
+  push!(perfsH1,perfH1)
+  push!(_perfsH1,_perfH1)
+  push!(perfsl2,perfl2)
   push!(maxsizes,maxsize)
 end
 
-serialize(joinpath(test_dir,"results"),perfs)
+serialize(joinpath(test_dir,"resultsH1"),perfsH1)
+serialize(joinpath(test_dir,"_resultsH1"),_perfsH1)
+serialize(joinpath(test_dir,"resultsl2"),perfsl2)
 serialize(joinpath(test_dir,"maxsizes"),maxsizes)
 
 end

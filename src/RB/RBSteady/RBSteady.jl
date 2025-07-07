@@ -62,7 +62,9 @@ export LocalReduction
 export SupremizerReduction
 export HyperReduction
 export MDEIMReduction
+export InterpHyperReduction
 export LocalHyperReduction
+export LocalSupremizerReduction
 export AdaptiveReduction
 export get_reduction
 include("ReductionMethods.jl")

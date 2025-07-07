@@ -259,7 +259,7 @@ function _bg_vals_from_vals!(bg_fv,bg_dv,f::EmbeddedFESpace,fv,dv)
     bg_fv[bg_fdof] = fv[fdof]
   end
   for (ddof,bg_ddof) in enumerate(f.ddof_to_bg_ddofs)
-    bg_dv[bg_ddof] = dv[ddof]
+    bg_dv[-bg_ddof] = dv[ddof]
   end
 end
 
@@ -280,7 +280,7 @@ function _bg_vals_from_vals!(
       bg_fdata[bg_fdof,k] = fdata[fdof,k]
     end
     for (ddof,bg_ddof) in enumerate(f.ddof_to_bg_ddofs)
-      bg_ddata[bg_ddof,k] = ddata[fdof,k]
+      bg_ddata[-bg_ddof,k] = ddata[ddof,k]
     end
   end
 end
