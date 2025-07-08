@@ -98,6 +98,13 @@ for F in (:get_emb_space,:get_act_space,:get_bg_space,
   )
   @eval begin
     $F(f::AbstractTrialFESpace) = $F(get_fe_space(f))
+
+    function $F(f::MultiFieldFESpace)
+      V = get_vector_type(f)
+      spaces = map($F,f)
+      style = f.multi_field_style
+      MultiFieldFESpace(V,spaces,style)
+    end
   end
 end
 

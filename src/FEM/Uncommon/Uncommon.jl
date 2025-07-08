@@ -170,7 +170,7 @@ function allocate_batchvector(::Type{V},op::UncommonParamOperator) where V
   GenericParamVector(data,ptrs)
 end
 
-function allocate_batchvector(::Type{V},op::UncommonParamOperator) where V<:BlockVector
+function allocate_batchvector(::Type{V},op::UncommonParamOperator) where {T,V<:BlockVector{T}}
   plength = length(op.operators)
   nfields = num_fields(get_test(first(op.operators)))
   data = map(1:nfields) do n
@@ -179,7 +179,7 @@ function allocate_batchvector(::Type{V},op::UncommonParamOperator) where V<:Bloc
       ptrs[i+1] = _num_dofs_at_field(op.operators[i],n)
     end
     length_to_ptrs!(ptrs)
-    data = allocate_vector(V,ptrs[end]-1)
+    data = allocate_vector(Vector{T},ptrs[end]-1)
     GenericParamVector(data,ptrs)
   end
   mortar(data)
@@ -197,7 +197,7 @@ function allocate_batchmatrix(::Type{V},op::UncommonParamOperator) where V
   return (s,colptr,rowval,data,ptrs,counts)
 end
 
-function allocate_batchmatrix(::Type{V},op::UncommonParamOperator) where V<:BlockVector
+function allocate_batchmatrix(::Type{V},op::UncommonParamOperator) where {T,V<:BlockVector{T}}
   plength = length(op.operators)
   nfields_test = num_fields(get_test(first(op.operators)))
   nfields_trial = num_fields(get_trial(first(op.operators)))
@@ -205,7 +205,7 @@ function allocate_batchmatrix(::Type{V},op::UncommonParamOperator) where V<:Bloc
     n = 2*plength*_max_num_nonzeros(op,i,j)
     colptr = Vector{Int}(undef,n)
     rowval = Vector{Int}(undef,n)
-    data = Vector{eltype(V)}(undef,n)
+    data = Vector{T}(undef,n)
     ptrs = Vector{Int}(undef,plength+1)
     s = zeros(Int,2)
     counts = zeros(Int,2)
