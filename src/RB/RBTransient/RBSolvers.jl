@@ -114,8 +114,6 @@ function RBSteady.jacobian_snapshots(
   return (jac_lin,jac_nlin)
 end
 
-# Solve a POD-MDEIMProjection problem
-
 function Algebra.solve(
   solver::RBSolver,
   op::NonlinearOperator,

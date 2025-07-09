@@ -354,12 +354,16 @@ ReductionStyle(r::SupremizerReduction) = ReductionStyle(get_reduction(r))
 NormStyle(r::SupremizerReduction) = NormStyle(get_reduction(r))
 ParamDataStructures.num_params(r::SupremizerReduction) = num_params(get_reduction(r))
 
+const LocalSuprReduction{A,B} = LocalReduction{A,B,<:SupremizerReduction}
+
+get_reduction(r::LocalSuprReduction) = LocalReduction(get_reduction(r.reduction),r.ncentroids)
+get_supr(r::LocalSuprReduction) = get_supr(r.reduction)
+get_supr_tol(r::LocalSuprReduction) = get_supr_tol(r.reduction)
+
 function LocalSupremizerReduction(args...;ncentroids=10,kwargs...)
   reduction = SupremizerReduction(args...;kwargs...)
   LocalReduction(reduction,ncentroids)
 end
-
-get_reduction(r::LocalReduction{<:SupremizerReduction}) = get_reduction(r.reduction)
 
 # generic constructor
 

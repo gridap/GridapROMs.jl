@@ -225,11 +225,15 @@ end
 
 function _get_sparse_dof_map(op::UncommonParamOperator,a::ArrayContribution)
   contribution(get_domains(a)) do trian
-    TrivialSparseMatrixDofMap(SparsityPattern(a[trian]))
+    _get_trivial_sparse_dof_map(a[trian])
   end
 end
 
-# Solve a POD-MDEIMProjection problem
+_get_trivial_sparse_dof_map(a::ParamSparseMatrix) = TrivialSparseMatrixDofMap(a)
+
+function _get_trivial_sparse_dof_map(a::BlockParamArray)
+  map(_get_trivial_sparse_dof_map,a.data)
+end
 
 function Algebra.solve(
   solver::RBSolver,

@@ -113,6 +113,12 @@ function FESpaces.zero_dirichlet_values(f::MultiFieldParamFESpace{<:BlockMultiFi
   mortar(map(zero_dirichlet_values,f.spaces))
 end
 
+function ParamDataStructures.parameterize(f::MultiFieldParamFESpace,plength::Int)
+  spaces = map(s -> parameterize(s,plength),f.spaces)
+  style = f.multi_field_style
+  MultiFieldFESpace(spaces;style)
+end
+
 function get_vector_type2(f::MultiFieldParamFESpace{<:BlockMultiFieldStyle})
   V = get_vector_type(f)
   T = eltype2(V)

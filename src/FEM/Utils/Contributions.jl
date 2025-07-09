@@ -78,11 +78,11 @@ function set_domains(a::Contribution,trians::Tuple{Vararg{Triangulation}})
 end
 
 """
-    const ArrayContribution{T,N} = Contribution{<:AbstractArray{T,N}}
+    const ArrayContribution{T,N} = Contribution{<:Union{AbstractArray{T,N},ArrayBlock{T,N}}}
 
 [`Contribution`](@ref) whose field `values` are `AbstractArray`s
 """
-const ArrayContribution{T,N} = Contribution{<:AbstractArray{T,N}}
+const ArrayContribution{T,N} = Contribution{<:Union{AbstractArray{T,N},ArrayBlock{T,N}}}
 
 """
     const VectorContribution{T} = ArrayContribution{T,1}

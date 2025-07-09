@@ -30,6 +30,14 @@ local_values(a) = @abstractmethod
 local_values(a::LocalProjection) = a.projections
 local_values(a::NormedProjection) = map(p->NormedProjection(p,a.norm_matrix),local_values(a.projection))
 
+function local_values(a::BlockProjection)
+  litems = map(local_values,a.array)
+  nlitems = length(first(litems))
+  map(1:nlitems) do i
+    BlockProjection(getindex.(litems,i),a.touched)
+  end
+end
+
 function local_values(a::RBSpace)
   space = get_fe_space(a)
   lsubspace = local_values(get_reduced_subspace(a))
@@ -39,6 +47,7 @@ end
 get_clusters(a) = @abstractmethod
 get_clusters(a::LocalProjection) = a.k
 get_clusters(a::NormedProjection) = get_clusters(a.projection)
+get_clusters(a::BlockProjection) = get_clusters(testitem(a))
 get_clusters(a::RBSpace) = get_clusters(get_reduced_subspace(a))
 
 function get_local(a,r::AbstractRealization)
@@ -64,6 +73,10 @@ function get_local(a::NormedProjection,μ::AbstractVector)
   NormedProjection(get_local(a.projection,μ),a.norm_matrix)
 end
 
+function get_local(a::BlockProjection,μ::AbstractVector)
+  BlockProjection(map(p -> get_local(p,μ),a.array),a.touched)
+end
+
 function get_local(a::RBSpace,μ::AbstractVector)
   space = get_fe_space(a)
   lsubspace = get_local(get_reduced_subspace(a),μ)
@@ -71,7 +84,7 @@ function get_local(a::RBSpace,μ::AbstractVector)
 end
 
 function reduced_basis(
-  red::LocalReduction{<:SupremizerReduction},
+  red::LocalSuprReduction,
   feop::ParamOperator,
   s::AbstractSnapshots)
 
@@ -79,7 +92,7 @@ function reduced_basis(
   supr_matrix = assemble_matrix(feop,get_supr(red))
   basis = reduced_basis(get_reduction(red),s,norm_matrix)
   for b in local_values(basis)
-    enrich!(red,b,norm_matrix,supr_matrix)
+    enrich!(red.reduction,b,norm_matrix,supr_matrix)
   end
   return basis
 end
@@ -130,7 +143,7 @@ function compute_clusters(red::LocalReduction,r::AbstractRealization)
   return k
 end
 
-function compute_clusters(red::LocalReduction,s::Snapshots)
+function compute_clusters(red::LocalReduction,s::AbstractSnapshots)
   compute_clusters(red,get_realization(s))
 end
 
@@ -138,7 +151,7 @@ function compute_clusters(red::LocalReduction,s::ArrayContribution)
   compute_clusters(red,first(s.values))
 end
 
-function cluster_snapshots(red::LocalReduction,s::Snapshots)
+function cluster_snapshots(red::LocalReduction,s::AbstractSnapshots)
   r = get_realization(s)
   k = compute_clusters(red,r)
   cluster_snapshots(s,k)
@@ -150,7 +163,7 @@ function cluster_snapshots(red::LocalReduction,s::ArrayContribution)
   cluster_snapshots(s,k)
 end
 
-for T in (:ArrayContribution,:Snapshots)
+for T in (:ArrayContribution,:AbstractSnapshots)
   @eval begin
     function cluster_snapshots(s::$T,k::KmeansResult)
       cache = return_cache(cluster_snapshots,s,k)
@@ -258,4 +271,15 @@ function _cluster_snaps(s::ReshapedSnapshots,inds)
   sinds = select_snapshots(s,inds)
   data = collect(get_all_data(sinds))
   ReshapedSnapshots(data,get_param_data(sinds),get_dof_map(sinds),get_realization(sinds))
+end
+
+function _cluster_snaps(s::BlockSnapshots,inds)
+  array = Array{Snapshots,ndims(s)}(undef,size(s))
+  touched = s.touched
+  for i in eachindex(touched)
+    if touched[i]
+      array[i] = _cluster_snaps(s[i],inds)
+    end
+  end
+  return BlockSnapshots(array,touched)
 end

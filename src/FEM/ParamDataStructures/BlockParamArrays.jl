@@ -73,6 +73,10 @@ function param_getindex(A::BlockParamArray,i::Integer)
   mortar(map(a->param_getindex(a,i),blocks(A)))
 end
 
+function param_setindex!(A::BlockParamArray,v::BlockArray,i::Integer)
+  map((a,b)->param_setindex!(a,b,i),blocks(A),blocks(v))
+end
+
 Base.@propagate_inbounds function Base.getindex(A::BlockParamArray{T,N},i::Vararg{Integer,N}) where {T,N}
   @boundscheck checkbounds(A,i...)
   v = A[findblockindex.(axes(A),i)...]

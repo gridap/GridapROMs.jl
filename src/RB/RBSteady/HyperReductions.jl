@@ -238,11 +238,6 @@ function FESpaces.interpolate!(
   return b̂
 end
 
-function reduced_triangulation(trian::Triangulation,a::TrivialHRProjection)
-  red_trian = view(trian,Int[])
-  return red_trian
-end
-
 """
     reduced_triangulation(trian::Triangulation,a::HRProjection)
 
@@ -257,6 +252,14 @@ end
 function reduced_triangulation(trian::Triangulation,a::InterpHRProjection)
   red_trian = trian
   return red_trian
+end
+
+function _reduced_triangulation(red::Reduction,trian::Triangulation,args...)
+  reduced_triangulation(trian,args...)
+end
+
+function _reduced_triangulation(red::InterpHyperReduction,trian::Triangulation,args...)
+  trian
 end
 
 function allocate_coefficient(a::Projection)
@@ -346,7 +349,7 @@ end
 
 function reduced_form(red::Reduction,s,trian::Triangulation,args...)
   hyper_red = HRProjection(red,s,trian,args...)
-  red_trian = reduced_triangulation(trian,hyper_red)
+  red_trian = _reduced_triangulation(red,trian,hyper_red)
   return hyper_red,red_trian
 end
 
@@ -595,16 +598,26 @@ function Arrays.return_cache(
 
   i = findfirst(a.touched)
   @notimplementedif isnothing(i)
-  coeff = return_cache(allocate_coefficient,a[i],r)
+  coeff = return_cache(allocate_coefficient,a[i],args...)
   block_coeff = Array{typeof(coeff),ndims(a)}(undef,size(a))
   return block_coeff
 end
 
-function allocate_coefficient(a::BlockHRProjection,args...)
+function allocate_coefficient(a::BlockHRProjection)
   coeff = return_cache(allocate_coefficient,a,args...)
   for i in eachindex(a)
     if a.touched[i]
       coeff[i] = allocate_coefficient(a[i],args...)
+    end
+  end
+  return ArrayBlock(coeff,a.touched)
+end
+
+function allocate_coefficient(a::BlockHRProjection,r::AbstractRealization)
+  coeff = return_cache(allocate_coefficient,a,r)
+  for i in eachindex(a)
+    if a.touched[i]
+      coeff[i] = allocate_coefficient(a[i],r)
     end
   end
   return ArrayBlock(coeff,a.touched)
@@ -645,10 +658,18 @@ function Arrays.return_cache(
   return block_hypred
 end
 
-function allocate_hyper_reduction(a::BlockHRProjection,args...)
-  hypred = return_cache(allocate_hyper_reduction,a,args...)
+function allocate_hyper_reduction(a::BlockHRProjection)
+  hypred = return_cache(allocate_hyper_reduction,a)
   for i in eachindex(a)
-    hypred[i] = allocate_hyper_reduction(a.array[i],args...)
+    hypred[i] = allocate_hyper_reduction(a.array[i])
+  end
+  return mortar(hypred)
+end
+
+function allocate_hyper_reduction(a::BlockHRProjection,r::AbstractRealization)
+  hypred = return_cache(allocate_hyper_reduction,a,r)
+  for i in eachindex(a)
+    hypred[i] = allocate_hyper_reduction(a.array[i],r)
   end
   return mortar(hypred)
 end
@@ -666,7 +687,7 @@ function reduced_form(
   end
 
   hyper_red = BlockProjection(hyper_reds,s.touched)
-  red_trian = reduced_triangulation(trian,hyper_red)
+  red_trian = _reduced_triangulation(red,trian,hyper_red)
 
   return hyper_red,red_trian
 end
@@ -685,7 +706,7 @@ function reduced_form(
   end
 
   hyper_red = BlockProjection(hyper_reds,s.touched)
-  red_trian = reduced_triangulation(trian,hyper_red)
+  red_trian = _reduced_triangulation(red,trian,hyper_red)
 
   return hyper_red,red_trian
 end

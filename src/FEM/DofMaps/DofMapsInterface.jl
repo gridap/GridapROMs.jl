@@ -181,6 +181,11 @@ struct TrivialSparseMatrixDofMap{A<:SparsityPattern} <: TrivialDofMap{Int}
   sparsity::A
 end
 
+function TrivialSparseMatrixDofMap(args...)
+  sparsity = SparsityPattern(args...)
+  TrivialSparseMatrixDofMap(sparsity)
+end
+
 function TrivialDofMap(i::TrivialSparseMatrixDofMap)
   TrivialSparseMatrixDofMap(i.sparsity)
 end

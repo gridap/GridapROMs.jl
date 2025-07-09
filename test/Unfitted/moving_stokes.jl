@@ -322,8 +322,12 @@ uh = FEFunction(trialbg_u,blocks(x_bg)[1])
 ph = FEFunction(trialbg_p,blocks(x_bg)[2])
 writevtk(Ωbg.trian,joinpath(test_dir,"trianbg"),cellfields=["uh"=>uh,"ph"=>ph])
 
-
-x = Uncommon.allocate_batchvector(ffeop)
-i = 1
-xi = solve(solver,op.operators[i])
-setindex!(x,xi,i)
+# reduced_spaces(rbsolver,feop,fesnaps)
+red = rbsolver.state_reduction
+# reduced_basis(red,feop,fesnaps)
+norm_matrix = assemble_matrix(feop,energy)
+supr_matrix = assemble_matrix(feop,coupling)
+basis = reduced_basis(get_reduction(red),fesnaps,norm_matrix)
+for b in RBSteady.local_values(basis)
+  enrich!(red.reduction,b,norm_matrix,supr_matrix)
+end

@@ -70,7 +70,7 @@ function ParamDataStructures.realization(op::UncommonParamOperator;nparams=1)
 end
 
 FESpaces.get_test(op::UncommonParamOperator) = get_bg_space(get_test(first(op.operators)))
-FESpaces.get_trial(op::UncommonParamOperator) = parameterize(get_bg_space(get_trial(first(op.operators))),1)
+FESpaces.get_trial(op::UncommonParamOperator) = parameterize(get_bg_space(get_trial(first(op.operators))),param_length(op))
 
 Utils.change_domains(op::UncommonParamOperator,args...) = op
 Utils.set_domains(op::SplitUncommonParamOperator) = UncommonParamOperator(set_domains.(op.operators),op.μ)
@@ -116,7 +116,7 @@ function batchsolve(solver,op::UncommonParamOperator)
   x = allocate_batchvector(op)
   for i in 1:length(op.operators)
     xi = solve(solver,op.operators[i])
-    setindex!(x,xi,i)
+    param_setindex!(x,xi,i)
   end
   return x
 end
@@ -187,7 +187,7 @@ end
 
 function allocate_batchmatrix(::Type{V},op::UncommonParamOperator) where V
   plength = length(op.operators)
-  n = 2*plength*_max_num_nonzeros(op)
+  n = 2*plength*_max_nnz(op)
   colptr = Vector{Int}(undef,n)
   rowval = Vector{Int}(undef,n)
   data = Vector{eltype(V)}(undef,n)
@@ -201,8 +201,8 @@ function allocate_batchmatrix(::Type{V},op::UncommonParamOperator) where {T,V<:B
   plength = length(op.operators)
   nfields_test = num_fields(get_test(first(op.operators)))
   nfields_trial = num_fields(get_trial(first(op.operators)))
-  array = map(CartesianIndices((nfields_test,nfields_trial))) do i,j
-    n = 2*plength*_max_num_nonzeros(op,i,j)
+  array = map(Iterators.product(1:nfields_test,1:nfields_trial)) do (i,j)
+    n = 2*plength*_max_nnz_at_field(op,i,j)
     colptr = Vector{Int}(undef,n)
     rowval = Vector{Int}(undef,n)
     data = Vector{T}(undef,n)
@@ -216,7 +216,7 @@ function allocate_batchmatrix(::Type{V},op::UncommonParamOperator) where {T,V<:B
 end
 
 function update_batchvector!(cache,vec::AbstractVector,k::Int)
-  setindex!(cache,vec,k)
+  param_setindex!(cache,vec,k)
 end
 
 function update_batchmatrix!(cache,mat::SparseMatrixCSC,k::Int;α=1)
@@ -258,16 +258,16 @@ function update_batchmatrix!(cache,mat::SparseMatrixCSC,k::Int;α=1)
   return
 end
 
+function update_batchmatrix!(cache::ArrayBlock,mat::BlockArray,k::Int)
+  for i in eachindex(cache)
+    if cache.touched[i]
+      update_batchmatrix!(cache.array[i],blocks(mat)[i],k)
+    end
+  end
+end
+
 for f in (:update_batchvector!,:update_batchmatrix!)
   @eval begin
-    function $f(cache::ArrayBlock,matvec::BlockArray,k::Int)
-      for i in eachindex(cache)
-        if cache.touched[i]
-          $f(cache.array[i],blocks(matvec)[i],k)
-        end
-      end
-    end
-
     function $f(cache::Contribution,matvec::Contribution,k::Int)
       map(eachindex(matvec)) do i
         $f(cache[i],matvec[i],k)
@@ -298,8 +298,8 @@ function to_param_sparse_matrix(cache::Contribution)
 end
 
 _to_consecutive(x::GenericParamVector) = ConsecutiveParamArray(x)
-_to_consecutive(x::BlockParamVector) = mortar(map(_to_consecutive,x.data))
 _to_consecutive(x::GenericParamSparseMatrixCSC) = ConsecutiveParamSparseMatrixCSC(x)
+_to_consecutive(x::BlockParamArray) = mortar(map(_to_consecutive,x.data))
 
 function _to_consecutive(x::Contribution)
   contribution(get_domains(x)) do trian
@@ -314,25 +314,25 @@ _num_dofs(f::SingleFieldFESpace) = num_free_dofs(f)
 _num_dofs(f::DirectSumFESpace) = _num_dofs(get_bg_space(f))
 _num_dofs(op::NonlinearOperator) = _num_dofs(get_test(op))
 
-function _max_num_nonzeros(f::SingleFieldFESpace,g::SingleFieldFESpace)
+function _max_nnz(f::SingleFieldFESpace,g::SingleFieldFESpace)
   sparsity = get_sparsity(f,g)
   nnz(sparsity)
 end
 
-function _max_num_nonzeros(f::DirectSumFESpace,g::SingleFieldFESpace)
-  _max_num_nonzeros(get_bg_space(f),get_bg_space(g))
+function _max_nnz(f::DirectSumFESpace,g::SingleFieldFESpace)
+  _max_nnz(get_bg_space(f),get_bg_space(g))
 end
 
-function _max_num_nonzeros(op::UncommonParamOperator)
+function _max_nnz(op::UncommonParamOperator)
   ndofs = map(opi -> num_free_dofs(get_test(opi)),op.operators)
   maxid = findfirst(ndofs .== maximum(ndofs))
-  _max_num_nonzeros(get_trial(op.operators[maxid]),get_test(op.operators[maxid]))
+  _max_nnz(get_trial(op.operators[maxid]),get_test(op.operators[maxid]))
 end
 
 _num_dofs_at_field(op::NonlinearOperator,n::Int) = _num_dofs(get_test(op)[n])
 
-function _max_num_nonzeros_at_field(op::NonlinearOperator,m::Int,n::Int)
-  _max_num_nonzeros(get_test(op)[m],get_trial(op)[n])
+function _max_nnz_at_field(op::NonlinearOperator,m::Int,n::Int)
+  _max_nnz(get_test(op)[m],get_trial(op)[n])
 end
 
 # TODO maybe use K means here as well?
