@@ -1,4 +1,4 @@
-module MovingPoisson3D
+module MovingElasticity3D
 
 using DrWatson
 using Serialization
@@ -16,13 +16,15 @@ using GridapROMs.RBSteady
 using GridapROMs.Extensions
 using GridapROMs.Utils
 
+import GridapROMs.RBSteady: load_stats
+
 tol_or_rank(tol,rank) = @assert false "Provide either a tolerance or a rank for the reduction step"
 tol_or_rank(tol::Real,rank) = tol
 tol_or_rank(tol::Real,rank::Int) = tol
 tol_or_rank(tol,rank::Int) = rank
 
 method=:ttsvd
-n=40
+n=30
 tol=1e-4
 rank=nothing
 nparams = 100
@@ -43,8 +45,17 @@ else
   bgmodel = CartesianDiscreteModel(pmin,pmax,partition)
 end
 
-f(x) = 1.0
-g(x) = x[1]-x[2]
+g(x) = VectorValue(x[1],-x[2],0.0)
+
+# dimensional
+# λ = 3.5e8*0.33/((1+0.33)*(1-2*0.33))
+# p = 3.5e8/(2(1+0.33))
+# σ(ε) = λ*tr(ε)*one(ε) + 2*p*ε
+
+# adimensional
+λ = 0.33/((1+0.33)*(1-2*0.33))
+p = 1/(2(1+0.33))
+σ(ε) = λ*tr(ε)*one(ε) + 2*p*ε
 
 order = 1
 degree = 2*order
@@ -52,14 +63,14 @@ degree = 2*order
 Ωbg = Triangulation(bgmodel)
 dΩbg = Measure(Ωbg,degree)
 
-reffe = ReferenceFE(lagrangian,Float64,order)
+reffe = ReferenceFE(lagrangian,VectorValue{3,Float64},order)
 testbg = FESpace(Ωbg,reffe,conformity=:H1)
 
-energy(du,v) = ∫(v*du)dΩbg + ∫(∇(v)⋅∇(du))dΩbg
+energy(du,v) = ∫(v⋅du)dΩbg + ∫(∇(v)⊙∇(du))dΩbg
 tolrank = tol_or_rank(tol,rank)
-tolrank = method == :ttsvd ? fill(tolrank,3) : tolrank
-ncentroids = 16
-ncentroids_res = ncentroids_jac = 8
+tolrank = method == :ttsvd ? fill(tolrank,4) : tolrank
+ncentroids = 4
+ncentroids_res = ncentroids_jac = 4
 fesolver = ExtensionSolver(LUSolver())
 
 const γd = 10.0
@@ -94,9 +105,9 @@ function def_fe_operator(μ)
 
   n_Γ = get_normal_vector(Γ)
 
-  a(u,v,dΩ,dΓ) = ∫(∇(v)⋅∇(u))dΩ + ∫( (γd/hd)*v*u  - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u )dΓ
-  l(v,dΩ,dΓ) = ∫(f⋅v)dΩ + ∫( (γd/hd)*v*g - (n_Γ⋅∇(v))*g )dΓ
-  res(u,v,dΩ,dΓ) = ∫(∇(v)⋅∇(u))dΩ - l(v,dΩ,dΓ)
+  a(u,v,dΩ,dΓ) = ∫( ε(v) ⊙ (σ∘ε(u)) )*dΩ + ∫( (γd/hd)*v⋅u - v⋅(n_Γ⋅(σ∘ε(u))) - (n_Γ⋅(σ∘ε(v)))⊙u )dΓ
+  l(v,dΓ) = ∫( (γd/hd)*v⋅g - (n_Γ⋅(σ∘ε(v)))⋅g )dΓ
+  res(u,v,dΩ,dΓ) = ∫( ε(v) ⊙ (σ∘ε(u)) )*dΩ - l(v,dΓ)
 
   domains = FEDomains((Ω,Γ),(Ω,Γ))
 
@@ -143,14 +154,14 @@ function compute_err(x,x̂,μ)
   testact = FESpace(Ωact,reffe,conformity=:H1)
   testagg = AgFEMSpace(testact,aggregates)
 
-  energy(u,v) = ∫( v*u + ∇(v)⋅∇(u) )dΩ + ∫( (γd/hd)*v*u - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u )dΓ
+  energy(u,v) = ∫(v⋅u)dΩbg + ∫(∇(v)⊙∇(u))dΩbg + ∫( (γd/hd)*v⋅u - v⋅(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))⋅u )dΓ
   X = assemble_matrix(energy,testagg,testagg)
 
   d2bgd = Extensions.get_fdof_to_bg_fdof(testbg,testagg)
   xd = x[d2bgd]
   x̂d = x̂[d2bgd]
 
-  Y = (assemble_matrix((u,v)->∫( v*u + ∇(v)⋅∇(u) )dΩbg,testbg,testbg))[d2bgd,d2bgd]
+  Y = (assemble_matrix((u,v)->∫( v⋅u + ∇(v)⊙∇(u) )dΩbg,testbg,testbg))[d2bgd,d2bgd]
 
   errH1 = compute_relative_error(xd,x̂d,X)
   _errH1 = compute_relative_error(xd,x̂d,Y)
@@ -169,7 +180,7 @@ end
 
 function plot_sol(rbop,x,x̂,μon,dir,i=1)
   if method==:ttsvd
-    u,û,e,bgΩ = vec(x[:,:,:,i]),vec(x̂[:,:,:,i]),abs.(vec(x[:,:,:,i]-x̂[:,:,:,i])),Ωbg.trian
+    u,û,e,bgΩ = vec(x[:,:,:,:,i]),vec(x̂[:,:,:,:,i]),abs.(vec(x[:,:,:,:,i]-x̂[:,:,:,:,i])),Ωbg.trian
   else
     u,û,e,bgΩ = x[:,i],x̂[:,i],abs.(x[:,i]-x̂[:,i]),Ωbg
   end
@@ -201,7 +212,7 @@ function postprocess(
   error = [0.0,0.0,0.0]
   for (i,μ) in enumerate(μon)
     if method==:ttsvd
-      xi,x̂i = vec(fesnaps[:,:,:,i]),vec(rbsnaps[:,:,:,i])
+      xi,x̂i = vec(fesnaps[:,:,:,:,i]),vec(rbsnaps[:,:,:,:,i])
     else
       xi,x̂i = fesnaps[:,i],rbsnaps[:,i]
     end
@@ -233,7 +244,7 @@ function max_subspace_size(a::LocalProjection)
   return maxsize
 end
 
-test_dir = datadir("moving_poisson3D")
+test_dir = datadir("moving_elasticity")
 create_dir(test_dir)
 
 μ = realization(pspace;nparams)
@@ -252,12 +263,19 @@ for opon in feopon.operators
   println(num_free_dofs(get_test(opon)))
 end
 
-rbsolver = global_rb_solver(tolrank,nparams) # rb_solver(tolrank,nparams)
-fesnaps = load_snapshots(test_dir)
-x,festats = solution_snapshots(rbsolver,feopon,μon)
+rbsolver = rb_solver(tolrank,nparams)
 
-# save(test_dir,fesnaps)
-# save(test_dir,x;label="online")
+try
+  fesnaps = load_snapshots(test_dir)
+  x = load_snapshots(test_dir;label="online")
+  festats = load_stats(test_dir;label="online")
+catch
+  fesnaps, = solution_snapshots(rbsolver,feop,μ)
+  x,festats = solution_snapshots(rbsolver,feopon,μon)
+  save(test_dir,fesnaps)
+  save(test_dir,x;label="online")
+  save(test_dir,festats;label="online")
+end
 
 jacs = jacobian_snapshots(rbsolver,feop,fesnaps)
 ress = residual_snapshots(rbsolver,feop,fesnaps)
@@ -267,13 +285,12 @@ _perfsH1 = ROMPerformance[]
 perfsl2 = ROMPerformance[]
 maxsizes = Vector{Int}[]
 
-tols = (1e-3,)#(1e-0,1e-0,1e-1,1e-2,1e-3)
+tols = (1e-0,1e-1,1e-2,1e-3)
 
-# for (itol,tol) in enumerate(tols)
-tol = 1e-3
+for (itol,tol) in enumerate(tols)
   tolrank = tol_or_rank(tol,rank)
-  tolrank = method == :ttsvd ? fill(tolrank,3) : tolrank
-  rbsolver = global_rb_solver(tolrank,nparams)
+  tolrank = method == :ttsvd ? fill(tolrank,4) : tolrank
+  rbsolver = rb_solver(tolrank,nparams)
 
   dir = joinpath(test_dir,string(tol))
   create_dir(dir)
@@ -281,7 +298,7 @@ tol = 1e-3
   rbop = reduced_operator(rbsolver,feop,fesnaps,jacs,ress)
   x̂,rbstats = solve(rbsolver,rbop,μon)
 
-  # if itol > 1
+  if itol > 1
     perfH1,_perfH1,perfl2 = postprocess(dir,rbsolver,feopon,rbop,x,x̂,festats,rbstats)
     maxsize = max_subspace_size(rbop)
 
@@ -292,10 +309,15 @@ tol = 1e-3
     push!(_perfsH1,_perfH1)
     push!(perfsl2,perfl2)
     push!(maxsizes,maxsize)
-  # end
-# end
+  end
+end
 
-serialize(joinpath(test_dir,"global_resultsH1"),perfsH1)
-serialize(joinpath(test_dir,"global_maxsizes"),maxsizes)
+serialize(joinpath(test_dir,"resultsH1"),perfsH1)
+serialize(joinpath(test_dir,"_resultsH1"),_perfsH1)
+serialize(joinpath(test_dir,"resultsl2"),perfsl2)
+serialize(joinpath(test_dir,"maxsizes"),maxsizes)
+
+deserialize(joinpath(test_dir,"resultsH1"))
+deserialize(joinpath(test_dir,"maxsizes"))
 
 end

@@ -589,7 +589,10 @@ function projection(red::Reduction,s::BlockSnapshots,X::MatrixOrTensor)
 end
 
 """
-    struct BlockProjection{A,N} <: Projection end
+    struct BlockProjection{A<:HRProjection,N} <: Projection
+      array::Array{A,N}
+      touched::Array{Bool,N}
+    end
 
 Block container for Projection of type `A` in a `MultiField` setting. This
 type is conceived similarly to `ArrayBlock` in [`Gridap`](@ref)

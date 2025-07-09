@@ -69,13 +69,13 @@ function Algebra.residual!(
 
   for strian in trian_res
     b_strian = b.fecache[strian]
-    rhs_strian = op.rhs[strian]
+    rhs_strian = get_interpolation(op.rhs[strian])
     style = TransientHRStyle(rhs_strian)
     vecdata = collect_cell_hr_vector(test,dc,strian,rhs_strian,hr_param_time_ids)
     assemble_hr_vector_add!(b_strian,style,vecdata...)
   end
 
-  inv_project!(b,op.rhs)
+  interpolate!(b,op.rhs)
 end
 
 function Algebra.jacobian!(
@@ -111,14 +111,14 @@ function Algebra.jacobian!(
     trian_jac = trian_jacs[k]
     for strian in trian_jac
       A_strian = Ak[strian]
-      lhs_strian = lhs[strian]
+      lhs_strian = get_interpolation(lhs[strian])
       style = TransientHRStyle(lhs_strian)
       matdata = collect_cell_hr_matrix(trial,test,dc,strian,lhs_strian,hr_param_time_ids)
       assemble_hr_matrix_add!(A_strian,style,matdata...)
     end
   end
 
-  inv_project!(A,op.lhs)
+  interpolate!(A,op.lhs)
 end
 
 # utils

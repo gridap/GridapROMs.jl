@@ -159,12 +159,12 @@ function Algebra.residual!(
 
   for strian in trian_res
     b_strian = b.fecache[strian]
-    rhs_strian = op.rhs[strian]
+    rhs_strian = get_interpolation(op.rhs[strian])
     vecdata = collect_cell_hr_vector(test,dc,strian,rhs_strian)
     assemble_hr_vector_add!(b_strian,vecdata...)
   end
 
-  inv_project!(b,op.rhs)
+  interpolate!(b,op.rhs)
 end
 
 function Algebra.jacobian!(
@@ -188,17 +188,17 @@ function Algebra.jacobian!(
 
   for strian in trian_jac
     A_strian = A.fecache[strian]
-    lhs_strian = op.lhs[strian]
+    lhs_strian = get_interpolation(op.lhs[strian])
     matdata = collect_cell_hr_matrix(trial,test,dc,strian,lhs_strian)
     assemble_hr_matrix_add!(A_strian,matdata...)
   end
 
-  inv_project!(A,op.lhs)
+  interpolate!(A,op.lhs)
 end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::GenericRBOperator{O,A,<:InterpContribution},
+  op::GenericRBOperator{O,A,<:RBFContribution},
   r::Realization,
   u::AbstractVector,
   paramcache) where {O,A}
@@ -209,7 +209,7 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::GenericRBOperator{O,<:InterpContribution,B},
+  op::GenericRBOperator{O,<:RBFContribution,B},
   r::Realization,
   u::AbstractVector,
   paramcache) where {O,B}

@@ -70,7 +70,7 @@ function RBSteady.reduced_jacobian(
   return a
 end
 
-function RBSteady.inv_project!(
+function FESpaces.interpolate!(
   b̂::AbstractParamArray,
   coeff::AbstractParamArray,
   a::TransientHRProjection,
@@ -94,7 +94,7 @@ function RBSteady.allocate_coefficient(a::TupOfAffineContribution,b::TupOfArrayC
   return coeffs
 end
 
-function RBSteady.inv_project!(
+function FESpaces.interpolate!(
   b̂::AbstractParamArray,
   coeff::TupOfArrayContribution,
   a::TupOfAffineContribution,
@@ -104,14 +104,14 @@ function RBSteady.inv_project!(
   fill!(b̂,zero(eltype(b̂)))
   for (ai,bi,ci) in zip(a,b,coeff)
     for (aval,bval,cval) in zip(get_contributions(ai),get_contributions(bi),get_contributions(ci))
-      inv_project!(b̂,cval,aval,bval)
+      interpolate!(b̂,cval,aval,bval)
     end
   end
   return b̂
 end
 
-function RBSteady.inv_project!(cache::HRParamArray,a::TupOfAffineContribution)
-  inv_project!(cache.hypred,cache.coeff,a,cache.fecache)
+function FESpaces.interpolate!(cache::HRParamArray,a::TupOfAffineContribution)
+  interpolate!(cache.hypred,cache.coeff,a,cache.fecache)
 end
 
 function RBSteady.allocate_hypred_cache(a::TupOfAffineContribution,args...)

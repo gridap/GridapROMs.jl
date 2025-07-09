@@ -3,11 +3,11 @@ function collect_cell_hr_matrix(
   test::FESpace,
   a::DomainContribution,
   strian::Triangulation,
-  hr::Projection)
+  interp::Interpolation)
 
-  cell_irows = get_cellids_rows(hr)
-  cell_icols = get_cellids_cols(hr)
-  icells = get_owned_icells(hr,strian)
+  cell_irows = get_cellids_rows(interp)
+  cell_icols = get_cellids_cols(interp)
+  icells = get_owned_icells(interp,strian)
   scell_mat = get_contribution(a,strian)
   cell_mat,trian = move_contributions(scell_mat,strian)
   @assert ndims(eltype(cell_mat)) == 2
@@ -20,10 +20,10 @@ function collect_cell_hr_vector(
   test::FESpace,
   a::DomainContribution,
   strian::Triangulation,
-  hr::Projection)
+  interp::Interpolation)
 
-  cell_irows = get_cellids_rows(hr)
-  icells = get_owned_icells(hr,strian)
+  cell_irows = get_cellids_rows(interp)
+  icells = get_owned_icells(interp,strian)
   scell_vec = get_contribution(a,strian)
   cell_vec,trian = move_contributions(scell_vec,strian)
   @assert ndims(eltype(cell_vec)) == 1

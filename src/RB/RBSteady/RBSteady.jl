@@ -62,7 +62,7 @@ export LocalReduction
 export SupremizerReduction
 export HyperReduction
 export MDEIMReduction
-export InterpHyperReduction
+export RBFHyperReduction
 export LocalHyperReduction
 export LocalSupremizerReduction
 export AdaptiveReduction
@@ -150,9 +150,16 @@ export get_cellids_cols
 export get_owned_icells
 include("IntegrationDomains.jl")
 
+export Interpolation
+export MDEIMInterpolation
+export RBFInterpolation
+export BlockInterpolation
+include("Interpolations.jl")
+
 export HRProjection
-export TrivialHRProjection
+export GenericHRProjection
 export MDEIMProjection
+export RBFProjection
 export AffineContribution
 export BlockHRProjection
 export get_interpolation
@@ -172,7 +179,6 @@ export assemble_hr_vector_add!
 include("HRAssemblers.jl")
 
 export LocalProjection
-export InterpHRProjection
 export compute_ncentroids
 export get_local
 export local_values

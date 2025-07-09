@@ -414,6 +414,10 @@ function HyperReduction(reduction::Reduction;kwargs...)
   HyperReduction(red_style;kwargs...)
 end
 
+ReductionStyle(r::HyperReduction) = ReductionStyle(get_reduction(r))
+NormStyle(r::HyperReduction) = NormStyle(get_reduction(r))
+ParamDataStructures.num_params(r::HyperReduction) = num_params(get_reduction(r))
+
 """
     struct MDEIMReduction{A} <: HyperReduction{A}
       reduction::Reduction{A,EuclideanNorm}
@@ -426,41 +430,35 @@ struct MDEIMReduction{A} <: HyperReduction{A}
 end
 
 get_reduction(r::MDEIMReduction) = r.reduction
-ReductionStyle(r::MDEIMReduction) = ReductionStyle(get_reduction(r))
-NormStyle(r::MDEIMReduction) = NormStyle(get_reduction(r))
-ParamDataStructures.num_params(r::MDEIMReduction) = num_params(get_reduction(r))
 
 """
-    struct InterpHyperReduction{A} <: HyperReduction{A}
+    struct RBFHyperReduction{A} <: HyperReduction{A}
       reduction::Reduction{A,EuclideanNorm}
       strategy::AbstractRadialBasis
     end
 """
-struct InterpHyperReduction{A} <: HyperReduction{A}
+struct RBFHyperReduction{A} <: HyperReduction{A}
   reduction::Reduction{A,EuclideanNorm}
   strategy::AbstractRadialBasis
 end
 
-function InterpHyperReduction(args...;strategy=PHS(),kwargs...)
+function RBFHyperReduction(args...;strategy=PHS(),kwargs...)
   reduction = Reduction(args...;kwargs...)
-  InterpHyperReduction(reduction,strategy)
+  RBFHyperReduction(reduction,strategy)
 end
 
-function InterpHyperReduction(reduction::Reduction;kwargs...)
+function RBFHyperReduction(reduction::Reduction;kwargs...)
   red_style = ReductionStyle(reduction)
-  InterpHyperReduction(red_style;kwargs...)
+  RBFHyperReduction(red_style;kwargs...)
 end
 
-get_reduction(r::InterpHyperReduction) = r.reduction
-ReductionStyle(r::InterpHyperReduction) = ReductionStyle(get_reduction(r))
-NormStyle(r::InterpHyperReduction) = NormStyle(get_reduction(r))
-interp_strategy(r::InterpHyperReduction) = r.strategy
-ParamDataStructures.num_params(r::InterpHyperReduction) = num_params(get_reduction(r))
+get_reduction(r::RBFHyperReduction) = r.reduction
+interp_strategy(r::RBFHyperReduction) = r.strategy
 
 const LocalHyperReduction{A} = LocalReduction{A,EuclideanNorm,<:HyperReduction{A}}
 
 function LocalHyperReduction(args...;interp=false,ncentroids=10,kwargs...)
-  red = interp ? InterpHyperReduction(args...;kwargs...) : HyperReduction(args...;kwargs...)
+  red = interp ? RBFHyperReduction(args...;kwargs...) : HyperReduction(args...;kwargs...)
   LocalReduction(red;ncentroids)
 end
 
