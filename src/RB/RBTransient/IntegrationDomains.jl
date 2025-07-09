@@ -122,7 +122,7 @@ end
 get_domain_style(a::TransientIntegrationDomain) = a.domain_style
 
 function RBSteady.vector_domain(
-  ::HighOrderKroneckerReduction,
+  ::KroneckerProjection,
   trian::Triangulation,
   test::FESpace,
   rows::AbstractVector,
@@ -133,7 +133,7 @@ function RBSteady.vector_domain(
 end
 
 function RBSteady.matrix_domain(
-  ::HighOrderKroneckerReduction,
+  ::KroneckerProjection,
   trian::Triangulation,
   trial::FESpace,
   test::FESpace,
@@ -146,7 +146,7 @@ function RBSteady.matrix_domain(
 end
 
 function RBSteady.vector_domain(
-  ::HighOrderSequentialReduction,
+  ::SequentialProjection,
   trian::Triangulation,
   test::FESpace,
   rows::AbstractVector,
@@ -159,7 +159,7 @@ function RBSteady.vector_domain(
 end
 
 function RBSteady.matrix_domain(
-  ::HighOrderSequentialReduction,
+  ::SequentialProjection,
   trian::Triangulation,
   trial::FESpace,
   test::FESpace,

@@ -61,6 +61,11 @@ include("RBSpaces.jl")
 export TransientIntegrationDomain
 include("IntegrationDomains.jl")
 
+export TransientMDEIMInterpolation
+export TransientRBFInterpolation
+export TransientBlockInterpolation
+include("Interpolations.jl")
+
 include("HyperReductions.jl")
 
 include("HRAssemblers.jl")

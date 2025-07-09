@@ -176,54 +176,54 @@ end
 
 # tt interface
 
-struct LinearProjection{A} <: TransientProjection
+struct SequentialProjection{A} <: TransientProjection
   projection::A
 end
 
 function RBSteady.projection(red::HighOrderSequentialReduction,s::TransientSnapshots)
   proj = projection(get_reduction(red),s)
-  LinearProjection(proj)
+  SequentialProjection(proj)
 end
 
 function RBSteady.projection(red::HighOrderSequentialReduction,s::TransientSnapshots,X::MatrixOrTensor)
   proj = projection(get_reduction(red),s,X)
-  LinearProjection(proj)
+  SequentialProjection(proj)
 end
 
 #TODO when new projection operators are implemented, this will have to change
-RBSteady.get_cores(a::LinearProjection) = get_cores(a.projection)
-get_cores_space(a::LinearProjection) = get_cores(a)[1:end-1]
-get_core_time(a::LinearProjection) = get_cores(a)[end]
-get_basis_space(a::LinearProjection) = cores2basis(get_cores_space(a)...)
-get_basis_time(a::LinearProjection) = @notimplemented
+RBSteady.get_cores(a::SequentialProjection) = get_cores(a.projection)
+get_cores_space(a::SequentialProjection) = get_cores(a)[1:end-1]
+get_core_time(a::SequentialProjection) = get_cores(a)[end]
+get_basis_space(a::SequentialProjection) = cores2basis(get_cores_space(a)...)
+get_basis_time(a::SequentialProjection) = @notimplemented
 
-ParamDataStructures.num_space_dofs(a::LinearProjection) = prod(map(c -> size(c,2),get_cores_space(a)))
-ParamDataStructures.num_times(a::LinearProjection) = size(get_core_time(a),2)
+ParamDataStructures.num_space_dofs(a::SequentialProjection) = prod(map(c -> size(c,2),get_cores_space(a)))
+ParamDataStructures.num_times(a::SequentialProjection) = size(get_core_time(a),2)
 
-DofMaps.get_dof_map(a::LinearProjection) = get_dof_map(a.projection)
+DofMaps.get_dof_map(a::SequentialProjection) = get_dof_map(a.projection)
 
-RBSteady.get_basis(a::LinearProjection) = get_basis(a.projection)
-RBSteady.num_reduced_dofs(a::LinearProjection) = num_reduced_dofs(a.projection)
-RBSteady.get_norm_matrix(a::LinearProjection) = get_norm_matrix(a.projection)
-RBSteady.empirical_interpolation(a::LinearProjection) = empirical_interpolation(a.projection)
+RBSteady.get_basis(a::SequentialProjection) = get_basis(a.projection)
+RBSteady.num_reduced_dofs(a::SequentialProjection) = num_reduced_dofs(a.projection)
+RBSteady.get_norm_matrix(a::SequentialProjection) = get_norm_matrix(a.projection)
+RBSteady.empirical_interpolation(a::SequentialProjection) = empirical_interpolation(a.projection)
 
-function RBSteady.union_bases(a::LinearProjection,b::AbstractArray,args...)
+function RBSteady.union_bases(a::SequentialProjection,b::AbstractArray,args...)
   projection′ = union_bases(a.projection,b,args...)
-  LinearProjection(projection′)
+  SequentialProjection(projection′)
 end
 
-function RBSteady.galerkin_projection(proj_left::LinearProjection,a::LinearProjection)
+function RBSteady.galerkin_projection(proj_left::SequentialProjection,a::SequentialProjection)
   galerkin_projection(proj_left.projection,a.projection)
 end
 
-function RBSteady.rescale(op::Function,X::AbstractRankTensor,b::LinearProjection)
+function RBSteady.rescale(op::Function,X::AbstractRankTensor,b::SequentialProjection)
   RBSteady.rescale(op,X,b.projection)
 end
 
 function RBSteady.galerkin_projection(
-  proj_left::LinearProjection,
-  a::LinearProjection,
-  proj_right::LinearProjection,
+  proj_left::SequentialProjection,
+  a::SequentialProjection,
+  proj_right::SequentialProjection,
   combine)
 
   _galerkin_projection(get_dof_map(a),proj_left,a,proj_right,combine)
@@ -231,9 +231,9 @@ end
 
 function _galerkin_projection(
   ::AbstractDofMap,
-  proj_left::LinearProjection,
-  a::LinearProjection,
-  proj_right::LinearProjection,
+  proj_left::SequentialProjection,
+  a::SequentialProjection,
+  proj_right::SequentialProjection,
   combine)
 
   # space
@@ -256,9 +256,9 @@ end
 
 function _galerkin_projection(
   ::TrivialDofMap,
-  proj_left::LinearProjection,
-  a::LinearProjection,
-  proj_right::LinearProjection,
+  proj_left::SequentialProjection,
+  a::SequentialProjection,
+  proj_right::SequentialProjection,
   combine)
 
   get_core_space(a) = RBSteady.basis2core(get_basis_space(a))
@@ -281,11 +281,11 @@ function _galerkin_projection(
   return ReducedProjection(proj_cores)
 end
 
-function RBSteady.project!(x̂::AbstractVector{<:Number},a::LinearProjection,x::AbstractVector{<:Number})
+function RBSteady.project!(x̂::AbstractVector{<:Number},a::SequentialProjection,x::AbstractVector{<:Number})
   project!(x̂,a.projection,x)
 end
 
-function RBSteady.inv_project!(x::AbstractVector{<:Number},a::LinearProjection,x̂::AbstractVector{<:Number})
+function RBSteady.inv_project!(x::AbstractVector{<:Number},a::SequentialProjection,x̂::AbstractVector{<:Number})
   inv_project!(x,a.projection,x̂)
 end
 
@@ -300,11 +300,11 @@ function Arrays.return_type(::typeof(projection),::HighOrderKroneckerReduction,:
 end
 
 function Arrays.return_type(::typeof(projection),::HighOrderSequentialReduction,::TransientSnapshots)
-  LinearProjection
+  SequentialProjection
 end
 
 function Arrays.return_type(::typeof(projection),::HighOrderSequentialReduction,::TransientSnapshots,::AbstractRankTensor)
-  LinearProjection
+  SequentialProjection
 end
 
 function RBSteady.enrich!(

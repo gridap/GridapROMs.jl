@@ -15,6 +15,16 @@ function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,x::Any)
   @abstractmethod
 end
 
+function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,b::AbstractArray)
+  ldiv!(cache,a,b)
+  cache
+end
+
+function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,r::AbstractRealization)
+  interpolate!(cache,get_interpolation(a),r)
+  cache
+end
+
 function reduced_triangulation(trian::Triangulation,a::Interpolation)
   return trian
 end
@@ -44,11 +54,6 @@ end
 
 get_interpolation(a::MDEIMInterpolation) = a.interpolation
 get_integration_domain(a::MDEIMInterpolation) = a.domain
-
-function FESpaces.interpolate!(cache::AbstractArray,a::MDEIMInterpolation,b::AbstractArray)
-  ldiv!(cache,a,b)
-  cache
-end
 
 function reduced_triangulation(trian::Triangulation,a::MDEIMInterpolation)
   red_cells = get_integration_cells(a)
@@ -81,11 +86,6 @@ end
 
 get_interpolation(a::RBFInterpolation) = a.interpolation
 
-function FESpaces.interpolate!(cache::AbstractArray,a::RBFInterpolation,r::AbstractRealization)
-  interpolate!(cache,get_interpolation(a),r)
-  cache
-end
-
 function RadialBasisFunctions.Interpolator(
   x::Realization,
   y::ConsecutiveParamArray,
@@ -100,9 +100,7 @@ function RadialBasisFunctions.Interpolator(
   data_type = promote_type(eltype(first(x.params)),eltype2(y))
   A = Symmetric(zeros(data_type,n,n))
   RadialBasisFunctions._build_collocation_matrix!(A,x.params,basis,mon,k)
-  factor = factorize(A)
   l = innerlength(y)
-  w = zeros(data_type,n,l)
   b = zeros(data_type,n,l)
   z = zero(data_type)
   for j in 1:l
@@ -110,7 +108,7 @@ function RadialBasisFunctions.Interpolator(
       b[i,j] = i < k ? y.data[j,i] : z
     end
   end
-  ldiv!(w,factor,b)
+  w = A \ b
   return Interpolator(x,y,view(w,1:k,:),view(w,1+k:n,:),basis,mon)
 end
 
@@ -124,7 +122,7 @@ function FESpaces.interpolate(rbfi::Interpolator,x::AbstractRealization)
   return cache
 end
 
-function FESpaces.interpolate!(cache::ConsecutiveParamVector,rbfi::Interpolator,x::AbstractRealization)
+function FESpaces.interpolate!(cache::ConsecutiveParamVector,rbfi::Interpolator,x::Realization)
   k′ = param_length(x)
   l = size(rbfi.rbf_weights,2)
 
