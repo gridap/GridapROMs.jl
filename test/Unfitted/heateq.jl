@@ -99,7 +99,7 @@ function main(
   energy(du,v) = ∫(v*du)dΩbg + ∫(∇(v)⋅∇(du))dΩbg
   tolrank = tol_or_rank(tol,rank)
   tolrank = method == :ttsvd ? fill(tolrank,4) : tolrank
-  state_reduction = TransientReduction(tolrank,energy;nparams)
+  state_reduction = HighOrderReduction(tolrank,energy;nparams)
 
   fesolver = ThetaMethod(ExtensionSolver(LUSolver()),dt,θ)
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,nparams_djac)

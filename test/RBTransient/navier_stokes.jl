@@ -81,11 +81,11 @@ function main(
   tolrank = tol_or_rank(tol,rank)
   if method == :pod
     coupling((du,dp),(v,q)) = ∫(dp*(∇⋅(v)))dΩ
-    state_reduction = TransientReduction(coupling,tolrank,energy;nparams,sketch)
+    state_reduction = HighOrderReduction(coupling,tolrank,energy;nparams,sketch)
   else method == :ttsvd
     tolranks = fill(tolrank,4)
     ttcoupling((du,dp),(v,q)) = ∫(dp*∂₁(v))dΩ + ∫(dp*∂₂(v))dΩ
-    state_reduction = TransientReduction(ttcoupling,tolranks,energy;nparams)
+    state_reduction = HighOrderReduction(ttcoupling,tolranks,energy;nparams)
   end
 
   θ = 0.5

@@ -94,7 +94,7 @@ using GridapROMs.Extensions: ⊕; export ⊕
 @publish RBSteady PODReduction
 @publish RBSteady TTSVDReduction
 @publish RBSteady SupremizerReduction
-@publish RBSteady MDEIMReduction
+@publish RBSteady MDEIMHyperReduction
 @publish RBSteady AdaptiveReduction
 
 @publish RBSteady RBSolver
@@ -145,7 +145,7 @@ using GridapROMs.Extensions: ⊕; export ⊕
 @publish RBSteady load_operator
 @publish RBSteady load_results
 
-@publish RBTransient TransientReduction
-@publish RBTransient TransientMDEIMReduction
+@publish RBTransient HighOrderReduction
+@publish RBTransient HighOrderMDEIMHyperReduction
 @publish RBTransient TransientProjection
 @publish RBTransient TransientRBOperator

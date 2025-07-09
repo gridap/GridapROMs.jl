@@ -1,3 +1,8 @@
+#TODO Functionalities are not yet implemented for a general high order PDE; eventually,
+# it would be desirable to have something like:
+# abstract type HighOrderProjection <: Projection end
+# abstract type TransientProjection <: HighOrderProjection end
+
 abstract type TransientProjection <: Projection end
 
 get_projection_space(a::TransientProjection) = @abstractmethod
@@ -64,27 +69,16 @@ struct KroneckerProjection <: TransientProjection
   projection_time::Projection
 end
 
-function KroneckerProjection(red::TransientKroneckerAffineReduction,s::TransientSnapshots,args...)
-  s1 = get_mode1(select_snapshots(s,1,1))
-  projection_space = projection(get_reduction_space(red),s1,args...)
-  projection_time = PODProjection(I[1:num_times(s),1:1])
+function KroneckerProjection(red::HighOrderKroneckerReduction,s::TransientSnapshots,args...)
+  projection_space,projection_time = tucker(red.reduction,s,args...)
   KroneckerProjection(projection_space,projection_time)
 end
 
-function KroneckerProjection(red::TransientKroneckerReduction,s::TransientSnapshots,args...)
-  s1 = get_mode1(s)
-  projection_space = projection(get_reduction_space(red),s1,args...)
-  proj_s1 = project(projection_space,s1)
-  proj_s2 = change_mode(proj_s1,num_params(s))
-  projection_time = projection(get_reduction_time(red),proj_s2)
-  KroneckerProjection(projection_space,projection_time)
-end
-
-function RBSteady.projection(red::TransientKroneckerReduction,s::TransientSnapshots)
+function RBSteady.projection(red::HighOrderKroneckerReduction,s::TransientSnapshots)
   KroneckerProjection(red,s)
 end
 
-function RBSteady.projection(red::TransientKroneckerReduction,s::TransientSnapshots,X::MatrixOrTensor)
+function RBSteady.projection(red::HighOrderKroneckerReduction,s::TransientSnapshots,X::MatrixOrTensor)
   KroneckerProjection(red,s,X)
 end
 
@@ -186,12 +180,12 @@ struct LinearProjection{A} <: TransientProjection
   projection::A
 end
 
-function RBSteady.projection(red::TransientLinearReduction,s::TransientSnapshots)
+function RBSteady.projection(red::HighOrderSequentialReduction,s::TransientSnapshots)
   proj = projection(get_reduction(red),s)
   LinearProjection(proj)
 end
 
-function RBSteady.projection(red::TransientLinearReduction,s::TransientSnapshots,X::MatrixOrTensor)
+function RBSteady.projection(red::HighOrderSequentialReduction,s::TransientSnapshots,X::MatrixOrTensor)
   proj = projection(get_reduction(red),s,X)
   LinearProjection(proj)
 end
@@ -297,24 +291,24 @@ end
 
 # multfield interface
 
-function Arrays.return_type(::typeof(projection),::TransientKroneckerReduction,::TransientSnapshots)
+function Arrays.return_type(::typeof(projection),::HighOrderKroneckerReduction,::TransientSnapshots)
   KroneckerProjection
 end
 
-function Arrays.return_type(::typeof(projection),::TransientKroneckerReduction,::TransientSnapshots,::AbstractMatrix)
+function Arrays.return_type(::typeof(projection),::HighOrderKroneckerReduction,::TransientSnapshots,::AbstractMatrix)
   KroneckerProjection
 end
 
-function Arrays.return_type(::typeof(projection),::TransientLinearReduction,::TransientSnapshots)
+function Arrays.return_type(::typeof(projection),::HighOrderSequentialReduction,::TransientSnapshots)
   LinearProjection
 end
 
-function Arrays.return_type(::typeof(projection),::TransientLinearReduction,::TransientSnapshots,::AbstractRankTensor)
+function Arrays.return_type(::typeof(projection),::HighOrderSequentialReduction,::TransientSnapshots,::AbstractRankTensor)
   LinearProjection
 end
 
 function RBSteady.enrich!(
-  red::SupremizerReduction{A,<:TransientKroneckerReduction},
+  red::SupremizerReduction{A,<:HighOrderKroneckerReduction},
   a::BlockProjection,
   norm_matrix::BlockMatrix,
   supr_matrix::BlockMatrix;
@@ -343,7 +337,7 @@ function RBSteady.enrich!(
 end
 
 function RBSteady.enrich!(
-  red::SupremizerReduction{A,<:TransientLinearReduction},
+  red::SupremizerReduction{A,<:HighOrderSequentialReduction},
   a::BlockProjection,
   norm_matrix::BlockRankTensor,
   supr_matrix::BlockRankTensor;

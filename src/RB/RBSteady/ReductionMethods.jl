@@ -149,7 +149,7 @@ Subtypes:
 - [`GreedyReduction`](@ref)
 - [`SupremizerReduction`](@ref)
 - [`HyperReduction`](@ref)
-- [`TransientReduction`](@ref)
+- [`HighOrderReduction`](@ref)
 """
 abstract type Reduction{A<:ReductionStyle,B<:NormStyle} end
 
@@ -279,20 +279,6 @@ ReductionStyle(r::TTSVDReduction) = r.red_style
 NormStyle(r::TTSVDReduction) = r.norm_style
 ParamDataStructures.num_params(r::TTSVDReduction) = r.nparams
 
-function PODReduction(r::TTSVDReduction)
-  pod_style = first(ReductionStyle(r))
-  norm_style = NormStyle(r)
-  nparams = num_params(r)
-  PODReduction(pod_style,norm_style,nparams)
-end
-
-function TTSVDReduction(r::PODReduction,D=3)
-  ttsvd_style = repeat(ReductionStyle(r),D)
-  norm_style = NormStyle(r)
-  nparams = num_params(r)
-  TTSVDReduction(ttsvd_style,norm_style,nparams)
-end
-
 """
     struct LocalReduction{A,B,R<:Reduction{A,B}} <: Reduction{A,B}
       reduction::R
@@ -346,6 +332,11 @@ function SupremizerReduction(supr_op::Function,args...;supr_tol=1e-2,kwargs...)
   SupremizerReduction(reduction,supr_op,supr_tol)
 end
 
+function LocalSupremizerReduction(supr_op::Function,args...;supr_tol=1e-2,kwargs...)
+  reduction = LocalReduction(args...;kwargs...)
+  SupremizerReduction(reduction,supr_op,supr_tol)
+end
+
 get_supr(r::SupremizerReduction) = r.supr_op
 get_supr_tol(r::SupremizerReduction) = r.supr_tol
 
@@ -353,17 +344,6 @@ get_reduction(r::SupremizerReduction) = r.reduction
 ReductionStyle(r::SupremizerReduction) = ReductionStyle(get_reduction(r))
 NormStyle(r::SupremizerReduction) = NormStyle(get_reduction(r))
 ParamDataStructures.num_params(r::SupremizerReduction) = num_params(get_reduction(r))
-
-const LocalSuprReduction{A,B} = LocalReduction{A,B,<:SupremizerReduction}
-
-get_reduction(r::LocalSuprReduction) = LocalReduction(get_reduction(r.reduction),r.ncentroids)
-get_supr(r::LocalSuprReduction) = get_supr(r.reduction)
-get_supr_tol(r::LocalSuprReduction) = get_supr_tol(r.reduction)
-
-function LocalSupremizerReduction(args...;ncentroids=10,kwargs...)
-  reduction = SupremizerReduction(args...;kwargs...)
-  LocalReduction(reduction,ncentroids)
-end
 
 # generic constructor
 
@@ -399,14 +379,15 @@ to a norm other than the euclidean is not required for this reduction type.
 
 Subtypes:
 
-- [`MDEIMReduction`](@ref)
-- [`TransientMDEIMReduction`](@ref)
+- [`MDEIMHyperReduction`](@ref)
+- [`RBFHyperReduction`](@ref)
+- [`HighOrderHyperReduction`](@ref)
 """
 abstract type HyperReduction{A<:ReductionStyle} <: Reduction{A,EuclideanNorm} end
 
 function HyperReduction(args...;kwargs...)
   reduction = Reduction(args...;kwargs...)
-  MDEIMReduction(reduction)
+  MDEIMHyperReduction(reduction)
 end
 
 function HyperReduction(reduction::Reduction;kwargs...)
@@ -419,17 +400,17 @@ NormStyle(r::HyperReduction) = NormStyle(get_reduction(r))
 ParamDataStructures.num_params(r::HyperReduction) = num_params(get_reduction(r))
 
 """
-    struct MDEIMReduction{A} <: HyperReduction{A}
+    struct MDEIMHyperReduction{A} <: HyperReduction{A}
       reduction::Reduction{A,EuclideanNorm}
     end
 
 MDEIMProjection struct employed in steady problems
 """
-struct MDEIMReduction{A} <: HyperReduction{A}
+struct MDEIMHyperReduction{A} <: HyperReduction{A}
   reduction::Reduction{A,EuclideanNorm}
 end
 
-get_reduction(r::MDEIMReduction) = r.reduction
+get_reduction(r::MDEIMHyperReduction) = r.reduction
 
 """
     struct RBFHyperReduction{A} <: HyperReduction{A}

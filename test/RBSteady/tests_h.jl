@@ -295,7 +295,7 @@ function main_heateq_2d(n;
   println("heateq 2d n = $n --------> Nh = $(num_free_dofs(test))")
 
   tolrank = tol_or_rank(tol,rank)
-  state_reduction = TransientReduction(tolrank,(du,v)->energy(du,v,dΩ);nparams,sketch)
+  state_reduction = HighOrderReduction(tolrank,(du,v)->energy(du,v,dΩ);nparams,sketch)
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,nparams_djac)
 
   fesnaps, = solution_snapshots(rbsolver,feop,uh0μ)
@@ -305,7 +305,7 @@ function main_heateq_2d(n;
   # save(dir,rbop)
 
   println("pod no randomized")
-  rbsolver = RBSolver(fesolver,TransientReduction(tolrank,(du,v)->energy(du,v,dΩ);nparams);nparams_res,nparams_jac,nparams_djac)
+  rbsolver = RBSolver(fesolver,HighOrderReduction(tolrank,(du,v)->energy(du,v,dΩ);nparams);nparams_res,nparams_jac,nparams_djac)
   reduced_spaces(rbsolver,feop,fesnaps)
 
   method = :ttsvd
@@ -405,7 +405,7 @@ function main_heateq_3d(n;
   println("heateq 3d n = $n --------> Nh = $(num_free_dofs(test))")
 
   tolrank = tol_or_rank(tol,rank)
-  state_reduction = TransientReduction(tolrank,(du,v)->energy(du,v,dΩ);nparams,sketch)
+  state_reduction = HighOrderReduction(tolrank,(du,v)->energy(du,v,dΩ);nparams,sketch)
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,nparams_djac)
 
   fesnaps, = solution_snapshots(rbsolver,feop,uh0μ)
@@ -415,7 +415,7 @@ function main_heateq_3d(n;
   # save(dir,rbop)
 
   println("pod no randomized")
-  rbsolver = RBSolver(fesolver,TransientReduction(tolrank,(du,v)->energy(du,v,dΩ);nparams);nparams_res,nparams_jac,nparams_djac)
+  rbsolver = RBSolver(fesolver,HighOrderReduction(tolrank,(du,v)->energy(du,v,dΩ);nparams);nparams_res,nparams_jac,nparams_djac)
   reduced_spaces(rbsolver,feop,fesnaps)
 
   method = :ttsvd

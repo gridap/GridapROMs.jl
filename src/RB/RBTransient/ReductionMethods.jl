@@ -1,126 +1,91 @@
-abstract type TransientReduction{A<:ReductionStyle,B<:NormStyle} <: Reduction{A,B} end
+abstract type HighOrderReduction{A<:ReductionStyle,B<:NormStyle} <: Reduction{A,B} end
 
-abstract type TransientStyle end
-struct KroneckerStyle <: TransientStyle end
-struct LinearStyle <: TransientStyle end
-
-TransientStyle(::Type{<:ReductionStyle}) = KroneckerStyle()
-TransientStyle(::Type{<:TTSVDRanks}) = LinearStyle()
-TransientStyle(::Type{<:TransientReduction{A}}) where A = TransientStyle(A)
-TransientStyle(::T) where T<:TransientReduction = TransientStyle(T)
-
-RBSteady.get_reduction(r::TransientReduction) = @abstractmethod
-RBSteady.ReductionStyle(r::TransientReduction) = ReductionStyle(get_reduction(r))
-RBSteady.NormStyle(r::TransientReduction) = NormStyle(get_reduction(r))
-ParamDataStructures.num_params(r::TransientReduction) = num_params(get_reduction(r))
+RBSteady.get_reduction(r::HighOrderReduction) = @abstractmethod
 
 """
-    struct TransientKroneckerReduction{A,B,RS<:Reduction{A,B},RT<:Reduction{A,EuclideanNorm}} <: TransientReduction{A,B}
-      reduction_space::RS
-      reduction_time::RT
+    struct HighOrderKroneckerReduction{A,B} <: HighOrderReductionStyle{A,B}
+      reductions::AbstractVector{<:Reduction}
     end
 
-Wrapper for reduction methods in transient problems. The fields `reduction_space`
-and `reduction_time` respectively represent the spatial reduction method, and
-the temporal one
+Wrapper for reduction methods in high order problems, such as transient ones. The
+reduced subspaces are constructed as Kronecker product spaces
 """
-struct TransientKroneckerReduction{A,B,RS<:Reduction{A,B},RT<:Reduction{A,EuclideanNorm}} <: TransientReduction{A,B}
-  reduction_space::RS
-  reduction_time::RT
+struct HighOrderKroneckerReduction{A,B} <: HighOrderReductionStyle{A,B}
+  reductions::AbstractVector{<:Reduction}
+  function HighOrderKroneckerReduction(reductions::AbstractVector{<:Reduction})
+    A = ReductionStyle(first(reductions))
+    B = NormStyle(first(reductions))
+    new{A,B}(reductions)
+  end
 end
 
-const TransientKroneckerAffineReduction{A,B} = TransientKroneckerReduction{A,B,<:AffineReduction,<:AffineReduction}
-const TransientKroneckerPODReduction{A,B} = TransientKroneckerReduction{A,B,<:PODReduction,<:PODReduction}
-
-RBSteady.get_reduction(r::TransientKroneckerReduction) = r.reduction_space
-get_reduction_space(r::TransientKroneckerReduction) = get_reduction(r.reduction_space)
-get_reduction_time(r::TransientKroneckerReduction) = get_reduction(r.reduction_time)
+ReductionStyle(r::HighOrderKroneckerReduction) = ReductionStyle(first(r.reductions))
+ParamDataStructures.num_params(r::HighOrderKroneckerReduction) = num_params(first(r.reductions))
 
 # generic constructor
 
-function TransientReduction(style_space::ReductionStyle,style_time::ReductionStyle,args...;kwargs...)
-  reduction_space = Reduction(style_space,args...;kwargs...)
-  reduction_time = Reduction(style_time;kwargs...)
-  TransientKroneckerReduction(reduction_space,reduction_time)
-end
+function HighOrderReduction end
 
-function TransientReduction(
-  tolrank_space::Union{Int,Float64},
-  tolrank_time::Union{Int,Float64},
-  args...;kwargs...)
+const TransientReduction = HighOrderReduction
 
-  reduction_space = Reduction(tolrank_space,args...;kwargs...)
-  reduction_time = Reduction(tolrank_time;kwargs...)
-  TransientKroneckerReduction(reduction_space,reduction_time)
-end
-
-function TransientReduction(tolrank::Union{Int,Float64},args...;kwargs...)
-  TransientReduction(tolrank,tolrank,args...;kwargs...)
-end
-
-function TransientReduction(red_style::ReductionStyle,args...;kwargs...)
-  TransientReduction(red_style,red_style,args...;kwargs...)
-end
-
-"""
-    struct TransientLinearReduction{A,B,R<:Reduction{A,B}} <: TransientReduction{A,B}
-      reduction::R
-    end
-
-Wrapper for reduction methods in transient problems, when the temporal reduction
-is performed concurrently to the spatial one.
-"""
-struct TransientLinearReduction{A,B,R<:Reduction{A,B}} <: TransientReduction{A,B}
-  reduction::R
-end
-
-RBSteady.get_reduction(r::TransientLinearReduction) = r.reduction
-
-function TransientReduction(red_style::TTSVDRanks,args...;kwargs...)
-  reduction = TTSVDReduction(red_style,args...;kwargs...)
-  TransientLinearReduction(reduction)
-end
-
-function TransientReduction(tolrank::Union{Vector{Int},Vector{Float64}},args...;kwargs...)
-  reduction = TTSVDReduction(tolrank,args...;kwargs...)
-  TransientLinearReduction(reduction)
-end
-
-function TransientReduction(supr_op::Function,args...;supr_tol=1e-2,kwargs...)
-  reduction = TransientReduction(args...;kwargs...)
-  SupremizerReduction(reduction,supr_op,supr_tol)
-end
-
-function TransientReduction(red::TransientReduction,args...;kwargs...)
+function HighOrderReduction(red::HighOrderReduction,args...;kwargs...)
   red
 end
 
-function TransientKroneckerReduction(r::TransientLinearReduction)
-  reduction = PODReduction(r.reduction)
-  TransientKroneckerReduction(reduction,reduction)
+function HighOrderReduction(styles::AbstractVector{<:ReductionStyle},args...;kwargs...)
+  reductions = map(s -> Reduction(s,args...;kwargs...),styles)
+  HighOrderKroneckerReduction(reductions)
 end
 
-abstract type TransientHyperReduction{A} <: HyperReduction{A} end
-
-function TransientHyperReduction(combine::Function,args...;kwargs...)
-  reduction = TransientReduction(args...;kwargs...)
-  TransientMDEIMReduction(reduction,combine)
+function HighOrderReduction(tolranks::AbstractVector{<:Union{Int,Float64}},args...;kwargs...)
+  reductions = map(t -> Reduction(t,args...;kwargs...),tolranks)
+  HighOrderKroneckerReduction(reductions)
 end
 
-function TransientHyperReduction(reduction::Reduction,combine::Function;kwargs...)
-  red_style = ReductionStyle(reduction)
-  TransientHyperReduction(combine,red_style;kwargs...)
+function HighOrderReduction(tolrank::Union{Int,Float64},args...;dim=2,kwargs...)
+  HighOrderReduction(Fill(tolrank,dim),args...;kwargs...)
+end
+
+function HighOrderReduction(red_style::ReductionStyle,args...;dim=2,kwargs...)
+  HighOrderReduction(Fill(red_style,dim),args...;kwargs...)
+end
+
+"""
+    struct HighOrderSequentialReduction{A,B} <: HighOrderReduction{A,B}
+      reduction::Reduction{A,B}
+    end
+
+Wrapper for sequential reduction methods in high-order problems, e.g. TT-SVD in
+transient applications
+"""
+struct HighOrderSequentialReduction{A,B} <: HighOrderReduction{A,B}
+  reduction::Reduction{A,B}
+end
+
+RBSteady.get_reduction(r::HighOrderSequentialReduction) = r.reduction
+
+function HighOrderReduction(red_style::TTSVDRanks,args...;kwargs...)
+  reduction = TTSVDReduction(red_style,args...;kwargs...)
+  HighOrderSequentialReduction(reduction)
+end
+
+function HighOrderReduction(tolrank::Union{Vector{Int},Vector{Float64}},args...;kwargs...)
+  reduction = TTSVDReduction(tolrank,args...;kwargs...)
+  HighOrderSequentialReduction(reduction)
+end
+
+function HighOrderReduction(supr_op::Function,args...;supr_tol=1e-2,kwargs...)
+  reduction = HighOrderReduction(args...;kwargs...)
+  SupremizerReduction(reduction,supr_op,supr_tol)
 end
 
 @doc raw"""
-    struct TransientMDEIMReduction{A,R<:Reduction{A,EuclideanNorm}} <: AbstractMDEIMReduction{A}
-      reduction::R
-      combine::Function
-    end
+    abstract type HighOrderHyperReduction{A} <: HyperReduction{A} end
 
-MDEIMProjection struct employed in transient problems. The field `combine` is a function
-used to group the reductions relative to the various Jacobians(in general, more
-than one in transient problems) in a smart way. We consider, for example, the ODE
+Hyper reduction strategies employed in high-order (e.g. transient) problems.
+They feature a field `combine`, a function used to group the reductions relative
+to the various Jacobians(in general, more than one in transient problems) in a
+smart way. We consider, for example, the ODE
 
 ``\tfrac{du}{dt} - \nu \Delta u = f \ \ \text{in} \ \ Ω \times [0,T]``
 
@@ -199,20 +164,46 @@ The same can be said of any time marching scheme. This is the meaning of the
 function `combine`. Note that for a time marching with ``p`` interpolation points (e.g.
 for ``\theta`` method, ``p = 2``) the `combine` functions will have to accept ``p`` arguments.
 """
-struct TransientMDEIMReduction{A,R<:Reduction{A,EuclideanNorm}} <: TransientHyperReduction{A}
+abstract type HighOrderHyperReduction{A} <: HyperReduction{A} end
+
+function HighOrderHyperReduction end
+
+const TransientHyperReduction = HighOrderHyperReduction
+
+function HighOrderHyperReduction(combine::Function,args...;kwargs...)
+  reduction = HighOrderReduction(args...;kwargs...)
+  HighOrderHyperReduction(reduction,combine)
+end
+
+function HighOrderHyperReduction(reduction::HighOrderReduction,combine::Function;kwargs...)
+  red_style = ReductionStyle(reduction)
+  HighOrderMDEIMHyperReduction(combine,red_style;kwargs...)
+end
+
+get_combine(r::HighOrderHyperReduction) = @abstractmethod
+
+struct HighOrderMDEIMHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighOrderHyperReduction{A}
   reduction::R
   combine::Function
 end
 
-TransientStyle(red::TransientMDEIMReduction) = TransientStyle(get_reduction(red))
-
-function TransientMDEIMReduction(combine::Function,args...;kwargs...)
-  reduction = TransientReduction(args...;kwargs...)
-  TransientMDEIMReduction(reduction,combine)
+function HighOrderMDEIMHyperReduction(combine::Function,args...;kwargs...)
+  reduction = HighOrderReduction(args...;kwargs...)
+  HighOrderMDEIMHyperReduction(reduction,combine)
 end
 
-RBSteady.get_reduction(r::TransientMDEIMReduction) = r.reduction
-RBSteady.ReductionStyle(r::TransientMDEIMReduction) = ReductionStyle(get_reduction(r))
-RBSteady.NormStyle(r::TransientMDEIMReduction) = NormStyle(get_reduction(r))
-ParamDataStructures.num_params(r::TransientMDEIMReduction) = num_params(get_reduction(r))
-get_combine(r::TransientMDEIMReduction) = r.combine
+RBSteady.get_reduction(r::HighOrderMDEIMHyperReduction) = r.reduction
+get_combine(r::HighOrderMDEIMHyperReduction) = r.combine
+
+struct HighOrderRBFHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighOrderHyperReduction{A}
+  reduction::R
+  combine::Function
+end
+
+function HighOrderRBFHyperReduction(combine::Function,args...;kwargs...)
+  reduction = HighOrderReduction(args...;kwargs...)
+  HighOrderRBFHyperReduction(reduction,combine)
+end
+
+RBSteady.get_reduction(r::HighOrderRBFHyperReduction) = r.reduction
+get_combine(r::HighOrderRBFHyperReduction) = r.combine

@@ -61,7 +61,7 @@ export TTSVDReduction
 export LocalReduction
 export SupremizerReduction
 export HyperReduction
-export MDEIMReduction
+export MDEIMHyperReduction
 export RBFHyperReduction
 export LocalHyperReduction
 export LocalSupremizerReduction

@@ -1,4 +1,4 @@
-# check TransientMDEIMReduction for more details
+# check HighOrderMDEIMHyperReduction for more details
 time_combinations(fesolver::ODESolver) = @notimplemented "For now, only theta methods are implemented"
 
 function time_combinations(fesolver::GeneralizedAlpha1)
@@ -32,9 +32,9 @@ function RBSteady.RBSolver(
   nparams_djac=nparams_jac)
 
   cres,cjac,cdjac = time_combinations(fesolver)
-  residual_reduction = TransientHyperReduction(cres,reduction;nparams=nparams_res)
-  jac_reduction = TransientHyperReduction(cjac,reduction;nparams=nparams_jac)
-  djac_reduction = TransientHyperReduction(cdjac,reduction;nparams=nparams_djac)
+  residual_reduction = HighOrderHyperReduction(cres,reduction;nparams=nparams_res)
+  jac_reduction = HighOrderHyperReduction(cjac,reduction;nparams=nparams_jac)
+  djac_reduction = HighOrderHyperReduction(cdjac,reduction;nparams=nparams_djac)
   jacobian_reduction = (jac_reduction,djac_reduction)
 
   RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)

@@ -1,9 +1,15 @@
 abstract type Interpolation end
 
 get_interpolation(a::Interpolation) = @abstractmethod
+get_integration_domain(a::Interpolation) = @abstractmethod
+get_integration_cells(a::Interpolation,args...) = get_integration_cells(get_integration_domain(a),args...)
+get_cellids_rows(a::Interpolation) = get_cellids_rows(get_integration_domain(a))
+get_cellids_cols(a::Interpolation) = get_cellids_cols(get_integration_domain(a))
+get_owned_icells(a::Interpolation,args...) = get_owned_icells(a,get_integration_cells(a,args...))
+get_owned_icells(a::Interpolation,cells::AbstractVector) = get_owned_icells(get_integration_domain(a),cells)
 
-Interpolation(::MDEIMReduction,args...) = MDEIMInterpolation(args...)
-Interpolation(::RBFReduction,args...) = RBFInterpolation(args...)
+Interpolation(::MDEIMHyperReduction,args...) = MDEIMInterpolation(args...)
+Interpolation(::RBFHyperReduction,args...) = RBFInterpolation(args...)
 
 function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,x::Any)
   @abstractmethod
@@ -37,13 +43,7 @@ function MDEIMInterpolation(basis::Projection,trian::Triangulation,trial::RBSpac
 end
 
 get_interpolation(a::MDEIMInterpolation) = a.interpolation
-
 get_integration_domain(a::MDEIMInterpolation) = a.domain
-get_integration_cells(a::MDEIMInterpolation,args...) = get_integration_cells(get_integration_domain(a),args...)
-get_cellids_rows(a::MDEIMInterpolation) = get_cellids_rows(get_integration_domain(a))
-get_cellids_cols(a::MDEIMInterpolation) = get_cellids_cols(get_integration_domain(a))
-get_owned_icells(a::MDEIMInterpolation,args...) = get_owned_icells(a,get_integration_cells(a,args...))
-get_owned_icells(a::MDEIMInterpolation,cells::AbstractVector) = get_owned_icells(get_integration_domain(a),cells)
 
 function FESpaces.interpolate!(cache::AbstractArray,a::MDEIMInterpolation,b::AbstractArray)
   ldiv!(cache,a,b)

@@ -267,7 +267,7 @@ function ttsvd(
   ) where {T,N}
 
   cores = Array{T,3}[]
-  remainder = first_unfold(A)
+  remainder = first_unfold_3D(A)
   for d in 1:last_dim(A)
     cur_core,cur_remainder = ttsvd_loop(red_style[d],remainder)
     oldrank = size(cur_core,3)
@@ -290,7 +290,7 @@ function ttsvd(
   @check D ≤ last_dim(A)
 
   cores = Array{T,3}[]
-  remainder = first_unfold(A)
+  remainder = first_unfold_3D(A)
   for d in 1:last_dim(A)
     if d ≤ D
       cur_core,cur_remainder = ttsvd_loop(red_style[d],remainder,X[d])
@@ -317,7 +317,7 @@ function ttsvd(
   X′ = get_crossnorm(X)
 
   cores = Array{T,3}[]
-  remainder = first_unfold(A)
+  remainder = first_unfold_3D(A)
   for d in 1:last_dim(A)
     if d ≤ D-1
       cur_core,cur_remainder = ttsvd_loop(red_style[d],remainder,X′[d])
@@ -337,9 +337,10 @@ function ttsvd(
 end
 
 last_dim(A::AbstractArray{T,N}) where {T,N} = N-1
-first_unfold(A::AbstractArray{T,N}) where {T,N} = reshape(A,1,size(A,1),:)
 
-function first_unfold(A::SubArray{T,N}) where {T,N}
+first_unfold_3D(A::AbstractArray{T,N}) where {T,N} = reshape(A,1,size(A,1),:)
+
+function first_unfold_3D(A::SubArray{T,N}) where {T,N}
   skeep = 1,size(A,1)
   scale = prod(size(A)[2:N-1])
   iview = A.indices[end]
@@ -347,8 +348,8 @@ function first_unfold(A::SubArray{T,N}) where {T,N}
   view(reshape(A.parent,skeep...,:),:,:,rview)
 end
 
-function first_unfold(A::Snapshots)
-  first_unfold(get_all_data(A))
+function first_unfold_3D(A::Snapshots)
+  first_unfold_3D(get_all_data(A))
 end
 
 function orthogonalize!(cores::AbstractVector,X::AbstractRankTensor{D}) where D
@@ -434,17 +435,6 @@ function ttnorm_array(X::AbstractRankTensor{D,K},WD) where {D,K}
   @. XW = (XW+XW')/2 # needed to eliminate roundoff errors
 
   return sparse(XW)
-end
-
-function tucker(red::AbstractVector{<:Reduction},A::AbstractArray{T,N},args...) where {T,N}
-  @assert length(red) == N-1
-  bases = Vector{Float64}(undef,N-1)
-  remainder = A
-  for n in 1:N-1
-    Ur,remainder = n == 1 ? reduction(red[n],remainder,args...) : reduction(red[n],remainder)
-    bases[n] = Ur
-  end
-  return bases
 end
 
 """

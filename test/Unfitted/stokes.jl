@@ -236,7 +236,7 @@ function main_transient(
   tolrank = method==:ttsvd ? fill(tol_or_rank(tol,rank),4) : tol_or_rank(tol,rank)
   energy((du,dp),(v,q)) = ∫(du⋅v)dΩbg  + ∫(dp*q)dΩbg + ∫(∇(v)⊙∇(du))dΩbg
   coupling((du,dp),(v,q)) = method==:pod ? ∫(dp*(∇⋅(v)))dΩbg : ∫(dp*∂₁(v))dΩbg + ∫(dp*∂₂(v))dΩbg
-  state_reduction = TransientReduction(coupling,tolrank,energy;nparams,sketch)
+  state_reduction = HighOrderReduction(coupling,tolrank,energy;nparams,sketch)
 
   extension = BlockExtension([HarmonicExtension(),ZeroExtension()])
   fesolver = ThetaMethod(ExtensionSolver(LUSolver(),extension),dt,θ)

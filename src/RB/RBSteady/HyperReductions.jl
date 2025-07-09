@@ -1,5 +1,5 @@
 """
-    abstract type HRProjection{A<:ReducedProjection} <: Projection end
+    abstract type HRProjection{A<:ReducedProjection,I<:Interpolation} <: Projection end
 
 Subtype of a [`Projection`](@ref) dedicated to the output of a hyper-reduction
 procedure applied on residual/jacobians of a differential problem. This procedure
@@ -155,7 +155,7 @@ function HRProjection(
 end
 
 function HRProjection(
-  red::RBFReduction,
+  red::RBFHyperReduction,
   s::Snapshots,
   trian::Triangulation,
   test::RBSpace
@@ -169,7 +169,7 @@ function HRProjection(
 end
 
 function HRProjection(
-  red::RBFReduction,
+  red::RBFHyperReduction,
   s::Snapshots,
   trian::Triangulation,
   trial::RBSpace,

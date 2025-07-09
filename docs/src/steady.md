@@ -161,8 +161,8 @@ tol = 1e-4
 inner_prod(u,v) = ∫(∇(v)⋅∇(u))dΩₕ
 
 reduction_sol = PODReduction(tol,inner_prod;nparams=20)
-reduction_l = MDEIMReduction(tol;nparams=10)
-reduction_a = MDEIMReduction(tol;nparams=10)
+reduction_l = MDEIMHyperReduction(tol;nparams=10)
+reduction_a = MDEIMHyperReduction(tol;nparams=10)
 rbsolver = RBSolver(solver,reduction_sol,reduction_l,reduction_a)
 ```
 

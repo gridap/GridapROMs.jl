@@ -151,26 +151,26 @@ function update_reduction(red::SupremizerReduction,tol)
   SupremizerReduction(update_reduction(red.reduction,tol),red.supr_op,red.supr_tol)
 end
 
-function update_reduction(red::MDEIMReduction,tol)
-  MDEIMReduction(update_reduction(red.reduction,tol))
+function update_reduction(red::MDEIMHyperReduction,tol)
+  MDEIMHyperReduction(update_reduction(red.reduction,tol))
 end
 
-function update_reduction(red::TransientKroneckerReduction,tol)
-  TransientKroneckerReduction(
+function update_reduction(red::HighOrderKroneckerReduction,tol)
+  HighOrderKroneckerReduction(
     update_reduction(red.reduction_space,tol),
     update_reduction(red.reduction_time,tol)
     )
 end
 
-function update_reduction(red::TransientLinearReduction,tol)
-  TransientLinearReduction(update_reduction(red.reduction,tol))
+function update_reduction(red::HighOrderSequentialReduction,tol)
+  HighOrderSequentialReduction(update_reduction(red.reduction,tol))
 end
 
-function update_reduction(red::TransientMDEIMReduction,tol)
-  TransientMDEIMReduction(update_reduction(red.reduction,tol),red.combine)
+function update_reduction(red::HighOrderMDEIMHyperReduction,tol)
+  HighOrderMDEIMHyperReduction(update_reduction(red.reduction,tol),red.combine)
 end
 
-function update_reduction(red::NTuple{N,TransientMDEIMReduction},tol) where N
+function update_reduction(red::NTuple{N,HighOrderMDEIMHyperReduction},tol) where N
   map(r->update_reduction(r,tol),red)
 end
 

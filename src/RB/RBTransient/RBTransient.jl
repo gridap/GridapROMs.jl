@@ -36,10 +36,12 @@ import StatsBase: countmap
 import UnPack: @unpack
 import GridapROMs.RBSteady: reduced_cells,_get_label
 
+export HighOrderReduction
 export TransientReduction
-export TransientKroneckerReduction
-export TransientLinearReduction
-export TransientMDEIMReduction
+export HighOrderKroneckerReduction
+export HighOrderSequentialReduction
+export HighOrderHyperReduction
+export HighOrderMDEIMHyperReduction
 include("ReductionMethods.jl")
 
 include("RBSolvers.jl")
@@ -48,6 +50,7 @@ include("TTLinearAlgebra.jl")
 
 include("GalerkinProjections.jl")
 
+export tucker
 include("BasesConstruction.jl")
 
 export TransientProjection

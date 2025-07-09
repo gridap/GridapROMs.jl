@@ -90,7 +90,7 @@ fesolver = ThetaMethod(NewtonSolver(LUSolver();rtol=1e-10,maxiter=20,verbose=tru
 xh0μ(μ) = interpolate_everywhere([u0μ(μ),p0μ(μ)],trial(μ,t0))
 
 tol = 1e-4
-state_reduction = TransientReduction(coupling,tol,energy;nparams=60,sketch=:sprn)
+state_reduction = HighOrderReduction(coupling,tol,energy;nparams=60,sketch=:sprn)
 rbsolver = RBSolver(fesolver,state_reduction;nparams_res=50,nparams_jac=20,nparams_djac=1)
 
 dir = datadir("transient_nstokes_pod")

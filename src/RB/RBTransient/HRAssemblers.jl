@@ -3,38 +3,40 @@ function RBSteady.collect_cell_hr_matrix(
   test::FESpace,
   a::DomainContribution,
   strian::Triangulation,
-  hr::Projection,
+  interp::Interpolation,
   common_indices::AbstractVector)
 
-  cell_irows = get_cellids_rows(hr)
-  cell_icols = get_cellids_cols(hr)
-  icells = get_owned_icells(hr,strian)
-  locations = get_param_itimes(hr,common_indices)
+  cell_irows = get_cellids_rows(interp)
+  cell_icols = get_cellids_cols(interp)
+  icells = get_owned_icells(interp,strian)
+  locations = get_param_itimes(interp,common_indices)
+  style = get_domain_style(interp)
 
   scell_mat = get_contribution(a,strian)
   cell_mat,trian = move_contributions(scell_mat,strian)
   @assert ndims(eltype(cell_mat)) == 2
   cell_mat_c = attach_constraints_cols(trial,cell_mat,trian)
   cell_mat_rc = attach_constraints_rows(test,cell_mat_c,trian)
-  (cell_mat_rc,cell_irows,cell_icols,icells,locations)
+  (cell_mat_rc,cell_irows,cell_icols,icells,locations,style)
 end
 
 function RBSteady.collect_cell_hr_vector(
   test::FESpace,
   a::DomainContribution,
   strian::Triangulation,
-  hr::Projection,
+  interp::Interpolation,
   common_indices::AbstractVector)
 
-  cell_irows = get_cellids_rows(hr)
-  icells = get_owned_icells(hr,strian)
-  locations = get_param_itimes(hr,common_indices)
+  cell_irows = get_cellids_rows(interp)
+  icells = get_owned_icells(interp,strian)
+  locations = get_param_itimes(interp,common_indices)
+  style = get_domain_style(interp)
 
   scell_vec = get_contribution(a,strian)
   cell_vec,trian = move_contributions(scell_vec,strian)
   @assert ndims(eltype(cell_vec)) == 1
   cell_vec_r = attach_constraints_rows(test,cell_vec,trian)
-  (cell_vec_r,cell_irows,icells,locations)
+  (cell_vec_r,cell_irows,icells,locations,style)
 end
 
 function get_hr_param_entry!(v::AbstractVector,b::GenericParamBlock,hr_indices,i...)
@@ -115,13 +117,13 @@ end
   A
 end
 
-struct AddTransientHREntriesMap{A<:TransientStyle,F,I<:Range2D} <: Map
+struct AddTransientHREntriesMap{A<:TransientIntegrationDomainStyle,F,I<:Range2D} <: Map
   style::A
   combine::F
   locations::I
 end
 
-function AddTransientHREntriesMap(style::TransientStyle,locations::Range2D)
+function AddTransientHREntriesMap(style::TransientIntegrationDomainStyle,locations::Range2D)
   AddTransientHREntriesMap(style,+,locations)
 end
 
@@ -133,7 +135,7 @@ function Arrays.return_cache(k::AddTransientHREntriesMap,A,vs::ParamBlock,args..
   zeros(eltype2(vs),length(get_param_time_inds(k)))
 end
 
-for (T,f) in zip((:KroneckerStyle,:LinearStyle),(:add_hr_kron_entries!,:add_hr_lin_entries!))
+for (T,f) in zip((:KroneckerDomain,:SequentialDomain),(:add_hr_kron_entries!,:add_hr_lin_entries!))
   @eval begin
     function Arrays.evaluate!(cache,k::AddTransientHREntriesMap{$T},A,vs,is)
       $f(cache,k.combine,A,vs,is,k.locations)
@@ -296,23 +298,23 @@ end
 
 function RBSteady.assemble_hr_vector_add!(
   b::ArrayBlock,
-  style::TransientStyle,
   cellvec,
   cellidsrows::ArrayBlock,
   icells::ArrayBlock,
-  locations::ArrayBlock)
+  locations::ArrayBlock,
+  style::TransientIntegrationDomainStyle)
 
   @check cellidsrows.touched == icells.touched == locations.touched
   for i in eachindex(cellidsrows)
     if cellidsrows.touched[i]
       cellveci = lazy_map(BlockReindex(cellvec,i),icells.array[i])
       assemble_hr_vector_add!(
-        b.array[i],style,cellveci,cellidsrows.array[i],icells.array[i],locations.array[i])
+        b.array[i],cellveci,cellidsrows.array[i],icells.array[i],locations.array[i],style)
     end
   end
 end
 
-function RBSteady.assemble_hr_vector_add!(b,style,cellvec,cellidsrows,icells,locations)
+function RBSteady.assemble_hr_vector_add!(b,cellvec,cellidsrows,icells,locations,style)
   if length(cellvec) > 0
     rows_cache = array_cache(cellidsrows)
     vals_cache = array_cache(cellvec)
@@ -328,25 +330,25 @@ end
 
 function RBSteady.assemble_hr_matrix_add!(
   A::ArrayBlock,
-  style::TransientStyle,
   cellmat,
   cellidsrows::ArrayBlock,
   cellidscols::ArrayBlock,
   icells::ArrayBlock,
-  locations::ArrayBlock)
+  locations::ArrayBlock,
+  style::TransientIntegrationDomainStyle)
 
   @check (cellidsrows.touched == cellidscols.touched == icells.touched == locations.touched)
   for i in eachindex(cellidsrows)
     if cellidsrows.touched[i]
       cellmati = lazy_map(BlockReindex(cellmat,i),icells.array[i])
       assemble_hr_matrix_add!(
-        A.array[i],style,cellmati,cellidsrows.array[i],cellidscols.array[i],icells.array[i],
-        locations.array[i])
+        A.array[i],cellmati,cellidsrows.array[i],cellidscols.array[i],icells.array[i],
+        locations.array[i],style)
     end
   end
 end
 
-function RBSteady.assemble_hr_matrix_add!(A,style,cellmat,cellidsrows,cellidscols,icells,locations)
+function RBSteady.assemble_hr_matrix_add!(A,cellmat,cellidsrows,cellidscols,icells,locations,style)
   @assert length(cellidscols) == length(cellidsrows)
   @assert length(cellmat) == length(cellidsrows)
   if length(cellmat) > 0

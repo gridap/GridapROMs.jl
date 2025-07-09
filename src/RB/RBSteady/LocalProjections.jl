@@ -83,19 +83,19 @@ function get_local(a::RBSpace,μ::AbstractVector)
   reduced_subspace(space,lsubspace)
 end
 
-function reduced_basis(
-  red::LocalSuprReduction,
-  feop::ParamOperator,
-  s::AbstractSnapshots)
+# function reduced_basis(
+#   red::LocalSuprReduction,
+#   feop::ParamOperator,
+#   s::AbstractSnapshots)
 
-  norm_matrix = assemble_matrix(feop,get_norm(red))
-  supr_matrix = assemble_matrix(feop,get_supr(red))
-  basis = reduced_basis(get_reduction(red),s,norm_matrix)
-  for b in local_values(basis)
-    enrich!(red.reduction,b,norm_matrix,supr_matrix)
-  end
-  return basis
-end
+#   norm_matrix = assemble_matrix(feop,get_norm(red))
+#   supr_matrix = assemble_matrix(feop,get_supr(red))
+#   basis = reduced_basis(get_reduction(red),s,norm_matrix)
+#   for b in local_values(basis)
+#     enrich!(red.reduction,b,norm_matrix,supr_matrix)
+#   end
+#   return basis
+# end
 
 function reduced_residual(lred::LocalReduction,test::RBSpace,c::ArrayContribution)
   red = get_reduction(lred)
