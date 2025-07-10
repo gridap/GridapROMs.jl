@@ -64,7 +64,6 @@ export HyperReduction
 export MDEIMHyperReduction
 export RBFHyperReduction
 export LocalHyperReduction
-export LocalSupremizerReduction
 export AdaptiveReduction
 export get_reduction
 include("ReductionMethods.jl")
@@ -161,6 +160,8 @@ export GenericHRProjection
 export MDEIMProjection
 export RBFProjection
 export AffineContribution
+export MDEIMContribution
+export RBFContribution
 export BlockHRProjection
 export get_interpolation
 export get_integration_domain

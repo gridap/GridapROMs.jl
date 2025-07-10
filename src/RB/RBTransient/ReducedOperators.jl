@@ -24,6 +24,7 @@ function RBSteady.RBOperator(
 end
 
 const TransientRBOperator{O<:ODEParamOperatorType} = RBOperator{O}
+const TransientGenericRBOperator{O<:ODEParamOperatorType,A} = GenericRBOperator{O,A,<:TupOfAffineContribution}
 
 function Algebra.allocate_residual(
   op::TransientRBOperator,
@@ -45,7 +46,7 @@ end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::TransientRBOperator,
+  op::TransientGenericRBOperator,
   r::TransientRealization,
   u::AbstractVector,
   paramcache
@@ -79,7 +80,7 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::TransientRBOperator,
+  op::TransientGenericRBOperator,
   r::TransientRealization,
   u::AbstractVector,
   paramcache
@@ -117,6 +118,47 @@ function Algebra.jacobian!(
   end
 
   interpolate!(A,op.lhs)
+end
+
+function Algebra.residual!(
+  b::HRParamArray,
+  op::TransientGenericRBOperator{O,<:RBFContribution},
+  r::TransientRealization,
+  u::AbstractVector,
+  paramcache) where O
+
+  fill!(b,zero(eltype(b)))
+  interpolate!(b,op.rhs,r)
+end
+
+function Algebra.jacobian!(
+  A::HRParamArray,
+  op::TransientGenericRBOperator{O,<:RBFContribution},
+  r::TransientRealization,
+  u::AbstractVector,
+  paramcache) where O
+
+  fill!(A,zero(eltype(A)))
+  interpolate!(A,op.lhs,r)
+end
+
+function Algebra.solve(
+  solver::RBSolver,
+  op::LocalRBOperator,
+  r::TransientRealization)
+
+  fesolver = get_fe_solver(solver)
+  all_times = [get_initial_time(r),get_times(r)...]
+
+  t = @timed x̂vec = map(get_params(r)) do μ
+    opμ = get_local(op,μ)
+    rμ = TransientRealization(Realization([μ]),all_times)
+    x̂,stats = solve(solver,opμ,rμ)
+    testitem(x̂)
+  end
+  x̂ = GenericParamVector(x̂vec)
+  stats = CostTracker(t,nruns=num_params(r),name="RB")
+  return (x̂,stats)
 end
 
 # utils

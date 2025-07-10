@@ -1,9 +1,11 @@
 module RBTransient
 
-using LinearAlgebra
 using BlockArrays
-using SparseArrays
+using Clustering
 using DrWatson
+using LinearAlgebra
+using RadialBasisFunctions
+using SparseArrays
 using Serialization
 
 using Gridap
@@ -38,8 +40,8 @@ import GridapROMs.RBSteady: reduced_cells,_get_label
 
 export HighOrderReduction
 export TransientReduction
-export HighOrderKroneckerReduction
-export HighOrderSequentialReduction
+export KroneckerReduction
+export SequentialReduction
 export HighOrderHyperReduction
 export HighOrderMDEIMHyperReduction
 include("ReductionMethods.jl")
@@ -69,6 +71,8 @@ include("Interpolations.jl")
 include("HyperReductions.jl")
 
 include("HRAssemblers.jl")
+
+include("LocalProjections.jl")
 
 export TransientRBOperator
 include("ReducedOperators.jl")

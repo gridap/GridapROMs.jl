@@ -132,8 +132,7 @@ function HRProjection(
   test::RBSpace
   )
 
-  red = get_reduction(red)
-  basis = projection(red,s)
+  basis = projection(get_reduction(red),s)
   proj_basis = project(test,basis)
   interp = Interpolation(red,basis,trian,test)
   return HRProjection(proj_basis,interp)
@@ -147,8 +146,7 @@ function HRProjection(
   test::RBSpace
   )
 
-  red = get_reduction(red)
-  basis = projection(red,s)
+  basis = projection(get_reduction(red),s)
   proj_basis = project(test,basis,trial)
   interp = Interpolation(red,basis,trian,trial,test)
   return HRProjection(proj_basis,interp)
@@ -161,8 +159,7 @@ function HRProjection(
   test::RBSpace
   )
 
-  red = get_reduction(red)
-  basis = projection(red,s)
+  basis = projection(get_reduction(red),s)
   proj_basis = project(test,basis)
   interp = Interpolation(red,basis,s)
   return HRProjection(proj_basis,interp)
@@ -176,8 +173,7 @@ function HRProjection(
   test::RBSpace
   )
 
-  red = get_reduction(red)
-  basis = projection(red,s)
+  basis = projection(get_reduction(red),s)
   proj_basis = project(test,basis,trial)
   interp = Interpolation(red,basis,s)
   return HRProjection(proj_basis,interp)

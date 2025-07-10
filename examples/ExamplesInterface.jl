@@ -155,15 +155,15 @@ function update_reduction(red::MDEIMHyperReduction,tol)
   MDEIMHyperReduction(update_reduction(red.reduction,tol))
 end
 
-function update_reduction(red::HighOrderKroneckerReduction,tol)
-  HighOrderKroneckerReduction(
+function update_reduction(red::KroneckerReduction,tol)
+  KroneckerReduction(
     update_reduction(red.reduction_space,tol),
     update_reduction(red.reduction_time,tol)
     )
 end
 
-function update_reduction(red::HighOrderSequentialReduction,tol)
-  HighOrderSequentialReduction(update_reduction(red.reduction,tol))
+function update_reduction(red::SequentialReduction,tol)
+  SequentialReduction(update_reduction(red.reduction,tol))
 end
 
 function update_reduction(red::HighOrderMDEIMHyperReduction,tol)

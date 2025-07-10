@@ -8,15 +8,15 @@ get_cellids_cols(a::Interpolation) = get_cellids_cols(get_integration_domain(a))
 get_owned_icells(a::Interpolation,args...) = get_owned_icells(a,get_integration_cells(a,args...))
 get_owned_icells(a::Interpolation,cells::AbstractVector) = get_owned_icells(get_integration_domain(a),cells)
 
-Interpolation(::MDEIMHyperReduction,args...) = MDEIMInterpolation(args...)
-Interpolation(::RBFHyperReduction,args...) = RBFInterpolation(args...)
+Interpolation(red::MDEIMHyperReduction,args...) = MDEIMInterpolation(args...)
+Interpolation(red::RBFHyperReduction,args...) = RBFInterpolation(red,args...)
 
 function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,x::Any)
   @abstractmethod
 end
 
 function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,b::AbstractArray)
-  ldiv!(cache,a,b)
+  ldiv!(cache,get_interpolation(a),b)
   cache
 end
 
@@ -42,14 +42,14 @@ function MDEIMInterpolation(basis::Projection,trian::Triangulation,test::RBSpace
   rows,interp = empirical_interpolation(basis)
   factor = lu(interp)
   domain = vector_domain(trian,test,rows)
-  MDEIMInterpolation(interp,domain)
+  MDEIMInterpolation(factor,domain)
 end
 
 function MDEIMInterpolation(basis::Projection,trian::Triangulation,trial::RBSpace,test::RBSpace)
-  rows,interp = empirical_interpolation(basis)
+  (rows,cols),interp = empirical_interpolation(basis)
   factor = lu(interp)
   domain = matrix_domain(trian,trial,test,rows,cols)
-  MDEIMInterpolation(interp,domain)
+  MDEIMInterpolation(factor,domain)
 end
 
 get_interpolation(a::MDEIMInterpolation) = a.interpolation

@@ -332,11 +332,6 @@ function SupremizerReduction(supr_op::Function,args...;supr_tol=1e-2,kwargs...)
   SupremizerReduction(reduction,supr_op,supr_tol)
 end
 
-function LocalSupremizerReduction(supr_op::Function,args...;supr_tol=1e-2,kwargs...)
-  reduction = LocalReduction(args...;kwargs...)
-  SupremizerReduction(reduction,supr_op,supr_tol)
-end
-
 get_supr(r::SupremizerReduction) = r.supr_op
 get_supr_tol(r::SupremizerReduction) = r.supr_tol
 
@@ -347,21 +342,36 @@ ParamDataStructures.num_params(r::SupremizerReduction) = num_params(get_reductio
 
 # generic constructor
 
-function Reduction(red_style::ReductionStyle,args...;kwargs...)
-  PODReduction(red_style,args...;kwargs...)
+function Reduction(red_style::ReductionStyle,args...;compression=:global,ncentroids=10,kwargs...)
+  if compression==:global
+    PODReduction(red_style,args...;kwargs...)
+  else
+    LocalReduction(red_style,args...;ncentroids,kwargs...)
+  end
 end
 
-function Reduction(red_style::TTSVDRanks,args...;kwargs...)
-  TTSVDReduction(red_style,args...;kwargs...)
+function Reduction(red_style::TTSVDRanks,args...;compression=:global,ncentroids=10,kwargs...)
+  if compression==:global
+    TTSVDReduction(red_style,args...;kwargs...)
+  else
+    LocalReduction(red_style,args...;ncentroids,kwargs...)
+  end
 end
 
-function Reduction(tolrank::Union{Float64,Int,AbstractVector},args...;nparams=50,kwargs...)
+function Reduction(
+  tolrank::Union{Float64,Int,AbstractVector},
+  args...;
+  compression=:global,
+  nparams=50,
+  ncentroids=10,
+  kwargs...)
+
   red_style = ReductionStyle(tolrank;kwargs...)
-  Reduction(red_style,args...;nparams)
+  Reduction(red_style,args...;compression,nparams,ncentroids)
 end
 
-function Reduction(red::Reduction,args...;kwargs...)
-  red
+function Reduction(reduction::Reduction,args...;kwargs...)
+  reduction
 end
 
 function Reduction(supr_op::Function,args...;kwargs...)
@@ -385,9 +395,9 @@ Subtypes:
 """
 abstract type HyperReduction{A<:ReductionStyle} <: Reduction{A,EuclideanNorm} end
 
-function HyperReduction(args...;kwargs...)
+function HyperReduction(args...;hypred_strategy=:mdeim,kwargs...)
   reduction = Reduction(args...;kwargs...)
-  MDEIMHyperReduction(reduction)
+  hypred_strategy==:mdeim ? MDEIMHyperReduction(reduction) : RBFHyperReduction(reduction)
 end
 
 function HyperReduction(reduction::Reduction;kwargs...)
@@ -410,6 +420,11 @@ struct MDEIMHyperReduction{A} <: HyperReduction{A}
   reduction::Reduction{A,EuclideanNorm}
 end
 
+function MDEIMHyperReduction(args...;kwargs...)
+  reduction = Reduction(args...;kwargs...)
+  MDEIMHyperReduction(reduction)
+end
+
 get_reduction(r::MDEIMHyperReduction) = r.reduction
 
 """
@@ -428,19 +443,14 @@ function RBFHyperReduction(args...;strategy=PHS(),kwargs...)
   RBFHyperReduction(reduction,strategy)
 end
 
-function RBFHyperReduction(reduction::Reduction;kwargs...)
-  red_style = ReductionStyle(reduction)
-  RBFHyperReduction(red_style;kwargs...)
-end
-
 get_reduction(r::RBFHyperReduction) = r.reduction
 interp_strategy(r::RBFHyperReduction) = r.strategy
 
 const LocalHyperReduction{A} = LocalReduction{A,EuclideanNorm,<:HyperReduction{A}}
 
-function LocalHyperReduction(args...;interp=false,ncentroids=10,kwargs...)
-  red = interp ? RBFHyperReduction(args...;kwargs...) : HyperReduction(args...;kwargs...)
-  LocalReduction(red;ncentroids)
+function LocalHyperReduction(args...;ncentroids=10,kwargs...)
+  reduction = HyperReduction(args...;kwargs...)
+  LocalReduction(reduction;ncentroids)
 end
 
 """

@@ -1,5 +1,3 @@
-const TransientHRProjection{A<:ReducedProjection,I<:TransientInterpolation} = HRProjection{A,I}
-
 function RBSteady.reduced_jacobian(
   red::Tuple{Vararg{Reduction}},
   trial::RBSpace,
@@ -51,7 +49,7 @@ function RBSteady.allocate_hypred_cache(a::TupOfAffineContribution,args...)
   return hr_array(fecache,coeffs,hypred)
 end
 
-function get_common_time_domain(a::TransientHRProjection...)
+function get_common_time_domain(a::HRProjection...)
   time_ids = ()
   for ai in a
     interpi = get_interpolation(ai)

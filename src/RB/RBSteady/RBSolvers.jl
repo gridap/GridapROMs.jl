@@ -42,12 +42,14 @@ function RBSolver(
   fesolver::GridapType,
   reduction::Reduction;
   nparams_res=20,
-  nparams_jac=20)
+  nparams_jac=20,
+  kwargs...)
 
-  residual_reduction = HyperReduction(reduction;nparams=nparams_res)
-  jacobian_reduction = HyperReduction(reduction;nparams=nparams_jac)
+  residual_reduction = HyperReduction(reduction;nparams=nparams_res,kwargs...)
+  jacobian_reduction = HyperReduction(reduction;nparams=nparams_jac,kwargs...)
   RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)
 end
+
 
 function RBSolver(
   fesolver::GridapType,
@@ -61,6 +63,36 @@ function RBSolver(
   residual_reduction = LocalHyperReduction(reduction;nparams=nparams_res,ncentroids=ncentroids_res,kwargs...)
   jacobian_reduction = LocalHyperReduction(reduction;nparams=nparams_jac,ncentroids=ncentroids_jac,kwargs...)
   RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)
+end
+
+function RBSolver(
+  fesolver::GridapType,
+  style::ReductionStyle;
+  nparams=100,
+  kwargs...)
+
+  reduction = Reduction(style;nparam)
+  RBSolver(fesolver,reduction;kwargs...)
+end
+
+function LocalRBSolver(
+  fesolver::GridapType,
+  style::ReductionStyle;
+  nparams=100,
+  ncentroids=10,
+  kwargs...)
+
+  reduction = LocalReduction(style;nparam,ncentroids)
+  RBSolver(fesolver,reduction;kwargs...)
+end
+
+function LocalRBSolver(
+  fesolver::GridapType,
+  reduction::Reduction;
+  kwargs...)
+
+  style = ReductionStyle(reduction)
+  LocalRBSolver(fesolver,style;kwargs...)
 end
 
 """

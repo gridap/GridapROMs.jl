@@ -1,21 +1,6 @@
 # check HighOrderMDEIMHyperReduction for more details
 time_combinations(fesolver::ODESolver) = @notimplemented "For now, only theta methods are implemented"
 
-function time_combinations(fesolver::GeneralizedAlpha1)
-  combine_res(x) = nothing
-  combine_jac(x,y) = nothing
-  combine_djac(x,y) = nothing
-  return combine_res,combine_jac,combine_djac
-end
-
-function time_combinations(fesolver::GeneralizedAlpha2)
-  combine_res(x) = nothing
-  combine_jac(x,y) = nothing
-  combine_djac(x,y) = nothing
-  combine_ddjac(x,y) = nothing
-  return combine_res,combine_jac,combine_djac,combine_ddjac
-end
-
 function time_combinations(fesolver::ThetaMethod)
   dt,θ = fesolver.dt,fesolver.θ
   combine_res(x) = x
@@ -29,12 +14,30 @@ function RBSteady.RBSolver(
   reduction::Reduction;
   nparams_res=20,
   nparams_jac=20,
-  nparams_djac=nparams_jac)
+  nparams_djac=nparams_jac,
+  kwargs...)
 
   cres,cjac,cdjac = time_combinations(fesolver)
-  residual_reduction = HighOrderHyperReduction(cres,reduction;nparams=nparams_res)
-  jac_reduction = HighOrderHyperReduction(cjac,reduction;nparams=nparams_jac)
-  djac_reduction = HighOrderHyperReduction(cdjac,reduction;nparams=nparams_djac)
+  residual_reduction = HighOrderHyperReduction(cres,reduction;nparams=nparams_res,kwargs...)
+  jac_reduction = HighOrderHyperReduction(cjac,reduction;nparams=nparams_jac,kwargs...)
+  djac_reduction = HighOrderHyperReduction(cdjac,reduction;nparams=nparams_djac,kwargs...)
+  jacobian_reduction = (jac_reduction,djac_reduction)
+
+  RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)
+end
+
+function RBSteady.RBSolver(
+  fesolver::ODESolver,
+  reduction::LocalReduction;
+  nparams_res=20,
+  nparams_jac=20,
+  nparams_djac=nparams_jac,
+  kwargs...)
+
+  cres,cjac,cdjac = time_combinations(fesolver)
+  residual_reduction = LocalHighOrderHyperReduction(cres,reduction;nparams=nparams_res,kwargs...)
+  jac_reduction = LocalHighOrderHyperReduction(cjac,reduction;nparams=nparams_jac,kwargs...)
+  djac_reduction = LocalHighOrderHyperReduction(cdjac,reduction;nparams=nparams_djac,kwargs...)
   jacobian_reduction = (jac_reduction,djac_reduction)
 
   RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)

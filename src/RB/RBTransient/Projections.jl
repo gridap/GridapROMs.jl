@@ -69,16 +69,16 @@ struct KroneckerProjection <: TransientProjection
   projection_time::Projection
 end
 
-function KroneckerProjection(red::HighOrderKroneckerReduction,s::TransientSnapshots,args...)
+function KroneckerProjection(red::KroneckerReduction,s::TransientSnapshots,args...)
   projection_space,projection_time = tucker(red.reduction,s,args...)
   KroneckerProjection(projection_space,projection_time)
 end
 
-function RBSteady.projection(red::HighOrderKroneckerReduction,s::TransientSnapshots)
+function RBSteady.projection(red::KroneckerReduction,s::TransientSnapshots)
   KroneckerProjection(red,s)
 end
 
-function RBSteady.projection(red::HighOrderKroneckerReduction,s::TransientSnapshots,X::MatrixOrTensor)
+function RBSteady.projection(red::KroneckerReduction,s::TransientSnapshots,X::MatrixOrTensor)
   KroneckerProjection(red,s,X)
 end
 
@@ -180,12 +180,12 @@ struct SequentialProjection{A} <: TransientProjection
   projection::A
 end
 
-function RBSteady.projection(red::HighOrderSequentialReduction,s::TransientSnapshots)
+function RBSteady.projection(red::SequentialReduction,s::TransientSnapshots)
   proj = projection(get_reduction(red),s)
   SequentialProjection(proj)
 end
 
-function RBSteady.projection(red::HighOrderSequentialReduction,s::TransientSnapshots,X::MatrixOrTensor)
+function RBSteady.projection(red::SequentialReduction,s::TransientSnapshots,X::MatrixOrTensor)
   proj = projection(get_reduction(red),s,X)
   SequentialProjection(proj)
 end
@@ -291,24 +291,24 @@ end
 
 # multfield interface
 
-function Arrays.return_type(::typeof(projection),::HighOrderKroneckerReduction,::TransientSnapshots)
+function Arrays.return_type(::typeof(projection),::KroneckerReduction,::TransientSnapshots)
   KroneckerProjection
 end
 
-function Arrays.return_type(::typeof(projection),::HighOrderKroneckerReduction,::TransientSnapshots,::AbstractMatrix)
+function Arrays.return_type(::typeof(projection),::KroneckerReduction,::TransientSnapshots,::AbstractMatrix)
   KroneckerProjection
 end
 
-function Arrays.return_type(::typeof(projection),::HighOrderSequentialReduction,::TransientSnapshots)
+function Arrays.return_type(::typeof(projection),::SequentialReduction,::TransientSnapshots)
   SequentialProjection
 end
 
-function Arrays.return_type(::typeof(projection),::HighOrderSequentialReduction,::TransientSnapshots,::AbstractRankTensor)
+function Arrays.return_type(::typeof(projection),::SequentialReduction,::TransientSnapshots,::AbstractRankTensor)
   SequentialProjection
 end
 
 function RBSteady.enrich!(
-  red::SupremizerReduction{A,<:HighOrderKroneckerReduction},
+  red::SupremizerReduction{A,<:KroneckerReduction},
   a::BlockProjection,
   norm_matrix::BlockMatrix,
   supr_matrix::BlockMatrix;
@@ -337,7 +337,7 @@ function RBSteady.enrich!(
 end
 
 function RBSteady.enrich!(
-  red::SupremizerReduction{A,<:HighOrderSequentialReduction},
+  red::SupremizerReduction{A,<:SequentialReduction},
   a::BlockProjection,
   norm_matrix::BlockRankTensor,
   supr_matrix::BlockRankTensor;

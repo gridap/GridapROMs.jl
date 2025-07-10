@@ -75,7 +75,7 @@ const hd = dp[1]/n
 
 function rb_solver(tolrank,nparams)
   tolrankhr = tolrank.*1e-2
-  state_reduction = LocalSupremizerReduction(coupling,tolrank,energy;nparams,ncentroids)
+  state_reduction = SupremizerReduction(coupling,tolrank,energy;nparams,ncentroids)
   residual_reduction = LocalHyperReduction(tolrankhr;nparams,ncentroids=ncentroids_res,interp=true)
   jacobian_reduction = LocalHyperReduction(tolrankhr;nparams,ncentroids=ncentroids_jac,interp=true)
   RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
