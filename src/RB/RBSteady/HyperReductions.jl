@@ -1,5 +1,5 @@
 """
-    abstract type HRProjection{A<:ReducedProjection,I<:Interpolation} <: Projection end
+    abstract type HRProjection{A<:ReducedProjection,B<:HyperReduction} <: Projection end
 
 Subtype of a [`Projection`](@ref) dedicated to the output of a hyper-reduction
 procedure applied on residual/jacobians of a differential problem. This procedure
@@ -28,10 +28,10 @@ Subtypes:
 - [`MDEIMProjection`](@ref)
 - [`RBFHyperReduction`](@ref)
 """
-abstract type HRProjection{A<:ReducedProjection,I<:Interpolation} <: Projection end
+abstract type HRProjection{A<:ReducedProjection,B<:HyperReduction} <: Projection end
 
-const HRVecProjection{I<:Interpolation} = HRProjection{<:ReducedVecProjection,I}
-const HRMatProjection{I<:Interpolation} = HRProjection{<:ReducedMatProjection,I}
+const HRVecProjection{B<:HyperReduction} = HRProjection{<:ReducedVecProjection,B}
+const HRMatProjection{B<:HyperReduction} = HRProjection{<:ReducedMatProjection,B}
 
 HRProjection(::Reduction,args...) = @abstractmethod
 
@@ -71,27 +71,29 @@ end
 
 """
 """
-const MDEIMProjection{A<:ReducedProjection} = HRProjection{A,<:AbstractMDEIMInterp}
+const MDEIMProjection{A<:ReducedProjection} = HRProjection{A,<:MDEIMHyperReduction}
 
 """
 """
-const RBFProjection{A<:ReducedProjection} = HRProjection{A,<:AbstractRBFInterp}
+const RBFProjection{A<:ReducedProjection} = HRProjection{A,<:RBFHyperReduction}
 
 """
-    struct GenericHRProjection{A,I} <: HRProjection{A,I}
+    struct GenericHRProjection{A,B} <: HRProjection{A,B}
       basis::A
-      interpolation::I
+      style::B
+      interpolation::Interpolation
     end
 
 Generic implementation of an [`HRProjection`](@ref) object
 """
-struct GenericHRProjection{A,I} <: HRProjection{A,I}
+struct GenericHRProjection{A,B} <: HRProjection{A,B}
   basis::A
-  interpolation::I
+  style::B
+  interpolation::Interpolation
 end
 
-function HRProjection(basis::ReducedProjection,interp::Interpolation)
-  GenericHRProjection(basis,interp)
+function HRProjection(basis::ReducedProjection,style::HyperReduction,interp::Interpolation)
+  GenericHRProjection(basis,style,interp)
 end
 
 get_basis(a::GenericHRProjection) = a.basis
@@ -107,7 +109,7 @@ function HRProjection(
   nrows = num_reduced_dofs(test)
   basis = ReducedProjection(zeros(nrows,1))
   interp = Interpolation(red)
-  return HRProjection(basis,interp)
+  return HRProjection(basis,red,interp)
 end
 
 function HRProjection(
@@ -122,7 +124,7 @@ function HRProjection(
   ncols = num_reduced_dofs(trial)
   basis = ReducedProjection(zeros(nrows,1,ncols))
   interp = Interpolation(red)
-  return HRProjection(basis,interp)
+  return HRProjection(basis,red,interp)
 end
 
 function HRProjection(
@@ -135,7 +137,7 @@ function HRProjection(
   basis = projection(get_reduction(red),s)
   proj_basis = project(test,basis)
   interp = Interpolation(red,basis,trian,test)
-  return HRProjection(proj_basis,interp)
+  return HRProjection(proj_basis,red,interp)
 end
 
 function HRProjection(
@@ -149,7 +151,7 @@ function HRProjection(
   basis = projection(get_reduction(red),s)
   proj_basis = project(test,basis,trial)
   interp = Interpolation(red,basis,trian,trial,test)
-  return HRProjection(proj_basis,interp)
+  return HRProjection(proj_basis,red,interp)
 end
 
 function HRProjection(
@@ -162,7 +164,7 @@ function HRProjection(
   basis = projection(get_reduction(red),s)
   proj_basis = project(test,basis)
   interp = Interpolation(red,basis,s)
-  return HRProjection(proj_basis,interp)
+  return HRProjection(proj_basis,red,interp)
 end
 
 function HRProjection(
@@ -176,7 +178,7 @@ function HRProjection(
   basis = projection(get_reduction(red),s)
   proj_basis = project(test,basis,trial)
   interp = Interpolation(red,basis,s)
-  return HRProjection(proj_basis,interp)
+  return HRProjection(proj_basis,red,interp)
 end
 
 function allocate_coefficient(a::Projection)
@@ -365,36 +367,26 @@ end
 # multi field interface
 
 """
-    struct BlockHRProjection{A<:HRProjection,N} <: Projection
-      array::Array{A,N}
+    struct BlockHRProjection{A,I,N} <: HRProjection{A,I}
+      array::Array{HRProjection{A,I},N}
       touched::Array{Bool,N}
     end
 
 Block container for HRProjection of type `A` in a `MultiField` setting. This
 type is conceived similarly to `ArrayBlock` in [`Gridap`](@ref)
 """
-struct BlockHRProjection{A<:HRProjection,N} <: Projection
-  array::Array{A,N}
+struct BlockHRProjection{A,B,N,H<:HRProjection{A,B}} <: HRProjection{A,B}
+  array::Array{H,N}
   touched::Array{Bool,N}
 
   function BlockHRProjection(
-    array::Array{A,N},
+    array::Array{H,N},
     touched::Array{Bool,N}
-    ) where {A<:Projection,N}
+    ) where {A,B,N,H<:HRProjection{A,B}}
 
     @check size(array) == size(touched)
-    new{A,N}(array,touched)
+    new{A,B,N,H}(array,touched)
   end
-end
-
-function BlockHRProjection(a::AbstractArray{A},touched::Array{Bool,N}) where {A<:HRProjection,N}
-  array = Array{A,N}(undef,k.size)
-  for i in touched
-    if touched[i]
-      array[i] = a[i]
-    end
-  end
-  BlockHRProjection(array,touched)
 end
 
 Base.ndims(a::BlockHRProjection) = ndims(a.touched)
@@ -582,10 +574,9 @@ function reduced_form(
   trian::Triangulation,
   test::MultiFieldRBSpace)
 
-  hyper_reds = Vector{HRProjection}(undef,size(s))
-  for i in eachindex(s)
+  hyper_reds = map(eachindex(s)) do i
     hyper_red, = reduced_form(red,s[i],trian,test[i])
-    hyper_reds[i] = hyper_red
+    hyper_red
   end
 
   hyper_red = BlockHRProjection(hyper_reds,s.touched)
@@ -601,10 +592,9 @@ function reduced_form(
   trial::MultiFieldRBSpace,
   test::MultiFieldRBSpace)
 
-  hyper_reds = Matrix{HRProjection}(undef,size(s))
-  for (i,j) in Iterators.product(axes(s)...)
+  hyper_reds = map(Iterators.product(axes(s)...)) do (i,j)
     hyper_red, = reduced_form(red,s[i,j],trian,trial[j],test[i])
-    hyper_reds[i,j] = hyper_red
+    hyper_red
   end
 
   hyper_red = BlockHRProjection(hyper_reds,s.touched)

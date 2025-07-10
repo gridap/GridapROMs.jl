@@ -140,7 +140,7 @@ function _select_snapshots(s::TransientReshapedSnapshots{T,N},pindex) where {T,N
   prange = _format_index(pindex)
   trange = 1:num_times(s)
   drange = view(get_all_data(s),_ncolons(Val{N-2}())...,prange,trange)
-  pdrange = _get_param_data(s.param_data,prange,trange)
+  pdrange = _get_param_data(s.param_data,prange,trange;nparams=np)
   rrange = get_realization(s)[prange,trange]
   ReshapedSnapshots(drange,pdrange,get_dof_map(s),rrange)
 end
@@ -150,8 +150,12 @@ function _get_param_data(pdata::ConsecutiveParamMatrix,prange,trange)
 end
 
 # in practice, when dealing with the Jacobian, the param data is never fetched
-function _get_param_data(pdata::ConsecutiveParamSparseMatrixCSC,prange,trange)
-  pdata
+function _get_param_data(
+  pdata::ConsecutiveParamSparseMatrixCSC,prange,trange;
+  nparams=Int(param_length(pdata)/length(trange))
+  )
+  datarange = view(pdata.data,:,range_1d(prange,trange,nparams))
+  ConsecutiveParamSparseMatrixCSC(pdata.m,pdata.n,pdata.colptr,pdata.rowval,datarange)
 end
 
 """

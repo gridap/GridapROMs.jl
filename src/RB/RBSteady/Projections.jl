@@ -524,7 +524,7 @@ function galerkin_projection(proj_left::NormedProjection,a::Projection)
 end
 
 function galerkin_projection(proj_left::NormedProjection,a::Projection,proj_right::NormedProjection,args...)
-  galerkin_projection(proj_left.projection,get_projection(a),proj_right.projection,args...)
+  galerkin_projection(get_projection(proj_left),get_projection(a),get_projection(proj_right),args...)
 end
 
 function empirical_interpolation(a::NormedProjection)
@@ -609,16 +609,6 @@ struct BlockProjection{A<:Projection,N} <: Projection
     @check size(array) == size(touched)
     new{A,N}(array,touched)
   end
-end
-
-function BlockProjection(a::AbstractArray{A},touched::Array{Bool,N}) where {A<:Projection,N}
-  array = Array{A,N}(undef,k.size)
-  for i in touched
-    if touched[i]
-      array[i] = a[i]
-    end
-  end
-  BlockProjection(array,touched)
 end
 
 Base.ndims(a::BlockProjection) = ndims(a.touched)
@@ -738,7 +728,7 @@ function enrich!(
     dual_i = get_basis(a_dual[i])
     C_primal_dual_i = supr_matrix[Block(1,i+1)]
     supr_i = H_primal \ C_primal_dual_i * dual_i
-    a_primal = union_bases(a_primal,supr_i,X_primal)
+    a_primal = union_bases(a_primal,supr_i,H_primal)
   end
   a[1] = a_primal
   return
@@ -754,10 +744,11 @@ function enrich!(
   @check a.touched[1] "Primal field not defined"
   a_primal,a_dual... = a.array
   X_primal = norm_matrix[Block(1,1)]
+  H_primal = cholesky(X_primal)
   for i = eachindex(a_dual)
     dual_i = get_cores(a_dual[i])
     C_primal_dual_i = supr_matrix[Block(1,i+1)]
-    supr_i = tt_supremizer(X_primal,C_primal_dual_i,dual_i)
+    supr_i = tt_supremizer(H_primal,C_primal_dual_i,dual_i)
     a_primal = union_bases(a_primal,supr_i,X_primal)
   end
   a[1] = a_primal

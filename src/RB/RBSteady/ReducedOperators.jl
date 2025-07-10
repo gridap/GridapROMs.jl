@@ -243,7 +243,7 @@ function get_local(op::LocalRBOperator,μ)
   testμ = get_local(op.test,μ)
   lhsμ = get_local(op.lhs,μ)
   rhsμ = get_local(op.rhs,μ)
-  GenericRBOperator(op.op,trialμ,testμ,lhsμ,rhsμ)
+  RBOperator(op.op,trialμ,testμ,lhsμ,rhsμ)
 end
 
 function Algebra.solve(

@@ -89,12 +89,12 @@ Subtypes:
 abstract type ParamSparseMatrixCSC{Tv,Ti} <: ParamSparseMatrix{Tv,Ti,SparseMatrixCSC{Tv,Ti}} end
 
 """
-    struct ConsecutiveParamSparseMatrixCSC{Tv,Ti<:Integer} <: ParamSparseMatrixCSC{Tv,Ti}
+    struct ConsecutiveParamSparseMatrixCSC{Tv,Ti<:Integer,A<:AbstractMatrix{Tv}} <: ParamSparseMatrixCSC{Tv,Ti}
       m::Int64
       n::Int64
       colptr::Vector{Ti}
       rowval::Vector{Ti}
-      data::Matrix{Tv}
+      data::A
     end
 
 Represents a vector of sparse matrices in CSC format, with entries stored
@@ -103,12 +103,12 @@ consecutively in memory. For sake of coherence, an instance of
 rather than `AbstractVector{<:SparseMatrixCSC{Tv,Ti}`, but should conceptually be
 thought as an `AbstractVector{<:SparseMatrixCSC{Tv,Ti}`.
 """
-struct ConsecutiveParamSparseMatrixCSC{Tv,Ti<:Integer} <: ParamSparseMatrixCSC{Tv,Ti}
+struct ConsecutiveParamSparseMatrixCSC{Tv,Ti<:Integer,A<:AbstractMatrix{Tv}} <: ParamSparseMatrixCSC{Tv,Ti}
   m::Int64
   n::Int64
   colptr::Vector{Ti}
   rowval::Vector{Ti}
-  data::Matrix{Tv}
+  data::A
 end
 
 param_length(A::ConsecutiveParamSparseMatrixCSC) = size(A.data,2)
@@ -317,12 +317,12 @@ Subtypes:
 abstract type ParamSparseMatrixCSR{Bi,Tv,Ti} <: ParamSparseMatrix{Tv,Ti,SparseMatrixCSR{Bi,Tv,Ti}} end
 
 """
-    struct ConsecutiveParamSparseMatrixCSR{Bi,Tv,Ti<:Integer} <: ParamSparseMatrixCSR{Bi,Tv,Ti}
+    struct ConsecutiveParamSparseMatrixCSR{Bi,Tv,Ti<:Integer,A<:AbstractMatrix{Tv}} <: ParamSparseMatrixCSR{Bi,Tv,Ti}
       m::Int64
       n::Int64
       rowptr::Vector{Ti}
       colval::Vector{Ti}
-      data::Matrix{Tv}
+      data::A
     end
 
 Represents a vector of sparse matrices in CSR format, with entries stored
@@ -331,21 +331,22 @@ consecutively in memory. For sake of coherence, an instance of
 rather than `AbstractVector{<:SparseMatrixCSR{Bi,Tv,Ti}`, but should conceptually be
 thought as an `AbstractVector{<:SparseMatrixCSR{Bi,Tv,Ti}`.
 """
-struct ConsecutiveParamSparseMatrixCSR{Bi,Tv,Ti<:Integer} <: ParamSparseMatrixCSR{Bi,Tv,Ti}
+struct ConsecutiveParamSparseMatrixCSR{Bi,Tv,Ti<:Integer,A<:AbstractMatrix{Tv}} <: ParamSparseMatrixCSR{Bi,Tv,Ti}
   m::Int64
   n::Int64
   rowptr::Vector{Ti}
   colval::Vector{Ti}
-  data::Matrix{Tv}
+  data::A
   function ConsecutiveParamSparseMatrixCSR{Bi}(
     m::Int64,
     n::Int64,
     rowptr::Vector{Ti},
     colval::Vector{Ti},
-    data::Matrix{Tv}
+    data::AbstractMatrix{Tv}
     ) where {Bi,Tv,Ti}
 
-    new{Bi,Tv,Ti}(m,n,rowptr,colval,data)
+    A = typeof(data)
+    new{Bi,Tv,Ti,A}(m,n,rowptr,colval,data)
   end
 end
 

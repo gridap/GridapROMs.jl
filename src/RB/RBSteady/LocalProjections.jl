@@ -44,6 +44,15 @@ function local_values(a::RBSpace)
   map(x -> reduced_subspace(space,x),lsubspace)
 end
 
+local_proj_to_proj(a::Projection,b::AbstractVector{<:Projection}) = @abstractmethod
+local_proj_to_proj(a::LocalProjection,b::AbstractVector{<:Projection}) = LocalProjection(b,a.k)
+
+function local_proj_to_proj(a::NormedProjection,b::AbstractVector{<:NormedProjection})
+  get_proj(a::NormedProjection) = a.projection
+  la = local_proj_to_proj(get_proj(a),map(get_proj,b))
+  NormedProjection(la,a.norm_matrix)
+end
+
 get_clusters(a) = @abstractmethod
 get_clusters(a::LocalProjection) = a.k
 get_clusters(a::NormedProjection) = get_clusters(a.projection)
@@ -83,19 +92,64 @@ function get_local(a::RBSpace,μ::AbstractVector)
   reduced_subspace(space,lsubspace)
 end
 
-# function reduced_basis(
-#   red::LocalSuprReduction,
-#   feop::ParamOperator,
-#   s::AbstractSnapshots)
+function enrich!(
+  red::SupremizerReduction{A,<:LocalReduction},
+  a::BlockProjection,
+  norm_matrix::BlockMatrix,
+  supr_matrix::BlockMatrix
+  ) where A
 
-#   norm_matrix = assemble_matrix(feop,get_norm(red))
-#   supr_matrix = assemble_matrix(feop,get_supr(red))
-#   basis = reduced_basis(get_reduction(red),s,norm_matrix)
-#   for b in local_values(basis)
-#     enrich!(red.reduction,b,norm_matrix,supr_matrix)
-#   end
-#   return basis
-# end
+  @check a.touched[1] "Primal field not defined"
+  a_primal,a_dual... = a.array
+  X_primal = norm_matrix[Block(1,1)]
+  H_primal = cholesky(X_primal)
+  a_primal_loc = local_values(a_primal)
+  cache1 = CachedArray(testvalue(Matrix{Float64}))
+  cache2 = CachedArray(testvalue(Matrix{Float64}))
+  for j in eachindex(a_primal_loc)
+    pj = a_primal_loc[j]
+    for i = eachindex(a_dual)
+      a_dual_i_loc = local_values(a_dual[i])
+      dij = get_basis(a_dual_i_loc[j])
+      C_primal_dual_i = supr_matrix[Block(1,i+1)]
+      setsize!(cache1,size(C_primal_dual_i,1),size(dij,2))
+      setsize!(cache2,size(X_primal,1),size(dij,2))
+      mul!(cache1,C_primal_dual_i,dij)
+      ldiv!(cache2,H_primal,cache1)
+      pj = union_bases(pj,cache2,H_primal)
+    end
+    a_primal_loc[j] = pj
+  end
+  a[1] = local_proj_to_proj(a_primal,a_primal_loc)
+  return
+end
+
+function enrich!(
+  red::SupremizerReduction{A,<:LocalReduction},
+  a::BlockProjection,
+  norm_matrix::BlockRankTensor,
+  supr_matrix::BlockRankTensor
+  ) where A
+
+  @check a.touched[1] "Primal field not defined"
+  a_primal,a_dual... = a.array
+  X_primal = norm_matrix[Block(1,1)]
+  H_primal = cholesky(X_primal)
+  a_primal_loc = local_values(a_primal)
+  for j in eachindex(a_primal_loc)
+    pj = a_primal_loc[j]
+    for i = eachindex(a_dual)
+      a_dual_i_loc = local_values(a_dual[i])
+      dij = get_cores(a_dual_i_loc[j])
+      C_primal_dual_i = supr_matrix[Block(1,i+1)]
+      supr_ij = tt_supremizer(H_primal,C_primal_dual_i,dij)
+      pj = union_bases(pj,supr_ij,X_primal)
+    end
+    a_primal_loc[j] = pj
+  end
+  a[1] = local_proj_to_proj(a_primal,a_primal_loc)
+  return
+end
 
 function reduced_residual(lred::LocalReduction,test::RBSpace,c::ArrayContribution)
   red = get_reduction(lred)

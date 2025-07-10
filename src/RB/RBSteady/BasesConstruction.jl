@@ -504,12 +504,19 @@ for (f,g) in zip((:gram_schmidt,:gram_schmidt!),(:pivoted_qr,:pivoted_qr!))
       return Q
     end
 
-    function $f(A::AbstractMatrix,X::AbstractSparseMatrix,args...)
-      L,p = _cholesky_decomp(X)
+    function $f(A::AbstractMatrix,L::AbstractSparseMatrix,p::AbstractVector{Int},args...)
       XA = _forward_cholesky(A,L,p)
       Q̃, = $g(XA,args...)
       Q = _backward_cholesky(Q̃,L,p)
       return Q
+    end
+
+    function $f(A::AbstractMatrix,C::Factorization,args...)
+      $f(A,sparse(C.L),C.p,args...)
+    end
+
+    function $f(A::AbstractMatrix,X::AbstractSparseMatrix,args...)
+      $f(A,cholesky(X),args...)
     end
 
     function $g(A,tol=1e-10)

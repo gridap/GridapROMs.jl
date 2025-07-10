@@ -211,7 +211,8 @@ end
 
 # in practice, when dealing with the Jacobian, the param data is never fetched
 function _get_param_data(pdata::ConsecutiveParamSparseMatrixCSC,prange)
-  pdata
+  datarange = view(pdata.data,:,prange)
+  ConsecutiveParamSparseMatrixCSC(pdata.m,pdata.n,pdata.colptr,pdata.rowval,datarange)
 end
 
 function Base.getindex(s::ReshapedSnapshots{T,N},i::Vararg{Integer,N}) where {T,N}

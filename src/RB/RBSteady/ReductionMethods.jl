@@ -405,6 +405,15 @@ function HyperReduction(reduction::Reduction;kwargs...)
   HyperReduction(red_style;kwargs...)
 end
 
+function HyperReduction(reduction::SupremizerReduction;kwargs...)
+  HyperReduction(get_reduction(reduction);kwargs...)
+end
+
+function HyperReduction(reduction::LocalReduction;kwargs...)
+  red_style = ReductionStyle(reduction)
+  LocalHyperReduction(red_style;kwargs...)
+end
+
 ReductionStyle(r::HyperReduction) = ReductionStyle(get_reduction(r))
 NormStyle(r::HyperReduction) = NormStyle(get_reduction(r))
 ParamDataStructures.num_params(r::HyperReduction) = num_params(get_reduction(r))

@@ -310,21 +310,20 @@ function tt_supremizer(
 end
 
 function tt_supremizer(
-  X::AbstractRankTensor{D},
+  X::Vector{<:Factorization},
   B::GenericRankTensor,
   cores_d::Vector{<:AbstractArray{T,3}}
-  ) where {D,T}
+  ) where T
 
-  Xfactors = cholesky(X)
   nB = length(get_decomposition(B))
   vec_supr = Vector{Vector{Array{T,3}}}(undef,nB)
   for iB in 1:nB
     Bi = get_decomposition(B)[iB]
     Bfactors = get_factors(Bi)
-    vec_supr[iB] = tt_supremizer(Xfactors,Bfactors,cores_d)
+    vec_supr[iB] = tt_supremizer(X,Bfactors,cores_d)
   end
   supr_cores = _block_cores_add_component(vec_supr)
-  if length(cores_d) > D
+  if length(cores_d) > length(X)
     push!(supr_cores,last(cores_d))
   end
   return supr_cores
@@ -414,15 +413,12 @@ function basis_index(cores_indices::Table,i::Integer,l::Integer)
   return (iprevs...,icurr)
 end
 
-# Depending on the underlying triangulation, we might have dof_map[1] = 0.
-# The function is modified to never return a zero.
 function _get_indices(
   ::Val{1},
   cores_indices::Table,
   dof_map::AbstractArray{Ti,D}
   )::Vector{Ti} where {Ti,D}
 
-  o = one(Ti)
   L = length(cores_indices)
   piniL = cores_indices.ptrs[L]
   pendL = cores_indices.ptrs[L+1]-1
@@ -431,7 +427,7 @@ function _get_indices(
     ik = cores_indices.data[pk]
     indices_space_k = basis_index(cores_indices,ik,L)
     index_space_k = dof_map[CartesianIndex(indices_space_k)]
-    space_indices[k] = max(o,index_space_k)
+    space_indices[k] = index_space_k
   end
 
   return space_indices
@@ -443,7 +439,6 @@ function _get_indices(
   dof_map::AbstractArray{Ti,D}
   )::NTuple{2,Vector{Ti}} where {Ti,D}
 
-  o = one(Ti)
   L = length(cores_indices)
   piniL = cores_indices.ptrs[L]
   pendL = cores_indices.ptrs[L+1]-1
@@ -453,7 +448,7 @@ function _get_indices(
     ik = cores_indices.data[pk]
     indices_space_k...,index_time_k = basis_index(cores_indices,ik,L)
     index_space_k = dof_map[CartesianIndex(indices_space_k)]
-    space_indices[k] = max(o,index_space_k)
+    space_indices[k] = index_space_k
     time_indices[k] = index_time_k
   end
 

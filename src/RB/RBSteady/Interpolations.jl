@@ -9,7 +9,7 @@ get_owned_icells(a::Interpolation,args...) = get_owned_icells(a,get_integration_
 get_owned_icells(a::Interpolation,cells::AbstractVector) = get_owned_icells(get_integration_domain(a),cells)
 
 Interpolation(red::MDEIMHyperReduction,args...) = MDEIMInterpolation(args...)
-Interpolation(red::RBFHyperReduction,args...) = RBFInterpolation(red,args...)
+Interpolation(red::RBFHyperReduction,args...) = RBFInterpolation(interp_strategy(red),args...)
 
 function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,x::Any)
   @abstractmethod
@@ -29,14 +29,18 @@ function reduced_triangulation(trian::Triangulation,a::Interpolation)
   return trian
 end
 
+# Empty interpolation
+
+struct EmptyInterpolation <: Interpolation end
+
 # EIM interpolation
 
-struct MDEIMInterpolation{A,B} <: Interpolation
+struct MDEIMInterpolation{A,B<:IntegrationDomain} <: Interpolation
   interpolation::A
   domain::B
 end
 
-MDEIMInterpolation() = MDEIMInterpolation(nothing,nothing)
+MDEIMInterpolation() = EmptyInterpolation()
 
 function MDEIMInterpolation(basis::Projection,trian::Triangulation,test::RBSpace)
   rows,interp = empirical_interpolation(basis)
@@ -63,15 +67,11 @@ end
 
 # RBF interpolation
 
-struct RBFInterpolation{A} <: Interpolation
+struct RBFInterpolation{A<:Interpolator} <: Interpolation
   interpolation::A
 end
 
-RBFInterpolation() = RBFInterpolation(nothing)
-
-function RBFInterpolation(red::RBFHyperReduction,a::Projection,s::Snapshots)
-  RBFInterpolation(interp_strategy(red),a,s)
-end
+RBFInterpolation(strategy::AbstractRadialBasis) = EmptyInterpolation(nothing)
 
 function RBFInterpolation(strategy::AbstractRadialBasis,a::Projection,s::Snapshots)
   inds,interp = empirical_interpolation(a)
@@ -149,16 +149,21 @@ end
 
 function get_at_domain(s::Snapshots,rows::AbstractVector{<:Integer})
   data = reshape(get_all_data(s),:,num_params(s))
-  datav = view(data,rows,:)
-  ConsecutiveParamArray(datav)
+  get_at_domain(data,rows)
 end
 
 function get_at_domain(s::SparseSnapshots,rowscols::Tuple)
+  _all_data(s::Snapshots) = get_all_data(s)
+  _all_data(s::ReshapedSnapshots) = get_all_data(get_param_data(s))
   rows,cols = rowscols
   sparsity = get_sparsity(get_dof_map(s))
   inds = sparsify_split_indices(rows,cols,sparsity)
-  data = get_all_data(s)
-  datav = view(data,inds,:)
+  data = reshape(_all_data(s),:,num_params(s))
+  get_at_domain(data,inds)
+end
+
+function get_at_domain(data::AbstractArray,rows::AbstractVector{<:Integer})
+  datav = view(data,rows,:)
   ConsecutiveParamArray(datav)
 end
 
@@ -259,7 +264,3 @@ function get_owned_icells(a::BlockInterpolation,cells::AbstractVector)
   end
   return ArrayBlock(cache,a.touched)
 end
-
-const AbstractMDEIMInterp = Union{MDEIMInterpolation,BlockInterpolation{<:MDEIMInterpolation}}
-
-const AbstractRBFInterp = Union{RBFInterpolation,BlockInterpolation{<:RBFInterpolation}}
