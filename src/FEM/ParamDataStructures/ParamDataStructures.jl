@@ -80,6 +80,7 @@ export AbstractParamMatrix
 export ParamArray
 export ParamVector
 export ParamMatrix
+export GenericParamArray
 export innersize
 export innerlength
 export inneraxes
@@ -91,7 +92,6 @@ export ConsecutiveParamVector
 export ConsecutiveParamMatrix
 export GenericParamVector
 export GenericParamMatrix
-export ArrayOfArrays
 export get_all_data
 export param_cat
 include("ParamArrays.jl")

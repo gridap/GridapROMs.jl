@@ -423,17 +423,27 @@ for f in (:get_basis,:get_interpolation)
       block_cache = Array{typeof(cache),ndims(a)}(undef,size(a))
       return block_cache
     end
+  end
+end
 
-    function $f(a::BlockHRProjection)
-      cache = return_cache($f,a)
-      for i in eachindex(a)
-        if a.touched[i]
-          cache[i] = $f(a[i])
-        end
-      end
-      return ArrayBlock(cache,a.touched)
+function get_basis(a::BlockHRProjection)
+  cache = return_cache(get_basis,a)
+  for i in eachindex(a)
+    if a.touched[i]
+      cache[i] = get_basis(a[i])
     end
   end
+  return ArrayBlock(cache,a.touched)
+end
+
+function get_interpolation(a::BlockHRProjection)
+  cache = return_cache(get_interpolation,a)
+  for i in eachindex(a)
+    if a.touched[i]
+      cache[i] = get_interpolation(a[i])
+    end
+  end
+  return BlockInterpolation(cache,a.touched)
 end
 
 function FESpaces.interpolate!(
@@ -488,11 +498,11 @@ end
 function Arrays.return_cache(
   ::typeof(allocate_coefficient),
   a::BlockHRProjection,
-  args...)
+  r::AbstractRealization)
 
   i = findfirst(a.touched)
   @notimplementedif isnothing(i)
-  coeff = return_cache(allocate_coefficient,a[i],args...)
+  coeff = return_cache(allocate_coefficient,a[i],r)
   block_coeff = Array{typeof(coeff),ndims(a)}(undef,size(a))
   return block_coeff
 end
@@ -543,11 +553,11 @@ end
 function Arrays.return_cache(
   ::typeof(allocate_hyper_reduction),
   a::BlockHRProjection,
-  args...)
+  r::AbstractRealization)
 
   i = findfirst(a.touched)
   @notimplementedif isnothing(i)
-  hypred = return_cache(allocate_hyper_reduction,a[i],args...)
+  hypred = return_cache(allocate_hyper_reduction,a[i],r)
   block_hypred = Array{typeof(hypred),ndims(a)}(undef,size(a))
   return block_hypred
 end

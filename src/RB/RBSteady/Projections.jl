@@ -677,7 +677,7 @@ for f in (:project!,:inv_project!)
 
       for i in eachindex(a)
         if a.touched[i]
-          yi = y[Block(i)]
+          yi = blocks(y)[i]
           $f(yi,a[i],x[Block(i)])
         end
       end

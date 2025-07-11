@@ -411,7 +411,7 @@ end
 
 function HyperReduction(reduction::LocalReduction;kwargs...)
   red_style = ReductionStyle(reduction)
-  LocalHyperReduction(red_style;kwargs...)
+  LocalHyperReduction(red_style;ncentroids=get_ncentroids(reduction),kwargs...)
 end
 
 ReductionStyle(r::HyperReduction) = ReductionStyle(get_reduction(r))

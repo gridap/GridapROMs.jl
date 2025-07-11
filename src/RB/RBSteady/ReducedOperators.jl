@@ -91,7 +91,7 @@ Fields:
 
 - `op`: underlying high dimensional FE operator
 - `trial`: reduced trial space
-- `test`: reduced trial space
+- `test`: reduced test space
 - `lhs`: hyper-reduced left hand side
 - `rhs`: hyper-reduced right hand side
 """
@@ -218,6 +218,23 @@ function Algebra.jacobian!(
   interpolate!(A,op.lhs,r)
 end
 
+"""
+    struct LocalRBOperator{O,A,B} <: RBOperator{O}
+      op::ParamOperator{O}
+      trial::RBSpace
+      test::RBSpace
+      lhs::A
+      rhs::B
+    end
+
+Fields:
+
+- `op`: underlying high dimensional FE operator
+- `trial`: local reduced trial spaces
+- `test`: local reduced test spaces
+- `lhs`: local hyper-reduced left hand sides
+- `rhs`: local hyper-reduced right hand sides
+"""
 struct LocalRBOperator{O,A,B} <: RBOperator{O}
   op::ParamOperator{O}
   trial::RBSpace
@@ -246,35 +263,18 @@ function get_local(op::LocalRBOperator,μ)
   RBOperator(op.op,trialμ,testμ,lhsμ,rhsμ)
 end
 
-function Algebra.solve(
-  solver::RBSolver,
-  op::LocalRBOperator,
-  r::Realization)
-
-  fesolver = get_fe_solver(solver)
-
-  t = @timed x̂vec = map(r) do μ
-    opμ = get_local(op,μ)
-    x̂,stats = solve(solver,opμ,Realization([μ]))
-    testitem(x̂)
-  end
-  x̂ = GenericParamVector(x̂vec)
-  stats = CostTracker(t,nruns=num_params(r),name="RB")
-  return (x̂,stats)
-end
-
 """
-    struct LinearNonlinearRBOperator <: RBOperator{LinearNonlinearParamEq}
-      op_linear::RBOperator
-      op_nonlinear::RBOperator
+    struct LinearNonlinearRBOperator{A<:RBOperator,B<:RBOperator} <: RBOperator{LinearNonlinearParamEq}
+      op_linear::A
+      op_nonlinear::B
     end
 
 Extends the concept of [`GenericRBOperator`](@ref) to accommodate the linear/nonlinear
 splitting of terms in nonlinear applications
 """
-struct LinearNonlinearRBOperator <: RBOperator{LinearNonlinearParamEq}
-  op_linear::RBOperator
-  op_nonlinear::RBOperator
+struct LinearNonlinearRBOperator{A<:RBOperator,B<:RBOperator} <: RBOperator{LinearNonlinearParamEq}
+  op_linear::A
+  op_nonlinear::B
 end
 
 ParamAlgebra.get_linear_operator(op::LinearNonlinearRBOperator) = op.op_linear
@@ -310,17 +310,49 @@ function ParamDataStructures.parameterize(op::LinearNonlinearRBOperator,μ::Abst
   LinNonlinParamOperator(op_lin,op_nlin,syscache_lin)
 end
 
+const LinearNonlinearGenericRBOperator = LinearNonlinearRBOperator{<:GenericRBOperator,<:GenericRBOperator}
+
+const LinearNonlinearLocalRBOperator = LinearNonlinearRBOperator{<:LocalRBOperator,<:LocalRBOperator}
+
+const AbstractLocalRBOperator = Union{LocalRBOperator,LinearNonlinearLocalRBOperator}
+
+function get_local(op::LinearNonlinearLocalRBOperator,μ)
+  opμ_linear = get_local(get_linear_operator(op),μ)
+  opμ_nlinear = get_local(get_nonlinear_operator(op),μ)
+  LinearNonlinearRBOperator(opμ_linear,opμ_nlinear)
+end
+
+# local solver
+
+function Algebra.solve(
+  solver::RBSolver,
+  op::AbstractLocalRBOperator,
+  r::Realization)
+
+  fesolver = get_fe_solver(solver)
+
+  t = @timed x̂vec = map(r) do μ
+    opμ = get_local(op,μ)
+    x̂,stats = solve(solver,opμ,Realization([μ]))
+    testitem(x̂) # this is quite ugly
+  end
+  x̂ = GenericParamArray(x̂vec)
+  stats = CostTracker(t,nruns=num_params(r),name="RB")
+  return (x̂,stats)
+end
+
 # utils
 
 function to_snapshots(rbop::RBOperator,x̂::AbstractParamVector,r::AbstractRealization)
   to_snapshots(get_trial(rbop),x̂,r)
 end
 
-function to_snapshots(rbop::LocalRBOperator,x̂::AbstractParamVector,r::AbstractRealization)
-  xvec = map(x̂,r) do x̂,μ
+function to_snapshots(rbop::AbstractLocalRBOperator,x̂::AbstractParamVector,r::AbstractRealization)
+  xvec = map(enumerate(r)) do (i,μ)
     opμ = get_local(rbop,μ)
-    trial = get_trial(opμ)
-    inv_project(trial,x̂)
+    trialμ = get_trial(opμ)
+    x̂μ = param_getindex(x̂,i)
+    inv_project(trialμ,x̂μ)
   end
   x = ParamArray(xvec)
   i = get_global_dof_map(rbop)

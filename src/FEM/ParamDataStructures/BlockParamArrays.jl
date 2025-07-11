@@ -1,7 +1,16 @@
 ParamArray(A::AbstractArray{<:AbstractParamArray}) = mortar(A)
+ParamArray(a::BlockArray,l::Integer) = mortar(map(b -> ParamArray(b,l),blocks(a)))
 
-function ParamArray(a::BlockArray,l::Integer)
-  mortar(map(b -> ParamArray(b,l),blocks(a)))
+GenericParamArray(A::AbstractArray{<:AbstractParamArray}) = mortar(A)
+
+for f in (:ParamArray,:GenericParamArray)
+  @eval begin
+    function $f(A::AbstractArray{<:BlockArray})
+      map(1:blocklength(first(A))) do n
+        $f(map(a -> blocks(a)[n],A))
+      end |> mortar
+    end
+  end
 end
 
 """

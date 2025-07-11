@@ -104,19 +104,14 @@ function enrich!(
   X_primal = norm_matrix[Block(1,1)]
   H_primal = cholesky(X_primal)
   a_primal_loc = local_values(a_primal)
-  cache1 = CachedArray(testvalue(Matrix{Float64}))
-  cache2 = CachedArray(testvalue(Matrix{Float64}))
   for j in eachindex(a_primal_loc)
     pj = a_primal_loc[j]
     for i = eachindex(a_dual)
       a_dual_i_loc = local_values(a_dual[i])
       dij = get_basis(a_dual_i_loc[j])
       C_primal_dual_i = supr_matrix[Block(1,i+1)]
-      setsize!(cache1,size(C_primal_dual_i,1),size(dij,2))
-      setsize!(cache2,size(X_primal,1),size(dij,2))
-      mul!(cache1,C_primal_dual_i,dij)
-      ldiv!(cache2,H_primal,cache1)
-      pj = union_bases(pj,cache2,H_primal)
+      supr_i = H_primal \ C_primal_dual_i * dij
+      pj = union_bases(pj,supr_i,H_primal)
     end
     a_primal_loc[j] = pj
   end

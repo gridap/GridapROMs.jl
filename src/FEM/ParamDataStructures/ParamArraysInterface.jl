@@ -32,7 +32,6 @@ Subtypes:
 - [`ConsecutiveParamArray`](@ref)
 - [`GenericParamVector`](@ref)
 - [`GenericParamMatrix`](@ref)
-- [`ArrayOfArrays`](@ref)
 - [`BlockParamArray`](@ref)
 
 Also acts as a constructor according to the following rules:
@@ -66,6 +65,12 @@ Subtypes:
 abstract type ParamSparseMatrix{Tv,Ti,A<:AbstractSparseMatrix{Tv,Ti}} <: AbstractParamArray{Tv,2,A} end
 
 ParamArray(args...) = @abstractmethod
+ParamArray(A::AbstractArray{<:Number}) = ParamNumber(A)
+ParamArray(A::AbstractParamArray) = A
+
+GenericParamArray(args...) = @abstractmethod
+GenericParamArray(A::AbstractArray{<:Number}) = ParamNumber(A)
+GenericParamArray(A::AbstractParamArray) = A
 
 """
     global_parameterize(a,plength::Integer) -> AbstractParamArray
@@ -75,9 +80,6 @@ This parameterization involves quantities defined at the global (or assembled) l
 For local parameterizations, see the function [`local_parameterize`](@ref)
 """
 global_parameterize(args...) = ParamArray(args...)
-
-ParamArray(A::AbstractArray{<:Number}) = ParamNumber(A)
-ParamArray(A::AbstractParamArray) = A
 
 param_getindex(A::AbstractParamArray{T,N},i::Integer) where {T,N} = getindex(A,tfill(i,Val{N}())...)
 param_setindex!(A::AbstractParamArray{T,N},v,i::Integer) where {T,N} = setindex!(A,v,tfill(i,Val{N}())...)

@@ -184,12 +184,12 @@ function Base.getindex(a::BlockInterpolation,i...)
   if !a.touched[i...]
     return nothing
   end
-  a.array[i...]
+  a.interp[i...]
 end
 
 function Base.setindex!(a::BlockInterpolation,v,i...)
   @check a.touched[i...] "Only touched entries can be set"
-  a.array[i...] = v
+  a.interp[i...] = v
 end
 
 Base.getindex(a::BlockInterpolation,i::Block) = getindex(a,i.n...)
@@ -198,7 +198,7 @@ Base.setindex!(a::BlockInterpolation,v,i::Block) = setindex!(a,v,i.n...)
 function Arrays.testitem(a::BlockInterpolation)
   i = findall(a.touched)
   @notimplementedif length(i) == 0
-  a.array[first(i)]
+  a.interp[first(i)]
 end
 
 for f in (:get_cellids_rows,:get_cellids_cols)
@@ -263,4 +263,10 @@ function get_owned_icells(a::BlockInterpolation,cells::AbstractVector)
     end
   end
   return ArrayBlock(cache,a.touched)
+end
+
+function reduced_triangulation(trian::Triangulation,a::BlockInterpolation{<:MDEIMInterpolation})
+  red_cells = get_integration_cells(a)
+  red_trian = view(trian,red_cells)
+  return red_trian
 end

@@ -1,10 +1,3 @@
-struct TTContraction{T,N} <: AbstractArray{T,N}
-  array::Array{T,N}
-end
-
-Base.size(a::TTContraction) = size(a.array)
-Base.getindex(a::TTContraction{T,N},i::Vararg{Integer,N}) where {T,N} = getindex(a.array,i...)
-
 function contraction(::AbstractArray...)
   @abstractmethod
 end
@@ -83,7 +76,7 @@ Base.@propagate_inbounds function contraction(
   AB = A*B
   s1,s2,s3,s4 = size(factor1,1),size(factor1,3),size(factor2,1),size(factor2,3)
   ABp = permutedims(reshape(AB,s1,s2,s3,s4),(1,3,2,4))
-  return TTContraction(ABp)
+  return ABp
 end
 
 # product of cores on the component axis, for multivariate problems
@@ -115,7 +108,7 @@ Base.@propagate_inbounds function contraction(
   s3,s4 = size(factor2,1),size(factor2,3)
   s5,s6 = size(factor3,1),size(factor3,3)
   ABCp = permutedims(reshape(ABC,s1,s2,s3,s4,s5,s6),(1,3,5,2,4,6))
-  return TTContraction(ABCp)
+  return ABCp
 end
 
 function contraction(
@@ -147,7 +140,7 @@ function contraction(
   s3,s4 = size(factor2,1),size(factor2,3)
   s5,s6 = size(factor3,1),size(factor3,3)
   ABCp = permutedims(reshape(ABC,s1,s2,s3,s4,s5,s6),(1,3,5,2,4,6))
-  return TTContraction(ABCp)
+  return ABCp
 end
 
 """
@@ -175,7 +168,7 @@ end
 
 Base.@propagate_inbounds function sequential_product(
   factor1::AbstractArray{T,4},
-  factor2::TTContraction{S,4}
+  factor2::AbstractArray{S,4}
   ) where {T,S}
 
   @check size(factor1,1) == size(factor1,2) == 1
@@ -184,14 +177,14 @@ Base.@propagate_inbounds function sequential_product(
 
   a = vec(factor1)
   B = reshape(factor2,length(a),:)
-  aB = a'*B
+  aB = (a'*B).parent
   s1,s2,s3,s4 = 1,1,size(factor2,3),size(factor2,4)
   reshape(aB,s1,s2,s3,s4)
 end
 
 Base.@propagate_inbounds function sequential_product(
   factor1::AbstractArray{T,6},
-  factor2::TTContraction{S,6}
+  factor2::AbstractArray{S,6}
   ) where {T,S}
 
   @check size(factor1,1) == size(factor1,2) == size(factor1,3) == 1
@@ -201,7 +194,7 @@ Base.@propagate_inbounds function sequential_product(
 
   a = vec(factor1)
   B = reshape(factor2,length(a),:)
-  aB = a'*B
+  aB = (a'*B).parent
   s1,s2,s3,s4,s5,s6 = 1,1,1,size(factor2,4),size(factor2,5),size(factor2,6)
   reshape(aB,s1,s2,s3,s4,s5,s6)
 end

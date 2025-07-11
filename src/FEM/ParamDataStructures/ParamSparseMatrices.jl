@@ -1,6 +1,9 @@
 ParamArray(A::AbstractVector{<:SparseMatrixCSC}) = ConsecutiveParamSparseMatrixCSC(A)
 ParamArray(A::AbstractVector{<:SparseMatrixCSR}) = ConsecutiveParamSparseMatrixCSR(A)
 
+GenericParamArray(A::AbstractVector{<:SparseMatrixCSC}) = GenericParamSparseMatrixCSC(A)
+GenericParamArray(A::AbstractVector{<:SparseMatrixCSR}) = GenericParamSparseMatrixCSR(A)
+
 function SparseArrays.sparse(
   m::Int,
   n::Int,
