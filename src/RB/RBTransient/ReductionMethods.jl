@@ -27,6 +27,9 @@ RBSteady.ReductionStyle(r::KroneckerReduction) = ReductionStyle(first(r.reductio
 RBSteady.NormStyle(r::KroneckerReduction) = NormStyle(first(r.reductions))
 ParamDataStructures.num_params(r::KroneckerReduction) = num_params(first(r.reductions))
 
+get_reduction_space(r::KroneckerReduction) = first(r.reductions)
+get_reduction_time(r::KroneckerReduction) = last(r.reductions)
+
 # generic constructor
 
 function HighOrderReduction end
@@ -74,17 +77,17 @@ ParamDataStructures.num_params(r::SequentialReduction) = num_params(r.reduction)
 
 function SequentialReduction(r::LocalReduction)
   r′ = SequentialReduction(get_reduction(r))
-  nc = num_centroids(first(r))
+  nc = num_centroids(r)
   LocalReduction(r′,nc)
 end
 
 function HighOrderReduction(red_style::TTSVDRanks,args...;kwargs...)
-  reduction = TTSVDReduction(red_style,args...;kwargs...)
+  reduction = Reduction(red_style,args...;kwargs...)
   SequentialReduction(reduction)
 end
 
 function HighOrderReduction(tolrank::Union{Vector{Int},Vector{Float64}},args...;kwargs...)
-  reduction = TTSVDReduction(tolrank,args...;kwargs...)
+  reduction = Reduction(tolrank,args...;kwargs...)
   SequentialReduction(reduction)
 end
 
@@ -199,8 +202,16 @@ function HighOrderHyperReduction(reduction::HighOrderReduction,combine::Function
   HighOrderMDEIMHyperReduction(combine,red_style;kwargs...)
 end
 
+function HighOrderHyperReduction(combine::Function,reduction::SupremizerReduction,args...;kwargs...)
+  HighOrderHyperReduction(combine,get_reduction(reduction),args...;kwargs...)
+end
+
+function HighOrderHyperReduction(reduction::SupremizerReduction,args...;kwargs...)
+  HighOrderHyperReduction(get_reduction(reduction),args...;kwargs...)
+end
+
 function HighOrderHyperReduction(combine::Function,r::LocalReduction,args...;ncentroids=num_centroids(r),kwargs...)
-  HighOrderHyperReduction(combine,get_reduction(r),args...;ncentroids,kwargs...)
+  LocalHighOrderHyperReduction(combine,get_reduction(r),args...;ncentroids,kwargs...)
 end
 
 function HighOrderHyperReduction(r::LocalReduction,combine::Function;ncentroids=num_centroids(r),kwargs...)

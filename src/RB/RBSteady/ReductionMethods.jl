@@ -405,8 +405,8 @@ function HyperReduction(reduction::Reduction;kwargs...)
   HyperReduction(red_style;kwargs...)
 end
 
-function HyperReduction(reduction::SupremizerReduction;kwargs...)
-  HyperReduction(get_reduction(reduction);kwargs...)
+function HyperReduction(reduction::SupremizerReduction,args...;kwargs...)
+  HyperReduction(get_reduction(reduction),args...;kwargs...)
 end
 
 function HyperReduction(reduction::LocalReduction;kwargs...)

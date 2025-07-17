@@ -67,7 +67,7 @@ get_clusters(a::NormedProjection) = get_clusters(a.projection)
 get_clusters(a::BlockProjection) = get_clusters(testitem(a))
 get_clusters(a::RBSpace) = get_clusters(get_reduced_subspace(a))
 
-function get_local(a,r::AbstractRealization)
+function get_local(a,r::Realization)
   map(r) do μ
     get_local(a,μ)
   end

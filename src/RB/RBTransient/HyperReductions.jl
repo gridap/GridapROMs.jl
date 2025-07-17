@@ -99,7 +99,8 @@ function get_common_time_domain(a::BlockHRProjection...)
   for ai in a
     for i in eachindex(ai)
       if ai.touched[i]
-        time_ids = (time_ids...,get_indices_time(ai[i]))
+        interpi = get_interpolation(ai[i])
+        time_ids = (time_ids...,get_indices_time(interpi))
       end
     end
   end

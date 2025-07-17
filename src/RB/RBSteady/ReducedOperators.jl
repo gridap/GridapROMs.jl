@@ -264,7 +264,7 @@ function RBOperator(
   LocalRBOperator(op,trial,test,lhs,rhs)
 end
 
-function get_local(op::LocalRBOperator,μ)
+function get_local(op::LocalRBOperator,μ::AbstractVector)
   trialμ = get_local(op.trial,μ)
   testμ = get_local(op.test,μ)
   lhsμ = get_local(op.lhs,μ)
@@ -333,23 +333,14 @@ end
 
 # local solver
 
-#TODO this function is seriously ugly
 function Algebra.solve(
   solver::RBSolver,
   op::AbstractLocalRBOperator,
   r::Realization)
 
-  fesolver = get_fe_solver(solver)
   t = @timed x̂vec = map(r) do μ
     opμ = get_local(op,μ)
-    μ = Realization([μ])
-    trial = get_trial(opμ)(nothing)
-    x̂ = parameterize(zero_free_values(trial),μ)
-
-    nlop = parameterize(opμ,μ)
-    syscache = allocate_systemcache(nlop,x̂)
-
-    solve!(x̂,fesolver,nlop,syscache)
+    x̂, = solve(solver,opμ,_to_realization(r,μ))
     testitem(x̂)
   end
   x̂ = GenericParamArray(x̂vec)
@@ -364,7 +355,7 @@ function to_snapshots(rbop::RBOperator,x̂::AbstractParamVector,r::AbstractReali
 end
 
 function to_snapshots(rbop::AbstractLocalRBOperator,x̂::AbstractParamVector,r::AbstractRealization)
-  xvec = map(enumerate(r)) do (i,μ)
+  xvec = map(enumerate(get_params(r))) do (i,μ)
     opμ = get_local(rbop,μ)
     trialμ = get_trial(opμ)
     x̂μ = param_getindex(x̂,i)
@@ -376,3 +367,5 @@ function to_snapshots(rbop::AbstractLocalRBOperator,x̂::AbstractParamVector,r::
 end
 
 get_global_dof_map(rbop::RBOperator) = get_global_dof_map(get_trial(rbop))
+
+_to_realization(r::Realization,μ) = Realization([μ])

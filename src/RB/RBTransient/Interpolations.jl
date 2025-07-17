@@ -7,7 +7,7 @@ get_indices_time(a::Interpolation) = get_indices_time(get_integration_domain(a))
 get_itimes(a::Interpolation,args...) = get_itimes(get_integration_domain(a),args...)
 get_param_itimes(a::Interpolation,args...) = get_param_itimes(get_integration_domain(a),args...)
 
-get_itimes(a::Interpolation,common_ids::Range1D) = get_itimes(a,common_ids.parent)
+get_itimes(a::Interpolation,common_ids::Range1D) = error("should not be here")
 get_param_itimes(a::Interpolation,common_ids::Range1D) = get_param_itimes(a,common_ids.parent)
 
 function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,b::AbstractMatrix)
@@ -165,6 +165,8 @@ end
 
 const TransientBlockInterpolation{I,N} = BlockInterpolation{I,N}
 
+get_domain_style(a::TransientBlockInterpolation) = get_domain_style(testitem(a))
+
 function Arrays.return_cache(::typeof(get_indices_time),a::TransientBlockInterpolation)
   cache = get_indices_time(testitem(a))
   block_cache = Array{typeof(cache),ndims(a)}(undef,size(a))
@@ -181,15 +183,15 @@ function get_indices_time(a::TransientBlockInterpolation)
   return ArrayBlock(cache,a.touched)
 end
 
-for f in (:get_itimes,:get_param_itimes)
+for (f,T) in zip((:get_itimes,:get_param_itimes),(:AbstractVector,:Range2D))
   @eval begin
-    function Arrays.return_cache(::typeof($f),a::TransientBlockInterpolation,ids::AbstractArray)
+    function Arrays.return_cache(::typeof($f),a::TransientBlockInterpolation,ids::$T)
       cache = $f(testitem(a),ids)
       block_cache = Array{typeof(cache),ndims(a)}(undef,size(a))
       return block_cache
     end
 
-    function $f(a::TransientBlockInterpolation,ids::AbstractArray)
+    function $f(a::TransientBlockInterpolation,ids::$T)
       cache = return_cache($f,a,ids)
       for i in eachindex(a)
         if a.touched[i]

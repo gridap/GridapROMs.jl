@@ -154,7 +154,7 @@ function Algebra.jacobian!(
   interpolate!(A,op.lhs,r)
 end
 
-function RBSteady.get_local(op::TransientLocalRBOperator,μ)
+function RBSteady.get_local(op::TransientLocalRBOperator,μ::AbstractVector)
   trialμ = get_local(op.trial,μ)
   testμ = get_local(op.test,μ)
   lhsμ = map(lhs->get_local(lhs,μ),op.lhs)

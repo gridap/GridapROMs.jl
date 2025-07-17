@@ -4,7 +4,7 @@
       dirichlet::AbstractVector
     end
 """
-struct UncommonParamTrialFESpace{A<:SingleFieldFESpace} <: SingleFieldParamFESpace
+struct UncommonParamTrialFESpace{A<:SingleFieldFESpace} <: SingleFieldParamFESpace{A}
   space::A
   dirichlet::AbstractVector
 end
@@ -13,7 +13,7 @@ end
 
 ParamDataStructures.param_length(f::UncommonParamTrialFESpace) = length(f.dirichlet)
 
-FESpaces.param_length(f::UncommonParamTrialFESpace) = f.space
+FESpaces.get_fe_space(f::UncommonParamTrialFESpace) = f.space
 
 # Evaluations
 
@@ -21,7 +21,7 @@ function ODEs.allocate_space(f::UncommonParamTrialFESpace,r::Realization)
   HomogeneousTrialParamFESpace(f.space,length(r))
 end
 
-function ODEs.allocate_space(f::UnEvalTrialFESpace,μ::Realization,t)
+function ODEs.allocate_space(f::UncommonParamTrialFESpace,μ::Realization,t)
   HomogeneousTrialParamFESpace(f.space,length(μ)*length(t))
 end
 

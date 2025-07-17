@@ -138,7 +138,6 @@ end
 
 # local solver
 
-#TODO this function is seriously ugly
 function Algebra.solve(
   solver::RBSolver,
   op::AbstractLocalRBOperator,
@@ -148,20 +147,19 @@ function Algebra.solve(
 
   fesolver = get_system_solver(solver)
   all_times = [get_initial_time(r),get_times(r)...]
-  t = @timed x̂vec = map(r) do (μ,t)
-    opμ = get_local(op,μ)
-    rμ = Realization([μ])
-    rμt = TransientRealization(rμ,all_times)
-    trial = get_trial(opμ)(nothing)
-    x̂ = parameterize(zero_free_values(trial),rμ)
-
-    nlop = parameterize(opμ,rμt)
-    syscache = allocate_systemcache(nlop,x̂)
-
-    solve!(x̂,fesolver,nlop,syscache)
+  t = @timed x̂vec = map(r) do μt
+    opμt = get_local(op,μt)
+    rμt = _to_realization(r,μt)
+    x̂, = solve(solver,opμt,rμt,xh0)
     testitem(x̂)
   end
   x̂ = GenericParamArray(x̂vec)
   stats = CostTracker(t,nruns=num_params(r),name="RB")
   return (x̂,stats)
+end
+
+function _to_realization(r::TransientRealization,μt::Tuple)
+  μ,t = μt
+  all_times = [get_initial_time(r),get_times(r)...]
+  TransientRealization(Realization([μ]),all_times)
 end
