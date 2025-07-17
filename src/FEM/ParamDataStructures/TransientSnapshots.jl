@@ -145,7 +145,7 @@ function _select_snapshots(s::TransientReshapedSnapshots{T,N},pindex) where {T,N
   ReshapedSnapshots(drange,pdrange,get_dof_map(s),rrange)
 end
 
-function _get_param_data(pdata::ConsecutiveParamMatrix,prange,trange)
+function _get_param_data(pdata::ConsecutiveParamMatrix,prange,trange;kwargs...)
   ConsecutiveParamArray(view(pdata.data,:,prange,trange))
 end
 

@@ -233,6 +233,10 @@ function DofMaps.recast(a::AbstractArray,s::SparseSnapshots)
   return recast(a,get_dof_map(s))
 end
 
+function DofMaps.recast(s::SparseSnapshots)
+  return recast(get_all_data(s),s)
+end
+
 # multi field interface
 
 """

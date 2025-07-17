@@ -71,7 +71,7 @@ struct RBFInterpolation{A<:Interpolator} <: Interpolation
   interpolation::A
 end
 
-RBFInterpolation(strategy::AbstractRadialBasis) = EmptyInterpolation(nothing)
+RBFInterpolation(strategy::AbstractRadialBasis) = EmptyInterpolation()
 
 function RBFInterpolation(strategy::AbstractRadialBasis,a::Projection,s::Snapshots)
   inds,interp = empirical_interpolation(a)

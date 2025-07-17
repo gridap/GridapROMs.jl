@@ -56,8 +56,8 @@ function RBSolver(
   reduction::LocalReduction;
   nparams_res=20,
   nparams_jac=20,
-  ncentroids_res=get_ncentroids(reduction),
-  ncentroids_jac=get_ncentroids(reduction),
+  ncentroids_res=num_centroids(reduction),
+  ncentroids_jac=num_centroids(reduction),
   kwargs...)
 
   residual_reduction = LocalHyperReduction(reduction;nparams=nparams_res,ncentroids=ncentroids_res,kwargs...)

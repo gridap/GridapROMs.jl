@@ -1,22 +1,37 @@
 module StokesEmbedded
 
+using BlockArrays
+using LinearAlgebra
 using Gridap
+using Gridap.Algebra
+using Gridap.FESpaces
 using Gridap.MultiField
 using GridapEmbedded
 using GridapROMs
+using GridapROMs.ParamAlgebra
 
-tol_or_rank(tol,rank) = @assert false "Provide either a tolerance or a rank for the reduction step"
-tol_or_rank(tol::Real,rank) = tol
-tol_or_rank(tol::Real,rank::Int) = tol
-tol_or_rank(tol,rank::Int) = rank
+function inf_sup_constant(rbop::RBOperator,μ::Realization)
+  μ1 = Realization([first(μ)])
+  U = get_trial(rbop)(μ1)
+  x̂ = zero_free_values(U)
+  nlop = parameterize(rbop,μ1)
+  syscache = allocate_systemcache(nlop,x̂)
+  jacobian!(syscache.A,nlop,x̂)
+  B = syscache.A.hypred[Block(2,1)][1]
+  println(size(B))
+  _,σ,_ = svd(B)
+  σ[end]
+end
 
 function main(
-  method=:pod,n=20;
-  tol=1e-4,rank=nothing,nparams=50,nparams_res=floor(Int,nparams/3),
-  nparams_jac=floor(Int,nparams/4),sketch=:sprn,x0=Point(0.5,0.5),R=0.3
+  method=:pod,compression=:global,hypred_strategy=:mdeim,n=20;
+  tol=1e-4,nparams=50,nparams_res=floor(Int,nparams/3),
+  nparams_jac=floor(Int,nparams/4),sketch=:sprn,ncentroids=2
   )
 
-  @assert method ∈ (:pod,:ttsvd) "Unrecognized reduction method! Should be one of (:pod,:ttsvd)"
+  method = method ∈ (:pod,:ttsvd) ? method : :pod
+  compression = compression ∈ (:global,:local) ? compression : :global
+  hypred_strategy = hypred_strategy ∈ (:mdeim,:rbf) ? hypred_strategy : :mdeim
 
   pdomain = (1,10,1,10,1,10)
   pspace = ParamSpace(pdomain)
@@ -26,6 +41,8 @@ function main(
   dp = pmax - pmin
   h = dp[1]/n
 
+  x0 = Point(0.5,0.5)
+  R = 0.3
   geo = !disk(R,x0=x0)
 
   domain = (0,1,0,1)
@@ -102,29 +119,47 @@ function main(
   trial = MultiFieldParamFESpace([trial_u,trial_p];style=BlockMultiFieldStyle())
   feop = ExtensionLinearParamOperator(res,a,pspace,trial,test,domains)
 
-  tolrank = method==:ttsvd ? fill(tol_or_rank(tol,rank),3) : tol_or_rank(tol,rank)
-  energy((du,dp),(v,q)) = ∫(du⋅v)dΩbg  + ∫(dp*q)dΩbg + ∫(∇(v)⊙∇(du))dΩbg
-  coupling((du,dp),(v,q)) = method==:pod ? ∫(dp*(∇⋅(v)))dΩbg : ∫(dp*∂₁(v))dΩbg + ∫(dp*∂₂(v))dΩbg
-  state_reduction = SupremizerReduction(coupling,tolrank,energy;nparams,sketch)
+  energy((du,dp),(v,q)) = ∫(du⋅v)dΩbg + ∫(dp*q)dΩbg + ∫(∇(v)⊙∇(du))dΩbg
+  coupling = method == :pod ? ((du,dp),(v,q)) -> ∫(dp*(∇⋅(v)))dΩ : ((du,dp),(v,q)) -> ∫(dp*∂₁(v))dΩ + ∫(dp*∂₂(v))dΩ
+  if method == :pod
+    state_reduction = SupremizerReduction(coupling,tol,energy;nparams,sketch,compression,ncentroids)
+  else method == :ttsvd
+    tolranks = fill(tol,4)
+    state_reduction = SupremizerReduction(coupling,fill(tol,3),energy;nparams,sketch,compression,ncentroids)
+  end
 
   extension = BlockExtension([HarmonicExtension(),ZeroExtension()])
   fesolver = ExtensionSolver(LUSolver(),extension)
-  rbsolver = RBSolver(fesolver,state_reduction)
+  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy)
 
-  # offline
-  fesnaps, = solution_snapshots(rbsolver,feop)
-  rbop = reduced_operator(rbsolver,feop,fesnaps)
+  # # offline
+  # fesnaps, = solution_snapshots(rbsolver,feop)
+  # rbop = reduced_operator(rbsolver,feop,fesnaps)
 
-  # online
+  # # online
   μon = realization(feop;nparams=10,sampling=:uniform)
-  x̂,rbstats = solve(rbsolver,rbop,μon)
+  # x̂,rbstats = solve(rbsolver,rbop,μon)
 
-  # test
-  x,festats = solution_snapshots(rbsolver,feop,μon)
-  perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
-  println(perf)
+  # # test
+  # x,festats = solution_snapshots(rbsolver,feop,μon)
+  # perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
+  # println(perf)
+
+  fesnaps, = solution_snapshots(rbsolver,feop)
+  for tol in (1e-3,1e-4,1e-5)
+    tol = method == :ttsvd ? fill(tol,4) : tol
+    if method == :pod
+      state_reduction = SupremizerReduction(coupling,tol,energy;nparams,sketch,compression,ncentroids)
+    else method == :ttsvd
+      tolranks = fill(tol,4)
+      state_reduction = SupremizerReduction(coupling,fill(tol,3),energy;nparams,sketch,compression,ncentroids)
+    end
+    rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy)
+    rbop = reduced_operator(rbsolver,feop,fesnaps)
+    infsupconst = inf_sup_constant(rbop,μon)
+    println(infsupconst)
+  end
 end
-
 
 function main_transient(
   method=:pod,n=20;
@@ -233,7 +268,7 @@ function main_transient(
 
   xh0μ(μ) = interpolate_everywhere([u0μ(μ),p0μ(μ)],trial(μ,t0))
 
-  tolrank = method==:ttsvd ? fill(tol_or_rank(tol,rank),4) : tol_or_rank(tol,rank)
+  tolrank = method==:ttsvd ? fill(tol,4) : tol
   energy((du,dp),(v,q)) = ∫(du⋅v)dΩbg  + ∫(dp*q)dΩbg + ∫(∇(v)⊙∇(du))dΩbg
   coupling((du,dp),(v,q)) = method==:pod ? ∫(dp*(∇⋅(v)))dΩbg : ∫(dp*∂₁(v))dΩbg + ∫(dp*∂₂(v))dΩbg
   state_reduction = HighOrderReduction(coupling,tolrank,energy;nparams,sketch)
@@ -256,9 +291,6 @@ function main_transient(
   println(perf)
 end
 
-# main(:pod)
-# main(:ttsvd)
-main_transient(:pod,40)
-main_transient(:ttsvd,40)
+main(:pod,20)
 
 end

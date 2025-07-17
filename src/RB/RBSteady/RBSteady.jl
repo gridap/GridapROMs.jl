@@ -189,6 +189,7 @@ include("LocalProjections.jl")
 export RBOperator
 export GenericRBOperator
 export LinearNonlinearRBOperator
+export AbstractLocalRBOperator
 export LocalRBOperator
 export reduced_operator
 include("ReducedOperators.jl")

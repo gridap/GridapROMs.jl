@@ -1,5 +1,6 @@
 module Uncommon
 
+export UncommonParamTrialFESpace
 export UncommonParamOperator
 export UncommonContribution
 export param_operator
@@ -29,6 +30,8 @@ using GridapROMs.ParamFESpaces
 using GridapROMs.ParamSteady
 using GridapROMs.ParamODEs
 using GridapROMs.Extensions
+
+include("UncommonParamTrialFESpaces.jl")
 
 struct UncommonParamOperator{O<:UnEvalOperatorType,T<:TriangulationStyle} <: ParamOperator{O,T}
   operators::Vector{<:DomainOperator}
@@ -69,8 +72,20 @@ function ParamDataStructures.realization(op::UncommonParamOperator;nparams=1)
   op.μ[1:nparams]
 end
 
-FESpaces.get_test(op::UncommonParamOperator) = get_bg_space(get_test(first(op.operators)))
-FESpaces.get_trial(op::UncommonParamOperator) = parameterize(get_bg_space(get_trial(first(op.operators))),param_length(op))
+function FESpaces.get_test(op::UncommonParamOperator)
+  get_bg_space(get_test(first(op.operators)))
+end
+
+function FESpaces.get_trial(op::UncommonParamOperator)
+  bg_f = get_bg_space(get_trial(first(op.operators)))
+  _get_trial(bg_f)
+end
+
+_get_trial(bg_f::SingleFieldFESpace) = UncommonTrialFESpace(bg_f)
+
+function _get_trial(bg_f::MultiFieldFESpace)
+  MultiFieldFESpace(f.vector_type,map(_get_trial,bg_f),bg_f.multi_field_style)
+end
 
 Utils.change_domains(op::UncommonParamOperator,args...) = op
 Utils.set_domains(op::SplitUncommonParamOperator) = UncommonParamOperator(set_domains.(op.operators),op.μ)

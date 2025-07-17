@@ -8,11 +8,19 @@ LocalProjection(projections::AbstractVector,k::KmeansResult) = LocalProjection(p
 const VecLocalProjection{A} = LocalProjection{A,1}
 const MatLocalProjection{A} = LocalProjection{A,2}
 
-function Projection(lred::LocalReduction,s::AbstractArray,args...)
+function projection(lred::LocalReduction,s::AbstractArray)
   red = get_reduction(lred)
   k = compute_clusters(lred,s)
   svec = cluster_snapshots(s,k)
-  proj = map(s -> Projection(red,s,args...),svec)
+  proj = map(s -> projection(red,s,args...),svec)
+  LocalProjection(proj,k)
+end
+
+function projection(lred::LocalReduction,s::AbstractArray,X::MatrixOrTensor)
+  red = get_reduction(lred)
+  k = compute_clusters(lred,s)
+  svec = cluster_snapshots(s,k)
+  proj = map(s -> projection(red,s,X),svec)
   LocalProjection(proj,k)
 end
 

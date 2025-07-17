@@ -20,11 +20,23 @@ function RBSteady.RBOperator(
   trians_rhs = get_domains(rhs)
   trians_lhs = map(get_domains,lhs)
   odeop′ = change_domains(odeop,trians_rhs,trians_lhs)
-  RBOperator(odeop′,trial,test,lhs,rhs)
+  GenericRBOperator(odeop′,trial,test,lhs,rhs)
+end
+
+function RBSteady.RBOperator(
+  odeop::ODEParamOperator,
+  trial::RBSpace,
+  test::RBSpace,
+  lhs::Tuple{Vararg{LocalProjection}},
+  rhs::LocalProjection
+  )
+
+  LocalRBOperator(odeop,trial,test,lhs,rhs)
 end
 
 const TransientRBOperator{O<:ODEParamOperatorType} = RBOperator{O}
-const TransientGenericRBOperator{O<:ODEParamOperatorType,A} = GenericRBOperator{O,A,<:TupOfAffineContribution}
+const TransientGenericRBOperator{O<:ODEParamOperatorType,B} = GenericRBOperator{O,<:TupOfAffineContribution,B}
+const TransientLocalRBOperator{O<:ODEParamOperatorType,B} = LocalRBOperator{O,<:Tuple{Vararg{LocalProjection}},B}
 
 function Algebra.allocate_residual(
   op::TransientRBOperator,
@@ -142,23 +154,12 @@ function Algebra.jacobian!(
   interpolate!(A,op.lhs,r)
 end
 
-function Algebra.solve(
-  solver::RBSolver,
-  op::LocalRBOperator,
-  r::TransientRealization)
-
-  fesolver = get_fe_solver(solver)
-  all_times = [get_initial_time(r),get_times(r)...]
-
-  t = @timed x̂vec = map(get_params(r)) do μ
-    opμ = get_local(op,μ)
-    rμ = TransientRealization(Realization([μ]),all_times)
-    x̂,stats = solve(solver,opμ,rμ)
-    testitem(x̂)
-  end
-  x̂ = GenericParamVector(x̂vec)
-  stats = CostTracker(t,nruns=num_params(r),name="RB")
-  return (x̂,stats)
+function RBSteady.get_local(op::TransientLocalRBOperator,μ)
+  trialμ = get_local(op.trial,μ)
+  testμ = get_local(op.test,μ)
+  lhsμ = map(lhs->get_local(lhs,μ),op.lhs)
+  rhsμ = get_local(op.rhs,μ)
+  RBOperator(op.op,trialμ,testμ,lhsμ,rhsμ)
 end
 
 # utils

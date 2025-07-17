@@ -67,8 +67,8 @@ end
 
 function FESpaces.get_dirichlet_dof_values(f::UnEvalTrialFESpace)
   msg = """
-  It does not make sense to get the Dirichlet DOF values of a transient FE space. You
-  should first evaluate the transient FE space at a point in time and get the Dirichlet
+  It does not make sense to get the Dirichlet DOF values of an unevaluated FE space. You
+  should first evaluate the unevaluated FE space at a point in time and get the Dirichlet
   DOF values from there.
   """
   @unreachable msg

@@ -69,8 +69,21 @@ struct KroneckerProjection <: TransientProjection
   projection_time::Projection
 end
 
+to_proj(basis::AbstractMatrix) = PODProjection(basis)
+to_proj(basis::AbstractMatrix,X::AbstractSparseArray) = NormedProjection(to_proj(basis),X)
+
 function KroneckerProjection(red::KroneckerReduction,s::TransientSnapshots,args...)
-  projection_space,projection_time = tucker(red.reduction,s,args...)
+  basis_space,basis_time = tucker(red.reductions,s,args...)
+  projection_space = to_proj(basis_space,args...)
+  projection_time = to_proj(basis_time)
+  KroneckerProjection(projection_space,projection_time)
+end
+
+function KroneckerProjection(red::KroneckerReduction,s::TransientSparseSnapshots,args...)
+  basis_space,basis_time = tucker(red.reductions,s,args...)
+  basis_space′ = recast(basis_space,s)
+  projection_space = to_proj(basis_space′,args...)
+  projection_time = to_proj(basis_time)
   KroneckerProjection(projection_space,projection_time)
 end
 

@@ -1,3 +1,31 @@
+function RBSteady.HRProjection(
+  red::HighOrderHyperReduction,
+  s::Snapshots,
+  trian::Triangulation,
+  trial::RBSpace,
+  test::RBSpace
+  )
+
+  basis = projection(get_reduction(red),s)
+  proj_basis = project(test,basis,trial,get_combine(red))
+  interp = Interpolation(red,basis,trian,trial,test)
+  return HRProjection(proj_basis,red,interp)
+end
+
+function RBSteady.HRProjection(
+  red::HighOrderRBFHyperReduction,
+  s::Snapshots,
+  trian::Triangulation,
+  trial::RBSpace,
+  test::RBSpace
+  )
+
+  basis = projection(get_reduction(red),s)
+  proj_basis = project(test,basis,trial,get_combine(red))
+  interp = Interpolation(red,basis,s)
+  return HRProjection(proj_basis,red,interp)
+end
+
 function RBSteady.reduced_jacobian(
   red::Tuple{Vararg{Reduction}},
   trial::RBSpace,

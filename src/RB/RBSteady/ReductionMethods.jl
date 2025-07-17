@@ -295,7 +295,7 @@ function LocalReduction(args...;ncentroids=10,kwargs...)
   LocalReduction(reduction,ncentroids)
 end
 
-get_ncentroids(r::LocalReduction) = r.ncentroids
+num_centroids(r::LocalReduction) = r.ncentroids
 get_reduction(r::LocalReduction) = r.reduction
 ReductionStyle(r::LocalReduction) = ReductionStyle(get_reduction(r))
 NormStyle(r::LocalReduction) = NormStyle(get_reduction(r))
@@ -411,7 +411,7 @@ end
 
 function HyperReduction(reduction::LocalReduction;kwargs...)
   red_style = ReductionStyle(reduction)
-  LocalHyperReduction(red_style;ncentroids=get_ncentroids(reduction),kwargs...)
+  LocalHyperReduction(red_style;ncentroids=num_centroids(reduction),kwargs...)
 end
 
 ReductionStyle(r::HyperReduction) = ReductionStyle(get_reduction(r))

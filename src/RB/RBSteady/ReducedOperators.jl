@@ -62,6 +62,15 @@ function reduced_operator(
   LinearNonlinearRBOperator(red_op_lin,red_op_nlin)
 end
 
+function reduced_operator(rbsolver::RBSolver,feop::ParamOperator,s,jac,res)
+  red_trial,red_test = reduced_spaces(rbsolver,feop,s)
+  jac_red = get_jacobian_reduction(rbsolver)
+  red_lhs = reduced_jacobian(jac_red,red_trial,red_test,jac)
+  res_red = get_residual_reduction(rbsolver)
+  red_rhs = reduced_residual(res_red,red_test,res)
+  RBOperator(feop,red_trial,red_test,red_lhs,red_rhs)
+end
+
 """
     abstract type RBOperator{O} <: ParamOperator{O,SplitDomains} end
 
@@ -324,17 +333,24 @@ end
 
 # local solver
 
+#TODO this function is seriously ugly
 function Algebra.solve(
   solver::RBSolver,
   op::AbstractLocalRBOperator,
   r::Realization)
 
   fesolver = get_fe_solver(solver)
-
   t = @timed x̂vec = map(r) do μ
     opμ = get_local(op,μ)
-    x̂,stats = solve(solver,opμ,Realization([μ]))
-    testitem(x̂) # this is quite ugly
+    μ = Realization([μ])
+    trial = get_trial(opμ)(nothing)
+    x̂ = parameterize(zero_free_values(trial),μ)
+
+    nlop = parameterize(opμ,μ)
+    syscache = allocate_systemcache(nlop,x̂)
+
+    solve!(x̂,fesolver,nlop,syscache)
+    testitem(x̂)
   end
   x̂ = GenericParamArray(x̂vec)
   stats = CostTracker(t,nruns=num_params(r),name="RB")

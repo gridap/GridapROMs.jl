@@ -7,7 +7,7 @@ function get_iudof_to_idof(
   number of spatial selected by the EIM procedure should be equal to the number of
   temporal entries selected by the EIM procedure"
 
-  dofs_to_count = zeros(Int,maximum(dofs))
+  dofs_to_count = zeros(Int32,maximum(dofs))
   for dof in dofs
     dofs_to_count[dof] += 1
   end
@@ -34,7 +34,7 @@ function get_iudof_to_idof(
 end
 
 function get_max_offset(ptrs::Vector{<:Integer})
-  offsets = zeros(Int,length(ptrs)-1)
+  offsets = zeros(Int32,length(ptrs)-1)
   for i in eachindex(offsets)
     offsets[i] = ptrs[i+1]-ptrs[i]
   end
@@ -105,24 +105,24 @@ struct KroneckerDomain <: TransientIntegrationDomainStyle end
 struct SequentialDomain <: TransientIntegrationDomainStyle end
 
 """
-    struct TransientIntegrationDomain{A<:TransientIntegrationDomainStyle} <: IntegrationDomain
+    struct TransientIntegrationDomain{A<:TransientIntegrationDomainStyle,Ti<:Integer} <: IntegrationDomain
       domain_style::A
       domain_space::IntegrationDomain
-      indices_time::Vector{Int32}
+      indices_time::Vector{Ti}
     end
 
 Integration domain for a projection operator in a transient problem
 """
-struct TransientIntegrationDomain{A<:TransientIntegrationDomainStyle} <: IntegrationDomain
+struct TransientIntegrationDomain{A<:TransientIntegrationDomainStyle,Ti<:Integer} <: IntegrationDomain
   domain_style::A
   domain_space::IntegrationDomain
-  indices_time::Vector{Int32}
+  indices_time::Vector{Ti}
 end
 
 get_domain_style(a::TransientIntegrationDomain) = a.domain_style
 
 function RBSteady.vector_domain(
-  ::KroneckerProjection,
+  ::Type{<:KroneckerProjection},
   trian::Triangulation,
   test::FESpace,
   rows::AbstractVector,
@@ -133,7 +133,7 @@ function RBSteady.vector_domain(
 end
 
 function RBSteady.matrix_domain(
-  ::KroneckerProjection,
+  ::Type{<:KroneckerProjection},
   trian::Triangulation,
   trial::FESpace,
   test::FESpace,
@@ -146,7 +146,7 @@ function RBSteady.matrix_domain(
 end
 
 function RBSteady.vector_domain(
-  ::SequentialProjection,
+  ::Type{<:SequentialProjection},
   trian::Triangulation,
   test::FESpace,
   rows::AbstractVector,
@@ -154,12 +154,12 @@ function RBSteady.vector_domain(
 
   cells = reduced_cells(test,trian,rows)
   irows = reduced_spacetime_idofs(test,trian,cells,rows,indices_time)
-  domain_space = VectorDomain(cells,irows)
+  domain_space = VectorDomain(cells,irows,rows)
   TransientIntegrationDomain(SequentialDomain(),domain_space,indices_time)
 end
 
 function RBSteady.matrix_domain(
-  ::SequentialProjection,
+  ::Type{<:SequentialProjection},
   trian::Triangulation,
   trial::FESpace,
   test::FESpace,
@@ -172,7 +172,7 @@ function RBSteady.matrix_domain(
   cells = union(cells_trial,cells_test)
   icols = reduced_spacetime_idofs(trial,trian,cells,cols,indices_time)
   irows = reduced_spacetime_idofs(test,trian,cells,rows,indices_time)
-  domain_space = MatrixDomain(cells,irows,icols)
+  domain_space = MatrixDomain(cells,irows,icols,(rows,cols))
   TransientIntegrationDomain(SequentialDomain(),domain_space,indices_time)
 end
 

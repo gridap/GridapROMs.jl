@@ -1,4 +1,4 @@
-# module MovingStokes
+module MovingStokes
 
 using BlockArrays
 using DrWatson
@@ -73,17 +73,17 @@ fesolver = ExtensionSolver(LUSolver(),extension)
 const γd = 10.0
 const hd = dp[1]/n
 
-function rb_solver(tolrank,nparams)
-  tolrankhr = tolrank.*1e-2
-  state_reduction = SupremizerReduction(coupling,tolrank,energy;nparams,ncentroids)
-  residual_reduction = LocalHyperReduction(tolrankhr;nparams,ncentroids=ncentroids_res,interp=true)
-  jacobian_reduction = LocalHyperReduction(tolrankhr;nparams,ncentroids=ncentroids_jac,interp=true)
+function rb_solver(tol,nparams)
+  tolhr = tol.*1e-2
+  state_reduction = SupremizerReduction(coupling,tol,energy;nparams,ncentroids,compression=:local)
+  residual_reduction = LocalHyperReduction(tolhr;nparams,ncentroids=ncentroids_res,hypred_strategy=:rbf)
+  jacobian_reduction = LocalHyperReduction(tolhr;nparams,ncentroids=ncentroids_jac,hypred_strategy=:rbf)
   RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
 end
 
 function def_fe_operator(μ)
-  x0 = Point(μ[1],μ[1])
-  geo = !disk(μ[2],x0=x0)
+  x0 = Point(μ[1],μ[1]) #Point(1.0,1.0)#
+  geo = !disk(0.35,x0=x0) #!disk(μ[2],x0=x0) #
   cutgeo = cut(bgmodel,geo)
 
   Ωact = Triangulation(cutgeo,ACTIVE)
@@ -124,8 +124,8 @@ function def_fe_operator(μ)
 end
 
 function get_trians(μ)
-  x0 = Point(μ[1],μ[1])
-  geo = !disk(μ[2],x0=x0)
+  x0 = Point(μ[1],μ[1]) #Point(1.0,1.0)#
+  geo = !disk(0.35,x0=x0) #!disk(μ[2],x0=x0) #
   cutgeo = cut(bgmodel,geo)
 
   Ωact = Triangulation(cutgeo,ACTIVE)
@@ -137,8 +137,8 @@ function get_trians(μ)
 end
 
 function compute_err(x,x̂,μ)
-  x0 = Point(μ[1],μ[1])
-  geo = !disk(μ[2],x0=x0)
+  x0 = Point(μ[1],μ[1]) #Point(1.0,1.0)#
+  geo = !disk(0.35,x0=x0) #!disk(μ[2],x0=x0) #
   cutgeo = cut(bgmodel,geo)
 
   Ωact = Triangulation(cutgeo,ACTIVE)
@@ -197,11 +197,11 @@ function plot_sol(rbop,x,x̂,μon,dir,i=1)
     u,û,eu = uu[:,i],ûû[:,i],abs.(uu[:,i]-ûû[:,i])
     p,p̂,ep = pp[:,i],p̂p̂[:,i],abs.(pp[:,i]-p̂p̂[:,i])
   end
-  uh = FEFunction(testbg_u,u)
-  ûh = FEFunction(testbg_u,û)
+  uh = FEFunction(trialbg_u,u)
+  ûh = FEFunction(trialbg_u,û)
   euh = FEFunction(testbg_u,eu)
-  ph = FEFunction(testbg_p,p)
-  p̂h = FEFunction(testbg_p,p̂)
+  ph = FEFunction(trialbg_p,p)
+  p̂h = FEFunction(trialbg_p,p̂)
   eph = FEFunction(testbg_p,ep)
 
   Ω, = get_trians(μon.params[i])
@@ -224,13 +224,20 @@ function postprocess(
   rbsnaps = RBSteady.to_snapshots(rbop,x̂,μon)
   plot_sol(rbop,fesnaps,rbsnaps,μon,dir)
 
+  uu,pp = blocks(fesnaps)
+  ûû,p̂p̂ = blocks(rbsnaps)
+
   error = [0.0,0.0]
   for (i,μ) in enumerate(μon)
     if method==:ttsvd
-      xi,x̂i = vec(fesnaps[:,:,i]),vec(rbsnaps[:,:,i])
+      u,û = vec(uu[:,:,:,i]),vec(ûû[:,:,:,i])
+      p,p̂ = vec(pp[:,:,i]),vec(p̂p̂[:,:,i])
     else
-      xi,x̂i = fesnaps[:,i],rbsnaps[:,i]
+      u,û = uu[:,i],ûû[:,i]
+      p,p̂ = pp[:,i],p̂p̂[:,i]
     end
+    xi = mortar([u,p])
+    x̂i = mortar([û,p̂])
     error .+= compute_err(xi,x̂i,μ)
   end
   error ./= param_length(μon)
@@ -249,7 +256,7 @@ end
 max_subspace_size(r::RBSpace) = max_subspace_size(r.subspace)
 max_subspace_size(r::MultiFieldRBSpace) = sum(map(max_subspace_size,r))
 max_subspace_size(a::Projection) = num_reduced_dofs(a)
-max_subspace_size(a::BlockProjection) = sum(map(max_subspace_size,a.array))
+max_subspace_size(a::Union{BlockProjection,BlockHRProjection}) = sum(map(max_subspace_size,a.array))
 max_subspace_size(a::NormedProjection) = max_subspace_size(a.projection)
 max_subspace_size(a::AffineContribution) = maximum(map(max_subspace_size,a.values))
 
@@ -310,24 +317,7 @@ for tol in (1e-0,1e-1,1e-2,1e-3,1e-4)
   push!(maxsizes,maxsize)
 end
 
-serialize(joinpath(test_dir,"resultsH1"),perfsH1)
-serialize(joinpath(test_dir,"_resultsH1"),_perfsH1)
-serialize(joinpath(test_dir,"resultsl2"),perfsl2)
+serialize(joinpath(test_dir,"resultsH1"),perfs)
 serialize(joinpath(test_dir,"maxsizes"),maxsizes)
 
-# end
-
-
-uh = FEFunction(trialbg_u,blocks(x_bg)[1])
-ph = FEFunction(trialbg_p,blocks(x_bg)[2])
-writevtk(Ωbg.trian,joinpath(test_dir,"trianbg"),cellfields=["uh"=>uh,"ph"=>ph])
-
-# reduced_spaces(rbsolver,feop,fesnaps)
-red = rbsolver.state_reduction
-# reduced_basis(red,feop,fesnaps)
-norm_matrix = assemble_matrix(feop,energy)
-supr_matrix = assemble_matrix(feop,coupling)
-basis = reduced_basis(get_reduction(red),fesnaps,norm_matrix)
-for b in RBSteady.local_values(basis)
-  enrich!(red.reduction,b,norm_matrix,supr_matrix)
 end

@@ -70,7 +70,7 @@ function tucker(red::AbstractVector{<:Reduction},A::AbstractArray{T,N},X::NTuple
   @assert length(red) == N-1
   @assert M ≤ N
   bases = Vector{Matrix{T}}(undef,N-1)
-  remainder = A
+  remainder = first_unfold(A)
   for n in 1:N-1
     Ur,remainder = reduction(red[n],remainder,X[n])
     bases[n] = Ur
@@ -83,7 +83,7 @@ function tucker(red::AbstractVector{<:Reduction},A::TransientSnapshots{T,N},X::N
   @assert M ≤ N
   nparams = num_params(A)
   bases = Vector{Matrix{T}}(undef,N-1)
-  remainder = A
+  remainder = first_unfold(A)
   for n in 1:N-1
     Ur,remainder = tucker_loop(red[n],remainder)
     remainder = n == N-2 ? change_mode(remainder,nparams) : remainder

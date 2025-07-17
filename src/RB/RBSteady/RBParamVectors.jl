@@ -146,11 +146,25 @@ for T in (
   end
 end
 
+function ParamDataStructures.parameterize(a::RBVector,plength::Int)
+  data = global_parameterize(a.data,plength)
+  fe_data = global_parameterize(a.fe_data,plength)
+  RBParamVector(data,fe_data)
+end
+
+function unfold(a::BlockVector{T,<:AbstractVector{<:RBVector{T}}}) where T
+  _data(a::RBVector) = a.data
+  _fe_data(a::RBVector) = a.fe_data
+  ax = axes(a)
+  data = mortar(map(_data,blocks(a)))
+  fe_data = mortar(map(_fe_data,blocks(a)))
+  RBVector(data,fe_data)
+end
+
 function unfold(a::BlockParamVector{T,<:AbstractVector{<:RBParamVector{T}}}) where T
   _data(a::RBParamVector) = a.data
   _fe_data(a::RBParamVector) = a.fe_data
-  ax = axes(a)
-  data = BlockParamArray(map(_data,blocks(a)),ax)
-  fe_data = BlockParamArray(map(_fe_data,blocks(a)),ax)
+  data = mortar(map(_data,blocks(a)))
+  fe_data = mortar(map(_fe_data,blocks(a)))
   RBParamVector(data,fe_data)
 end

@@ -1,7 +1,5 @@
 abstract type HighOrderReduction{A<:ReductionStyle,B<:NormStyle} <: Reduction{A,B} end
 
-RBSteady.get_reduction(r::HighOrderReduction) = @abstractmethod
-
 """
     struct KroneckerReduction{A,B} <: HighOrderReduction{A,B}
       reductions::AbstractVector{<:Reduction}
@@ -13,13 +11,20 @@ reduced subspaces are constructed as Kronecker product spaces
 struct KroneckerReduction{A,B} <: HighOrderReduction{A,B}
   reductions::AbstractVector{<:Reduction}
   function KroneckerReduction(reductions::AbstractVector{<:Reduction})
-    A = ReductionStyle(first(reductions))
-    B = NormStyle(first(reductions))
+    A = typeof(ReductionStyle(first(reductions)))
+    B = typeof(NormStyle(first(reductions)))
     new{A,B}(reductions)
   end
 end
 
-ReductionStyle(r::KroneckerReduction) = ReductionStyle(first(r.reductions))
+function KroneckerReduction(r::AbstractVector{<:LocalReduction})
+  r′ = KroneckerReduction(get_reduction.(r))
+  nc = num_centroids(first(r))
+  LocalReduction(r′,nc)
+end
+
+RBSteady.ReductionStyle(r::KroneckerReduction) = ReductionStyle(first(r.reductions))
+RBSteady.NormStyle(r::KroneckerReduction) = NormStyle(first(r.reductions))
 ParamDataStructures.num_params(r::KroneckerReduction) = num_params(first(r.reductions))
 
 # generic constructor
@@ -63,6 +68,15 @@ struct SequentialReduction{A,B} <: HighOrderReduction{A,B}
 end
 
 RBSteady.get_reduction(r::SequentialReduction) = r.reduction
+RBSteady.ReductionStyle(r::SequentialReduction) = ReductionStyle(r.reduction)
+RBSteady.NormStyle(r::SequentialReduction) = NormStyle(r.reduction)
+ParamDataStructures.num_params(r::SequentialReduction) = num_params(r.reduction)
+
+function SequentialReduction(r::LocalReduction)
+  r′ = SequentialReduction(get_reduction(r))
+  nc = num_centroids(first(r))
+  LocalReduction(r′,nc)
+end
 
 function HighOrderReduction(red_style::TTSVDRanks,args...;kwargs...)
   reduction = TTSVDReduction(red_style,args...;kwargs...)
@@ -175,9 +189,22 @@ function HighOrderHyperReduction(combine::Function,args...;hypred_strategy=:mdei
   hypred_strategy==:mdeim ? HighOrderMDEIMHyperReduction(reduction,combine) : HighOrderRBFHyperReduction(reduction,combine)
 end
 
+function HighOrderHyperReduction(combine::Function,reduction::HighOrderReduction,args...;kwargs...)
+  red_style = ReductionStyle(reduction)
+  HighOrderHyperReduction(combine,red_style;kwargs...)
+end
+
 function HighOrderHyperReduction(reduction::HighOrderReduction,combine::Function;kwargs...)
   red_style = ReductionStyle(reduction)
   HighOrderMDEIMHyperReduction(combine,red_style;kwargs...)
+end
+
+function HighOrderHyperReduction(combine::Function,r::LocalReduction,args...;ncentroids=num_centroids(r),kwargs...)
+  HighOrderHyperReduction(combine,get_reduction(r),args...;ncentroids,kwargs...)
+end
+
+function HighOrderHyperReduction(r::LocalReduction,combine::Function;ncentroids=num_centroids(r),kwargs...)
+  HighOrderHyperReduction(combine,get_reduction(r),args...;ncentroids,kwargs...)
 end
 
 get_combine(r::HighOrderHyperReduction) = @abstractmethod
@@ -214,5 +241,5 @@ const LocalHyperReduction{A} = LocalReduction{A,EuclideanNorm,<:HighOrderHyperRe
 
 function LocalHighOrderHyperReduction(args...;ncentroids=10,kwargs...)
   reduction = HighOrderHyperReduction(args...;kwargs...)
-  LocalReduction(reduction;ncentroids)
+  LocalReduction(reduction,ncentroids)
 end
