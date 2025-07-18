@@ -21,35 +21,36 @@ function RBSteady.get_local(a::SequentialProjection,μ::AbstractVector)
 end
 
 function RBSteady.enrich!(
-  red::SupremizerReduction{A,<:LocalReduction{<:KroneckerReduction}},
+  red::SupremizerReduction{A,<:LocalReduction{B,C,<:KroneckerReduction}},
   a::BlockProjection,
-  norm_matrix::BlockRankTensor,
-  supr_matrix::BlockRankTensor
-  ) where A
+  norm_matrix::BlockMatrix,
+  supr_matrix::BlockMatrix
+  ) where {A,B,C}
 
   @check a.touched[1] "Primal field not defined"
+  tol = RBSteady.get_supr_tol(red)
   a_primal,a_dual... = a.array
   X_primal = norm_matrix[Block(1,1)]
   H_primal = cholesky(X_primal)
-  a_primal_space_loc,a_primal_time_loc = local_values(a_primal)
-  for j in eachindex(a_primal_space_loc)
-    pj_space = a_primal_space_loc[j]
-    pj_time = a_primal_time_loc[j]
+  a_primal_loc = local_values(a_primal)
+  for j in eachindex(a_primal_loc)
+    pj_space = a_primal_loc[j].projection_space
+    pj_time = a_primal_loc[j].projection_time
     for i = eachindex(a_dual)
       if a.touched[i]
-        a_dual_i_space_loc,a_dual_i_time_loc = local_values(a_dual[i])
-        dij_space = get_basis(a_dual_i_space_loc[j])
+        a_dual_i = local_values(a_dual[i])
+        dij_space = get_basis_space(a_dual_i[j])
         C_primal_dual_i = supr_matrix[Block(1,i+1)]
         supr_space_i = H_primal \ C_primal_dual_i * dij_space
         pj_space = union_bases(pj_space,supr_space_i,H_primal)
 
-        dij_time = get_basis_time(a_dual_i_time_loc[j])
-        pj_time = time_enrichment(red,pj_time,dij_time;kwargs...)
+        dij_time = get_basis_time(a_dual_i[j])
+        pj_time = time_enrichment(pj_time,dij_time;tol)
       end
     end
-    a_primal_space_loc[j] = pj_space
-    a_primal_time_loc[j] = pj_time
+    a_primal_loc[j] = KroneckerProjection(pj_space,pj_time)
   end
+  a[1] = RBSteady.local_proj_to_proj(a_primal,a_primal_loc)
   return
 end
 

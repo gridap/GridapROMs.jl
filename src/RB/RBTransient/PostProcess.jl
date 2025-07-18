@@ -131,3 +131,37 @@ function RBSteady.plot_a_solution(dir,Ω,uh,ûh,r::TransientRealization)
     writevtk(Ω,dir*"_$i.vtu",cellfields=["uh"=>uhi,"ûh"=>ûhi,"eh"=>ehi])
   end
 end
+
+function RBSteady.to_snapshots(rbop::AbstractLocalRBOperator,x̂::AbstractParamVector,r::TransientRealization)
+  xvec = map(enumerate(get_params(r))) do (i,μ)
+    opμ = get_local(rbop,μ)
+    trialμ = get_trial(opμ)
+    x̂μ = param_getindex(x̂,i)
+    inv_project(trialμ,x̂μ)
+  end
+  x = ParamArray(xvec)
+  i = RBSteady.get_global_dof_map(rbop)
+  s = Snapshots(x,i,r)
+  _permutelastdims(s)
+end
+
+function _permutelastdims(s::Snapshots{T,N}) where {T,N}
+  ids = (ntuple(i->i,Val(N-2))...,N,N-1)
+  data = permutedims(get_all_data(s),ids)
+  Snapshots(data,get_dof_map(s),get_realization(s))
+end
+
+function _permutelastdims(s::TransientSnapshotsWithIC)
+  TransientSnapshotsWithIC(s.initial_data,_permutelastdims(s.snaps))
+end
+
+function _permutelastdims(s::BlockSnapshots{T,N}) where {T,N}
+  array = Array{Snapshots,N}(undef,size(s))
+  touched = s.touched
+  for i in eachindex(touched)
+    if touched[i]
+      array[i] = _permutelastdims(s[i])
+    end
+  end
+  return BlockSnapshots(array,touched)
+end

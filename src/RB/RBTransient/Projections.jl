@@ -25,7 +25,7 @@ function RBSteady.project!(x̂::ConsecutiveParamVector,a::TransientProjection,x:
   end
 end
 
-function RBSteady.inv_project!(x::AbstractParamVector,a::TransientProjection,x̂::AbstractParamVector)
+function RBSteady.inv_project!(x::ConsecutiveParamVector,a::TransientProjection,x̂::ConsecutiveParamVector)
   nt = num_times(a)
   @check Int(param_length(x) / param_length(x̂)) == nt
   np = param_length(x̂)
@@ -69,18 +69,27 @@ struct KroneckerProjection <: TransientProjection
   projection_time::Projection
 end
 
-function RBSteady.projection(red::KroneckerReduction,s::TransientSnapshots)
-  basis_space,basis_time = tucker(red.reductions,s)
-  projection_space = Projection(basis_space,s)
-  projection_time = Projection(basis_time,s)
+function kron_projection(red::KroneckerReduction,s::TransientSnapshots,args...)
+  basis_space,basis_time = tucker(red.reductions,s,args...)
+  projection_space = PODProjection(basis_space)
+  projection_time = PODProjection(basis_time)
   KroneckerProjection(projection_space,projection_time)
 end
 
-function RBSteady.projection(red::KroneckerReduction,s::TransientSnapshots,X::MatrixOrTensor)
-  basis_space,basis_time = tucker(red.reductions,s,X)
-  projection_space = Projection(basis_space,s)
-  projection_time = Projection(basis_time,s)
+function kron_projection(red::KroneckerReduction,s::TransientSparseSnapshots,args...)
+  basis_space,basis_time = tucker(red.reductions,s,args...)
+  basis_space′ = recast(basis_space,s)
+  projection_space = PODProjection(basis_space′)
+  projection_time = PODProjection(basis_time)
   KroneckerProjection(projection_space,projection_time)
+end
+
+function RBSteady.projection(red::KroneckerReduction,s::TransientSnapshots)
+  kron_projection(red,s)
+end
+
+function RBSteady.projection(red::KroneckerReduction,s::TransientSnapshots,X::MatrixOrTensor)
+  kron_projection(red,s,X)
 end
 
 get_projection_space(a::KroneckerProjection) = a.projection_space
@@ -312,11 +321,11 @@ function RBSteady.enrich!(
   red::SupremizerReduction{A,<:KroneckerReduction},
   a::BlockProjection,
   norm_matrix::BlockMatrix,
-  supr_matrix::BlockMatrix;
-  kwargs...
+  supr_matrix::BlockMatrix
   ) where A
 
   @check a.touched[1] "Primal field not defined"
+  tol = RBSteady.get_supr_tol(red)
   a_primal,a_dual... = a.array
   a_primal_space = a_primal.projection_space
   a_primal_time = a_primal.projection_time
@@ -330,7 +339,7 @@ function RBSteady.enrich!(
       a_primal_space = union_bases(a_primal_space,supr_space_i,H_primal)
 
       dual_i_time = get_basis_time(a_dual[i])
-      a_primal_time = time_enrichment(red,a_primal_time,dual_i_time;kwargs...)
+      a_primal_time = time_enrichment(a_primal_time,dual_i_time;tol)
     end
   end
   a[1] = KroneckerProjection(a_primal_space,a_primal_time)
@@ -350,7 +359,7 @@ function RBSteady.enrich!(
 end
 
 """
-    time_enrichment(red::SupremizerReduction,a_primal::Projection,basis_dual) -> AbstractMatrix
+    time_enrichment(red::SupremizerReduction,a_primal::Projection,basis_dual;kwargs...) -> AbstractMatrix
 
 Temporal supremizer enrichment. (Approximate) Procedure:
 
@@ -360,14 +369,12 @@ Temporal supremizer enrichment. (Approximate) Procedure:
 4. compute `v′ = orth_complement(v,a_primal)`
 5. enrich `a_primal = [a_primal,v′]`
 """
-function time_enrichment(red::SupremizerReduction,a_primal::Projection,basis_dual)
-  tol = RBSteady.get_supr_tol(red)
-  time_red = get_reduction_time(get_reduction(red))
-  basis_primal′ = time_enrichment(get_basis(a_primal),basis_dual,tol)
-  Projection(time_red,basis_primal′)
+function time_enrichment(a_primal::Projection,basis_dual;kwargs...)
+  basis_primal′ = time_enrichment(get_basis(a_primal),basis_dual;kwargs...)
+  PODProjection(basis_primal′)
 end
 
-function time_enrichment(basis_primal,basis_dual,tol)
+function time_enrichment(basis_primal,basis_dual;tol=1e-2)
   basis_pd = basis_primal'*basis_dual
 
   function enrich!(basis_primal,basis_pd,v)

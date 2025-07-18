@@ -354,8 +354,8 @@ function to_snapshots(rbop::RBOperator,x̂::AbstractParamVector,r::AbstractReali
   to_snapshots(get_trial(rbop),x̂,r)
 end
 
-function to_snapshots(rbop::AbstractLocalRBOperator,x̂::AbstractParamVector,r::AbstractRealization)
-  xvec = map(enumerate(get_params(r))) do (i,μ)
+function to_snapshots(rbop::AbstractLocalRBOperator,x̂::AbstractParamVector,r::Realization)
+  xvec = map(enumerate(r)) do (i,μ)
     opμ = get_local(rbop,μ)
     trialμ = get_trial(opμ)
     x̂μ = param_getindex(x̂,i)
