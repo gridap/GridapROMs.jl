@@ -69,30 +69,18 @@ struct KroneckerProjection <: TransientProjection
   projection_time::Projection
 end
 
-to_proj(basis::AbstractMatrix) = PODProjection(basis)
-to_proj(basis::AbstractMatrix,X::AbstractSparseArray) = NormedProjection(to_proj(basis),X)
-
-function KroneckerProjection(red::KroneckerReduction,s::TransientSnapshots,args...)
-  basis_space,basis_time = tucker(red.reductions,s,args...)
-  projection_space = to_proj(basis_space,args...)
-  projection_time = to_proj(basis_time)
-  KroneckerProjection(projection_space,projection_time)
-end
-
-function KroneckerProjection(red::KroneckerReduction,s::TransientSparseSnapshots,args...)
-  basis_space,basis_time = tucker(red.reductions,s,args...)
-  basis_space′ = recast(basis_space,s)
-  projection_space = to_proj(basis_space′,args...)
-  projection_time = to_proj(basis_time)
-  KroneckerProjection(projection_space,projection_time)
-end
-
 function RBSteady.projection(red::KroneckerReduction,s::TransientSnapshots)
-  KroneckerProjection(red,s)
+  basis_space,basis_time = tucker(red.reductions,s)
+  projection_space = Projection(basis_space,s)
+  projection_time = Projection(basis_time,s)
+  KroneckerProjection(projection_space,projection_time)
 end
 
 function RBSteady.projection(red::KroneckerReduction,s::TransientSnapshots,X::MatrixOrTensor)
-  KroneckerProjection(red,s,X)
+  basis_space,basis_time = tucker(red.reductions,s,X)
+  projection_space = Projection(basis_space,s)
+  projection_time = Projection(basis_time,s)
+  KroneckerProjection(projection_space,projection_time)
 end
 
 get_projection_space(a::KroneckerProjection) = a.projection_space
@@ -376,7 +364,7 @@ function time_enrichment(red::SupremizerReduction,a_primal::Projection,basis_dua
   tol = RBSteady.get_supr_tol(red)
   time_red = get_reduction_time(get_reduction(red))
   basis_primal′ = time_enrichment(get_basis(a_primal),basis_dual,tol)
-  projection(time_red,basis_primal′)
+  Projection(time_red,basis_primal′)
 end
 
 function time_enrichment(basis_primal,basis_dual,tol)

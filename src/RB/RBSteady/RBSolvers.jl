@@ -50,7 +50,6 @@ function RBSolver(
   RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)
 end
 
-
 function RBSolver(
   fesolver::GridapType,
   reduction::LocalReduction;
@@ -73,26 +72,6 @@ function RBSolver(
 
   reduction = Reduction(style;nparam)
   RBSolver(fesolver,reduction;kwargs...)
-end
-
-function LocalRBSolver(
-  fesolver::GridapType,
-  style::ReductionStyle;
-  nparams=100,
-  ncentroids=10,
-  kwargs...)
-
-  reduction = LocalReduction(style;nparam,ncentroids)
-  RBSolver(fesolver,reduction;kwargs...)
-end
-
-function LocalRBSolver(
-  fesolver::GridapType,
-  reduction::Reduction;
-  kwargs...)
-
-  style = ReductionStyle(reduction)
-  LocalRBSolver(fesolver,style;kwargs...)
 end
 
 """

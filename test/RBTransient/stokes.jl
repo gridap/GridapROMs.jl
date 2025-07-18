@@ -108,8 +108,8 @@ using Gridap
 using Gridap.MultiField
 using GridapROMs
 
-method=:ttsvd
-compression=:local
+method=:pod
+compression=:global
 hypred_strategy=:mdeim
 tol=1e-4
 nparams=50
@@ -199,4 +199,15 @@ red_loc = HighOrderReduction(coupling,fill(tol,4),energy;nparams,sketch,compress
 rbsolver_loc = RBSolver(fesolver,red_loc;nparams_res,nparams_jac,hypred_strategy)
 rbop_loc = reduced_operator(rbsolver_loc,feop,fesnaps)
 x̂_loc,rbstats_loc = solve(rbsolver_loc,rbop_loc,μon,xh0μ)
-perf_loc = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
+perf_loc = eval_performance(rbsolver_loc,feop,rbop_loc,x,x̂_loc,festats,rbstats_loc)
+
+Pu = get_basis(rbop.test[1])
+Pp = get_basis(rbop.test[2])
+
+_rbop = get_local(rbop_loc,first(μon))
+_Pu = get_basis(_rbop.test[1])
+_Pp = get_basis(_rbop.test[2])
+
+red_trial,red_test = reduced_spaces(rbsolver,feop,fesnaps)
+
+Pu,Pp = get_basis(red_test.subspace[1]),get_basis(red_test.subspace[2])

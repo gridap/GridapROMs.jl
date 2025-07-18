@@ -147,9 +147,9 @@ function Algebra.solve(
 
   fesolver = get_system_solver(solver)
   all_times = [get_initial_time(r),get_times(r)...]
-  t = @timed x̂vec = map(r) do μt
-    opμt = get_local(op,μt)
-    rμt = _to_realization(r,μt)
+  t = @timed x̂vec = map(get_params(r)) do μ
+    opμt = get_local(op,μ)
+    rμt = _to_realization(r,μ)
     x̂, = solve(solver,opμt,rμt,xh0)
     testitem(x̂)
   end
@@ -158,8 +158,7 @@ function Algebra.solve(
   return (x̂,stats)
 end
 
-function _to_realization(r::TransientRealization,μt::Tuple)
-  μ,t = μt
+function _to_realization(r::TransientRealization,μ::AbstractVector)
   all_times = [get_initial_time(r),get_times(r)...]
   TransientRealization(Realization([μ]),all_times)
 end

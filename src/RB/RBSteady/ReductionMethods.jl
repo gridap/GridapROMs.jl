@@ -290,6 +290,10 @@ struct LocalReduction{A,B,R<:Reduction{A,B}} <: Reduction{A,B}
   ncentroids::Int
 end
 
+function LocalReduction(r::LocalReduction,args...;kwargs...)
+  LocalReduction(get_reduction(r),args...;kwargs...)
+end
+
 function LocalReduction(args...;ncentroids=10,kwargs...)
   reduction = Reduction(args...;kwargs...)
   LocalReduction(reduction,ncentroids)

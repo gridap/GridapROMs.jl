@@ -215,7 +215,7 @@ function HighOrderHyperReduction(combine::Function,r::LocalReduction,args...;nce
 end
 
 function HighOrderHyperReduction(r::LocalReduction,combine::Function;ncentroids=num_centroids(r),kwargs...)
-  HighOrderHyperReduction(combine,get_reduction(r),args...;ncentroids,kwargs...)
+  LocalHighOrderHyperReduction(combine,get_reduction(r),args...;ncentroids,kwargs...)
 end
 
 get_combine(r::HighOrderHyperReduction) = @abstractmethod
@@ -247,8 +247,6 @@ end
 RBSteady.get_reduction(r::HighOrderRBFHyperReduction) = r.reduction
 RBSteady.interp_strategy(r::HighOrderRBFHyperReduction) = r.strategy
 get_combine(r::HighOrderRBFHyperReduction) = r.combine
-
-const LocalHyperReduction{A} = LocalReduction{A,EuclideanNorm,<:HighOrderHyperReduction{A}}
 
 function LocalHighOrderHyperReduction(args...;ncentroids=10,kwargs...)
   reduction = HighOrderHyperReduction(args...;kwargs...)

@@ -195,16 +195,22 @@ Constructs a [`Projection`](@ref) from a collection of snapshots `s`. An inner p
 represented by the quantity `X` can be provided, in which case the resulting
 `Projection` will be `X`-orthogonal
 """
-function projection(red::Reduction,s::AbstractArray)
+
+function projection(red::Reduction,s::Snapshots)
   Projection(red,s)
 end
 
-function projection(red::Reduction,s::AbstractArray,X::MatrixOrTensor)
+function projection(red::Reduction,s::Snapshots,X::MatrixOrTensor)
   proj = Projection(red,s,X)
   NormedProjection(proj,X)
 end
 
 function Projection(red::Reduction,s::AbstractArray,args...)
+  ŝ = reduction(red,s,args...)
+  Projection(ŝ,s)
+end
+
+function Projection(basis::AbstractArray,s::AbstractArray)
   @abstractmethod
 end
 
@@ -281,11 +287,6 @@ num_reduced_dofs(a::ReducedAlgebraicProjection) = size(get_basis(a),2)
 num_reduced_dofs_left_projector(a::ReducedAlgebraicProjection) = size(get_basis(a),1)
 num_reduced_dofs_right_projector(a::ReducedMatProjection) = size(get_basis(a),3)
 
-function Projection(red::AffineReduction,s::AbstractMatrix,args...)
-  podred = PODReduction(ReductionStyle(red),NormStyle(red))
-  Projection(podred,s,args...)
-end
-
 """
     struct PODProjection <: Projection
       basis::AbstractMatrix
@@ -297,13 +298,11 @@ struct PODProjection <: Projection
   basis::AbstractMatrix
 end
 
-function Projection(red::PODReduction,s::AbstractArray,args...)
-  basis = reduction(red,s,args...)
+function Projection(basis::AbstractMatrix,s::AbstractArray)
   PODProjection(basis)
 end
 
-function Projection(red::PODReduction,s::SparseSnapshots,args...)
-  basis = reduction(red,s,args...)
+function Projection(basis::AbstractMatrix,s::SparseSnapshots)
   basis′ = recast(basis,s)
   PODProjection(basis′)
 end
@@ -344,14 +343,12 @@ struct TTSVDProjection <: Projection
   dof_map::AbstractDofMap
 end
 
-function Projection(red::TTSVDReduction,s::AbstractArray,args...)
-  cores = reduction(red,s,args...)
+function Projection(cores::AbstractVector{<:AbstractArray},s::AbstractArray)
   dof_map = get_dof_map(s)
   TTSVDProjection(cores,dof_map)
 end
 
-function Projection(red::TTSVDReduction,s::SparseSnapshots,args...)
-  cores = reduction(red,s,args...)
+function Projection(cores::AbstractVector{<:AbstractArray},s::SparseSnapshots)
   cores′ = recast(cores,s)
   dof_map = get_dof_map(s)
   TTSVDProjection(cores′,dof_map)
@@ -548,6 +545,14 @@ end
 
 function Arrays.return_type(::typeof(projection),::Reduction,::Snapshots,::MatrixOrTensor)
   NormedProjection
+end
+
+function Arrays.return_type(::typeof(projection),::LocalReduction,::Snapshots)
+  LocalProjection
+end
+
+function Arrays.return_type(::typeof(projection),::LocalReduction,::Snapshots,::MatrixOrTensor)
+  LocalProjection
 end
 
 function Arrays.return_cache(::typeof(projection),red::Reduction,s::BlockSnapshots)

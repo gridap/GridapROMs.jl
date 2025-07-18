@@ -8,15 +8,15 @@ LocalProjection(projections::AbstractVector,k::KmeansResult) = LocalProjection(p
 const VecLocalProjection{A} = LocalProjection{A,1}
 const MatLocalProjection{A} = LocalProjection{A,2}
 
-function projection(lred::LocalReduction,s::AbstractArray)
+function projection(lred::LocalReduction,s::Snapshots)
   red = get_reduction(lred)
   k = compute_clusters(lred,s)
   svec = cluster_snapshots(s,k)
-  proj = map(s -> projection(red,s,args...),svec)
+  proj = map(s -> projection(red,s),svec)
   LocalProjection(proj,k)
 end
 
-function projection(lred::LocalReduction,s::AbstractArray,X::MatrixOrTensor)
+function projection(lred::LocalReduction,s::Snapshots,X::MatrixOrTensor)
   red = get_reduction(lred)
   k = compute_clusters(lred,s)
   svec = cluster_snapshots(s,k)
@@ -36,7 +36,6 @@ end
 
 local_values(a) = @abstractmethod
 local_values(a::LocalProjection) = a.projections
-local_values(a::NormedProjection) = map(p->NormedProjection(p,a.norm_matrix),local_values(a.projection))
 
 function local_values(a::BlockProjection)
   litems = map(local_values,a.array)
@@ -55,15 +54,8 @@ end
 local_proj_to_proj(a::Projection,b::AbstractVector{<:Projection}) = @abstractmethod
 local_proj_to_proj(a::LocalProjection,b::AbstractVector{<:Projection}) = LocalProjection(b,a.k)
 
-function local_proj_to_proj(a::NormedProjection,b::AbstractVector{<:NormedProjection})
-  get_proj(a::NormedProjection) = a.projection
-  la = local_proj_to_proj(get_proj(a),map(get_proj,b))
-  NormedProjection(la,a.norm_matrix)
-end
-
 get_clusters(a) = @abstractmethod
 get_clusters(a::LocalProjection) = a.k
-get_clusters(a::NormedProjection) = get_clusters(a.projection)
 get_clusters(a::BlockProjection) = get_clusters(testitem(a))
 get_clusters(a::RBSpace) = get_clusters(get_reduced_subspace(a))
 
@@ -84,10 +76,6 @@ function get_local(a::MatLocalProjection,μ::AbstractVector)
   labk = get_label(k,μ)
   labl = get_label(l,μ)
   a.projections[labk,labl]
-end
-
-function get_local(a::NormedProjection,μ::AbstractVector)
-  NormedProjection(get_local(a.projection,μ),a.norm_matrix)
 end
 
 function get_local(a::BlockProjection,μ::AbstractVector)
