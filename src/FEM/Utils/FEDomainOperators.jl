@@ -24,7 +24,7 @@ get_jac(feop::FEDomainOperator) = get_jac(get_fe_operator(feop))
 ODEs.get_assembler(feop::FEDomainOperator) = get_assembler(get_fe_operator(feop))
 
 function FESpaces.get_algebraic_operator(feop::FEDomainOperator)
-  GenericDomainOperator(feop)
+  DomainOperator(feop)
 end
 
 CellData.get_domains(feop::FEDomainOperator) = @abstractmethod

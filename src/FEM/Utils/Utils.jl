@@ -60,9 +60,7 @@ include("FEDomains.jl")
 
 export FEDomainOperator
 export LinearFEOperator
-export DomainOperator
 export GenericFEDomainOperator
-export GenericDomainOperator
 export get_fe_operator
 export get_jac
 export get_domains
@@ -73,6 +71,7 @@ export get_polynomial_orders
 include("FEDomainOperators.jl")
 
 export DomainOperator
+export LinearOperator
 export GenericDomainOperator
 export collect_cell_matrix_for_trian
 export collect_cell_vector_for_trian

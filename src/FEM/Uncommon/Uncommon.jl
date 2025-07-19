@@ -73,14 +73,16 @@ function ParamDataStructures.realization(op::UncommonParamOperator;nparams=1)
 end
 
 function FESpaces.get_test(op::UncommonParamOperator)
-  get_bg_space(get_test(first(op.operators)))
+  _get_bg_space(get_test(first(op.operators)))
 end
 
 function FESpaces.get_trial(op::UncommonParamOperator)
-  bg_f = get_bg_space(get_trial(first(op.operators)))
+  bg_f = _get_bg_space(get_trial(first(op.operators)))
   _get_trial(bg_f)
 end
 
+_get_bg_space(f::SingleFieldFESpace) = f
+_get_bg_space(f::Union{EmbeddedFESpace,DirectSumFESpace}) = get_bg_space(f)
 _get_trial(bg_f::SingleFieldFESpace) = UncommonTrialFESpace(bg_f)
 
 function _get_trial(bg_f::MultiFieldFESpace)
@@ -95,13 +97,13 @@ DofMaps.get_sparse_dof_map(op::UncommonParamOperator) = get_sparse_dof_map(get_t
 
 FESpaces.assemble_matrix(op::UncommonParamOperator,form::Function) = ParamSteady._assemble_matrix(form,get_test(op))
 
-function Algebra.solve(solver::ExtensionSolver,op::JointUncommonParamOperator)
+function Algebra.solve(solver::NonlinearSolver,op::JointUncommonParamOperator)
   t = @timed x = batchsolve(solver,op)
   stats = CostTracker(t,name="Solver";nruns=param_length(op))
   _to_consecutive(x),stats
 end
 
-function Algebra.solve(solver::ExtensionSolver,op::SplitUncommonParamOperator)
+function Algebra.solve(solver::NonlinearSolver,op::SplitUncommonParamOperator)
   solve(solver,set_domains(op))
 end
 

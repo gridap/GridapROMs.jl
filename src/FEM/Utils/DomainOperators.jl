@@ -204,9 +204,14 @@ end
 
 get_fe_operator(op::GenericDomainOperator) = op.feop
 
-function GenericDomainOperator(args...;kwargs...)
+function LinearDomainOperator(args...;kwargs...)
+  feop = LinearFEOperator(args...;kwargs...)
+  GenericDomainOperator(feop)
+end
+
+function DomainOperator(args...;kwargs...)
   feop = FEOperator(args...;kwargs...)
-  get_algebraic_operator(feop)
+  GenericDomainOperator(feop)
 end
 
 # utils

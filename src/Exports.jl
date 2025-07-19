@@ -14,6 +14,7 @@ end
 @publish Utils FEDomainOperator
 @publish Utils LinearFEOperator
 @publish Utils DomainOperator
+@publish Utils LinearDomainOperator
 @publish Utils GenericFEDomainOperator
 @publish Utils GenericDomainOperator
 
