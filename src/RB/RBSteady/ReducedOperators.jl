@@ -72,7 +72,7 @@ function reduced_operator(rbsolver::RBSolver,feop::ParamOperator,s,jac,res)
 end
 
 """
-    abstract type RBOperator{O} <: ParamOperator{O,SplitDomains} end
+    abstract type RBOperator{O,T} <: ParamOperator{O,T} end
 
 Type representing reduced algebraic operators used within a reduced order modelling
 framework in steady applications. A RBOperator should contain the following information:
@@ -85,11 +85,152 @@ Subtypes:
 - [`GenericRBOperator`](@ref)
 - [`LinearNonlinearRBOperator`](@ref)
 """
-abstract type RBOperator{O} <: ParamOperator{O,SplitDomains} end
+abstract type RBOperator{O,T} <: ParamOperator{O,T} end
+
+const JointRBOperator{O} = RBOperator{O,JointDomains}
+const SplitRBOperator{O} = RBOperator{O,SplitDomains}
+
+Utils.get_fe_operator(op::RBOperator) = @abstractmethod
+FESpaces.get_trial(op::RBOperator) = @abstractmethod
+FESpaces.get_test(op::RBOperator) = @abstractmethod
+get_lhs(op::RBOperator) = @abstractmethod
+get_rhs(op::RBOperator) = @abstractmethod
+
+function Algebra.allocate_residual(
+  op::RBOperator,
+  r::Realization,
+  u::AbstractVector,
+  paramcache)
+
+  allocate_hypred_cache(get_rhs(op),r)
+end
+
+function Algebra.allocate_jacobian(
+  op::RBOperator,
+  r::Realization,
+  u::AbstractVector,
+  paramcache)
+
+  allocate_hypred_cache(get_lhs(op),r)
+end
+
+function Algebra.residual!(
+  b::HRParamArray,
+  op::SplitRBOperator,
+  r::Realization,
+  u::AbstractVector,
+  paramcache)
+
+  fill!(b,zero(eltype(b)))
+
+  uh = EvaluationFunction(paramcache.trial,u)
+  test = get_test(op)
+  v = get_fe_basis(test)
+
+  trian_res = get_domains_res(op)
+  rhs = get_rhs(op)
+  res = get_res(op)
+  dc = res(r,uh,v)
+
+  for strian in trian_res
+    b_strian = b.fecache[strian]
+    rhs_strian = get_interpolation(rhs[strian])
+    vecdata = collect_cell_hr_vector(test,dc,strian,rhs_strian)
+    assemble_hr_vector_add!(b_strian,vecdata...)
+  end
+
+  interpolate!(b,rhs)
+end
+
+function Algebra.jacobian!(
+  A::HRParamArray,
+  op::SplitRBOperator,
+  r::Realization,
+  u::AbstractVector,
+  paramcache)
+
+  fill!(A,zero(eltype(A)))
+
+  uh = EvaluationFunction(paramcache.trial,u)
+  trial = get_trial(op)
+  du = get_trial_fe_basis(trial)
+  test = get_test(op)
+  v = get_fe_basis(test)
+
+  trian_jac = get_domains_jac(op)
+  lhs = get_lhs(op)
+  jac = get_jac(op)
+  dc = jac(r,uh,du,v)
+
+  for strian in trian_jac
+    A_strian = A.fecache[strian]
+    lhs_strian = get_interpolation(lhs[strian])
+    matdata = collect_cell_hr_matrix(trial,test,dc,strian,lhs_strian)
+    assemble_hr_matrix_add!(A_strian,matdata...)
+  end
+
+  interpolate!(A,lhs)
+end
+
+function Algebra.residual!(
+  b::HRParamArray,
+  op::JointRBOperator,
+  r::Realization,
+  u::AbstractVector,
+  paramcache)
+
+  fill!(b,zero(eltype(b)))
+
+  uh = EvaluationFunction(paramcache.trial,u)
+  test = get_test(op)
+  v = get_fe_basis(test)
+
+  rhs = get_rhs(op)
+  bg_trian = first(get_domains(rhs))
+  res = get_res(op)
+  dc = res(r,uh,v)
+
+  for strian in get_domains(dc)
+    rhs_strian = move_interpolation(rhs[bg_trian],test,bg_trian,strian)
+    vecdata = collect_cell_hr_vector(test,dc,strian,rhs_strian)
+    assemble_hr_vector_add!(b.fecache[bg_trian],vecdata...)
+  end
+
+  interpolate!(b,rhs)
+end
+
+function Algebra.jacobian!(
+  A::HRParamArray,
+  op::JointRBOperator,
+  r::Realization,
+  u::AbstractVector,
+  paramcache)
+
+  fill!(A,zero(eltype(A)))
+
+  uh = EvaluationFunction(paramcache.trial,u)
+  trial = get_trial(op)
+  du = get_trial_fe_basis(trial)
+  test = get_test(op)
+  v = get_fe_basis(test)
+
+  lhs = get_lhs(op)
+  bg_trian = first(get_domains(rhs))
+  jac = get_jac(op)
+  dc = jac(r,uh,du,v)
+
+  for strian in get_domains(dc)
+    lhs_strian = move_interpolation(lhs[bg_trian],trial,test,bg_trian,strian)
+    matdata = collect_cell_hr_matrix(trial,test,dc,strian,lhs_strian)
+    assemble_hr_matrix_add!(A.fecache[1],matdata...)
+  end
+
+  interpolate!(A,lhs)
+end
 
 """
-    struct GenericRBOperator{O,A,B} <: RBOperator{O}
-      op::ParamOperator{O}
+    struct GenericRBOperator{O,T,A,B} <: RBOperator{O,T}
+      op::ParamOperator{O,T}
       trial::RBSpace
       test::RBSpace
       lhs::A
@@ -104,8 +245,8 @@ Fields:
 - `lhs`: hyper-reduced left hand side
 - `rhs`: hyper-reduced right hand side
 """
-struct GenericRBOperator{O,A,B} <: RBOperator{O}
-  op::ParamOperator{O}
+struct GenericRBOperator{O,T,A,B} <: RBOperator{O,T}
+  op::ParamOperator{O,T}
   trial::RBSpace
   test::RBSpace
   lhs::A
@@ -113,7 +254,7 @@ struct GenericRBOperator{O,A,B} <: RBOperator{O}
 end
 
 function RBOperator(
-  op::ParamOperator,
+  op::SplitParamOperator,
   trial::RBSpace,
   test::RBSpace,
   lhs::AffineContribution,
@@ -125,92 +266,32 @@ function RBOperator(
   GenericRBOperator(op′,trial,test,lhs,rhs)
 end
 
+function RBOperator(
+  op::JointParamOperator,
+  trial::RBSpace,
+  test::RBSpace,
+  lhs::AffineContribution,
+  rhs::AffineContribution)
+
+  GenericRBOperator(op,trial,test,lhs,rhs)
+end
+
 Utils.get_fe_operator(op::GenericRBOperator) = op.op
 FESpaces.get_trial(op::GenericRBOperator) = op.trial
 FESpaces.get_test(op::GenericRBOperator) = op.test
 get_lhs(op::GenericRBOperator) = op.lhs
-get_rhs(op::GenericRBOperator) = op.lhs
+get_rhs(op::GenericRBOperator) = op.rhs
 
-function Algebra.allocate_residual(
-  op::GenericRBOperator,
-  r::Realization,
-  u::AbstractVector,
-  paramcache)
-
-  allocate_hypred_cache(op.rhs,r)
-end
-
-function Algebra.allocate_jacobian(
-  op::GenericRBOperator,
-  r::Realization,
-  u::AbstractVector,
-  paramcache)
-
-  allocate_hypred_cache(op.lhs,r)
+function replace_operator(op::GenericRBOperator,op′::ParamOperator)
+  GenericRBOperator(op′,op.trial,op.test,op.lhs,op.rhs)
 end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::GenericRBOperator,
+  op::GenericRBOperator{O,T,A,<:RBFContribution},
   r::Realization,
   u::AbstractVector,
-  paramcache)
-
-  fill!(b,zero(eltype(b)))
-
-  uh = EvaluationFunction(paramcache.trial,u)
-  test = get_test(op.op)
-  v = get_fe_basis(test)
-
-  trian_res = get_domains_res(op.op)
-  res = get_res(op.op)
-  dc = res(r,uh,v)
-
-  for strian in trian_res
-    b_strian = b.fecache[strian]
-    rhs_strian = get_interpolation(op.rhs[strian])
-    vecdata = collect_cell_hr_vector(test,dc,strian,rhs_strian)
-    assemble_hr_vector_add!(b_strian,vecdata...)
-  end
-
-  interpolate!(b,op.rhs)
-end
-
-function Algebra.jacobian!(
-  A::HRParamArray,
-  op::GenericRBOperator,
-  r::Realization,
-  u::AbstractVector,
-  paramcache)
-
-  fill!(A,zero(eltype(A)))
-
-  uh = EvaluationFunction(paramcache.trial,u)
-  trial = get_trial(op.op)
-  du = get_trial_fe_basis(trial)
-  test = get_test(op.op)
-  v = get_fe_basis(test)
-
-  trian_jac = get_domains_jac(op.op)
-  jac = get_jac(op.op)
-  dc = jac(r,uh,du,v)
-
-  for strian in trian_jac
-    A_strian = A.fecache[strian]
-    lhs_strian = get_interpolation(op.lhs[strian])
-    matdata = collect_cell_hr_matrix(trial,test,dc,strian,lhs_strian)
-    assemble_hr_matrix_add!(A_strian,matdata...)
-  end
-
-  interpolate!(A,op.lhs)
-end
-
-function Algebra.residual!(
-  b::HRParamArray,
-  op::GenericRBOperator{O,A,<:RBFContribution},
-  r::Realization,
-  u::AbstractVector,
-  paramcache) where {O,A}
+  paramcache) where {O,T,A}
 
   fill!(b,zero(eltype(b)))
   interpolate!(b,op.rhs,r)
@@ -218,18 +299,18 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::GenericRBOperator{O,<:RBFContribution,B},
+  op::GenericRBOperator{O,T,<:RBFContribution,B},
   r::Realization,
   u::AbstractVector,
-  paramcache) where {O,B}
+  paramcache) where {O,T,B}
 
   fill!(A,zero(eltype(A)))
   interpolate!(A,op.lhs,r)
 end
 
 """
-    struct LocalRBOperator{O,A,B} <: RBOperator{O}
-      op::ParamOperator{O}
+    struct LocalRBOperator{O,T,A,B} <: RBOperator{O,T}
+      op::ParamOperator{O,T}
       trial::RBSpace
       test::RBSpace
       lhs::A
@@ -244,8 +325,8 @@ Fields:
 - `lhs`: local hyper-reduced left hand sides
 - `rhs`: local hyper-reduced right hand sides
 """
-struct LocalRBOperator{O,A,B} <: RBOperator{O}
-  op::ParamOperator{O}
+struct LocalRBOperator{O,T,A,B} <: RBOperator{O,T}
+  op::ParamOperator{O,T}
   trial::RBSpace
   test::RBSpace
   lhs::A
@@ -256,7 +337,7 @@ Utils.get_fe_operator(op::LocalRBOperator) = op.op
 FESpaces.get_trial(op::LocalRBOperator) = op.trial
 FESpaces.get_test(op::LocalRBOperator) = op.test
 get_lhs(op::LocalRBOperator) = op.lhs
-get_rhs(op::LocalRBOperator) = op.lhs
+get_rhs(op::LocalRBOperator) = op.rhs
 
 function RBOperator(
   op::ParamOperator,trial::RBSpace,test::RBSpace,lhs::LocalProjection,rhs::LocalProjection)
@@ -265,15 +346,20 @@ function RBOperator(
 end
 
 function get_local(op::LocalRBOperator,μ::AbstractVector)
+  opμ = get_local(op.op,μ)
   trialμ = get_local(op.trial,μ)
   testμ = get_local(op.test,μ)
   lhsμ = get_local(op.lhs,μ)
   rhsμ = get_local(op.rhs,μ)
-  RBOperator(op.op,trialμ,testμ,lhsμ,rhsμ)
+  RBOperator(opμ,trialμ,testμ,lhsμ,rhsμ)
+end
+
+function replace_operator(op::LocalRBOperator,op′::ParamOperator)
+  LocalRBOperator(op′,op.trial,op.test,op.lhs,op.rhs)
 end
 
 """
-    struct LinearNonlinearRBOperator{A<:RBOperator,B<:RBOperator} <: RBOperator{LinearNonlinearParamEq}
+    struct LinearNonlinearRBOperator{A<:RBOperator,B<:RBOperator,T} <: RBOperator{LinearNonlinearParamEq,T}
       op_linear::A
       op_nonlinear::B
     end
@@ -281,9 +367,18 @@ end
 Extends the concept of [`GenericRBOperator`](@ref) to accommodate the linear/nonlinear
 splitting of terms in nonlinear applications
 """
-struct LinearNonlinearRBOperator{A<:RBOperator,B<:RBOperator} <: RBOperator{LinearNonlinearParamEq}
+struct LinearNonlinearRBOperator{A<:RBOperator,B<:RBOperator,T} <: RBOperator{LinearNonlinearParamEq,T}
   op_linear::A
   op_nonlinear::B
+  function LinearNonlinearRBOperator(
+    op_linear::RBOperator{OL,T},
+    op_nonlinear::RBOperator{ON,T}
+    ) where {OL,ON,T}
+
+    A = typeof(op_linear)
+    b = typeof(op_nonlinear)
+    new{A,B,T}(op_linear,op_nonlinear)
+  end
 end
 
 ParamAlgebra.get_linear_operator(op::LinearNonlinearRBOperator) = op.op_linear
@@ -319,9 +414,9 @@ function ParamDataStructures.parameterize(op::LinearNonlinearRBOperator,μ::Abst
   LinNonlinParamOperator(op_lin,op_nlin,syscache_lin)
 end
 
-const LinearNonlinearGenericRBOperator = LinearNonlinearRBOperator{<:GenericRBOperator,<:GenericRBOperator}
+const LinearNonlinearGenericRBOperator{T} = LinearNonlinearRBOperator{<:GenericRBOperator,<:GenericRBOperator,T}
 
-const LinearNonlinearLocalRBOperator = LinearNonlinearRBOperator{<:LocalRBOperator,<:LocalRBOperator}
+const LinearNonlinearLocalRBOperator{T} = LinearNonlinearRBOperator{<:LocalRBOperator,<:LocalRBOperator,T}
 
 const AbstractLocalRBOperator = Union{LocalRBOperator,LinearNonlinearLocalRBOperator}
 

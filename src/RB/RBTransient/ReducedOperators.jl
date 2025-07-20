@@ -34,9 +34,11 @@ function RBSteady.RBOperator(
   LocalRBOperator(odeop,trial,test,lhs,rhs)
 end
 
-const TransientRBOperator{O<:ODEParamOperatorType} = RBOperator{O}
-const TransientGenericRBOperator{O<:ODEParamOperatorType,B} = GenericRBOperator{O,<:TupOfAffineContribution,B}
-const TransientLocalRBOperator{O<:ODEParamOperatorType,B} = LocalRBOperator{O,<:Tuple{Vararg{LocalProjection}},B}
+const TransientRBOperator{O<:ODEParamOperatorType,T} = RBOperator{O,T}
+const JointTransientRBOperator{O<:ODEParamOperatorType} = TransientRBOperator{O,JointDomains}
+const SplitTransientRBOperator{O<:ODEParamOperatorType} = TransientRBOperator{O,SplitDomains}
+const TransientGenericRBOperator{O<:ODEParamOperatorType,T,B} = GenericRBOperator{O,<:TupOfAffineContribution,T,B}
+const TransientLocalRBOperator{O<:ODEParamOperatorType,T,B} = LocalRBOperator{O,<:Tuple{Vararg{LocalProjection}},T,B}
 
 function Algebra.allocate_residual(
   op::TransientRBOperator,
@@ -44,7 +46,7 @@ function Algebra.allocate_residual(
   u::AbstractVector,
   paramcache)
 
-  allocate_hypred_cache(op.rhs,r)
+  allocate_hypred_cache(get_rhs(op),r)
 end
 
 function Algebra.allocate_jacobian(
@@ -53,12 +55,12 @@ function Algebra.allocate_jacobian(
   u::AbstractVector,
   paramcache)
 
-  allocate_hypred_cache(op.lhs,r)
+  allocate_hypred_cache(get_lhs(op),r)
 end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::TransientGenericRBOperator,
+  op::SplitTransientRBOperator,
   r::TransientRealization,
   u::AbstractVector,
   paramcache
@@ -67,32 +69,33 @@ function Algebra.residual!(
   fill!(b,zero(eltype(b)))
 
   np = num_params(r)
-  hr_time_ids = get_common_time_domain(op.rhs)
+  rhs = get_rhs(op)
+  hr_time_ids = get_common_time_domain(rhs)
   hr_param_time_ids = range_1d(1:np,hr_time_ids,np)
-  hr_uh = _make_hr_uh_from_us(op.op,u,paramcache.trial,hr_param_time_ids)
+  hr_uh = _make_hr_uh_from_us(op,u,paramcache.trial,hr_param_time_ids)
 
-  test = get_test(op.op)
+  test = get_test(op)
   v = get_fe_basis(test)
 
-  trian_res = get_domains_res(op.op)
+  trian_res = get_domains_res(op)
   μ = get_params(r)
   hr_t = view(get_times(r),hr_time_ids)
-  res = get_res(op.op)
+  res = get_res(op)
   dc = res(μ,hr_t,hr_uh,v)
 
   for strian in trian_res
     b_strian = b.fecache[strian]
-    rhs_strian = get_interpolation(op.rhs[strian])
+    rhs_strian = get_interpolation(rhs[strian])
     vecdata = collect_cell_hr_vector(test,dc,strian,rhs_strian,hr_param_time_ids)
     assemble_hr_vector_add!(b_strian,vecdata...)
   end
 
-  interpolate!(b,op.rhs)
+  interpolate!(b,rhs)
 end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::TransientGenericRBOperator,
+  op::SplitTransientRBOperator,
   r::TransientRealization,
   u::AbstractVector,
   paramcache
@@ -101,23 +104,24 @@ function Algebra.jacobian!(
   fill!(A,zero(eltype(A)))
 
   np = num_params(r)
-  hr_time_ids = get_common_time_domain(op.lhs)
+  lhs = get_lhs(op)
+  hr_time_ids = get_common_time_domain(lhs)
   hr_param_time_ids = range_1d(1:np,hr_time_ids,np)
-  hr_uh = _make_hr_uh_from_us(op.op,u,paramcache.trial,hr_param_time_ids)
+  hr_uh = _make_hr_uh_from_us(op,u,paramcache.trial,hr_param_time_ids)
 
-  trial = get_trial(op.op)
+  trial = get_trial(op)
   du = get_trial_fe_basis(trial)
-  test = get_test(op.op)
+  test = get_test(op)
   v = get_fe_basis(test)
 
-  trian_jacs = get_domains_jac(op.op)
+  trian_jacs = get_domains_jac(op)
   μ = get_params(r)
   hr_t = view(get_times(r),hr_time_ids)
-  jacs = get_jacs(op.op)
+  jacs = get_jacs(op)
 
-  for k in 1:get_order(op.op)+1
+  for k in 1:get_order(op)+1
     Ak = A.fecache[k]
-    lhs = op.lhs[k]
+    lhs = lhs[k]
     jac = jacs[k]
     dc = jac(μ,hr_t,hr_uh,du,v)
     trian_jac = trian_jacs[k]
@@ -129,15 +133,15 @@ function Algebra.jacobian!(
     end
   end
 
-  interpolate!(A,op.lhs)
+  interpolate!(A,lhs)
 end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::TransientGenericRBOperator{O,<:RBFContribution},
+  op::TransientGenericRBOperator{O,T,<:RBFContribution},
   r::TransientRealization,
   u::AbstractVector,
-  paramcache) where O
+  paramcache) where {O,T}
 
   fill!(b,zero(eltype(b)))
   interpolate!(b,op.rhs,r)
@@ -145,10 +149,10 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::TransientGenericRBOperator{O,<:RBFContribution},
+  op::TransientGenericRBOperator{O,T,<:RBFContribution},
   r::TransientRealization,
   u::AbstractVector,
-  paramcache) where O
+  paramcache) where {O,T}
 
   fill!(A,zero(eltype(A)))
   interpolate!(A,op.lhs,r)

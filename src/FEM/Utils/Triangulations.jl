@@ -1,36 +1,44 @@
 """
-    is_parent(tparent::Triangulation,tchild::Triangulation) -> Bool
+    is_parent(parent::Triangulation,child::Triangulation) -> Bool
 
-Returns true if `tchild` is a triangulation view of `tparent`, false otherwise
+Returns true if `child` is a triangulation view of `parent`, false otherwise
 """
-function is_parent(tparent::Triangulation,tchild::Triangulation)
+function is_parent(parent::Triangulation,child::Triangulation)
   false
 end
 
 function is_parent(
-  tparent::BodyFittedTriangulation,
-  tchild::BodyFittedTriangulation{Dt,Dp,A,<:Geometry.GridView}) where {Dt,Dp,A}
-  tparent.grid === tchild.grid.parent
+  parent::BodyFittedTriangulation,
+  child::BodyFittedTriangulation{Dt,Dp,A,<:Geometry.GridView}) where {Dt,Dp,A}
+  parent.grid === child.grid.parent
 end
 
-function is_parent(tparent::Triangulation,tchild::Geometry.TriangulationView)
-  tparent === tchild.parent
+function is_parent(parent::Triangulation,child::Geometry.TriangulationView)
+  parent === child.parent
 end
 
 for T in (:Triangulation,:(BodyFittedTriangulation{Dt,Dp,A,<:Geometry.GridView} where {Dt,Dp,A}),:(Geometry.TriangulationView))
   @eval begin
-    function is_parent(tparent::Geometry.AppendedTriangulation,tchild::$T)
-      is_parent(tparent.a,tchild) || is_parent(tparent.b,tchild)
+    function is_parent(parent::Geometry.AppendedTriangulation,child::$T)
+      is_parent(parent.a,child) || is_parent(parent.b,child)
     end
   end
 end
 
-function is_parent(tparent::Geometry.AppendedTriangulation,tchild::Geometry.AppendedTriangulation)
-  is_parent(tparent.a,tchild.a) && is_parent(tparent.b,tchild.b)
+function is_parent(parent::Geometry.AppendedTriangulation,child::Geometry.AppendedTriangulation)
+  is_parent(parent.a,child.a) && is_parent(parent.b,child.b)
 end
 
-function is_parent(tparent::SkeletonTriangulation,tchild::SkeletonPair)
-  is_parent(tparent.plus,tchild.plus) && is_parent(tparent.minus,tchild.minus)
+function is_parent(parent::SkeletonTriangulation,child::SkeletonPair)
+  is_parent(parent.plus,child.plus) && is_parent(parent.minus,child.minus)
+end
+
+function get_parent(i::AbstractVector)
+  i
+end
+
+function get_parent(i::LazyArray{<:Fill{<:Reindex}})
+  i.maps.value.values
 end
 
 function get_parent(t::Geometry.Grid)
@@ -68,8 +76,31 @@ function get_parent(t::Triangulation)
   t
 end
 
-function get_parent(i::LazyArray{<:Fill{<:Reindex}})
-  i.maps.value.values
+_get_bg_cells(t::Triangulation) = @abstractmethod
+_get_bg_cells(t::Geometry.BodyFittedTriangulation) = t.tface_to_mface
+_get_bg_cells(t::Geometry.BoundaryTriangulation) = t.glue.face_to_cell
+_get_bg_cells(t::Geometry.TriangulationView) = t.cell_to_parent_cell
+_get_bg_cells(t::Interfaces.SubFacetTriangulation) = t.subfacets.facet_to_bgcell
+_get_bg_cells(t::Interfaces.SubCellTriangulation) = unique(t.subcells.cell_to_bgcell)
+function _get_bg_cells(t::Geometry.AppendedTriangulation)
+  lazy_append(_get_bg_cells(t.a),_get_bg_cells(t.b))
+end
+
+function strian_to_ttrian_cells(strian::Triangulation,ttrian::Triangulation)
+  scells = _get_bg_cells(strian)
+  tcells = _get_bg_cells(ttrian)
+  isentry = zeros(Bool,length(scells))
+  for i in eachindex(scells)
+    isentry[i] = scells[i] ≤ length(tcells)
+  end
+  entries = cumsum(isentry)
+  s2t = Vector{eltype(tcells)}(undef,entries[end])
+  for i in eachindex(scells)
+    if isentry[i]
+      s2t[entries[i]] = tcells[scells[i]]
+    end
+  end
+  return s2t
 end
 
 # We use the symbol ≈ can between two grids `t` and `s` in the following
@@ -152,16 +183,16 @@ end
 
 """
     order_domains(
-      tparents::Tuple{Vararg{Triangulation}},
-      tchildren::Tuple{Vararg{Triangulation}}
+      parents::Tuple{Vararg{Triangulation}},
+      children::Tuple{Vararg{Triangulation}}
       ) -> Tuple{Vararg{Triangulation}}
 
 Orders the triangulation children in the same way as the triangulation parents
 """
-function order_domains(tparents,tchildren)
-  @check length(tparents) == length(tchildren)
-  iperm = find_trian_permutation(tparents,tchildren)
-  map(iperm->tchildren[iperm],iperm)
+function order_domains(parents,children)
+  @check length(parents) == length(children)
+  iperm = find_trian_permutation(parents,children)
+  map(iperm->children[iperm],iperm)
 end
 
 # triangulation views

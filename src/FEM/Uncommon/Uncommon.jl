@@ -77,16 +77,27 @@ function FESpaces.get_test(op::UncommonParamOperator)
 end
 
 function FESpaces.get_trial(op::UncommonParamOperator)
-  bg_f = _get_bg_space(get_trial(first(op.operators)))
-  _get_trial(bg_f)
+  trials = get_trial.(op.operators)
+  bg_f = _get_bg_space(first(trials))
+  diri = _get_diri_vals.(trials)
+  _to_trial(bg_f,diri)
 end
 
 _get_bg_space(f::SingleFieldFESpace) = f
 _get_bg_space(f::Union{EmbeddedFESpace,DirectSumFESpace}) = get_bg_space(f)
-_get_trial(bg_f::SingleFieldFESpace) = UncommonTrialFESpace(bg_f)
+function _get_bg_space(f::MultiFieldFESpace)
+  MultiFieldFESpace(f.vector_type,map(_get_bg_space,f),f.multi_field_style)
+end
 
-function _get_trial(bg_f::MultiFieldFESpace)
-  MultiFieldFESpace(f.vector_type,map(_get_trial,bg_f),bg_f.multi_field_style)
+_get_diri_vals(f::TrialFESpace) = get_dirichlet_dof_values(f)
+_get_diri_vals(f::TransientTrialFESpace) = f.transient_dirichlet
+_get_diri_vals(f::MultiFieldFESpace) = map(_get_diri_vals,f.spaces)
+
+_to_trial(f::TrialFESpace,diri::AbstractVector) = UncommonParamTrialFESpace(f.space,diri)
+_to_trial(f::TransientTrialFESpace,diri::AbstractVector) = UncommonParamTrialFESpace(f.space,diri)
+function _to_trial(f::MultiFieldFESpace,diri::AbstractVector{<:AbstractVector})
+  spaces = map(i -> _to_trial(f.spaces[i],map(d->d[i],diri)),1:num_fields(f))
+  MultiFieldFESpace(f.vector_type,spaces,f.multi_field_style)
 end
 
 Utils.change_domains(op::UncommonParamOperator,args...) = op
@@ -118,15 +129,15 @@ function Algebra.jacobian(op::UncommonParamOperator,x::AbstractParamVector)
 end
 
 function Algebra.solve(solver::NonlinearSolver,op::UncommonParamOperator,μ::Realization)
-  solve(solver,_get_at_param(op,μ))
+  solve(solver,op[μ])
 end
 
 function Algebra.residual(op::UncommonParamOperator,μ::Realization,x::AbstractParamVector)
-  residual(_get_at_param(op,μ),x)
+  residual(op[μ],x)
 end
 
 function Algebra.jacobian(op::UncommonParamOperator,μ::Realization,x::AbstractParamVector)
-  jacobian(_get_at_param(op,μ),x)
+  jacobian(op[μ],x)
 end
 
 function batchsolve(solver,op::UncommonParamOperator)
@@ -352,11 +363,31 @@ function _max_nnz_at_field(op::NonlinearOperator,m::Int,n::Int)
   _max_nnz(get_test(op)[m],get_trial(op)[n])
 end
 
-# TODO maybe use K means here as well?
-function _get_at_param(op::UncommonParamOperator,μ::AbstractRealization)
+# TODO maybe use K means here?
+function Base.getindex(op::UncommonParamOperator,μ::AbstractRealization)
   @assert all(μi == ξi for (μi,ξi) in zip(μ,op.μ))
   opμ = op.operators[1:num_params(μ)]
   UncommonParamOperator(opμ,μ)
 end
+
+function Base.getindex(op::UncommonParamOperator,μ::AbstractVector)
+  allμ = get_params(op.μ)
+  index = findfirst(allμ .== [μ])
+  @assert !isnothing(index)
+  TrivialParamOperator(op.operators[index])
+end
+
+struct TrivialParamOperator{O<:UnEvalOperatorType,T<:TriangulationStyle,O′<:OperatorType} <: ParamOperator{O,T}
+  op::DomainOperator{O′,T}
+  function TrivialParamOperator(op::DomainOperator{O′,T}) where {O′,T}
+    O = UnEvalOperatorType(O′)
+    new{O,T,O′}(op)
+  end
+end
+
+ParamSteady.get_fe_operator(op::TrivialParamOperator) = get_fe_operator(op.op)
+FESpaces.get_trial(op::TrivialParamOperator) = parameterize(get_trial(get_fe_operator(op)),1)
+Utils.get_jac(op::TrivialParamOperator) = (μ,u,du,v) -> get_jac(get_fe_operator(op))(u,du,v)
+Utils.get_res(op::TrivialParamOperator) = (μ,u,v) -> get_res(get_fe_operator(op))(u,v)
 
 end # end module

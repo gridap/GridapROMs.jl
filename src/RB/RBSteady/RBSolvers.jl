@@ -227,6 +227,8 @@ end
 
 _get_dof_map(op::ParamOperator,a::ArrayContribution) = get_dof_map_at_domains(op)
 _get_sparse_dof_map(op::ParamOperator,a::ArrayContribution) = get_sparse_dof_map_at_domains(op)
+_get_dof_map(op::ParamOperator,a::AbstractParamArray) = get_dof_map(op)
+_get_sparse_dof_map(op::ParamOperator,a::AbstractParamArray) = _get_trivial_sparse_dof_map(a)
 
 function _get_dof_map(op::UncommonParamOperator,a::ArrayContribution)
   contribution(get_domains(a)) do trian
@@ -241,10 +243,7 @@ function _get_sparse_dof_map(op::UncommonParamOperator,a::ArrayContribution)
 end
 
 _get_trivial_sparse_dof_map(a::ParamSparseMatrix) = TrivialSparseMatrixDofMap(a)
-
-function _get_trivial_sparse_dof_map(a::BlockParamArray)
-  map(_get_trivial_sparse_dof_map,a.data)
-end
+_get_trivial_sparse_dof_map(a::BlockParamArray) = map(_get_trivial_sparse_dof_map,a.data)
 
 function Algebra.solve(
   solver::RBSolver,

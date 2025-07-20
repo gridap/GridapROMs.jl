@@ -23,6 +23,10 @@ struct NonlinearParamEq <: UnEvalOperatorType end
 """
 struct LinearNonlinearParamEq <: UnEvalOperatorType end
 
+UnEvalOperatorType(::Type{LinearEq}) = LinearParamEq
+UnEvalOperatorType(::Type{NonlinearEq}) = NonlinearParamEq
+UnEvalOperatorType(::Type{LinearNonlinearEq}) = LinearNonlinearParamEq
+
 """
     abstract type ParamOperator{O<:UnEvalOperatorType,T<:TriangulationStyle} <: NonlinearParamOperator end
 

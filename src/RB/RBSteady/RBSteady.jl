@@ -147,12 +147,14 @@ export get_integration_cells
 export get_cellids_rows
 export get_cellids_cols
 export get_owned_icells
+export move_integration_domain
 include("IntegrationDomains.jl")
 
 export Interpolation
 export MDEIMInterpolation
 export RBFInterpolation
 export BlockInterpolation
+export move_interpolation
 include("Interpolations.jl")
 
 export HRProjection

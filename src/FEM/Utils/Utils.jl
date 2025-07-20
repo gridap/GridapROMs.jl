@@ -35,6 +35,7 @@ export ∂₁, ∂₂, ∂₃
 include("PartialDerivatives.jl")
 
 export get_parent
+export strian_to_ttrian_cells
 export order_domains
 include("Triangulations.jl")
 
@@ -53,6 +54,7 @@ export FEDomains
 export OperatorType
 export LinearEq
 export NonlinearEq
+export LinearNonlinearEq
 export TriangulationStyle
 export JointDomains
 export SplitDomains

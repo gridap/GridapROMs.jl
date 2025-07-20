@@ -7,6 +7,7 @@ get_cellids_rows(a::Interpolation) = get_cellids_rows(get_integration_domain(a))
 get_cellids_cols(a::Interpolation) = get_cellids_cols(get_integration_domain(a))
 get_owned_icells(a::Interpolation,args...) = get_owned_icells(a,get_integration_cells(a,args...))
 get_owned_icells(a::Interpolation,cells::AbstractVector) = get_owned_icells(get_integration_domain(a),cells)
+move_interpolation(a::Interpolation,args...) = move_integration_domain(get_integration_domain(a),args...)
 
 Interpolation(red::MDEIMHyperReduction,args...) = MDEIMInterpolation(args...)
 Interpolation(red::RBFHyperReduction,args...) = RBFInterpolation(interp_strategy(red),args...)
@@ -263,6 +264,28 @@ function get_owned_icells(a::BlockInterpolation,cells::AbstractVector)
     end
   end
   return ArrayBlock(cache,a.touched)
+end
+
+function move_interpolation(a::BlockInterpolation,trial::FESpace,test::FESpace,args...)
+  I = typeof(testitem(a))
+  cache = Array{I,ndims(a)}(undef,size(a))
+  for (i,j) in Iterators.product(axes(a)...)
+    if a.touched[i,j]
+      cache[i,j] = move_interpolation(a[i,j],trial[j],test[i],args...)
+    end
+  end
+  return BlockInterpolation(cache,a.touched)
+end
+
+function move_interpolation(a::BlockInterpolation,test::FESpace,args...)
+  I = typeof(testitem(a))
+  cache = Array{I,ndims(a)}(undef,size(a))
+  for i in eachindex(a)
+    if a.touched[i]
+      cache[i] = move_interpolation(a[i],test[i],args...)
+    end
+  end
+  return BlockInterpolation(cache,a.touched)
 end
 
 function reduced_triangulation(trian::Triangulation,a::BlockInterpolation{<:MDEIMInterpolation})

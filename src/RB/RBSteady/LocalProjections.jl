@@ -88,6 +88,9 @@ function get_local(a::RBSpace,μ::AbstractVector)
   reduced_subspace(space,lsubspace)
 end
 
+get_local(a::ParamOperator,μ::AbstractVector) = a
+get_local(a::UncommonParamOperator,μ::AbstractVector) = a[μ]
+
 function enrich!(
   red::SupremizerReduction{A,<:LocalReduction},
   a::BlockProjection,

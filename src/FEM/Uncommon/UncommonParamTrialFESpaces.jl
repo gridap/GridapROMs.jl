@@ -17,8 +17,15 @@ FESpaces.get_fe_space(f::UncommonParamTrialFESpace) = f.space
 
 # Evaluations
 
-function ODEs.allocate_space(f::UncommonParamTrialFESpace,r::Realization)
-  HomogeneousTrialParamFESpace(f.space,length(r))
+function Arrays.evaluate(f::UncommonParamTrialFESpace,μ::Realization)
+  diri = ParamArray(f.dirichlet[1:param_length(μ)])
+  TrialParamFESpace(diri,f.space)
+end
+
+function Arrays.evaluate(f::UncommonParamTrialFESpace,args...)
+  fp = allocate_space(f,args...)
+  evaluate!(fp,f,args...)
+  fp
 end
 
 function ODEs.allocate_space(f::UncommonParamTrialFESpace,μ::Realization,t)
@@ -27,18 +34,6 @@ end
 
 function ODEs.allocate_space(f::UncommonParamTrialFESpace,r::TransientRealization)
   allocate_space(f,get_params(r),get_times(r))
-end
-
-function Arrays.evaluate(f::UncommonParamTrialFESpace,args...)
-  fpt = allocate_space(f,args...)
-  evaluate!(fpt,f,args...)
-  fpt
-end
-
-function Arrays.evaluate!(fpt::TrialParamFESpace,f::UncommonParamTrialFESpace,r::Realization)
-  @check param_length(fpt) ≤ length(r)
-  TrialParamFESpace!(fpt,f.dirichlet[1:param_length(fpt)])
-  fpt
 end
 
 function Arrays.evaluate!(
@@ -55,7 +50,9 @@ function Arrays.evaluate!(
   r::Realization,t)
 
   @check param_length(fpt) ≤ length(μ)*length(t)
-  TrialParamFESpace!(fpt,f.dirichlet[1:param_length(fpt)])
+  @check isa(f.dirichlet,AbstractVector{<:Function})
+  dirif = TransientParamFunction(first(f.dirichlet),r,t)
+  TrialParamFESpace!(fpt,dirif)
   fpt
 end
 

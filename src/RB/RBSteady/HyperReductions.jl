@@ -69,6 +69,10 @@ function reduced_triangulation(trian::Triangulation,a::HRProjection)
   reduced_triangulation(trian,get_interpolation(a))
 end
 
+function move_interpolation(a::HRProjection,args...)
+  move_interpolation(get_interpolation(a),args...)
+end
+
 """
 """
 const MDEIMProjection{A<:ReducedProjection} = HRProjection{A,<:MDEIMHyperReduction}
@@ -304,6 +308,16 @@ function reduced_residual(red::Reduction,test::RBSpace,c::ArrayContribution)
   return Contribution(a,trians)
 end
 
+function get_background_trian(f::FESpace)
+  model = get_background_model(get_triangulation(f))
+  Triangulation(model)
+end
+
+function reduced_residual(red::Reduction,test::RBSpace,r::Snapshots)
+  trian = get_background_trian(test)
+  reduced_residual(red,test,Contribution(r,trian))
+end
+
 """
     reduced_jacobian(
       solver::RBSolver,
@@ -338,6 +352,11 @@ function reduced_jacobian(red::Reduction,trial::RBSpace,test::RBSpace,c::ArrayCo
     reduced_form(red,values,trian,trial,test)
   end |> tuple_of_arrays
   return Contribution(a,trians)
+end
+
+function reduced_jacobian(red::Reduction,trial::RBSpace,test::RBSpace,j::Snapshots)
+  trian = get_background_trian(test)
+  reduced_jacobian(red,trial,test,Contribution(j,trian))
 end
 
 """

@@ -42,6 +42,10 @@ struct LinearEq <: OperatorType end
 struct NonlinearEq <: OperatorType end
 
 """
+"""
+struct LinearNonlinearEq <: OperatorType end
+
+"""
     abstract type TriangulationStyle <: GridapType end
 
 Subtypes:

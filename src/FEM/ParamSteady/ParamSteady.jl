@@ -66,7 +66,7 @@ include("LinearNonlinearParamFEOperators.jl")
 
 export GenericParamOperator
 export GenericLinearNonlinearParamOperator
-include("ParamOpFromFEOps.jl")
+include("GenericParamOperators.jl")
 
 include("ParamFESolvers.jl")
 
