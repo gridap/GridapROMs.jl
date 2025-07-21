@@ -6,8 +6,7 @@ function RBSteady.collect_cell_hr_matrix(
   interp::Interpolation,
   common_indices::AbstractVector)
 
-  cell_irows = get_cellids_rows(interp)
-  cell_icols = get_cellids_cols(interp)
+  cell_idofs = get_cell_idofs(interp)
   icells = get_owned_icells(interp,strian)
   locations = get_param_itimes(interp,common_indices)
   style = get_domain_style(interp)
@@ -17,7 +16,7 @@ function RBSteady.collect_cell_hr_matrix(
   @assert ndims(eltype(cell_mat)) == 2
   cell_mat_c = attach_constraints_cols(trial,cell_mat,trian)
   cell_mat_rc = attach_constraints_rows(test,cell_mat_c,trian)
-  (cell_mat_rc,cell_irows,cell_icols,icells,locations,style)
+  (cell_mat_rc,cell_idofs,icells,locations,style)
 end
 
 function RBSteady.collect_cell_hr_vector(
@@ -27,7 +26,7 @@ function RBSteady.collect_cell_hr_vector(
   interp::Interpolation,
   common_indices::AbstractVector)
 
-  cell_irows = get_cellids_rows(interp)
+  cell_idofs = get_cell_idofs(interp)
   icells = get_owned_icells(interp,strian)
   locations = get_param_itimes(interp,common_indices)
   style = get_domain_style(interp)
@@ -36,7 +35,7 @@ function RBSteady.collect_cell_hr_vector(
   cell_vec,trian = move_contributions(scell_vec,strian)
   @assert ndims(eltype(cell_vec)) == 1
   cell_vec_r = attach_constraints_rows(test,cell_vec,trian)
-  (cell_vec_r,cell_irows,icells,locations,style)
+  (cell_vec_r,cell_idofs,icells,locations,style)
 end
 
 function get_hr_param_entry!(v::AbstractVector,b::GenericParamBlock,hr_indices,i...)

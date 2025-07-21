@@ -27,7 +27,7 @@ function RBSteady.MDEIMInterpolation(
 
   (rows,indices_time),interp = empirical_interpolation(basis)
   factor = lu(interp)
-  domain = vector_domain(typeof(basis),trian,test,rows,indices_time)
+  domain = IntegrationDomain(typeof(basis),trian,test,rows,indices_time)
   MDEIMInterpolation(factor,domain)
 end
 
@@ -40,7 +40,7 @@ function RBSteady.MDEIMInterpolation(
 
   ((rows,cols),indices_time),interp = empirical_interpolation(basis)
   factor = lu(interp)
-  domain = matrix_domain(typeof(basis),trian,trial,test,rows,cols,indices_time)
+  domain = IntegrationDomain(typeof(basis),trian,trial,test,rows,cols,indices_time)
   MDEIMInterpolation(factor,domain)
 end
 

@@ -19,14 +19,14 @@ function reduced_cells(
   return cells
 end
 
-function reduced_idofs(
+function reduced_irows(
   f::DirectSumRBSpace,
   trian::Triangulation,
   cells::AbstractVector,
   dofs::AbstractVector)
 
   cell_dof_ids = get_bg_cell_dof_ids(f,trian)
-  idofs = get_cells_to_idofs(cell_dof_ids,cells,dofs)
+  idofs = get_cells_to_irows(cell_dof_ids,cells,dofs)
   return idofs
 end
 

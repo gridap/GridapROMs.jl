@@ -5,15 +5,14 @@ function collect_cell_hr_matrix(
   strian::Triangulation,
   interp::Interpolation)
 
-  cell_irows = get_cellids_rows(interp)
-  cell_icols = get_cellids_cols(interp)
+  cell_idofs = get_cell_idofs(interp)
   icells = get_owned_icells(interp,strian)
   scell_mat = get_contribution(a,strian)
   cell_mat,trian = move_contributions(scell_mat,strian)
   @assert ndims(eltype(cell_mat)) == 2
   cell_mat_c = attach_constraints_cols(trial,cell_mat,trian)
   cell_mat_rc = attach_constraints_rows(test,cell_mat_c,trian)
-  (cell_mat_rc,cell_irows,cell_icols,icells)
+  (cell_mat_rc,cell_idofs,icells)
 end
 
 function collect_reduced_cell_hr_matrix(
@@ -23,8 +22,7 @@ function collect_reduced_cell_hr_matrix(
   strian::Triangulation,
   interp::Interpolation)
 
-  cell_irows = get_cellids_rows(interp)
-  cell_icols = get_cellids_cols(interp)
+  cell_idofs = get_cell_idofs(interp)
   cells = get_integration_cells(interp)
   icells = get_owned_icells(interp,strian)
   scell_mat = lazy_map(Reindex(get_contribution(a,strian)),cells)
@@ -32,7 +30,7 @@ function collect_reduced_cell_hr_matrix(
   @assert ndims(eltype(cell_mat)) == 2 "$(ndims(eltype(cell_mat)))"
   cell_mat_c = attach_constraints_cols(trial,cell_mat,trian)
   cell_mat_rc = attach_constraints_rows(test,cell_mat_c,trian)
-  (cell_mat_rc,cell_irows,cell_icols,icells)
+  (cell_mat_rc,cell_idofs,icells)
 end
 
 function collect_cell_hr_vector(
@@ -41,13 +39,13 @@ function collect_cell_hr_vector(
   strian::Triangulation,
   interp::Interpolation)
 
-  cell_irows = get_cellids_rows(interp)
+  cell_idofs = get_cell_idofs(interp)
   icells = get_owned_icells(interp,strian)
   scell_vec = get_contribution(a,strian)
   cell_vec,trian = move_contributions(scell_vec,strian)
   @assert ndims(eltype(cell_vec)) == 1
   cell_vec_r = attach_constraints_rows(test,cell_vec,trian)
-  (cell_vec_r,cell_irows,icells)
+  (cell_vec_r,cell_idofs,icells)
 end
 
 function collect_reduced_cell_hr_vector(
@@ -56,14 +54,14 @@ function collect_reduced_cell_hr_vector(
   strian::Triangulation,
   interp::Interpolation)
 
-  cell_irows = get_cellids_rows(interp)
+  cell_idofs = get_cell_idofs(interp)
   cells = get_integration_cells(interp)
   icells = get_owned_icells(interp,strian)
   scell_vec = lazy_map(Reindex(get_contribution(a,strian)),cells)
   cell_vec,trian = move_contributions(scell_vec,strian)
   @assert ndims(eltype(cell_vec)) == 1
   cell_vec_r = attach_constraints_rows(test,cell_vec,trian)
-  (cell_vec_r,cell_irows,icells)
+  (cell_vec_r,cell_idofs,icells)
 end
 
 struct BlockReindex{A} <: Map

@@ -3,8 +3,7 @@ abstract type Interpolation end
 get_interpolation(a::Interpolation) = @abstractmethod
 get_integration_domain(a::Interpolation) = @abstractmethod
 get_integration_cells(a::Interpolation,args...) = get_integration_cells(get_integration_domain(a),args...)
-get_cellids_rows(a::Interpolation) = get_cellids_rows(get_integration_domain(a))
-get_cellids_cols(a::Interpolation) = get_cellids_cols(get_integration_domain(a))
+get_cell_idofs(a::Interpolation) = get_cell_idofs(get_integration_domain(a))
 get_owned_icells(a::Interpolation,args...) = get_owned_icells(a,get_integration_cells(a,args...))
 get_owned_icells(a::Interpolation,cells::AbstractVector) = get_owned_icells(get_integration_domain(a),cells)
 
@@ -45,14 +44,14 @@ MDEIMInterpolation() = EmptyInterpolation()
 function MDEIMInterpolation(basis::Projection,trian::Triangulation,test::RBSpace)
   rows,interp = empirical_interpolation(basis)
   factor = lu(interp)
-  domain = vector_domain(trian,test,rows)
+  domain = IntegrationDomain(trian,test,rows)
   MDEIMInterpolation(factor,domain)
 end
 
 function MDEIMInterpolation(basis::Projection,trian::Triangulation,trial::RBSpace,test::RBSpace)
   (rows,cols),interp = empirical_interpolation(basis)
   factor = lu(interp)
-  domain = matrix_domain(trian,trial,test,rows,cols)
+  domain = IntegrationDomain(trian,trial,test,rows,cols)
   MDEIMInterpolation(factor,domain)
 end
 
@@ -207,23 +206,19 @@ function Arrays.testitem(a::BlockInterpolation)
   a.interp[first(i)]
 end
 
-for f in (:get_cellids_rows,:get_cellids_cols)
-  @eval begin
-    function Arrays.return_cache(::typeof($f),a::BlockInterpolation)
-      block_cache = Array{Table,ndims(a)}(undef,size(a))
-      return block_cache
-    end
+function Arrays.return_cache(::typeof(get_cell_idofs),a::BlockInterpolation)
+  block_cache = Array{Table,ndims(a)}(undef,size(a))
+  return block_cache
+end
 
-    function $f(a::BlockInterpolation)
-      cache = return_cache($f,a)
-      for i in eachindex(a)
-        if a.touched[i]
-          cache[i] = $f(a[i])
-        end
-      end
-      return ArrayBlock(cache,a.touched)
+function get_cell_idofs(a::BlockInterpolation)
+  cache = return_cache(get_cell_idofs,a)
+  for i in eachindex(a)
+    if a.touched[i]
+      cache[i] = get_cell_idofs(a[i])
     end
   end
+  return ArrayBlock(cache,a.touched)
 end
 
 function Arrays.return_cache(::typeof(get_integration_cells),a::BlockInterpolation,args...)

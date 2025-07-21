@@ -138,14 +138,10 @@ export get_reduced_subspace
 include("RBSpaces.jl")
 
 export IntegrationDomain
-export VectorDomain
-export MatrixDomain
-export vector_domain
-export matrix_domain
+export GenericDomain
 export empirical_interpolation
 export get_integration_cells
-export get_cellids_rows
-export get_cellids_cols
+export get_cell_idofs
 export get_owned_icells
 export move_integration_domain
 include("IntegrationDomains.jl")

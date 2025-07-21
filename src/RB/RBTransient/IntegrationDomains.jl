@@ -121,18 +121,18 @@ end
 
 get_domain_style(a::TransientIntegrationDomain) = a.domain_style
 
-function RBSteady.vector_domain(
+function RBSteady.IntegrationDomain(
   ::Type{<:KroneckerProjection},
   trian::Triangulation,
   test::FESpace,
   rows::AbstractVector,
   indices_time::AbstractVector)
 
-  domain_space = vector_domain(trian,test,rows)
+  domain_space = IntegrationDomain(trian,test,rows)
   TransientIntegrationDomain(KroneckerDomain(),domain_space,indices_time)
 end
 
-function RBSteady.matrix_domain(
+function RBSteady.IntegrationDomain(
   ::Type{<:KroneckerProjection},
   trian::Triangulation,
   trial::FESpace,
@@ -141,11 +141,11 @@ function RBSteady.matrix_domain(
   cols::AbstractVector,
   indices_time::AbstractVector)
 
-  domain_space = matrix_domain(trian,trial,test,rows,cols)
+  domain_space = IntegrationDomain(trian,trial,test,rows,cols)
   TransientIntegrationDomain(KroneckerDomain(),domain_space,indices_time)
 end
 
-function RBSteady.vector_domain(
+function RBSteady.IntegrationDomain(
   ::Type{<:SequentialProjection},
   trian::Triangulation,
   test::FESpace,
@@ -154,11 +154,11 @@ function RBSteady.vector_domain(
 
   cells = reduced_cells(test,trian,rows)
   irows = reduced_spacetime_idofs(test,trian,cells,rows,indices_time)
-  domain_space = VectorDomain(cells,irows,rows)
+  domain_space = IntegrationDomain(cells,irows,rows)
   TransientIntegrationDomain(SequentialDomain(),domain_space,indices_time)
 end
 
-function RBSteady.matrix_domain(
+function RBSteady.IntegrationDomain(
   ::Type{<:SequentialProjection},
   trian::Triangulation,
   trial::FESpace,
@@ -172,13 +172,12 @@ function RBSteady.matrix_domain(
   cells = union(cells_trial,cells_test)
   icols = reduced_spacetime_idofs(trial,trian,cells,cols,indices_time)
   irows = reduced_spacetime_idofs(test,trian,cells,rows,indices_time)
-  domain_space = MatrixDomain(cells,irows,icols,(rows,cols))
+  domain_space = IntegrationDomain(cells,irows,icols,(rows,cols))
   TransientIntegrationDomain(SequentialDomain(),domain_space,indices_time)
 end
 
 RBSteady.get_integration_cells(i::TransientIntegrationDomain) = get_integration_cells(i.domain_space)
-RBSteady.get_cellids_rows(i::TransientIntegrationDomain) = get_cellids_rows(i.domain_space)
-RBSteady.get_cellids_cols(i::TransientIntegrationDomain) = get_cellids_cols(i.domain_space)
+RBSteady.get_cell_idofs(i::TransientIntegrationDomain) = get_cell_idofs(i.domain_space)
 get_integration_domain_space(i::TransientIntegrationDomain) = i.domain_space
 get_indices_time(i::TransientIntegrationDomain) = i.indices_time
 
