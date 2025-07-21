@@ -239,31 +239,20 @@ end
 function move_integration_domain(
   i::VectorDomain,
   test::FESpace,
-  strian::Triangulation,
   ttrian::Triangulation,
   )
 
   rows = i.metadata
-  scells = get_integration_cells(i)
-  scell_to_tcell = strian_to_ttrian_cells(strian,ttrian)
-  tcells = lazy_map(Reindex(scell_to_tcell),scells)
-  tirows = reduced_idofs(test,ttrian,tcells,rows)
-  VectorDomain(tcells,tirows,rows)
+  vector_domain(ttrian,test,rows)
 end
 
 function move_integration_domain(
   i::MatrixDomain,
   trial::FESpace,
   test::FESpace,
-  strian::Triangulation,
   ttrian::Triangulation,
   )
 
   rows,cols = i.metadata
-  scells = get_integration_cells(i)
-  scell_to_tcell = strian_to_ttrian_cells(strian,ttrian)
-  tcells = lazy_map(Reindex(scell_to_tcell),scells)
-  ticols = reduced_idofs(trial,ttrian,tcells,cols)
-  tirows = reduced_idofs(test,ttrian,tcells,rows)
-  MatrixDomain(tcells,tirows,ticols,i.metadata)
+  matrix_domain(ttrian,trial,test,rows,cols)
 end

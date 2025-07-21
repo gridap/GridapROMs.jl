@@ -191,8 +191,8 @@ function Algebra.residual!(
   dc = res(r,uh,v)
 
   for strian in get_domains(dc)
-    rhs_strian = move_interpolation(rhs[bg_trian],test,bg_trian,strian)
-    vecdata = collect_cell_hr_vector(test,dc,strian,rhs_strian)
+    rhs_strian = move_interpolation(rhs[bg_trian],test,strian)
+    vecdata = collect_reduced_cell_hr_vector(test,dc,strian,rhs_strian)
     assemble_hr_vector_add!(b.fecache[bg_trian],vecdata...)
   end
 
@@ -215,14 +215,14 @@ function Algebra.jacobian!(
   v = get_fe_basis(test)
 
   lhs = get_lhs(op)
-  bg_trian = first(get_domains(rhs))
+  bg_trian = first(get_domains(lhs))
   jac = get_jac(op)
   dc = jac(r,uh,du,v)
 
   for strian in get_domains(dc)
-    lhs_strian = move_interpolation(lhs[bg_trian],trial,test,bg_trian,strian)
-    matdata = collect_cell_hr_matrix(trial,test,dc,strian,lhs_strian)
-    assemble_hr_matrix_add!(A.fecache[1],matdata...)
+    lhs_strian = move_interpolation(lhs[bg_trian],trial,test,strian)
+    matdata = collect_reduced_cell_hr_matrix(trial,test,dc,strian,lhs_strian)
+    assemble_hr_matrix_add!(A.fecache[bg_trian],matdata...)
   end
 
   interpolate!(A,lhs)

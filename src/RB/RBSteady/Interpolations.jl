@@ -7,7 +7,6 @@ get_cellids_rows(a::Interpolation) = get_cellids_rows(get_integration_domain(a))
 get_cellids_cols(a::Interpolation) = get_cellids_cols(get_integration_domain(a))
 get_owned_icells(a::Interpolation,args...) = get_owned_icells(a,get_integration_cells(a,args...))
 get_owned_icells(a::Interpolation,cells::AbstractVector) = get_owned_icells(get_integration_domain(a),cells)
-move_interpolation(a::Interpolation,args...) = move_integration_domain(get_integration_domain(a),args...)
 
 Interpolation(red::MDEIMHyperReduction,args...) = MDEIMInterpolation(args...)
 Interpolation(red::RBFHyperReduction,args...) = RBFInterpolation(interp_strategy(red),args...)
@@ -64,6 +63,12 @@ function reduced_triangulation(trian::Triangulation,a::MDEIMInterpolation)
   red_cells = get_integration_cells(a)
   red_trian = view(trian,red_cells)
   return red_trian
+end
+
+function move_interpolation(a::MDEIMInterpolation,args...)
+  interpolation = get_interpolation(a)
+  domain = move_integration_domain(get_integration_domain(a),args...)
+  MDEIMInterpolation(interpolation,domain)
 end
 
 # RBF interpolation
