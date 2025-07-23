@@ -173,8 +173,7 @@ include("HyperReductions.jl")
 export BlockReindex
 export collect_cell_hr_matrix
 export collect_cell_hr_vector
-export assemble_hr_matrix_add!
-export assemble_hr_vector_add!
+export assemble_hr_array_add!
 include("HRAssemblers.jl")
 
 export LocalProjection
@@ -190,6 +189,7 @@ export LinearNonlinearRBOperator
 export AbstractLocalRBOperator
 export LocalRBOperator
 export reduced_operator
+export change_operator
 include("ReducedOperators.jl")
 
 export ROMPerformance

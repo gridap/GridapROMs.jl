@@ -42,6 +42,34 @@ FESpaces.get_free_dof_values(f::SingleFieldParamFEFunction) = f.free_values
 FESpaces.get_cell_dof_values(f::SingleFieldParamFEFunction) = f.cell_dof_values
 FESpaces.get_fe_space(f::SingleFieldParamFEFunction) = f.fe_space
 
+# mapped models
+
+function Geometry.MappedGrid(grid::Grid,phys_map::SingleFieldParamFEFunction)
+  @assert length(get_data(phys_map)) == num_cells(grid)
+  plength = param_length(phys_map)
+
+  function _compute_node_coordinates(grid,phys_map)
+    cell_node_ids = get_cell_node_ids(grid)
+    old_nodes = get_node_coordinates(grid)
+    node_coordinates = Vector{eltype(old_nodes)}(undef,length(old_nodes))
+    pnode_coordinates = parameterize(node_coordinates,plength)
+    cell_to_coords = get_cell_coordinates(grid)
+    cell_coords_map = lazy_map(evaluate,phys_map,cell_to_coords)
+    _node_ids_to_coords!(pnode_coordinates,cell_node_ids,cell_coords_map)
+    return pnode_coordinates
+  end
+
+  model_map = get_cell_map(grid)
+  geo_map = lazy_map(∘,phys_map,model_map)
+  node_coords = _compute_node_coordinates(grid,phys_map)
+  ParamMappedGrid(grid,geo_map,phys_map,node_coords)
+end
+
+function Geometry.MappedDiscreteModel(model::DiscreteModel,phys_map::SingleFieldParamFEFunction)
+  mapped_grid = MappedGrid(get_grid(model),phys_map)
+  MappedDiscreteModel(model,mapped_grid)
+end
+
 # audodiff
 
 function FESpaces._change_argument(op,f,trian,uh::SingleFieldParamFEFunction)

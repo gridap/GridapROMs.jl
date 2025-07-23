@@ -1,20 +1,25 @@
-function empirical_interpolation(A::AbstractMatrix)
-  m,n = size(A)
-  res = zeros(eltype(A),m)
+function empirical_interpolation(basis::AbstractMatrix)
+  n = size(basis,2)
   I = zeros(Int,n)
-  @views I[1] = argmax(abs.(A[:,1]))
-  if n > 1
-    @inbounds for i = 2:n
-      @views Ai = A[:,i]
-      @views Bi = A[:,1:i-1]
-      @views Ci = A[I[1:i-1],1:i-1]
-      @views Di = A[I[1:i-1],i]
-      @views res = Ai - Bi*(Ci \ Di)
-      I[i] = argmax(map(abs,res))
+  basisI = zeros(eltype(basis),n,n)
+  @inbounds @views begin
+    res = abs.(basis[:,1])
+    I[1] = argmax(res)
+    basisI[1,:] = basis[I[1],:]
+    for l = 2:n
+      U = basis[:,1:l-1]
+      P = I[1:l-1]
+      PᵀU = U[P,:]
+      uₗ = basis[:,l]
+      Pᵀuₗ = uₗ[P,:]
+      c = vec(PᵀU \ Pᵀuₗ)
+      mul!(res,U,c)
+      @. res = abs(uₗ - res)
+      I[l] = argmax(res)
+      basisI[l,:] = basis[I[l],:]
     end
   end
-  Ai = view(A,I,:)
-  return I,Ai
+  return I,basisI
 end
 
 function empirical_interpolation(A::ParamSparseMatrix)
@@ -121,15 +126,14 @@ function get_cells_to_irowcols(
     ncellrows = length(cellrows)
     for (irowcol,rowcol) in enumerate(zip(rows,cols))
       row,col = rowcol
-      for (_icellrowcol,cellrowcol) in enumerate(zip(cellrows,cellcols))
-        cellrow,cellcol = cellrowcol
-        if row == cellrow && col == cellcol
-          _icellrow = fast_index(_icellrowcol,ncellrows)
-          _icellcol = slow_index(_icellrowcol,ncellrows)
-          icellrow = correct_idof(_icellrow,cellrows)
-          icellcol = correct_idof(_icellcol,cellcols)
-          icellrowcol = icellrow + (icellcol-1)*ncellrows
-          data[ptrs[icell]-1+icellrowcol] = irowcol
+      for (_icellrow,cellrow) in enumerate(cellrows)
+        for (_icellcol,cellcol) in enumerate(cellcols)
+          if row == cellrow && col == cellcol
+            icellrow = correct_irow(_icellrow,cellrows)
+            icellcol = correct_icol(_icellcol,cellcols)
+            icellrowcol = icellrow + (icellcol-1)*ncellrows
+            data[ptrs[icell]-1+icellrowcol] = irowcol
+          end
         end
       end
     end

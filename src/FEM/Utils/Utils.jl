@@ -35,8 +35,8 @@ export ∂₁, ∂₂, ∂₃
 include("PartialDerivatives.jl")
 
 export get_parent
-export strian_to_ttrian_cells
 export order_domains
+export change_triangulation
 include("Triangulations.jl")
 
 export Contribution

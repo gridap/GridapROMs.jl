@@ -46,14 +46,13 @@ struct ParamMappedGrid{Dc,Dp,T,M,L} <: Grid{Dc,Dp}
 end
 
 function Geometry.MappedGrid(grid::Grid,phys_map::AbstractVector{<:ParamBlock})
-
   @assert length(phys_map) == num_cells(grid)
+  plength = param_length(testitem(phys_map))
 
   function _compute_node_coordinates(grid,phys_map)
     cell_node_ids = get_cell_node_ids(grid)
     old_nodes = get_node_coordinates(grid)
     node_coordinates = Vector{eltype(old_nodes)}(undef,length(old_nodes))
-    plength = param_length(testitem(phys_map))
     pnode_coordinates = parameterize(node_coordinates,plength)
     cell_to_coords = get_cell_coordinates(grid)
     cell_coords_map = lazy_map(evaluate,phys_map,cell_to_coords)
@@ -97,6 +96,37 @@ Geometry.get_cell_map(model::ParamMappedDiscreteModel) = get_cell_map(model.mapp
 Geometry.get_grid_topology(model::ParamMappedDiscreteModel) = get_grid_topology(model.model)
 Geometry.get_face_labeling(model::ParamMappedDiscreteModel) = get_face_labeling(model.model)
 
+function model_compatibility(a::DiscreteModel,b::DiscreteModel)
+  return false
+end
+
+function model_compatibility(a::A,b::A) where {A<:DiscreteModel}
+  return a === b
+end
+
+function model_compatibility(a::A,b::A) where {A<:Union{MappedDiscreteModel,ParamMappedDiscreteModel}}
+  return a === b || a.model === b.model
+end
+
+function Geometry.is_change_possible(
+  strian::Triangulation{Dc,Dp},
+  ttrian::Triangulation{Dc,Dp}
+  ) where {Dc,Dp}
+
+  if strian === ttrian
+    return true
+  end
+
+  msg = "Triangulations do not point to the same background discrete model!"
+  smodel = get_background_model(strian)
+  tmodel = get_background_model(strian)
+  @check model_compatibility(smodel,tmodel)
+
+  sglue = get_glue(strian,Val(Dc))
+  tglue = get_glue(ttrian,Val(Dc))
+  is_change_possible(sglue,tglue)
+end
+
 function Geometry.Grid(::Type{ReferenceFE{d}},model::ParamMappedDiscreteModel) where d
   node_coordinates = get_node_coordinates(model)
   cell_to_nodes = Table(get_face_nodes(model,d))
@@ -109,7 +139,7 @@ struct ParamUnstructuredGrid{Dc,Dp,Tp,O,Tn} <: Grid{Dc,Dp}
   node_coordinates::ParamBlock{Vector{Point{Dp,Tp}}}
   cell_node_ids::Table{Int32,Vector{Int32},Vector{Int32}}
   reffes::Vector{LagrangianRefFE{Dc}}
-  cell_types::Vector{Int8}
+  cell_type::Vector{Int8}
   orientation_style::O
   facet_normal::Tn
   cell_map
@@ -118,7 +148,7 @@ struct ParamUnstructuredGrid{Dc,Dp,Tp,O,Tn} <: Grid{Dc,Dp}
     node_coordinates::ParamBlock{Vector{Point{Dp,Tp}}},
     cell_node_ids::Table{Ti},
     reffes::Vector{<:LagrangianRefFE{Dc}},
-    cell_types::Vector,
+    cell_type::Vector,
     orientation_style::OrientationStyle=NonOriented(),
     facet_normal=nothing;
     has_affine_map=nothing) where {Dc,Dp,Tp,Ti}
@@ -128,14 +158,14 @@ struct ParamUnstructuredGrid{Dc,Dp,Tp,O,Tn} <: Grid{Dc,Dp}
     else
       _has_affine_map = has_affine_map
     end
-    cell_map = Geometry._compute_cell_map(node_coordinates,cell_node_ids,reffes,cell_types,_has_affine_map)
+    cell_map = Geometry._compute_cell_map(node_coordinates,cell_node_ids,reffes,cell_type,_has_affine_map)
     B = typeof(orientation_style)
     Tn = typeof(facet_normal)
     new{Dc,Dp,Tp,B,Tn}(
       node_coordinates,
       cell_node_ids,
       reffes,
-      cell_types,
+      cell_type,
       orientation_style,
       facet_normal,
       cell_map)
@@ -154,7 +184,7 @@ Geometry.OrientationStyle(
   ::Type{<:ParamUnstructuredGrid{Dc,Dp,Tp,B}}) where {Dc,Dp,Tp,B} = B()
 
 Geometry.get_reffes(g::ParamUnstructuredGrid) = g.reffes
-Geometry.get_cell_type(g::ParamUnstructuredGrid) = g.cell_types
+Geometry.get_cell_type(g::ParamUnstructuredGrid) = g.cell_type
 Geometry.get_node_coordinates(g::ParamUnstructuredGrid) = g.node_coordinates
 Geometry.get_cell_node_ids(g::ParamUnstructuredGrid) = g.cell_node_ids
 Geometry.get_cell_map(g::ParamUnstructuredGrid) = g.cell_map
@@ -183,6 +213,14 @@ function Geometry.simplexify(grid::ParamUnstructuredGrid;kwargs...)
     ctype_to_reffe,
     tcell_to_ctype,
     Oriented())
+end
+
+function Base.isapprox(t::T,s::T) where T<:ParamUnstructuredGrid
+  (
+    t.cell_node_ids == s.cell_node_ids &&
+    t.cell_type == s.cell_type &&
+    length(testitem(t.node_coordinates)) == length(testitem(s.node_coordinates))
+  )
 end
 
 function Fields.AffineField(gradients::ParamBlock,origins::ParamBlock)

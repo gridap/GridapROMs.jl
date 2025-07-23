@@ -182,6 +182,10 @@ function FESpaces.FEFunction(r::RBSpace,x̂::AbstractVector)
   return FEFunction(fe,x,xdir)
 end
 
+function change_fe_space(r::RBSpace,f::FESpace)
+  reduced_subspace(f,get_reduced_subspace(r))
+end
+
 """
     struct SingleFieldRBSpace{S<:SingleFieldFESpace} <: RBSpace{S}
       space::S
@@ -258,10 +262,11 @@ end
 
 function projection_error(f::RBSpace,x::AbstractParamVector,r::AbstractRealization)
   fr = f(r)
+  i = get_dof_map(fr)
   a = get_reduced_subspace(f)
   x̂ = project(fr,x)
   x′ = inv_project(fr,x̂)
-  s = to_snapshots(get_fe_space(fr),x,r)
-  s′ = to_snapshots(get_fe_space(fr),x′,r)
+  s = Snapshots(x,i,r)
+  s′ = Snapshots(x′,i,r)
   return compute_relative_error(s,s′,get_norm_matrix(a))
 end

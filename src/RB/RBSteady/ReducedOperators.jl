@@ -136,7 +136,7 @@ function Algebra.residual!(
     b_strian = b.fecache[strian]
     rhs_strian = get_interpolation(rhs[strian])
     vecdata = collect_cell_hr_vector(test,dc,strian,rhs_strian)
-    assemble_hr_vector_add!(b_strian,vecdata...)
+    assemble_hr_array_add!(b_strian,vecdata...)
   end
 
   interpolate!(b,rhs)
@@ -166,7 +166,7 @@ function Algebra.jacobian!(
     A_strian = A.fecache[strian]
     lhs_strian = get_interpolation(lhs[strian])
     matdata = collect_cell_hr_matrix(trial,test,dc,strian,lhs_strian)
-    assemble_hr_matrix_add!(A_strian,matdata...)
+    assemble_hr_array_add!(A_strian,matdata...)
   end
 
   interpolate!(A,lhs)
@@ -193,7 +193,7 @@ function Algebra.residual!(
   for strian in get_domains(dc)
     rhs_strian = move_interpolation(rhs[bg_trian],test,strian)
     vecdata = collect_reduced_cell_hr_vector(test,dc,strian,rhs_strian)
-    assemble_hr_vector_add!(b.fecache[bg_trian],vecdata...)
+    assemble_hr_array_add!(b.fecache[bg_trian],vecdata...)
   end
 
   interpolate!(b,rhs)
@@ -222,7 +222,7 @@ function Algebra.jacobian!(
   for strian in get_domains(dc)
     lhs_strian = move_interpolation(lhs[bg_trian],trial,test,strian)
     matdata = collect_reduced_cell_hr_matrix(trial,test,dc,strian,lhs_strian)
-    assemble_hr_matrix_add!(A.fecache[bg_trian],matdata...)
+    assemble_hr_array_add!(A.fecache[bg_trian],matdata...)
   end
 
   interpolate!(A,lhs)
@@ -282,8 +282,15 @@ FESpaces.get_test(op::GenericRBOperator) = op.test
 get_lhs(op::GenericRBOperator) = op.lhs
 get_rhs(op::GenericRBOperator) = op.rhs
 
-function replace_operator(op::GenericRBOperator,op′::ParamOperator)
-  GenericRBOperator(op′,op.trial,op.test,op.lhs,op.rhs)
+function change_operator(op::GenericRBOperator,op′::ParamOperator)
+  trians_rhs′ = change_triangulation(get_domains_res(op′),get_domains(op.rhs))
+  trians_lhs′ = change_triangulation(get_domains_jac(op′),get_domains(op.lhs))
+  op′′ = change_domains(op′,trians_rhs′,trians_lhs′)
+  trial′ = change_fe_space(get_trial(op),get_trial(op′))
+  test′ = change_fe_space(get_test(op),get_test(op′))
+  rhs′ = change_domains(get_rhs(op),trians_rhs′)
+  lhs′ = change_domains(get_lhs(op),trians_lhs′)
+  GenericRBOperator(op′′,trial′,test′,lhs′,rhs′)
 end
 
 function Algebra.residual!(
@@ -354,7 +361,7 @@ function get_local(op::LocalRBOperator,μ::AbstractVector)
   RBOperator(opμ,trialμ,testμ,lhsμ,rhsμ)
 end
 
-function replace_operator(op::LocalRBOperator,op′::ParamOperator)
+function change_operator(op::LocalRBOperator,op′::ParamOperator)
   LocalRBOperator(op′,op.trial,op.test,op.lhs,op.rhs)
 end
 

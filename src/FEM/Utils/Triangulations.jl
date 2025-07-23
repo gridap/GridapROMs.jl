@@ -3,10 +3,6 @@
 
 Returns true if `child` is a triangulation view of `parent`, false otherwise
 """
-function is_parent(parent::Triangulation,child::Triangulation)
-  false
-end
-
 function is_parent(
   parent::BodyFittedTriangulation,
   child::BodyFittedTriangulation{Dt,Dp,A,<:Geometry.GridView}) where {Dt,Dp,A}
@@ -17,20 +13,42 @@ function is_parent(parent::Triangulation,child::Geometry.TriangulationView)
   parent === child.parent
 end
 
-for T in (:Triangulation,:(BodyFittedTriangulation{Dt,Dp,A,<:Geometry.GridView} where {Dt,Dp,A}),:(Geometry.TriangulationView))
+"""
+    isapprox_parent(parent::Triangulation,child::Triangulation) -> Bool
+
+Same as [`is_parent`](@ref), but with a relaxed check (it could return true even
+when the [`objectid`](@ref) comparison fails)
+"""
+function isapprox_parent(
+  parent::BodyFittedTriangulation,
+  child::BodyFittedTriangulation{Dt,Dp,A,<:Geometry.GridView}) where {Dt,Dp,A}
+  parent.grid ≈ child.grid.parent
+end
+
+function isapprox_parent(parent::Triangulation,child::Geometry.TriangulationView)
+  parent ≈ child.parent
+end
+
+for f in (:is_parent,:isapprox_parent)
   @eval begin
-    function is_parent(parent::Geometry.AppendedTriangulation,child::$T)
-      is_parent(parent.a,child) || is_parent(parent.b,child)
+    $f(parent::Triangulation,child::Triangulation) = false
+
+    function $f(parent::Geometry.AppendedTriangulation,child::Geometry.AppendedTriangulation)
+      $f(parent.a,child.a) && $f(parent.b,child.b)
+    end
+
+    function $f(parent::SkeletonTriangulation,child::SkeletonPair)
+      $f(parent.plus,child.plus) && $f(parent.minus,child.minus)
     end
   end
-end
 
-function is_parent(parent::Geometry.AppendedTriangulation,child::Geometry.AppendedTriangulation)
-  is_parent(parent.a,child.a) && is_parent(parent.b,child.b)
-end
-
-function is_parent(parent::SkeletonTriangulation,child::SkeletonPair)
-  is_parent(parent.plus,child.plus) && is_parent(parent.minus,child.minus)
+  for T in (:Triangulation,:(BodyFittedTriangulation{Dt,Dp,A,<:Geometry.GridView} where {Dt,Dp,A}),:(Geometry.TriangulationView))
+    @eval begin
+      function $f(parent::Geometry.AppendedTriangulation,child::$T)
+        $f(parent.a,child) || $f(parent.b,child)
+      end
+    end
+  end
 end
 
 function get_parent(i::AbstractVector)
@@ -66,6 +84,37 @@ function get_parent(t::Geometry.AppendedTriangulation)
   lazy_append(a,b)
 end
 
+function to_child(parent::Grid,child::Grid)
+  @abstractmethod
+end
+
+function to_child(parent::Grid,child::Geometry.GridView)
+  @assert num_cells(parent) == num_cells(child.parent)
+  Geometry.GridView(parent,child.cell_to_parent_cell)
+end
+
+function to_child(parent::Geometry.GridView,child::Geometry.GridView)
+  to_child(parent.parent,child)
+end
+
+function to_child(parent::BodyFittedTriangulation,child::BodyFittedTriangulation)
+  model = get_background_model(parent)
+  grid = to_child(get_grid(parent),get_grid(child))
+  BodyFittedTriangulation(model,grid,child.tface_to_mface)
+end
+
+function to_child(parent::Geometry.BoundaryTriangulation,child::Geometry.TriangulationView)
+  trian = to_child(parent.trian,child.parent.trian)
+  btrian = Geometry.BoundaryTriangulation(trian,child.parent.glue)
+  Geometry.TriangulationView(btrian,child.cell_to_parent_cell)
+end
+
+function to_child(parent::Geometry.AppendedTriangulation,child::Geometry.AppendedTriangulation)
+  achild = to_child(parent.a,child.a)
+  bchild = to_child(parent.b,child.b)
+  Geometry.AppendedTriangulation(achild,bchild)
+end
+
 """
     get_parent(t::Triangulation) -> Triangulation
 
@@ -84,23 +133,6 @@ _get_bg_cells(t::Interfaces.SubFacetTriangulation) = t.subfacets.facet_to_bgcell
 _get_bg_cells(t::Interfaces.SubCellTriangulation) = unique(t.subcells.cell_to_bgcell)
 function _get_bg_cells(t::Geometry.AppendedTriangulation)
   lazy_append(_get_bg_cells(t.a),_get_bg_cells(t.b))
-end
-
-function strian_to_ttrian_cells(strian::Triangulation,ttrian::Triangulation)
-  scells = _get_bg_cells(strian)
-  tcells = _get_bg_cells(ttrian)
-  isentry = zeros(Bool,length(scells))
-  for i in eachindex(scells)
-    isentry[i] = scells[i] ≤ length(tcells)
-  end
-  entries = cumsum(isentry)
-  s2t = Vector{eltype(tcells)}(undef,entries[end])
-  for i in eachindex(scells)
-    if isentry[i]
-      s2t[entries[i]] = tcells[scells[i]]
-    end
-  end
-  return s2t
 end
 
 # We use the symbol ≈ can between two grids `t` and `s` in the following
@@ -177,8 +209,8 @@ function find_trian_permutation(a,b,cmp::Function)
 end
 
 function find_trian_permutation(a,b)
-  cmp = (a,b) -> a == b || is_parent(a,b)
-  map(a -> findfirst(b -> cmp(a,b),b),a)
+  cmp(a,b) = is_parent(a,b) || a == b || isapprox_parent(a,b)
+  find_trian_permutation(a,b,cmp)
 end
 
 """
@@ -191,8 +223,27 @@ Orders the triangulation children in the same way as the triangulation parents
 """
 function order_domains(parents,children)
   @check length(parents) == length(children)
-  iperm = find_trian_permutation(parents,children)
-  map(iperm->children[iperm],iperm)
+  perm = find_trian_permutation(parents,children)
+  map(p->children[p],perm)
+end
+
+function change_triangulation(old::Triangulation,new::Triangulation)
+  if is_parent(old,new) || old == new
+    new
+  else
+    @assert isapprox_parent(old,new)
+    newparent = old
+    to_child(newparent,new)
+  end
+end
+
+function change_triangulation(old,new)
+  perm = find_trian_permutation(old,new)
+  new′ = ()
+  for (i,p) in enumerate(perm)
+    new′ = (new′...,change_triangulation(old[i],new[p]))
+  end
+  return new′
 end
 
 # triangulation views

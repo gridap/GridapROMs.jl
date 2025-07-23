@@ -137,6 +137,7 @@ using GridapROMs.Extensions: ⊕; export ⊕
 
 @publish RBSteady RBOperator
 @publish RBSteady reduced_operator
+@publish RBSteady change_operator
 
 @publish RBSteady ROMPerformance
 @publish RBSteady create_dir
