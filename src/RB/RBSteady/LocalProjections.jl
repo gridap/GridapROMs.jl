@@ -34,6 +34,8 @@ function galerkin_projection(a::LocalProjection,b::LocalProjection,c::LocalProje
   LocalProjection(b̂,b.k)
 end
 
+CellData.get_domains(a::LocalProjection) = map(get_domains,a.projections)
+
 local_values(a) = @abstractmethod
 local_values(a::LocalProjection) = a.projections
 

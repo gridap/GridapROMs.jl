@@ -237,13 +237,25 @@ function change_triangulation(old::Triangulation,new::Triangulation)
   end
 end
 
-function change_triangulation(old,new)
+function change_triangulation(old::Tuple,new::Tuple)
   perm = find_trian_permutation(old,new)
   new′ = ()
   for (i,p) in enumerate(perm)
     new′ = (new′...,change_triangulation(old[i],new[p]))
   end
   return new′
+end
+
+function change_triangulation(old::Tuple,new::AbstractArray{<:Tuple})
+  map(n -> change_triangulation(old,n))
+end
+
+function change_triangulation(old::AbstractArray{<:Tuple},new::Tuple)
+  map(o -> change_triangulation(o,new))
+end
+
+function change_triangulation(old::AbstractArray{<:Tuple},new::AbstractArray{<:Tuple})
+  map(change_triangulation,old,new)
 end
 
 # triangulation views

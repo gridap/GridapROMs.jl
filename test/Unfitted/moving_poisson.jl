@@ -1,4 +1,4 @@
-module MovingPoisson
+# module MovingPoisson
 
 using DrWatson
 using Serialization
@@ -11,23 +11,19 @@ using Gridap.Arrays
 using Gridap.Algebra
 using Gridap.FESpaces
 using GridapROMs.Uncommon
+using GridapROMs.ParamAlgebra
 using GridapROMs.ParamDataStructures
 using GridapROMs.RBSteady
 using GridapROMs.Extensions
 using GridapROMs.Utils
 
-tol_or_rank(tol,rank) = @assert false "Provide either a tolerance or a rank for the reduction step"
-tol_or_rank(tol::Real,rank) = tol
-tol_or_rank(tol::Real,rank::Int) = tol
-tol_or_rank(tol,rank::Int) = rank
-
 method=:ttsvd
+compression=:local
+sketch=:sprn
 n=40
 tol=1e-4
 rank=nothing
 nparams = 300
-
-@assert method ∈ (:pod,:ttsvd) "Unrecognized reduction method! Should be one of (:pod,:ttsvd)"
 
 pdomain = (0.5,1.5,0.25,0.35)
 pspace = ParamSpace(pdomain)
@@ -56,20 +52,19 @@ reffe = ReferenceFE(lagrangian,Float64,order)
 testbg = FESpace(Ωbg,reffe,conformity=:H1)
 
 energy(du,v) = ∫(v*du)dΩbg + ∫(∇(v)⋅∇(du))dΩbg
-tolrank = tol_or_rank(tol,rank)
-tolrank = method == :ttsvd ? fill(tolrank,2) : tolrank
-ncentroids = 16
-ncentroids_res = ncentroids_jac = 8
+ncentroids = 1
+ncentroids_res = ncentroids_jac = 1
 fesolver = ExtensionSolver(LUSolver())
 
 const γd = 10.0
 const hd = dp[1]/n
 
-function rb_solver(tolrank,nparams)
-  tolrankhr = tolrank.*1e-2
-  state_reduction = LocalReduction(tolrank,energy;nparams,ncentroids)
-  residual_reduction = LocalHyperReduction(tolrankhr;nparams,ncentroids=ncentroids_res,interp=true)
-  jacobian_reduction = LocalHyperReduction(tolrankhr;nparams,ncentroids=ncentroids_jac,interp=true)
+function rb_solver(tol,nparams)
+  tol = method == :ttsvd ? fill(tol,3) : tol
+  tolhr = tol.*1e-2
+  state_reduction = Reduction(tol,energy;nparams,sketch,compression,ncentroids)
+  residual_reduction = LocalHyperReduction(tolhr;nparams,ncentroids=ncentroids_res)
+  jacobian_reduction = LocalHyperReduction(tolhr;nparams,ncentroids=ncentroids_jac)
   RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
 end
 
@@ -87,11 +82,14 @@ function def_fe_operator(μ)
 
   n_Γ = get_normal_vector(Γ)
 
-  a(u,v,dΩ,dΓ) = ∫(∇(v)⋅∇(u))dΩ + ∫( (γd/hd)*v*u  - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u )dΓ
-  l(v,dΩ,dΓ) = ∫(f⋅v)dΩ + ∫( (γd/hd)*v*g - (n_Γ⋅∇(v))*g )dΓ
-  res(u,v,dΩ,dΓ) = ∫(∇(v)⋅∇(u))dΩ - l(v,dΩ,dΓ)
+  # a(u,v,dΩ,dΓ) = ∫(∇(v)⋅∇(u))dΩ + ∫( (γd/hd)*v*u  - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u )dΓ
+  # l(v,dΩ,dΓ) = ∫(f⋅v)dΩ + ∫( (γd/hd)*v*g - (n_Γ⋅∇(v))*g )dΓ
+  # res(u,v,dΩ,dΓ) = ∫(∇(v)⋅∇(u))dΩ - l(v,dΩ,dΓ)
 
-  domains = FEDomains((Ω,Γ),(Ω,Γ))
+  # domains = FEDomains((Ω,Γ),(Ω,Γ))
+  a(u,v) = ∫(∇(v)⋅∇(u))dΩ + ∫( (γd/hd)*v*u  - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u )dΓ
+  l(v) = ∫(f⋅v)dΩ + ∫( (γd/hd)*v*g - (n_Γ⋅∇(v))*g )dΓ
+  res(u,v) = ∫(∇(v)⋅∇(u))dΩ - l(v)
 
   # agfem
   strategy = AggregateAllCutCells()
@@ -101,7 +99,7 @@ function def_fe_operator(μ)
 
   test = DirectSumFESpace(testbg,testagg)
   trial = TrialFESpace(test,g)
-  ExtensionLinearOperator(res,a,trial,test,domains)
+  ExtensionLinearOperator(res,a,trial,test)
 end
 
 function get_trians(μ)
@@ -138,7 +136,7 @@ function compute_err(x,x̂,μ)
   testact = FESpace(Ωact,reffe,conformity=:H1)
   testagg = AgFEMSpace(testact,aggregates)
 
-  energy(u,v) = ∫( v*u + ∇(v)⋅∇(u) )dΩ + ∫( (γd/hd)*v*u - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u )dΓ
+  energy(u,v) = ∫( v*u + ∇(v)⋅∇(u) )dΩ + ∫( (γd/hd)*v*u )dΓ
   X = assemble_matrix(energy,testagg,testagg)
 
   d2bgd = Extensions.get_fdof_to_bg_fdof(testbg,testagg)
@@ -148,9 +146,7 @@ function compute_err(x,x̂,μ)
   Y = (assemble_matrix((u,v)->∫( v*u + ∇(v)⋅∇(u) )dΩbg,testbg,testbg))[d2bgd,d2bgd]
 
   errH1 = compute_relative_error(xd,x̂d,X)
-  _errH1 = compute_relative_error(xd,x̂d,Y)
-  errl2 = compute_relative_error(xd,x̂d)
-  return (errH1,_errH1,errl2)
+  return errH1
 end
 
 function RBSteady.reduced_operator(rbsolver::RBSolver,feop::ParamOperator,sol,jac,res)
@@ -193,19 +189,19 @@ function postprocess(
   rbsnaps = RBSteady.to_snapshots(rbop,x̂,μon)
   plot_sol(rbop,fesnaps,rbsnaps,μon,dir)
 
-  error = [0.0,0.0,0.0]
+  error = 0.0
   for (i,μ) in enumerate(μon)
     if method==:ttsvd
       xi,x̂i = vec(fesnaps[:,:,i]),vec(rbsnaps[:,:,i])
     else
       xi,x̂i = fesnaps[:,i],rbsnaps[:,i]
     end
-    error .+= compute_err(xi,x̂i,μ)
+    error += compute_err(xi,x̂i,μ)
   end
-  error ./= param_length(μon)
+  error /= param_length(μon)
 
   speedup = compute_speedup(festats,rbstats)
-  map(e -> ROMPerformance(e,speedup),error)
+  ROMPerformance(error,speedup)
 end
 
 function max_subspace_size(rbop::LocalRBOperator)
@@ -247,7 +243,7 @@ for opon in feopon.operators
   println(num_free_dofs(get_test(opon)))
 end
 
-rbsolver = rb_solver(tolrank,nparams)
+rbsolver = rb_solver(tol,nparams)
 fesnaps, = solution_snapshots(rbsolver,feop)
 x,festats = solution_snapshots(rbsolver,feopon,μon)
 
@@ -255,35 +251,53 @@ jacs = jacobian_snapshots(rbsolver,feop,fesnaps)
 ress = residual_snapshots(rbsolver,feop,fesnaps)
 
 perfsH1 = ROMPerformance[]
-_perfsH1 = ROMPerformance[]
-perfsl2 = ROMPerformance[]
 maxsizes = Vector{Int}[]
 
 for tol in (1e-0,1e-1,1e-2,1e-3,1e-4)
-  tolrank = tol_or_rank(tol,rank)
-  tolrank = method == :ttsvd ? fill(tolrank,2) : tolrank
-  rbsolver = rb_solver(tolrank,nparams)
+  rbsolver = rb_solver(tol,nparams)
 
   dir = joinpath(test_dir,string(tol))
   create_dir(dir)
 
-  rbop = reduced_operator(rbsolver,feop,fesnaps,jacs,ress)
+  rbop′ = reduced_operator(rbsolver,feop,fesnaps,jacs,ress)
+  rbop = change_operator(rbop′,feopon)
   x̂,rbstats = solve(rbsolver,rbop,μon)
 
-  perfH1,_perfH1,perfl2 = postprocess(dir,rbsolver,feopon,rbop,x,x̂,festats,rbstats)
+  perfH1 = postprocess(dir,rbsolver,feopon,rbop,x,x̂,festats,rbstats)
   maxsize = max_subspace_size(rbop)
 
   println(μon[1])
-  println(_perfsH1)
   push!(perfsH1,perfH1)
-  push!(_perfsH1,_perfH1)
-  push!(perfsl2,perfl2)
   push!(maxsizes,maxsize)
 end
 
 serialize(joinpath(test_dir,"resultsH1"),perfsH1)
-serialize(joinpath(test_dir,"_resultsH1"),_perfsH1)
-serialize(joinpath(test_dir,"resultsl2"),perfsl2)
 serialize(joinpath(test_dir,"maxsizes"),maxsizes)
 
-end
+# end
+
+opμ = get_local(rbop,first(μon))
+r = RBSteady._to_realization(μon,first(μon))
+# x̂, = solve(rbsolver,opμ,r)
+U = get_trial(opμ)(r)
+x̂ = zero_free_values(U)
+nlop = parameterize(opμ,r)
+syscache = allocate_systemcache(nlop,x̂)
+
+b = syscache.b
+fill!(b,zero(eltype(b)))
+
+uh = EvaluationFunction(nlop.paramcache.trial,x̂)
+V = get_test(opμ)
+v = get_fe_basis(V)
+
+rhs = RBSteady.get_rhs(opμ)
+bg_trian = first(get_domains(rhs))
+dc = get_res(opμ)(r,uh,v)
+strian = [get_domains(dc)...][2]
+
+rhs_strian = move_interpolation(rhs[bg_trian],V,strian)
+vecdata = RBSteady.collect_reduced_cell_hr_vector(V,dc,strian,rhs_strian)
+assemble_hr_array_add!(b.fecache[bg_trian],vecdata...)
+
+cell_vec_r,cell_idofs,icells = vecdata

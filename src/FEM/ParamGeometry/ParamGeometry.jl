@@ -16,6 +16,7 @@ using GridapROMs.Utils
 using GridapROMs.ParamDataStructures
 
 import FillArrays: Fill
+import Gridap.CellData: get_data
 import Gridap.Fields: AffineMap,ConstantMap
 
 export ParamMappedGrid
@@ -38,6 +39,29 @@ function _node_ids_to_coords!(node_ids_to_coords::GenericParamBlock,cell_node_id
   end
 end
 
+# function Geometry._cell_vector_to_dof_vector!(
+#   dof_vector::ParamBlock,
+#   cell_node_ids,
+#   cell_vector::AbstractArray{<:ParamBlock}
+#   )
+
+#   @check param_length(dof_vector) == param_length(first(cell_vector))
+#   plength = param_length(dof_vector)
+
+#   cache_cell_node_ids = array_cache(cell_node_ids)
+#   cache_cell_vector = array_cache(cell_vector)
+#   for cell = 1:length(cell_node_ids)
+#     current_node_ids = getindex!(cache_cell_node_ids,cell_node_ids,cell)
+#     current_values = getindex!(cache_cell_vector,cell_vector,cell)
+#     for inode in 1:length(current_node_ids)
+#       node = current_node_ids[inode]
+#       for l in 1:plength
+#         dof_vector[l][node] = current_values[l][inode]
+#       end
+#     end
+#   end
+# end
+
 struct ParamMappedGrid{Dc,Dp,T,M,L} <: Grid{Dc,Dp}
   grid::Grid{Dc,Dp}
   geo_map::T
@@ -45,7 +69,7 @@ struct ParamMappedGrid{Dc,Dp,T,M,L} <: Grid{Dc,Dp}
   node_coords::L
 end
 
-function Geometry.MappedGrid(grid::Grid,phys_map::AbstractVector{<:ParamBlock})
+function ParamMappedGrid(grid::Grid,phys_map::AbstractVector)
   @assert length(phys_map) == num_cells(grid)
   plength = param_length(testitem(phys_map))
 
@@ -64,6 +88,21 @@ function Geometry.MappedGrid(grid::Grid,phys_map::AbstractVector{<:ParamBlock})
   geo_map = lazy_map(∘,phys_map,model_map)
   node_coords = _compute_node_coordinates(grid,phys_map)
   ParamMappedGrid(grid,geo_map,phys_map,node_coords)
+end
+
+function ParamMappedGrid(grid::Grid,phys_map::Function)
+  cell_phys_map = Fill(GenericField(phys_map),num_cells(grid))
+  ParamMappedGrid(grid,cell_phys_map)
+end
+
+function ParamMappedGrid(trian::BodyFittedTriangulation,phys_map::AbstractVector)
+  model = get_background_model(trian)
+  grid = ParamMappedGrid(get_grid(trian),phys_map)
+  BodyFittedTriangulation(model,grid,trian.tface_to_mface)
+end
+
+function Geometry.MappedGrid(grid::Grid,phys_map::AbstractParamFunction)
+  ParamMappedGrid(grid,phys_map)
 end
 
 Geometry.get_node_coordinates(grid::ParamMappedGrid) = grid.node_coords
@@ -86,9 +125,13 @@ function Geometry.MappedDiscreteModel(model::DiscreteModel,mapped_grid::ParamMap
   ParamMappedDiscreteModel(model,mapped_grid)
 end
 
-function Geometry.MappedDiscreteModel(model::DiscreteModel,phys_map::AbstractParamFunction)
-  mapped_grid = MappedGrid(get_grid(model),phys_map)
-  MappedDiscreteModel(model,mapped_grid)
+for T in (:AbstractParamFunction,:FEFunction)
+  @eval begin
+    function Geometry.MappedDiscreteModel(model::DiscreteModel,phys_map::$T)
+      mapped_grid = ParamMappedGrid(get_grid(model),phys_map)
+      ParamMappedDiscreteModel(model,mapped_grid)
+    end
+  end
 end
 
 Geometry.get_grid(model::ParamMappedDiscreteModel) = model.mapped_grid
@@ -222,6 +265,8 @@ function Base.isapprox(t::T,s::T) where T<:ParamUnstructuredGrid
     length(testitem(t.node_coordinates)) == length(testitem(s.node_coordinates))
   )
 end
+
+# extend Gridap's functionalities
 
 function Fields.AffineField(gradients::ParamBlock,origins::ParamBlock)
   data = map(AffineField,get_param_data(gradients),get_param_data(origins))
@@ -407,7 +452,7 @@ function Arrays.evaluate!(cache,f::Field,x::ParamBlock)
   g
 end
 
-for f in (:(Fields.GenericField),:(Fields.ZeroField),:(Fields.ConstantField))
+for f in (:(Fields.GenericField),:(Fields.ZeroField),:(Fields.ConstantField),:(Fields.inverse_map))
   @eval begin
     $f(a::ParamBlock) = GenericParamBlock(map($f,get_param_data(a)))
   end

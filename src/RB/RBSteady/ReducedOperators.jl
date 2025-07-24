@@ -228,6 +228,24 @@ function Algebra.jacobian!(
   interpolate!(A,lhs)
 end
 
+function change_operator(op::JointRBOperator,op′::ParamOperator)
+  rhs,lhs = get_rhs(op),get_lhs(op)
+  trial′ = change_fe_space(get_trial(op),get_trial(op′))
+  test′ = change_fe_space(get_test(op),get_test(op′))
+  RBOperator(op′,trial′,test′,lhs,rhs)
+end
+
+function change_operator(op::SplitRBOperator,op′::ParamOperator)
+  rhs,lhs = get_rhs(op),get_lhs(op)
+  trial′ = change_fe_space(get_trial(op),get_trial(op′))
+  test′ = change_fe_space(get_test(op),get_test(op′))
+  trians_rhs′ = change_triangulation(get_domains_res(op′),get_domains(rhs))
+  trians_lhs′ = change_triangulation(get_domains_jac(op′),get_domains(lhs))
+  rhs′ = change_domains(rhs,trians_rhs′)
+  lhs′ = change_domains(lhs,trians_lhs′)
+  RBOperator(op′,trial′,test′,lhs′,rhs′)
+end
+
 """
     struct GenericRBOperator{O,T,A,B} <: RBOperator{O,T}
       op::ParamOperator{O,T}
@@ -281,17 +299,6 @@ FESpaces.get_trial(op::GenericRBOperator) = op.trial
 FESpaces.get_test(op::GenericRBOperator) = op.test
 get_lhs(op::GenericRBOperator) = op.lhs
 get_rhs(op::GenericRBOperator) = op.rhs
-
-function change_operator(op::GenericRBOperator,op′::ParamOperator)
-  trians_rhs′ = change_triangulation(get_domains_res(op′),get_domains(op.rhs))
-  trians_lhs′ = change_triangulation(get_domains_jac(op′),get_domains(op.lhs))
-  op′′ = change_domains(op′,trians_rhs′,trians_lhs′)
-  trial′ = change_fe_space(get_trial(op),get_trial(op′))
-  test′ = change_fe_space(get_test(op),get_test(op′))
-  rhs′ = change_domains(get_rhs(op),trians_rhs′)
-  lhs′ = change_domains(get_lhs(op),trians_lhs′)
-  GenericRBOperator(op′′,trial′,test′,lhs′,rhs′)
-end
 
 function Algebra.residual!(
   b::HRParamArray,
@@ -359,10 +366,6 @@ function get_local(op::LocalRBOperator,μ::AbstractVector)
   lhsμ = get_local(op.lhs,μ)
   rhsμ = get_local(op.rhs,μ)
   RBOperator(opμ,trialμ,testμ,lhsμ,rhsμ)
-end
-
-function change_operator(op::LocalRBOperator,op′::ParamOperator)
-  LocalRBOperator(op′,op.trial,op.test,op.lhs,op.rhs)
 end
 
 """
