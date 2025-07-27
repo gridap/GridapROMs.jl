@@ -25,7 +25,7 @@ using GridapROMs.ParamAlgebra
 import Test: @test
 import Gridap.Algebra: residual!,jacobian!
 import Gridap.FESpaces: FEFunction,SparseMatrixAssembler,EvaluationFunction
-import GridapROMs.ParamGeometry: ParamMappedGrid,_node_ids_to_coords!
+import GridapROMs.ParamGeometry: mapped_grid
 
 export SingleFieldParamFESpace
 export get_vector_type2

@@ -28,6 +28,8 @@ end
 @publish TProduct TProductDiscreteModel
 @publish TProduct TProductFESpace
 
+@publish ParamGeometry mapped_grid
+
 @publish ParamDataStructures Realization
 @publish ParamDataStructures TransientRealization
 @publish ParamDataStructures UniformSampling

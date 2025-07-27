@@ -276,7 +276,12 @@ serialize(joinpath(test_dir,"maxsizes"),maxsizes)
 
 # end
 
-opμ = get_local(rbop,first(μon))
+rbop′ = reduced_operator(rbsolver,feop,fesnaps,jacs,ress)
+rbop1′ = get_local(rbop′,first(μ))
+feopon1 = feopon[first(μon)]
+rbop = change_operator(rbop1′,feopon1)
+
+opμ = rbop
 r = RBSteady._to_realization(μon,first(μon))
 # x̂, = solve(rbsolver,opμ,r)
 U = get_trial(opμ)(r)
@@ -293,7 +298,7 @@ v = get_fe_basis(V)
 
 rhs = RBSteady.get_rhs(opμ)
 bg_trian = first(get_domains(rhs))
-dc = get_res(opμ)(r,uh,v)
+dc = get_res(opμ.op)(r,uh,v)
 strian = [get_domains(dc)...][2]
 
 rhs_strian = move_interpolation(rhs[bg_trian],V,strian)
@@ -301,3 +306,7 @@ vecdata = RBSteady.collect_reduced_cell_hr_vector(V,dc,strian,rhs_strian)
 assemble_hr_array_add!(b.fecache[bg_trian],vecdata...)
 
 cell_vec_r,cell_idofs,icells = vecdata
+
+rows = rhs[bg_trian].interpolation.domain.metadata
+cells = RBSteady.reduced_cells(V,strian,rows)
+irowcols = RBSteady.reduced_irows(V,strian,cells,rows)

@@ -42,33 +42,6 @@ FESpaces.get_free_dof_values(f::SingleFieldParamFEFunction) = f.free_values
 FESpaces.get_cell_dof_values(f::SingleFieldParamFEFunction) = f.cell_dof_values
 FESpaces.get_fe_space(f::SingleFieldParamFEFunction) = f.fe_space
 
-# mapped models
-
-function ParamMappedGrid(grid::Grid,fe_map::SingleFieldParamFEFunction)
-  plength = param_length(fe_map)
-
-  V = get_fe_space(fe_map)
-  dofs = get_data(get_fe_dof_basis(V))
-  cell_to_coords = lazy_map(get_nodes,dofs)
-
-  cell_node_ids = get_cell_node_ids(grid)
-  node_coords = Vector{eltype(cell_to_coords)}(undef,length(cell_to_coords))
-  pnode_coords = parameterize(node_coords,plength)
-
-  phys_map = get_data(fe_map)
-  cell_coords_map = lazy_map(evaluate,phys_map,cell_to_coords)
-
-  _node_ids_to_coords!(pnode_coords,cell_node_ids,cell_coords_map)
-
-  model_map = get_cell_map(grid)
-  geo_map = lazy_map(∘,phys_map,model_map)
-  ParamMappedGrid(grid,geo_map,phys_map,pnode_coords)
-end
-
-function Geometry.MappedGrid(grid::Grid,fe_map::SingleFieldParamFEFunction)
-  ParamMappedGrid(grid,fe_map)
-end
-
 # audodiff
 
 function FESpaces._change_argument(op,f,trian,uh::SingleFieldParamFEFunction)
