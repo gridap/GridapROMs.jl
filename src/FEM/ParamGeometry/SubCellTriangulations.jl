@@ -10,11 +10,11 @@ for T in (:GenericParamBlock,:Field)
   end
 end
 
-struct ParamSubCellData{Dp,T,Tn} <: GridapType
+struct ParamSubCellData{Dr,Dp,Tp,Tr} <: GridapType
   cell_to_points::Table{Int32,Vector{Int32},Vector{Int32}}
   cell_to_bgcell::Vector{Int32}
-  point_to_coords::ParamBlock{Vector{Point{Dp,T}}}
-  point_to_rcoords::Vector{Point{Dp,T}}
+  point_to_coords::ParamBlock{Vector{Point{Dp,Tp}}}
+  point_to_rcoords::Vector{Point{Dr,Tr}}
 end
 
 function Interfaces.SubCellData(
@@ -32,7 +32,7 @@ function Interfaces.SubCellData(
 end
 
 function Geometry.UnstructuredGrid(st::ParamSubCellData{D}) where D
-  reffe = LagrangianRefFE(Float64,Simplex(Val{D}()),1)
+  reffe = LagrangianRefFE(Float64,Interfaces.Simplex(Val{D}()),1)
   cell_types = fill(Int8(1),length(st.cell_to_points))
   UnstructuredGrid(
     st.point_to_coords,
@@ -49,9 +49,9 @@ end
 A triangulation for subcells.
 """
 struct ParamSubCellTriangulation{Dc,Dp,T,A} <: Triangulation{Dc,Dp}
-  subcells::ParamSubCellData{Dp,T}
+  subcells::ParamSubCellData{Dc,Dp,T}
   bgmodel::A
-  subgrid::UnstructuredGrid{Dc,Dp,T,NonOriented,Nothing}
+  subgrid::ParamUnstructuredGrid{Dc,Dp,T,NonOriented,Nothing}
   function ParamSubCellTriangulation(
     subcells::ParamSubCellData{Dc,Dp,T},bgmodel::DiscreteModel) where {Dc,Dp,T}
     subgrid = UnstructuredGrid(subcells)

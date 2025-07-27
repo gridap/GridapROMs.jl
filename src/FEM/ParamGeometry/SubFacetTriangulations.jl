@@ -1,7 +1,7 @@
 for T in (:GenericParamBlock,:Field)
   @eval begin
     function mapped_grid(
-      style::GridMapStyle,trian::Interfaces.ParamSubFacetTriangulation,phys_map::AbstractVector{<:$T})
+      style::GridMapStyle,trian::Interfaces.SubFacetTriangulation,phys_map::AbstractVector{<:$T})
       model = get_background_model(trian)
       subgrid = mapped_grid(trian.subgrid,phys_map)
       subfacets = _change_coords(trian.subfacets,subgrid)
@@ -36,7 +36,7 @@ end
 
 function Geometry.UnstructuredGrid(st::ParamSubFacetData{Dp}) where Dp
   Dc = Dp - 1
-  reffe = LagrangianRefFE(Float64,Simplex(Val{Dc}()),1)
+  reffe = LagrangianRefFE(Float64,Interfaces.Simplex(Val{Dc}()),1)
   cell_types = fill(Int8(1),length(st.facet_to_points))
   UnstructuredGrid(
     st.point_to_coords,
@@ -93,7 +93,7 @@ A triangulation for subfacets.
 struct ParamSubFacetTriangulation{Dc,Dp,T,A} <: Triangulation{Dc,Dp}
   subfacets::ParamSubFacetData{Dp,T}
   bgmodel::A
-  subgrid::UnstructuredGrid{Dc,Dp,T,NonOriented,Nothing}
+  subgrid::ParamUnstructuredGrid{Dc,Dp,T,NonOriented,Nothing}
   function ParamSubFacetTriangulation(
     subfacets::ParamSubFacetData{Dp,T},bgmodel::DiscreteModel) where {Dp,T}
     Dc = Dp-1
@@ -135,48 +135,12 @@ function Geometry.move_contributions(scell_to_val::AbstractArray,strian::ParamSu
   acell_to_val, Ωa
 end
 
-function Geometry.compute_active_model(trian::ParamSubFacetTriangulation)
-  subgrid = trian.subgrid
-  subfacets = trian.subfacets
-  facet_to_uids,uid_to_point = consistent_facet_to_points(
-    subfacets.facet_to_points,subfacets.point_to_coords
-  )
-  error("Must implement an unstructured grid topology for param geometries!")
-  topo = UnstructuredGridTopology(
-    subgrid,facet_to_uids,uid_to_point
-  )
-  return UnstructuredDiscreteModel(subgrid,topo,FaceLabeling(topo))
-end
-
-function Interfaces.consistent_facet_to_points(
-  facet_to_points::Table,
-  point_to_coords::ParamBlock
-  )
-
-  f(pt::VectorValue) = VectorValue(round.(pt.data;sigdigits=12))
-  f(pt::ParamBlock) = ParamBlock(map(f,pt.data))
-  f(id::Integer) = f(point_to_coords[id])
-
-  # Create a list of the unique points composing the facets
-  npts = length(point_to_coords)
-  nfaces = length(facet_to_points)
-  touched = zeros(Bool,npts)
-  for face in 1:nfaces
-    pts = view(facet_to_points,face)
-    touched[pts] .= true
-  end
-  touched_ids = findall(touched)
-  unique_ids = unique(f,touched_ids)
-
-  # Create a mapping from the old point ids to the new ones
-  touched_to_uid = collect(Int32,indexin(f.(touched_ids),f.(unique_ids)))
-  point_to_uid = extend(touched_to_uid,PosNegPartition(touched_ids,npts))
-
-  facet_to_uids = Table(
-    collect(Int32,lazy_map(Reindex(point_to_uid),facet_to_points.data)),
-    facet_to_points.ptrs
-  )
-  return facet_to_uids,unique_ids
+function Geometry.get_active_model(trian::ParamSubFacetTriangulation)
+  msg = """
+  This is not implemented, but also not needed in practice.
+  Embedded Grids implemented for integration, not interpolation.
+  """
+  @notimplemented  msg
 end
 
 # utils

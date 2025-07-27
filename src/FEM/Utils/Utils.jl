@@ -79,4 +79,7 @@ export collect_cell_matrix_for_trian
 export collect_cell_vector_for_trian
 include("DomainOperators.jl")
 
+export BidimensionalTable
+include("BidimensionalTables.jl")
+
 end # module

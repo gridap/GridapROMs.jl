@@ -35,7 +35,7 @@ bgmodel = CartesianDiscreteModel(domain,partition)
 order = 1
 degree = 2
 
-pspace = ParamSpace((-0.5,0.5))
+pspace = ParamSpace((-0.1,0.1))
 
 const γd = 10.0
 const hd = 2/n
@@ -142,8 +142,19 @@ testact = FESpace(Ωactφ,reffe,conformity=:H1,dirichlet_tags="boundary")
 test = AgFEMSpace(testact,aggregates)
 trial = ParamTrialFESpace(test,gμ)
 
-μ = realization(pspace;nparams=10)
+
+μ = Realization([[-0.1]])
 φh = get_deformation_map(μ)
 Ωactφ = mapped_grid(Ωact,φh)
 Ωφ = mapped_grid(Ω,φh)
 Γφ = mapped_grid(Γ,φh)
+dΩφ = Measure(Ωφ,degree)
+dΓφ = Measure(Γφ,degree)
+
+n_Γφ = get_normal_vector(Γφ)
+
+testact = FESpace(Ωactφ,reffe,conformity=:H1,dirichlet_tags="boundary")
+test = AgFEMSpace(testact,aggregates)
+trial = ParamTrialFESpace(test,gμ)
+
+feop = LinearParamOperator(res,a,pspace,trial,test,domains)

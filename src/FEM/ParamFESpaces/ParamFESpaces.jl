@@ -17,6 +17,9 @@ using Gridap.ReferenceFEs
 using Gridap.TensorValues
 using Gridap.Helpers
 
+using GridapEmbedded
+using GridapEmbedded.AgFEM
+
 using GridapROMs.DofMaps
 using GridapROMs.TProduct
 using GridapROMs.ParamDataStructures

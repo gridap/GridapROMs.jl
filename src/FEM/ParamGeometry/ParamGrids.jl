@@ -226,7 +226,7 @@ function _map_coords!(
   old_coords,
   node_ids_to_coords::GenericParamBlock,
   cell_node_ids,
-  cell_to_coords
+  cell_to_coords::AbstractVector{<:GenericParamBlock}
   )
 
   cache_node_ids = array_cache(cell_node_ids)
@@ -236,7 +236,7 @@ function _map_coords!(
     coords = getindex!(cache_coords,cell_to_coords,k)
     for j in param_eachindex(node_ids_to_coords)
       data = node_ids_to_coords.data[j]
-      coord = coords[j]
+      coord = coords.data[j]
       for (i,id) in enumerate(node_ids)
         data[id] = coord[i]
       end
@@ -249,7 +249,7 @@ function _map_coords!(
   node_ids_to_coords::GenericParamBlock,
   old_coords,
   cell_node_ids,
-  cell_to_coords
+  cell_to_coords::AbstractVector{<:GenericParamBlock}
   )
 
   cache_node_ids = array_cache(cell_node_ids)
@@ -259,9 +259,9 @@ function _map_coords!(
     coords = getindex!(cache_coords,cell_to_coords,k)
     for j in param_eachindex(node_ids_to_coords)
       data = node_ids_to_coords.data[j]
-      coord = coords[j]
+      coord = coords.data[j]
       for (i,id) in enumerate(node_ids)
-        data[id] = old_coords[i] + coord[i]
+        data[id] = old_coords[id] + coord[i]
       end
     end
   end
