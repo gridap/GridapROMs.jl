@@ -113,6 +113,10 @@ function Base.copy(a::BidimensionalTable)
   BidimensionalTable(copy(a.data),copy(a.ptrs))
 end
 
+param_length(a::BidimensionalTable) = size(a.data,2)
+param_getindex(a::BidimensionalTable,i::Int) = Table(view(a.data,:,i),a.ptrs)
+Arrays.testitem(a::BidimensionalTable) = param_getindex(a,1)
+
 # utils
 
 function generate_1d_data_and_ptrs(vm::AbstractArray{<:AbstractMatrix{T}}) where T

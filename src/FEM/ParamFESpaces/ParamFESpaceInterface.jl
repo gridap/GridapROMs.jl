@@ -87,7 +87,6 @@ Returns the vector type of the underlying un-parametric FESpace contained in `f`
 """
 get_vector_type2(f::FESpace) = get_vector_type(f)
 get_vector_type2(f::SingleFieldParamFESpace) = get_vector_type(get_fe_space(f))
-get_vector_type2(f::SingleFieldParamFESpace{<:SingleFieldParamFESpace}) = get_vector_type2(get_fe_space(f))
 
 """
     param_zero_free_values(f::FESpace,L::Integer=param_length(f)) -> AbstractParamVector
@@ -540,6 +539,3 @@ remove_layer(f::SingleFieldFESpace) = @abstractmethod
 remove_layer(f::SingleFieldParamFESpace{<:UnconstrainedFESpace}) = f
 remove_layer(f::SingleFieldParamFESpace{<:OrderedFESpace{<:UnconstrainedFESpace}}) = f
 remove_layer(f::OrderedFESpace) = OrderedFESpace(f.space.space,f.cell_odofs_ids,f.bg_odofs_to_act_odofs)
-
-reparameterize(f::SingleFieldFESpace,plength::Int) = @abstractmethod
-reparameterize(f::SingleFieldParamFESpace,plength::Int) = @abstractmethod

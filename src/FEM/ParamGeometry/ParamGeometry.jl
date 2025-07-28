@@ -16,6 +16,7 @@ using GridapROMs.Utils
 using GridapROMs.ParamDataStructures
 
 import FillArrays: Fill
+import Gridap.Visualization: _prepare_node_to_coords
 
 export ParamMappedGrid
 export ParamMappedDiscreteModel

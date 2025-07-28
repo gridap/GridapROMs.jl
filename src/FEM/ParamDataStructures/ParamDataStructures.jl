@@ -150,4 +150,7 @@ export lazy_param_getindex
 export lazy_testitem
 include("ParamMaps.jl")
 
+export BidimensionalTable
+include("BidimensionalTables.jl")
+
 end # module

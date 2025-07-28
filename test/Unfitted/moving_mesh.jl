@@ -146,34 +146,39 @@ testact = FESpace(Ωactφ,reffe,conformity=:H1,dirichlet_tags="boundary")
 test = AgFEMSpace(testact,aggregates)
 trial = ParamTrialFESpace(test,gμ)
 
-U = param_getindex(get_trial(feop)(μend),1)
+U = param_getindex(trial(μend),1)
 uh = FEFunction(U,fesnaps[:,end])
-writevtk(Ωφ,datadir("plts/phi"),cellfields=["φh"=>FEFunction(fesnaps[:,end])])
+writevtk(Ωφ,datadir("plts/uh"),cellfields=["uh"=>uh])
 
+function ok_result()
+  x0 = Point(μ0[1]-0.0703125,μ0[1]-0.0703125)
+  geo = !disk(0.3,x0=x0)
+  cutgeo = cut(bgmodel,geo)
 
-# μ = Realization([[-0.1],[0.1]])
-# φh = get_deformation_map(μ)
-# Ωactφ = mapped_grid(Ωact,φh)
-# Ωφ = mapped_grid(Ω,φh)
-# Γφ = mapped_grid(Γ,φh)
-# dΩφ = Measure(Ωφ,degree)
-# dΓφ = Measure(Γφ,degree)
+  Ωact = Triangulation(cutgeo,ACTIVE)
+  Ω = Triangulation(cutgeo,PHYSICAL)
+  Γ = EmbeddedBoundary(cutgeo)
 
-# n_Γφ = get_normal_vector(Γφ)
+  dΩ = Measure(Ω,degree)
+  dΓ = Measure(Γ,degree)
 
-# f(μ) = x -> 1.0
-# fμ(μ) = parameterize(f,μ)
-# g(μ) = x -> x[1]-x[2]
-# gμ(μ) = parameterize(g,μ)
+  n_Γ = get_normal_vector(Γ)
+  strategy = AggregateAllCutCells()
+  aggregates = aggregate(strategy,cutgeo)
 
-# a(μ,u,v,dΩφ,dΓφ) = ∫(∇(v)⋅∇(u))dΩφ + ∫( (γd/hd)*v*u  - v*(n_Γφ⋅∇(u)) - (n_Γφ⋅∇(v))*u )dΓφ
-# l(μ,v,dΩφ,dΓφ) = ∫(fμ(μ)⋅v)dΩφ + ∫( (γd/hd)*v*gμ(μ) - (n_Γφ⋅∇(v))*gμ(μ) )dΓφ
-# res(μ,u,v,dΩφ,dΓφ) = ∫(∇(v)⋅∇(u))dΩφ - l(μ,v,dΩφ,dΓφ)
+  fx(x) = 1.0
+  gx(x) = x[1]-x[2]
+  a(u,v) = ∫(∇(v)⋅∇(u))dΩ + ∫( (γd/hd)*v*u  - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u )dΓ
+  l(v) = ∫(fx⋅v)dΩ + ∫( (γd/hd)*v*gx - (n_Γ⋅∇(v))*gx )dΓ
 
-# domains = FEDomains((Ωφ,Γφ),(Ωφ,Γφ))
+  testact = FESpace(Ωact,reffe,conformity=:H1,dirichlet_tags="boundary")
+  test = AgFEMSpace(testact,aggregates)
+  trial = TrialFESpace(test,gx)
 
-# testact = FESpace(Ωactφ,reffe,conformity=:H1,dirichlet_tags="boundary")
-# test = AgFEMSpace(testact,aggregates)
-# trial = ParamTrialFESpace(test,gμ)
+  op = AffineFEOperator(a,l,trial,test)
+  uh = solve(LUSolver(),op)
 
-# feop = LinearParamOperator(res,a,pspace,trial,test,domains)
+  writevtk(Ω,datadir("plts/uhok"),cellfields=["uh"=>uh])
+end
+
+ok_result()

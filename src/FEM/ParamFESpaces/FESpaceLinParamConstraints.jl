@@ -1,4 +1,4 @@
-struct ParamFESpaceLinConstraints{S<:SingleFieldFESpace} <: SingleFieldParamFESpace{S}
+struct FESpaceLinParamConstraints{S<:SingleFieldFESpace} <: SingleFieldFESpace
   space::S
   n_fdofs::Int
   n_fmdofs::Int
@@ -19,7 +19,7 @@ function FESpaces.FESpaceWithLinearConstraints(
   cell_to_lmdof_to_mdof::Table,
   cell_to_ldof_to_dof::Table)
 
-  ParamFESpaceLinConstraints(
+  FESpaceLinParamConstraints(
     space,
     n_fdofs,
     n_fmdofs,
@@ -72,7 +72,7 @@ function FESpaces.FESpaceWithLinearConstraints!(
   cell_to_ldof_to_dof = Table(get_cell_dof_ids(space))
   cell_to_lmdof_to_mdof = FESpaces._setup_cell_to_lmdof_to_mdof(cell_to_ldof_to_dof,DOF_to_mDOFs,n_fdofs,n_fmdofs)
 
-  FESpaceWithLinearConstraints(
+  FESpaceLinParamConstraints(
     space,
     n_fdofs,
     n_fmdofs,
@@ -84,26 +84,32 @@ function FESpaces.FESpaceWithLinearConstraints!(
 
 end
 
-ParamDataStructures.param_length(f::ParamFESpaceLinConstraints) = param_length(f.DOF_to_coeffs)
+FESpaces.get_triangulation(f::FESpaceLinParamConstraints) = get_triangulation(f.space)
 
-FESpaces.get_fe_space(f::ParamFESpaceLinConstraints) = f.space
+FESpaces.get_cell_dof_ids(f::FESpaceLinParamConstraints) = f.cell_to_lmdof_to_mdof
 
-remove_layer(f::ParamFESpaceLinConstraints) = parameterize(f.space,param_length(f))
+FESpaces.get_fe_dof_basis(f::FESpaceLinParamConstraints) = get_fe_dof_basis(f.space)
 
-FESpaces.get_cell_dof_ids(f::ParamFESpaceLinConstraints) = f.cell_to_lmdof_to_mdof
+FESpaces.get_dirichlet_dof_ids(f::FESpaceLinParamConstraints) = Base.OneTo(length(f.mDOF_to_DOF) - f.n_fmdofs)
 
-FESpaces.get_dirichlet_dof_ids(f::ParamFESpaceLinConstraints) = Base.OneTo(length(f.mDOF_to_DOF) - f.n_fmdofs)
+FESpaces.num_dirichlet_tags(f::FESpaceLinParamConstraints) = num_dirichlet_tags(f.space)
 
-FESpaces.get_free_dof_ids(f::ParamFESpaceLinConstraints) = Base.OneTo(f.n_fmdofs)
+FESpaces.get_free_dof_ids(f::FESpaceLinParamConstraints) = Base.OneTo(f.n_fmdofs)
 
-FESpaces.ConstraintStyle(::Type{<:ParamFESpaceLinConstraints}) = Constrained()
+FESpaces.ConstraintStyle(::Type{<:FESpaceLinParamConstraints}) = Constrained()
 
-function FESpaces.get_cell_isconstrained(f::ParamFESpaceLinConstraints)
+FESpaces.get_vector_type(f::FESpaceLinParamConstraints) = get_vector_type(f.space)
+
+FESpaces.get_fe_basis(f::FESpaceLinParamConstraints) = get_fe_basis(f.space)
+
+FESpaces.get_trial_fe_basis(f::FESpaceLinParamConstraints) = get_trial_fe_basis(f.space)
+
+function FESpaces.get_cell_isconstrained(f::FESpaceLinParamConstraints)
   n = length(get_cell_dof_ids(f))
   Fill(true,n)
 end
 
-function FESpaces.get_dirichlet_dof_tag(f::ParamFESpaceLinConstraints)
+function FESpaces.get_dirichlet_dof_tag(f::FESpaceLinParamConstraints)
   ddof_to_tag = get_dirichlet_dof_tag(f.space)
   dmdof_to_tag = zeros(eltype(ddof_to_tag),num_dirichlet_dofs(f))
   FESpaces._setup_ddof_to_tag!(
@@ -115,7 +121,7 @@ function FESpaces.get_dirichlet_dof_tag(f::ParamFESpaceLinConstraints)
   dmdof_to_tag
 end
 
-function FESpaces.get_dirichlet_dof_values(f::ParamFESpaceLinConstraints)
+function FESpaces.get_dirichlet_dof_values(f::FESpaceLinParamConstraints)
   ddof_to_tag = get_dirichlet_dof_values(f.space)
   dmdof_to_tag = zeros(eltype(ddof_to_tag),num_dirichlet_dofs(f))
   FESpaces._setup_ddof_to_tag!(
@@ -127,10 +133,14 @@ function FESpaces.get_dirichlet_dof_values(f::ParamFESpaceLinConstraints)
   dmdof_to_tag
 end
 
-function FESpaces.scatter_free_and_dirichlet_values(f::ParamFESpaceLinConstraints,fmdof_to_val,dmdof_to_val)
-  f′ = remove_layer(f)
-  fdof_to_val = zero_free_values(f′)
-  ddof_to_val = zero_dirichlet_values(f′)
+function FESpaces.scatter_free_and_dirichlet_values(
+  f::FESpaceLinParamConstraints,
+  fmdof_to_val,
+  dmdof_to_val
+  )
+
+  fdof_to_val = zero_free_values(f.space)
+  ddof_to_val = zero_dirichlet_values(f.space)
   FESpaces._setup_dof_to_val!(
     fdof_to_val,
     ddof_to_val,
@@ -140,12 +150,38 @@ function FESpaces.scatter_free_and_dirichlet_values(f::ParamFESpaceLinConstraint
     f.DOF_to_coeffs,
     f.n_fdofs,
     f.n_fmdofs)
-  scatter_free_and_dirichlet_values(f′,fdof_to_val,ddof_to_val)
+  scatter_free_and_dirichlet_values(f.space,fdof_to_val,ddof_to_val)
 end
 
-function FESpaces.gather_free_and_dirichlet_values(f::ParamFESpaceLinConstraints,cell_to_ludof_to_val)
-  f′ = remove_layer(f)
-  fdof_to_val,ddof_to_val = FESpaces.gather_free_and_dirichlet_values(f′,cell_to_ludof_to_val)
+function FESpaces.scatter_free_and_dirichlet_values(
+  f::FESpaceLinParamConstraints,
+  fmdof_to_val::AbstractParamVector,
+  dmdof_to_val::AbstractParamVector)
+
+  @check param_length(fmdof_to_val) == param_length(dmdof_to_val)
+  plength = param_length(fmdof_to_val)
+  fdof_to_val = global_parameterize(zero_free_values(f.space),plength)
+  ddof_to_val = global_parameterize(zero_dirichlet_values(f.space),plength)
+
+  FESpaces._setup_dof_to_val!(
+    fdof_to_val,
+    ddof_to_val,
+    fmdof_to_val,
+    dmdof_to_val,
+    f.DOF_to_mDOFs,
+    f.DOF_to_coeffs,
+    f.n_fdofs,
+    f.n_fmdofs)
+
+  scatter_free_and_dirichlet_values(f.space,fdof_to_val,ddof_to_val)
+end
+
+function FESpaces.gather_free_and_dirichlet_values(
+  f::FESpaceLinParamConstraints,
+  cell_to_ludof_to_val
+  )
+
+  fdof_to_val,ddof_to_val = FESpaces.gather_free_and_dirichlet_values(f.space,cell_to_ludof_to_val)
   fmdof_to_val = zero_free_values(f)
   dmdof_to_val = zero_dirichlet_values(f)
   FESpaces._setup_mdof_to_val!(
@@ -159,8 +195,14 @@ function FESpaces.gather_free_and_dirichlet_values(f::ParamFESpaceLinConstraints
   fmdof_to_val,dmdof_to_val
 end
 
-function FESpaces.gather_free_and_dirichlet_values!(fmdof_to_val,dmdof_to_val,f::ParamFESpaceLinConstraints,cell_to_ludof_to_val)
-  fdof_to_val,ddof_to_val = FESpaces.gather_free_and_dirichlet_values(remove_layer(f),cell_to_ludof_to_val)
+function FESpaces.gather_free_and_dirichlet_values!(
+  fmdof_to_val,
+  dmdof_to_val,
+  f::FESpaceLinParamConstraints,
+  cell_to_ludof_to_val
+  )
+
+  fdof_to_val,ddof_to_val = FESpaces.gather_free_and_dirichlet_values(f.space,cell_to_ludof_to_val)
   FESpaces._setup_mdof_to_val!(
     fmdof_to_val,
     dmdof_to_val,
@@ -172,11 +214,38 @@ function FESpaces.gather_free_and_dirichlet_values!(fmdof_to_val,dmdof_to_val,f:
   fmdof_to_val,dmdof_to_val
 end
 
-function CellData.CellField(f::ParamFESpaceLinConstraints,cellvals)
+function FESpaces.gather_free_and_dirichlet_values!(
+  fmdof_to_val::AbstractParamVector,
+  dmdof_to_val::AbstractParamVector,
+  f::FESpaceLinParamConstraints,
+  cell_to_ludof_to_val
+  )
+
+  @check param_length(fmdof_to_val) == param_length(dmdof_to_val)
+  plength = param_length(fmdof_to_val)
+
+  _fv,_dv = zero_free_and_dirichlet_values(f.space)
+  fdof_to_val = global_parameterize(_fv,plength)
+  ddof_to_val = global_parameterize(_dv,plength)
+  gather_free_and_dirichlet_values!(fdof_to_val,ddof_to_val,f.space,cell_to_ludof_to_val)
+
+  FESpaces._setup_mdof_to_val!(
+    fmdof_to_val,
+    dmdof_to_val,
+    fdof_to_val,
+    ddof_to_val,
+    f.mDOF_to_DOF,
+    f.n_fdofs,
+    f.n_fmdofs)
+
+  fmdof_to_val,dmdof_to_val
+end
+
+function CellData.CellField(f::FESpaceLinParamConstraints,cellvals)
   CellField(f.space,cellvals)
 end
 
-function FESpaces.get_cell_constraints(f::ParamFESpaceLinConstraints)
+function FESpaces.get_cell_constraints(f::FESpaceLinParamConstraints)
   k = FESpaces.LinearConstraintsMap(
     f.DOF_to_mDOFs,
     f.DOF_to_coeffs,
@@ -188,14 +257,11 @@ function FESpaces.get_cell_constraints(f::ParamFESpaceLinConstraints)
   lazy_map(k,f.cell_to_lmdof_to_mdof,f.cell_to_ldof_to_dof,cell_to_mat)
 end
 
-const ParamLinearConstraintsMap{A,B<:BidimensionalTable} = FESpaces.LinearConstraintsMap{A,B}
+const LinearParamConstraintsMap{A,B<:BidimensionalTable} = FESpaces.LinearConstraintsMap{A,B}
 
-ParamDataStructures.param_length(a::BidimensionalTable) = size(a.data,2)
-ParamDataStructures.param_getindex(a::BidimensionalTable,i::Int) = Table(view(a.data,:,i),a.ptrs)
-Arrays.testitem(a::BidimensionalTable) = param_getindex(a,1)
+ParamDataStructures.param_length(a::LinearParamConstraintsMap) = param_length(a.DOF_to_coeffs)
 
-ParamDataStructures.param_length(a::ParamLinearConstraintsMap) = param_length(a.DOF_to_coeffs)
-function ParamDataStructures.param_getindex(k::ParamLinearConstraintsMap,i::Int)
+function ParamDataStructures.param_getindex(k::LinearParamConstraintsMap,i::Int)
   FESpaces.LinearConstraintsMap(
     k.DOF_to_mDOFs,
     param_getindex(k.DOF_to_coeffs,i),
@@ -204,10 +270,10 @@ function ParamDataStructures.param_getindex(k::ParamLinearConstraintsMap,i::Int)
     k.n_fdofs)
 end
 
-Arrays.testitem(a::ParamLinearConstraintsMap) = param_getindex(a,1)
+Arrays.testitem(a::LinearParamConstraintsMap) = param_getindex(a,1)
 
 function Arrays.return_cache(
-  k::ParamLinearConstraintsMap,lmdof_to_mdof,ldof_to_dof,mat
+  k::LinearParamConstraintsMap,lmdof_to_mdof,ldof_to_dof,mat
   )
 
   ki = testitem(k)
@@ -222,7 +288,7 @@ function Arrays.return_cache(
 end
 
 function Arrays.evaluate!(
-  cache,k::ParamLinearConstraintsMap,lmdof_to_mdof,ldof_to_dof,mat
+  cache,k::LinearParamConstraintsMap,lmdof_to_mdof,ldof_to_dof,mat
   )
 
   r,c = cache
@@ -447,16 +513,4 @@ function AgFEM._setup_agfem_constraints(
   aggdof_to_coeffs = BidimensionalTable(aggdof_to_coeffs_data,aggdof_to_dofs_ptrs)
 
   aggdof_to_fdof,aggdof_to_dofs,aggdof_to_coeffs
-end
-
-function reparameterize(f::ParamFESpaceLinConstraints,plength::Int)
-  ParamFESpaceLinConstraints(
-    f.space,
-    f.n_fdofs,
-    f.n_fmdofs,
-    f.mDOF_to_DOF,
-    f.DOF_to_mDOFs,
-    f.DOF_to_coeffs[1:plength],
-    f.cell_to_lmdof_to_mdof,
-    f.cell_to_ldof_to_dof)
 end

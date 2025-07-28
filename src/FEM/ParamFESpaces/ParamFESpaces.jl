@@ -28,7 +28,6 @@ using GridapROMs.ParamAlgebra
 import Test: @test
 import Gridap.Algebra: residual!,jacobian!
 import Gridap.FESpaces: FEFunction,SparseMatrixAssembler,EvaluationFunction
-import GridapROMs.Utils: BidimensionalTable
 import GridapROMs.ParamGeometry: mapped_grid
 
 export SingleFieldParamFESpace
@@ -55,7 +54,7 @@ include("ParamFEFunctions.jl")
 
 include("ParamAssemblers.jl")
 
-export ParamFESpaceLinConstraints
-include("ParamFESpaceLinConstraints.jl")
+export FESpaceLinParamConstraints
+include("FESpaceLinParamConstraints.jl")
 
 end # module
