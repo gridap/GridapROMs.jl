@@ -79,7 +79,7 @@ function get_deformation_map(μ)
   res(μ,u,v) = ∫( ε(v) ⊙ (σ∘ε(u)) )*dΩ - l(μ,v)
 
   reffeφ = ReferenceFE(lagrangian,VectorValue{2,Float64},2*order)
-  Vφact = FESpace(Ωact,reffeφ,conformity=:H1,dirichlet_tags="boundary")
+  Vφact = FESpace(Ωact,reffeφ,conformity=:H1)
   Vφ = AgFEMSpace(Vφact,aggregates)
   Uφ = ParamTrialFESpace(Vφ)
 
@@ -112,7 +112,7 @@ function def_fe_operator(μ)
 
   domains = FEDomains((Ωφ,Γφ),(Ωφ,Γφ))
 
-  testact = FESpace(Ωactφ,reffe,conformity=:H1,dirichlet_tags="boundary")
+  testact = FESpace(Ωactφ,reffe,conformity=:H1)
   test = AgFEMSpace(testact,aggregates)
   trial = ParamTrialFESpace(test,gμ)
 
@@ -126,7 +126,7 @@ feop = def_fe_operator(μ)
 feopon = def_fe_operator(μon)
 
 fesolver = LUSolver()
-state_reduction = Reduction(tol;nparams,sketch=:sprn) #energy
+state_reduction = Reduction(tol,energy;nparams,sketch=:sprn)
 rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac)
 
 fesnaps, = solution_snapshots(rbsolver,feop,μ)

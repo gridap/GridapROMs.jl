@@ -18,6 +18,7 @@ using GridapROMs.ParamDataStructures
 import FillArrays: Fill
 import Gridap.Visualization: _prepare_node_to_coords
 
+export ParamGrid
 export ParamMappedGrid
 export ParamMappedDiscreteModel
 export ParamUnstructuredGrid

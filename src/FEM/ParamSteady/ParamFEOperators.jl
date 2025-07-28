@@ -100,7 +100,8 @@ function FESpaces.assemble_matrix(op::ParamFEOperator,form::Function)
 end
 
 function _assemble_matrix(f,V::SingleFieldFESpace)
-  assemble_matrix(f,V,V)
+  V′ = get_configuration_space(V)
+  assemble_matrix(f,V′,V′)
 end
 
 function _assemble_matrix(f,V::TProductFESpace)
@@ -115,7 +116,8 @@ function _assemble_matrix(f,V::MultiFieldFESpace)
 end
 
 function _assemble_matrix(f,spaces::Vector{<:SingleFieldFESpace})
-  V = MultiFieldFESpace(spaces,style=BlockMultiFieldStyle())
+  spaces′ = map(get_configuration_space,spaces)
+  V = MultiFieldFESpace(spaces′,style=BlockMultiFieldStyle())
   assemble_matrix(f,V,V)
 end
 

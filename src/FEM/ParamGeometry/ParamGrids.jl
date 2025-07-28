@@ -1,9 +1,10 @@
-
 abstract type GridMapStyle end
 struct PhysicalMap <: GridMapStyle end
 struct DisplacementMap <: GridMapStyle end
 
-struct ParamMappedGrid{Dc,Dp,A} <: Grid{Dc,Dp}
+abstract type ParamGrid{Dc,Dp} <: Grid{Dc,Dp} end
+
+struct ParamMappedGrid{Dc,Dp,A} <: ParamGrid{Dc,Dp}
   grid::Grid{Dc,Dp}
   node_coords::A
 end
@@ -131,7 +132,7 @@ function Geometry.Grid(::Type{ReferenceFE{d}},model::ParamMappedDiscreteModel) w
   UnstructuredGrid(node_coordinates,cell_to_nodes,reffes,cell_to_type)
 end
 
-struct ParamUnstructuredGrid{Dc,Dp,Tp,O,Tn} <: Grid{Dc,Dp}
+struct ParamUnstructuredGrid{Dc,Dp,Tp,O,Tn} <: ParamGrid{Dc,Dp}
   node_coordinates::ParamBlock{Vector{Point{Dp,Tp}}}
   cell_node_ids::Table{Int32,Vector{Int32},Vector{Int32}}
   reffes::Vector{LagrangianRefFE{Dc}}

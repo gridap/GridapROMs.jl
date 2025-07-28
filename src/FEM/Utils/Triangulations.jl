@@ -109,6 +109,11 @@ function to_child(parent::Geometry.BoundaryTriangulation,child::Geometry.Triangu
   Geometry.TriangulationView(btrian,child.cell_to_parent_cell)
 end
 
+function to_child(parent::Triangulation,child::Geometry.GridPortion)
+  trian = to_child(parent,child.parent)
+  Geometry.GridPortion(trian,child.cell_to_parent_cell)
+end
+
 function to_child(parent::Geometry.AppendedTriangulation,child::Geometry.AppendedTriangulation)
   achild = to_child(parent.a,child.a)
   bchild = to_child(parent.b,child.b)

@@ -21,14 +21,14 @@ using GridapEmbedded
 using GridapEmbedded.AgFEM
 
 using GridapROMs.DofMaps
-using GridapROMs.TProduct
+using GridapROMs.ParamGeometry
 using GridapROMs.ParamDataStructures
 using GridapROMs.ParamAlgebra
+using GridapROMs.TProduct
 
 import Test: @test
 import Gridap.Algebra: residual!,jacobian!
 import Gridap.FESpaces: FEFunction,SparseMatrixAssembler,EvaluationFunction
-import GridapROMs.ParamGeometry: mapped_grid
 
 export SingleFieldParamFESpace
 export get_vector_type2
@@ -56,5 +56,11 @@ include("ParamAssemblers.jl")
 
 export FESpaceLinParamConstraints
 include("FESpaceLinParamConstraints.jl")
+
+export BaseConfigurationFESpace
+export BaseTriangulation
+export get_configuration_space
+export get_base_triangulation
+include("BaseConfigurationSpaces.jl")
 
 end # module
