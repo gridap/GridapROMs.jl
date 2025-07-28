@@ -29,34 +29,50 @@ function empirical_interpolation(A::ParamSparseMatrix)
 end
 
 """
-    get_dofs_to_cells(
-      cell_dof_ids::AbstractArray{<:AbstractArray},
-      dofs::AbstractVector
+    get_rows_to_cells(
+      cell_row_ids::AbstractArray{<:AbstractArray},
+      rows::AbstractVector
       ) -> AbstractVector
 
-Returns the list of cells containing the dof ids `dofs`
+Returns the list of cells containing the row ids `rows`
 """
-function get_dofs_to_cells(
-  cell_dof_ids::AbstractArray{<:AbstractArray},
-  dofs::AbstractVector)
+function get_rows_to_cells(
+  cell_row_ids::AbstractArray{<:AbstractArray},
+  rows::AbstractVector)
 
-  ncells = length(cell_dof_ids)
+  ncells = length(cell_row_ids)
   cells = fill(false,ncells)
-  cache = array_cache(cell_dof_ids)
+  cache = array_cache(cell_row_ids)
   for cell in 1:ncells
-    celldofs = getindex!(cache,cell_dof_ids,cell)
-    stop = false
-    if !stop
-      for dof in celldofs
-        for _dof in dofs
-          if dof == _dof
-            cells[cell] = true
-            stop = true
-            break
-          end
-        end
-      end
-    end
+    cellrows = getindex!(cache,cell_row_ids,cell)
+    cells[cell] = _isrow(cellrows,rows)
+  end
+  Int32.(findall(cells))
+end
+
+
+"""
+    get_rowcols_to_cells(
+      cell_row_ids::AbstractArray{<:AbstractArray},
+      cell_col_ids::AbstractArray{<:AbstractArray},
+      rows::AbstractVector,cols::AbstractVector) -> AbstractVector
+
+Returns the list of cells containing the row ids `rows` and the col ids `cols`
+"""
+function get_rowcols_to_cells(
+  cell_row_ids::AbstractArray{<:AbstractArray},
+  cell_col_ids::AbstractArray{<:AbstractArray},
+  rows::AbstractVector,cols::AbstractVector)
+
+  @assert length(cell_row_ids) == length(cell_col_ids)
+  ncells = length(cell_row_ids)
+  cells = fill(false,ncells)
+  rowcache = array_cache(cell_row_ids)
+  colcache = array_cache(cell_col_ids)
+  for cell in 1:ncells
+    cellrows = getindex!(rowcache,cell_row_ids,cell)
+    cellcols = getindex!(colcache,cell_col_ids,cell)
+    cells[cell] = _isrowcol(cellrows,cellcols,rows,cols)
   end
   Int32.(findall(cells))
 end
@@ -142,41 +158,6 @@ function get_cells_to_irowcols(
   Table(data,ptrs)
 end
 
-function reduced_cells(
-  f::FESpace,
-  trian::Triangulation,
-  dofs::AbstractVector)
-
-  cell_dof_ids = get_cell_dof_ids(f,trian)
-  cells = get_dofs_to_cells(cell_dof_ids,dofs)
-  return cells
-end
-
-function reduced_irows(
-  test::FESpace,
-  trian::Triangulation,
-  cells::AbstractVector,
-  rows::AbstractVector)
-
-  cell_row_ids = get_cell_dof_ids(test,trian)
-  irows = get_cells_to_irows(cell_row_ids,cells,rows)
-  return irows
-end
-
-function reduced_irowcols(
-  trial::FESpace,
-  test::FESpace,
-  trian::Triangulation,
-  cells::AbstractVector,
-  rows::AbstractVector,
-  cols::AbstractVector)
-
-  cell_col_ids = get_cell_dof_ids(trial,trian)
-  cell_row_ids = get_cell_dof_ids(test,trian)
-  irowcols = get_cells_to_irowcols(cell_row_ids,cell_col_ids,cells,rows,cols)
-  return irowcols
-end
-
 """
     abstract type IntegrationDomain end
 
@@ -253,8 +234,9 @@ function IntegrationDomain(
   rows::Vector{<:Number}
   )
 
-  cells = reduced_cells(test,trian,rows)
-  irows = reduced_irows(test,trian,cells,rows)
+  cell_row_ids = get_cell_dof_ids(test,trian)
+  cells = get_rows_to_cells(cell_row_ids,rows)
+  irows = get_cells_to_irows(cell_row_ids,cells,rows)
   GenericDomain(cells,irows,rows)
 end
 
@@ -266,10 +248,10 @@ function IntegrationDomain(
   cols::Vector{<:Number}
   )
 
-  cells_trial = reduced_cells(trial,trian,cols)
-  cells_test = reduced_cells(test,trian,rows)
-  cells = union(cells_trial,cells_test)
-  irowcols = reduced_irowcols(trial,test,trian,cells,rows,cols)
+  cell_row_ids = get_cell_dof_ids(test,trian)
+  cell_col_ids = get_cell_dof_ids(trial,trian)
+  cells = get_rowcols_to_cells(cell_row_ids,cell_col_ids,rows,cols)
+  irowcols = get_cells_to_irowcols(cell_row_ids,cell_col_ids,cells,rows,cols)
   GenericDomain(cells,irowcols,(rows,cols))
 end
 
@@ -292,4 +274,32 @@ function move_integration_domain(
 
   rows,cols = i.metadata
   IntegrationDomain(ttrian,trial,test,rows,cols)
+end
+
+# utils
+
+function _isrow(cellrows,rows)
+  for row in cellrows
+    for _row in rows
+      if row == _row
+        return true
+      end
+    end
+  end
+  return false
+end
+
+function _isrowcol(cellrows,cellcols,rows,cols)
+  for col in cellcols
+    for row in cellrows
+      for _col in cols
+        for _row in rows
+          if row == _row && col == _col
+            return true
+          end
+        end
+      end
+    end
+  end
+  return false
 end

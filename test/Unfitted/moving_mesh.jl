@@ -131,54 +131,8 @@ rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac)
 
 fesnaps, = solution_snapshots(rbsolver,feop,μ)
 rbop′ = reduced_operator(rbsolver,feop,fesnaps)
-rbop = RBSteady.change_operator(rbop′,feopon)
+rbop = change_operator(rbop′,feopon)
 
 x̂,rbstats = solve(rbsolver,rbop,μon)
 x,festats = solution_snapshots(rbsolver,feopon,μon)
 perf = eval_performance(rbsolver,feopon,rbop,x,x̂,festats,rbstats)
-
-μend = Realization([μ.params[end]])
-φh = get_deformation_map(μend)
-Ωactφ = mapped_grid(Ωact,φh)
-Ωφ = mapped_grid(Ω,φh)
-Γφ = mapped_grid(Γ,φh)
-testact = FESpace(Ωactφ,reffe,conformity=:H1,dirichlet_tags="boundary")
-test = AgFEMSpace(testact,aggregates)
-trial = ParamTrialFESpace(test,gμ)
-
-U = param_getindex(trial(μend),1)
-uh = FEFunction(U,fesnaps[:,end])
-writevtk(Ωφ,datadir("plts/uh"),cellfields=["uh"=>uh])
-
-function ok_result()
-  x0 = Point(μ0[1]-0.0703125,μ0[1]-0.0703125)
-  geo = !disk(0.3,x0=x0)
-  cutgeo = cut(bgmodel,geo)
-
-  Ωact = Triangulation(cutgeo,ACTIVE)
-  Ω = Triangulation(cutgeo,PHYSICAL)
-  Γ = EmbeddedBoundary(cutgeo)
-
-  dΩ = Measure(Ω,degree)
-  dΓ = Measure(Γ,degree)
-
-  n_Γ = get_normal_vector(Γ)
-  strategy = AggregateAllCutCells()
-  aggregates = aggregate(strategy,cutgeo)
-
-  fx(x) = 1.0
-  gx(x) = x[1]-x[2]
-  a(u,v) = ∫(∇(v)⋅∇(u))dΩ + ∫( (γd/hd)*v*u  - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u )dΓ
-  l(v) = ∫(fx⋅v)dΩ + ∫( (γd/hd)*v*gx - (n_Γ⋅∇(v))*gx )dΓ
-
-  testact = FESpace(Ωact,reffe,conformity=:H1,dirichlet_tags="boundary")
-  test = AgFEMSpace(testact,aggregates)
-  trial = TrialFESpace(test,gx)
-
-  op = AffineFEOperator(a,l,trial,test)
-  uh = solve(LUSolver(),op)
-
-  writevtk(Ω,datadir("plts/uhok"),cellfields=["uh"=>uh])
-end
-
-ok_result()

@@ -106,3 +106,8 @@ function _change_coords(sc::Interfaces.SubCellData,grid::Grid)
     sc.point_to_rcoords
     )
 end
+
+function Utils.to_child(parent::ParamSubCellTriangulation,child::Geometry.TriangulationView)
+  @check isa(child.parent,ParamSubCellTriangulation)
+  Geometry.TriangulationView(parent,child.cell_to_parent_cell)
+end

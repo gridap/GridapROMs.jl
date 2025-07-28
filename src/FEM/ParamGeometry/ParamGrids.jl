@@ -71,6 +71,10 @@ Geometry.get_cell_node_ids(grid::ParamMappedGrid) = get_cell_node_ids(grid.grid)
 Geometry.get_reffes(grid::ParamMappedGrid) = get_reffes(grid.grid)
 Geometry.get_cell_type(grid::ParamMappedGrid) = get_cell_type(grid.grid)
 
+function Base.isapprox(t::T,s::T) where T<:ParamMappedGrid
+  t.grid ≈ s.grid
+end
+
 """
 MappedDiscreteModel
 
@@ -262,7 +266,6 @@ function _map_coords!(
     end
   end
 end
-
 
 function _model_compatibility(a::DiscreteModel,b::DiscreteModel)
   return false

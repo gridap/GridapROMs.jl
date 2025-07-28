@@ -154,3 +154,8 @@ function _change_coords(sf::Interfaces.SubFacetData,grid::Grid)
     sf.point_to_rcoords
     )
 end
+
+function Utils.to_child(parent::ParamSubFacetTriangulation,child::Geometry.TriangulationView)
+  @check isa(child.parent,ParamSubFacetTriangulation)
+  Geometry.TriangulationView(parent,child.cell_to_parent_cell)
+end

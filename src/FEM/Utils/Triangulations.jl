@@ -115,6 +115,14 @@ function to_child(parent::Geometry.AppendedTriangulation,child::Geometry.Appende
   Geometry.AppendedTriangulation(achild,bchild)
 end
 
+function to_child(parent::Geometry.AppendedTriangulation,child::Triangulation)
+  if isapprox_parent(parent.a,child)
+    to_child(parent.a,child)
+  else
+    to_child(parent.b,child)
+  end
+end
+
 """
     get_parent(t::Triangulation) -> Triangulation
 
@@ -123,16 +131,6 @@ is not a triangulation view
 """
 function get_parent(t::Triangulation)
   t
-end
-
-_get_bg_cells(t::Triangulation) = @abstractmethod
-_get_bg_cells(t::Geometry.BodyFittedTriangulation) = t.tface_to_mface
-_get_bg_cells(t::Geometry.BoundaryTriangulation) = t.glue.face_to_cell
-_get_bg_cells(t::Geometry.TriangulationView) = t.cell_to_parent_cell
-_get_bg_cells(t::Interfaces.SubFacetTriangulation) = t.subfacets.facet_to_bgcell
-_get_bg_cells(t::Interfaces.SubCellTriangulation) = unique(t.subcells.cell_to_bgcell)
-function _get_bg_cells(t::Geometry.AppendedTriangulation)
-  lazy_append(_get_bg_cells(t.a),_get_bg_cells(t.b))
 end
 
 # We use the symbol ≈ can between two grids `t` and `s` in the following
