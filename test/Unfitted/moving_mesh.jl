@@ -101,12 +101,14 @@ function def_fe_operator(μ)
 
   n_Γφ = get_normal_vector(Γφ)
 
+  f(μ) = x -> 1.0
+  fμ(μ) = parameterize(f,μ)
   g(μ) = x -> x[1]-x[2]
   gμ(μ) = parameterize(g,μ)
 
-  a(u,v,dΩφ,dΓφ) = ∫(∇(v)⋅∇(u))dΩφ + ∫( (γd/hd)*v*u  - v*(n_Γφ⋅∇(u)) - (n_Γφ⋅∇(v))*u )dΓφ
-  l(v,dΩφ,dΓφ) = ∫(f⋅v)dΩφ + ∫( (γd/hd)*v*g - (n_Γφ⋅∇(v))*g )dΓφ
-  res(u,v,dΩφ,dΓφ) = ∫(∇(v)⋅∇(u))dΩφ - l(v,dΩφ,dΓφ)
+  a(μ,u,v,dΩφ,dΓφ) = ∫(∇(v)⋅∇(u))dΩφ + ∫( (γd/hd)*v*u  - v*(n_Γφ⋅∇(u)) - (n_Γφ⋅∇(v))*u )dΓφ
+  l(μ,v,dΩφ,dΓφ) = ∫(fμ(μ)⋅v)dΩφ + ∫( (γd/hd)*v*gμ(μ) - (n_Γφ⋅∇(v))*gμ(μ) )dΓφ
+  res(μ,u,v,dΩφ,dΓφ) = ∫(∇(v)⋅∇(u))dΩφ - l(μ,v,dΩφ,dΓφ)
 
   domains = FEDomains((Ωφ,Γφ),(Ωφ,Γφ))
 
@@ -135,26 +137,43 @@ x̂,rbstats = solve(rbsolver,rbop,μon)
 x,festats = solution_snapshots(rbsolver,feopon,μon)
 perf = eval_performance(rbsolver,feopon,rbop,x,x̂,festats,rbstats)
 
-μ = realization(pspace)
-φ = get_deformation_map(μ)
-Ωactφ = MappedGrid(Ωact,φ)
-testact = FESpace(Ωactφ,reffe,conformity=:H1,dirichlet_tags="boundary")
-test = AgFEMSpace(testact,aggregates)
-trial = ParamTrialFESpace(test,gμ)
-
-
-μ = Realization([[-0.1]])
-φh = get_deformation_map(μ)
+μend = Realization([μ.params[end]])
+φh = get_deformation_map(μend)
 Ωactφ = mapped_grid(Ωact,φh)
 Ωφ = mapped_grid(Ω,φh)
 Γφ = mapped_grid(Γ,φh)
-dΩφ = Measure(Ωφ,degree)
-dΓφ = Measure(Γφ,degree)
-
-n_Γφ = get_normal_vector(Γφ)
-
 testact = FESpace(Ωactφ,reffe,conformity=:H1,dirichlet_tags="boundary")
 test = AgFEMSpace(testact,aggregates)
 trial = ParamTrialFESpace(test,gμ)
 
-feop = LinearParamOperator(res,a,pspace,trial,test,domains)
+U = param_getindex(get_trial(feop)(μend),1)
+uh = FEFunction(U,fesnaps[:,end])
+writevtk(Ωφ,datadir("plts/phi"),cellfields=["φh"=>FEFunction(fesnaps[:,end])])
+
+
+# μ = Realization([[-0.1],[0.1]])
+# φh = get_deformation_map(μ)
+# Ωactφ = mapped_grid(Ωact,φh)
+# Ωφ = mapped_grid(Ω,φh)
+# Γφ = mapped_grid(Γ,φh)
+# dΩφ = Measure(Ωφ,degree)
+# dΓφ = Measure(Γφ,degree)
+
+# n_Γφ = get_normal_vector(Γφ)
+
+# f(μ) = x -> 1.0
+# fμ(μ) = parameterize(f,μ)
+# g(μ) = x -> x[1]-x[2]
+# gμ(μ) = parameterize(g,μ)
+
+# a(μ,u,v,dΩφ,dΓφ) = ∫(∇(v)⋅∇(u))dΩφ + ∫( (γd/hd)*v*u  - v*(n_Γφ⋅∇(u)) - (n_Γφ⋅∇(v))*u )dΓφ
+# l(μ,v,dΩφ,dΓφ) = ∫(fμ(μ)⋅v)dΩφ + ∫( (γd/hd)*v*gμ(μ) - (n_Γφ⋅∇(v))*gμ(μ) )dΓφ
+# res(μ,u,v,dΩφ,dΓφ) = ∫(∇(v)⋅∇(u))dΩφ - l(μ,v,dΩφ,dΓφ)
+
+# domains = FEDomains((Ωφ,Γφ),(Ωφ,Γφ))
+
+# testact = FESpace(Ωactφ,reffe,conformity=:H1,dirichlet_tags="boundary")
+# test = AgFEMSpace(testact,aggregates)
+# trial = ParamTrialFESpace(test,gμ)
+
+# feop = LinearParamOperator(res,a,pspace,trial,test,domains)

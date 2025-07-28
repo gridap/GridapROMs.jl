@@ -26,7 +26,7 @@ import LatinHypercubeSampling: randomLHC,scaleLHC
 import LinearAlgebra: ⋅
 import StatsBase: sample
 import Test: @test
-import Gridap.Fields: BroadcastOpFieldArray,BroadcastingFieldOpMap,LinearCombinationField,LinearCombinationMap
+import Gridap.Fields: BroadcastOpFieldArray,BroadcastingFieldOpMap,LinearCombinationField,LinearCombinationMap,AffineMap,ConstantMap
 import Gridap.ReferenceFEs: LagrangianDofBasis
 import Gridap.TensorValues: ⊗, ⊙
 import SparseArrays.getcolptr

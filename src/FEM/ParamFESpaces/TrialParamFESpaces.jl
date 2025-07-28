@@ -69,6 +69,13 @@ function HomogeneousTrialParamFESpace(U::SingleFieldFESpace,plength::Int)
   TrialParamFESpace(dirichlet_values,U)
 end
 
+function HomogeneousTrialParamFESpace(U::SingleFieldParamFESpace,plength::Int)
+  Ul = reparameterize(U,plength)
+  dv = zero_dirichlet_values(Ul)
+  dirichlet_values = global_parameterize(dv,plength)
+  TrialParamFESpace(dirichlet_values,Ul)
+end
+
 function HomogeneousTrialParamFESpace!(dirichlet_values::AbstractParamVector,U::SingleFieldFESpace,args...)
   fill!(dirichlet_values,zero(eltype(dirichlet_values)))
   TrialParamFESpace(dirichlet_values,U)

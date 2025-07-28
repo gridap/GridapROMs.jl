@@ -1,4 +1,4 @@
-struct ParamFESpaceLinConstraints{S<:SingleFieldFESpace} <: SingleFieldParamFESpace
+struct ParamFESpaceLinConstraints{S<:SingleFieldFESpace} <: SingleFieldParamFESpace{S}
   space::S
   n_fdofs::Int
   n_fmdofs::Int
@@ -9,9 +9,28 @@ struct ParamFESpaceLinConstraints{S<:SingleFieldFESpace} <: SingleFieldParamFESp
   cell_to_ldof_to_dof::Table
 end
 
-ParamDataStructures.param_length(f::ParamFESpaceLinConstraints) = first(DOF_to_coeffs.cols)
+function FESpaces.FESpaceWithLinearConstraints(
+  space::SingleFieldFESpace,
+  n_fdofs::Int,
+  n_fmdofs::Int,
+  mDOF_to_DOF::Vector,
+  DOF_to_mDOFs::Table,
+  DOF_to_coeffs::BidimensionalTable,
+  cell_to_lmdof_to_mdof::Table,
+  cell_to_ldof_to_dof::Table)
 
-function ParamFESpaceLinConstraints(
+  ParamFESpaceLinConstraints(
+    space,
+    n_fdofs,
+    n_fmdofs,
+    mDOF_to_DOF,
+    DOF_to_mDOFs,
+    DOF_to_coeffs,
+    cell_to_lmdof_to_mdof,
+    cell_to_ldof_to_dof)
+end
+
+function FESpaces.FESpaceWithLinearConstraints(
   sDOF_to_dof::AbstractVector{<:Integer},
   sDOF_to_dofs::Table,
   sDOF_to_coeffs::BidimensionalTable,
@@ -24,8 +43,208 @@ function ParamFESpaceLinConstraints(
   DOF_to_DOFs,DOF_to_coeffs = FESpaces._prepare_DOF_to_DOFs(
     sDOF_to_dof,sDOF_to_dofs,sDOF_to_coeffs,n_fdofs,n_DOFs)
 
-  FESpaceWithLinearConstraints!(DOF_to_DOFs,DOF_to_coeffs,space)
+  FESpaces.FESpaceWithLinearConstraints!(DOF_to_DOFs,DOF_to_coeffs,space)
+end
 
+function FESpaces.FESpaceWithLinearConstraints(
+  fdof_to_dofs::Table,
+  fdof_to_coeffs::BidimensionalTable,
+  ddof_to_dofs::Table,
+  ddof_to_coeffs::BidimensionalTable,
+  space::SingleFieldFESpace)
+
+  DOF_to_DOFs,DOF_to_coeffs = FESpaces._merge_free_and_diri_constraints(
+    fdof_to_dofs,fdof_to_coeffs,ddof_to_dofs,ddof_to_coeffs)
+  FESpaces.FESpaceWithLinearConstraints!(DOF_to_DOFs,DOF_to_coeffs,space)
+end
+
+function FESpaces.FESpaceWithLinearConstraints(
+  DOF_to_DOFs::Table,DOF_to_coeffs::BidimensionalTable,space::SingleFieldFESpace)
+  FESpaces.FESpaceWithLinearConstraints!(copy(DOF_to_DOFs),copy(DOF_to_coeffs),space::SingleFieldFESpace)
+end
+
+function FESpaces.FESpaceWithLinearConstraints!(
+  DOF_to_DOFs::Table,DOF_to_coeffs::BidimensionalTable,space::SingleFieldFESpace)
+
+  n_fdofs = num_free_dofs(space)
+  mDOF_to_DOF,n_fmdofs = FESpaces._find_master_dofs(DOF_to_DOFs,n_fdofs)
+  DOF_to_mDOFs = FESpaces._renumber_constraints!(DOF_to_DOFs,mDOF_to_DOF)
+  cell_to_ldof_to_dof = Table(get_cell_dof_ids(space))
+  cell_to_lmdof_to_mdof = FESpaces._setup_cell_to_lmdof_to_mdof(cell_to_ldof_to_dof,DOF_to_mDOFs,n_fdofs,n_fmdofs)
+
+  FESpaceWithLinearConstraints(
+    space,
+    n_fdofs,
+    n_fmdofs,
+    mDOF_to_DOF,
+    DOF_to_mDOFs,
+    DOF_to_coeffs,
+    cell_to_lmdof_to_mdof,
+    cell_to_ldof_to_dof)
+
+end
+
+ParamDataStructures.param_length(f::ParamFESpaceLinConstraints) = param_length(f.DOF_to_coeffs)
+
+FESpaces.get_fe_space(f::ParamFESpaceLinConstraints) = f.space
+
+remove_layer(f::ParamFESpaceLinConstraints) = parameterize(f.space,param_length(f))
+
+FESpaces.get_cell_dof_ids(f::ParamFESpaceLinConstraints) = f.cell_to_lmdof_to_mdof
+
+FESpaces.get_dirichlet_dof_ids(f::ParamFESpaceLinConstraints) = Base.OneTo(length(f.mDOF_to_DOF) - f.n_fmdofs)
+
+FESpaces.get_free_dof_ids(f::ParamFESpaceLinConstraints) = Base.OneTo(f.n_fmdofs)
+
+FESpaces.ConstraintStyle(::Type{<:ParamFESpaceLinConstraints}) = Constrained()
+
+function FESpaces.get_cell_isconstrained(f::ParamFESpaceLinConstraints)
+  n = length(get_cell_dof_ids(f))
+  Fill(true,n)
+end
+
+function FESpaces.get_dirichlet_dof_tag(f::ParamFESpaceLinConstraints)
+  ddof_to_tag = get_dirichlet_dof_tag(f.space)
+  dmdof_to_tag = zeros(eltype(ddof_to_tag),num_dirichlet_dofs(f))
+  FESpaces._setup_ddof_to_tag!(
+    dmdof_to_tag,
+    ddof_to_tag,
+    f.mDOF_to_DOF,
+    f.n_fdofs,
+    f.n_fmdofs)
+  dmdof_to_tag
+end
+
+function FESpaces.get_dirichlet_dof_values(f::ParamFESpaceLinConstraints)
+  ddof_to_tag = get_dirichlet_dof_values(f.space)
+  dmdof_to_tag = zeros(eltype(ddof_to_tag),num_dirichlet_dofs(f))
+  FESpaces._setup_ddof_to_tag!(
+    dmdof_to_tag,
+    ddof_to_tag,
+    f.mDOF_to_DOF,
+    f.n_fdofs,
+    f.n_fmdofs)
+  dmdof_to_tag
+end
+
+function FESpaces.scatter_free_and_dirichlet_values(f::ParamFESpaceLinConstraints,fmdof_to_val,dmdof_to_val)
+  f′ = remove_layer(f)
+  fdof_to_val = zero_free_values(f′)
+  ddof_to_val = zero_dirichlet_values(f′)
+  FESpaces._setup_dof_to_val!(
+    fdof_to_val,
+    ddof_to_val,
+    fmdof_to_val,
+    dmdof_to_val,
+    f.DOF_to_mDOFs,
+    f.DOF_to_coeffs,
+    f.n_fdofs,
+    f.n_fmdofs)
+  scatter_free_and_dirichlet_values(f′,fdof_to_val,ddof_to_val)
+end
+
+function FESpaces.gather_free_and_dirichlet_values(f::ParamFESpaceLinConstraints,cell_to_ludof_to_val)
+  f′ = remove_layer(f)
+  fdof_to_val,ddof_to_val = FESpaces.gather_free_and_dirichlet_values(f′,cell_to_ludof_to_val)
+  fmdof_to_val = zero_free_values(f)
+  dmdof_to_val = zero_dirichlet_values(f)
+  FESpaces._setup_mdof_to_val!(
+    fmdof_to_val,
+    dmdof_to_val,
+    fdof_to_val,
+    ddof_to_val,
+    f.mDOF_to_DOF,
+    f.n_fdofs,
+    f.n_fmdofs)
+  fmdof_to_val,dmdof_to_val
+end
+
+function FESpaces.gather_free_and_dirichlet_values!(fmdof_to_val,dmdof_to_val,f::ParamFESpaceLinConstraints,cell_to_ludof_to_val)
+  fdof_to_val,ddof_to_val = FESpaces.gather_free_and_dirichlet_values(remove_layer(f),cell_to_ludof_to_val)
+  FESpaces._setup_mdof_to_val!(
+    fmdof_to_val,
+    dmdof_to_val,
+    fdof_to_val,
+    ddof_to_val,
+    f.mDOF_to_DOF,
+    f.n_fdofs,
+    f.n_fmdofs)
+  fmdof_to_val,dmdof_to_val
+end
+
+function CellData.CellField(f::ParamFESpaceLinConstraints,cellvals)
+  CellField(f.space,cellvals)
+end
+
+function FESpaces.get_cell_constraints(f::ParamFESpaceLinConstraints)
+  k = FESpaces.LinearConstraintsMap(
+    f.DOF_to_mDOFs,
+    f.DOF_to_coeffs,
+    length(f.mDOF_to_DOF),
+    f.n_fmdofs,
+    f.n_fdofs)
+
+  cell_to_mat = get_cell_constraints(f.space)
+  lazy_map(k,f.cell_to_lmdof_to_mdof,f.cell_to_ldof_to_dof,cell_to_mat)
+end
+
+const ParamLinearConstraintsMap{A,B<:BidimensionalTable} = FESpaces.LinearConstraintsMap{A,B}
+
+ParamDataStructures.param_length(a::BidimensionalTable) = size(a.data,2)
+ParamDataStructures.param_getindex(a::BidimensionalTable,i::Int) = Table(view(a.data,:,i),a.ptrs)
+Arrays.testitem(a::BidimensionalTable) = param_getindex(a,1)
+
+ParamDataStructures.param_length(a::ParamLinearConstraintsMap) = param_length(a.DOF_to_coeffs)
+function ParamDataStructures.param_getindex(k::ParamLinearConstraintsMap,i::Int)
+  FESpaces.LinearConstraintsMap(
+    k.DOF_to_mDOFs,
+    param_getindex(k.DOF_to_coeffs,i),
+    k.n_mDOFs,
+    k.n_fmdofs,
+    k.n_fdofs)
+end
+
+Arrays.testitem(a::ParamLinearConstraintsMap) = param_getindex(a,1)
+
+function Arrays.return_cache(
+  k::ParamLinearConstraintsMap,lmdof_to_mdof,ldof_to_dof,mat
+  )
+
+  ki = testitem(k)
+  ci = return_cache(ki,lmdof_to_mdof,ldof_to_dof,mat)
+  vi = evaluate!(ci,ki,lmdof_to_mdof,ldof_to_dof,mat)
+  data = Vector{typeof(vi)}(undef,param_length(k))
+  c = Vector{typeof(ci)}(undef,param_length(k))
+  for i in 1:param_length(k)
+    c[i] = return_cache(param_getindex(k,i),lmdof_to_mdof,ldof_to_dof,mat)
+  end
+  GenericParamBlock(data),c
+end
+
+function Arrays.evaluate!(
+  cache,k::ParamLinearConstraintsMap,lmdof_to_mdof,ldof_to_dof,mat
+  )
+
+  r,c = cache
+  for i in 1:param_length(k)
+    r.data[i] = evaluate!(c[i],param_getindex(k,i),lmdof_to_mdof,ldof_to_dof,mat)
+  end
+  r
+end
+
+# utils
+
+function FESpaces._merge_free_and_diri_constraints(
+  fdof_to_dofs,fdof_to_coeffs::BidimensionalTable,ddof_to_dofs,ddof_to_coeffs::BidimensionalTable)
+  n_fdofs = length(fdof_to_dofs)
+  DOF_to_DOFs = append_tables_globally(fdof_to_dofs,ddof_to_dofs)
+  for i in 1:length(DOF_to_DOFs.data)
+    dof = DOF_to_DOFs.data[i]
+    DOF = FESpaces._dof_to_DOF(dof,n_fdofs)
+    DOF_to_DOFs.data[i] = DOF
+  end
+  DOF_to_coeffs = BidimensionalTable(vcat(fdof_to_coeffs.data,ddof_to_coeffs.data),DOF_to_DOFs.ptrs)
+  DOF_to_DOFs,DOF_to_coeffs
 end
 
 function FESpaces._prepare_DOF_to_DOFs(
@@ -43,14 +262,15 @@ function FESpaces._prepare_DOF_to_DOFs(
     a = sDOF_to_dofs.ptrs[sDOF]
     b = sDOF_to_dofs.ptrs[sDOF+1]
     dof = sDOF_to_dof[sDOF]
-    DOF = _dof_to_DOF(dof,n_fdofs)
+    DOF = FESpaces._dof_to_DOF(dof,n_fdofs)
     DOF_to_DOFs_ptrs[DOF+1] = b-a
   end
 
   length_to_ptrs!(DOF_to_DOFs_ptrs)
   ndata = DOF_to_DOFs_ptrs[end]-1
+  plength = size(sDOF_to_coeffs.data,2)
   DOF_to_DOFs_data = zeros(Td,ndata)
-  DOF_to_coeffs_data = ones(Tc,ndata)
+  DOF_to_coeffs_data = ones(Tc,ndata,plength)
 
   for DOF in 1:n_DOFs
     q = DOF_to_DOFs_ptrs[DOF]
@@ -59,445 +279,81 @@ function FESpaces._prepare_DOF_to_DOFs(
 
   for sDOF in 1:n_sDOFs
     dof = sDOF_to_dof[sDOF]
-    DOF = _dof_to_DOF(dof,n_fdofs)
+    DOF = FESpaces._dof_to_DOF(dof,n_fdofs)
     q = DOF_to_DOFs_ptrs[DOF]-1
     pini = sDOF_to_dofs.ptrs[sDOF]
     pend = sDOF_to_dofs.ptrs[sDOF+1]-1
     for (i,p) in enumerate(pini:pend)
       _dof = sDOF_to_dofs.data[p]
-      _DOF = _dof_to_DOF(_dof,n_fdofs)
-      coeff = sDOF_to_coeffs.data[p]
+      _DOF = FESpaces._dof_to_DOF(_dof,n_fdofs)
       DOF_to_DOFs_data[q+i] = _DOF
-      DOF_to_coeffs_data[q+i] = coeff
+      for l in axes(sDOF_to_coeffs.data,2)
+        coeff = sDOF_to_coeffs.data[p,l]
+        DOF_to_coeffs_data[q+i,l] = coeff
+      end
     end
   end
 
   DOF_to_DOFs = Table(DOF_to_DOFs_data,DOF_to_DOFs_ptrs)
-  DOF_to_coeffs = Table(DOF_to_coeffs_data,DOF_to_DOFs_ptrs)
+  DOF_to_coeffs = BidimensionalTable(DOF_to_coeffs_data,DOF_to_DOFs_ptrs)
 
   DOF_to_DOFs,DOF_to_coeffs
 end
 
-# Private constructors
-
-function ParamFESpaceLinConstraints(
-  fdof_to_dofs::Table,
-  fdof_to_coeffs::Table,
-  ddof_to_dofs::Table,
-  ddof_to_coeffs::Table,
-  space::SingleFieldFESpace)
-
-  DOF_to_DOFs,DOF_to_coeffs = _merge_free_and_diri_constraints(
-    fdof_to_dofs,fdof_to_coeffs,ddof_to_dofs,ddof_to_coeffs)
-  FESpaceWithLinearConstraints!(DOF_to_DOFs,DOF_to_coeffs,space)
-end
-
-function _merge_free_and_diri_constraints(fdof_to_dofs,fdof_to_coeffs,ddof_to_dofs,ddof_to_coeffs)
-  n_fdofs = length(fdof_to_dofs)
-  DOF_to_DOFs = append_tables_globally(fdof_to_dofs,ddof_to_dofs)
-  for i in 1:length(DOF_to_DOFs.data)
-    dof = DOF_to_DOFs.data[i]
-    DOF = _dof_to_DOF(dof,n_fdofs)
-    DOF_to_DOFs.data[i] = DOF
-  end
-  DOF_to_coeffs = Table(vcat(fdof_to_coeffs.data,ddof_to_coeffs.data),DOF_to_DOFs.ptrs)
-  DOF_to_DOFs,DOF_to_coeffs
-end
-
-
-function ParamFESpaceLinConstraints(DOF_to_DOFs::Table,DOF_to_coeffs::Table,space::SingleFieldFESpace)
-  FESpaceWithLinearConstraints!(copy(DOF_to_DOFs),copy(DOF_to_coeffs),space::SingleFieldFESpace)
-end
-
-function FESpaceWithLinearConstraints!(DOF_to_DOFs::Table,DOF_to_coeffs::Table,space::SingleFieldFESpace)
-
-  n_fdofs = num_free_dofs(space)
-  mDOF_to_DOF,n_fmdofs = _find_master_dofs(DOF_to_DOFs,n_fdofs)
-  DOF_to_mDOFs = _renumber_constraints!(DOF_to_DOFs,mDOF_to_DOF)
-  cell_to_ldof_to_dof = Table(get_cell_dof_ids(space))
-  cell_to_lmdof_to_mdof = _setup_cell_to_lmdof_to_mdof(cell_to_ldof_to_dof,DOF_to_mDOFs,n_fdofs,n_fmdofs)
-
-  ParamFESpaceLinConstraints(
-    space,
-    n_fdofs,
-    n_fmdofs,
-    mDOF_to_DOF,
-    DOF_to_mDOFs,
-    DOF_to_coeffs,
-    cell_to_lmdof_to_mdof,
-    cell_to_ldof_to_dof)
-
-end
-
-function _find_master_dofs(DOF_to_DOFs,n_fdofs)
-  n_DOFs = length(DOF_to_DOFs)
-  DOF_to_ismaster = fill(false,n_DOFs)
-  for DOF in 1:n_DOFs
-    pini = DOF_to_DOFs.ptrs[DOF]
-    pend = DOF_to_DOFs.ptrs[DOF+1]-1
-    for p in pini:pend
-      _DOF = DOF_to_DOFs.data[p]
-      @assert (DOF_to_DOFs.ptrs[_DOF+1]-DOF_to_DOFs.ptrs[_DOF]) == 1 "Rcursive constraints not allowed now"
-      @assert DOF_to_DOFs.data[DOF_to_DOFs.ptrs[_DOF]] == _DOF "Rcursive constraints not allowed now"
-      DOF_to_ismaster[_DOF] = true
-    end
-  end
-  n_fmdofs = 0
-  for DOF in 1:n_fdofs
-    if DOF_to_ismaster[DOF]
-      n_fmdofs += 1
-    end
-  end
-  mDOF_to_DOF = findall(DOF_to_ismaster)
-  mDOF_to_DOF,n_fmdofs
-end
-
-function _renumber_constraints!(DOF_to_DOFs,mDOF_to_DOF)
-  DOF_to_mDOF = zeros(eltype(DOF_to_DOFs.data),length(DOF_to_DOFs))
-  DOF_to_mDOF[mDOF_to_DOF] .= 1:length(mDOF_to_DOF)
-  for i in 1:length(DOF_to_DOFs.data)
-    DOF = DOF_to_DOFs.data[i]
-    mDOF = DOF_to_mDOF[DOF]
-    DOF_to_DOFs.data[i] = mDOF
-  end
-  DOF_to_DOFs
-end
-
-function _setup_cell_to_lmdof_to_mdof(cell_to_ldof_to_dof,DOF_to_mDOFs,n_fdofs,n_fmdofs)
-
-  n_cells = length(cell_to_ldof_to_dof)
-  cell_to_lmdof_to_mdof_ptrs = zeros(eltype(cell_to_ldof_to_dof.ptrs),n_cells+1)
-
-  for cell in 1:n_cells
-    mdofs = Set{Int}()
-    pini = cell_to_ldof_to_dof.ptrs[cell]
-    pend = cell_to_ldof_to_dof.ptrs[cell+1]-1
-    for p in pini:pend
-      dof = cell_to_ldof_to_dof.data[p]
-      DOF = _dof_to_DOF(dof,n_fdofs)
-      qini = DOF_to_mDOFs.ptrs[DOF]
-      qend = DOF_to_mDOFs.ptrs[DOF+1]-1
-      for q in qini:qend
-        mDOF = DOF_to_mDOFs.data[q]
-        mdof = _DOF_to_dof(mDOF,n_fmdofs)
-        push!(mdofs,mdof)
-      end
-    end
-    cell_to_lmdof_to_mdof_ptrs[cell+1] = length(mdofs)
-  end
-
-  length_to_ptrs!(cell_to_lmdof_to_mdof_ptrs)
-  ndata = cell_to_lmdof_to_mdof_ptrs[end]-1
-  cell_to_lmdof_to_mdof_data = zeros(eltype(cell_to_ldof_to_dof.data),ndata)
-
-  for cell in 1:n_cells
-    mdofs = Set{Int}()
-    pini = cell_to_ldof_to_dof.ptrs[cell]
-    pend = cell_to_ldof_to_dof.ptrs[cell+1]-1
-    for p in pini:pend
-      dof = cell_to_ldof_to_dof.data[p]
-      DOF = _dof_to_DOF(dof,n_fdofs)
-      qini = DOF_to_mDOFs.ptrs[DOF]
-      qend = DOF_to_mDOFs.ptrs[DOF+1]-1
-      for q in qini:qend
-        mDOF = DOF_to_mDOFs.data[q]
-        mdof = _DOF_to_dof(mDOF,n_fmdofs)
-        push!(mdofs,mdof)
-      end
-    end
-    o = cell_to_lmdof_to_mdof_ptrs[cell]-1
-    for (lmdof,mdof) in enumerate(mdofs)
-      cell_to_lmdof_to_mdof_data[o+lmdof] = mdof
-    end
-  end
-
-  Table(cell_to_lmdof_to_mdof_data,cell_to_lmdof_to_mdof_ptrs)
-end
-
-function _dof_to_DOF(dof,n_fdofs)
-  if dof > 0
-    DOF = dof
-  else
-    DOF = n_fdofs - dof
-  end
-end
-
-function _DOF_to_dof(DOF,n_fdofs)
-  if DOF > n_fdofs
-    dof = -(DOF-n_fdofs)
-  else
-    dof = DOF
-  end
-end
-
-# Implementation of the SingleFieldFESpace interface
-
-function get_cell_dof_ids(f::ParamFESpaceLinConstraints)
-  f.cell_to_lmdof_to_mdof
-end
-
-function get_fe_dof_basis(f::ParamFESpaceLinConstraints)
-  get_fe_dof_basis(f.space)
-end
-
-get_dirichlet_dof_ids(f::ParamFESpaceLinConstraints) = Base.OneTo(length(f.mDOF_to_DOF) - f.n_fmdofs)
-
-num_dirichlet_tags(f::ParamFESpaceLinConstraints) = num_dirichlet_tags(f.space)
-
-function get_dirichlet_dof_tag(f::ParamFESpaceLinConstraints)
-  ddof_to_tag = get_dirichlet_dof_tag(f.space)
-  dmdof_to_tag = zeros(eltype(ddof_to_tag),num_dirichlet_dofs(f))
-  _setup_ddof_to_tag!(
-    dmdof_to_tag,
-    ddof_to_tag,
-    f.mDOF_to_DOF,
-    f.n_fdofs,
-    f.n_fmdofs)
-  dmdof_to_tag
-end
-
-function _setup_ddof_to_tag!(
-  dmdof_to_tag,
-  ddof_to_tag,
-  mDOF_to_DOF,
-  n_fdofs,
-  n_fmdofs)
-
-  for mDOF in (n_fmdofs+1):length(mDOF_to_DOF)
-    mdof = _DOF_to_dof(mDOF,n_fmdofs)
-    @assert mdof < 0 "Dirichlet dofs can only depend on Dirichlet dofs"
-    dmdof = -mdof
-    DOF = mDOF_to_DOF[mDOF]
-    dof = _DOF_to_dof(DOF,n_fdofs)
-    @assert dof < 0 "Dirichlet dofs can only depend on Dirichlet dofs"
-    ddof = -dof
-    dmdof_to_tag[dmdof] = ddof_to_tag[ddof]
-  end
-end
-
-function get_dirichlet_dof_values(f::ParamFESpaceLinConstraints)
-  ddof_to_tag = get_dirichlet_dof_values(f.space)
-  dmdof_to_tag = zeros(eltype(ddof_to_tag),num_dirichlet_dofs(f))
-  _setup_ddof_to_tag!(
-    dmdof_to_tag,
-    ddof_to_tag,
-    f.mDOF_to_DOF,
-    f.n_fdofs,
-    f.n_fmdofs)
-  dmdof_to_tag
-end
-
-function scatter_free_and_dirichlet_values(f::ParamFESpaceLinConstraints,fmdof_to_val,dmdof_to_val)
-  fdof_to_val = zero_free_values(f.space)
-  ddof_to_val = zero_dirichlet_values(f.space)
-  _setup_dof_to_val!(
-    fdof_to_val,
-    ddof_to_val,
-    fmdof_to_val,
-    dmdof_to_val,
-    f.DOF_to_mDOFs,
-    f.DOF_to_coeffs,
-    f.n_fdofs,
-    f.n_fmdofs)
-  scatter_free_and_dirichlet_values(f.space,fdof_to_val,ddof_to_val)
-end
-
-function _setup_dof_to_val!(
-  fdof_to_val,
-  ddof_to_val,
-  fmdof_to_val,
-  dmdof_to_val,
+function FESpaces._setup_dof_to_val!(
+  fdof_to_val::ConsecutiveParamVector,
+  ddof_to_val::ConsecutiveParamVector,
+  fmdof_to_val::ConsecutiveParamVector,
+  dmdof_to_val::ConsecutiveParamVector,
   DOF_to_mDOFs,
-  DOF_to_coeffs,
+  DOF_to_coeffs::BidimensionalTable,
   n_fdofs,
-  n_fmdofs)
+  n_fmdofs
+  )
 
-  T = eltype(fdof_to_val)
+  @check (param_length(fdof_to_val) == param_length(ddof_to_val) ==
+          param_length(fmdof_to_val) == param_length(dmdof_to_val))
+  f2v = get_all_data(fdof_to_val)
+  d2v = get_all_data(ddof_to_val)
+  fm2v = get_all_data(fmdof_to_val)
+  dm2v = get_all_data(dmdof_to_val)
+
+  T = eltype2(fdof_to_val)
+  plength = param_length(fdof_to_val)
+  val = zeros(T,plength)
 
   for DOF in 1:length(DOF_to_mDOFs)
     pini = DOF_to_mDOFs.ptrs[DOF]
     pend = DOF_to_mDOFs.ptrs[DOF+1]-1
-    val = zero(T)
+    fill!(val,zero(T))
     for p in pini:pend
       mDOF = DOF_to_mDOFs.data[p]
-      coeff = DOF_to_coeffs.data[p]
-      mdof = _DOF_to_dof(mDOF,n_fmdofs)
+      mdof = FESpaces._DOF_to_dof(mDOF,n_fmdofs)
       if mdof > 0
         fmdof = mdof
-        val += fmdof_to_val[fmdof]*coeff
+        @inbounds for k in 1:plength
+          val[k] += fm2v[fmdof,k]*DOF_to_coeffs.data[p,k]
+        end
       else
         dmdof = -mdof
-        val += dmdof_to_val[dmdof]*coeff
+        @inbounds for k in 1:plength
+          val[k] += dm2v[dmdof,k]*DOF_to_coeffs.data[p,k]
+        end
       end
     end
-    dof = _DOF_to_dof(DOF,n_fdofs)
+    dof = FESpaces._DOF_to_dof(DOF,n_fdofs)
     if dof > 0
       fdof = dof
-      fdof_to_val[fdof] = val
+      @inbounds for k in 1:plength
+        f2v[fdof,k] = val[k]
+      end
     else
       ddof = -dof
-      ddof_to_val[ddof] = val
+      @inbounds for k in 1:plength
+        d2v[ddof,k] = val[k]
+      end
     end
   end
-
-end
-
-function gather_free_and_dirichlet_values(f::ParamFESpaceLinConstraints,cell_to_ludof_to_val)
-  fdof_to_val,ddof_to_val = gather_free_and_dirichlet_values(f.space,cell_to_ludof_to_val)
-  fmdof_to_val = zero_free_values(f)
-  dmdof_to_val = zero_dirichlet_values(f)
-  _setup_mdof_to_val!(
-    fmdof_to_val,
-    dmdof_to_val,
-    fdof_to_val,
-    ddof_to_val,
-    f.mDOF_to_DOF,
-    f.n_fdofs,
-    f.n_fmdofs)
-  fmdof_to_val,dmdof_to_val
-end
-
-function gather_free_and_dirichlet_values!(fmdof_to_val,dmdof_to_val,f::ParamFESpaceLinConstraints,cell_to_ludof_to_val)
-  fdof_to_val,ddof_to_val = gather_free_and_dirichlet_values(f.space,cell_to_ludof_to_val)
-  _setup_mdof_to_val!(
-    fmdof_to_val,
-    dmdof_to_val,
-    fdof_to_val,
-    ddof_to_val,
-    f.mDOF_to_DOF,
-    f.n_fdofs,
-    f.n_fmdofs)
-  fmdof_to_val,dmdof_to_val
-end
-
-function _setup_mdof_to_val!(
-  fmdof_to_val,
-  dmdof_to_val,
-  fdof_to_val,
-  ddof_to_val,
-  mDOF_to_DOF,
-  n_fdofs,
-  n_fmdofs)
-
-  for mDOF in 1:length(mDOF_to_DOF)
-    DOF = mDOF_to_DOF[mDOF]
-    dof = _DOF_to_dof(DOF,n_fdofs)
-    if dof > 0
-      fdof = dof
-      val = fdof_to_val[fdof]
-    else
-      ddof = -dof
-      val = ddof_to_val[ddof]
-    end
-    mdof = _DOF_to_dof(mDOF,n_fmdofs)
-    if mdof > 0
-      fmdof = mdof
-      fmdof_to_val[fmdof] = val
-    else
-      dmdof = -mdof
-      dmdof_to_val[dmdof] = val
-    end
-  end
-
-end
-
-# Implementation of FESpace interface
-
-function get_triangulation(f::ParamFESpaceLinConstraints)
-  get_triangulation(f.space)
-end
-
-get_free_dof_ids(f::ParamFESpaceLinConstraints) = Base.OneTo(f.n_fmdofs)
-
-function get_vector_type(f::ParamFESpaceLinConstraints)
-  get_vector_type(f.space)
-end
-
-function get_fe_basis(f::ParamFESpaceLinConstraints)
-  get_fe_basis(f.space)
-end
-
-function get_trial_fe_basis(f::ParamFESpaceLinConstraints)
-  get_trial_fe_basis(f.space)
-end
-
-function CellField(f::ParamFESpaceLinConstraints,cellvals)
-  CellField(f.space,cellvals)
-end
-
-ConstraintStyle(::Type{<:ParamFESpaceLinConstraints}) = Constrained()
-
-function get_cell_isconstrained(f::ParamFESpaceLinConstraints)
-  #TODO this can be heavily optimized
-  n = length(get_cell_dof_ids(f))
-  Fill(true,n)
-end
-
-function get_cell_constraints(f::ParamFESpaceLinConstraints)
-
-  k = LinearConstraintsMap(
-    f.DOF_to_mDOFs,
-    f.DOF_to_coeffs,
-    length(f.mDOF_to_DOF),
-    f.n_fmdofs,
-    f.n_fdofs)
-
-  cell_to_mat = get_cell_constraints(f.space)
-  lazy_map(k,f.cell_to_lmdof_to_mdof,f.cell_to_ldof_to_dof,cell_to_mat)
-
-end
-
-struct LinearConstraintsMap{A,B} <: Map
-  DOF_to_mDOFs::A
-  DOF_to_coeffs::B
-  n_mDOFs::Int
-  n_fmdofs::Int
-  n_fdofs::Int
-end
-
-function return_cache(k::LinearConstraintsMap,lmdof_to_mdof,ldof_to_dof,mat)
-  n_lmdofs = length(lmdof_to_mdof)
-  n_ldofs = length(ldof_to_dof)
-  n_ludofs = size(mat,2)
-  @assert n_ldofs == size(mat,1)
-  m1 = CachedArray(zeros(n_lmdofs,n_ldofs))
-  m2 = CachedArray(zeros(n_lmdofs,n_ludofs))
-  mDOF_to_lmdof = zeros(Int16,k.n_mDOFs)
-  m1,m2,mDOF_to_lmdof
-end
-
-function evaluate!(cache,k::LinearConstraintsMap,lmdof_to_mdof,ldof_to_dof,mat)
-  m1,m2,mDOF_to_lmdof = cache
-  n_lmdofs = length(lmdof_to_mdof)
-  n_ldofs = length(ldof_to_dof)
-  n_ludofs = size(mat,2)
-
-  setsize!(m1,(n_lmdofs,n_ldofs))
-  setsize!(m2,(n_lmdofs,n_ludofs))
-  a1 = m1.array
-  a2 = m2.array
-  fill!(a1,zero(eltype(a1)))
-
-  for (lmdof,mdof) in enumerate(lmdof_to_mdof)
-    mDOF = _dof_to_DOF(mdof,k.n_fmdofs)
-    mDOF_to_lmdof[mDOF] = lmdof
-  end
-
-  for (ldof,dof) in enumerate(ldof_to_dof)
-    DOF = _dof_to_DOF(dof,k.n_fdofs)
-    qini = k.DOF_to_mDOFs.ptrs[DOF]
-    qend = k.DOF_to_mDOFs.ptrs[DOF+1]-1
-    for q in qini:qend
-      mDOF = k.DOF_to_mDOFs.data[q]
-      coeff = k.DOF_to_coeffs.data[q]
-      lmdof = mDOF_to_lmdof[mDOF]
-      a1[lmdof,ldof] = coeff
-    end
-  end
-
-  #TODO this is not always needed
-  mul!(a2,a1,mat)
-  a2
 end
 
 function AgFEM._setup_agfem_constraints(
@@ -591,4 +447,16 @@ function AgFEM._setup_agfem_constraints(
   aggdof_to_coeffs = BidimensionalTable(aggdof_to_coeffs_data,aggdof_to_dofs_ptrs)
 
   aggdof_to_fdof,aggdof_to_dofs,aggdof_to_coeffs
+end
+
+function reparameterize(f::ParamFESpaceLinConstraints,plength::Int)
+  ParamFESpaceLinConstraints(
+    f.space,
+    f.n_fdofs,
+    f.n_fmdofs,
+    f.mDOF_to_DOF,
+    f.DOF_to_mDOFs,
+    f.DOF_to_coeffs[1:plength],
+    f.cell_to_lmdof_to_mdof,
+    f.cell_to_ldof_to_dof)
 end

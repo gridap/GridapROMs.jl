@@ -73,7 +73,7 @@ export get_polynomial_orders
 include("FEDomainOperators.jl")
 
 export DomainOperator
-export LinearOperator
+export LinearDomainOperator
 export GenericDomainOperator
 export collect_cell_matrix_for_trian
 export collect_cell_vector_for_trian

@@ -33,15 +33,11 @@ function mapped_grid(grid::Grid,phys_map::AbstractParamFunction)
   mapped_grid(PhysicalMap(),grid,phys_map)
 end
 
-function mapped_grid(style::GridMapStyle,grid::Grid,phys_map::AbstractVector{<:Field})
-  cell_to_coords = get_cell_coordinates(grid)
-  cell_coords_map = lazy_map(evaluate,phys_map,cell_to_coords)
-  mapped_grid(style,grid,phys_map)
-end
-
 function mapped_grid(style::GridMapStyle,grid::Grid,phys_map::Function)
   cell_phys_map = Fill(GenericField(phys_map),num_cells(grid))
-  mapped_grid(style,grid,cell_phys_map)
+  cell_to_coords = get_cell_coordinates(grid)
+  cell_coords_map = lazy_map(evaluate,cell_phys_map,cell_to_coords)
+  mapped_grid(style,grid,cell_coords_map)
 end
 
 for T in (:GenericParamBlock,:Field)
@@ -93,8 +89,8 @@ end
 for T in (:AbstractParamFunction,:FEFunction)
   @eval begin
     function Geometry.MappedDiscreteModel(model::DiscreteModel,phys_map::$T)
-      mapped_grid = mapped_grid(get_grid(model),phys_map)
-      ParamMappedDiscreteModel(model,mapped_grid)
+      grid = mapped_grid(get_grid(model),phys_map)
+      ParamMappedDiscreteModel(model,grid)
     end
   end
 end
@@ -223,8 +219,8 @@ end
 
 function _map_coords!(
   ::PhysicalMap,
-  old_coords,
   node_ids_to_coords::GenericParamBlock,
+  old_coords,
   cell_node_ids,
   cell_to_coords::AbstractVector{<:GenericParamBlock}
   )
