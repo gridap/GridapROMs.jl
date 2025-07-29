@@ -113,6 +113,10 @@ function Arrays.testvalue(a::GenericParamBlock{A}) where A
   GenericParamBlock(data)
 end
 
+function Arrays.collect1d(a::GenericParamBlock{A}) where A
+  GenericParamBlock(map(collect1d,a.data))
+end
+
 # this one misses the param length
 function Arrays.testvalue(::Type{GenericParamBlock{A}}) where A
   GenericParamBlock([testvalue(A)])
@@ -498,6 +502,37 @@ function Arrays.evaluate!(cache,k::IntegrationMap,fx::ParamBlock,w,jx::ParamBloc
   end
   g
 end
+
+function Arrays.return_value(k::Fields.VoidBasis,f::ParamBlock)
+  fi = testitem(f)
+  fix = return_value(k,fi)
+  g = Vector{typeof(fix)}(undef,param_length(f))
+  for i in param_eachindex(f)
+    g[i] = return_value(k,param_getindex(f,i))
+  end
+  GenericParamBlock(g)
+end
+
+function Arrays.return_cache(k::Fields.VoidBasis,f::ParamBlock)
+  fi = testitem(f)
+  li = return_cache(k,fi)
+  fix = evaluate!(li,k,fi)
+  l = Vector{typeof(li)}(undef,param_length(f))
+  g = Vector{typeof(fix)}(undef,param_length(f))
+  for i in param_eachindex(f)
+    l[i] = return_cache(k,param_getindex(f,i))
+  end
+  GenericParamBlock(g),l
+end
+
+function Arrays.evaluate!(cache,k::Fields.VoidBasis,f::ParamBlock)
+  g,l = cache
+  for i in param_eachindex(f)
+    g.data[i] = evaluate!(l[i],k,param_getindex(f,i))
+  end
+  g
+end
+
 
 function Arrays.return_value(k::Broadcasting,f::ParamBlock)
   fi = testitem(f)

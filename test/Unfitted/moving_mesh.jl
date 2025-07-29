@@ -92,29 +92,57 @@ end
 
 reffe = ReferenceFE(lagrangian,Float64,order)
 
+# function def_fe_operator(μ)
+#   φh = get_deformation_map(μ)
+#   Ωactφ = mapped_grid(Ωact,φh)
+#   Ωφ = mapped_grid(Ω,φh)
+#   Γφ = mapped_grid(Γ,φh)
+
+#   dΩφ = Measure(Ωφ,degree)
+#   dΓφ = Measure(Γφ,degree)
+
+#   n_Γφ = get_normal_vector(Γφ)
+
+#   f(μ) = x -> 1.0
+#   fμ(μ) = parameterize(f,μ)
+#   g(μ) = x -> x[1]-x[2]
+#   gμ(μ) = parameterize(g,μ)
+
+#   a(μ,u,v,dΩφ,dΓφ) = ∫(∇(v)⋅∇(u))dΩφ + ∫( (γd/hd)*v*u  - v*(n_Γφ⋅∇(u)) - (n_Γφ⋅∇(v))*u )dΓφ
+#   l(μ,v,dΩφ) = ∫(fμ(μ)⋅v)dΩφ
+#   res(μ,u,v,dΩφ) = ∫(∇(v)⋅∇(u))dΩφ - l(μ,v,dΩφ)
+
+#   domains = FEDomains((Ωφ,),(Ωφ,Γφ))
+
+#   testact = FESpace(Ωactφ,reffe,conformity=:H1,dirichlet_tags=[1,3,7])
+#   test = AgFEMSpace(testact,aggregates)
+#   trial = ParamTrialFESpace(test,gμ)
+
+#   LinearParamOperator(res,a,pspace,trial,test,domains)
+# end
 function def_fe_operator(μ)
   φh = get_deformation_map(μ)
   Ωactφ = mapped_grid(Ωact,φh)
   Ωφ = mapped_grid(Ω,φh)
   Γφ = mapped_grid(Γ,φh)
 
-  dΩφ = Measure(Ωφ,degree)
-  dΓφ = Measure(Γφ,degree)
+  dΩ₀ = ReferenceMeasure(Ωφ,degree)
+  dΓ₀ = ReferenceMeasure(Γφ,degree)
 
-  n_Γφ = get_normal_vector(Γφ)
+  ∇act₀(f) = ∇₀(f,Ωactφ)
 
   f(μ) = x -> 1.0
   fμ(μ) = parameterize(f,μ)
   g(μ) = x -> x[1]-x[2]
   gμ(μ) = parameterize(g,μ)
 
-  a(μ,u,v,dΩφ,dΓφ) = ∫(∇(v)⋅∇(u))dΩφ + ∫( (γd/hd)*v*u  - v*(n_Γφ⋅∇(u)) - (n_Γφ⋅∇(v))*u )dΓφ
-  l(μ,v,dΩφ) = ∫(fμ(μ)⋅v)dΩφ
-  res(μ,u,v,dΩφ) = ∫(∇(v)⋅∇(u))dΩφ - l(μ,v,dΩφ)
+  a(μ,u,v,dΩ₀,dΓ₀) = ∫(∇act₀(v)⋅∇act₀(u))*dΩ₀ + ∫( (γ/h)*v*u - v*(n_Γ⋅∇act₀(u)) - (n_Γ⋅∇act₀(v))*u )*dΓ₀
+  l(μ,v,dΩ₀) = ∫(fμ(μ)⋅v)dΩ₀
+  res(μ,u,v,dΩ₀) = ∫(∇(v)⋅∇(u))dΩ₀ - l(μ,v,dΩ₀)
 
-  domains = FEDomains((Ωφ,),(Ωφ,Γφ))
+  domains = FEDomains((Ω,),(Ω,Γ))
 
-  testact = FESpace(Ωactφ,reffe,conformity=:H1,dirichlet_tags=[1,3,7])
+  testact = FESpace(Ωact,reffe,conformity=:H1,dirichlet_tags=[1,3,7])
   test = AgFEMSpace(testact,aggregates)
   trial = ParamTrialFESpace(test,gμ)
 
@@ -239,14 +267,18 @@ CIAO
 
 # basis = projection(get_reduction(rbsolver.residual_reduction.reduction),ress[1])
 # rx[1] - basis.basis*basis.basis'*rx[1]
-r = Realization([[1.0]])
-fs = allocate_space(opμ.trial,r)
-object = opμ.trial.space.dirichlet(r)
-s = get_fe_dof_basis(fs)
-trian = get_triangulation(s)
-f = CellField(object,trian,DomainStyle(s))
-cell_vals = s(f)
-aa = get_data(s)[1]
-bb = get_data(f)[1]
-# evaluate(aa,bb)
-return_cache(aa,bb)
+
+φh = get_deformation_map(μ)
+Ωactφ = mapped_grid(Ωact,φh)
+Ωφ = mapped_grid(Ω,φh)
+Γφ = mapped_grid(Γ,φh)
+
+dΩ₀ = ReferenceMeasure(Ωφ,degree)
+dΓ₀ = ReferenceMeasure(Γφ,degree)
+n_Γ₀ = get_normal_vector(dΓ₀.quad.trian)
+
+dΩ₀ = ReferenceMeasure(Ωφ,degree)
+dΓ₀ = ReferenceMeasure(Γφ,degree)
+n_Γ₀ = get_normal_vector(dΓ₀.quad.trian)
+
+Ω₀ = dΩ₀.quad.trian

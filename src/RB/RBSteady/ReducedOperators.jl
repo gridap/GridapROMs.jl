@@ -230,20 +230,16 @@ end
 
 function change_operator(op::JointRBOperator,op′::ParamOperator)
   rhs,lhs = get_rhs(op),get_lhs(op)
-  trial′ = change_fe_space(get_trial(op),get_trial(op′))
-  test′ = change_fe_space(get_test(op),get_test(op′))
-  RBOperator(op′,trial′,test′,lhs,rhs)
+  RBOperator(op′,op.trial,op.test,lhs,rhs)
 end
 
 function change_operator(op::SplitRBOperator,op′::ParamOperator)
   rhs,lhs = get_rhs(op),get_lhs(op)
-  trial′ = change_fe_space(get_trial(op),get_trial(op′))
-  test′ = change_fe_space(get_test(op),get_test(op′))
   trians_rhs′ = change_triangulation(get_domains_res(op′),get_domains(rhs))
   trians_lhs′ = change_triangulation(get_domains_jac(op′),get_domains(lhs))
   rhs′ = change_domains(rhs,trians_rhs′)
   lhs′ = change_domains(lhs,trians_lhs′)
-  RBOperator(op′,trial′,test′,lhs′,rhs′)
+  RBOperator(op′,op.trial,op.test,lhs′,rhs′)
 end
 
 """
@@ -365,7 +361,7 @@ function get_local(op::LocalRBOperator,μ::AbstractVector)
   testμ = get_local(op.test,μ)
   lhsμ = get_local(op.lhs,μ)
   rhsμ = get_local(op.rhs,μ)
-  GenericRBOperator(opμ,trialμ,testμ,lhsμ,rhsμ)
+  RBOperator(opμ,trialμ,testμ,lhsμ,rhsμ)
 end
 
 """

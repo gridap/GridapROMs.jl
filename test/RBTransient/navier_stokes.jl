@@ -8,18 +8,18 @@ using GridapSolvers.NonlinearSolvers
 
 using GridapROMs
 
-tol_or_rank(tol,rank) = @assert false "Provide either a tolerance or a rank for the reduction step"
-tol_or_rank(tol::Real,rank) = tol
-tol_or_rank(tol::Real,rank::Int) = tol
-tol_or_rank(tol,rank::Int) = rank
-
 function main(
-  method=:pod;
-  tol=1e-4,rank=nothing,nparams=50,nparams_res=floor(Int,nparams/3),
-  nparams_jac=floor(Int,nparams/4),nparams_djac=1,sketch=:sprn
+  method=:pod,compression=:global,hypred_strategy=:mdeim;
+  tol=1e-4,nparams=50,nparams_res=floor(Int,nparams/3),
+  nparams_jac=floor(Int,nparams/4),sketch=:sprn,ncentroids=2
   )
 
-  @assert method ∈ (:pod,:ttsvd) "Unrecognized reduction method! Should be one of (:pod,:ttsvd)"
+  method = method ∈ (:pod,:ttsvd) ? method : :pod
+  compression = compression ∈ (:global,:local) ? compression : :global
+  hypred_strategy = hypred_strategy ∈ (:mdeim,:rbf) ? hypred_strategy : :mdeim
+
+  println("Running test with compression $method, $compression compressions, and $hypred_strategy hyper-reduction")
+
   pdomain = (1,10,-1,5,1,2)
 
   domain = (0,1,0,1)
@@ -78,14 +78,11 @@ function main(
 
   xh0μ(μ) = interpolate_everywhere([u0μ(μ),p0μ(μ)],trial(μ,t0))
 
-  tolrank = tol_or_rank(tol,rank)
+  coupling((du,dp),(v,q)) = method==:pod ? ∫(dp*(∇⋅(v)))dΩ : ∫(dp*∂₁(v))dΩ + ∫(dp*∂₂(v))dΩ
   if method == :pod
-    coupling((du,dp),(v,q)) = ∫(dp*(∇⋅(v)))dΩ
-    state_reduction = HighOrderReduction(coupling,tolrank,energy;nparams,sketch)
+    state_reduction = HighOrderReduction(coupling,tol,energy;nparams,sketch,compression,ncentroids)
   else method == :ttsvd
-    tolranks = fill(tolrank,4)
-    ttcoupling((du,dp),(v,q)) = ∫(dp*∂₁(v))dΩ + ∫(dp*∂₂(v))dΩ
-    state_reduction = HighOrderReduction(ttcoupling,tolranks,energy;nparams)
+    state_reduction = HighOrderReduction(coupling,tol,energy;nparams,sketch,compression,ncentroids)
   end
 
   θ = 0.5
@@ -95,37 +92,26 @@ function main(
   tdomain = t0:dt:tf
 
   fesolver = ThetaMethod(NewtonSolver(LUSolver();rtol=1e-10,maxiter=20,verbose=true),dt,θ)
-  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,nparams_djac)
+  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy)
 
-  ptspace_uniform = TransientParamSpace(pdomain,tdomain;sampling=:uniform)
-  feop_lin_uniform = TransientLinearParamOperator((stiffness,mass),res,ptspace_uniform,
-    trial,test,domains_lin;constant_forms=(false,true))
-  feop_nlin_uniform = TransientParamOperator(res_nlin,jac_nlin,ptspace_uniform,
+  ptspace = TransientParamSpace(pdomain,tdomain)
+
+  feop_lin = TransientLinearParamOperator((stiffness,mass),res,ptspace,
+    trial,test,domains_lin)
+  feop_nlin = TransientParamOperator(res_nlin,jac_nlin,ptspace,
     trial,test,domains_nlin)
-  feop_uniform = LinearNonlinearTransientParamOperator(feop_lin_uniform,feop_nlin_uniform)
-  μon = realization(feop_uniform;nparams=10)
-  x,festats = solution_snapshots(rbsolver,feop_uniform,μon,xh0μ)
+  feop = LinearNonlinearTransientParamOperator(feop_lin,feop_nlin)
 
-  for sampling in (:uniform,:halton,:latin_hypercube,:tensorial_uniform)
-    println("Running $method test with sampling strategy $sampling")
-    ptspace = TransientParamSpace(pdomain,tdomain;sampling)
-    feop_lin = TransientLinearParamOperator((stiffness,mass),res,ptspace,
-      trial,test,domains_lin)
-    feop_nlin = TransientParamOperator(res_nlin,jac_nlin,ptspace,
-      trial,test,domains_nlin)
-    feop = LinearNonlinearTransientParamOperator(feop_lin,feop_nlin)
+  μon = realization(feop;nparams=10,sampling=:uniform)
+  x̂,rbstats = solve(rbsolver,rbop,μon,uh0μ)
+  x,festats = solution_snapshots(rbsolver,feop,μon)
+  perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
 
-    fesnaps, = solution_snapshots(rbsolver,feop,xh0μ)
-    rbop = reduced_operator(rbsolver,feop,fesnaps)
-    x̂,rbstats = solve(rbsolver,rbop,μon,xh0μ)
-    perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
-
-    println(perf)
-  end
-
+  println(perf)
 end
 
-main(:pod)
-main(:ttsvd)
+for method in (:pod,:ttsvd), compression in (:local,:global), hypred_strategy in (:mdeim,:rbf)
+  main(method,compression,hypred_strategy)
+end
 
 end

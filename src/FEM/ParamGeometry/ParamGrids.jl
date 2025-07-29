@@ -105,14 +105,6 @@ Geometry.get_cell_map(model::ParamMappedDiscreteModel) = get_cell_map(model.mapp
 Geometry.get_grid_topology(model::ParamMappedDiscreteModel) = get_grid_topology(model.model)
 Geometry.get_face_labeling(model::ParamMappedDiscreteModel) = get_face_labeling(model.model)
 
-function Geometry.Grid(::Type{ReferenceFE{d}},model::ParamMappedDiscreteModel) where d
-  node_coordinates = get_node_coordinates(model)
-  cell_to_nodes = Table(get_face_nodes(model,d))
-  cell_to_type = collect1d(get_face_type(model,d))
-  reffes = get_reffaces(ReferenceFE{d},model)
-  UnstructuredGrid(node_coordinates,cell_to_nodes,reffes,cell_to_type)
-end
-
 struct ParamUnstructuredGrid{Dc,Dp,Tp,O,Tn} <: ParamGrid{Dc,Dp}
   node_coordinates::ParamBlock{Vector{Point{Dp,Tp}}}
   cell_node_ids::Table{Int32,Vector{Int32},Vector{Int32}}

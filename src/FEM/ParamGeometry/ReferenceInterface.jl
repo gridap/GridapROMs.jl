@@ -20,7 +20,7 @@ end
 Geometry.get_background_model(t::ConfigurationTriangulation) = get_background_model(t.trian)
 Geometry.get_glue(t::ConfigurationTriangulation,::Val{D}) where D = get_glue(t.trian,Val{D}())
 Geometry.get_grid(t::ConfigurationTriangulation) = _get_grid(t.style,get_grid(t.trian),get_background_model(t))
-Geometry.get_facet_normal(t::ConfigurationTriangulation) =get_facet_normal(t.trian)
+Geometry.get_facet_normal(t::ConfigurationTriangulation) = get_facet_normal(t.trian)
 
 _get_grid(s::ConfigurationStyle,g::Grid,m::DiscreteModel) = g
 _get_grid(s::ConfigurationStyle,g::ParamGrid,m::DiscreteModel) = @abstractmethod
@@ -32,7 +32,7 @@ end
 _get_grid(s::ReferenceConfiguration,g::ParamMappedGrid,m::DiscreteModel) = g.grid
 
 function _get_grid(s::ReferenceConfiguration,g::ParamUnstructuredGrid,m::DiscreteModel)
-  node_coordinates = get_node_coordinates(m)
+  node_coordinates = collect1d(get_node_coordinates(m))
   UnstructuredGrid(
     node_coordinates,
     g.cell_node_ids,
@@ -62,9 +62,6 @@ function _get_grid(s::ConfigurationAtIndex,g::ParamUnstructuredGrid,m::DiscreteM
     g.facet_normal
   )
 end
-
-_get_at_index(a::LazyArray,i) = lazy_param_getindex(a,i)
-_get_at_index(a::GenericParamBlock,i) = a.data[i]
 
 struct ReferenceMeasure <: Measure
   quad::CellQuadrature
@@ -150,3 +147,6 @@ function ref_gradient(a::CellField,trian::Triangulation)
 end
 
 const ∇₀ = ref_gradient
+
+_get_at_index(a::LazyArray,i) = lazy_param_getindex(a,i)
+_get_at_index(a::GenericParamBlock,i) = a.data[i]

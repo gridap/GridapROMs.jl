@@ -182,10 +182,6 @@ function FESpaces.FEFunction(r::RBSpace,x̂::AbstractVector)
   return FEFunction(fe,x,xdir)
 end
 
-function change_fe_space(r::RBSpace,f::FESpace)
-  reduced_subspace(f,get_reduced_subspace(r))
-end
-
 """
     struct SingleFieldRBSpace{S<:SingleFieldFESpace} <: RBSpace{S}
       space::S

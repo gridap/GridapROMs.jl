@@ -16,7 +16,7 @@ function get_configuration_space(style::ConfigurationStyle,f::TrialParamFESpace)
 end
 
 function get_configuration_space(style::ConfigurationStyle,f::TrivialParamFESpace)
-  TrialParamFESpace(get_configuration_space(style,f.space),f.plength)
+  TrivialParamFESpace(get_configuration_space(style,f.space),f.plength)
 end
 
 function get_configuration_space(style::ConfigurationStyle,f::MultiFieldFESpace)
@@ -36,7 +36,7 @@ function FESpaces.get_triangulation(f::ConfigurationFESpace)
   get_configuration_triangulation(f.style,get_triangulation(f.space))
 end
 
-for F in (:(FESpaces.get_fe_basis),:(FESpaces.get_trial_fe_basis),:(FESpaces.get_fe_dof_basis))
+for F in (:(FESpaces.get_fe_basis),:(FESpaces.get_fe_dof_basis))
   @eval begin
     function $F(f::ConfigurationFESpace)
       a = $F(f.space)
