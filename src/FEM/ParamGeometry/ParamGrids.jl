@@ -105,25 +105,6 @@ Geometry.get_cell_map(model::ParamMappedDiscreteModel) = get_cell_map(model.mapp
 Geometry.get_grid_topology(model::ParamMappedDiscreteModel) = get_grid_topology(model.model)
 Geometry.get_face_labeling(model::ParamMappedDiscreteModel) = get_face_labeling(model.model)
 
-function Geometry.is_change_possible(
-  strian::Triangulation{Dc,Dp},
-  ttrian::Triangulation{Dc,Dp}
-  ) where {Dc,Dp}
-
-  if strian === ttrian
-    return true
-  end
-
-  msg = "Triangulations do not point to the same background discrete model!"
-  smodel = get_background_model(strian)
-  tmodel = get_background_model(strian)
-  @check _model_compatibility(smodel,tmodel)
-
-  sglue = get_glue(strian,Val(Dc))
-  tglue = get_glue(ttrian,Val(Dc))
-  is_change_possible(sglue,tglue)
-end
-
 function Geometry.Grid(::Type{ReferenceFE{d}},model::ParamMappedDiscreteModel) where d
   node_coordinates = get_node_coordinates(model)
   cell_to_nodes = Table(get_face_nodes(model,d))

@@ -365,7 +365,7 @@ function get_local(op::LocalRBOperator,μ::AbstractVector)
   testμ = get_local(op.test,μ)
   lhsμ = get_local(op.lhs,μ)
   rhsμ = get_local(op.rhs,μ)
-  RBOperator(opμ,trialμ,testμ,lhsμ,rhsμ)
+  GenericRBOperator(opμ,trialμ,testμ,lhsμ,rhsμ)
 end
 
 """

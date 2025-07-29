@@ -8,26 +8,31 @@ function Extensions.get_bg_cell_dof_ids(r::DirectSumRBSpace,args...)
   get_bg_cell_dof_ids(get_fe_space(r),args...)
 end
 
-function reduced_cells(
-  f::DirectSumRBSpace,
+function IntegrationDomain(
   trian::Triangulation,
-  dofs::AbstractVector
+  test::DirectSumRBSpace,
+  rows::Vector{<:Number}
   )
 
-  cell_dof_ids = get_bg_cell_dof_ids(f,trian)
-  cells = get_dofs_to_cells(cell_dof_ids,dofs)
-  return cells
+  cell_row_ids = get_bg_cell_dof_ids(test,trian)
+  cells = get_rows_to_cells(cell_row_ids,rows)
+  irows = get_cells_to_irows(cell_row_ids,cells,rows)
+  GenericDomain(cells,irows,rows)
 end
 
-function reduced_irows(
-  f::DirectSumRBSpace,
+function IntegrationDomain(
   trian::Triangulation,
-  cells::AbstractVector,
-  dofs::AbstractVector)
+  trial::DirectSumRBSpace,
+  test::DirectSumRBSpace,
+  rows::Vector{<:Number},
+  cols::Vector{<:Number}
+  )
 
-  cell_dof_ids = get_bg_cell_dof_ids(f,trian)
-  idofs = get_cells_to_irows(cell_dof_ids,cells,dofs)
-  return idofs
+  cell_row_ids = get_bg_cell_dof_ids(test,trian)
+  cell_col_ids = get_bg_cell_dof_ids(trial,trian)
+  cells = get_rowcols_to_cells(cell_row_ids,cell_col_ids,rows,cols)
+  irowcols = get_cells_to_irowcols(cell_row_ids,cell_col_ids,cells,rows,cols)
+  GenericDomain(cells,irowcols,(rows,cols))
 end
 
 # utils

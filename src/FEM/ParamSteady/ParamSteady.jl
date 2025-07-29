@@ -33,11 +33,6 @@ import Gridap.FESpaces: FEFunction,SparseMatrixAssembler,EvaluationFunction
 import Gridap.ReferenceFEs: get_order
 import GridapROMs.Utils: CostTracker,get_fe_operator,change_domains,set_domains
 
-export UnEvalTrialFESpace
-export ParamTrialFESpace
-export AbstractTrialFESpace
-include("ParamTrialFESpaces.jl")
-
 export UnEvalOperatorType
 export NonlinearParamEq
 export LinearParamEq

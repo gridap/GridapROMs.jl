@@ -150,6 +150,10 @@ x̂,rbstats = solve(rbsolver,rbop,μon)
 x,festats = solution_snapshots(rbsolver,feopon,μon)
 perf = eval_performance(rbsolver,feopon,rbop,x,x̂,festats,rbstats)
 
+rhs,lhs = rbop′.rhs,rbop′.lhs
+trians_rhs′ = change_triangulation(get_domains_res(rbop′),get_domains(rhs))
+
+CIAO
 # μend = Realization([[-0.0875]])
 # feopend = def_fe_operator(μend)
 # φendh = get_deformation_map(μend)
@@ -235,3 +239,14 @@ perf = eval_performance(rbsolver,feopon,rbop,x,x̂,festats,rbstats)
 
 # basis = projection(get_reduction(rbsolver.residual_reduction.reduction),ress[1])
 # rx[1] - basis.basis*basis.basis'*rx[1]
+r = Realization([[1.0]])
+fs = allocate_space(opμ.trial,r)
+object = opμ.trial.space.dirichlet(r)
+s = get_fe_dof_basis(fs)
+trian = get_triangulation(s)
+f = CellField(object,trian,DomainStyle(s))
+cell_vals = s(f)
+aa = get_data(s)[1]
+bb = get_data(f)[1]
+# evaluate(aa,bb)
+return_cache(aa,bb)

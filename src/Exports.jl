@@ -29,6 +29,8 @@ end
 @publish TProduct TProductFESpace
 
 @publish ParamGeometry mapped_grid
+@publish ParamGeometry ∇₀
+@publish ParamGeometry ReferenceMeasure
 
 @publish ParamDataStructures Realization
 @publish ParamDataStructures TransientRealization

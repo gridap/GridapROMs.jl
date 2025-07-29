@@ -9,10 +9,11 @@ using Gridap
 using Gridap.Arrays
 using Gridap.Algebra
 using Gridap.CellData
+using Gridap.FESpaces
 using Gridap.Fields
 using Gridap.Geometry
-using Gridap.FESpaces
 using Gridap.MultiField
+using Gridap.ODEs
 using Gridap.ReferenceFEs
 using Gridap.TensorValues
 using Gridap.Helpers
@@ -47,6 +48,11 @@ export TrialParamFESpace!
 export HomogeneousTrialParamFESpace
 include("TrialParamFESpaces.jl")
 
+export UnEvalTrialFESpace
+export ParamTrialFESpace
+export AbstractTrialFESpace
+include("UnEvalTrialFESpaces.jl")
+
 export ParamFEFunction
 export SingleFieldParamFEFunction
 export MultiFieldParamFEFunction
@@ -54,10 +60,8 @@ include("ParamFEFunctions.jl")
 
 include("ParamAssemblers.jl")
 
-export BaseConfigurationFESpace
-export BaseTriangulation
+export ConfigurationFESpace
 export get_configuration_space
-export get_base_triangulation
-include("BaseConfigurationSpaces.jl")
+include("ConfigurationSpaces.jl")
 
 end # module

@@ -90,7 +90,7 @@ function get_local(a::BlockProjection,μ::AbstractVector)
 end
 
 function get_local(a::RBSpace,μ::AbstractVector)
-  space = get_fe_space(a)
+  space = get_local_fe_space(a,μ)
   lsubspace = get_local(get_reduced_subspace(a),μ)
   reduced_subspace(space,lsubspace)
 end
@@ -190,6 +190,16 @@ function reduced_jacobian(lred::LocalReduction,trial::RBSpace,test::RBSpace,c::A
 end
 
 # local utils
+
+function get_local_fe_space(a::RBSpace,μ::AbstractVector)
+  k, = get_clusters(a)
+  get_local_fe_space(get_fe_space(a),k,μ)
+end
+
+function get_local_fe_space(f::FESpace,k::KmeansResult,μ::AbstractVector)
+  labk = get_label(k,μ)
+  get_configuration_space(f,labk)
+end
 
 function compute_clusters(red::LocalReduction,r::AbstractRealization)
   Random.seed!(1234)
