@@ -527,6 +527,25 @@ function FESpaces.gather_free_and_dirichlet_values!(
   (fv,dv)
 end
 
+# agfem
+
+function AgFEM._setup_agfem_constraints(
+  n_fdofs,
+  acell_to_acellin,
+  acell_to_dof_ids,
+  acell_to_coeffs::AbstractVector{<:ParamBlock},
+  acell_to_proj,
+  acell_to_gcell)
+
+  AgFEM._setup_agfem_constraints(
+    n_fdofs,
+    acell_to_acellin,
+    acell_to_dof_ids,
+    lazy_testitem(acell_to_coeffs),
+    acell_to_proj,
+    acell_to_gcell)
+end
+
 # utils
 
 function zero_free_and_dirichlet_values(f::SingleFieldFESpace)

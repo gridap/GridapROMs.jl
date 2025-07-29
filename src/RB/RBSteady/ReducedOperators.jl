@@ -424,6 +424,12 @@ function ParamDataStructures.parameterize(op::LinearNonlinearRBOperator,μ::Abst
   LinNonlinParamOperator(op_lin,op_nlin,syscache_lin)
 end
 
+function change_operator(op::LinearNonlinearRBOperator,op′::LinearNonlinearParamOperator)
+  op_lin′ = change_operator(get_linear_operator(op),get_linear_operator(op′))
+  op_nlin′ = change_operator(get_nonlinear_operator(op),get_nonlinear_operator(op′))
+  LinearNonlinearRBOperator(op_lin′,op_nlin′)
+end
+
 const LinearNonlinearGenericRBOperator{T} = LinearNonlinearRBOperator{<:GenericRBOperator,<:GenericRBOperator,T}
 
 const LinearNonlinearLocalRBOperator{T} = LinearNonlinearRBOperator{<:LocalRBOperator,<:LocalRBOperator,T}

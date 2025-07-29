@@ -250,11 +250,11 @@ function change_triangulation(old::Tuple,new::Tuple)
 end
 
 function change_triangulation(old::Tuple,new::AbstractArray{<:Tuple})
-  map(n -> change_triangulation(old,n))
+  map(n -> change_triangulation(old,n),new)
 end
 
 function change_triangulation(old::AbstractArray{<:Tuple},new::Tuple)
-  map(o -> change_triangulation(o,new))
+  map(o -> change_triangulation(o,new),old)
 end
 
 function change_triangulation(old::AbstractArray{<:Tuple},new::AbstractArray{<:Tuple})

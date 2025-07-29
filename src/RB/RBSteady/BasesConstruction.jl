@@ -55,7 +55,12 @@ function _size_cond(A::AbstractMatrix)
 end
 
 function _cholesky_decomp(X::AbstractSparseMatrix)
-  C = cholesky(X)
+  C = try
+    cholesky(X)
+  catch
+    @assert X ≈ X'
+    cholesky((X+X')/2)
+  end
   L = sparse(C.L)
   p = C.p
   return L,p

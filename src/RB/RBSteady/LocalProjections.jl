@@ -36,6 +36,11 @@ end
 
 CellData.get_domains(a::LocalProjection) = map(get_domains,a.projections)
 
+function Utils.change_domains(a::LocalProjection,trians)
+  projections′ = map(change_domains,a.projections,trians)
+  LocalProjection(projections′,a.k)
+end
+
 local_values(a) = @abstractmethod
 local_values(a::LocalProjection) = a.projections
 

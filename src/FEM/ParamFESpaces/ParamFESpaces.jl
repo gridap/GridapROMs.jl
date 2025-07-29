@@ -54,9 +54,6 @@ include("ParamFEFunctions.jl")
 
 include("ParamAssemblers.jl")
 
-export FESpaceLinParamConstraints
-include("FESpaceLinParamConstraints.jl")
-
 export BaseConfigurationFESpace
 export BaseTriangulation
 export get_configuration_space
