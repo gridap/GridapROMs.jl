@@ -40,7 +40,7 @@ export ConfigurationTriangulation
 export get_configuration_triangulation
 export ReferenceMeasure
 export reference_integrate
-export ∇₀
+export ∇₀, n₀
 include("ReferenceInterface.jl")
 
 end

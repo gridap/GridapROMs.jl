@@ -465,8 +465,7 @@ function to_snapshots(rbop::AbstractLocalRBOperator,x̂::AbstractParamVector,r::
   xvec = map(enumerate(r)) do (i,μ)
     opμ = get_local(rbop,μ)
     trialμ = get_trial(opμ)
-    x̂μ = param_getindex(x̂,i)
-    inv_project(trialμ,x̂μ)
+    inv_project(trialμ,x̂[i])
   end
   x = ParamArray(xvec)
   i = get_global_dof_map(rbop)

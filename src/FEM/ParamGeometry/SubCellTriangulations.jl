@@ -1,13 +1,13 @@
-for T in (:GenericParamBlock,:Field)
-  @eval begin
-    function mapped_grid(
-      style::GridMapStyle,trian::Interfaces.SubCellTriangulation,phys_map::AbstractVector{<:$T})
-      model = get_background_model(trian)
-      subgrid = mapped_grid(trian.subgrid,phys_map)
-      subcells = _change_coords(trian.subcells,subgrid)
-      ParamSubCellTriangulation(subcells,model)
-    end
-  end
+function mapped_grid(
+  style::GridMapStyle,
+  trian::Interfaces.SubCellTriangulation,
+  phys_map::AbstractVector
+  )
+
+  model = get_background_model(trian)
+  subgrid = mapped_grid(trian.subgrid,phys_map)
+  subcells = _change_coords(trian.subcells,subgrid)
+  Interfaces.SubCellTriangulation(subcells,model)
 end
 
 struct ParamSubCellData{Dr,Dp,Tp,Tr} <: GridapType
@@ -58,6 +58,10 @@ struct ParamSubCellTriangulation{Dc,Dp,T,A} <: Triangulation{Dc,Dp}
     A = typeof(bgmodel)
     new{Dc,Dp,T,A}(subcells,bgmodel,subgrid)
   end
+end
+
+function Interfaces.SubCellTriangulation(subcells::ParamSubCellData,model::DiscreteModel)
+  ParamSubCellTriangulation(subcells,model)
 end
 
 function Geometry.get_background_model(a::ParamSubCellTriangulation)

@@ -41,8 +41,9 @@ using GridapROMs.Uncommon
 
 import Base: +,-,*,\
 import FillArrays: Fill
-import PartitionedArrays: tuple_of_arrays
 import GridapROMs.TProduct: get_factor
+import PartitionedArrays: tuple_of_arrays
+import Statistics: mean
 
 export ReductionStyle
 export SearchSVDRank
@@ -178,6 +179,8 @@ include("HRAssemblers.jl")
 
 export LocalProjection
 export compute_ncentroids
+export cluster_realizatons
+export cluster_snapshots
 export get_local
 export local_values
 export get_clusters

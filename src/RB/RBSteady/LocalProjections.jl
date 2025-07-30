@@ -218,6 +218,30 @@ function cluster_snapshots(red::LocalReduction,s::ArrayContribution)
   cluster_snapshots(s,k)
 end
 
+function cluster_realizatons(r::Realization,k::KmeansResult)
+  labels = map(μ -> get_label(k,μ),r)
+  perm = sortperm(labels)
+  ptrs = zeros(Int32,length(labels)+1)
+  data = zeros(Int32,length(labels))
+  count = 0
+  for (i,p) in enumerate(perm)
+    labi = labels[p]
+    ptrs[1+labi] += 1
+    data[i] = p
+  end
+  ptrs′ = ptrs[findall(!iszero,ptrs)]
+  pushfirst!(ptrs′,zero(eltype(ptrs′)))
+  length_to_ptrs!(ptrs′)
+  t = Table(data,ptrs′)
+  cache = Vector{typeof(r)}(undef,length(ptrs′)-1)
+  for i in 1:length(ptrs′)-1
+    pini = ptrs′[i]
+    pend = ptrs′[i+1]-1
+    cache[i] = r[data[pini:pend]]
+  end
+  return cache
+end
+
 for T in (:ArrayContribution,:AbstractSnapshots)
   @eval begin
     function cluster_snapshots(s::$T,k::KmeansResult)

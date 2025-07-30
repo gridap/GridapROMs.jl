@@ -152,6 +152,49 @@ function get_reference_subfacets(model::DiscreteModel,subfacets::Union{Interface
     subfacets.point_to_rcoords)
 end
 
+function ref_gradient(a::CellField,trian::Triangulation)
+  @assert DomainStyle(a) == ReferenceDomain()
+  cell_map = get_cell_map(trian)
+  cell_∇a = lazy_map(Broadcasting(∇),get_data(a))
+  g = lazy_map(Broadcasting(push_∇),cell_∇a,cell_map)
+  similar_cell_field(a,g,get_triangulation(a),DomainStyle(a))
+end
+
+const ∇₀ = ref_gradient
+
+function get_reference_facet_normal(ref_n::CellField,trian::Triangulation)
+  @assert DomainStyle(ref_n) == ReferenceDomain()
+  D = num_cell_dims(trian)
+  glue = get_glue(trian,Val(D))
+
+  ref_Γ = get_triangulation(ref_n)
+  facet_map = get_glue(ref_Γ,Val{D}()).tface_to_mface_map
+  facet_to_cell = _get_face_to_cell(trian,ref_Γ)
+
+  ref_xΓ = get_data(get_cell_points(ref_Γ))
+  ref_x = lazy_map(evaluate,facet_map,ref_xΓ)
+
+  ref_facet_n = get_data(ref_n)
+  ref_facet_nx = lazy_map(evaluate,get_data(ref_n),ref_xΓ)
+
+  cell_map = get_cell_map(trian)
+  cell_Jt = lazy_map(∇,cell_map)
+  cell_invJt = lazy_map(Operation(Fields.pinvJt),cell_Jt)
+  facet_invJt = lazy_map(Reindex(cell_invJt),facet_to_cell)
+  facet_invJtx = lazy_map(evaluate,facet_invJt,ref_x)
+
+  facet_nx = lazy_map(Broadcasting(Geometry.push_normal),facet_invJtx,ref_facet_nx)
+  lazy_map(constant_field,facet_nx)
+end
+
+function get_reference_normal_vector(ref_n::CellField,trian::Triangulation)
+  cell_normal = get_reference_facet_normal(ref_n,trian)
+  ref_Γ = get_triangulation(ref_n)
+  get_normal_vector(ref_Γ,cell_normal)
+end
+
+const n₀ = get_reference_normal_vector
+
 # utils
 
 function Geometry.is_change_possible(
@@ -173,15 +216,34 @@ function Geometry.is_change_possible(
   is_change_possible(sglue,tglue)
 end
 
-function ref_gradient(a::CellField,trian::Triangulation)
-  @assert DomainStyle(a) == ReferenceDomain()
-  cell_∇a = lazy_map(Broadcasting(∇),get_data(a))
-  cell_map = get_cell_map(trian)
-  g = lazy_map(Broadcasting(push_∇),cell_∇a,cell_map)
-  similar_cell_field(a,g,get_triangulation(a),DomainStyle(a))
-end
-
-const ∇₀ = ref_gradient
-
 _get_at_index(a::LazyArray,i) = lazy_param_getindex(a,i)
 _get_at_index(a::GenericParamBlock,i) = a.data[i]
+
+function _get_face_to_cell(strian::Triangulation,ttrian::Triangulation)
+  D = num_cell_dims(strian)
+  sglue = get_glue(strian,Val(D))
+  tglue = get_glue(ttrian,Val(D))
+
+  mface_to_sface = sglue.mface_to_tface
+  tface_to_mface = tglue.tface_to_mface
+
+  lazy_map(Reindex(mface_to_sface),tface_to_mface)
+end
+
+struct EvalConstantField{T} <: Field
+  value::T
+end
+
+function Fields.ConstantField(value::Union{AbstractArray,ParamBlock})
+  EvalConstantField(value)
+end
+
+function Arrays.evaluate(f::EvalConstantField,x::AbstractArray{<:Point})
+  @assert size(f.value) == size(x)
+  f.value
+end
+
+function Arrays.evaluate!(c,f::EvalConstantField,x::AbstractArray{<:Point})
+  @assert size(f.value) == size(x)
+  f.value
+end

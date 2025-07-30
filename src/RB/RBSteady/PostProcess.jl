@@ -254,6 +254,9 @@ struct ROMPerformance
   speedup
 end
 
+get_error(perf::ROMPerformance) = perf.error
+get_speedup(perf::ROMPerformance) = perf.speedup
+
 function Base.show(io::IO,k::MIME"text/plain",perf::ROMPerformance)
   println(io," ----------------------- ROMPerformance ----------------------------")
   println(io," > error: $(perf.error)")
@@ -264,6 +267,12 @@ end
 
 function Base.show(io::IO,perf::ROMPerformance)
   show(io,MIME"text/plain"(),perf)
+end
+
+function mean(perfs::AbstractVector{<:ROMPerformance})
+  mean_err = mean(map(get_error,perfs))
+  mean_su = mean(map(get_speedup,perfs))
+  ROMPerformance(mean_err,mean_su)
 end
 
 """

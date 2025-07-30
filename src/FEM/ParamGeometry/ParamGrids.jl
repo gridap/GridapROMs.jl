@@ -9,7 +9,15 @@ struct ParamMappedGrid{Dc,Dp,A} <: ParamGrid{Dc,Dp}
   node_coords::A
 end
 
-function mapped_grid(style::GridMapStyle,grid::Grid,phys_map::AbstractVector{<:GenericParamBlock})
+function _mapped_grid(style::GridMapStyle,grid::Grid,phys_map::AbstractVector)
+  cell_node_ids = get_cell_node_ids(grid)
+  old_nodes = get_node_coordinates(grid)
+  node_coords = Vector{eltype(old_nodes)}(undef,length(old_nodes))
+  _map_coords!(style,node_coords,old_nodes,cell_node_ids,phys_map)
+  return VisMappedGrid(grid,node_coords)
+end
+
+function _mapped_grid(style::GridMapStyle,grid::Grid,phys_map::AbstractVector{<:GenericParamBlock})
   @assert length(phys_map) == num_cells(grid)
   plength = param_length(testitem(phys_map))
 
@@ -22,6 +30,10 @@ function mapped_grid(style::GridMapStyle,grid::Grid,phys_map::AbstractVector{<:G
   return ParamMappedGrid(grid,pnode_coords)
 end
 
+function mapped_grid(style::GridMapStyle,grid::Grid,phys_map::AbstractVector)
+  return _mapped_grid(style,grid,phys_map)
+end
+
 function mapped_grid(style::GridMapStyle,args...)
   @abstractmethod
 end
@@ -30,7 +42,7 @@ function mapped_grid(grid::Grid,phys_map)
   mapped_grid(DisplacementMap(),grid,phys_map)
 end
 
-function mapped_grid(grid::Grid,phys_map::AbstractParamFunction)
+function mapped_grid(grid::Grid,phys_map::Function)
   mapped_grid(PhysicalMap(),grid,phys_map)
 end
 
@@ -41,18 +53,19 @@ function mapped_grid(style::GridMapStyle,grid::Grid,phys_map::Function)
   mapped_grid(style,grid,cell_coords_map)
 end
 
-for T in (:GenericParamBlock,:Field)
-  @eval begin
-    function mapped_grid(
-      style::GridMapStyle,trian::BodyFittedTriangulation,phys_map::AbstractVector{<:$T})
-      model = get_background_model(trian)
-      grid = mapped_grid(style,trian.grid,phys_map)
-      BodyFittedTriangulation(model,grid,trian.tface_to_mface)
-    end
-  end
+function mapped_grid(
+  style::GridMapStyle,trian::BodyFittedTriangulation,phys_map::AbstractVector)
+  model = get_background_model(trian)
+  grid = mapped_grid(style,trian.grid,phys_map)
+  BodyFittedTriangulation(model,grid,trian.tface_to_mface)
 end
 
-for T in (:FEFunction,:Function,:(AbstractVector{<:GenericParamBlock}),:(AbstractVector{<:Field}))
+function mapped_grid(style::GridMapStyle,trian::Triangulation,φ::FEFunction)
+  phys_map = φ(get_cell_points(trian))
+  mapped_grid(style,trian,phys_map)
+end
+
+for T in (:FEFunction,:Function,:AbstractVector)
   @eval begin
     function mapped_grid(style::GridMapStyle,trian::Geometry.AppendedTriangulation,phys_map::$T)
       a = mapped_grid(style,trian.a,phys_map)
@@ -60,11 +73,6 @@ for T in (:FEFunction,:Function,:(AbstractVector{<:GenericParamBlock}),:(Abstrac
       Geometry.AppendedTriangulation(a,b)
     end
   end
-end
-
-function mapped_grid(style::GridMapStyle,trian::Triangulation,φ::FEFunction)
-  phys_map = φ(get_cell_points(trian))
-  mapped_grid(style,trian,phys_map)
 end
 
 Geometry.get_node_coordinates(grid::ParamMappedGrid) = grid.node_coords
@@ -77,10 +85,12 @@ function Base.isapprox(t::T,s::T) where T<:ParamMappedGrid
 end
 
 """
-MappedDiscreteModel
+    struct ParamMappedDiscreteModel{Dc,Dp} <: DiscreteModel{Dc,Dp}
+      model::DiscreteModel{Dc,Dp}
+      mapped_grid::ParamMappedGrid{Dc,Dp}
+    end
 
-Represent a model with a `MappedGrid` grid.
-See also [`MappedGrid`](@ref).
+Represents a model with a `ParamMappedGrid` grid. See also `MappedDiscreteModel` in [`Gridap`](@ref).
 """
 struct ParamMappedDiscreteModel{Dc,Dp} <: DiscreteModel{Dc,Dp}
   model::DiscreteModel{Dc,Dp}
@@ -193,7 +203,57 @@ function Base.isapprox(t::T,s::T) where T<:ParamUnstructuredGrid
   )
 end
 
+# for visualization, eventually should be moved to Gridap
+
+struct VisMappedGrid{Dc,Dp,A} <: Grid{Dc,Dp}
+  grid::Grid{Dc,Dp}
+  node_coords::A
+end
+
+Geometry.get_node_coordinates(grid::VisMappedGrid) = grid.node_coords
+Geometry.get_cell_node_ids(grid::VisMappedGrid) = get_cell_node_ids(grid.grid)
+Geometry.get_reffes(grid::VisMappedGrid) = get_reffes(grid.grid)
+Geometry.get_cell_type(grid::VisMappedGrid) = get_cell_type(grid.grid)
+
 # utils
+
+function _map_coords!(
+  ::PhysicalMap,
+  node_ids_to_coords,
+  old_coords,
+  cell_node_ids,
+  cell_to_coords
+  )
+
+  cache_node_ids = array_cache(cell_node_ids)
+  cache_coords = array_cache(cell_to_coords)
+  for k = 1:length(cell_node_ids)
+    node_ids = getindex!(cache_node_ids,cell_node_ids,k)
+    coords = getindex!(cache_coords,cell_to_coords,k)
+    for (i,id) in enumerate(node_ids)
+      node_ids_to_coords[id] = coords[i]
+    end
+  end
+end
+
+function _map_coords!(
+  ::DisplacementMap,
+  node_ids_to_coords,
+  old_coords,
+  cell_node_ids,
+  cell_to_coords
+  )
+
+  cache_node_ids = array_cache(cell_node_ids)
+  cache_coords = array_cache(cell_to_coords)
+  for k = 1:length(cell_node_ids)
+    node_ids = getindex!(cache_node_ids,cell_node_ids,k)
+    coords = getindex!(cache_coords,cell_to_coords,k)
+    for (i,id) in enumerate(node_ids)
+      node_ids_to_coords[id] = old_coords[id] + coords[i]
+    end
+  end
+end
 
 function _map_coords!(
   ::PhysicalMap,

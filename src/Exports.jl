@@ -30,6 +30,7 @@ end
 
 @publish ParamGeometry mapped_grid
 @publish ParamGeometry ∇₀
+@publish ParamGeometry n₀
 @publish ParamGeometry ReferenceMeasure
 
 @publish ParamDataStructures Realization
