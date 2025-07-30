@@ -60,8 +60,4 @@ include("ParamFEFunctions.jl")
 
 include("ParamAssemblers.jl")
 
-export ConfigurationFESpace
-export get_configuration_space
-include("ConfigurationSpaces.jl")
-
 end # module

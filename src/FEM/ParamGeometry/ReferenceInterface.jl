@@ -1,76 +1,11 @@
-abstract type ConfigurationStyle end
-struct ReferenceConfiguration <: ConfigurationStyle end
-struct ConfigurationAtIndex <: ConfigurationStyle
-  index::Int
-end
-
-struct ConfigurationTriangulation{Dt,Dp,B<:ConfigurationStyle} <: Triangulation{Dt,Dp}
-  trian::Triangulation{Dt,Dp}
-  style::B
-end
-
-function get_configuration_triangulation(style::ConfigurationStyle,trian::Triangulation)
-  ConfigurationTriangulation(trian,style)
-end
-
-function get_configuration_triangulation(trian::Triangulation)
-  ConfigurationTriangulation(trian,ReferenceConfiguration())
-end
-
-Geometry.get_background_model(t::ConfigurationTriangulation) = get_background_model(t.trian)
-Geometry.get_glue(t::ConfigurationTriangulation,::Val{D}) where D = get_glue(t.trian,Val{D}())
-Geometry.get_grid(t::ConfigurationTriangulation) = _get_grid(t.style,get_grid(t.trian),get_background_model(t))
-Geometry.get_facet_normal(t::ConfigurationTriangulation) = get_facet_normal(t.trian)
-
-_get_grid(s::ConfigurationStyle,g::Grid,m::DiscreteModel) = g
-_get_grid(s::ConfigurationStyle,g::ParamGrid,m::DiscreteModel) = @abstractmethod
-
-function _get_grid(s::ConfigurationStyle,g::Geometry.GridPortion,m::DiscreteModel)
-  Geometry.GridPortion(_get_grid(s,g.parent,m),g.cell_to_parent_cell)
-end
-
-_get_grid(s::ReferenceConfiguration,g::ParamMappedGrid,m::DiscreteModel) = g.grid
-
-function _get_grid(s::ReferenceConfiguration,g::ParamUnstructuredGrid,m::DiscreteModel)
-  node_coordinates = collect1d(get_node_coordinates(m))
-  UnstructuredGrid(
-    node_coordinates,
-    g.cell_node_ids,
-    g.reffes,
-    g.cell_type,
-    g.orientation_style,
-    g.facet_normal
-  )
-end
-
-function _get_grid(s::ConfigurationAtIndex,g::ParamMappedGrid,m::DiscreteModel)
-  UnstructuredGrid(
-    _get_at_index(g.node_coords,s.index),
-    get_cell_node_ids(g),
-    get_reffes(g),
-    collect1d(get_cell_type(g))
-    )
-end
-
-function _get_grid(s::ConfigurationAtIndex,g::ParamUnstructuredGrid,m::DiscreteModel)
-  UnstructuredGrid(
-    _get_at_index(g.node_coordinates,s.index),
-    g.cell_node_ids,
-    g.reffes,
-    g.cell_type,
-    g.orientation_style,
-    g.facet_normal
-  )
-end
-
 struct ReferenceMeasure <: Measure
   quad::CellQuadrature
   cell_map
 end
 
-function ReferenceMeasure(trian::Triangulation,args...;kwargs...)
-  cell_map = get_cell_map(trian)
-  ref_trian = get_configuration_triangulation(trian)
+function ReferenceMeasure(t::Triangulation,args...;kwargs...)
+  cell_map = get_cell_map(t)
+  ref_trian = get_reference_triangulation(t)
   ref_quad = CellQuadrature(ref_trian,args...;kwargs...)
   ReferenceMeasure(ref_quad,cell_map)
 end
@@ -78,13 +13,13 @@ end
 CellData.get_cell_quadrature(a::ReferenceMeasure) = a.quad
 
 function CellData.integrate(f,a::ReferenceMeasure)
-  c = reference_integrate(f,a.quad,a.cell_map)
+  c = reference_integral(f,a.quad,a.cell_map)
   cont = DomainContribution()
   add_contribution!(cont,a.quad.trian,c)
   cont
 end
 
-function reference_integrate(f::CellField,quad::CellQuadrature,cell_map)
+function reference_integral(f::CellField,quad::CellQuadrature,cell_map)
   trian_f = get_triangulation(f)
   trian_x = get_triangulation(quad)
 
@@ -112,9 +47,109 @@ function reference_integrate(f::CellField,quad::CellQuadrature,cell_map)
   end
 end
 
-function reference_integrate(a,quad::CellQuadrature,cell_map)
+function reference_integral(a,quad::CellQuadrature,cell_map)
   b = CellField(a,quad.trian,quad.data_domain_style,cell_map)
-  reference_integrate(b,quad)
+  reference_integral(b,quad)
+end
+
+function get_reference_triangulation(t::Triangulation)
+  @abstractmethod
+end
+
+function get_reference_triangulation(t::BodyFittedTriangulation)
+  model = get_background_model(t)
+  grid = get_reference_grid(t)
+  BodyFittedTriangulation(model,grid,t.tface_to_mface)
+end
+
+function get_reference_triangulation(t::Geometry.BoundaryTriangulation)
+  trian = get_reference_triangulation(t.trian)
+  Gridap.BoundaryTriangulation(trian,t.glue)
+end
+
+function get_reference_triangulation(t::Geometry.AppendedTriangulation)
+  a = get_reference_triangulation(t.a)
+  b = get_reference_triangulation(t.b)
+  lazy_append(a,b)
+end
+
+function get_reference_triangulation(t::Union{Interfaces.SubCellTriangulation,ParamSubCellTriangulation})
+  model = get_background_model(t)
+  subcells = get_reference_subcells(t)
+  Interfaces.SubCellTriangulation(subcells,model)
+end
+
+function get_reference_triangulation(t::Union{Interfaces.SubFacetTriangulation,ParamSubFacetTriangulation})
+  model = get_background_model(t)
+  facets = get_reference_subfacets(t)
+  Interfaces.SubFacetTriangulation(facets,model)
+end
+
+function get_reference_grid(t::Triangulation)
+  model = get_background_model(t)
+  grid = get_grid(t)
+  get_reference_grid(model,grid)
+end
+
+function get_reference_grid(model::DiscreteModel,grid::Grid)
+  grid
+end
+
+function get_reference_grid(model::DiscreteModel,grid::Geometry.GridPortion)
+  Geometry.GridPortion(get_reference_grid(model,grid.parent),grid.cell_to_parent_cell)
+end
+
+function get_reference_grid(model::DiscreteModel,grid::Geometry.GridView)
+  Geometry.GridView(get_reference_grid(model,grid.parent),grid.cell_to_parent_cell)
+end
+
+function get_reference_grid(model::DiscreteModel,grid::ParamGrid)
+  @abstractmethod
+end
+
+function get_reference_grid(model::DiscreteModel,grid::ParamMappedGrid)
+  grid.grid
+end
+
+function get_reference_grid(model::DiscreteModel,grid::ParamUnstructuredGrid)
+  node_coordinates = collect1d(get_node_coordinates(model))
+  UnstructuredGrid(
+    node_coordinates,
+    g.cell_node_ids,
+    g.reffes,
+    g.cell_type,
+    g.orientation_style,
+    g.facet_normal
+  )
+end
+
+function get_reference_subcells(t::Union{Interfaces.SubCellTriangulation,ParamSubCellTriangulation})
+  model = get_background_model(t)
+  get_reference_subcells(model,t.subcells)
+end
+
+function get_reference_subcells(model::DiscreteModel,subcells::Union{Interfaces.SubCellData,ParamSubCellData})
+  point_to_coords = collect1d(get_node_coordinates(model))
+  Interfaces.SubCellData(
+    subcells.cell_to_points,
+    subcells.cell_to_bgcell,
+    point_to_coords,
+    subcells.point_to_rcoords)
+end
+
+function get_reference_subfacets(t::Union{Interfaces.SubFacetTriangulation,ParamSubFacetTriangulation})
+  model = get_background_model(t)
+  get_reference_subfacets(model,t.subfacets)
+end
+
+function get_reference_subfacets(model::DiscreteModel,subfacets::Union{Interfaces.SubFacetData,ParamSubFacetData})
+  point_to_coords = collect1d(get_node_coordinates(model))
+  Interfaces.SubFacetData(
+    subfacets.facet_to_points,
+    subfacets.facet_to_normal,
+    subfacets.facet_to_bgcell,
+    point_to_coords,
+    subfacets.point_to_rcoords)
 end
 
 # utils
