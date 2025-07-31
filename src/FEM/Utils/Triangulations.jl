@@ -166,11 +166,7 @@ function Base.isapprox(t::Grid,s::Grid)
   false
 end
 
-function Base.isapprox(t::T,s::T) where T<:Grid
-  @notimplemented "Implementation needed"
-end
-
-function Base.isapprox(t::T,s::T) where T<:Geometry.CartesianGrid
+function Base.isapprox(t::Geometry.CartesianGrid,s::Geometry.CartesianGrid)
   (
     t.cell_node_ids == s.cell_node_ids &&
     t.cell_type == s.cell_type &&
@@ -178,7 +174,7 @@ function Base.isapprox(t::T,s::T) where T<:Geometry.CartesianGrid
   )
 end
 
-function Base.isapprox(t::T,s::T) where T<:Geometry.GridPortion
+function Base.isapprox(t::Geometry.GridPortion,s::Geometry.GridPortion)
   (
     t.parent ≈ s.parent &&
     t.cell_to_parent_cell == s.cell_to_parent_cell &&
@@ -187,11 +183,11 @@ function Base.isapprox(t::T,s::T) where T<:Geometry.GridPortion
   )
 end
 
-function Base.isapprox(t::T,s::T) where T<:Geometry.GridView
+function Base.isapprox(t::Geometry.GridView,s::Geometry.GridView)
   t.parent ≈ s.parent && t.cell_to_parent_cell == s.cell_to_parent_cell
 end
 
-function Base.isapprox(t::T,s::T) where T<:UnstructuredGrid
+function Base.isapprox(t::UnstructuredGrid,s::UnstructuredGrid)
   (
     t.cell_node_ids == s.cell_node_ids &&
     t.cell_types == s.cell_types &&
@@ -199,11 +195,11 @@ function Base.isapprox(t::T,s::T) where T<:UnstructuredGrid
   )
 end
 
-function Base.isapprox(t::T,s::T) where T<:Geometry.AppendedGrid
+function Base.isapprox(t::Geometry.AppendedGrid,s::Geometry.AppendedGrid)
   t.a ≈ s.a && t.b ≈ s.b
 end
 
-function Base.isapprox(t::T,s::T) where T<:Triangulation
+function Base.isapprox(t::Triangulation,s::Triangulation)
   get_grid(t) ≈ get_grid(s)
 end
 

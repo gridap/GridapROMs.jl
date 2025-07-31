@@ -111,6 +111,33 @@ function _change_coords(sc::Interfaces.SubCellData,grid::Grid)
     )
 end
 
+function Base.isapprox(t::T,s::T) where T<:ParamSubCellData
+  (
+    t.cell_to_points == s.cell_to_points &&
+    t.cell_to_bgcell == s.cell_to_bgcell &&
+    length(testitem(t.point_to_coords)) == length(testitem(s.point_to_coords)) &&
+    t.point_to_rcoords == s.point_to_rcoords
+  )
+end
+
+function Base.isapprox(t::ParamSubCellData,s::Interfaces.SubCellData)
+  (
+    t.cell_to_points == s.cell_to_points &&
+    t.cell_to_bgcell == s.cell_to_bgcell &&
+    length(testitem(t.point_to_coords)) == length(s.point_to_coords) &&
+    t.point_to_rcoords == s.point_to_rcoords
+  )
+end
+
+function Base.isapprox(t::Interfaces.SubCellData,s::ParamSubCellData)
+  (
+    t.cell_to_points == s.cell_to_points &&
+    t.cell_to_bgcell == s.cell_to_bgcell &&
+    length(t.point_to_coords) == length(testitem(s.point_to_coords)) &&
+    t.point_to_rcoords == s.point_to_rcoords
+  )
+end
+
 function Utils.to_child(parent::ParamSubCellTriangulation,child::Geometry.TriangulationView)
   @check isa(child.parent,ParamSubCellTriangulation)
   Geometry.TriangulationView(parent,child.cell_to_parent_cell)

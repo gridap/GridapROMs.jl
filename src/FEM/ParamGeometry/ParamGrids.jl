@@ -84,6 +84,14 @@ function Base.isapprox(t::T,s::T) where T<:ParamMappedGrid
   t.grid ≈ s.grid
 end
 
+function Base.isapprox(t::ParamMappedGrid,s::Grid)
+  t.grid ≈ s
+end
+
+function Base.isapprox(t::Grid,s::ParamMappedGrid)
+  t ≈ s.grid
+end
+
 """
     struct ParamMappedDiscreteModel{Dc,Dp} <: DiscreteModel{Dc,Dp}
       model::DiscreteModel{Dc,Dp}
@@ -119,7 +127,7 @@ struct ParamUnstructuredGrid{Dc,Dp,Tp,O,Tn} <: ParamGrid{Dc,Dp}
   node_coordinates::ParamBlock{Vector{Point{Dp,Tp}}}
   cell_node_ids::Table{Int32,Vector{Int32},Vector{Int32}}
   reffes::Vector{LagrangianRefFE{Dc}}
-  cell_type::Vector{Int8}
+  cell_types::Vector{Int8}
   orientation_style::O
   facet_normal::Tn
   cell_map
@@ -128,7 +136,7 @@ struct ParamUnstructuredGrid{Dc,Dp,Tp,O,Tn} <: ParamGrid{Dc,Dp}
     node_coordinates::ParamBlock{Vector{Point{Dp,Tp}}},
     cell_node_ids::Table{Ti},
     reffes::Vector{<:LagrangianRefFE{Dc}},
-    cell_type::Vector,
+    cell_types::Vector,
     orientation_style::OrientationStyle=NonOriented(),
     facet_normal=nothing;
     has_affine_map=nothing) where {Dc,Dp,Tp,Ti}
@@ -138,14 +146,14 @@ struct ParamUnstructuredGrid{Dc,Dp,Tp,O,Tn} <: ParamGrid{Dc,Dp}
     else
       _has_affine_map = has_affine_map
     end
-    cell_map = Geometry._compute_cell_map(node_coordinates,cell_node_ids,reffes,cell_type,_has_affine_map)
+    cell_map = Geometry._compute_cell_map(node_coordinates,cell_node_ids,reffes,cell_types,_has_affine_map)
     B = typeof(orientation_style)
     Tn = typeof(facet_normal)
     new{Dc,Dp,Tp,B,Tn}(
       node_coordinates,
       cell_node_ids,
       reffes,
-      cell_type,
+      cell_types,
       orientation_style,
       facet_normal,
       cell_map)
@@ -164,7 +172,7 @@ Geometry.OrientationStyle(
   ::Type{<:ParamUnstructuredGrid{Dc,Dp,Tp,B}}) where {Dc,Dp,Tp,B} = B()
 
 Geometry.get_reffes(g::ParamUnstructuredGrid) = g.reffes
-Geometry.get_cell_type(g::ParamUnstructuredGrid) = g.cell_type
+Geometry.get_cell_type(g::ParamUnstructuredGrid) = g.cell_types
 Geometry.get_node_coordinates(g::ParamUnstructuredGrid) = g.node_coordinates
 Geometry.get_cell_node_ids(g::ParamUnstructuredGrid) = g.cell_node_ids
 Geometry.get_cell_map(g::ParamUnstructuredGrid) = g.cell_map
@@ -198,8 +206,24 @@ end
 function Base.isapprox(t::T,s::T) where T<:ParamUnstructuredGrid
   (
     t.cell_node_ids == s.cell_node_ids &&
-    t.cell_type == s.cell_type &&
+    t.cell_types == s.cell_types &&
     length(testitem(t.node_coordinates)) == length(testitem(s.node_coordinates))
+  )
+end
+
+function Base.isapprox(t::ParamUnstructuredGrid,s::UnstructuredGrid)
+  (
+    t.cell_node_ids == s.cell_node_ids &&
+    t.cell_types == s.cell_types &&
+    length(testitem(t.node_coordinates)) == length(s.node_coordinates)
+  )
+end
+
+function Base.isapprox(t::UnstructuredGrid,s::ParamUnstructuredGrid)
+  (
+    t.cell_node_ids == s.cell_node_ids &&
+    t.cell_types == s.cell_types &&
+    length(t.node_coordinates) == length(testitem(s.node_coordinates))
   )
 end
 

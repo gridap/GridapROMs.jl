@@ -26,7 +26,7 @@ tol=1e-4
 rank=nothing
 nparams=200
 nparams_res=nparams_jac=nparams
-sketch=nothing
+sketch=:sprn
 compression=:local
 ncentroids=16
 
@@ -38,16 +38,20 @@ bgmodel = CartesianDiscreteModel(domain,partition)
 order = 1
 degree = 2
 
-pspace = ParamSpace((-0.4,0.4))
+# case 1: translation
+pdomain = (0.6,1.4)
+# # case 2: translation and dilation
+# pdomain = (0.6,1.4,0.25,0.35)
+pspace = ParamSpace(pdomain)
 
 const γd = 10.0
 const hd = 2/n
 
 # quantities on the base configuration
 
-μ0 = (1.0,)
+μ0 = (1.0,0.3)
 x0 = Point(μ0[1],μ0[1])
-geo = !disk(0.3,x0=x0)
+geo = !disk(μ0[2],x0=x0)
 cutgeo = cut(bgmodel,geo)
 
 Ωact = Triangulation(cutgeo,ACTIVE)
@@ -76,7 +80,11 @@ test = AgFEMSpace(testact,aggregates)
 trial = ParamTrialFESpace(test,gμ)
 
 function get_deformation_map(μ)
-  φ(μ) = x -> VectorValue(μ[1],μ[1])
+  # case 1: translation
+  φ(μ) = x -> VectorValue(μ[1]-μ0[1],μ[1]-μ0[1])
+  # # case 2: translation and dilation
+  # φ(x) = VectorValue(μrand[1]-x[1] + (μrand[2]/μ0[2])*(x[1]-μ0[1]),
+  #                    μrand[1]-x[2] + (μrand[2]/μ0[2])*(x[2]-μ0[1]))
   φμ(μ) = parameterize(φ,μ)
 
   E = 1
@@ -108,15 +116,15 @@ function def_fe_operator(μ)
   Ωφ = mapped_grid(Ω,φh)
   Γφ = mapped_grid(Γ,φh)
 
-  dΩ₀ = ReferenceMeasure(Ωφ,degree)
-  dΓ₀ = ReferenceMeasure(Γφ,degree)
+  dΩ₀(meas) = ReferenceMeasure(meas,Ωφ)
+  dΓ₀(meas) = ReferenceMeasure(meas,Γφ)
 
   ∇act₀(f) = ∇₀(f,Ωactφ)
   nΓ₀ = n₀(n_Γ,Ωactφ)
 
-  a(μ,u,v,dΩ₀,dΓ₀) = ∫(∇act₀(v)⋅∇act₀(u))*dΩ₀ + ∫( (γd/hd)*v*u - v*(nΓ₀⋅∇act₀(u)) - (nΓ₀⋅∇act₀(v))*u )*dΓ₀
-  l(μ,v,dΩ₀) = ∫(fμ(μ)⋅v)dΩ₀
-  res(μ,u,v,dΩ₀) = ∫(∇(v)⋅∇(u))dΩ₀ - l(μ,v,dΩ₀)
+  a(μ,u,v,dΩ,dΓ) = ∫(∇act₀(v)⋅∇act₀(u))dΩ₀(dΩ) + ∫( (γd/hd)*v*u - v*(nΓ₀⋅∇act₀(u)) - (nΓ₀⋅∇act₀(v))*u )dΓ₀(dΓ)
+  l(μ,v,dΩ) = ∫(fμ(μ)⋅v)dΩ₀(dΩ)
+  res(μ,u,v,dΩ) = ∫(∇(v)⋅∇(u))dΩ₀(dΩ) - l(μ,v,dΩ)
 
   LinearParamOperator(res,a,pspace,trial,test,domains)
 end
@@ -148,7 +156,7 @@ function plot_sol(rbop,x,x̂,μon,dir,i=1)
   ûh = FEFunction(U,û)
   eh = FEFunction(test,abs.(u-û))
 
-  writevtk(Ωφ,dir,cellfields=["uh"=>uh,"ûh"=>ûh,"eh"=>eh])
+  writevtk(Ωφ,dir*".vtu",cellfields=["uh"=>uh,"ûh"=>ûh,"eh"=>eh])
 end
 
 function postprocess(
@@ -182,7 +190,7 @@ function local_solver(dir,rbsolver,rbop,μ,x,festats)
     push!(perfs,perf)
     push!(maxsizes,maxsize)
   end
-  return mean(perfs),mean(maxsizes)
+  return mean(perfs),maximum(maxsizes)
 end
 
 max_subspace_size(op::RBOperator) = max_subspace_size(get_test(op))
@@ -209,7 +217,7 @@ feop = def_fe_operator(μ)
 feopon = def_fe_operator(μon)
 
 rbsolver = rb_solver(tol,nparams)
-fesnaps, = solution_snapshots(rbsolver,feop)
+fesnaps, = solution_snapshots(rbsolver,feop,μ)
 jacs = jacobian_snapshots(rbsolver,feop,fesnaps)
 ress = residual_snapshots(rbsolver,feop,fesnaps)
 
@@ -237,3 +245,12 @@ end
 
 serialize(joinpath(test_dir,"results"),perfs)
 serialize(joinpath(test_dir,"maxsizes"),maxsizes)
+
+# k, = get_clusters(rbop.test)
+# μsplit = cluster(μon,k)
+# xsplit = cluster(x,k)
+# (μi,xi) = μsplit[7],xsplit[7]
+# feopi = def_fe_operator(μi)
+# rbopi = change_operator(get_local(rbop,first(μi)),feopi)
+# x̂,rbstats = solve(rbsolver,rbopi,μi)
+# perf = postprocess(dir,rbsolver,feopi,rbopi,xi,x̂,festats,rbstats)

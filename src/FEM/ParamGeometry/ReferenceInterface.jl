@@ -3,11 +3,20 @@ struct ReferenceMeasure <: Measure
   cell_map
 end
 
+function ReferenceMeasure(ref_quad::CellQuadrature,t::Triangulation)
+  ref_trian = ref_quad.trian
+  cell_map_on_ref_trian = _get_cell_map_on_trian(t,ref_quad.trian)
+  ReferenceMeasure(ref_quad,cell_map_on_ref_trian)
+end
+
+function ReferenceMeasure(ref_meas::Measure,t::Triangulation)
+  ReferenceMeasure(ref_meas.quad,t)
+end
+
 function ReferenceMeasure(t::Triangulation,args...;kwargs...)
-  cell_map = get_cell_map(t)
   ref_trian = get_reference_triangulation(t)
   ref_quad = CellQuadrature(ref_trian,args...;kwargs...)
-  ReferenceMeasure(ref_quad,cell_map)
+  ReferenceMeasure(ref_quad,t)
 end
 
 CellData.get_cell_quadrature(a::ReferenceMeasure) = a.quad
@@ -218,6 +227,59 @@ end
 
 _get_at_index(a::LazyArray,i) = lazy_param_getindex(a,i)
 _get_at_index(a::GenericParamBlock,i) = a.data[i]
+
+function _get_cell_map_on_trian(strian::Triangulation,ttrian::Triangulation)
+  scell_map = get_cell_map(strian)
+  scell_to_tcell = _get_cell_to_cell(strian,ttrian)
+  _get_cell_map_on_trian(scell_map,scell_to_tcell)
+end
+
+function _get_cell_map_on_trian(scell_map,scell_to_tcell)
+  lazy_map(Reindex(scell_map),scell_to_tcell)
+end
+
+function _get_cell_map_on_trian(scell_map::AppendedArray,scell_to_tcell::AppendedArray)
+  a = _get_cell_map_on_trian(scell_map.a,scell_to_tcell.a)
+  b = _get_cell_map_on_trian(scell_map.b,scell_to_tcell.b)
+  lazy_append(a,b)
+end
+
+function _get_cell_to_cell(strian::Triangulation,ttrian::Triangulation)
+  if strian ≈ ttrian
+    IdentityVector(num_cells(strian))
+  else
+    @assert Utils.is_parent(strian,ttrian) || Utils.isapprox_parent(strian,ttrian)
+    _get_cell_to_parent_cell(ttrian)
+  end
+end
+
+function _get_cell_to_parent_cell(grid::Grid)
+  @abstractmethod
+end
+
+function _get_cell_to_parent_cell(grid::Geometry.GridView)
+  grid.cell_to_parent_cell
+end
+
+function _get_cell_to_parent_cell(grid::Geometry.GridPortion)
+  grid.cell_to_parent_cell
+end
+
+function _get_cell_to_parent_cell(ttrian::Triangulation)
+  _get_cell_to_parent_cell(get_grid(ttrian))
+end
+
+function _get_cell_to_parent_cell(ttrian::Geometry.TriangulationView)
+  ttrian.cell_to_parent_cell
+end
+
+function _get_cell_to_parent_cell(ttrian::Geometry.AppendedTriangulation)
+  a = _get_cell_to_parent_cell(ttrian.a)
+  b = _get_cell_to_parent_cell(ttrian.b)
+  offset = num_cells(get_parent(ttrian.a))
+  b_offset = lazy_map(+,b,Fill(offset,length(b)))
+  lazy_append(a,b_offset)
+end
 
 function _get_face_to_cell(strian::Triangulation,ttrian::Triangulation)
   D = num_cell_dims(strian)

@@ -159,6 +159,36 @@ function _change_coords(sf::Interfaces.SubFacetData,grid::Grid)
     )
 end
 
+function Base.isapprox(t::T,s::T) where T<:ParamSubFacetData
+  (
+    t.facet_to_points == s.facet_to_points &&
+    t.facet_to_normal == s.facet_to_normal &&
+    t.facet_to_bgcell == s.facet_to_bgcell &&
+    length(testitem(t.point_to_coords)) == length(testitem(s.point_to_coords)) &&
+    t.point_to_rcoords == s.point_to_rcoords
+  )
+end
+
+function Base.isapprox(t::ParamSubFacetData,s::Interfaces.SubFacetData)
+  (
+    t.facet_to_points == s.facet_to_points &&
+    t.facet_to_normal == s.facet_to_normal &&
+    t.facet_to_bgcell == s.facet_to_bgcell &&
+    length(testitem(t.point_to_coords)) == length(s.point_to_coords) &&
+    t.point_to_rcoords == s.point_to_rcoords
+  )
+end
+
+function Base.isapprox(t::Interfaces.SubFacetData,s::ParamSubFacetData)
+  (
+    t.facet_to_points == s.facet_to_points &&
+    t.facet_to_normal == s.facet_to_normal &&
+    t.facet_to_bgcell == s.facet_to_bgcell &&
+    length(t.point_to_coords) == length(testitem(s.point_to_coords)) &&
+    t.point_to_rcoords == s.point_to_rcoords
+  )
+end
+
 function Utils.to_child(parent::ParamSubFacetTriangulation,child::Geometry.TriangulationView)
   @check isa(child.parent,ParamSubFacetTriangulation)
   Geometry.TriangulationView(parent,child.cell_to_parent_cell)
