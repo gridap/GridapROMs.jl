@@ -11,7 +11,7 @@ const MatLocalProjection{A} = LocalProjection{A,2}
 function projection(lred::LocalReduction,s::Snapshots)
   red = get_reduction(lred)
   k = compute_clusters(lred,s)
-  svec = cluster_snapshots(s,k)
+  svec = cluster(s,k)
   proj = map(s -> projection(red,s),svec)
   LocalProjection(proj,k)
 end
@@ -19,7 +19,7 @@ end
 function projection(lred::LocalReduction,s::Snapshots,X::MatrixOrTensor)
   red = get_reduction(lred)
   k = compute_clusters(lred,s)
-  svec = cluster_snapshots(s,k)
+  svec = cluster(s,k)
   proj = map(s -> projection(red,s,X),svec)
   LocalProjection(proj,k)
 end
@@ -156,7 +156,7 @@ function reduced_residual(lred::LocalReduction,test::RBSpace,c::ArrayContributio
   red = get_reduction(lred)
   kc = compute_clusters(lred,c)
   kr, = get_clusters(test)
-  cc = cluster_snapshots(c,kc)
+  cc = cluster(c,kc)
 
   hr = Matrix{AffineContribution}(undef,length(kc.counts),length(kr.counts))
   for i in eachindex(kc.counts)
@@ -174,7 +174,7 @@ function reduced_jacobian(lred::LocalReduction,trial::RBSpace,test::RBSpace,c::A
   red = get_reduction(lred)
   kc = compute_clusters(lred,c)
   kr, = get_clusters(test)
-  cc = cluster_snapshots(c,kc)
+  cc = cluster(c,kc)
 
   hr = Matrix{AffineContribution}(undef,length(kc.counts),length(kr.counts))
   for i in eachindex(kc.counts)
@@ -187,6 +187,74 @@ function reduced_jacobian(lred::LocalReduction,trial::RBSpace,test::RBSpace,c::A
   end
 
   LocalProjection(hr,(kc,kr))
+end
+
+function cluster(a,i)
+  @abstractmethod
+end
+
+function cluster(a,red::LocalReduction)
+  r = _get_realization(a)
+  k = compute_clusters(r,red)
+  cluster(a,k)
+end
+
+function cluster(a,k::KmeansResult)
+  cache = return_cache(cluster,a,k)
+  evaluate!(cache,cluster,a,k)
+  return first(cache)
+end
+
+function Arrays.return_cache(::typeof(cluster),a,k::KmeansResult)
+  labels = get_label(k,a)
+  cluster_ids = cluster_ilabels(labels)
+  cluster_cache = array_cache(cluster_ids)
+  _ids = getindex!(cluster_cache,cluster_ids,1)
+  S = typeof(cluster(a,_ids))
+  cache = Vector{S}(undef,length(cluster_ids))
+  return cache,cluster_ids,cluster_cache
+end
+
+function Arrays.evaluate!(c,::typeof(cluster),a,k::KmeansResult)
+  cache,cluster_ids,cluster_cache = c
+  for icluster in 1:length(cluster_ids)
+    ids = getindex!(cluster_cache,cluster_ids,icluster)
+    cache[icluster] = cluster(a,ids)
+  end
+  return cache
+end
+
+function cluster(r::Realization,inds::AbstractVector)
+  r[inds]
+end
+
+function cluster(s::ArrayContribution,inds::AbstractVector)
+  contribution(get_domains(s)) do trian
+    cluster(s[trian],inds)
+  end
+end
+
+function cluster(s::GenericSnapshots,inds::AbstractVector)
+  sinds = select_snapshots(s,inds)
+  data = collect(get_all_data(sinds))
+  GenericSnapshots(data,get_dof_map(sinds),get_realization(sinds))
+end
+
+function cluster(s::ReshapedSnapshots,inds::AbstractVector)
+  sinds = select_snapshots(s,inds)
+  data = collect(get_all_data(sinds))
+  ReshapedSnapshots(data,get_param_data(sinds),get_dof_map(sinds),get_realization(sinds))
+end
+
+function cluster(s::BlockSnapshots,inds::AbstractVector)
+  array = Array{Snapshots,ndims(s)}(undef,size(s))
+  touched = s.touched
+  for i in eachindex(touched)
+    if touched[i]
+      array[i] = cluster(s[i],inds)
+    end
+  end
+  return BlockSnapshots(array,touched)
 end
 
 # local utils
@@ -206,67 +274,13 @@ function compute_clusters(red::LocalReduction,s::ArrayContribution)
   compute_clusters(red,first(s.values))
 end
 
-function cluster_snapshots(red::LocalReduction,s::AbstractSnapshots)
-  r = get_realization(s)
-  k = compute_clusters(red,r)
-  cluster_snapshots(s,k)
+function get_label(k::KmeansResult,a)
+  get_label(k,_get_realization(a))
 end
 
-function cluster_snapshots(red::LocalReduction,s::ArrayContribution)
-  r = get_realization(first(s.values))
-  k = compute_clusters(red,r)
-  cluster_snapshots(s,k)
-end
-
-function cluster_realizatons(r::Realization,k::KmeansResult)
-  labels = map(μ -> get_label(k,μ),r)
-  perm = sortperm(labels)
-  ptrs = zeros(Int32,length(labels)+1)
-  data = zeros(Int32,length(labels))
-  count = 0
-  for (i,p) in enumerate(perm)
-    labi = labels[p]
-    ptrs[1+labi] += 1
-    data[i] = p
-  end
-  ptrs′ = ptrs[findall(!iszero,ptrs)]
-  pushfirst!(ptrs′,zero(eltype(ptrs′)))
-  length_to_ptrs!(ptrs′)
-  t = Table(data,ptrs′)
-  cache = Vector{typeof(r)}(undef,length(ptrs′)-1)
-  for i in 1:length(ptrs′)-1
-    pini = ptrs′[i]
-    pend = ptrs′[i+1]-1
-    cache[i] = r[data[pini:pend]]
-  end
-  return cache
-end
-
-for T in (:ArrayContribution,:AbstractSnapshots)
-  @eval begin
-    function cluster_snapshots(s::$T,k::KmeansResult)
-      cache = return_cache(cluster_snapshots,s,k)
-      evaluate!(cache,cluster_snapshots,s,k)
-      return cache
-    end
-
-    function Arrays.return_cache(::typeof(cluster_snapshots),s::$T,k::KmeansResult)
-      a = assignments(k)
-      ncenters = size(k.centers,2)
-      cluster = findall(a .== 1)
-      S = typeof(_cluster_snaps(s,cluster))
-      Vector{S}(undef,ncenters)
-    end
-
-    function Arrays.evaluate!(cache,::typeof(cluster_snapshots),s::$T,k::KmeansResult)
-      a = assignments(k)
-      ncenters = size(k.centers,2)
-      for label in 1:ncenters
-        cluster = findall(a .== label)
-        cache[label] = _cluster_snaps(s,cluster)
-      end
-      return cache
-    end
+function get_label(k::KmeansResult,r::Realization)
+  map(r) do μ
+    get_label(k,μ)
   end
 end
 
@@ -313,6 +327,75 @@ function compute_ncentroids(
   all_ncentroids[elbow]
 end
 
+function get_cluster_to_labels(labels::AbstractVector)
+  perm = sortperm(labels)
+  ptrs = zeros(Int32,1+maximum(labels))
+  data = zeros(Int32,length(labels))
+  count = 0
+  for (i,p) in enumerate(perm)
+    labi = labels[p]
+    ptrs[1+labi] += 1
+    data[i] = labi
+  end
+  length_to_ptrs!(ptrs)
+  return Table(data,ptrs)
+end
+
+function cluster_labels(labels::AbstractVector)
+  perm = sortperm(labels)
+  ptrs = zeros(Int32,maximum(labels))
+  data = zeros(Int32,length(labels))
+  count = 0
+  for (i,p) in enumerate(perm)
+    labi = labels[p]
+    ptrs[labi] += 1
+    data[i] = labi
+  end
+  ptrs = ptrs[findall(!iszero,ptrs)]
+  pushfirst!(ptrs,zero(eltype(ptrs)))
+  length_to_ptrs!(ptrs)
+  return Table(data,ptrs)
+end
+
+function get_cluster_to_ilabels(labels::AbstractVector)
+  perm = sortperm(labels)
+  ptrs = zeros(Int32,1+maximum(labels))
+  data = zeros(Int32,length(labels))
+  count = 0
+  for (i,p) in enumerate(perm)
+    labi = labels[p]
+    ptrs[1+labi] += 1
+    data[i] = p
+  end
+  length_to_ptrs!(ptrs)
+  return Table(data,ptrs)
+end
+
+function cluster_ilabels(labels::AbstractVector)
+  perm = sortperm(labels)
+  ptrs = zeros(Int32,maximum(labels))
+  data = zeros(Int32,length(labels))
+  count = 0
+  for (i,p) in enumerate(perm)
+    labi = labels[p]
+    ptrs[labi] += 1
+    data[i] = p
+  end
+  ptrs = ptrs[findall(!iszero,ptrs)]
+  pushfirst!(ptrs,zero(eltype(ptrs)))
+  length_to_ptrs!(ptrs)
+  return Table(data,ptrs)
+end
+
+for f in (:cluster_labels,:get_cluster_to_labels,:cluster_ilabels,:get_cluster_to_ilabels)
+  @eval begin
+    function $f(q,k::KmeansResult)
+      labels = get_label(k,q)
+      $f(labels)
+    end
+  end
+end
+
 function kmeans_variance(k::KmeansResult,pmat::AbstractMatrix)
   errs = 0.0
   for α in eachcol(pmat)
@@ -331,34 +414,9 @@ function _compute_elbow(v::AbstractVector)
   argmin(dv)
 end
 
+_get_realization(r::AbstractRealization) = r
+_get_realization(s::AbstractSnapshots) = get_realization(s)
+_get_realization(a::ArrayContribution) = get_realization(first(a.values))
+
 _get_params_marix(r::Realization) = stack(r.params)
 _get_params_marix(r::AbstractRealization) = _get_params_marix(get_params(r))
-
-function _cluster_snaps(s::ArrayContribution,inds)
-  contribution(get_domains(s)) do trian
-    _cluster_snaps(s[trian],inds)
-  end
-end
-
-function _cluster_snaps(s::GenericSnapshots,inds)
-  sinds = select_snapshots(s,inds)
-  data = collect(get_all_data(sinds))
-  GenericSnapshots(data,get_dof_map(sinds),get_realization(sinds))
-end
-
-function _cluster_snaps(s::ReshapedSnapshots,inds)
-  sinds = select_snapshots(s,inds)
-  data = collect(get_all_data(sinds))
-  ReshapedSnapshots(data,get_param_data(sinds),get_dof_map(sinds),get_realization(sinds))
-end
-
-function _cluster_snaps(s::BlockSnapshots,inds)
-  array = Array{Snapshots,ndims(s)}(undef,size(s))
-  touched = s.touched
-  for i in eachindex(touched)
-    if touched[i]
-      array[i] = _cluster_snaps(s[i],inds)
-    end
-  end
-  return BlockSnapshots(array,touched)
-end

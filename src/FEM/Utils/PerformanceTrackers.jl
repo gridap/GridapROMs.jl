@@ -63,6 +63,10 @@ struct Speedup <: PerformanceTracker
   speedup_memory::Float64
 end
 
+get_name(su::Speedup) = su.name
+get_speedup_time(su::Speedup) = su.speedup_time
+get_speedup_memory(su::Speedup) = su.speedup_memory
+
 function Base.show(io::IO,k::MIME"text/plain",su::Speedup)
   println(io," -------------------- Speedup($(su.name)) -------------------------")
   println(io," > speedup in time: $(su.speedup_time)")
@@ -72,6 +76,14 @@ end
 
 function Base.show(io::IO,su::Speedup)
   show(io,MIME"text/plain"(),su)
+end
+
+function mean(sus::AbstractVector{<:Speedup})
+  name = get_name(first(sus))
+  @check all(name == get_name(su) for su in sus)
+  mean_sut = mean(map(get_speedup_time,sus))
+  mean_sum = mean(map(get_speedup_memory,sus))
+  Speedup(name,mean_sut,mean_sum)
 end
 
 """

@@ -179,8 +179,7 @@ include("HRAssemblers.jl")
 
 export LocalProjection
 export compute_ncentroids
-export cluster_realizatons
-export cluster_snapshots
+export cluster
 export get_local
 export local_values
 export get_clusters

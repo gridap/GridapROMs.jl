@@ -54,8 +54,14 @@ function RBSteady.enrich!(
   return
 end
 
-function RBSteady._cluster_snaps(s::TransientSnapshotsWithIC,inds)
+function RBSteady.cluster(r::GenericTransientRealization,inds)
+  params = cluster(get_params(r),inds)
+  times = get_times(r)
+  GenericTransientRealization(params,times,r.t0)
+end
+
+function RBSteady.cluster(s::TransientSnapshotsWithIC,inds)
   initial_data = view(s.initial_data,:,inds)
-  snaps = RBSteady._cluster_snaps(s.snaps,inds)
+  snaps = cluster(s.snaps,inds)
   TransientSnapshotsWithIC(initial_data,snaps)
 end

@@ -36,6 +36,7 @@ using GridapROMs.RBSteady
 import Base: +,-,*,\
 import FillArrays: Fill
 import UnPack: @unpack
+import GridapROMs.ParamDataStructures: GenericTransientRealization
 import GridapROMs.RBSteady: num_centroids,get_lhs,get_rhs,_get_label
 
 export HighOrderReduction
