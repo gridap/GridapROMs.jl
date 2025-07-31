@@ -124,7 +124,7 @@ function def_fe_operator(μ)
 
   a(μ,u,v,dΩ,dΓ) = ∫(∇act₀(v)⋅∇act₀(u))dΩ₀(dΩ) + ∫( (γd/hd)*v*u - v*(nΓ₀⋅∇act₀(u)) - (nΓ₀⋅∇act₀(v))*u )dΓ₀(dΓ)
   l(μ,v,dΩ) = ∫(fμ(μ)⋅v)dΩ₀(dΩ)
-  res(μ,u,v,dΩ) = ∫(∇(v)⋅∇(u))dΩ₀(dΩ) - l(μ,v,dΩ)
+  res(μ,u,v,dΩ) = ∫(∇act₀(v)⋅∇act₀(u))dΩ₀(dΩ) - l(μ,v,dΩ)
 
   LinearParamOperator(res,a,pspace,trial,test,domains)
 end
