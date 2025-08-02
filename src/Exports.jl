@@ -28,10 +28,12 @@ end
 @publish TProduct TProductDiscreteModel
 @publish TProduct TProductFESpace
 
+@publish ParamGeometry PhysicalMap
+@publish ParamGeometry DisplacementMap
 @publish ParamGeometry mapped_grid
-@publish ParamGeometry ∇₀
-@publish ParamGeometry n₀
-@publish ParamGeometry ReferenceMeasure
+@publish ParamGeometry ∇ᵩ
+@publish ParamGeometry nᵩ
+@publish ParamGeometry MappedMeasure
 
 @publish ParamDataStructures Realization
 @publish ParamDataStructures TransientRealization

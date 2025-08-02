@@ -20,6 +20,8 @@ import FillArrays: Fill
 import Gridap.CellData: similar_cell_field
 import Gridap.Visualization: _prepare_node_to_coords
 
+export PhysicalMap
+export DisplacementMap
 export ParamGrid
 export ParamMappedGrid
 export ParamMappedDiscreteModel
@@ -33,14 +35,9 @@ include("SubCellTriangulations.jl")
 export ParamSubFacetData
 include("SubFacetTriangulations.jl")
 
-export ConfigurationStyle
-export ReferenceConfiguration
-export ConfigurationAtIndex
-export ConfigurationTriangulation
-export get_configuration_triangulation
-export ReferenceMeasure
-export reference_integrate
-export ∇₀, n₀
-include("ReferenceInterface.jl")
+export MappedMeasure
+export mapped_integrate
+export ∇ᵩ, nᵩ
+include("MappedInterface.jl")
 
 end

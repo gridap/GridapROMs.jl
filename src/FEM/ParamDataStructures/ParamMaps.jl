@@ -145,17 +145,8 @@ function lazy_testitem(a)
   lazy_param_getindex(a,1)
 end
 
-function Arrays.return_cache(k::FetchParam,a::ParamBlock)
-  ai = testitem(a)
-  CachedArray(ai)
-end
-
 function Arrays.evaluate!(cache,k::FetchParam,a::ParamBlock)
-  ak = a.data[k.index]
-  setsize!(cache,size(ak))
-  r = cache.array
-  copyto!(r,ak)
-  r
+  a.data[k.index]
 end
 
 function Arrays.return_cache(k::FetchParam,a::ArrayBlock{A,N}) where {A,N}

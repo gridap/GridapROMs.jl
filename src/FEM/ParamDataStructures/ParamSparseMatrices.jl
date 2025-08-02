@@ -150,10 +150,10 @@ function ConsecutiveParamSparseMatrixCSC(a::AbstractVector{<:SparseMatrixCSC{Tv}
   ConsecutiveParamSparseMatrixCSC(m,n,colptr,rowval,data)
 end
 
-function ParamArray(a::SparseMatrixCSC,l::Integer;kwargs...)
-  outer = (1,1,l)
+function ParamArray(a::SparseMatrixCSC,l::Integer;copy=false,kwargs...)
+  outer = (1,l)
   data = repeat(nonzeros(a);outer)
-  !copy && LinearAlgebra.fillstored!(data,zero(eltype(a)))
+  !copy && fill!(data,zero(eltype(a)))
   m,n = size(a)
   colptr = getcolptr(a)
   rowval = rowvals(a)
@@ -389,10 +389,10 @@ function ConsecutiveParamSparseMatrixCSR(a::AbstractVector{<:SparseMatrixCSR{Bi,
   ConsecutiveParamSparseMatrixCSR{1}(m,n,rowptr,colval,data)
 end
 
-function ParamArray(a::SparseMatrixCSR,l::Integer;kwargs...)
-  outer = (1,1,l)
+function ParamArray(a::SparseMatrixCSR,l::Integer;copy=false,kwargs...)
+  outer = (1,l)
   data = repeat(nonzeros(a);outer)
-  !copy && LinearAlgebra.fillstored!(data,zero(eltype(a)))
+  !copy && fill!(data,zero(eltype(a)))
   m,n = size(a)
   rowptr = getrowptr(a)
   colval = colvals(a)

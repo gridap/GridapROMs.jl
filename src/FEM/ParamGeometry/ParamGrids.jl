@@ -60,6 +60,12 @@ function mapped_grid(
   BodyFittedTriangulation(model,grid,trian.tface_to_mface)
 end
 
+function mapped_grid(
+  style::GridMapStyle,trian::BoundaryTriangulation,phys_map::AbstractVector)
+  ttrian = mapped_grid(style,trian.trian,phys_map)
+  BoundaryTriangulation(ttrian,trian.glue)
+end
+
 function mapped_grid(style::GridMapStyle,trian::Triangulation,φ::FEFunction)
   phys_map = φ(get_cell_points(trian))
   mapped_grid(style,trian,phys_map)
@@ -67,10 +73,10 @@ end
 
 for T in (:FEFunction,:Function,:AbstractVector)
   @eval begin
-    function mapped_grid(style::GridMapStyle,trian::Geometry.AppendedTriangulation,phys_map::$T)
+    function mapped_grid(style::GridMapStyle,trian::AppendedTriangulation,phys_map::$T)
       a = mapped_grid(style,trian.a,phys_map)
       b = mapped_grid(style,trian.b,phys_map)
-      Geometry.AppendedTriangulation(a,b)
+      AppendedTriangulation(a,b)
     end
   end
 end

@@ -1,198 +1,234 @@
-module MovingElasticity3D
-
 using DrWatson
+using LinearAlgebra
 using Serialization
 
 using Gridap
 using GridapEmbedded
 using GridapROMs
 
+using Gridap.Geometry
 using Gridap.Arrays
 using Gridap.Algebra
+using Gridap.CellData
+using Gridap.ReferenceFEs
 using Gridap.FESpaces
+using Gridap.ODEs
+using GridapROMs.DofMaps
 using GridapROMs.Uncommon
+using GridapROMs.ParamAlgebra
 using GridapROMs.ParamDataStructures
 using GridapROMs.RBSteady
 using GridapROMs.Extensions
 using GridapROMs.Utils
 
-import GridapROMs.RBSteady: load_stats
+import Gridap.Geometry: push_normal
 
-tol_or_rank(tol,rank) = @assert false "Provide either a tolerance or a rank for the reduction step"
-tol_or_rank(tol::Real,rank) = tol
-tol_or_rank(tol::Real,rank::Int) = tol
-tol_or_rank(tol,rank::Int) = rank
-
-method=:ttsvd
-n=30
+method=:pod
 tol=1e-4
 rank=nothing
-nparams = 100
+nparams=100
+nparams_res=nparams_jac=nparams
+sketch=:sprn
+compression=:local
+ncentroids=8
 
-@assert method ∈ (:pod,:ttsvd) "Unrecognized reduction method! Should be one of (:pod,:ttsvd)"
+domain = (0,0.4,0,0.2,0,0.05)
+partition = (40,20,5)
+bgmodel = method==:ttsvd ? TProductDiscreteModel(domain,partition) : CartesianDiscreteModel(domain,partition)
 
-pdomain = (0.3,0.7)
-pspace = ParamSpace(pdomain)
-
-pmin = Point(-1,-1,-1)
-pmax = Point(1,1,1)
-dp = pmax - pmin
-
-partition = (n,n,n)
-if method==:ttsvd
-  bgmodel = TProductDiscreteModel(pmin,pmax,partition)
-else
-  bgmodel = CartesianDiscreteModel(pmin,pmax,partition)
-end
-
-g(x) = VectorValue(x[1],-x[2],0.0)
-
-# dimensional
-# λ = 3.5e8*0.33/((1+0.33)*(1-2*0.33))
-# p = 3.5e8/(2(1+0.33))
-# σ(ε) = λ*tr(ε)*one(ε) + 2*p*ε
-
-# adimensional
-λ = 0.33/((1+0.33)*(1-2*0.33))
-p = 1/(2(1+0.33))
-σ(ε) = λ*tr(ε)*one(ε) + 2*p*ε
-
-order = 1
+order = 2
 degree = 2*order
 
-Ωbg = Triangulation(bgmodel)
-dΩbg = Measure(Ωbg,degree)
-
-reffe = ReferenceFE(lagrangian,VectorValue{3,Float64},order)
-testbg = FESpace(Ωbg,reffe,conformity=:H1)
-
-energy(du,v) = ∫(v⋅du)dΩbg + ∫(∇(v)⊙∇(du))dΩbg
-tolrank = tol_or_rank(tol,rank)
-tolrank = method == :ttsvd ? fill(tolrank,4) : tolrank
-ncentroids = 4
-ncentroids_res = ncentroids_jac = 4
-fesolver = ExtensionSolver(LUSolver())
+pdomain = (0.06,0.14,0.06,0.14,0.26,0.34,0.06,0.14)
+pspace = ParamSpace(pdomain)
 
 const γd = 10.0
-const hd = dp[1]/n
+const hd = 0.1
 
-function rb_solver(tolrank,nparams)
-  tolrankhr = tolrank.*1e-2
-  state_reduction = LocalReduction(tolrank,energy;nparams,ncentroids)
-  residual_reduction = LocalHyperReduction(tolrankhr;nparams,ncentroids=ncentroids_res,interp=true)
-  jacobian_reduction = LocalHyperReduction(tolrankhr;nparams,ncentroids=ncentroids_jac,interp=true)
-  RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
-end
+const E = 1
+const ν = 0.33
+const λ = E*ν/((1+ν)*(1-2*ν))
+const p = E/(2(1+ν))
+σ(ε) = λ*tr(ε)*one(ε) + 2*p*ε
 
-function global_rb_solver(tolrank,nparams)
-  tolrankhr = tolrank.*1e-2
-  state_reduction = Reduction(tolrank,energy;nparams)
-  residual_reduction = RBFHyperReduction(tolrankhr;nparams)
-  jacobian_reduction = RBFHyperReduction(tolrankhr;nparams)
-  RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
+# quantities on the base configuration
+
+const R = 0.03
+μ0 = (0.1,0.1,0.3,0.1)
+x1 = Point(μ0[1],μ0[2],0.0)
+x2 = Point(μ0[3],μ0[4],0.0)
+v = VectorValue(0.0,0.0,0.05)
+geo = cylinder(R,x0=x1,v=v)∪cylinder(R,x0=x2,v=v)
+cutgeo = cut(bgmodel,!geo)
+cutgeo1 = cut(bgmodel,!cylinder(R,x0=x1,v=v))
+cutgeo2 = cut(bgmodel,!cylinder(R,x0=x2,v=v))
+
+Ωbg = Triangulation(bgmodel)
+Ωact = Triangulation(cutgeo,ACTIVE)
+Ω = Triangulation(cutgeo,PHYSICAL)
+Γ = EmbeddedBoundary(cutgeo)
+Γ1 = EmbeddedBoundary(cutgeo1)
+Γ2 = EmbeddedBoundary(cutgeo2)
+
+n_Γ = get_normal_vector(Γ)
+n_Γ1 = get_normal_vector(Γ1)
+n_Γ2 = get_normal_vector(Γ2)
+
+dΩbg = Measure(Ωbg,degree)
+dΩ = Measure(Ω,degree)
+dΓ = Measure(Γ,degree)
+dΓ1 = Measure(Γ1,degree)
+dΓ2 = Measure(Γ2,degree)
+
+labels = get_face_labeling(bgmodel)
+topbottom = [21,22]
+bnd = setdiff(1:26,topbottom)
+add_tag_from_tags!(labels,"bnd",bnd)
+add_tag_from_tags!(labels,"topbottom",topbottom)
+
+energy(du,v) = method==:ttsvd ? ∫(v⋅du)dΩbg + ∫(∇(v)⊙∇(du))dΩbg : ∫(v⋅du)dΩ + ∫(∇(v)⊙∇(du))dΩ
+
+strategy = AggregateAllCutCells()
+aggregates = aggregate(strategy,cutgeo)
+
+domains = FEDomains((Ω,),(Ω,Γ1,Γ2))
+
+f(μ) = x -> VectorValue(2*x[1]*x[2],2*x[1]*x[2],0.0)
+fμ(μ) = parameterize(f,μ)
+
+reffe = ReferenceFE(lagrangian,VectorValue{3,Float64},order)
+testact = FESpace(Ωact,reffe,conformity=:H1,dirichlet_tags="bnd")
+test = AgFEMSpace(testact,aggregates)
+trial = ParamTrialFESpace(test)
+
+function get_deformation_map(μ)
+  φ1(μ) = x -> VectorValue(μ[1]-μ0[1],μ[2]-μ0[2],0.0)
+  φ1μ(μ) = parameterize(φ1,μ)
+  φ2(μ) = x -> VectorValue(μ[3]-μ0[3],μ[4]-μ0[4],0.0)
+  φ2μ(μ) = parameterize(φ2,μ)
+
+  a(μ,u,v) = (
+    ∫( ε(v)⊙(σ∘ε(u)) )*dΩ +
+    ∫( (γd/hd)*v⋅u - v⋅(n_Γ1⋅(σ∘ε(u))) - (n_Γ1⋅(σ∘ε(v)))⋅u )dΓ1 +
+    ∫( (γd/hd)*v⋅u - v⋅(n_Γ2⋅(σ∘ε(u))) - (n_Γ2⋅(σ∘ε(v)))⋅u )dΓ2
+  )
+  l(μ,v) = (
+    ∫( (γd/hd)*v⋅φ1μ(μ) - (n_Γ1⋅(σ∘ε(v)))⋅φ1μ(μ) )dΓ1 +
+    ∫( (γd/hd)*v⋅φ2μ(μ) - (n_Γ2⋅(σ∘ε(v)))⋅φ2μ(μ) )dΓ2
+  )
+  res(μ,u,v) = ∫( ε(v)⊙(σ∘ε(u)) )*dΩ - l(μ,v)
+
+  maskbnd = [true,true,true]
+  masktopbottom = [false,false,true]
+
+  reffeφ = ReferenceFE(lagrangian,VectorValue{3,Float64},order)
+  Vφact = FESpace(Ωact,reffeφ,conformity=:H1,
+    dirichlet_tags=["bnd","topbottom"],
+    dirichlet_masks=[maskbnd,masktopbottom])
+  Vφ = AgFEMSpace(Vφact,aggregates)
+  Uφ = ParamTrialFESpace(Vφ)
+
+  feop = LinearParamOperator(res,a,pspace,Uφ,Vφ)
+  dφ, = solve(LUSolver(),feop,μ)
+  FEFunction(Uφ(μ),dφ)
 end
 
 function def_fe_operator(μ)
-  geo = popcorn(r0=μ[1])
-  cutgeo = cut(bgmodel,geo)
+  φh = get_deformation_map(μ)
+  Ωactφ = mapped_grid(Ωact,φh)
 
-  Ωact = Triangulation(cutgeo,ACTIVE)
-  Ω = Triangulation(cutgeo,PHYSICAL)
-  Γ = EmbeddedBoundary(cutgeo)
+  ϕ = get_cell_map(Ωactφ)
+  ϕh = GenericCellField(ϕ,Ωact,ReferenceDomain())
+  dJ = det∘(∇(ϕh))
+  dJΓn(j,c,n) = j*√(n⋅inv(c)⋅n)
+  C = (j->j⋅j')∘(∇(ϕh))
+  invJt = inv∘∇(ϕh)
+  ∇_I(a) = dot∘(invJt,∇(a))
+  _n_Γ1 = push_normal∘(invJt,n_Γ1)
+  _n_Γ2 = push_normal∘(invJt,n_Γ2)
+  dJΓ1 = dJΓn∘(dJ,C,_n_Γ1)
+  dJΓ2 = dJΓn∘(dJ,C,_n_Γ2)
+  ∫_Ω(a) = ∫(a*dJ)
+  ∫_Γ1(a) = ∫(a*dJΓ1)
+  ∫_Γ2(a) = ∫(a*dJΓ2)
 
-  dΩ = Measure(Ω,degree)
-  dΓ = Measure(Γ,degree)
+  a(μ,u,v,dΩ,dΓ1,dΓ2) = (
+    ∫_Ω( ε(v)⊙(σ∘ε(u)) )*dΩ +
+    ∫_Γ1( (γd/hd)*v⋅u - v⋅(_n_Γ1⋅(σ∘ε(u))) - (_n_Γ1⋅(σ∘ε(v)))⋅u )dΓ1 +
+    ∫_Γ2( (γd/hd)*v⋅u - v⋅(_n_Γ2⋅(σ∘ε(u))) - (_n_Γ2⋅(σ∘ε(v)))⋅u )dΓ2
+  )
+  l(μ,v,dΩ) = ∫_Ω(fμ(μ)⋅v)dΩ
+  res(μ,u,v,dΩ) = ∫_Ω( ε(v)⊙(σ∘ε(u)) )*dΩ - l(μ,v,dΩ)
 
-  n_Γ = get_normal_vector(Γ)
-
-  a(u,v,dΩ,dΓ) = ∫( ε(v) ⊙ (σ∘ε(u)) )*dΩ + ∫( (γd/hd)*v⋅u - v⋅(n_Γ⋅(σ∘ε(u))) - (n_Γ⋅(σ∘ε(v)))⊙u )dΓ
-  l(v,dΓ) = ∫( (γd/hd)*v⋅g - (n_Γ⋅(σ∘ε(v)))⋅g )dΓ
-  res(u,v,dΩ,dΓ) = ∫( ε(v) ⊙ (σ∘ε(u)) )*dΩ - l(v,dΓ)
-
-  domains = FEDomains((Ω,Γ),(Ω,Γ))
-
-  # agfem
-  strategy = AggregateAllCutCells()
-  aggregates = aggregate(strategy,cutgeo)
-  testact = FESpace(Ωact,reffe,conformity=:H1)
-  testagg = AgFEMSpace(testact,aggregates)
-
-  test = DirectSumFESpace(testbg,testagg)
-  trial = TrialFESpace(test,g)
-  ExtensionLinearOperator(res,a,trial,test,domains)
+  LinearParamOperator(res,a,pspace,trial,test,domains)
 end
 
-function get_trians(μ)
-  geo = popcorn(r0=μ[1])
-  cutgeo = cut(bgmodel,geo)
+function def_extended_fe_operator(μ)
+  φh = get_deformation_map(μ)
+  Ωactφ = mapped_grid(Ωact,φh)
 
-  Ωact = Triangulation(cutgeo,ACTIVE)
-  Ω = Triangulation(cutgeo,PHYSICAL)
-  Ωout = Triangulation(cutgeo,PHYSICAL_OUT)
-  Γ = EmbeddedBoundary(cutgeo)
+  ϕ = get_cell_map(Ωactφ)
+  ϕh = GenericCellField(ϕ,Ωact,ReferenceDomain())
+  dJ = det∘(∇(ϕh))
+  dJΓn(j,c,n) = j*√(n⋅inv(c)⋅n)
+  C = (j->j⋅j')∘(∇(ϕh))
+  invJt = inv∘∇(ϕh)
+  ∇_I(a) = dot∘(invJt,∇(a))
+  _n_Γ1 = push_normal∘(invJt,n_Γ1)
+  _n_Γ2 = push_normal∘(invJt,n_Γ2)
+  dJΓ1 = dJΓn∘(dJ,C,_n_Γ1)
+  dJΓ2 = dJΓn∘(dJ,C,_n_Γ2)
+  ∫_Ω(a) = ∫(a*dJ)
+  ∫_Γ1(a) = ∫(a*dJΓ1)
+  ∫_Γ2(a) = ∫(a*dJΓ2)
 
-  return Ω,Ωout,Γ
+  a(μ,u,v,dΩ,dΓ1,dΓ2) = (
+    ∫_Ω( ε(v)⊙(σ∘ε(u)) )*dΩ +
+    ∫_Γ1( (γd/hd)*v⋅u - v⋅(_n_Γ1⋅(σ∘ε(u))) - (_n_Γ1⋅(σ∘ε(v)))⋅u )dΓ1 +
+    ∫_Γ2( (γd/hd)*v⋅u - v⋅(_n_Γ2⋅(σ∘ε(u))) - (_n_Γ2⋅(σ∘ε(v)))⋅u )dΓ2
+  )
+  l(μ,v,dΩ) = ∫_Ω(fμ(μ)⋅v)dΩ
+  res(μ,u,v,dΩ) = ∫_Ω( ε(v)⊙(σ∘ε(u)) )*dΩ - l(μ,v,dΩ)
+
+  testbg = FESpace(Ωbg,reffe,conformity=:H1,dirichlet_tags="bnd")
+  testext = DirectSumFESpace(testbg,test)
+  trialext = ParamTrialFESpace(testext)
+  ExtensionLinearParamOperator(res,a,pspace,trialext,testext,domains)
 end
 
-function compute_err(x,x̂,μ)
-  geo = popcorn(r0=μ[1])
-  cutgeo = cut(bgmodel,geo)
+get_feop = method==:ttsvd ? def_extended_fe_operator : def_fe_operator
 
-  Ωact = Triangulation(cutgeo,ACTIVE)
-  Ω = Triangulation(cutgeo,PHYSICAL)
-  Γ = EmbeddedBoundary(cutgeo)
-  n_Γ = get_normal_vector(Γ)
-
-  order = 2
-  degree = 2*order
-
-  dΩ = Measure(Ω,degree)
-  dΓ = Measure(Γ,degree)
-
-  strategy = AggregateAllCutCells()
-  aggregates = aggregate(strategy,cutgeo)
-  testact = FESpace(Ωact,reffe,conformity=:H1)
-  testagg = AgFEMSpace(testact,aggregates)
-
-  energy(u,v) = ∫(v⋅u)dΩbg + ∫(∇(v)⊙∇(u))dΩbg + ∫( (γd/hd)*v⋅u - v⋅(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))⋅u )dΓ
-  X = assemble_matrix(energy,testagg,testagg)
-
-  d2bgd = Extensions.get_fdof_to_bg_fdof(testbg,testagg)
-  xd = x[d2bgd]
-  x̂d = x̂[d2bgd]
-
-  Y = (assemble_matrix((u,v)->∫( v⋅u + ∇(v)⊙∇(u) )dΩbg,testbg,testbg))[d2bgd,d2bgd]
-
-  errH1 = compute_relative_error(xd,x̂d,X)
-  _errH1 = compute_relative_error(xd,x̂d,Y)
-  errl2 = compute_relative_error(xd,x̂d)
-  return (errH1,_errH1,errl2)
-end
-
-function RBSteady.reduced_operator(rbsolver::RBSolver,feop::ParamOperator,sol,jac,res)
-  red_trial,red_test = reduced_spaces(rbsolver,feop,sol)
-  jac_red = RBSteady.get_jacobian_reduction(rbsolver)
-  red_lhs = reduced_jacobian(jac_red,red_trial,red_test,jac)
-  res_red = RBSteady.get_residual_reduction(rbsolver)
-  red_rhs = reduced_residual(res_red,red_test,res)
-  RBOperator(feop,red_trial,red_test,red_lhs,red_rhs)
+function rb_solver(tol,nparams)
+  fesolver = LUSolver()
+  if method == :ttsvd
+    tol = fill(tol,4)
+    fesolver = ExtensionSolver(fesolver)
+  end
+  hr = compression == :global ? HyperReduction : LocalHyperReduction
+  tolhr = tol.*1e-2
+  state_reduction = Reduction(tol,energy;nparams,sketch,compression,ncentroids)
+  residual_reduction = hr(tolhr;nparams,ncentroids)
+  jacobian_reduction = hr(tolhr;nparams,ncentroids)
+  RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
 end
 
 function plot_sol(rbop,x,x̂,μon,dir,i=1)
+  φh = get_deformation_map(μon)
+  φhi = param_getindex(φh,i)
+  Ωφ = mapped_grid(Ω,φhi)
+  U = param_getindex(trial(μon),i)
+
   if method==:ttsvd
-    u,û,e,bgΩ = vec(x[:,:,:,:,i]),vec(x̂[:,:,:,:,i]),abs.(vec(x[:,:,:,:,i]-x̂[:,:,:,:,i])),Ωbg.trian
+    u,û = vec(x[:,:,:,:,i]),vec(x̂[:,:,:,:,i])
   else
-    u,û,e,bgΩ = x[:,i],x̂[:,i],abs.(x[:,i]-x̂[:,i]),Ωbg
+    u,û = x[:,i],x̂[:,i]
   end
-  uh = FEFunction(testbg,u)
-  ûh = FEFunction(testbg,û)
-  eh = FEFunction(testbg,e)
 
-  Ω,Ωout, = get_trians(μon.params[i])
+  uh = FEFunction(U,u)
+  ûh = FEFunction(U,û)
+  eh = FEFunction(test,abs.(u-û))
 
-  writevtk(bgΩ,joinpath(dir,"bgtrian"),cellfields=["uh"=>uh,"ûh"=>ûh,"eh"=>eh])
-  writevtk(Ω,joinpath(dir,"trian"),cellfields=["uh"=>uh,"ûh"=>ûh,"eh"=>eh])
-  writevtk(Ωout,joinpath(dir,"trianout"),cellfields=["uh"=>uh,"ûh"=>ûh,"eh"=>eh])
+  writevtk(Ωφ,dir*".vtu",cellfields=["uh"=>uh,"ûh"=>ûh,"eh"=>eh])
 end
 
 function postprocess(
@@ -208,29 +244,25 @@ function postprocess(
   μon = get_realization(fesnaps)
   rbsnaps = RBSteady.to_snapshots(rbop,x̂,μon)
   plot_sol(rbop,fesnaps,rbsnaps,μon,dir)
+  return eval_performance(rbsolver,feopon,fesnaps,rbsnaps,festats,rbstats)
+end
 
-  error = [0.0,0.0,0.0]
-  for (i,μ) in enumerate(μon)
-    if method==:ttsvd
-      xi,x̂i = vec(fesnaps[:,:,:,:,i]),vec(rbsnaps[:,:,:,:,i])
-    else
-      xi,x̂i = fesnaps[:,i],rbsnaps[:,i]
-    end
-    error .+= compute_err(xi,x̂i,μ)
+function local_solver(dir,rbsolver,rbop,μ,x,festats)
+  k, = get_clusters(rbop.test)
+  μsplit = cluster(μ,k)
+  xsplit = cluster(x,k)
+  perfs = ROMPerformance[]
+  for (μi,xi) in zip(μsplit,xsplit)
+    feopi = def_fe_operator(μi)
+    rbopi = change_operator(get_local(rbop,first(μi)),feopi)
+    x̂,rbstats = solve(rbsolver,rbopi,μi)
+    perf = postprocess(dir,rbsolver,feopi,rbopi,xi,x̂,festats,rbstats)
+    push!(perfs,perf)
   end
-  error ./= param_length(μon)
-
-  speedup = compute_speedup(festats,rbstats)
-  map(e -> ROMPerformance(e,speedup),error)
+  return mean(perfs)
 end
 
-function max_subspace_size(rbop::LocalRBOperator)
-  N = max_subspace_size(rbop.test)
-  Qa = max_subspace_size(rbop.lhs)
-  Qf = max_subspace_size(rbop.rhs)
-  return [N,Qa,Qf]
-end
-
+max_subspace_size(op::RBOperator) = max_subspace_size(get_test(op))
 max_subspace_size(r::RBSpace) = max_subspace_size(r.subspace)
 max_subspace_size(a::Projection) = num_reduced_dofs(a)
 max_subspace_size(a::NormedProjection) = max_subspace_size(a.projection)
@@ -244,80 +276,44 @@ function max_subspace_size(a::LocalProjection)
   return maxsize
 end
 
-test_dir = datadir("moving_elasticity")
+test_dir = joinpath(datadir("moving_elasticity"),string(method))
 create_dir(test_dir)
 
 μ = realization(pspace;nparams)
-feop = param_operator(μ) do μ
-  println("------------------")
-  def_fe_operator(μ)
-end
+feop = get_feop(μ)
 
 μon = realization(pspace;nparams=10,sampling=:uniform)
-feopon = param_operator(μon) do μ
-  println("------------------")
-  def_fe_operator(μ)
-end
+feopon = get_feop(μon)
 
-for opon in feopon.operators
-  println(num_free_dofs(get_test(opon)))
-end
-
-rbsolver = rb_solver(tolrank,nparams)
-
-try
-  fesnaps = load_snapshots(test_dir)
-  x = load_snapshots(test_dir;label="online")
-  festats = load_stats(test_dir;label="online")
-catch
-  fesnaps, = solution_snapshots(rbsolver,feop,μ)
-  x,festats = solution_snapshots(rbsolver,feopon,μon)
-  save(test_dir,fesnaps)
-  save(test_dir,x;label="online")
-  save(test_dir,festats;label="online")
-end
-
+rbsolver = rb_solver(tol,nparams)
+fesnaps, = solution_snapshots(rbsolver,feop,μ)
+save(test_dir,fesnaps)
 jacs = jacobian_snapshots(rbsolver,feop,fesnaps)
 ress = residual_snapshots(rbsolver,feop,fesnaps)
 
-perfsH1 = ROMPerformance[]
-_perfsH1 = ROMPerformance[]
-perfsl2 = ROMPerformance[]
-maxsizes = Vector{Int}[]
+x,festats = solution_snapshots(rbsolver,feopon,μon)
+save(test_dir,x;label="online")
+save(test_dir,festats;label="online")
 
-tols = (1e-0,1e-1,1e-2,1e-3)
+perfs = ROMPerformance[]
+maxsizes = Int[]
 
-for (itol,tol) in enumerate(tols)
-  tolrank = tol_or_rank(tol,rank)
-  tolrank = method == :ttsvd ? fill(tolrank,4) : tolrank
-  rbsolver = rb_solver(tolrank,nparams)
-
-  dir = joinpath(test_dir,string(tol))
-  create_dir(dir)
-
+for tol in (1e-1,1e-2,1e-3,1e-4)
+  rbsolver = rb_solver(tol,nparams)
+  dir = joinpath(test_dir,string(compression)*"_"*string(tol))
   rbop = reduced_operator(rbsolver,feop,fesnaps,jacs,ress)
-  x̂,rbstats = solve(rbsolver,rbop,μon)
-
-  if itol > 1
-    perfH1,_perfH1,perfl2 = postprocess(dir,rbsolver,feopon,rbop,x,x̂,festats,rbstats)
-    maxsize = max_subspace_size(rbop)
-
-    println(μon[1])
-    println(perfH1)
-    println(_perfsH1)
-    push!(perfsH1,perfH1)
-    push!(_perfsH1,_perfH1)
-    push!(perfsl2,perfl2)
-    push!(maxsizes,maxsize)
+  maxsize = max_subspace_size(rbop)
+  if compression == :global
+    rbop′ = change_operator(rbop,feopon)
+    x̂,rbstats = solve(rbsolver,rbop′,μon)
+    perf = postprocess(dir,rbsolver,feopon,rbop′,x,x̂,festats,rbstats)
+  else
+    perf = local_solver(dir,rbsolver,rbop,μon,x,festats)
   end
+  push!(perfs,perf)
+  push!(maxsizes,maxsize)
+  println(perf)
 end
 
-serialize(joinpath(test_dir,"resultsH1"),perfsH1)
-serialize(joinpath(test_dir,"_resultsH1"),_perfsH1)
-serialize(joinpath(test_dir,"resultsl2"),perfsl2)
+serialize(joinpath(test_dir,"results"),perfs)
 serialize(joinpath(test_dir,"maxsizes"),maxsizes)
-
-deserialize(joinpath(test_dir,"resultsH1"))
-deserialize(joinpath(test_dir,"maxsizes"))
-
-end

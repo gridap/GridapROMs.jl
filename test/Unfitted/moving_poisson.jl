@@ -21,7 +21,9 @@ using GridapROMs.RBSteady
 using GridapROMs.Extensions
 using GridapROMs.Utils
 
-method=:pod
+import Gridap.Geometry: push_normal
+
+method=:ttsvd
 tol=1e-4
 rank=nothing
 nparams=200
@@ -33,15 +35,15 @@ ncentroids=16
 domain = (0,2,0,2)
 n = 40
 partition = (n,n)
-bgmodel = CartesianDiscreteModel(domain,partition)
+bgmodel = method==:ttsvd ? TProductDiscreteModel(domain,partition) : CartesianDiscreteModel(domain,partition)
 
 order = 1
 degree = 2
 
-# case 1: translation
-pdomain = (0.6,1.4)
-# # case 2: translation and dilation
-# pdomain = (0.6,1.4,0.25,0.35)
+# # case 1: translation
+# pdomain = (0.6,1.4)
+# case 2: translation and dilation
+pdomain = (0.6,1.4,0.25,0.35)
 pspace = ParamSpace(pdomain)
 
 const γd = 10.0
@@ -54,14 +56,16 @@ x0 = Point(μ0[1],μ0[1])
 geo = !disk(μ0[2],x0=x0)
 cutgeo = cut(bgmodel,geo)
 
+Ωbg = Triangulation(bgmodel)
 Ωact = Triangulation(cutgeo,ACTIVE)
 Ω = Triangulation(cutgeo,PHYSICAL)
 Γ = EmbeddedBoundary(cutgeo)
 
+dΩbg = Measure(Ωbg,degree)
 dΩ = Measure(Ω,degree)
 dΓ = Measure(Γ,degree)
 
-energy(du,v) = ∫(v*du)dΩ + ∫(∇(v)⋅∇(du))dΩ
+energy(du,v) = method==:ttsvd ? ∫(v*du)dΩbg + ∫(∇(v)⋅∇(du))dΩbg : ∫(v*du)dΩ + ∫(∇(v)⋅∇(du))dΩ
 
 n_Γ = get_normal_vector(Γ)
 strategy = AggregateAllCutCells()
@@ -80,11 +84,10 @@ test = AgFEMSpace(testact,aggregates)
 trial = ParamTrialFESpace(test,gμ)
 
 function get_deformation_map(μ)
-  # case 1: translation
-  φ(μ) = x -> VectorValue(μ[1]-μ0[1],μ[1]-μ0[1])
-  # # case 2: translation and dilation
-  # φ(x) = VectorValue(μrand[1]-x[1] + (μrand[2]/μ0[2])*(x[1]-μ0[1]),
-  #                    μrand[1]-x[2] + (μrand[2]/μ0[2])*(x[2]-μ0[1]))
+  # # case 1: translation
+  # φ(μ) = x -> VectorValue(μ[1]-μ0[1],μ[1]-μ0[1])
+  # case 2: translation and dilation
+  φ(μ) = x -> VectorValue(μ[1]-x[1] + (μ[2]/μ0[2])*(x[1]-μ0[1]),μ[1]-x[2] + (μ[2]/μ0[2])*(x[2]-μ0[1]))
   φμ(μ) = parameterize(φ,μ)
 
   E = 1
@@ -96,7 +99,7 @@ function get_deformation_map(μ)
   dΩ = Measure(Ω,2*degree)
   dΓ = Measure(Γ,2*degree)
 
-  a(μ,u,v) = ∫( ε(v) ⊙ (σ∘ε(u)) )*dΩ + ∫( (γd/hd)*v⋅u - v⋅(n_Γ⋅(σ∘ε(u))) - (n_Γ⋅(σ∘ε(v)))⊙u )dΓ
+  a(μ,u,v) = ∫( ε(v) ⊙ (σ∘ε(u)) )*dΩ + ∫( (γd/hd)*v⋅u - v⋅(n_Γ⋅(σ∘ε(u))) - (n_Γ⋅(σ∘ε(v)))⋅u )dΓ
   l(μ,v) = ∫( (γd/hd)*v⋅φμ(μ) - (n_Γ⋅(σ∘ε(v)))⋅φμ(μ) )dΓ
   res(μ,u,v) = ∫( ε(v) ⊙ (σ∘ε(u)) )*dΩ - l(μ,v)
 
@@ -106,37 +109,72 @@ function get_deformation_map(μ)
   Uφ = ParamTrialFESpace(Vφ)
 
   feop = LinearParamOperator(res,a,pspace,Uφ,Vφ)
-  φ, = solve(LUSolver(),feop,μ)
-  FEFunction(Uφ(μ),φ)
+  d, = solve(LUSolver(),feop,μ)
+  FEFunction(Uφ(μ),d)
 end
 
 function def_fe_operator(μ)
   φh = get_deformation_map(μ)
   Ωactφ = mapped_grid(Ωact,φh)
-  Ωφ = mapped_grid(Ω,φh)
-  Γφ = mapped_grid(Γ,φh)
 
-  dΩ₀(meas) = ReferenceMeasure(meas,Ωφ)
-  dΓ₀(meas) = ReferenceMeasure(meas,Γφ)
+  ϕ = get_cell_map(Ωactφ)
+  ϕh = GenericCellField(ϕ,Ωact,ReferenceDomain())
+  dJ = det∘(∇(ϕh))
+  dJΓn(j,c,n) = j*√(n⋅inv(c)⋅n)
+  C = (j->j⋅j')∘(∇(ϕh))
+  invJt = inv∘∇(ϕh)
+  ∇_I(a) = dot∘(invJt,∇(a))
+  _n_Γ = push_normal∘(invJt,n_Γ)
+  dJΓ = dJΓn∘(dJ,C,_n_Γ)
+  ∫_Ω(a) = ∫(a*dJ)
+  ∫_Γ(a) = ∫(a*dJΓ)
 
-  ∇act₀(f) = ∇₀(f,Ωactφ)
-  nΓ₀ = n₀(n_Γ,Ωactφ)
-
-  a(μ,u,v,dΩ,dΓ) = ∫(∇act₀(v)⋅∇act₀(u))dΩ₀(dΩ) + ∫( (γd/hd)*v*u - v*(nΓ₀⋅∇act₀(u)) - (nΓ₀⋅∇act₀(v))*u )dΓ₀(dΓ)
-  l(μ,v,dΩ) = ∫(fμ(μ)⋅v)dΩ₀(dΩ)
-  res(μ,u,v,dΩ) = ∫(∇act₀(v)⋅∇act₀(u))dΩ₀(dΩ) - l(μ,v,dΩ)
+  a(μ,u,v,dΩ,dΓ) = ∫_Ω(∇_I(v)⋅∇_I(u))dΩ + ∫_Γ( (γd/hd)*v*u - v*(_n_Γ⋅∇_I(u)) - (_n_Γ⋅∇_I(v))*u )dΓ
+  l(μ,v,dΩ) = ∫_Ω(fμ(μ)⋅v)dΩ
+  res(μ,u,v,dΩ) = ∫_Ω(∇_I(v)⋅∇_I(u))dΩ - l(μ,v,dΩ)
 
   LinearParamOperator(res,a,pspace,trial,test,domains)
 end
 
+function def_extended_fe_operator(μ)
+  φh = get_deformation_map(μ)
+  Ωactφ = mapped_grid(Ωact,φh)
+
+  ϕ = get_cell_map(Ωactφ)
+  ϕh = GenericCellField(ϕ,Ωact,ReferenceDomain())
+  dJ = det∘(∇(ϕh))
+  dJΓn(j,c,n) = j*√(n⋅inv(c)⋅n)
+  C = (j->j⋅j')∘(∇(ϕh))
+  invJt = inv∘∇(ϕh)
+  ∇_I(a) = dot∘(invJt,∇(a))
+  _n_Γ = push_normal∘(invJt,n_Γ)
+  dJΓ = dJΓn∘(dJ,C,_n_Γ)
+  ∫_Ω(a) = ∫(a*dJ)
+  ∫_Γ(a) = ∫(a*dJΓ)
+
+  a(μ,u,v,dΩ,dΓ) = ∫_Ω(∇_I(v)⋅∇_I(u))dΩ + ∫_Γ( (γd/hd)*v*u - v*(_n_Γ⋅∇_I(u)) - (_n_Γ⋅∇_I(v))*u )dΓ
+  l(μ,v,dΩ) = ∫_Ω(fμ(μ)⋅v)dΩ
+  res(μ,u,v,dΩ) = ∫_Ω(∇_I(v)⋅∇_I(u))dΩ - l(μ,v,dΩ)
+
+  testbg = FESpace(Ωbg,reffe,conformity=:H1,dirichlet_tags=[1,3,7])
+  testext = DirectSumFESpace(testbg,test)
+  trialext = ParamTrialFESpace(testext,gμ)
+  ExtensionLinearParamOperator(res,a,pspace,trialext,testext,domains)
+end
+
+get_feop = method==:ttsvd ? def_extended_fe_operator : def_fe_operator
+
 function rb_solver(tol,nparams)
-  tol = method == :ttsvd ? fill(tol,3) : tol
+  fesolver = LUSolver()
+  if method == :ttsvd
+    tol = fill(tol,3)
+    fesolver = ExtensionSolver(fesolver)
+  end
   hr = compression == :global ? HyperReduction : LocalHyperReduction
   tolhr = tol.*1e-2
   state_reduction = Reduction(tol,energy;nparams,sketch,compression,ncentroids=16)
   residual_reduction = hr(tolhr;nparams,ncentroids=16)
   jacobian_reduction = hr(tolhr;nparams,ncentroids=16)
-  fesolver = LUSolver()
   RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
 end
 
@@ -180,17 +218,14 @@ function local_solver(dir,rbsolver,rbop,μ,x,festats)
   μsplit = cluster(μ,k)
   xsplit = cluster(x,k)
   perfs = ROMPerformance[]
-  maxsizes = Int[]
   for (μi,xi) in zip(μsplit,xsplit)
     feopi = def_fe_operator(μi)
     rbopi = change_operator(get_local(rbop,first(μi)),feopi)
     x̂,rbstats = solve(rbsolver,rbopi,μi)
     perf = postprocess(dir,rbsolver,feopi,rbopi,xi,x̂,festats,rbstats)
-    maxsize = max_subspace_size(rbopi)
     push!(perfs,perf)
-    push!(maxsizes,maxsize)
   end
-  return mean(perfs),maximum(maxsizes)
+  return mean(perfs)
 end
 
 max_subspace_size(op::RBOperator) = max_subspace_size(get_test(op))
@@ -207,14 +242,14 @@ function max_subspace_size(a::LocalProjection)
   return maxsize
 end
 
-test_dir = datadir("moving_poisson")
+test_dir = joinpath(datadir("moving_poisson"),string(method))
 create_dir(test_dir)
 
 μ = realization(pspace;nparams)
-feop = def_fe_operator(μ)
+feop = get_feop(μ)
 
 μon = realization(pspace;nparams=10,sampling=:uniform)
-feopon = def_fe_operator(μon)
+feopon = get_feop(μon)
 
 rbsolver = rb_solver(tol,nparams)
 fesnaps, = solution_snapshots(rbsolver,feop,μ)
@@ -230,13 +265,13 @@ for tol in (1e-1,1e-2,1e-3,1e-4)
   rbsolver = rb_solver(tol,nparams)
   dir = joinpath(test_dir,string(compression)*"_"*string(tol))
   rbop = reduced_operator(rbsolver,feop,fesnaps,jacs,ress)
+  maxsize = max_subspace_size(rbop)
   if compression == :global
     rbop′ = change_operator(rbop,feopon)
     x̂,rbstats = solve(rbsolver,rbop′,μon)
     perf = postprocess(dir,rbsolver,feopon,rbop′,x,x̂,festats,rbstats)
-    maxsize = max_subspace_size(rbop′)
   else
-    perf,maxsize = local_solver(dir,rbsolver,rbop,μon,x,festats)
+    perf = local_solver(dir,rbsolver,rbop,μon,x,festats)
   end
   push!(perfs,perf)
   push!(maxsizes,maxsize)
@@ -245,12 +280,3 @@ end
 
 serialize(joinpath(test_dir,"results"),perfs)
 serialize(joinpath(test_dir,"maxsizes"),maxsizes)
-
-# k, = get_clusters(rbop.test)
-# μsplit = cluster(μon,k)
-# xsplit = cluster(x,k)
-# (μi,xi) = μsplit[7],xsplit[7]
-# feopi = def_fe_operator(μi)
-# rbopi = change_operator(get_local(rbop,first(μi)),feopi)
-# x̂,rbstats = solve(rbsolver,rbopi,μi)
-# perf = postprocess(dir,rbsolver,feopi,rbopi,xi,x̂,festats,rbstats)
