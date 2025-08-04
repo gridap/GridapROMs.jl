@@ -207,7 +207,7 @@ end
 
 function Arrays.return_cache(::typeof(cluster),a,k::KmeansResult)
   labels = get_label(k,a)
-  cluster_ids = cluster_ilabels(labels)
+  cluster_ids = group_ilabels(labels)
   cluster_cache = array_cache(cluster_ids)
   _ids = getindex!(cluster_cache,cluster_ids,1)
   S = typeof(cluster(a,_ids))
@@ -327,67 +327,8 @@ function compute_ncentroids(
   all_ncentroids[elbow]
 end
 
-function get_cluster_to_labels(labels::AbstractVector)
-  perm = sortperm(labels)
-  ptrs = zeros(Int32,1+maximum(labels))
-  data = zeros(Int32,length(labels))
-  count = 0
-  for (i,p) in enumerate(perm)
-    labi = labels[p]
-    ptrs[1+labi] += 1
-    data[i] = labi
-  end
-  length_to_ptrs!(ptrs)
-  return Table(data,ptrs)
-end
-
-function cluster_labels(labels::AbstractVector)
-  perm = sortperm(labels)
-  ptrs = zeros(Int32,maximum(labels))
-  data = zeros(Int32,length(labels))
-  count = 0
-  for (i,p) in enumerate(perm)
-    labi = labels[p]
-    ptrs[labi] += 1
-    data[i] = labi
-  end
-  ptrs = ptrs[findall(!iszero,ptrs)]
-  pushfirst!(ptrs,zero(eltype(ptrs)))
-  length_to_ptrs!(ptrs)
-  return Table(data,ptrs)
-end
-
-function get_cluster_to_ilabels(labels::AbstractVector)
-  perm = sortperm(labels)
-  ptrs = zeros(Int32,1+maximum(labels))
-  data = zeros(Int32,length(labels))
-  count = 0
-  for (i,p) in enumerate(perm)
-    labi = labels[p]
-    ptrs[1+labi] += 1
-    data[i] = p
-  end
-  length_to_ptrs!(ptrs)
-  return Table(data,ptrs)
-end
-
-function cluster_ilabels(labels::AbstractVector)
-  perm = sortperm(labels)
-  ptrs = zeros(Int32,maximum(labels))
-  data = zeros(Int32,length(labels))
-  count = 0
-  for (i,p) in enumerate(perm)
-    labi = labels[p]
-    ptrs[labi] += 1
-    data[i] = p
-  end
-  ptrs = ptrs[findall(!iszero,ptrs)]
-  pushfirst!(ptrs,zero(eltype(ptrs)))
-  length_to_ptrs!(ptrs)
-  return Table(data,ptrs)
-end
-
-for f in (:cluster_labels,:get_cluster_to_labels,:cluster_ilabels,:get_cluster_to_ilabels)
+for f in (:(DofMaps.group_labels),:(DofMaps.get_group_to_labels),
+          :(DofMaps.group_ilabels),:(DofMaps.get_group_to_ilabels))
   @eval begin
     function $f(q,k::KmeansResult)
       labels = get_label(k,q)

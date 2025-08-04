@@ -153,6 +153,74 @@ function compose_index(i1_to_i2,i2_to_i3)
   return i1_to_i3
 end
 
+function get_group_to_labels(labels::AbstractVector)
+  labmin,labmax = extrema(labels)
+  labels = labmin > 0 ? labels : labels .- labmin .+ 1
+  perm = sortperm(labels)
+  ptrs = zeros(Int32,1+maximum(labels))
+  data = zeros(Int32,length(labels))
+  count = 0
+  for (i,p) in enumerate(perm)
+    labi = labels[p]
+    ptrs[1+labi] += 1
+    data[i] = labi
+  end
+  length_to_ptrs!(ptrs)
+  return Table(data,ptrs)
+end
+
+function group_labels(labels::AbstractVector)
+  labmin,labmax = extrema(labels)
+  labels = labmin > 0 ? labels : labels .- labmin .+ 1
+  perm = sortperm(labels)
+  ptrs = zeros(Int32,maximum(labels))
+  data = zeros(Int32,length(labels))
+  count = 0
+  for (i,p) in enumerate(perm)
+    labi = labels[p]
+    ptrs[labi] += 1
+    data[i] = labi
+  end
+  ptrs = ptrs[findall(!iszero,ptrs)]
+  pushfirst!(ptrs,zero(eltype(ptrs)))
+  length_to_ptrs!(ptrs)
+  return Table(data,ptrs)
+end
+
+function get_group_to_ilabels(labels::AbstractVector)
+  labmin,labmax = extrema(labels)
+  labels = labmin > 0 ? labels : labels .- labmin .+ 1
+  perm = sortperm(labels)
+  ptrs = zeros(Int32,1+maximum(labels))
+  data = zeros(Int32,length(labels))
+  count = 0
+  for (i,p) in enumerate(perm)
+    labi = labels[p]
+    ptrs[1+labi] += 1
+    data[i] = p
+  end
+  length_to_ptrs!(ptrs)
+  return Table(data,ptrs)
+end
+
+function group_ilabels(labels::AbstractVector)
+  labmin,labmax = extrema(labels)
+  labels = labmin > 0 ? labels : labels .- labmin .+ 1
+  perm = sortperm(labels)
+  ptrs = zeros(Int32,maximum(labels))
+  data = zeros(Int32,length(labels))
+  count = 0
+  for (i,p) in enumerate(perm)
+    labi = labels[p]
+    ptrs[labi] += 1
+    data[i] = p
+  end
+  ptrs = ptrs[findall(!iszero,ptrs)]
+  pushfirst!(ptrs,zero(eltype(ptrs)))
+  length_to_ptrs!(ptrs)
+  return Table(data,ptrs)
+end
+
 function inverse_table(cell_dofs::Table)
   ndofs = maximum(cell_dofs.data)
   ptrs = zeros(Int32,ndofs+1)

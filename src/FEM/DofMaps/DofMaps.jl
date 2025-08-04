@@ -33,6 +33,10 @@ export sparsify_split_indices
 export slow_index
 export fast_index
 export recast
+export group_labels
+export group_ilabels
+export get_group_to_labels
+export get_group_to_ilabels
 export inverse_table
 export common_table
 include("IndexOperations.jl")

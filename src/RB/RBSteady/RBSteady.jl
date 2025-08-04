@@ -203,6 +203,7 @@ export load_jacobians
 export load_contribution
 export load_operator
 export load_results
+export load_stats
 export plot_a_solution
 include("PostProcess.jl")
 

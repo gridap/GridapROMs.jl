@@ -153,6 +153,7 @@ using GridapROMs.Extensions: ⊕; export ⊕
 @publish RBSteady load_snapshots
 @publish RBSteady load_operator
 @publish RBSteady load_results
+@publish RBSteady load_stats
 
 @publish RBTransient HighOrderReduction
 @publish RBTransient HighOrderMDEIMHyperReduction

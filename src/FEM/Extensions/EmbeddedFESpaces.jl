@@ -445,65 +445,106 @@ function complementary_space(space::EmbeddedFESpace)
 
   T = get_dof_eltype(bg_space)
   order = get_polynomial_order(bg_space)
-  reffe = ReferenceFE(lagrangian,T,order)
-  _cspace = FESpace(ctrian,reffe,conformity=:H1)
+  cell_reffe = ReferenceFE(bg_model,lagrangian,T,order)
+  conformity = Conformity(testitem(cell_reffe),:H1)
+  cell_fe = CellFE(bg_model,cell_reffe,conformity)
+  cell_shapefuns,cell_dof_basis = compute_cell_space(cell_fe,ctrian)
 
   bg_cell_dof_ids = get_cell_dof_ids(bg_space)
-  fcdof_to_bg_fcdof = get_dofs_at_cells(bg_cell_dof_ids,cface_to_mface)
-  shared_dofs = intersect(fcdof_to_bg_fcdof,space.fdof_to_bg_fdofs)
+  fcdof_to_bg_fcdof,dcdof_to_bg_dcdof = get_dofs_at_cells(bg_cell_dof_ids,cface_to_mface)
+  shared_fdofs = intersect(fcdof_to_bg_fcdof,space.fdof_to_bg_fdofs)
+  shared_ddofs = (-1).*intersect(dcdof_to_bg_dcdof,abs.(space.ddof_to_bg_ddofs))
 
-  cell_dof_ids = get_cell_dof_ids(_cspace)
-  dof_to_shared_dof = get_dof_to_shared_dof(
-    cell_dof_ids,bg_cell_dof_ids,shared_dofs,cface_to_mface)
-  change_shared_to_diri_dofs!(cell_dof_ids,dof_to_shared_dof)
+  cell_dof_ids = get_ccell_unshared_dof_ids(
+    bg_cell_dof_ids,shared_fdofs,shared_ddofs,cface_to_mface)
+  dirichlet_dof_tag = get_cdirichlet_dof_tag(
+    bg_cell_dof_ids,cell_dof_ids,get_dirichlet_dof_tag(bg_space),cface_to_mface)
 
-  fdof_to_bg_fdofs = _get_fdof_to_bg_fdof(cell_dof_ids,bg_cell_dof_ids,cface_to_mface)
-
-  ndirichlet = length(shared_dofs)
-  nfree = num_free_dofs(_cspace) - ndirichlet
+  nfree = Int(maximum(cell_dof_ids.data))
+  ndirichlet = Int(-minimum(cell_dof_ids.data))
+  cell_is_dirichlet = get_cell_is_dirichlet(bg_space)[cface_to_mface]
+  dirichlet_cells = convert(Vector{Int32},intersect(get_dirichlet_cells(bg_space),cface_to_mface))
+  ntags = num_dirichlet_tags(bg_space) #TODO this one is wrong, but should not impact the results
 
   cspace = UnconstrainedFESpace(
-    _cspace.vector_type,
+    get_vector_type(bg_space),
     nfree,
     ndirichlet,
     cell_dof_ids,
-    _cspace.fe_basis,
-    _cspace.fe_dof_basis,
-    _cspace.cell_is_dirichlet,
-    _cspace.dirichlet_dof_tag,
-    _cspace.dirichlet_cells,
-    _cspace.ntags)
+    cell_shapefuns,
+    cell_dof_basis,
+    cell_is_dirichlet,
+    dirichlet_dof_tag,
+    dirichlet_cells,
+    ntags)
 
-  EmbeddedFESpace(cspace,bg_space,fdof_to_bg_fdofs,Int32[],Int32[])
+  EmbeddedFESpace(cspace,bg_space)
 end
 
 function get_dofs_at_cells(cell_dof_ids::Union{Table,OTable},cells)
-  touched = zeros(Bool,maximum(cell_dof_ids.data))
+  nfree = max(0,maximum(cell_dof_ids.data))
+  ndiri = abs(min(0,minimum(cell_dof_ids.data)))
+  ftouched = zeros(Bool,nfree)
+  dtouched = zeros(Bool,ndiri)
   for cell in cells
     pini = cell_dof_ids.ptrs[cell]
     pend = cell_dof_ids.ptrs[cell+1]-1
     for p in pini:pend
       dof = cell_dof_ids.data[p]
-      @check dof > 0 "No Dirichlet dofs are allowed for the complementary FE space"
-      touched[dof] = true
+      if dof > 0
+        ftouched[dof] = true
+      else
+        dtouched[-dof] = true
+      end
     end
   end
-  findall(touched)
+  findall(ftouched),findall(dtouched)
 end
 
-function get_dof_to_shared_dof(
-  ext_cell_dof_ids::Table,
-  bg_cell_dof_ids,
-  shared_dofs,
-  ext_cell_to_bg_cells,
+function get_ccell_unshared_dof_ids(
+  bg_cell_dof_ids::Union{Table,OTable},
+  shared_fdofs,
+  shared_ddofs,
+  ext_cell_to_bg_cells
   )
 
   get_idof_correction(a::Table) = (_idof,p) -> _idof
   get_idof_correction(a::OTable) = (_idof,p) -> a.terms.data[p]
   correct_idof = get_idof_correction(bg_cell_dof_ids)
 
-  ext_ndofs = maximum(ext_cell_dof_ids.data)
-  ext_dof_to_isdiri = zeros(Bool,ext_ndofs)
+  ext_cell_dof_ids = Table(lazy_map(Reindex(bg_cell_dof_ids),ext_cell_to_bg_cells))
+  ext_fdata = copy(ext_cell_dof_ids.data)
+  ext_ddata = copy(ext_cell_dof_ids.data)
+  z = zero(eltype(ext_fdata))
+  for (ext_cell,bg_cell) in enumerate(ext_cell_to_bg_cells)
+    pini = ext_cell_dof_ids.ptrs[ext_cell]
+    pend = ext_cell_dof_ids.ptrs[ext_cell+1]-1
+    bg_pini = bg_cell_dof_ids.ptrs[bg_cell]
+    bg_pend = bg_cell_dof_ids.ptrs[bg_cell+1]-1
+    for (_idof,p) in enumerate(bg_pini:bg_pend)
+      bg_dof = bg_cell_dof_ids.data[p]
+      dof = ext_cell_dof_ids.data[pini+_idof-1]
+      dof > 0 ? ext_ddata[pini+_idof-1] = z : ext_fdata[pini+_idof-1] = z
+      if bg_dof ∈ shared_fdofs
+        @assert dof > 0
+        ext_fdata[pini+_idof-1] = dof
+      elseif bg_dof ∈ shared_ddofs
+        @assert dof < 0
+        ext_ddata[pini+_idof-1] = dof
+      end
+    end
+  end
+
+  flabels = group_ilabels(ext_fdata)
+  dlabels = group_ilabels(ext_ddata)
+  fill!(ext_fdata,z)
+  fill!(ext_ddata,z)
+  _sort!(ext_fdata,flabels)
+  _sort!(ext_ddata,dlabels)
+  ext_ddata .*= -1
+
+  ext_fddata = similar(ext_cell_dof_ids.data)
+  fill!(ext_fddata,z)
   for (ext_cell,bg_cell) in enumerate(ext_cell_to_bg_cells)
     pini = ext_cell_dof_ids.ptrs[ext_cell]
     pend = ext_cell_dof_ids.ptrs[ext_cell+1]-1
@@ -512,78 +553,43 @@ function get_dof_to_shared_dof(
     for (_idof,p) in enumerate(bg_pini:bg_pend)
       idof = correct_idof(_idof,p)
       bg_dof = bg_cell_dof_ids.data[p]
-      if bg_dof ∈ shared_dofs
-        dof = ext_cell_dof_ids.data[pini+idof-1]
-        ext_dof_to_isdiri[dof] = true
+      dof = bg_dof > 0 ? ext_fdata[pini+_idof-1] : ext_ddata[pini+_idof-1]
+      ext_fddata[pini+_idof-1] = dof
+    end
+  end
+
+  return Table(ext_fddata,ext_cell_dof_ids.ptrs)
+end
+
+function get_cdirichlet_dof_tag(
+  bg_cell_dof_ids::Union{Table,OTable},
+  ext_cell_dof_ids::Table,
+  bg_dirichlet_dof_tag,
+  ext_cell_to_bg_cells)
+
+  ndiri = abs(min(0,minimum(ext_cell_dof_ids.data)))
+  ext_dirichlet_dof_tag = zeros(eltype(bg_dirichlet_dof_tag),ndiri)
+  for (ext_cell,bg_cell) in enumerate(ext_cell_to_bg_cells)
+    pini = ext_cell_dof_ids.ptrs[ext_cell]
+    pend = ext_cell_dof_ids.ptrs[ext_cell+1]-1
+    bg_pini = bg_cell_dof_ids.ptrs[bg_cell]
+    bg_pend = bg_cell_dof_ids.ptrs[bg_cell+1]-1
+    for (dof,bg_dof) in zip(pini:pend,bg_pini:bg_pend)
+      if dof < 0
+        ext_dirichlet_dof_tag[dof] = bg_dirichlet_dof_tag[bg_dof]
       end
     end
   end
-
-  return ext_dof_to_isdiri
+  return ext_dirichlet_dof_tag
 end
 
-function change_shared_to_diri_dofs!(cell_dof_ids,ext_dof_to_isdiri)
-  ext_dof_to_nprev_diri = cumsum(ext_dof_to_isdiri)
-  for (ldof,ext_dof) in enumerate(cell_dof_ids.data)
-    if ext_dof_to_isdiri[ext_dof] == 0
-      cell_dof_ids.data[ldof] = ext_dof-ext_dof_to_nprev_diri[ext_dof]
-    else
-      cell_dof_ids.data[ldof] = -ext_dof_to_nprev_diri[ext_dof]
+function _sort!(dof_data::AbstractVector,dof_to_idof_data::Table)
+  for dof in 2:length(dof_to_idof_data)
+    pini = dof_to_idof_data.ptrs[dof]
+    pend = dof_to_idof_data.ptrs[dof+1]-1
+    for p in pini:pend
+      idof = dof_to_idof_data.data[p]
+      dof_data[idof] = dof-1
     end
   end
-end
-
-function _get_fdof_to_bg_fdof(ext_cell_dof_ids,bg_cell_dof_ids,ext_cell_to_bg_cells)
-  ext_nfdofs = maximum(ext_cell_dof_ids.data)
-  fdof_to_bg_fdof = zeros(Int,ext_nfdofs)
-  _get_fdof_to_bg_fdof!(fdof_to_bg_fdof,bg_cell_dof_ids,ext_cell_dof_ids,ext_cell_to_bg_cells)
-  return fdof_to_bg_fdof
-end
-
-function _get_fdof_to_bg_fdof!(
-  fdof_to_bg_fdof,
-  bg_cell_ids::Table,
-  cell_ids::AbstractArray,
-  cell_to_bg_cell::AbstractVector)
-
-  bg_cache = array_cache(bg_cell_ids)
-  cache = array_cache(cell_ids)
-  for (cell,bg_cell) in enumerate(cell_to_bg_cell)
-    bg_dofs = getindex!(bg_cache,bg_cell_ids,bg_cell)
-    dofs = getindex!(cache,cell_ids,cell)
-    for (ldof,dof) in enumerate(dofs)
-      bg_dof = bg_dofs[ldof]
-      if dof > 0
-        @check bg_dof > 0
-        fdof_to_bg_fdof[dof] = bg_dof
-      end
-    end
-  end
-  return fdof_to_bg_fdof
-end
-
-function _get_fdof_to_bg_fdof!(
-  fdof_to_bg_fdof,
-  bg_cell_ids::OTable,
-  cell_ids::AbstractArray,
-  cell_to_bg_cell::AbstractVector)
-
-  oldof_to_ldof = DofMaps.get_local_ordering(bg_cell_ids)
-  bg_cache = array_cache(bg_cell_ids)
-  cache = array_cache(cell_ids)
-  ocache = array_cache(oldof_to_ldof)
-  for (cell,bg_cell) in enumerate(cell_to_bg_cell)
-    bg_odofs = getindex!(bg_cache,bg_cell_ids,bg_cell)
-    dofs = getindex!(cache,cell_ids,cell)
-    ldofs = getindex!(ocache,oldof_to_ldof,cell)
-    lodofs = invperm(ldofs)
-    for (oldof,dof) in enumerate(dofs)
-      bg_dof = bg_odofs[lodofs[oldof]]
-      if dof > 0
-        @check bg_dof > 0
-        fdof_to_bg_fdof[dof] = bg_dof
-      end
-    end
-  end
-  return fdof_to_bg_fdof
 end

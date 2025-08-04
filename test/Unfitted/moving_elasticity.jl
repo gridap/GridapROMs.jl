@@ -23,7 +23,7 @@ using GridapROMs.Utils
 
 import Gridap.Geometry: push_normal
 
-method=:pod
+method=:ttsvd
 tol=1e-4
 rank=nothing
 nparams=100
@@ -32,18 +32,21 @@ sketch=:sprn
 compression=:local
 ncentroids=8
 
-domain = (0,0.4,0,0.2,0,0.05)
-partition = (40,20,5)
+const L = 2.0
+const W = 1.0
+const H = 0.15
+
+const n = 20
+
+domain = (0,L,0,W,0,H)
+partition = Int.((L,W,H) .* n)
 bgmodel = method==:ttsvd ? TProductDiscreteModel(domain,partition) : CartesianDiscreteModel(domain,partition)
 
 order = 2
 degree = 2*order
 
-pdomain = (0.06,0.14,0.06,0.14,0.26,0.34,0.06,0.14)
-pspace = ParamSpace(pdomain)
-
 const γd = 10.0
-const hd = 0.1
+const hd = 0.01
 
 const E = 1
 const ν = 0.33
@@ -51,34 +54,27 @@ const λ = E*ν/((1+ν)*(1-2*ν))
 const p = E/(2(1+ν))
 σ(ε) = λ*tr(ε)*one(ε) + 2*p*ε
 
-# quantities on the base configuration
+# params
+μ0 = (1.0,0.5)
+pdomain = (0.5,1.5,0.4,0.6)
+pspace = ParamSpace(pdomain)
 
-const R = 0.03
-μ0 = (0.1,0.1,0.3,0.1)
-x1 = Point(μ0[1],μ0[2],0.0)
-x2 = Point(μ0[3],μ0[4],0.0)
-v = VectorValue(0.0,0.0,0.05)
-geo = cylinder(R,x0=x1,v=v)∪cylinder(R,x0=x2,v=v)
+# quantities on the base configuration
+const R = 0.25
+x0 = Point(μ0[1],μ0[2],0.0)
+v = VectorValue(0.0,0.0,H)
+geo = cylinder(0.25,x0=x0,v=v)
 cutgeo = cut(bgmodel,!geo)
-cutgeo1 = cut(bgmodel,!cylinder(R,x0=x1,v=v))
-cutgeo2 = cut(bgmodel,!cylinder(R,x0=x2,v=v))
 
 Ωbg = Triangulation(bgmodel)
 Ωact = Triangulation(cutgeo,ACTIVE)
 Ω = Triangulation(cutgeo,PHYSICAL)
 Γ = EmbeddedBoundary(cutgeo)
-Γ1 = EmbeddedBoundary(cutgeo1)
-Γ2 = EmbeddedBoundary(cutgeo2)
-
 n_Γ = get_normal_vector(Γ)
-n_Γ1 = get_normal_vector(Γ1)
-n_Γ2 = get_normal_vector(Γ2)
 
 dΩbg = Measure(Ωbg,degree)
 dΩ = Measure(Ω,degree)
 dΓ = Measure(Γ,degree)
-dΓ1 = Measure(Γ1,degree)
-dΓ2 = Measure(Γ2,degree)
 
 labels = get_face_labeling(bgmodel)
 topbottom = [21,22]
@@ -91,31 +87,25 @@ energy(du,v) = method==:ttsvd ? ∫(v⋅du)dΩbg + ∫(∇(v)⊙∇(du))dΩbg : 
 strategy = AggregateAllCutCells()
 aggregates = aggregate(strategy,cutgeo)
 
-domains = FEDomains((Ω,),(Ω,Γ1,Γ2))
+domains = FEDomains((Ω,),(Ω,Γ))
 
 f(μ) = x -> VectorValue(2*x[1]*x[2],2*x[1]*x[2],0.0)
 fμ(μ) = parameterize(f,μ)
 
 reffe = ReferenceFE(lagrangian,VectorValue{3,Float64},order)
-testact = FESpace(Ωact,reffe,conformity=:H1,dirichlet_tags="bnd")
+testact = FESpace(Ωact,reffe,conformity=:H1,dirichlet_tags="boundary")
 test = AgFEMSpace(testact,aggregates)
 trial = ParamTrialFESpace(test)
 
 function get_deformation_map(μ)
-  φ1(μ) = x -> VectorValue(μ[1]-μ0[1],μ[2]-μ0[2],0.0)
-  φ1μ(μ) = parameterize(φ1,μ)
-  φ2(μ) = x -> VectorValue(μ[3]-μ0[3],μ[4]-μ0[4],0.0)
-  φ2μ(μ) = parameterize(φ2,μ)
+  φ(μ) = x -> VectorValue(μ[1]-μ0[1],μ[2]-μ0[2],0.0)
+  φμ(μ) = parameterize(φ,μ)
 
   a(μ,u,v) = (
     ∫( ε(v)⊙(σ∘ε(u)) )*dΩ +
-    ∫( (γd/hd)*v⋅u - v⋅(n_Γ1⋅(σ∘ε(u))) - (n_Γ1⋅(σ∘ε(v)))⋅u )dΓ1 +
-    ∫( (γd/hd)*v⋅u - v⋅(n_Γ2⋅(σ∘ε(u))) - (n_Γ2⋅(σ∘ε(v)))⋅u )dΓ2
+    ∫( (γd/hd)*v⋅u - v⋅(n_Γ⋅(σ∘ε(u))) - (n_Γ⋅(σ∘ε(v)))⋅u )dΓ
   )
-  l(μ,v) = (
-    ∫( (γd/hd)*v⋅φ1μ(μ) - (n_Γ1⋅(σ∘ε(v)))⋅φ1μ(μ) )dΓ1 +
-    ∫( (γd/hd)*v⋅φ2μ(μ) - (n_Γ2⋅(σ∘ε(v)))⋅φ2μ(μ) )dΓ2
-  )
+  l(μ,v) = ∫( (γd/hd)*v⋅φμ(μ) - (n_Γ⋅(σ∘ε(v)))⋅φμ(μ) )dΓ
   res(μ,u,v) = ∫( ε(v)⊙(σ∘ε(u)) )*dΩ - l(μ,v)
 
   maskbnd = [true,true,true]
@@ -144,18 +134,14 @@ function def_fe_operator(μ)
   C = (j->j⋅j')∘(∇(ϕh))
   invJt = inv∘∇(ϕh)
   ∇_I(a) = dot∘(invJt,∇(a))
-  _n_Γ1 = push_normal∘(invJt,n_Γ1)
-  _n_Γ2 = push_normal∘(invJt,n_Γ2)
-  dJΓ1 = dJΓn∘(dJ,C,_n_Γ1)
-  dJΓ2 = dJΓn∘(dJ,C,_n_Γ2)
+  _n_Γ = push_normal∘(invJt,n_Γ)
+  dJΓ = dJΓn∘(dJ,C,_n_Γ)
   ∫_Ω(a) = ∫(a*dJ)
-  ∫_Γ1(a) = ∫(a*dJΓ1)
-  ∫_Γ2(a) = ∫(a*dJΓ2)
+  ∫_Γ(a) = ∫(a*dJΓ)
 
-  a(μ,u,v,dΩ,dΓ1,dΓ2) = (
+  a(μ,u,v,dΩ,dΓ) = (
     ∫_Ω( ε(v)⊙(σ∘ε(u)) )*dΩ +
-    ∫_Γ1( (γd/hd)*v⋅u - v⋅(_n_Γ1⋅(σ∘ε(u))) - (_n_Γ1⋅(σ∘ε(v)))⋅u )dΓ1 +
-    ∫_Γ2( (γd/hd)*v⋅u - v⋅(_n_Γ2⋅(σ∘ε(u))) - (_n_Γ2⋅(σ∘ε(v)))⋅u )dΓ2
+    ∫_Γ( (10*γd/hd)*v⋅u - v⋅(_n_Γ⋅(σ∘ε(u))) - (_n_Γ⋅(σ∘ε(v)))⋅u )dΓ
   )
   l(μ,v,dΩ) = ∫_Ω(fμ(μ)⋅v)dΩ
   res(μ,u,v,dΩ) = ∫_Ω( ε(v)⊙(σ∘ε(u)) )*dΩ - l(μ,v,dΩ)
@@ -174,23 +160,19 @@ function def_extended_fe_operator(μ)
   C = (j->j⋅j')∘(∇(ϕh))
   invJt = inv∘∇(ϕh)
   ∇_I(a) = dot∘(invJt,∇(a))
-  _n_Γ1 = push_normal∘(invJt,n_Γ1)
-  _n_Γ2 = push_normal∘(invJt,n_Γ2)
-  dJΓ1 = dJΓn∘(dJ,C,_n_Γ1)
-  dJΓ2 = dJΓn∘(dJ,C,_n_Γ2)
+  _n_Γ = push_normal∘(invJt,n_Γ)
+  dJΓ = dJΓn∘(dJ,C,_n_Γ)
   ∫_Ω(a) = ∫(a*dJ)
-  ∫_Γ1(a) = ∫(a*dJΓ1)
-  ∫_Γ2(a) = ∫(a*dJΓ2)
+  ∫_Γ(a) = ∫(a*dJΓ)
 
-  a(μ,u,v,dΩ,dΓ1,dΓ2) = (
+  a(μ,u,v,dΩ,dΓ) = (
     ∫_Ω( ε(v)⊙(σ∘ε(u)) )*dΩ +
-    ∫_Γ1( (γd/hd)*v⋅u - v⋅(_n_Γ1⋅(σ∘ε(u))) - (_n_Γ1⋅(σ∘ε(v)))⋅u )dΓ1 +
-    ∫_Γ2( (γd/hd)*v⋅u - v⋅(_n_Γ2⋅(σ∘ε(u))) - (_n_Γ2⋅(σ∘ε(v)))⋅u )dΓ2
+    ∫_Γ( (10*γd/hd)*v⋅u - v⋅(_n_Γ⋅(σ∘ε(u))) - (_n_Γ⋅(σ∘ε(v)))⋅u )dΓ
   )
   l(μ,v,dΩ) = ∫_Ω(fμ(μ)⋅v)dΩ
   res(μ,u,v,dΩ) = ∫_Ω( ε(v)⊙(σ∘ε(u)) )*dΩ - l(μ,v,dΩ)
 
-  testbg = FESpace(Ωbg,reffe,conformity=:H1,dirichlet_tags="bnd")
+  testbg = FESpace(Ωbg,reffe,conformity=:H1,dirichlet_tags="boundary")
   testext = DirectSumFESpace(testbg,test)
   trialext = ParamTrialFESpace(testext)
   ExtensionLinearParamOperator(res,a,pspace,trialext,testext,domains)
@@ -288,12 +270,15 @@ feopon = get_feop(μon)
 rbsolver = rb_solver(tol,nparams)
 fesnaps, = solution_snapshots(rbsolver,feop,μ)
 save(test_dir,fesnaps)
+# fesnaps = load_snapshots(test_dir)
 jacs = jacobian_snapshots(rbsolver,feop,fesnaps)
 ress = residual_snapshots(rbsolver,feop,fesnaps)
 
 x,festats = solution_snapshots(rbsolver,feopon,μon)
 save(test_dir,x;label="online")
 save(test_dir,festats;label="online")
+# x = load_snapshots(test_dir;label="online")
+# festats = load_stats(test_dir;label="online")
 
 perfs = ROMPerformance[]
 maxsizes = Int[]
