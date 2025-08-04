@@ -29,6 +29,12 @@ import ArraysOfArrays: _ncolons
 import Gridap.FESpaces: LinearConstraintsMap
 import Gridap.MultiField: BlockSparseMatrixAssembler
 
+export PosZeroNegReindex
+include("PosZeroNegReindex.jl")
+
+export MissingDofsFESpace
+include("MissingDofsFESpaces.jl")
+
 export EmbeddedFESpace
 export get_bg_cell_dof_ids
 export get_emb_space

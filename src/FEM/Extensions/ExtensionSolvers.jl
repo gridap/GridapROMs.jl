@@ -146,7 +146,5 @@ function harmonic_extension(fout::SingleFieldFESpace,uh_in_bg::FEFunction)
   b = assemble_vector(l,assem,fout)
   uout = solve(LUSolver(),A,b)
 
-  #TODO fix the discrepancy between #dirichlet dofs and the - signs in celldofs(fout)
-  # FEFunction(fout,uout)
-  (fout,uout)
+  FEFunction(fout,uout)
 end

@@ -106,25 +106,6 @@ function (⊕)(uh::FEFunction,vh::FEFunction)
   FEFunction(get_bg_space(space),bg_fv,bg_dv)
 end
 
-function (⊕)(uh::FEFunction,t::Tuple)
-  complementary,cfv = t
-
-  space = get_fe_space(uh)
-  @check _same_background_space(space,complementary)
-
-  bg_fv = zero_bg_free_values(space)
-  bg_dv = zero_bg_dirichlet_values(space)
-
-  cdv = get_dirichlet_dof_values(complementary)
-  _bg_vals_from_vals!(bg_fv,bg_dv,complementary,cfv,cdv)
-
-  fv = get_free_dof_values(uh)
-  dv = get_dirichlet_dof_values(uh)
-  _bg_vals_from_vals!(bg_fv,bg_dv,space,fv,dv)
-
-  FEFunction(get_bg_space(space),bg_fv,bg_dv)
-end
-
 function _same_background_space(space::SingleFieldFESpace,complementary::SingleFieldFESpace)
   get_bg_space(space)==get_bg_space(complementary)
 end
