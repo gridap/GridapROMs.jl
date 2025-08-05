@@ -65,6 +65,8 @@ FESpaces.get_dirichlet_dof_tag(f::EmbeddedFESpace) = get_dirichlet_dof_tag(f.spa
 
 FESpaces.get_vector_type(f::EmbeddedFESpace) = get_vector_type(f.space)
 
+FESpaces.get_dirichlet_dof_values(f::EmbeddedFESpace) = get_dirichlet_dof_values(f.space)
+
 function FESpaces.scatter_free_and_dirichlet_values(f::EmbeddedFESpace,fv,dv)
   scatter_free_and_dirichlet_values(f.space,fv,dv)
 end
@@ -75,6 +77,14 @@ end
 
 function FESpaces.gather_free_and_dirichlet_values!(fv,dv,f::EmbeddedFESpace,cv)
   gather_free_and_dirichlet_values!(fv,dv,f.space,cv)
+end
+
+function FESpaces.zero_free_values(f::EmbeddedFESpace)
+  zero_free_values(f.space)
+end
+
+function FESpaces.zero_dirichlet_values(f::EmbeddedFESpace)
+  zero_dirichlet_values(f.space)
 end
 
 # extended interface
@@ -93,29 +103,25 @@ for F in (:(DofMaps.get_dof_to_bg_dof),:(DofMaps.get_fdof_to_bg_fdof),:(DofMaps.
   end
 end
 
+for F in (:(ParamFESpaces.UnEvalTrialFESpace),:(ODEs.TransientTrialFESpace),:(FESpaces.TrialFESpace))
+  @eval begin
+    function $F(f::EmbeddedFESpace,dirichlet::Union{Function,AbstractVector{<:Function}})
+      EmbeddedFESpace(
+        $F(f.space,dirichlet),$F(f.bg_space,dirichlet),
+        f.fdof_to_bg_fdofs,f.ddof_to_bg_ddofs,f.bg_cell_dof_ids)
+    end
+  end
+end
+
 for F in (:get_emb_space,:get_act_space,:get_bg_space,
   :(DofMaps.get_dof_to_bg_dof),:(DofMaps.get_fdof_to_bg_fdof),:(DofMaps.get_ddof_to_bg_ddof)
   )
   @eval begin
-    $F(f::AbstractTrialFESpace) = $F(get_fe_space(f))
-
     function $F(f::MultiFieldFESpace)
       V = get_vector_type(f)
       spaces = map($F,f)
       style = f.multi_field_style
       MultiFieldFESpace(V,spaces,style)
-    end
-  end
-end
-
-for F in (:get_act_space,:get_bg_space)
-  @eval begin
-    function $F(f::TrivialParamFESpace)
-      TrivialParamFESpace($F(f.space),f.plength)
-    end
-
-    function $F(f::TrialParamFESpace)
-      TrialParamFESpace(f.dirichlet_values,$F(f.space))
     end
   end
 end
@@ -442,12 +448,13 @@ function complementary_space(space::EmbeddedFESpace)
   cface_to_mface = findall(x->x<0,glue.mface_to_tface)
   bg_model = get_active_model(bg_trian)
   ctrian = Triangulation(bg_model,cface_to_mface)
+  cmodel = get_active_model(ctrian)
 
   T = get_dof_eltype(bg_space)
   order = get_polynomial_order(bg_space)
-  cell_reffe = ReferenceFE(bg_model,lagrangian,T,order)
+  cell_reffe = ReferenceFE(cmodel,lagrangian,T,order)
   conformity = Conformity(testitem(cell_reffe),:H1)
-  cell_fe = CellFE(bg_model,cell_reffe,conformity)
+  cell_fe = CellFE(cmodel,cell_reffe,conformity)
   cell_shapefuns,cell_dof_basis = compute_cell_space(cell_fe,ctrian)
 
   bg_cell_dof_ids = get_cell_dof_ids(bg_space)
@@ -457,13 +464,14 @@ function complementary_space(space::EmbeddedFESpace)
 
   cell_dof_ids = get_ccell_unshared_dof_ids(
     bg_cell_dof_ids,shared_fdofs,shared_ddofs,cface_to_mface)
-  dirichlet_dof_tag = get_cdirichlet_dof_tag(
-    bg_cell_dof_ids,cell_dof_ids,get_dirichlet_dof_tag(bg_space),cface_to_mface)
+  fdof_to_bg_fdofs,ddof_to_bg_ddofs = _get_dof_to_bg_dof(
+    cell_dof_ids,bg_cell_dof_ids,cface_to_mface)
 
   nfree = Int(maximum(cell_dof_ids.data))
   ndirichlet = Int(-minimum(cell_dof_ids.data))
   cell_is_dirichlet = get_cell_is_dirichlet(bg_space)[cface_to_mface]
-  dirichlet_cells = convert(Vector{Int32},intersect(get_dirichlet_cells(bg_space),cface_to_mface))
+  dirichlet_dof_tag = get_dirichlet_dof_tag(bg_space)[(-1).*ddof_to_bg_ddofs]
+  dirichlet_cells = convert(Vector{Int32},1:length(cell_is_dirichlet))
   ntags = num_dirichlet_tags(bg_space) #TODO this one is wrong, but should not impact the results
 
   cspace = MissingDofsFESpace(
@@ -477,10 +485,6 @@ function complementary_space(space::EmbeddedFESpace)
     dirichlet_dof_tag,
     dirichlet_cells,
     ntags)
-
-  fdof_to_bg_fdofs,ddof_to_bg_ddofs = _get_dof_to_bg_dof(
-    cell_dof_ids,bg_cell_dof_ids,cface_to_mface)
-  k = BGCellDofIds(cell_dof_ids,fdof_to_bg_fdofs,ddof_to_bg_ddofs)
 
   EmbeddedFESpace(cspace,bg_space,fdof_to_bg_fdofs,ddof_to_bg_ddofs,[])
 end
@@ -588,88 +592,6 @@ function get_ccell_unshared_dof_ids(
   return Table(data,_cell_dof_ids.ptrs)
 end
 
-# function get_ccell_unshared_dof_ids(
-#   bg_cell_dof_ids::Union{Table,OTable},
-#   shared_fdofs,
-#   shared_ddofs,
-#   ext_cell_to_bg_cells
-#   )
-
-#   get_idof_correction(a::Table) = (_idof,p) -> _idof
-#   get_idof_correction(a::OTable) = (_idof,p) -> a.terms.data[p]
-#   correct_idof = get_idof_correction(bg_cell_dof_ids)
-
-#   ext_cell_dof_ids = Table(lazy_map(Reindex(bg_cell_dof_ids),ext_cell_to_bg_cells))
-#   ext_fdata = similar(ext_cell_dof_ids.data)
-#   ext_ddata = similar(ext_cell_dof_ids.data)
-#   z = zero(eltype(ext_fdata))
-#   fill!(ext_fdata,z)
-#   fill!(ext_ddata,z)
-
-#   for (ext_cell,bg_cell) in enumerate(ext_cell_to_bg_cells)
-#     pini = ext_cell_dof_ids.ptrs[ext_cell]
-#     pend = ext_cell_dof_ids.ptrs[ext_cell+1]-1
-#     bg_pini = bg_cell_dof_ids.ptrs[bg_cell]
-#     bg_pend = bg_cell_dof_ids.ptrs[bg_cell+1]-1
-#     for (_idof,p) in enumerate(bg_pini:bg_pend)
-#       idof = correct_idof(_idof,p)
-#       bg_dof = bg_cell_dof_ids.data[p]
-#       if bg_dof>0 && !(bg_dof∈shared_fdofs)
-#         ext_fdata[pini+idof-1] = bg_dof
-#       elseif bg_dof<0 && !(bg_dof∈shared_ddofs)
-#         ext_ddata[pini+idof-1] = -bg_dof
-#       end
-#     end
-#   end
-
-#   flabels = group_ilabels(ext_fdata)
-#   dlabels = group_ilabels(ext_ddata)
-#   fill!(ext_fdata,z)
-#   fill!(ext_ddata,z)
-#   _sort!(ext_fdata,flabels)
-#   _sort!(ext_ddata,dlabels)
-#   ext_ddata .*= -1
-
-#   ext_fddata = similar(ext_cell_dof_ids.data)
-#   fill!(ext_fddata,z)
-#   for (ext_cell,bg_cell) in enumerate(ext_cell_to_bg_cells)
-#     pini = ext_cell_dof_ids.ptrs[ext_cell]
-#     pend = ext_cell_dof_ids.ptrs[ext_cell+1]-1
-#     bg_pini = bg_cell_dof_ids.ptrs[bg_cell]
-#     bg_pend = bg_cell_dof_ids.ptrs[bg_cell+1]-1
-#     for (_idof,p) in enumerate(bg_pini:bg_pend)
-#       idof = correct_idof(_idof,p)
-#       bg_dof = bg_cell_dof_ids.data[p]
-#       dof = bg_dof > 0 ? ext_fdata[pini+idof-1] : ext_ddata[pini+idof-1]
-#       ext_fddata[pini+idof-1] = dof
-#     end
-#   end
-
-#   return Table(ext_fddata,ext_cell_dof_ids.ptrs)
-# end
-
-function get_cdirichlet_dof_tag(
-  bg_cell_dof_ids::Union{Table,OTable},
-  ext_cell_dof_ids::Table,
-  bg_dirichlet_dof_tag,
-  ext_cell_to_bg_cells)
-
-  ndiri = abs(min(0,minimum(ext_cell_dof_ids.data)))
-  ext_dirichlet_dof_tag = zeros(eltype(bg_dirichlet_dof_tag),ndiri)
-  for (ext_cell,bg_cell) in enumerate(ext_cell_to_bg_cells)
-    pini = ext_cell_dof_ids.ptrs[ext_cell]
-    pend = ext_cell_dof_ids.ptrs[ext_cell+1]-1
-    bg_pini = bg_cell_dof_ids.ptrs[bg_cell]
-    bg_pend = bg_cell_dof_ids.ptrs[bg_cell+1]-1
-    for (dof,bg_dof) in zip(pini:pend,bg_pini:bg_pend)
-      if dof < 0
-        ext_dirichlet_dof_tag[dof] = bg_dirichlet_dof_tag[bg_dof]
-      end
-    end
-  end
-  return ext_dirichlet_dof_tag
-end
-
 function _sort!(dof_data::AbstractVector,dof_to_idof_data::Table)
   for dof in 2:length(dof_to_idof_data) # we start from 2 so we skip the idofs of the zero dofs
     pini = dof_to_idof_data.ptrs[dof]
@@ -748,3 +670,16 @@ function _get_dof_to_bg_dof!(
   end
   fdof_to_bg_fdof,ddof_to_bg_ddof
 end
+
+# evaluations
+
+const EmbeddedTrialFESpace = EmbeddedFESpace{<:AbstractTrialFESpace,<:AbstractTrialFESpace}
+
+function Arrays.evaluate(f::EmbeddedTrialFESpace,args...)
+  space = evaluate(f.space,args...)
+  bg_space = evaluate(f.bg_space,args...)
+  EmbeddedFESpace(space,bg_space,f.fdof_to_bg_fdofs,f.ddof_to_bg_ddofs,f.bg_cell_dof_ids)
+end
+
+(f::EmbeddedTrialFESpace)(μ) = evaluate(f,μ)
+(f::EmbeddedTrialFESpace)(μ,t) = evaluate(f,μ,t)

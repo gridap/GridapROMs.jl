@@ -41,6 +41,8 @@ FESpaces.get_dirichlet_dof_tag(f::DirectSumFESpace) = get_dirichlet_dof_tag(f.sp
 
 FESpaces.get_vector_type(f::DirectSumFESpace) = get_vector_type(f.space)
 
+FESpaces.get_dirichlet_dof_values(f::DirectSumFESpace) = get_dirichlet_dof_values(f.space)
+
 function FESpaces.scatter_free_and_dirichlet_values(f::DirectSumFESpace,fv,dv)
   scatter_free_and_dirichlet_values(f.space,fv,dv)
 end
@@ -51,6 +53,14 @@ end
 
 function FESpaces.gather_free_and_dirichlet_values!(fv,dv,f::DirectSumFESpace,cv)
   gather_free_and_dirichlet_values!(fv,dv,f.space,cv)
+end
+
+function FESpaces.zero_free_values(f::DirectSumFESpace)
+  zero_free_values(f.space)
+end
+
+function FESpaces.zero_dirichlet_values(f::DirectSumFESpace)
+  zero_dirichlet_values(f.space)
 end
 
 # utils
@@ -69,20 +79,10 @@ end
 get_space(f::DirectSumFESpace) = f.space
 get_out_space(f::DirectSumFESpace) = f.complementary
 
-for f in (:get_space,:get_out_space)
-  for T in (:UnEvalTrialFESpace,:TransientTrialFESpace,:TrialFESpace)
-    @eval begin
-      $f(f::$T) = $f(f.space)
-    end
-  end
-
+for F in (:(ParamFESpaces.UnEvalTrialFESpace),:(ODEs.TransientTrialFESpace),:(FESpaces.TrialFESpace))
   @eval begin
-    function $f(f::TrivialParamFESpace)
-      TrivialParamFESpace($f(f.space),f.plength)
-    end
-
-    function $f(f::TrialParamFESpace)
-      TrialParamFESpace(f.dirichlet_values,$f(f.space))
+    function $F(f::DirectSumFESpace,dirichlet::Union{Function,AbstractVector{<:Function}})
+      DirectSumFESpace($F(f.space,dirichlet),$F(f.complementary,dirichlet))
     end
   end
 end
@@ -107,11 +107,15 @@ function (⊕)(uh::FEFunction,vh::FEFunction)
 end
 
 function _same_background_space(space::SingleFieldFESpace,complementary::SingleFieldFESpace)
-  get_bg_space(space)==get_bg_space(complementary)
+  space==complementary
 end
 
 function _same_background_space(space::AbstractTrialFESpace,complementary::AbstractTrialFESpace)
   _same_background_space(get_fe_space(space),get_fe_space(complementary))
+end
+
+function _same_background_space(space::EmbeddedFESpace,complementary::EmbeddedFESpace)
+  _same_background_space(get_bg_space(space),get_bg_space(complementary))
 end
 
 FESpaces.get_dirichlet_dof_values(uh::SingleFieldFEFunction) = uh.dirichlet_values
@@ -163,3 +167,16 @@ function DofMaps.SparsityPattern(
   m3 = Algebra.create_from_nz(m2)
   SparsityPattern(m3)
 end
+
+# evaluations
+
+const DirectSumTrialFESpace = DirectSumFESpace{<:AbstractTrialFESpace,<:AbstractTrialFESpace}
+
+function Arrays.evaluate(f::DirectSumTrialFESpace,args...)
+  space = evaluate(f.space,args...)
+  complementary = evaluate(f.complementary,args...)
+  DirectSumFESpace(space,complementary)
+end
+
+(f::DirectSumTrialFESpace)(μ) = evaluate(f,μ)
+(f::DirectSumTrialFESpace)(μ,t) = evaluate(f,μ,t)
