@@ -588,66 +588,6 @@ function get_ccell_unshared_dof_ids(
   return Table(data,_cell_dof_ids.ptrs)
 end
 
-# function get_ccell_unshared_dof_ids(
-#   bg_cell_dof_ids::Union{Table,OTable},
-#   shared_fdofs,
-#   shared_ddofs,
-#   ext_cell_to_bg_cells
-#   )
-
-#   get_idof_correction(a::Table) = (_idof,p) -> _idof
-#   get_idof_correction(a::OTable) = (_idof,p) -> a.terms.data[p]
-#   correct_idof = get_idof_correction(bg_cell_dof_ids)
-
-#   ext_cell_dof_ids = Table(lazy_map(Reindex(bg_cell_dof_ids),ext_cell_to_bg_cells))
-#   ext_fdata = similar(ext_cell_dof_ids.data)
-#   ext_ddata = similar(ext_cell_dof_ids.data)
-#   z = zero(eltype(ext_fdata))
-#   fill!(ext_fdata,z)
-#   fill!(ext_ddata,z)
-
-#   for (ext_cell,bg_cell) in enumerate(ext_cell_to_bg_cells)
-#     pini = ext_cell_dof_ids.ptrs[ext_cell]
-#     pend = ext_cell_dof_ids.ptrs[ext_cell+1]-1
-#     bg_pini = bg_cell_dof_ids.ptrs[bg_cell]
-#     bg_pend = bg_cell_dof_ids.ptrs[bg_cell+1]-1
-#     for (_idof,p) in enumerate(bg_pini:bg_pend)
-#       idof = correct_idof(_idof,p)
-#       bg_dof = bg_cell_dof_ids.data[p]
-#       if bg_dof>0 && !(bg_dof∈shared_fdofs)
-#         ext_fdata[pini+idof-1] = bg_dof
-#       elseif bg_dof<0 && !(bg_dof∈shared_ddofs)
-#         ext_ddata[pini+idof-1] = -bg_dof
-#       end
-#     end
-#   end
-
-#   flabels = group_ilabels(ext_fdata)
-#   dlabels = group_ilabels(ext_ddata)
-#   fill!(ext_fdata,z)
-#   fill!(ext_ddata,z)
-#   _sort!(ext_fdata,flabels)
-#   _sort!(ext_ddata,dlabels)
-#   ext_ddata .*= -1
-
-#   ext_fddata = similar(ext_cell_dof_ids.data)
-#   fill!(ext_fddata,z)
-#   for (ext_cell,bg_cell) in enumerate(ext_cell_to_bg_cells)
-#     pini = ext_cell_dof_ids.ptrs[ext_cell]
-#     pend = ext_cell_dof_ids.ptrs[ext_cell+1]-1
-#     bg_pini = bg_cell_dof_ids.ptrs[bg_cell]
-#     bg_pend = bg_cell_dof_ids.ptrs[bg_cell+1]-1
-#     for (_idof,p) in enumerate(bg_pini:bg_pend)
-#       idof = correct_idof(_idof,p)
-#       bg_dof = bg_cell_dof_ids.data[p]
-#       dof = bg_dof > 0 ? ext_fdata[pini+idof-1] : ext_ddata[pini+idof-1]
-#       ext_fddata[pini+idof-1] = dof
-#     end
-#   end
-
-#   return Table(ext_fddata,ext_cell_dof_ids.ptrs)
-# end
-
 function get_cdirichlet_dof_tag(
   bg_cell_dof_ids::Union{Table,OTable},
   ext_cell_dof_ids::Table,

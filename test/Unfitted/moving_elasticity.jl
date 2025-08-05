@@ -93,7 +93,7 @@ f(μ) = x -> VectorValue(2*x[1]*x[2],2*x[1]*x[2],0.0)
 fμ(μ) = parameterize(f,μ)
 
 reffe = ReferenceFE(lagrangian,VectorValue{3,Float64},order)
-testact = FESpace(Ωact,reffe,conformity=:H1,dirichlet_tags="boundary")
+testact = FESpace(Ωact,reffe,conformity=:H1,dirichlet_tags="bnd")
 test = AgFEMSpace(testact,aggregates)
 trial = ParamTrialFESpace(test)
 
@@ -172,7 +172,7 @@ function def_extended_fe_operator(μ)
   l(μ,v,dΩ) = ∫_Ω(fμ(μ)⋅v)dΩ
   res(μ,u,v,dΩ) = ∫_Ω( ε(v)⊙(σ∘ε(u)) )*dΩ - l(μ,v,dΩ)
 
-  testbg = FESpace(Ωbg,reffe,conformity=:H1,dirichlet_tags="boundary")
+  testbg = FESpace(Ωbg,reffe,conformity=:H1,dirichlet_tags="bnd")
   testext = DirectSumFESpace(testbg,test)
   trialext = ParamTrialFESpace(testext)
   ExtensionLinearParamOperator(res,a,pspace,trialext,testext,domains)
