@@ -66,14 +66,14 @@ FESpaces.get_dirichlet_dof_tag(f::OrderedFESpace) = get_dirichlet_dof_tag(get_fe
 
 FESpaces.get_vector_type(f::OrderedFESpace) = get_vector_type(get_fe_space(f))
 
-# Scatters correctly ordered free and dirichlet values
+# Scatters free and dirichlet values ordered according to Gridap
 function FESpaces.scatter_free_and_dirichlet_values(f::OrderedFESpace,fv,dv)
   cell_dof_ids = get_cell_dof_ids(f)
   cell_values = lazy_map(Broadcasting(PosNegReindex(fv,dv)),cell_dof_ids)
   cell_ovalue_to_value(f,cell_values)
 end
 
-# Gathers correctly ordered free and dirichlet values
+# Gathers free and dirichlet values ordered according to Gridap
 function FESpaces.gather_free_and_dirichlet_values!(fv,dv,f::OrderedFESpace,cv)
   cell_ovals = cell_value_to_ovalue(f,cv)
   cell_dofs = get_cell_dof_ids(f)
