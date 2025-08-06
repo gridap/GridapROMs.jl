@@ -671,9 +671,35 @@ function _get_dof_to_bg_dof!(
   fdof_to_bg_fdof,ddof_to_bg_ddof
 end
 
-# evaluations
+# trial interface
 
 const EmbeddedTrialFESpace = EmbeddedFESpace{<:AbstractTrialFESpace,<:AbstractTrialFESpace}
+
+function get_emb_space(f::EmbeddedTrialFESpace)
+  space = get_fe_space(f.space)
+  bg_space = get_fe_space(f.bg_space)
+  EmbeddedFESpace(space,bg_space,f.fdof_to_bg_fdofs,f.ddof_to_bg_ddofs,f.bg_cell_dof_ids)
+end
+
+function _bg_vals_from_vals!(bg_fv,bg_dv,f::EmbeddedTrialFESpace,fv,dv)
+  _bg_vals_from_vals!(bg_fv,bg_dv,get_emb_space(f),fv,dv)
+end
+function _bg_vals_from_vals!(
+  bg_fv::ConsecutiveParamVector,
+  bg_dv::ConsecutiveParamVector,
+  f::EmbeddedTrialFESpace,
+  fv::ConsecutiveParamVector,
+  dv::ConsecutiveParamVector)
+  _bg_vals_from_vals!(bg_fv,bg_dv,get_emb_space(f),fv,dv)
+end
+
+function FESpaces.SparseMatrixAssembler(
+  trial::EmbeddedTrialFESpace,
+  test::SingleFieldFESpace
+  )
+
+  SparseMatrixAssembler(trial.space,test)
+end
 
 function Arrays.evaluate(f::EmbeddedTrialFESpace,args...)
   space = evaluate(f.space,args...)

@@ -74,18 +74,6 @@ function FESpaces.get_dirichlet_dof_values(f::UnEvalTrialFESpace)
   @unreachable msg
 end
 
-for F in (:TrialFESpace,:TransientTrialFESpace,:UnEvalTrialFESpace)
-  @eval begin
-    function DofMaps.get_dof_map(trial::$F,args...)
-      get_dof_map(trial.space,args...)
-    end
-
-    function DofMaps.get_sparse_dof_map(trial::$F,test::SingleFieldFESpace,args...)
-      get_sparse_dof_map(trial.space,test,args...)
-    end
-  end
-end
-
 # Evaluations
 
 function ODEs.allocate_space(U::UnEvalTrialFESpace,r::Realization)
@@ -124,6 +112,22 @@ const AbstractTrialFESpace{S} = Union{
   }
 
 FESpaces.get_fe_space(f::AbstractTrialFESpace) = f.space
+
+function DofMaps.get_dof_map(trial::AbstractTrialFESpace,args...)
+  get_dof_map(get_fe_space(trial),args...)
+end
+
+function DofMaps.get_sparse_dof_map(trial::AbstractTrialFESpace,test::SingleFieldFESpace,args...)
+  get_sparse_dof_map(get_fe_space(trial),test,args...)
+end
+
+function DofMaps.get_dof_to_bg_dof(bg_f::AbstractTrialFESpace,f::AbstractTrialFESpace)
+  get_dof_to_bg_dof(get_fe_space(bg_f),get_fe_space(f))
+end
+
+function DofMaps.get_bg_dof_to_dof(bg_f::AbstractTrialFESpace,f::AbstractTrialFESpace)
+  get_bg_dof_to_dof(get_fe_space(bg_f),get_fe_space(f))
+end
 
 # Define the interface for MultiField
 

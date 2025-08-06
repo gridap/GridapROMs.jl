@@ -14,7 +14,6 @@ using Gridap.ReferenceFEs
 using Gridap.FESpaces
 using Gridap.ODEs
 using GridapROMs.DofMaps
-using GridapROMs.Uncommon
 using GridapROMs.ParamAlgebra
 using GridapROMs.ParamDataStructures
 using GridapROMs.RBSteady
@@ -23,7 +22,7 @@ using GridapROMs.Utils
 
 import Gridap.Geometry: push_normal
 
-method=:ttsvd
+method=:pod
 tol=1e-4
 rank=nothing
 nparams=100
@@ -82,7 +81,7 @@ bnd = setdiff(1:26,topbottom)
 add_tag_from_tags!(labels,"bnd",bnd)
 add_tag_from_tags!(labels,"topbottom",topbottom)
 
-energy(du,v) = method==:ttsvd ? ∫(v⋅du)dΩbg + ∫(∇(v)⊙∇(du))dΩbg : ∫(v⋅du)dΩ + ∫(∇(v)⊙∇(du))dΩ
+energy(du,v) = method==:ttsvd ? ∫(v⋅du)dΩbg + ∫(∇(v)⊙∇(du))dΩbg : ∫(v⋅du)dΩ + ∫(∇(v)⊙∇(du))dΩ + ∫((γd/hd)*v⋅du)dΓ
 
 strategy = AggregateAllCutCells()
 aggregates = aggregate(strategy,cutgeo)
@@ -93,7 +92,7 @@ f(μ) = x -> VectorValue(2*x[1]*x[2],2*x[1]*x[2],0.0)
 fμ(μ) = parameterize(f,μ)
 
 reffe = ReferenceFE(lagrangian,VectorValue{3,Float64},order)
-testact = FESpace(Ωact,reffe,conformity=:H1,dirichlet_tags="bnd")
+testact = FESpace(Ωact,reffe,conformity=:H1,dirichlet_tags="boundary")
 test = AgFEMSpace(testact,aggregates)
 trial = ParamTrialFESpace(test)
 
@@ -172,7 +171,7 @@ function def_extended_fe_operator(μ)
   l(μ,v,dΩ) = ∫_Ω(fμ(μ)⋅v)dΩ
   res(μ,u,v,dΩ) = ∫_Ω( ε(v)⊙(σ∘ε(u)) )*dΩ - l(μ,v,dΩ)
 
-  testbg = FESpace(Ωbg,reffe,conformity=:H1,dirichlet_tags="bnd")
+  testbg = FESpace(Ωbg,reffe,conformity=:H1,dirichlet_tags="boundary")
   testext = DirectSumFESpace(testbg,test)
   trialext = ParamTrialFESpace(testext)
   ExtensionLinearParamOperator(res,a,pspace,trialext,testext,domains)

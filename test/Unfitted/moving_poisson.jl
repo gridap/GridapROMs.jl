@@ -14,7 +14,6 @@ using Gridap.ReferenceFEs
 using Gridap.FESpaces
 using Gridap.ODEs
 using GridapROMs.DofMaps
-using GridapROMs.Uncommon
 using GridapROMs.ParamAlgebra
 using GridapROMs.ParamDataStructures
 using GridapROMs.RBSteady
@@ -65,7 +64,7 @@ dΩbg = Measure(Ωbg,degree)
 dΩ = Measure(Ω,degree)
 dΓ = Measure(Γ,degree)
 
-energy(du,v) = method==:ttsvd ? ∫(v*du)dΩbg + ∫(∇(v)⋅∇(du))dΩbg : ∫(v*du)dΩ + ∫(∇(v)⋅∇(du))dΩ
+energy(du,v) = method==:ttsvd ? ∫(v*du)dΩbg + ∫(∇(v)⋅∇(du))dΩbg : ∫(v*du)dΩ + ∫(∇(v)⋅∇(du))dΩ + ∫((γd/hd)*v⋅du)dΓ
 
 n_Γ = get_normal_vector(Γ)
 strategy = AggregateAllCutCells()
