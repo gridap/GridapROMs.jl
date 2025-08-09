@@ -330,7 +330,7 @@ function RBSteady.enrich!(
   a_primal_space = a_primal.projection_space
   a_primal_time = a_primal.projection_time
   X_primal = norm_matrix[Block(1,1)]
-  H_primal = cholesky(X_primal)
+  H_primal = symcholesky(X_primal)
   for i = eachindex(a_dual)
     if a.touched[i]
       dual_i_space = get_basis_space(a_dual[i])

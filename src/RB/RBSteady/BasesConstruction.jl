@@ -54,13 +54,15 @@ function _size_cond(A::AbstractMatrix)
   length(A) > 1e5 && (size(A,1) > 1e2*size(A,2) || size(A,2) > 1e2*size(A,1))
 end
 
-function _cholesky_decomp(X::AbstractSparseMatrix)
-  C = try
-    cholesky(X)
-  catch
+function symcholesky(X::AbstractSparseMatrix;check::Bool=false)
+  if check
     @assert X ≈ X'
-    cholesky((X+X')/2)
   end
+  cholesky((X+X')/2)
+end
+
+function _cholesky_decomp(X::AbstractSparseMatrix)
+  C = symcholesky(X;check=true)
   L = sparse(C.L)
   p = C.p
   return L,p
@@ -521,7 +523,7 @@ for (f,g) in zip((:gram_schmidt,:gram_schmidt!),(:pivoted_qr,:pivoted_qr!))
     end
 
     function $f(A::AbstractMatrix,X::AbstractSparseMatrix,args...)
-      $f(A,cholesky(X),args...)
+      $f(A,symcholesky(X),args...)
     end
 
     function $g(A,tol=1e-10)

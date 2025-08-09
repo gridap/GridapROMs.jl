@@ -104,6 +104,7 @@ include("RBSolvers.jl")
 export reduction
 export tpod
 export ttsvd
+export symcholesky
 export gram_schmidt
 export orth_complement!
 export orth_projection

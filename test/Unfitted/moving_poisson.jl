@@ -14,6 +14,7 @@ using Gridap.ReferenceFEs
 using Gridap.FESpaces
 using Gridap.ODEs
 using GridapROMs.DofMaps
+using GridapROMs.Uncommon
 using GridapROMs.ParamAlgebra
 using GridapROMs.ParamDataStructures
 using GridapROMs.RBSteady
@@ -22,7 +23,7 @@ using GridapROMs.Utils
 
 import Gridap.Geometry: push_normal
 
-method=:ttsvd
+method=:pod
 tol=1e-4
 rank=nothing
 nparams=200
@@ -64,7 +65,7 @@ dΩbg = Measure(Ωbg,degree)
 dΩ = Measure(Ω,degree)
 dΓ = Measure(Γ,degree)
 
-energy(du,v) = method==:ttsvd ? ∫(v*du)dΩbg + ∫(∇(v)⋅∇(du))dΩbg : ∫(v*du)dΩ + ∫(∇(v)⋅∇(du))dΩ + ∫((γd/hd)*v⋅du)dΓ
+energy(du,v) = method==:ttsvd ? ∫(v*du)dΩbg + ∫(∇(v)⋅∇(du))dΩbg : ∫(v*du)dΩ + ∫(∇(v)⋅∇(du))dΩ
 
 n_Γ = get_normal_vector(Γ)
 strategy = AggregateAllCutCells()
@@ -181,17 +182,20 @@ function plot_sol(rbop,x,x̂,μon,dir,i=1)
   φh = get_deformation_map(μon)
   φhi = param_getindex(φh,i)
   Ωφ = mapped_grid(Ω,φhi)
-  U = param_getindex(trial(μon),i)
 
   if method==:ttsvd
     u,û = vec(x[:,:,i]),vec(x̂[:,:,i])
+    V = FESpace(Ωbg,reffe,conformity=:H1,dirichlet_tags=[1,3,7])
+    U = param_getindex(ParamTrialFESpace(V,gμ)(μon),i)
   else
     u,û = x[:,i],x̂[:,i]
+    V = test
+    U = param_getindex(trial(μon),i)
   end
 
   uh = FEFunction(U,u)
   ûh = FEFunction(U,û)
-  eh = FEFunction(test,abs.(u-û))
+  eh = FEFunction(V,abs.(u-û))
 
   writevtk(Ωφ,dir*".vtu",cellfields=["uh"=>uh,"ûh"=>ûh,"eh"=>eh])
 end

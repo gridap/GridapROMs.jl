@@ -108,7 +108,7 @@ function enrich!(
   @check a.touched[1] "Primal field not defined"
   a_primal,a_dual... = a.array
   X_primal = norm_matrix[Block(1,1)]
-  H_primal = cholesky(X_primal)
+  H_primal = symcholesky(X_primal)
   a_primal_loc = local_values(a_primal)
   for j in eachindex(a_primal_loc)
     pj = a_primal_loc[j]
@@ -135,7 +135,7 @@ function enrich!(
   @check a.touched[1] "Primal field not defined"
   a_primal,a_dual... = a.array
   X_primal = norm_matrix[Block(1,1)]
-  H_primal = cholesky(X_primal)
+  H_primal = symcholesky(X_primal)
   a_primal_loc = local_values(a_primal)
   for j in eachindex(a_primal_loc)
     pj = a_primal_loc[j]
@@ -284,14 +284,14 @@ function get_label(k::KmeansResult,r::Realization)
   end
 end
 
-function get_label(k::KmeansResult,x::AbstractVector)
+function get_label(k::KmeansResult,x::AbstractVector{<:Number})
   dists = centroid_distances(k,x)
   argmin(dists)
 end
 
 get_centers(k::KmeansResult) = eachcol(k.centers)
 
-function centroid_distances(k::KmeansResult,x::AbstractVector)
+function centroid_distances(k::KmeansResult,x::AbstractVector{<:Number})
   centers = get_centers(k)
   dists = zeros(length(centers))
   for (i,y) in enumerate(centers)

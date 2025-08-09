@@ -22,7 +22,7 @@ using GridapROMs.Utils
 
 import Gridap.Geometry: push_normal
 
-method=:pod
+method=:ttsvd
 tol=1e-4
 rank=nothing
 nparams=100
@@ -197,17 +197,20 @@ function plot_sol(rbop,x,x̂,μon,dir,i=1)
   φh = get_deformation_map(μon)
   φhi = param_getindex(φh,i)
   Ωφ = mapped_grid(Ω,φhi)
-  U = param_getindex(trial(μon),i)
 
   if method==:ttsvd
-    u,û = vec(x[:,:,:,:,i]),vec(x̂[:,:,:,:,i])
+    u,û = vec(x[:,:,i]),vec(x̂[:,:,i])
+    V = FESpace(Ωbg,reffe,conformity=:H1,dirichlet_tags="boundary")
+    U = param_getindex(ParamTrialFESpace(V,gμ)(μon),i)
   else
     u,û = x[:,i],x̂[:,i]
+    V = test
+    U = param_getindex(trial(μon),i)
   end
 
   uh = FEFunction(U,u)
   ûh = FEFunction(U,û)
-  eh = FEFunction(test,abs.(u-û))
+  eh = FEFunction(V,abs.(u-û))
 
   writevtk(Ωφ,dir*".vtu",cellfields=["uh"=>uh,"ûh"=>ûh,"eh"=>eh])
 end
@@ -260,24 +263,51 @@ end
 test_dir = joinpath(datadir("moving_elasticity"),string(method))
 create_dir(test_dir)
 
+rbsolver = rb_solver(tol,nparams)
+
 μ = realization(pspace;nparams)
 feop = get_feop(μ)
 
 μon = realization(pspace;nparams=10,sampling=:uniform)
 feopon = get_feop(μon)
 
-rbsolver = rb_solver(tol,nparams)
 fesnaps, = solution_snapshots(rbsolver,feop,μ)
 save(test_dir,fesnaps)
-# fesnaps = load_snapshots(test_dir)
-jacs = jacobian_snapshots(rbsolver,feop,fesnaps)
-ress = residual_snapshots(rbsolver,feop,fesnaps)
 
 x,festats = solution_snapshots(rbsolver,feopon,μon)
 save(test_dir,x;label="online")
 save(test_dir,festats;label="online")
-# x = load_snapshots(test_dir;label="online")
-# festats = load_stats(test_dir;label="online")
+# fesnaps,x,festats,μ,feop,μon,feopon = try
+#   fesnaps = load_snapshots(test_dir)
+#   x = load_snapshots(test_dir;label="online")
+#   festats = load_stats(test_dir;label="online")
+
+#   μ = get_realization(fesnaps)
+#   feop = get_feop(μ)
+
+#   μon = get_realization(x)
+#   feopon = get_feop(μon)
+
+#   fesnaps,x,festats,μ,feop,μon,feopon
+# catch
+#   μ = realization(pspace;nparams)
+#   feop = get_feop(μ)
+
+#   μon = realization(pspace;nparams=10,sampling=:uniform)
+#   feopon = get_feop(μon)
+
+#   fesnaps, = solution_snapshots(rbsolver,feop,μ)
+#   save(test_dir,fesnaps)
+
+#   x,festats = solution_snapshots(rbsolver,feopon,μon)
+#   save(test_dir,x;label="online")
+#   save(test_dir,festats;label="online")
+
+#   fesnaps,x,festats,μ,feop,μon,feopon
+# end
+
+jacs = jacobian_snapshots(rbsolver,feop,fesnaps)
+ress = residual_snapshots(rbsolver,feop,fesnaps)
 
 perfs = ROMPerformance[]
 maxsizes = Int[]

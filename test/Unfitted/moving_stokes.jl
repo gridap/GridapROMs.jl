@@ -33,8 +33,8 @@ sketch=:sprn
 compression=:local
 ncentroids=8
 
-const L = 2.0
-const W = 1.0
+const L = 1.25
+const W = 1.25
 const H = 0.15
 
 const n = 20
@@ -56,8 +56,8 @@ const p = E/(2(1+ν))
 σ(ε) = λ*tr(ε)*one(ε) + 2*p*ε
 
 # params
-μ0 = (1.0,0.5)
-pdomain = (0.5,1.5,0.4,0.6)
+μ0 = (0.625,0.625)
+pdomain = (0.625-0.2,0.625+0.2,0.625-0.2,0.625+0.2)
 pspace = ParamSpace(pdomain)
 
 # quantities on the base configuration
@@ -92,7 +92,7 @@ add_tag_from_tags!(labels,"topbottom",topbottom)
 add_tag_from_tags!(labels,"_topbottom",[21,22])
 add_tag_from_tags!(labels,"_sides",setdiff(1:26,[21,22]))
 
-energy(du,v) = ∫(du⋅v)dΩ + ∫(dp*q)dΩ + ∫(∇(v)⊙∇(du))dΩ + ∫((γd/hd)*du⋅v)dΓ
+energy((du,dp),(v,q)) = ∫(du⋅v)dΩ + ∫(dp*q)dΩ + ∫(∇(v)⊙∇(du))dΩ + ∫((γd/hd)*du⋅v)dΓ
 coupling((du,dp),(v,q)) = ∫(dp*(∇⋅(v)))dΩ
 
 strategy = AggregateAllCutCells()
@@ -182,7 +182,9 @@ function plot_sol(rbop,x,x̂,μon,dir,i=1)
   φh = get_deformation_map(μon)
   φhi = param_getindex(φh,i)
   Ωφ = mapped_grid(Ω,φhi)
-  U,P = param_getindex(trial(μon),i)
+  X = trial(μon)
+  U = param_getindex(X[1],i)
+  P = param_getindex(X[2],i)
 
   uu,pp = blocks(x)
   ûû,p̂p̂ = blocks(x̂)
@@ -250,24 +252,39 @@ end
 test_dir = joinpath(datadir("moving_stokes"),string(method))
 create_dir(test_dir)
 
-μ = realization(pspace;nparams)
-feop = def_fe_operator(μ)
-
-μon = realization(pspace;nparams=10,sampling=:uniform)
-feopon = def_fe_operator(μon)
-
 rbsolver = rb_solver(tol,nparams)
-fesnaps, = solution_snapshots(rbsolver,feop,μ)
-save(test_dir,fesnaps)
-# fesnaps = load_snapshots(test_dir)
+
+fesnaps,x,festats,μ,feop,μon,feopon = try
+  fesnaps = load_snapshots(test_dir)
+  x = load_snapshots(test_dir;label="online")
+  festats = load_stats(test_dir;label="online")
+
+  μ = get_realization(fesnaps)
+  feop = def_fe_operator(μ)
+
+  μon = get_realization(x)
+  feopon = def_fe_operator(μon)
+
+  fesnaps,x,festats,μ,feop,μon,feopon
+catch
+  μ = realization(pspace;nparams)
+  feop = def_fe_operator(μ)
+
+  μon = realization(pspace;nparams=10,sampling=:uniform)
+  feopon = def_fe_operator(μon)
+
+  fesnaps, = solution_snapshots(rbsolver,feop,μ)
+  save(test_dir,fesnaps)
+
+  x,festats = solution_snapshots(rbsolver,feopon,μon)
+  save(test_dir,x;label="online")
+  save(test_dir,festats;label="online")
+
+  fesnaps,x,festats,μ,feop,μon,feopon
+end
+
 jacs = jacobian_snapshots(rbsolver,feop,fesnaps)
 ress = residual_snapshots(rbsolver,feop,fesnaps)
-
-x,festats = solution_snapshots(rbsolver,feopon,μon)
-save(test_dir,x;label="online")
-save(test_dir,festats;label="online")
-# x = load_snapshots(test_dir;label="online")
-# festats = load_stats(test_dir;label="online")
 
 perfs = ROMPerformance[]
 maxsizes = Int[]
