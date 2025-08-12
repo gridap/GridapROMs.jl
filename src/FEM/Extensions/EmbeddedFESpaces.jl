@@ -97,7 +97,8 @@ get_emb_space(f::EmbeddedFESpace) = f
 get_act_space(f::EmbeddedFESpace) = f.space
 get_bg_space(f::EmbeddedFESpace) = f.bg_space
 
-for F in (:(DofMaps.get_dof_to_bg_dof),:(DofMaps.get_fdof_to_bg_fdof),:(DofMaps.get_ddof_to_bg_ddof),)
+for F in (:(DofMaps.get_dof_to_bg_dof),:(DofMaps.get_fdof_to_bg_fdof),:(DofMaps.get_ddof_to_bg_ddof),
+          :(DofMaps.get_bg_dof_to_dof),:(DofMaps.get_bg_fdof_to_fdof),:(DofMaps.get_bg_ddof_to_ddof))
   @eval begin
     $F(f::EmbeddedFESpace) = $F(f.bg_space,f.space)
   end

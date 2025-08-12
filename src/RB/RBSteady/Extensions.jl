@@ -35,6 +35,28 @@ function IntegrationDomain(
   GenericDomain(cells,irowcols,(rows,cols))
 end
 
+# post process
+
+function Utils.compute_relative_error(
+  norm_style::EuclideanNorm,feop::ExtensionParamOperator,extsol,extsol_approx
+  )
+
+  trial = get_trial(feop)
+  sol,sol_approx = remove_extension(trial,extsol,extsol_approx)
+  compute_relative_error(sol,sol_approx)
+end
+
+function Utils.compute_relative_error(
+  norm_style::EnergyNorm,feop::ExtensionParamOperator,extsol,extsol_approx
+  )
+
+  trial = get_trial(feop)
+  test = get_test(feop)
+  sol,sol_approx = remove_extension(trial,extsol,extsol_approx)
+  X = assemble_matrix(get_norm(norm_style),trial,test)
+  compute_relative_error(sol,sol_approx,X)
+end
+
 # utils
 
 function Extensions.get_bg_space(r::RBSpace)
@@ -46,6 +68,34 @@ function Extensions.get_bg_space(r::RBSpace{<:SingleFieldParamFESpace{<:DirectSu
   fμ = get_fe_space(r)
   fbgμ = get_bg_space(fμ)
   reduced_subspace(fbgμ,get_reduced_subspace(r))
+end
+
+function _remove_extension(s::Snapshots,ids::AbstractVector)
+  data = reshape(get_all_data(s),:,num_params(s))
+  fdata = view(data,ids,:)
+  fdof_map = VectorDofMap(length(ids))
+  r = get_realization(s)
+  Snapshots(fdata,fdof_map,r)
+end
+
+function remove_extension(f::SingleFieldFESpace,exts::Snapshots,aexts::Snapshots)
+  fdofs = get_fdof_to_bg_fdof(f)
+  s = _remove_extension(exts,fdofs)
+  as = _remove_extension(aexts,fdofs)
+  return (s,as)
+end
+
+function remove_extension(f::MultiFieldFESpace,exts::BlockSnapshots,aexts::BlockSnapshots)
+  cache = Vector{Snapshots}(undef,size(exts))
+  acache = Vector{Snapshots}(undef,size(aexts))
+  for i in eachindex(cache)
+    if exts.touched[i]
+      fdofs = get_fdof_to_bg_fdof(f[i])
+      cache[i] = _remove_extension(exts[i],fdofs)
+      acache[i] = _remove_extension(aexts[i],fdofs)
+    end
+  end
+  BlockSnapshots(cache,exts.touched),BlockSnapshots(acache,aexts.touched)
 end
 
 get_global_dof_map(r::RBSpace) = get_dof_map(get_fe_space(r))

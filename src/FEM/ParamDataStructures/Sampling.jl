@@ -75,9 +75,9 @@ end
 
 HaltonSampling() = HaltonSampling(1)
 
-function _generate_params(s::HaltonSampling,param_domain,nparams)
+function _generate_params(s::HaltonSampling,param_domain,nparams;start=s.start)
   d = length(param_domain)
-  hs = HaltonPoint(d;length=nparams,start=s.start)
+  hs = HaltonPoint(d;length=nparams,start)
   hs′ = collect(hs)
   for x in hs′
     for (di,xdi) in enumerate(x)

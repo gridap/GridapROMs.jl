@@ -64,11 +64,39 @@ end
 
 function reduced_operator(rbsolver::RBSolver,feop::ParamOperator,s,jac,res)
   red_trial,red_test = reduced_spaces(rbsolver,feop,s)
+  reduced_operator(rbsolver,feop,red_trial,red_test,jac,res)
+end
+
+function reduced_operator(
+  rbsolver::RBSolver,
+  feop::ParamOperator,
+  red_trial::RBSpace,
+  red_test::RBSpace,
+  jac,
+  res
+  )
+
   jac_red = get_jacobian_reduction(rbsolver)
   red_lhs = reduced_jacobian(jac_red,red_trial,red_test,jac)
   res_red = get_residual_reduction(rbsolver)
   red_rhs = reduced_residual(res_red,red_test,res)
   RBOperator(feop,red_trial,red_test,red_lhs,red_rhs)
+end
+
+function reduced_operator(
+  solver::RBSolver,
+  op::ParamOperator{LinearNonlinearParamEq},
+  red_trial::RBSpace,
+  red_test::RBSpace,
+  jac,
+  res
+  )
+
+  jac_lin,jac_nlin = jac
+  res_lin,res_nlin = res
+  red_op_lin = reduced_operator(solver,get_linear_operator(op),red_trial,red_test,jac_lin,res_lin)
+  red_op_nlin = reduced_operator(solver,get_nonlinear_operator(op),red_trial,red_test,jac_nlin,res_nlin)
+  LinearNonlinearRBOperator(red_op_lin,red_op_nlin)
 end
 
 """
@@ -376,13 +404,9 @@ splitting of terms in nonlinear applications
 struct LinearNonlinearRBOperator{A<:RBOperator,B<:RBOperator,T} <: RBOperator{LinearNonlinearParamEq,T}
   op_linear::A
   op_nonlinear::B
-  function LinearNonlinearRBOperator(
-    op_linear::RBOperator{OL,T},
-    op_nonlinear::RBOperator{ON,T}
-    ) where {OL,ON,T}
-
+  function LinearNonlinearRBOperator(op_linear::RBOperator{OL,T},op_nonlinear::RBOperator{ON,T}) where {OL,ON,T}
     A = typeof(op_linear)
-    b = typeof(op_nonlinear)
+    B = typeof(op_nonlinear)
     new{A,B,T}(op_linear,op_nonlinear)
   end
 end
@@ -432,7 +456,7 @@ const LinearNonlinearLocalRBOperator{T} = LinearNonlinearRBOperator{<:LocalRBOpe
 
 const AbstractLocalRBOperator = Union{LocalRBOperator,LinearNonlinearLocalRBOperator}
 
-function get_local(op::LinearNonlinearLocalRBOperator,μ)
+function get_local(op::LinearNonlinearLocalRBOperator,μ::AbstractVector)
   opμ_linear = get_local(get_linear_operator(op),μ)
   opμ_nlinear = get_local(get_nonlinear_operator(op),μ)
   LinearNonlinearRBOperator(opμ_linear,opμ_nlinear)

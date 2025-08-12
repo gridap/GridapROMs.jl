@@ -199,9 +199,9 @@ function plot_sol(rbop,x,x̂,μon,dir,i=1)
   Ωφ = mapped_grid(Ω,φhi)
 
   if method==:ttsvd
-    u,û = vec(x[:,:,i]),vec(x̂[:,:,i])
+    u,û = vec(x[:,:,:,:,i]),vec(x̂[:,:,:,:,i])
     V = FESpace(Ωbg,reffe,conformity=:H1,dirichlet_tags="boundary")
-    U = param_getindex(ParamTrialFESpace(V,gμ)(μon),i)
+    U = param_getindex(ParamTrialFESpace(V)(μon),i)
   else
     u,û = x[:,i],x̂[:,i]
     V = test
@@ -217,7 +217,7 @@ end
 
 function postprocess(
   dir,
-  solver,
+  rbsolver,
   feop,
   rbop,
   fesnaps,
@@ -265,46 +265,34 @@ create_dir(test_dir)
 
 rbsolver = rb_solver(tol,nparams)
 
-μ = realization(pspace;nparams)
-feop = get_feop(μ)
+fesnaps,x,festats,μ,feop,μon,feopon = try
+  fesnaps = load_snapshots(test_dir)
+  x = load_snapshots(test_dir;label="online")
+  festats = load_stats(test_dir;label="online")
 
-μon = realization(pspace;nparams=10,sampling=:uniform)
-feopon = get_feop(μon)
+  μ = get_realization(fesnaps)
+  feop = get_feop(μ)
 
-fesnaps, = solution_snapshots(rbsolver,feop,μ)
-save(test_dir,fesnaps)
+  μon = get_realization(x)
+  feopon = get_feop(μon)
 
-x,festats = solution_snapshots(rbsolver,feopon,μon)
-save(test_dir,x;label="online")
-save(test_dir,festats;label="online")
-# fesnaps,x,festats,μ,feop,μon,feopon = try
-#   fesnaps = load_snapshots(test_dir)
-#   x = load_snapshots(test_dir;label="online")
-#   festats = load_stats(test_dir;label="online")
+  fesnaps,x,festats,μ,feop,μon,feopon
+catch
+  μ = realization(pspace;nparams)
+  feop = get_feop(μ)
 
-#   μ = get_realization(fesnaps)
-#   feop = get_feop(μ)
+  μon = realization(pspace;nparams=10,sampling=:uniform)
+  feopon = get_feop(μon)
 
-#   μon = get_realization(x)
-#   feopon = get_feop(μon)
+  fesnaps, = solution_snapshots(rbsolver,feop,μ)
+  save(test_dir,fesnaps)
 
-#   fesnaps,x,festats,μ,feop,μon,feopon
-# catch
-#   μ = realization(pspace;nparams)
-#   feop = get_feop(μ)
+  x,festats = solution_snapshots(rbsolver,feopon,μon)
+  save(test_dir,x;label="online")
+  save(test_dir,festats;label="online")
 
-#   μon = realization(pspace;nparams=10,sampling=:uniform)
-#   feopon = get_feop(μon)
-
-#   fesnaps, = solution_snapshots(rbsolver,feop,μ)
-#   save(test_dir,fesnaps)
-
-#   x,festats = solution_snapshots(rbsolver,feopon,μon)
-#   save(test_dir,x;label="online")
-#   save(test_dir,festats;label="online")
-
-#   fesnaps,x,festats,μ,feop,μon,feopon
-# end
+  fesnaps,x,festats,μ,feop,μon,feopon
+end
 
 jacs = jacobian_snapshots(rbsolver,feop,fesnaps)
 ress = residual_snapshots(rbsolver,feop,fesnaps)

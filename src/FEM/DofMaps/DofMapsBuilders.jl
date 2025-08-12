@@ -105,7 +105,7 @@ function get_bg_dof_to_dof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace)
   bg_cell_ids = get_cell_dof_ids(bg_f)
   cell_ids = get_cell_dof_ids(f)
   cell_to_bg_cell = get_cell_to_bg_cell(f)
-  get_bg_dof_to_dof!(fdof_to_bg_fdof,ddof_to_bg_ddof,bg_cell_ids,cell_ids,cell_to_bg_cell)
+  get_bg_dof_to_dof!(bg_fdof_to_fdof,bg_ddof_to_ddof,bg_cell_ids,cell_ids,cell_to_bg_cell)
 end
 
 function get_bg_dof_to_dof!(
