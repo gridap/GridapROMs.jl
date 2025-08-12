@@ -46,7 +46,9 @@ function PartitionedArrays.assemble_impl!(
   buffer_snd = map(vector_partition,cache) do values,cache
     local_indices_snd = cache.local_indices_snd
     for (p,lid) in enumerate(local_indices_snd.data)
-      cache.buffer_snd.data[p] = values[lid]
+      for i in param_eachindex(values)
+        cache.buffer_snd.data.data[p,i] = values.data[lid,i]
+      end
     end
     cache.buffer_snd
   end
@@ -86,12 +88,13 @@ function PartitionedArrays.allocate_exchange_impl(snd,graph,::Type{T}) where T<:
   n_snd = map(innerlength,snd)
   n_rcv = PartitionedArrays.exchange_fetch(n_snd,graph)
   plength = getany_param_length(snd)
+  S = eltype2(T)
   rcv = map(n_rcv) do n_rcv
     ptrs = zeros(Int32,length(n_rcv)+1)
     ptrs[2:end] = n_rcv
     length_to_ptrs!(ptrs)
     n_data = ptrs[end]-1
-    data = Vector{T}(undef,n_data)
+    data = Vector{S}(undef,n_data)
     pdata = global_parameterize(data,plength)
     ParamJaggedArray(pdata,ptrs)
   end

@@ -118,9 +118,3 @@ function ParamDataStructures.parameterize(f::MultiFieldParamFESpace,plength::Int
   style = f.multi_field_style
   MultiFieldFESpace(spaces;style)
 end
-
-function get_vector_type2(f::MultiFieldParamFESpace{<:BlockMultiFieldStyle})
-  V = get_vector_type(f)
-  T = eltype2(V)
-  BlockVector{T,Vector{Vector{T}}}
-end

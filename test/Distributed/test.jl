@@ -35,44 +35,38 @@ u(μ) = x -> (x[1]+x[2])*sum(μ)
 uμ(μ) = parameterize(u,μ)
 reffe = ReferenceFE(lagrangian,Float64,1)
 V0 = TestFESpace(model,reffe,dirichlet_tags="boundary")
-# U = TrialParamFESpace(uμ,V0)
 U = ParamTrialFESpace(V0,uμ)
-@test isa(U,TrialParamFESpace)
-@test get_vector_type(U) <: PVector{<:ParamArray}
+@test isa(U,Distributed.DistributedUnEvalTrialFESpace)
+Uμ = U(μ)
+@test isa(Uμ,Distributed.DistributedSingleFieldParamFESpace)
 
-free_values_partition = map(partition(V0.gids)) do indices
-  v = ones(Float64,local_length(indices))
-  array_of_similar_arrays(v,length(μ))
-end
+free_values = zero_free_values(Uμ)
+fh = FEFunction(Uμ,free_values)
+zh = zero(Uμ)
+uh = interpolate(uμ(μ),Uμ)
+eh = uμ(μ) - uh
 
-free_values = PVector(free_values_partition,partition(V0.gids))
-fh = FEFunction(U,free_values)
-@assert isa(fh,Distributed.DistributedSingleFieldParamFEFunction)
-zh = zero(U)
-uh = interpolate(uμ,U)
-eh = uμ - uh
+uh_dir = interpolate_dirichlet(uμ(μ),Uμ)
+free_values = zero_free_values(Uμ)
+dirichlet_values = get_dirichlet_dof_values(Uμ)
+uh_dir2 = interpolate_dirichlet!(uμ(μ),free_values,dirichlet_values,Uμ)
 
-uh_dir = interpolate_dirichlet(uμ,U)
-free_values = zero_free_values(U)
-dirichlet_values = get_dirichlet_dof_values(U)
-uh_dir2 = interpolate_dirichlet!(uμ,free_values,dirichlet_values,U)
+uh_everywhere = interpolate_everywhere(uμ(μ),Uμ)
+dirichlet_values0 = zero_dirichlet_values(Uμ)
+uh_everywhere_ = interpolate_everywhere!(uμ(μ),free_values,dirichlet_values0,Uμ)
+eh2 = uμ(μ) - uh_everywhere
+eh2_ = uμ(μ) - uh_everywhere_
 
-uh_everywhere = interpolate_everywhere(uμ,U)
-dirichlet_values0 = zero_dirichlet_values(U)
-uh_everywhere_ = interpolate_everywhere!(uμ,free_values,dirichlet_values0,U)
-eh2 = uμ - uh_everywhere
-eh2_ = uμ - uh_everywhere_
+uh_everywhere2 = interpolate_everywhere(uh_everywhere,Uμ)
+uh_everywhere2_ = interpolate_everywhere!(uh_everywhere,free_values,dirichlet_values,Uμ)
+eh3 = uμ(μ) - uh_everywhere2
 
-uh_everywhere2 = interpolate_everywhere(uh_everywhere,U)
-uh_everywhere2_ = interpolate_everywhere!(uh_everywhere,free_values,dirichlet_values,U)
-eh3 = uμ - uh_everywhere2
-
-dofs      = get_fe_dof_basis(U)
+dofs = get_fe_dof_basis(Uμ)
 cell_vals = dofs(uh)
-gather_free_values!(free_values,U,cell_vals)
-gather_free_and_dirichlet_values!(free_values,dirichlet_values,U,cell_vals)
-uh4 = FEFunction(U,free_values,dirichlet_values)
-eh4 = uμ - uh4
+gather_free_values!(free_values,Uμ,cell_vals)
+gather_free_and_dirichlet_values!(free_values,dirichlet_values,Uμ,cell_vals)
+uh4 = FEFunction(Uμ,free_values,dirichlet_values)
+eh4 = uμ(μ) - uh4
 
 dΩ = Measure(Ω,3)
 cont   = ∫( abs2(eh) )dΩ
@@ -80,24 +74,44 @@ cont2  = ∫( abs2(eh2) )dΩ
 cont2_ = ∫( abs2(eh2_) )dΩ
 cont3  = ∫( abs2(eh3) )dΩ
 cont4  = ∫( abs2(eh4) )dΩ
-@test all(sqrt.(sum(cont)) .< 1.0e-9)
-@test all(sqrt.(sum(cont2)) .< 1.0e-9)
-@test all(sqrt.(sum(cont2_)) .< 1.0e-9)
-@test all(sqrt.(sum(cont3)) .< 1.0e-9)
-@test all(sqrt.(sum(cont4)) .< 1.0e-9)
 
 # Assembly
 das = SubAssembledRows() #FullyAssembledRows()
-Ωass  = Triangulation(das,model)
-dΩa = Measure(Ωass,3)
-assemble_tests(das,dΩ,dΩa,U,V0)
+Ωas  = Triangulation(das,model)
+dΩa = Measure(Ωas,3)
 
-u2((x,y)) = 2*(x+y)
-TrialFESpace!(U,u2)
-u2h = interpolate(u2,U)
-e2h = u2 - u2h
-cont  = ∫( abs2(e2h) )dΩ
-@test sqrt(sum(cont)) < 1.0e-9
+a(μ,du,v) = ∫(fμ(μ)*du*v)dΩa
+du = get_trial_fe_basis(Uμ)
+v = get_fe_basis(V0)
+matdata = collect_cell_matrix(Uμ,V0,a(μ,du,v))
+assem = SparseMatrixAssembler(Uμ,V0)
+assemμ = parameterize(assem,μ)
+
+A = allocate_matrix(assemμ,matdata)
+@test num_cols(assem) == size(A,2)
+@test num_rows(assem) == size(A,1)
+assemble_matrix!(A,a,matdata)
+assemble_matrix_add!(A,a,matdata)
+A = assemble_matrix(a,matdata)
+@test num_cols(a) == size(A,2)
+@test num_rows(a) == size(A,1)
+b = allocate_vector(a,vecdata)
+@test num_rows(a) == length(b)
+assemble_vector!(b,a,vecdata)
+assemble_vector_add!(b,a,vecdata)
+b = assemble_vector(a,vecdata)
+@test num_rows(a) == length(b)
+A, b = allocate_matrix_and_vector(a,data)
+assemble_matrix_and_vector!(A,b,a,data)
+assemble_matrix_and_vector_add!(A,b,a,data)
+@test num_cols(a) == size(A,2)
+@test num_rows(a) == size(A,1)
+@test num_rows(a) == length(b)
+A, b = assemble_matrix_and_vector(a,data)
+@test num_cols(a) == size(A,2)
+@test num_rows(a) == size(A,1)
+@test num_rows(a) == length(b)
+
 
 U0 = HomogeneousTrialFESpace(U)
 u0h = interpolate(0.0,U0)

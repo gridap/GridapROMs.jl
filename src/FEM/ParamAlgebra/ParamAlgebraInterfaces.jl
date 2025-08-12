@@ -258,8 +258,7 @@ function Algebra.nz_allocation(a::ParamCounter{<:Algebra.ArrayCounter})
   global_parameterize(v,a.plength)
 end
 
-# alternative implementation
-# We assumes same sparsity across parameters, to be generalized in the future
+# csc
 
 function Algebra.nz_allocation(a::ParamCounter{<:Algebra.CounterCSC{Tv,Ti}}) where {Tv,Ti}
   counter = a.counter
@@ -389,7 +388,74 @@ function Algebra.create_from_nz(a::ParamInserterCSC)
   ConsecutiveParamSparseMatrixCSC(a.nrows,a.ncols,a.colptr,a.rowval,data)
 end
 
-# csr/coo: implentation needed
+function resize_rows(a::AbstractMatrix,m::Int)
+  v = vec(a)
+  n = size(a,2)
+  _resize_rows!(v,m,n)
+  reshape(v,m,n)
+end
+
+function _resize_rows!(v::AbstractVector,m::Int,n::Int)
+  δ = Int(length(v)/n) - m
+  if δ > 0
+    for l in 1:n
+      Base._deleteat!(v,l*m+1,δ)
+    end
+  end
+  v
+end
+
+# coo
+
+function Algebra.nz_allocation(a::ParamCounter{<:Algebra.CounterCOO{T}}) where T
+  counter = Algebra.CounterCOO{T}(a.counter.axes)
+  I,J,V = allocate_coo_vectors(T,a.counter.nnz)
+  M = repeat(V;outer=(1,a.plength))
+  ParamAllocationCOO(counter,I,J,M,a.plength)
+end
+
+struct ParamAllocationCOO{T,A,B,C}
+  counter::Algebra.CounterCOO{T,A}
+  I::B
+  J::B
+  M::C
+  plength::Int
+end
+
+ParamDataStructures.param_length(inserter::ParamAllocationCOO) = inserter.plength
+
+Algebra.LoopStyle(::Type{<:ParamAllocationCOO}) = Loop()
+
+@inline function Algebra.add_entry!(::typeof(+),a::ParamAllocationCOO{T},::Nothing,i,j) where T
+  if is_entry_stored(T,i,j)
+    a.counter.nnz = a.counter.nnz + 1
+    k = a.counter.nnz
+    a.I[k] = i
+    a.J[k] = j
+  end
+  nothing
+end
+
+@inline function Algebra.add_entry!(::typeof(+),a::ParamAllocationCOO{T},v::AbstractArray,i,j) where T
+  if is_entry_stored(T,i,j)
+    a.counter.nnz = a.counter.nnz + 1
+    k = a.counter.nnz
+    a.I[k] = i
+    a.J[k] = j
+    for l in 1:a.plength
+      @inbounds a.M[k,l] = v[l]
+    end
+  end
+  nothing
+end
+
+function Algebra.create_from_nz(a::ParamAllocationCOO{T}) where T
+  m,n = map(length,a.counter.axes)
+  finalize_coo!(T,a.I,a.J,a.M,m,n)
+  sparse_from_coo(T,a.I,a.J,a.M,m,n)
+end
+
+# csr: implentation needed
 
 # utils
 

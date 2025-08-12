@@ -23,7 +23,7 @@ using GridapROMs.Utils
 
 import Gridap.Geometry: push_normal
 
-method=:ttsvd
+method=:pod
 tol=1e-4
 rank=nothing
 nparams=200
@@ -33,7 +33,7 @@ compression=:local
 ncentroids=16
 
 domain = (0,2,0,2)
-n = 40
+n = 80
 partition = (n,n)
 bgmodel = method==:ttsvd ? TProductDiscreteModel(domain,partition) : CartesianDiscreteModel(domain,partition)
 
@@ -65,7 +65,7 @@ dΩbg = Measure(Ωbg,degree)
 dΩ = Measure(Ω,degree)
 dΓ = Measure(Γ,degree)
 
-energy(du,v) = method==:ttsvd ? ∫(v*du)dΩbg + ∫(∇(v)⋅∇(du))dΩbg : ∫(v*du)dΩ + ∫(∇(v)⋅∇(du))dΩ
+energy(du,v) = method==:ttsvd ? ∫(v*du)dΩbg + ∫(∇(v)⋅∇(du))dΩbg : ∫(v*du)dΩ + ∫(∇(v)⋅∇(du))dΩ + ∫((γd/hd)*v*du)dΓ
 
 n_Γ = get_normal_vector(Γ)
 strategy = AggregateAllCutCells()
@@ -173,8 +173,8 @@ function rb_solver(tol,nparams)
   hr = compression == :global ? HyperReduction : LocalHyperReduction
   tolhr = tol.*1e-2
   state_reduction = Reduction(tol,energy;nparams,sketch,compression,ncentroids=16)
-  residual_reduction = hr(tolhr;nparams,ncentroids=16)
-  jacobian_reduction = hr(tolhr;nparams,ncentroids=16)
+  residual_reduction = hr(tolhr;nparams,ncentroids=16,hypred_strategy=:rbf)
+  jacobian_reduction = hr(tolhr;nparams,ncentroids=16,hypred_strategy=:rbf)
   RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
 end
 

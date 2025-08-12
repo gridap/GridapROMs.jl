@@ -28,7 +28,8 @@ using GridapROMs.RBSteady
 
 import Gridap.Helpers: @check
 
-import GridapDistributed: DistributedSingleFieldFESpace
+import GridapDistributed: DistributedFESpace, DistributedSingleFieldFESpace
+import GridapROMs.ParamAlgebra: ParamBuilder, ParamCounter
 import PartitionedArrays: VectorAssemblyCache
 
 const OPTIONS_CG_JACOBI = "-pc_type jacobi -ksp_type cg -ksp_converged_reason -ksp_rtol 1.0e-10"
