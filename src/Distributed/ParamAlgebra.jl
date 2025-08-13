@@ -115,6 +115,16 @@ function GridapDistributed.DistributedAllocationCOO(
     )
 end
 
+function GridapDistributed.change_axes(a::ParamCounter,axes)
+  counter = GridapDistributed.change_axes(a.counter,axes)
+  ParamCounter(counter,a.plength)
+end
+
+function GridapDistributed.change_axes(a::ParamAlgebra.ParamAllocationCOO,axes)
+  counter = GridapDistributed.change_axes(a.counter,axes)
+  ParamAlgebra.ParamAllocationCOO(counter,a.I,a.J,a.V,a.plength)
+end
+
 function GridapDistributed.change_axes(
   a::DistributedParamAllocationCOO{A,B,<:PRange,<:PRange},
   axes::Tuple{<:PRange,<:PRange}
@@ -123,7 +133,7 @@ function GridapDistributed.change_axes(
   local_axes = map(partition(axes[1]),partition(axes[2])) do rows,cols
     (Base.OneTo(local_length(rows)),Base.OneTo(local_length(cols)))
   end
-  allocs = map(change_axes,a.allocs,local_axes)
+  allocs = map(GridapDistributed.change_axes,a.allocs,local_axes)
   DistributedParamAllocationCOO(a.par_strategy,allocs,axes[1],axes[2])
 end
 
@@ -161,14 +171,14 @@ function GridapDistributed.local_views(a::MatrixBlock{<:DistributedParamAllocati
 end
 
 function GridapDistributed.get_allocations(a::DistributedParamAllocationCOO)
-  I,J,M = map(local_views(a)) do alloc
-    alloc.I,alloc.J,alloc.M
+  I,J,V = map(local_views(a)) do alloc
+    alloc.I,alloc.J,alloc.V
   end |> tuple_of_arrays
-  return I,J,M
+  return I,J,V
 end
 
 function GridapDistributed.get_allocations(a::ArrayBlock{<:DistributedParamAllocationCOO})
-  tuple_of_array_of_parrays = map(get_allocations,a.array) |> tuple_of_arrays
+  tuple_of_array_of_parrays = map(GridapDistributed.get_allocations,a.array) |> tuple_of_arrays
   return tuple_of_array_of_parrays
 end
 
@@ -176,6 +186,9 @@ GridapDistributed.get_test_gids(a::DistributedParamAllocationCOO)  = a.test_dofs
 GridapDistributed.get_trial_gids(a::DistributedParamAllocationCOO) = a.trial_dofs_gids_prange
 GridapDistributed.get_test_gids(a::ArrayBlock{<:DistributedParamAllocationCOO})  = map(get_test_gids,diag(a.array))
 GridapDistributed.get_trial_gids(a::ArrayBlock{<:DistributedParamAllocationCOO}) = map(get_trial_gids,diag(a.array))
+
+ParamDataStructures.param_length(a::DistributedParamAllocationCOO) = map(param_length,local_views(a))
+ParamDataStructures.param_length(a::ArrayBlock{<:DistributedParamAllocationCOO}) = param_length(first(a))
 
 function Algebra.create_from_nz(a::DistributedParamAllocationCOO{<:FullyAssembledRows})
   f(x) = nothing
@@ -191,14 +204,267 @@ end
 
 function Algebra.create_from_nz(a::DistributedParamAllocationCOO{<:SubAssembledRows})
   f(x) = nothing
-  A, = GridapDistributed._sa_create_from_nz_with_callback(f,f,a,nothing)
+  A, = _sa_create_from_param_nz_with_callback(f,f,a,nothing)
   return A
 end
 
 function Algebra.create_from_nz(a::ArrayBlock{<:DistributedParamAllocationCOO{<:SubAssembledRows}})
   f(x) = nothing
-  A, = GridapDistributed._sa_create_from_nz_with_callback(f,f,a,nothing)
+  A, = _sa_create_from_param_nz_with_callback(f,f,a,nothing)
   return A
+end
+
+function _sa_create_from_param_nz_with_callback(callback,async_callback,a,b)
+  # Recover some data
+  I,J,V = GridapDistributed.get_allocations(a)
+  plength = param_length(a)
+  test_dofs_gids_prange = GridapDistributed.get_test_gids(a)
+  trial_dofs_gids_prange = GridapDistributed.get_trial_gids(a)
+
+  # convert I and J to global dof ids
+  GridapDistributed.to_global_indices!(I,test_dofs_gids_prange;ax=:rows)
+  GridapDistributed.to_global_indices!(J,trial_dofs_gids_prange;ax=:cols)
+
+  # Create the Prange for the rows
+  rows = GridapDistributed._setup_prange(test_dofs_gids_prange,I;ax=:rows)
+
+  # Move (I,J,V) triplets to the owner process of each row I.
+  # The triplets are accompanyed which Jo which is the process column owner
+  Jo = GridapDistributed.get_gid_owners(J,trial_dofs_gids_prange;ax=:cols)
+  t  = _assemble_param_coo!(I,J,V,rows,plength;owners=Jo)
+
+  # Here we can overlap computations
+  # This is a good place to overlap since
+  # sending the matrix rows is a lot of data
+  if !isa(b,Nothing)
+    bprange = GridapDistributed._setup_prange_from_pvector_allocation(b)
+    b = callback(bprange)
+  end
+
+  # Wait the transfer to finish
+  wait(t)
+
+  # Create the Prange for the cols
+  cols = GridapDistributed._setup_prange(trial_dofs_gids_prange,J;ax=:cols,owners=Jo)
+
+  # Overlap rhs communications with CSC compression
+  t2 = async_callback(b)
+
+  # Convert again I,J to local numeration
+  GridapDistributed.to_local_indices!(I,rows;ax=:rows)
+  GridapDistributed.to_local_indices!(J,cols;ax=:cols)
+
+  # Adjust local matrix size to linear system's index sets
+  asys = GridapDistributed.change_axes(a,(rows,cols))
+
+  # Compress the local matrices
+  values = map(create_from_nz,local_views(asys))
+
+  # Wait the transfer to finish
+  if !isa(t2,Nothing)
+    wait(t2)
+  end
+
+  # Finally build the matrix
+  A = GridapDistributed._setup_matrix(values,rows,cols)
+  return A,b
+end
+
+function _assemble_param_coo!(I,J,V,rows::PRange,plength;owners=nothing)
+  if isa(owners,Nothing)
+    assemble_param_coo!(I,J,V,partition(rows),plength)
+  else
+    assemble_param_coo_with_column_owner!(I,J,V,partition(rows),plength,owners)
+  end
+end
+
+function _assemble_param_coo!(I,J,V,rows::Vector{<:PRange},plength;owners=nothing)
+  block_ids = CartesianIndices(I)
+  map(block_ids) do id
+    i = id[1]
+    j = id[2]
+    if isa(owners,Nothing)
+      _assemble_param_coo!(I[i,j],J[i,j],V[i,j],rows[i],plength)
+    else
+      _assemble_param_coo!(I[i,j],J[i,j],V[i,j],rows[i],plength,owners=owners[i,j])
+    end
+  end
+end
+
+function assemble_param_coo!(I,J,V,row_partition,plength)
+  """
+    Returns three JaggedArrays with the coo triplets
+    to be sent to the corresponding owner parts in parts_snd
+  """
+  function setup_snd(part,parts_snd,row_lids,plength,coo_values)
+    global_to_local_row = global_to_local(row_lids)
+    local_row_to_owner = local_to_owner(row_lids)
+    owner_to_i = Dict(( owner=>i for (i,owner) in enumerate(parts_snd) ))
+    ptrs = zeros(Int32,length(parts_snd)+1)
+    k_gi,k_gj,k_v = coo_values
+    for k in 1:length(k_gi)
+      gi = k_gi[k]
+      li = global_to_local_row[gi]
+      owner = local_row_to_owner[li]
+      if owner != part
+        ptrs[owner_to_i[owner]+1] +=1
+      end
+    end
+    length_to_ptrs!(ptrs)
+    gi_snd_data = zeros(eltype(k_gi),ptrs[end]-1)
+    gj_snd_data = zeros(eltype(k_gj),ptrs[end]-1)
+    v_snd_data = zeros(eltype(k_v),ptrs[end]-1,plength)
+    δ = Int(length(v_snd_data)/plength)
+    for k in 1:length(k_gi)
+      gi = k_gi[k]
+      li = global_to_local_row[gi]
+      owner = local_row_to_owner[li]
+      if owner != part
+        gj = k_gj[k]
+        p = ptrs[owner_to_i[owner]]
+        gi_snd_data[p] = gi
+        gj_snd_data[p] = gj
+        ptrs[owner_to_i[owner]] += 1
+        for i = 1:plength
+          v = k_v[k+(i-1)*δ]
+          v_snd_data[p,i] = v
+          k_v[k+(i-1)*δ] = zero(v)
+        end
+      end
+    end
+    rewind_ptrs!(ptrs)
+    gi_snd = JaggedArray(gi_snd_data,ptrs)
+    gj_snd = JaggedArray(gj_snd_data,ptrs)
+    v_snd = JaggedArray(v_snd_data,ptrs)
+    gi_snd,gj_snd,v_snd
+  end
+  """
+    Pushes to coo_values the triplets gi_rcv,gj_rcv,v_rcv
+    received from remote processes
+  """
+  function setup_rcv!(coo_values,gi_rcv,gj_rcv,v_rcv,plength)
+    k_gi,k_gj,k_v = coo_values
+    current_n = length(k_gi)
+    new_n = current_n + length(gi_rcv.data)
+    δ = _get_delta(v_rcv)
+    resize!(k_gi,new_n)
+    resize!(k_gj,new_n)
+    resize!(k_v,new_n*plength)
+    for p in 1:length(gi_rcv.data)
+      k_gi[current_n+p] = gi_rcv.data[p]
+      k_gj[current_n+p] = gj_rcv.data[p]
+      for i in 1:plength
+        k_v[current_n+p+(i-1)*new_n] = v_rcv.data[p+(i-1)*δ]
+      end
+    end
+    k_v
+  end
+  part = linear_indices(row_partition)
+  parts_snd,parts_rcv = assembly_neighbors(row_partition)
+  coo_values = map(tuple,I,J,V)
+  gi_snd,gj_snd,v_snd = map(setup_snd,part,parts_snd,row_partition,plength,coo_values) |> tuple_of_arrays
+  graph = ExchangeGraph(parts_snd,parts_rcv)
+  t1 = exchange(gi_snd,graph)
+  t2 = exchange(gj_snd,graph)
+  t3 = exchange(v_snd,graph)
+  @async begin
+    gi_rcv = fetch(t1)
+    gj_rcv = fetch(t2)
+    v_rcv = fetch(t3)
+    map(setup_rcv!,coo_values,gi_rcv,gj_rcv,v_rcv,plength)
+    I,J,V
+  end
+end
+
+function assemble_param_coo_with_column_owner!(I,J,V,row_partition,plength,Jown)
+  """
+    Returns three (Param)JaggedArrays with the coo triplets
+    to be sent to the corresponding owner parts in parts_snd
+  """
+  function setup_snd(part,parts_snd,row_lids,plength,coo_entries_with_column_owner)
+    global_to_local_row = global_to_local(row_lids)
+    local_row_to_owner = local_to_owner(row_lids)
+    owner_to_i = Dict(( owner=>i for (i,owner) in enumerate(parts_snd) ))
+    ptrs = zeros(Int32,length(parts_snd)+1)
+    k_gi,k_gj,k_jo,k_v = coo_entries_with_column_owner
+    for k in 1:length(k_gi)
+      gi = k_gi[k]
+      li = global_to_local_row[gi]
+      owner = local_row_to_owner[li]
+      if owner != part
+        ptrs[owner_to_i[owner]+1] +=1
+      end
+    end
+    PartitionedArrays.length_to_ptrs!(ptrs)
+    gi_snd_data = zeros(eltype(k_gi),ptrs[end]-1)
+    gj_snd_data = zeros(eltype(k_gj),ptrs[end]-1)
+    jo_snd_data = zeros(eltype(k_jo),ptrs[end]-1)
+    v_snd_data = zeros(eltype(k_v),ptrs[end]-1,plength)
+    δ = Int(length(v_snd_data)/plength)
+    for k in 1:length(k_gi)
+      gi = k_gi[k]
+      li = global_to_local_row[gi]
+      owner = local_row_to_owner[li]
+      if owner != part
+        gj = k_gj[k]
+        p = ptrs[owner_to_i[owner]]
+        gi_snd_data[p] = gi
+        gj_snd_data[p] = gj
+        jo_snd_data[p] = k_jo[k]
+        for i = 1:plength
+          v = k_v[k+(i-1)*δ]
+          v_snd_data[p,i] = v
+          k_v[k+(i-1)*δ] = zero(v)
+        end
+        ptrs[owner_to_i[owner]] += 1
+      end
+    end
+    PartitionedArrays.rewind_ptrs!(ptrs)
+    gi_snd = JaggedArray(gi_snd_data,ptrs)
+    gj_snd = JaggedArray(gj_snd_data,ptrs)
+    jo_snd = JaggedArray(jo_snd_data,ptrs)
+    v_snd = JaggedArray(v_snd_data,ptrs)
+    gi_snd,gj_snd,jo_snd,v_snd
+  end
+  """
+    Pushes to coo_entries_with_column_owner the tuples
+    gi_rcv,gj_rcv,jo_rcv,v_rcv received from remote processes
+  """
+  function setup_rcv!(coo_entries_with_column_owner,gi_rcv,gj_rcv,jo_rcv,v_rcv,plength)
+    k_gi,k_gj,k_jo,k_v = coo_entries_with_column_owner
+    current_n = length(k_gi)
+    new_n = current_n + length(gi_rcv.data)
+    δ = _get_delta(v_rcv)
+    resize!(k_gi,new_n)
+    resize!(k_gj,new_n)
+    resize!(k_jo,new_n)
+    resize!(k_v,new_n*plength)
+    for p in 1:length(gi_rcv.data)
+      k_gi[current_n+p] = gi_rcv.data[p]
+      k_gj[current_n+p] = gj_rcv.data[p]
+      k_jo[current_n+p] = jo_rcv.data[p]
+      for i in 1:plength
+        k_v[current_n+p+(i-1)*new_n] = v_rcv.data[p+(i-1)*δ]
+      end
+    end
+  end
+  part = linear_indices(row_partition)
+  parts_snd,parts_rcv = assembly_neighbors(row_partition)
+  coo_entries_with_column_owner = map(tuple,I,J,Jown,V)
+  gi_snd,gj_snd,jo_snd,v_snd = map(setup_snd,part,parts_snd,row_partition,plength,coo_entries_with_column_owner) |> tuple_of_arrays
+  graph = ExchangeGraph(parts_snd,parts_rcv)
+  t1 = exchange(gi_snd,graph)
+  t2 = exchange(gj_snd,graph)
+  t3 = exchange(jo_snd,graph)
+  t4 = exchange(v_snd,graph)
+  @async begin
+    gi_rcv = fetch(t1)
+    gj_rcv = fetch(t2)
+    jo_rcv = fetch(t3)
+    v_rcv = fetch(t4)
+    map(setup_rcv!,coo_entries_with_column_owner,gi_rcv,gj_rcv,jo_rcv,v_rcv,plength)
+    I,J,Jown,V
+  end
 end
 
 function Algebra.nz_counter(
@@ -267,7 +533,7 @@ function _param_rhs_callback(row_partitioned_vector_partition,rows)
       gid = loc_to_glo_vec[lid_vec]
       lid_fespace = gid_to_lid_fe[gid]
       for i = param_eachindex(b)
-        b.data[lid_vec,i] = b_fespace[i][lid_fespace]
+        b.data[lid_vec,i] = b_fespace.data[lid_fespace,i]
       end
     end
   end
@@ -280,181 +546,4 @@ function _param_rhs_callback(row_partitioned_vector_partition,rows)
   )
 
   return b
-end
-
-function PartitionedArrays.assemble_coo!(I,J,M::AbstractVector{<:AbstractMatrix},row_partition)
-  """
-    Returns three JaggedArrays with the coo triplets
-    to be sent to the corresponding owner parts in parts_snd
-  """
-  function setup_snd(part,parts_snd,row_lids,coo_values)
-    global_to_local_row = global_to_local(row_lids)
-    local_row_to_owner = local_to_owner(row_lids)
-    owner_to_i = Dict(( owner=>i for (i,owner) in enumerate(parts_snd) ))
-    ptrs = zeros(Int32,length(parts_snd)+1)
-    k_gi,k_gj,k_m = coo_values
-    for k in 1:length(k_gi)
-      gi = k_gi[k]
-      li = global_to_local_row[gi]
-      owner = local_row_to_owner[li]
-      if owner != part
-        ptrs[owner_to_i[owner]+1] +=1
-      end
-    end
-    length_to_ptrs!(ptrs)
-    gi_snd_data = zeros(eltype(k_gi),ptrs[end]-1)
-    gj_snd_data = zeros(eltype(k_gj),ptrs[end]-1)
-    v_snd_data = zeros(eltype(k_m),ptrs[end]-1)
-    pv_snd_data = global_parameterize(v_snd_data,size(k_m,2))
-    for k in 1:length(k_gi)
-      gi = k_gi[k]
-      li = global_to_local_row[gi]
-      owner = local_row_to_owner[li]
-      if owner != part
-        gj = k_gj[k]
-        p = ptrs[owner_to_i[owner]]
-        gi_snd_data[p] = gi
-        gj_snd_data[p] = gj
-        ptrs[owner_to_i[owner]] += 1
-        for i = param_eachindex(pv_snd_data)
-          m = k_m[k,i]
-          pv_snd_data.data[p,i] = m
-          k_m[k,i] = zero(m)
-        end
-      end
-    end
-    rewind_ptrs!(ptrs)
-    gi_snd = JaggedArray(gi_snd_data,ptrs)
-    gj_snd = JaggedArray(gj_snd_data,ptrs)
-    v_snd = JaggedArray(pv_snd_data,ptrs)
-    gi_snd,gj_snd,v_snd
-  end
-  """
-    Pushes to coo_values the triplets gi_rcv,gj_rcv,v_rcv
-    received from remote processes
-  """
-  function setup_rcv!(coo_values,gi_rcv,gj_rcv,v_rcv)
-    k_gi,k_gj,k_m = coo_values
-    current_n = length(k_gi)
-    new_n = current_n + length(gi_rcv.data)
-    resize!(k_gi,new_n)
-    resize!(k_gj,new_n)
-    k_m′ = resize_rows(k_m,new_n)
-    for p in 1:length(gi_rcv.data)
-      k_gi[current_n+p] = gi_rcv.data[p]
-      k_gj[current_n+p] = gj_rcv.data[p]
-      for i in param_eachindex(v_rcv)
-        k_m′[current_n+p,i] = v_rcv.data.data[p,i]
-      end
-    end
-    k_m′
-  end
-  part = linear_indices(row_partition)
-  parts_snd,parts_rcv = assembly_neighbors(row_partition)
-  coo_values = map(tuple,I,J,M)
-  gi_snd,gj_snd,v_snd = map(setup_snd,part,parts_snd,row_partition,coo_values) |> tuple_of_arrays
-  graph = ExchangeGraph(parts_snd,parts_rcv)
-  t1 = exchange(gi_snd,graph)
-  t2 = exchange(gj_snd,graph)
-  t3 = exchange(v_snd,graph)
-  @async begin
-    gi_rcv = fetch(t1)
-    gj_rcv = fetch(t2)
-    v_rcv = fetch(t3)
-    M′ = map(setup_rcv!,coo_values,gi_rcv,gj_rcv,v_rcv)
-    I,J,M′
-  end
-end
-
-function GridapDistributed.assemble_coo_with_column_owner!(
-  I,J,M::AbstractArray{<:AbstractMatrix},row_partition,Jown)
-
-  """
-    Returns three (Param)JaggedArrays with the coo triplets
-    to be sent to the corresponding owner parts in parts_snd
-  """
-  function setup_snd(part,parts_snd,row_lids,coo_entries_with_column_owner)
-    global_to_local_row = global_to_local(row_lids)
-    local_row_to_owner = local_to_owner(row_lids)
-    owner_to_i = Dict(( owner=>i for (i,owner) in enumerate(parts_snd) ))
-    ptrs = zeros(Int32,length(parts_snd)+1)
-    k_gi,k_gj,k_jo,k_m = coo_entries_with_column_owner
-    for k in 1:length(k_gi)
-      gi = k_gi[k]
-      li = global_to_local_row[gi]
-      owner = local_row_to_owner[li]
-      if owner != part
-        ptrs[owner_to_i[owner]+1] +=1
-      end
-    end
-    PartitionedArrays.length_to_ptrs!(ptrs)
-    gi_snd_data = zeros(eltype(k_gi),ptrs[end]-1)
-    gj_snd_data = zeros(eltype(k_gj),ptrs[end]-1)
-    jo_snd_data = zeros(eltype(k_jo),ptrs[end]-1)
-    v_snd_data = zeros(eltype(k_m),ptrs[end]-1)
-    pv_snd_data = global_parameterize(v_snd_data,size(k_m,2))
-    for k in 1:length(k_gi)
-      gi = k_gi[k]
-      li = global_to_local_row[gi]
-      owner = local_row_to_owner[li]
-      if owner != part
-        gj = k_gj[k]
-        p = ptrs[owner_to_i[owner]]
-        gi_snd_data[p] = gi
-        gj_snd_data[p] = gj
-        jo_snd_data[p] = k_jo[k]
-        for i = param_eachindex(pv_snd_data)
-          v = k_m[k,i]
-          pv_snd_data.data[p,i] = v
-          k_m[k,i] = zero(v)
-        end
-        ptrs[owner_to_i[owner]] += 1
-      end
-    end
-    PartitionedArrays.rewind_ptrs!(ptrs)
-    gi_snd = JaggedArray(gi_snd_data,ptrs)
-    gj_snd = JaggedArray(gj_snd_data,ptrs)
-    jo_snd = JaggedArray(jo_snd_data,ptrs)
-    v_snd = JaggedArray(pv_snd_data,ptrs)
-    gi_snd,gj_snd,jo_snd,v_snd
-  end
-  """
-    Pushes to coo_entries_with_column_owner the tuples
-    gi_rcv,gj_rcv,jo_rcv,v_rcv received from remote processes
-  """
-  function setup_rcv!(coo_entries_with_column_owner,gi_rcv,gj_rcv,jo_rcv,v_rcv)
-    k_gi,k_gj,k_jo,k_m = coo_entries_with_column_owner
-    current_n = length(k_gi)
-    new_n = current_n + length(gi_rcv.data)
-    resize!(k_gi,new_n)
-    resize!(k_gj,new_n)
-    resize!(k_jo,new_n)
-    k_m′ = resize_rows(k_m,new_n)
-    for p in 1:length(gi_rcv.data)
-      k_gi[current_n+p] = gi_rcv.data[p]
-      k_gj[current_n+p] = gj_rcv.data[p]
-      k_jo[current_n+p] = jo_rcv.data[p]
-      for i = param_eachindex(v_rcv)
-        k_m′[current_n+p,i] = v_rcv.data[p,i]
-      end
-    end
-    k_m′
-  end
-  part = linear_indices(row_partition)
-  parts_snd,parts_rcv = assembly_neighbors(row_partition)
-  coo_entries_with_column_owner = map(tuple,I,J,Jown,M)
-  gi_snd,gj_snd,jo_snd,v_snd = map(setup_snd,part,parts_snd,row_partition,coo_entries_with_column_owner) |> tuple_of_arrays
-  graph = ExchangeGraph(parts_snd,parts_rcv)
-  t1 = exchange(gi_snd,graph)
-  t2 = exchange(gj_snd,graph)
-  t3 = exchange(jo_snd,graph)
-  t4 = exchange(v_snd,graph)
-  @async begin
-    gi_rcv = fetch(t1)
-    gj_rcv = fetch(t2)
-    jo_rcv = fetch(t3)
-    v_rcv = fetch(t4)
-    M′ = map(setup_rcv!,coo_entries_with_column_owner,gi_rcv,gj_rcv,jo_rcv,v_rcv)
-    I,J,Jown,M′
-  end
 end

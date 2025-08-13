@@ -96,8 +96,10 @@ for T in (:AbstractRealization,:Nothing)
 end
 
 const DistributedSingleFieldParamFESpace = DistributedSingleFieldFESpace{<:AbstractArray{<:SingleFieldParamFESpace}}
+const DistributedMultiFieldParamFESpace{MS} = DistributedMultiFieldFESpace{MS,<:AbstractVector{<:DistributedSingleFieldFESpace}}
+const DistributedParamFESpace = Union{DistributedSingleFieldParamFESpace,DistributedMultiFieldParamFESpace}
 
-function ParamDataStructures.param_length(f::DistributedSingleFieldParamFESpace)
+function ParamDataStructures.param_length(f::DistributedParamFESpace)
   PartitionedArrays.getany(map(param_length,local_views(f)))
 end
 
@@ -116,6 +118,19 @@ function Utils.collect_cell_matrix_for_trian(
     local_views(test),
     local_views(a),
     local_views(trian))
+end
+
+function FESpaces.SparseMatrixAssembler(
+  trial::DistributedParamFESpace,
+  test::DistributedFESpace,
+  par_strategy=SubAssembledRows()
+  )
+
+  PT = PartitionedArrays.getany(map(get_vector_type,local_views(trial)))
+  T  = eltype2(PT)
+  Tm = SparseMatrixCSC{T,Int}
+  Tv = Vector{T}
+  SparseMatrixAssembler(Tm,Tv,trial,test,par_strategy)
 end
 
 function ParamDataStructures.parameterize(a::GridapDistributed.DistributedSparseMatrixAssembler,plength::Int)

@@ -25,7 +25,6 @@ import Gridap.ODEs: jacobian_add!
 import GridapROMs.DofMaps: OIdsToIds, add_ordered_entries!
 import UnPack: @unpack
 
-export resize_rows
 include("ParamAlgebraInterfaces.jl")
 
 export NonlinearParamOperator

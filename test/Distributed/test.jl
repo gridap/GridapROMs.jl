@@ -215,3 +215,171 @@ b1=assemble_vector(assem,vecdata)
 b2=allocate_vector(assem,vecdata)
 assemble_vector!(b2,assem,vecdata)
 @test abs(sum(b2)-length(b2)) < 1.0e-12
+
+m1 = nz_counter(get_matrix_builder(assemμ),(get_rows(assemμ),get_cols(assemμ)))
+symbolic_loop_matrix!(m1,assemμ,matdata)
+m2 = nz_allocation(m1)
+symbolic_loop_matrix!(m2,assemμ,matdata)
+# m3 = create_from_nz(m2)
+
+I,J,V = GridapDistributed.get_allocations(m2)
+plength = param_length(m2)
+test_dofs_gids_prange = GridapDistributed.get_test_gids(m2)
+trial_dofs_gids_prange = GridapDistributed.get_trial_gids(m2)
+
+# convert I and J to global dof ids
+GridapDistributed.to_global_indices!(I,test_dofs_gids_prange;ax=:rows)
+GridapDistributed.to_global_indices!(J,trial_dofs_gids_prange;ax=:cols)
+
+# Create the Prange for the rows
+rows = GridapDistributed._setup_prange(test_dofs_gids_prange,I;ax=:rows)
+
+# Move (I,J,V) triplets to the owner process of each row I.
+# The triplets are accompanyed which Jo which is the process column owner
+Jo = GridapDistributed.get_gid_owners(J,trial_dofs_gids_prange;ax=:cols)
+t  = Distributed._assemble_param_coo!(I,J,V,rows,plength;owners=Jo)
+
+# Wait the transfer to finish
+wait(t)
+
+# Create the Prange for the cols
+cols = GridapDistributed._setup_prange(trial_dofs_gids_prange,J;ax=:cols,owners=Jo)
+
+# Convert again I,J to local numeration
+GridapDistributed.to_local_indices!(I,rows;ax=:rows)
+GridapDistributed.to_local_indices!(J,cols;ax=:cols)
+
+# Adjust local matrix size to linear system's index sets
+asys = GridapDistributed.change_axes(m2,(rows,cols))
+
+# Compress the local matrices
+values = map(create_from_nz,local_views(asys))
+
+#
+
+_matdata = collect_cell_matrix(Uμ,V0,∫(du*v)dΩa)
+_m1 = nz_counter(get_matrix_builder(assem),(get_rows(assem),get_cols(assem)))
+symbolic_loop_matrix!(_m1,assem,_matdata)
+_m2 = nz_allocation(_m1)
+symbolic_loop_matrix!(_m2,assem,_matdata)
+
+_I,_J,_V = GridapDistributed.get_allocations(_m2)
+
+# convert I and J to global dof ids
+GridapDistributed.to_global_indices!(_I,test_dofs_gids_prange;ax=:rows)
+GridapDistributed.to_global_indices!(_J,trial_dofs_gids_prange;ax=:cols)
+
+_Jo = GridapDistributed.get_gid_owners(_J,trial_dofs_gids_prange;ax=:cols)
+_t  = GridapDistributed._assemble_coo!(_I,_J,_V,rows;owners=_Jo)
+
+# Wait the transfer to finish
+wait(_t)
+
+# Convert again I,J to local numeration
+GridapDistributed.to_local_indices!(_I,rows;ax=:rows)
+GridapDistributed.to_local_indices!(_J,cols;ax=:cols)
+
+# Adjust local matrix size to linear system's index sets
+_asys = GridapDistributed.change_axes(_m2,(rows,cols))
+
+# Compress the local matrices
+_values = map(create_from_nz,local_views(_asys))
+
+T = SparseMatrixCSC{Float64,Int}
+
+# create_from_nz(asys.allocs.items[2])
+alloc = asys.allocs.items[2]
+m,n = map(length,alloc.counter.axes)
+finalize_coo!(T,alloc.I,alloc.J,alloc.V,m,n)
+M = reshape(alloc.V,:,alloc.plength)
+sparse_from_coo(T,alloc.I,alloc.J,M,m,n)
+
+# create_from_nz(_asys.allocs.items[2])
+_alloc = _asys.allocs.items[2]
+_m,_n = map(length,_alloc.counter.axes)
+finalize_coo!(T,_alloc.I,_alloc.J,_alloc.V,_m,_n)
+sparse_from_coo(T,_alloc.I,_alloc.J,_alloc.V,_m,_n)
+
+row_partition = partition(rows)
+Jown = Jo
+
+function setup_snd(part,parts_snd,row_lids,plength,coo_entries_with_column_owner)
+  global_to_local_row = global_to_local(row_lids)
+  local_row_to_owner = local_to_owner(row_lids)
+  owner_to_i = Dict(( owner=>i for (i,owner) in enumerate(parts_snd) ))
+  ptrs = zeros(Int32,length(parts_snd)+1)
+  k_gi,k_gj,k_jo,k_v = coo_entries_with_column_owner
+  for k in 1:length(k_gi)
+    gi = k_gi[k]
+    li = global_to_local_row[gi]
+    owner = local_row_to_owner[li]
+    if owner != part
+      ptrs[owner_to_i[owner]+1] +=1
+    end
+  end
+  PartitionedArrays.length_to_ptrs!(ptrs)
+  gi_snd_data = zeros(eltype(k_gi),ptrs[end]-1)
+  gj_snd_data = zeros(eltype(k_gj),ptrs[end]-1)
+  jo_snd_data = zeros(eltype(k_jo),ptrs[end]-1)
+  v_snd_data = zeros(eltype(k_v),ptrs[end]-1,plength)
+  δ = Int(length(v_snd_data)/plength)
+  for k in 1:length(k_gi)
+    gi = k_gi[k]
+    li = global_to_local_row[gi]
+    owner = local_row_to_owner[li]
+    if owner != part
+      gj = k_gj[k]
+      p = ptrs[owner_to_i[owner]]
+      gi_snd_data[p] = gi
+      gj_snd_data[p] = gj
+      jo_snd_data[p] = k_jo[k]
+      for i = 1:plength
+        v = k_v[k+(i-1)*δ]
+        v_snd_data[p,i] = v
+        k_v[k+(i-1)*δ] = zero(v)
+      end
+      ptrs[owner_to_i[owner]] += 1
+    end
+  end
+  PartitionedArrays.rewind_ptrs!(ptrs)
+  gi_snd = JaggedArray(gi_snd_data,ptrs)
+  gj_snd = JaggedArray(gj_snd_data,ptrs)
+  jo_snd = JaggedArray(jo_snd_data,ptrs)
+  v_snd = JaggedArray(v_snd_data,ptrs)
+  gi_snd,gj_snd,jo_snd,v_snd
+end
+
+function setup_rcv!(coo_entries_with_column_owner,gi_rcv,gj_rcv,jo_rcv,v_rcv,plength)
+  k_gi,k_gj,k_jo,k_v = coo_entries_with_column_owner
+  current_n = length(k_gi)
+  new_n = current_n + length(gi_rcv.data)
+  δ = Distributed._get_delta(v_rcv)
+  resize!(k_gi,new_n)
+  resize!(k_gj,new_n)
+  resize!(k_jo,new_n)
+  resize!(k_v,new_n*plength)
+  for p in 1:length(gi_rcv.data)
+    k_gi[current_n+p] = gi_rcv.data[p]
+    k_gj[current_n+p] = gj_rcv.data[p]
+    k_jo[current_n+p] = jo_rcv.data[p]
+    for i in 1:plength
+      k_v[current_n+p+(i-1)*new_n] = v_rcv.data[p+(i-1)*δ]
+    end
+  end
+end
+part = linear_indices(row_partition)
+parts_snd,parts_rcv = assembly_neighbors(row_partition)
+coo_entries_with_column_owner = map(tuple,I,J,Jown,V)
+gi_snd,gj_snd,jo_snd,v_snd = map(setup_snd,part,parts_snd,row_partition,plength,coo_entries_with_column_owner) |> tuple_of_arrays
+graph = ExchangeGraph(parts_snd,parts_rcv)
+t1 = exchange(gi_snd,graph)
+t2 = exchange(gj_snd,graph)
+t3 = exchange(jo_snd,graph)
+t4 = exchange(v_snd,graph)
+
+gi_rcv = fetch(t1)
+gj_rcv = fetch(t2)
+jo_rcv = fetch(t3)
+v_rcv = fetch(t4)
+map(setup_rcv!,coo_entries_with_column_owner,gi_rcv,gj_rcv,jo_rcv,v_rcv,plength)
+I,J,Jown,V
