@@ -1,81 +1,3 @@
-struct ParamVectorAssemblyCache{T,A}
-  neighbors_snd::Vector{Int32}
-  neighbors_rcv::Vector{Int32}
-  local_indices_snd::JaggedArray{Int32,Int32}
-  local_indices_rcv::JaggedArray{Int32,Int32}
-  buffer_snd::ParamJaggedArray{T,Int32,A}
-  buffer_rcv::ParamJaggedArray{T,Int32,A}
-end
-
-function PartitionedArrays.VectorAssemblyCache(
-  neighbors_snd::AbstractVector,
-  neighbors_rcv::AbstractVector,
-  local_indices_snd::JaggedArray,
-  local_indices_rcv::JaggedArray,
-  buffer_snd::ParamJaggedArray,
-  buffer_rcv::ParamJaggedArray
-  )
-
-  ParamVectorAssemblyCache(
-    neighbors_snd,
-    neighbors_rcv,
-    local_indices_snd,
-    local_indices_rcv,
-    buffer_snd,
-    buffer_rcv
-    )
-end
-
-function Base.reverse(a::ParamVectorAssemblyCache)
-  ParamVectorAssemblyCache(
-    a.neighbors_rcv,
-    a.neighbors_snd,
-    a.local_indices_rcv,
-    a.local_indices_snd,
-    a.buffer_rcv,
-    a.buffer_snd)
-end
-
-function PartitionedArrays.copy_cache(a::ParamVectorAssemblyCache)
-  buffer_snd = JaggedArray(copy(a.buffer_snd.data),a.buffer_snd.ptrs)
-  buffer_rcv = JaggedArray(copy(a.buffer_rcv.data),a.buffer_rcv.ptrs)
-  ParamVectorAssemblyCache(
-    a.neighbors_snd,
-    a.neighbors_rcv,
-    a.local_indices_snd,
-    a.local_indices_rcv,
-    buffer_snd,
-    buffer_rcv)
-end
-
-struct ParamSparseMatrixAssemblyCache
-  cache::ParamVectorAssemblyCache
-end
-
-function PartitionedArrays.SparseMatrixAssemblyCache(cache::ParamVectorAssemblyCache)
-  ParamSparseMatrixAssemblyCache(cache)
-end
-
-Base.reverse(a::ParamSparseMatrixAssemblyCache) = ParamSparseMatrixAssemblyCache(reverse(a.cache))
-
-function PartitionedArrays.copy_cache(a::ParamSparseMatrixAssemblyCache)
-  ParamSparseMatrixAssemblyCache(copy_cache(a.cache))
-end
-
-struct ParamJaggedArrayAssemblyCache{T}
-  cache::ParamVectorAssemblyCache{T}
-end
-
-function PartitionedArrays.JaggedArrayAssemblyCache(cache::ParamVectorAssemblyCache)
-  ParamJaggedArrayAssemblyCache(cache)
-end
-
-Base.reverse(a::ParamJaggedArrayAssemblyCache) = ParamJaggedArrayAssemblyCache(reverse(a.cache))
-
-function PartitionedArrays.copy_cache(a::ParamJaggedArrayAssemblyCache)
-  ParamJaggedArrayAssemblyCache(copy_cache(a.cache))
-end
-
 @inline function Base.iterate(a::PartitionedArrays.NZIteratorCSC{<:ConsecutiveParamSparseMatrixCSC})
   if nnz(a.matrix) == 0
     return nothing
@@ -181,79 +103,92 @@ function PartitionedArrays.compresscoo(
 end
 
 struct ParamSubSparseMatrix{T,A,B,C} <: AbstractParamArray{T,2,PartitionedArrays.SubSparseMatrix{T,A,B,C}}
-  data::A
+  parent::A
   indices::B
   inv_indices::C
   function ParamSubSparseMatrix(
-    data::ParamSparseMatrix{Tv,Ti},
+    parent::ParamSparseMatrix{Tv,Ti},
     indices::Tuple,
     inv_indices::Tuple
     ) where {Tv,Ti}
 
-    A = typeof(data)
+    A = typeof(parent)
     B = typeof(indices)
     C = typeof(inv_indices)
-    new{Tv,A,B,C}(data,indices,inv_indices)
+    new{Tv,A,B,C}(parent,indices,inv_indices)
   end
 end
 
-function PartitionedArrays.SubSparseMatrix(data::ParamSparseMatrix,indices::Tuple,inv_indices::Tuple)
-  ParamSubSparseMatrix(data,indices,inv_indices)
+function PartitionedArrays.SubSparseMatrix(parent::ParamSparseMatrix,indices::Tuple,inv_indices::Tuple)
+  ParamSubSparseMatrix(parent,indices,inv_indices)
 end
 
-ParamDataStructures.param_length(A::ParamSubSparseMatrix) = param_length(A.data)
+ParamDataStructures.param_length(A::ParamSubSparseMatrix) = param_length(A.parent)
 innersize(a::ParamSubSparseMatrix) = map(length,a.indices)
 
 Base.@propagate_inbounds function Base.getindex(A::ParamSubSparseMatrix{T},i::Integer,j::Integer) where T
   @boundscheck checkbounds(A,i...)
   if i == j
-    PartitionedArrays.SubSparseMatrix(param_getindex(A.data,i),A.indices,A.inv_indices)
+    PartitionedArrays.SubSparseMatrix(param_getindex(A.parent,i),A.indices,A.inv_indices)
   else
     fill(zero(T),innersize(A))
   end
 end
 
-const ParamLocalView{T<:AbstractArray,N,A<:AbstractParamArray,B} = GridapDistributed.LocalView{T,N,A,B}
+function LinearAlgebra.mul!(
+  C::ConsecutiveParamVector,
+  A::ParamSubSparseMatrix{T,<:ParamDataStructures.ParamSparseMatrixCSC} where T,
+  B::ConsecutiveParamVector,
+  α::Number,
+  β::Number
+  )
 
-ParamDataStructures.param_length(A::ParamLocalView) = param_length(A.plids_to_value)
-ParamDataStructures.get_all_data(A::ParamLocalView) = get_all_data(A.plids_to_value)
-
-@inline function Algebra.add_entry!(combine::Function,A::ParamLocalView,v::Number,i)
-  data = get_all_data(A)
-  @inbounds for k = param_eachindex(A)
-    aik = data[i,k]
-    data[i,k] = combine(aik,v)
+  size(A,2) == size(B,1) || throw(DimensionMismatch())
+  size(A,1) == size(C,1) || throw(DimensionMismatch())
+  size(B,2) == size(C,2) || throw(DimensionMismatch())
+  if β != 1
+    β != 0 ? rmul!(C,β) : fill!(C,zero(eltype(C)))
   end
-  A
+  rows,cols = A.indices
+  invrows,invcols = A.inv_indices
+  Ap = A.parent
+  Cdata = get_all_data(C)
+  nzv = get_all_data(Ap)
+  Bdata = get_all_data(B)
+  rv = rowvals(Ap)
+  for (j,J) in enumerate(cols)
+    for p in nzrange(Ap,J)
+      I = rv[p]
+      i = invrows[I]
+      if i>0
+        for l in param_eachindex(A)
+          C[i,l] += nzv[p,l]*Bdata[j,l]*α
+        end
+      end
+    end
+  end
+  C
 end
 
-@inline function Algebra.add_entry!(combine::Function,A::ParamLocalView,v::AbstractVector,i)
-  data = get_all_data(A)
-  @inbounds for k = param_eachindex(A)
-    aik = data[i,k]
-    vk = v[k]
-    data[i,k] = combine(aik,vk)
-  end
-  A
-end
+function LinearAlgebra.fillstored!(
+  A::ParamSubSparseMatrix{T,<:ParamDataStructures.ParamSparseMatrixCSC},v::Number
+  ) where T
 
-@inline function Algebra.add_entry!(combine::Function,A::ParamLocalView,v::Number,i,j)
-  l = nz_index(A,i,j)
-  nz = get_all_data(nonzeros(A))
-  @inbounds for k = param_eachindex(A)
-    aijk = nz[l,k]
-    nz[l,k] = combine(aijk,v)
-  end
-  A
-end
-
-@inline function Algebra.add_entry!(combine::Function,A::ParamLocalView,v::AbstractVector,i,j)
-  l = nz_index(A,i,j)
-  nz = get_all_data(nonzeros(A))
-  @inbounds for k = param_eachindex(A)
-    aijk = nz[l,k]
-    vk = v[k]
-    nz[l,k] = combine(aijk,vk)
+  rows,cols = A.indices
+  invrows,invcols = A.inv_indices
+  Ap = A.parent
+  nzv = get_all_data(Ap)
+  rv = rowvals(Ap)
+  for (j,J) in enumerate(cols)
+    for p in nzrange(Ap,J)
+      I = rv[p]
+      i = invrows[I]
+      if i > 0
+        for j in param_eachindex(A)
+          nzv[p,j] = v
+        end
+      end
+    end
   end
   A
 end

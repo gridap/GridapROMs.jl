@@ -2,6 +2,7 @@
     struct OrderedFESpace{S<:SingleFieldFESpace} <: SingleFieldFESpace
       space::S
       cell_odofs_ids::AbstractArray
+      fe_odof_basis::CellDof
     end
 
 Interface for FE spaces that feature a DOF reordering
@@ -9,13 +10,15 @@ Interface for FE spaces that feature a DOF reordering
 struct OrderedFESpace{S<:SingleFieldFESpace} <: SingleFieldFESpace
   space::S
   cell_odofs_ids::AbstractArray
+  fe_odof_basis::CellDof
 end
 
 # Constructors
 
 function OrderedFESpace(f::UnconstrainedFESpace)
   cell_odofs_ids = get_cell_odof_ids(f)
-  OrderedFESpace(f,cell_odofs_ids)
+  fe_odof_basis = get_fe_odof_basis(f,get_local_ordering(cell_odofs_ids))
+  OrderedFESpace(f,cell_odofs_ids,fe_odof_basis)
 end
 
 function OrderedFESpace(f::SingleFieldFESpace)
@@ -48,7 +51,7 @@ FESpaces.get_fe_basis(f::OrderedFESpace) = get_fe_basis(get_fe_space(f))
 
 FESpaces.get_trial_fe_basis(f::OrderedFESpace) = get_trial_fe_basis(get_fe_space(f))
 
-FESpaces.get_fe_dof_basis(f::OrderedFESpace) = get_fe_dof_basis(get_fe_space(f))
+FESpaces.get_fe_dof_basis(f::OrderedFESpace) = f.fe_odof_basis
 
 FESpaces.get_cell_isconstrained(f::OrderedFESpace) = get_cell_isconstrained(get_fe_space(f))
 
@@ -171,6 +174,7 @@ function get_dof_to_odof(
   ncomps = num_components(V)
   ndofs = nnodes*ncomps
 
+  o = one(eltype(V))
   odofs = zeros(eltype(V),ndofs)
   for (icell,cell) in enumerate(cells)
     first_new_node = orders .* (Tuple(cell) .- 1) .+ 1
@@ -188,7 +192,7 @@ function get_dof_to_odof(
         dof = cell_dofs[idof]
         odof = onode + (comp-1)*nnodes
         # change only location of free dofs
-        odofs[odof] = dof > 0 ? one(eltype(V)) : dof
+        odofs[odof] = dof > 0 ? o : dof
       end
     end
   end
@@ -243,6 +247,28 @@ function cell_value_to_ovalue(f::OrderedFESpace,cv)
   odof_to_dof = get_local_ordering(f)
   dof_to_odof = invperm_table(odof_to_dof)
   lazy_map(OReindex(),odof_to_dof,cv)
+end
+
+function get_fe_odof_basis(f::SingleFieldFESpace,odof_to_dof)
+  s = get_fe_dof_basis(f)
+  dof_to_odof = invperm_table(odof_to_dof)
+  data = _get_fe_odof_basis(get_data(s),dof_to_odof)
+  CellDof(data,s.trian,s.domain_style)
+end
+
+function _get_fe_odof_basis(cell_dof::AbstractArray{<:Union{Dof,AbstractArray{<:Dof}}},dof_to_odof)
+  map(_get_fe_odof_basis,cell_dof,dof_to_odof)
+end
+
+function _get_fe_odof_basis(dof::Union{Dof,AbstractArray{<:Dof}},dof_to_odof)
+  @abstractmethod
+end
+
+function _get_fe_odof_basis(dof::LagrangianDofBasis,dof_to_odof)
+  odof_to_node = dof.dof_to_node[dof_to_odof]
+  odof_to_comp = dof.dof_to_comp[dof_to_odof]
+  node_and_comp_to_odof = dof.node_and_comp_to_dof[dof_to_odof]
+  LagrangianDofBasis(dof.nodes,odof_to_node,odof_to_comp,node_and_comp_to_odof)
 end
 
 function _local_node_to_pnode(p::Polytope,orders)

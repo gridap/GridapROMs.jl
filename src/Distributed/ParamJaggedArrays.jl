@@ -1,42 +1,61 @@
-function PartitionedArrays.own_values(a::ConsecutiveParamVector,indices)
-  ov = view(a.data,own_to_local(indices),:)
-  ConsecutiveParamArray(ov)
-end
-
-function PartitionedArrays.ghost_values(a::ConsecutiveParamVector,indices)
-  gv = view(a.data,ghost_to_local(indices),:)
-  ConsecutiveParamArray(gv)
-end
-
-function ParamDataStructures.global_parameterize(a::PVector,plength::Integer)
-  vector_partition = map(local_views(a)) do a
-    global_parameterize(a,plength)
-  end
-  PVector(vector_partition,a.index_partition)
-end
-
-function ParamDataStructures.global_parameterize(a::PSparseMatrix,plength::Integer)
-  matrix_partition = map(local_views(a)) do a
-    global_parameterize(a,plength)
-  end
-  PSparseMatrix(matrix_partition,a.row_partition,a.col_partition,a.assembled)
-end
-
 function PartitionedArrays.assembly_buffers(
   values::AbstractParamVector,
   local_indices_snd,
   local_indices_rcv
   )
 
-  plength = param_length(values)
-  buffer_snd,buffer_rcv = PartitionedArrays.assembly_buffers(
-    testitem(values),
-    local_indices_snd,
-    local_indices_rcv
+  T = eltype2(values)
+  ptrs = local_indices_snd.ptrs
+  data = zeros(T,ptrs[end]-1,param_length(values))
+  pdata = ConsecutiveParamArray(data)
+  buffer_snd = JaggedArray(data,ptrs)
+  ptrs = local_indices_rcv.ptrs
+  data = zeros(T,ptrs[end]-1,param_length(values))
+  pdata = ConsecutiveParamArray(data)
+  buffer_rcv = JaggedArray(data,ptrs)
+  buffer_snd,buffer_rcv
+end
+
+function PartitionedArrays.assembly_buffers(
+  values::ParamSparseMatrix,
+  local_indices_snd,
+  local_indices_rcv
   )
-  pbuffer_snd = global_parameterize(buffer_snd,plength)
-  pbuffer_rcv = global_parameterize(buffer_rcv,plength)
-  pbuffer_snd,pbuffer_rcv
+
+  PartitionedArrays.assembly_buffers(get_all_data(values),local_indices_snd,local_indices_rcv)
+end
+
+function PartitionedArrays.assembly_buffers(
+  values::AbstractMatrix,
+  local_indices_snd,
+  local_indices_rcv
+  )
+
+  T = eltype(values)
+  ptrs = local_indices_snd.ptrs
+  data = zeros(T,ptrs[end]-1,size(values,2))
+  buffer_snd = JaggedArray(data,ptrs)
+  ptrs = local_indices_rcv.ptrs
+  data = zeros(T,ptrs[end]-1,size(values,2))
+  buffer_rcv = JaggedArray(data,ptrs)
+  buffer_snd,buffer_rcv
+end
+
+# in this case, we have to call PartitionedArrays's version
+function PartitionedArrays.assembly_buffers(
+  values::AbstractSparseMatrix,
+  local_indices_snd,
+  local_indices_rcv
+  )
+
+  T = eltype(values)
+  ptrs = local_indices_snd.ptrs
+  data = zeros(T,ptrs[end]-1)
+  buffer_snd = JaggedArray(data,ptrs)
+  ptrs = local_indices_rcv.ptrs
+  data = zeros(T,ptrs[end]-1)
+  buffer_rcv = JaggedArray(data,ptrs)
+  buffer_snd,buffer_rcv
 end
 
 struct ParamJaggedArray{T,Ti,A} <: AbstractVector{A}
@@ -104,7 +123,19 @@ end
 
 ParamDataStructures.param_length(a::ParamJaggedArray) = a.plength
 
-function ParamDataStructures.global_parameterize(a::JaggedArray,plength::Int)
+function ParamDataStructures.param_getindex(a::ParamJaggedArray{T},i::Integer) where T
+  axis1 = first(a.ptrs):last(a.ptrs)-1
+  axis2 = i:i
+  scale = a.ptrs[end]-1
+  ids = range_1d(axis1,axis2,scale)
+  data = Vector{T}(undef,length(ids))
+  for (ij,j) in enumerate(ids)
+    data[ij] = a.data[j]
+  end
+  JaggedArray(data,a.ptrs)
+end
+
+function ParamDataStructures.global_parameterize(a::JaggedArray,plength::Integer)
   data = global_parameterize(a.data,plength)
   ParamJaggedArray(data,a.ptrs)
 end

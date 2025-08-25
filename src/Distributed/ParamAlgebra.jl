@@ -547,3 +547,63 @@ function _param_rhs_callback(row_partitioned_vector_partition,rows)
 
   return b
 end
+
+const ParamLocalView{T<:AbstractArray,N,A<:AbstractParamArray,B} = GridapDistributed.LocalView{T,N,A,B}
+
+ParamDataStructures.param_length(A::ParamLocalView) = param_length(A.plids_to_value)
+ParamDataStructures.get_all_data(A::ParamLocalView) = get_all_data(A.plids_to_value)
+
+@inline function Algebra.add_entry!(combine::Function,A::ParamLocalView,v,i)
+  i′, = _local_ids(A.d_to_lid_to_plid,i)
+  add_entry!(combine,A.plids_to_value,v,i′)
+end
+
+@inline function Algebra.add_entry!(combine::Function,A::ParamLocalView,v,i,j)
+  i′,j′ = _local_ids(A.d_to_lid_to_plid,i,j)
+  println((i′,j′,v))
+  add_entry!(combine,A.plids_to_value,v,i′,j′)
+end
+
+const ParamAATTV = GridapDistributed.ArrayAllocationTrackTouchedAndValues{<:AbstractParamArray}
+
+ParamDataStructures.get_all_data(A::ParamAATTV) = get_all_data(A.values)
+ParamDataStructures.param_length(A::ParamAATTV) = param_length(A.values)
+
+@inline function Arrays.add_entry!(combine::Function,A::ParamAATTV,v::Number,i)
+  data = get_all_data(A)
+  if i>0
+    if !(A.touched[i])
+      A.touched[i] = true
+    end
+    @inbounds for k = param_eachindex(A)
+      data[i,k] = combine(v,data[i,k])
+    end
+  end
+  nothing
+end
+
+@inline function Arrays.add_entry!(combine::Function,A::ParamAATTV,v::AbstractVector,i)
+  data = get_all_data(A)
+  if i>0
+    if !(A.touched[i])
+      A.touched[i] = true
+    end
+    @inbounds for k = param_eachindex(A)
+      data[i,k] = combine(v[k],data[i,k])
+    end
+  end
+  nothing
+end
+
+@inline function Arrays.add_entries!(cache,combine::Function,A::ParamAATTV,vs::ParamBlock,is)
+  for (li,i) in enumerate(is)
+    get_param_entry!(cache,vs,li)
+    Arrays.add_entry!(combine,A,cache,i)
+  end
+end
+
+@inline function _local_ids(d_to_lid_to_plid,lids...)
+  plids = map(GridapDistributed._lid_to_plid,lids,d_to_lid_to_plid)
+  @check all(i->i>0,plids) "You are trying to set a value that is not stored in the local portion"
+  return plids
+end

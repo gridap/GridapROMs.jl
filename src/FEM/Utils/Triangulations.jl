@@ -272,6 +272,14 @@ end
   return Geometry.is_change_possible(strian,ttrian.parent)
 end
 
+@inline function Geometry.is_change_possible(strian::Geometry.TriangulationView,ttrian::Geometry.TriangulationView)
+  if strian.cell_to_parent_cell == ttrian.cell_to_parent_cell
+    Geometry.is_change_possible(strian.parent,ttrian.parent)
+  else
+    false
+  end
+end
+
 function CellData.change_domain(a::CellField,strian::Triangulation,::ReferenceDomain,ttrian::Geometry.TriangulationView,::ReferenceDomain)
   if strian === ttrian
     return a

@@ -77,6 +77,18 @@ end
 
 function PartitionedArrays.assemble_impl!(
   f,
+  matrix_partition,
+  cache,
+  ::Type{<:ParamSparseMatrixAssemblyCache}
+  )
+
+  vcache = map(i->i.cache,cache)
+  data = map(nonzeros,matrix_partition)
+  assemble!(f,data,vcache)
+end
+
+function PartitionedArrays.assemble_impl!(
+  f,
   vector_partition,
   cache,
   ::Type{<:ParamJaggedArrayAssemblyCache}

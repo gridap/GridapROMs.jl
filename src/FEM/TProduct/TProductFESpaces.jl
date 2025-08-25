@@ -135,6 +135,29 @@ function get_tp_dof_map(::Type{T},spaces_1d,dof_map) where T<:MultiValue
   reshape(dof_map,nnodes_1d...,ncomps)
 end
 
+function get_dof_map_with_diri(V::TProductFESpace)
+  T = get_dof_eltype(V)
+
+  trian = get_triangulation(V)
+  model = get_background_model(trian)
+  cell_dof_ids = get_cell_dof_ids(V)
+  order = get_polynomial_order(V)
+  dof_map = _get_dof_map_with_diri(model,cell_dof_ids,order)
+
+  get_tp_dof_map_with_diri(T,V.spaces_1d,dof_map)
+end
+
+function get_tp_dof_map_with_diri(::Type{T},spaces_1d,dof_map) where T
+  nnodes_1d = map(s -> num_free_dofs(s)+num_dirichlet_dofs(s),spaces_1d)
+  reshape(dof_map,nnodes_1d...)
+end
+
+function get_tp_dof_map_with_diri(::Type{T},spaces_1d,dof_map) where T<:MultiValue
+  nnodes_1d = map(s -> num_free_dofs(s)+num_dirichlet_dofs(s),spaces_1d)
+  ncomps = Int(length(dof_map)/prod(nnodes_1d))
+  reshape(dof_map,nnodes_1d...,ncomps)
+end
+
 for F in (:(DofMaps.get_bg_dof_to_dof),:(DofMaps.get_dof_to_bg_dof))
   for T in (:SingleFieldFESpace,:FESpaceWithLinearConstraints)
     @eval begin
@@ -199,4 +222,32 @@ function get_tp_trial_fe_basis(f::MultiFieldFESpace)
   end
   trian = get_tp_triangulation(f)
   TProductFEBasis(basis,trian)
+end
+
+# utils
+
+function _get_dof_map_with_diri(model::CartesianDiscreteModel,cell_dof_ids,order)
+  desc = get_cartesian_descriptor(model)
+  periodic = desc.isperiodic
+  ncells = desc.partition
+  ndofs = order .* ncells .+ 1 .- periodic
+
+  cache_cell_dof_ids = array_cache(cell_dof_ids)
+  dof_ids = LinearIndices(ndofs)
+  fddof_map = zeros(eltype(eltype(cell_dof_ids)),ndofs)
+  touched_dof = zeros(Bool,ndofs)
+
+  for (icell,cell) in enumerate(CartesianIndices(ncells))
+    first_new_dof  = order .* (Tuple(cell) .- 1) .+ 1
+    dofs_range = map(i -> i:i+order,first_new_dof)
+    dofs = view(dof_ids,dofs_range...)
+    cell_dofs = getindex!(cache_cell_dof_ids,cell_dof_ids,icell)
+    for (idof,dof) in enumerate(cell_dofs)
+      i = dofs[idof]
+      touched_dof[i] && continue
+      fddof_map[i] = dof
+    end
+  end
+
+  return fddof_map
 end
