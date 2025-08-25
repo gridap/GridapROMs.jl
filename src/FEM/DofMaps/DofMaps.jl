@@ -25,6 +25,7 @@ import Gridap.MultiField: MultiFieldFEFunction,restrict_to_field,_sum_if_first_p
 import PartitionedArrays: tuple_of_arrays
 import SparseArrays: AbstractSparseMatrix
 import SparseMatricesCSR: SparseMatrixCSR
+import StaticArrays: SVector, MVector
 
 export recast_indices
 export recast_split_indices

@@ -65,9 +65,17 @@ FESpaces.num_dirichlet_dofs(f::OrderedFESpace) = num_dirichlet_dofs(get_fe_space
 
 FESpaces.num_dirichlet_tags(f::OrderedFESpace) = num_dirichlet_tags(get_fe_space(f))
 
-FESpaces.get_dirichlet_dof_tag(f::OrderedFESpace) = get_dirichlet_dof_tag(get_fe_space(f))
-
 FESpaces.get_vector_type(f::OrderedFESpace) = get_vector_type(get_fe_space(f))
+
+function FESpaces.get_dirichlet_dof_tag(f::OrderedFESpace)
+  dof_to_tag = get_dirichlet_dof_tag(get_fe_space(f))
+  oddof_to_ddof = _get_oddof_to_ddof(f)
+  odof_to_tag = zeros(eltype(dof_to_tag),length(oddof_to_ddof))
+  for (oddof,ddof) in enumerate(oddof_to_ddof)
+    odof_to_tag[oddof] = dof_to_tag[ddof]
+  end
+  return odof_to_tag
+end
 
 # Scatters free and dirichlet values ordered according to Gridap
 function FESpaces.scatter_free_and_dirichlet_values(f::OrderedFESpace,fv,dv)
@@ -76,9 +84,9 @@ function FESpaces.scatter_free_and_dirichlet_values(f::OrderedFESpace,fv,dv)
   cell_ovalue_to_value(f,cell_values)
 end
 
-# Gathers free and dirichlet values ordered according to Gridap
+# # Gathers free and dirichlet values ordered according to Gridap
 function FESpaces.gather_free_and_dirichlet_values!(fv,dv,f::OrderedFESpace,cv)
-  cell_ovals = cell_value_to_ovalue(f,cv)
+  cell_ovals = cv
   cell_dofs = get_cell_dof_ids(f)
   cache_vals = array_cache(cell_ovals)
   cache_dofs = array_cache(cell_dofs)
@@ -191,17 +199,20 @@ function get_dof_to_odof(
         idof = comp_to_idof[comp]
         dof = cell_dofs[idof]
         odof = onode + (comp-1)*nnodes
-        # change only location of free dofs
-        odofs[odof] = dof > 0 ? o : dof
+        odofs[odof] = dof > 0 ? o : -o
       end
     end
   end
 
   nfree = 0
+  ndiri = 0
   for (i,odof) in enumerate(odofs)
     if odof > 0
       nfree += 1
       odofs[i] = nfree
+    else
+      ndiri -= 1
+      odofs[i] = ndiri
     end
   end
 
@@ -246,7 +257,7 @@ end
 function cell_value_to_ovalue(f::OrderedFESpace,cv)
   odof_to_dof = get_local_ordering(f)
   dof_to_odof = invperm_table(odof_to_dof)
-  lazy_map(OReindex(),odof_to_dof,cv)
+  lazy_map(OReindex(),dof_to_odof,cv)
 end
 
 function get_fe_odof_basis(f::SingleFieldFESpace,odof_to_dof)
@@ -269,6 +280,47 @@ function _get_fe_odof_basis(dof::LagrangianDofBasis,dof_to_odof)
   odof_to_comp = dof.dof_to_comp[dof_to_odof]
   node_and_comp_to_odof = dof.node_and_comp_to_dof[dof_to_odof]
   LagrangianDofBasis(dof.nodes,odof_to_node,odof_to_comp,node_and_comp_to_odof)
+end
+
+function _get_fe_odof_basis(dof::LagrangianDofBasis{P,V},dof_to_odof) where {P,V<:MultiValue}
+  odof_to_node = similar(dof.dof_to_node)
+  odof_to_comp = similar(dof.dof_to_comp)
+  node_and_comp_to_odof = similar(dof.node_and_comp_to_dof)
+  ncomps = num_indep_components(V)
+  nnodes = Int(length(odof_to_node) / ncomps)
+  m = zero(MVector{ncomps,Int})
+  for node in 1:nnodes
+    for comp in 1:ncomps
+      o = nnodes*(comp-1)
+      odof = dof_to_odof[node+o]
+      odof_to_comp[odof] = comp
+      odof_to_node[odof] = node
+      m[comp] = odof
+    end
+    node_and_comp_to_odof[node] = Tuple(m)
+  end
+  LagrangianDofBasis(dof.nodes,odof_to_node,odof_to_comp,node_and_comp_to_odof)
+end
+
+function _get_oddof_to_ddof(f::OrderedFESpace)
+  oddof_to_ddof = zeros(Int32,num_dirichlet_dofs(f))
+  cell_dofs = get_cell_dof_ids(get_fe_space(f))
+  cell_odofs = get_cell_dof_ids(f)
+  cache = array_cache(cell_dofs)
+  ocache = array_cache(cell_odofs)
+  for cell in 1:length(cell_dofs)
+    dofs = getindex!(cache,cell_dofs,cell)
+    odofs = getindex!(ocache,cell_odofs,cell)
+    for (iodof,odof) in enumerate(odofs)
+      if odof < 0
+        idof = odofs.terms[iodof]
+        dof = dofs[idof]
+        @check dof < 0
+        oddof_to_ddof[-odof] = -dof
+      end
+    end
+  end
+  return oddof_to_ddof
 end
 
 function _local_node_to_pnode(p::Polytope,orders)
