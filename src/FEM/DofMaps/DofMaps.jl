@@ -70,6 +70,7 @@ export change_dof_map
 include("DofMapsInterface.jl")
 
 export get_dof_map
+export get_dof_map_with_diri
 export get_sparse_dof_map
 export get_cell_to_bg_cell
 export get_bg_cell_to_cell

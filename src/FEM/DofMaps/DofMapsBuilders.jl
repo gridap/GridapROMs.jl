@@ -15,6 +15,10 @@ function get_dof_map(f::MultiFieldFESpace,args...)
   map(f -> get_dof_map(f,args...),f.spaces)
 end
 
+function get_dof_map_with_diri(f::FESpace,args...)
+  @abstractmethod
+end
+
 function get_sparse_dof_map(a::SparsityPattern,U::FESpace,V::FESpace,args...)
   TrivialSparseMatrixDofMap(a)
 end

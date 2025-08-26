@@ -683,3 +683,14 @@ end
 
 (f::EmbeddedTrialFESpace)(μ) = evaluate(f,μ)
 (f::EmbeddedTrialFESpace)(μ,t) = evaluate(f,μ,t)
+
+function _bg_vals_from_vals!(bg_fv,bg_dv,f::EmbeddedTrialFESpace,fv,dv)
+  f′ = EmbeddedFESpace(
+    get_fe_space(f.space),
+    get_fe_space(f.bg_space),
+    f.fdof_to_bg_fdofs,
+    f.ddof_to_bg_ddofs,
+    f.bg_cell_dof_ids
+    )
+  _bg_vals_from_vals!(bg_fv,bg_dv,f′,fv,dv)
+end
