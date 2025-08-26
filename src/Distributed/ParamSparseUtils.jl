@@ -22,7 +22,7 @@ end
   knext = iterate(ks,kstate)
   if knext === nothing
     while knext === nothing
-      if col == size(a.matrix,2)
+      if col == innersize(a.matrix,2)
         return nothing
       end
       col += 1
