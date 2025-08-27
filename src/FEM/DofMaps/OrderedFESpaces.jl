@@ -7,12 +7,12 @@
     end
 
 Interface for FE spaces whose DOFs are ordered lexycographically. Notes:
-* There are two separate lexycographies for free and Dirichlet DOFs, as in standard
+- There are two separate lexycographies for free and Dirichlet DOFs, as in standard
   Gridap FE spaces: positive ids correspond to free DOFs, negative ids correspond
   to Dirichlet DOFs
-* The following lexycographical hierarchy is considered: x-axis, y-axis, z-axis,
+- The following lexycographical hierarchy is considered: x-axis, y-axis, z-axis,
   component axis (only for multi-valued problems)
-* An exception of the ordering is given by the function scatter_free_and_dirichlet_values,
+- An exception of the ordering is given by the function scatter_free_and_dirichlet_values,
   which returns the scattered (cell) values in the standard Gridap ordering, in
   order to prevent errors when comparing two FEFunctions defined on a standard
   FE space or an ordered FE space. This feature can be removed with some work in

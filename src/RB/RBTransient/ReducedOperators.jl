@@ -104,8 +104,8 @@ function Algebra.jacobian!(
   fill!(A,zero(eltype(A)))
 
   np = num_params(r)
-  lhs = get_lhs(op)
-  hr_time_ids = get_common_time_domain(lhs)
+  lhss = get_lhs(op)
+  hr_time_ids = get_common_time_domain(lhss)
   hr_param_time_ids = range_1d(1:np,hr_time_ids,np)
   hr_uh = _make_hr_uh_from_us(op,u,paramcache.trial,hr_param_time_ids)
 
@@ -121,7 +121,7 @@ function Algebra.jacobian!(
 
   for k in 1:get_order(op)+1
     Ak = A.fecache[k]
-    lhs = lhs[k]
+    lhs = lhss[k]
     jac = jacs[k]
     dc = jac(μ,hr_t,hr_uh,du,v)
     trian_jac = trian_jacs[k]
@@ -133,7 +133,7 @@ function Algebra.jacobian!(
     end
   end
 
-  interpolate!(A,lhs)
+  interpolate!(A,lhss)
 end
 
 function Algebra.residual!(

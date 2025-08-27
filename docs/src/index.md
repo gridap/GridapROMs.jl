@@ -22,9 +22,11 @@ Pages = [
   "dof_maps.md",
   "tproduct.md",
   "param_data_structures.md",
+  "param_geometry.md",
   "param_fe_spaces.md",
   "param_steady.md",
   "param_odes.md",
+  "param_extensions.md",
   "rbsteady.md",
   "rbtransient.md",
   ]
