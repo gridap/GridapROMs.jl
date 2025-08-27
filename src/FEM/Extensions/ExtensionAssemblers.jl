@@ -1,3 +1,21 @@
+```
+    struct ExtensionAssembler <: SparseMatrixAssembler
+      assem::SparseMatrixAssembler
+      trial_dof_to_bg_dofs::NTuple{2,AbstractVector}
+      test_dof_to_bg_dofs::NTuple{2,AbstractVector}
+    end
+
+Structure that allows to decouple the assembly of FE matrices/vectors from the
+integration of weak formulations, to be used exclusively in the context of a trial/test
+couple of [`DirectSumFESpace`](@ref). After performing integration on the FE space,
+the assembly is done on the background space. The latter step can be done by
+exploiting the fields
+* `assem`: a SparseMatrixAssembler defined on the FE space
+* `trial_dof_to_bg_dofs`: index maps from the free/Dirichlet dofs on the trial FE space
+  to those on the background trial space
+* `test_dof_to_bg_dofs`: index maps from the free/Dirichlet dofs on the test FE space
+  to those on the background test space
+```
 struct ExtensionAssembler <: SparseMatrixAssembler
   assem::SparseMatrixAssembler
   trial_dof_to_bg_dofs::NTuple{2,AbstractVector}

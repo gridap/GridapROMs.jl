@@ -1,5 +1,5 @@
 function RBSteady.HRProjection(
-  red::HighOrderHyperReduction,
+  red::HighDimHyperReduction,
   s::Snapshots,
   trian::Triangulation,
   trial::RBSpace,
@@ -13,7 +13,7 @@ function RBSteady.HRProjection(
 end
 
 function RBSteady.HRProjection(
-  red::HighOrderRBFHyperReduction,
+  red::HighDimRBFHyperReduction,
   s::Snapshots,
   trian::Triangulation,
   trial::RBSpace,

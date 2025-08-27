@@ -87,8 +87,12 @@ end
 
 """
     struct ParamSubFacetTriangulation{Dc,Dp,T,A} <: Triangulation{Dc,Dp}
+      subfacets::ParamSubFacetData{Dp,T}
+      bgmodel::A
+      subgrid::ParamUnstructuredGrid{Dc,Dp,T,NonOriented,Nothing}
+    end
 
-A triangulation for subfacets.
+Parameterized version of a [`SubFacetTriangulation`](@ref) in [`GridapEmbedded`](@ref)
 """
 struct ParamSubFacetTriangulation{Dc,Dp,T,A} <: Triangulation{Dc,Dp}
   subfacets::ParamSubFacetData{Dp,T}

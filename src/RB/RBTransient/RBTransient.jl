@@ -39,12 +39,12 @@ import UnPack: @unpack
 import GridapROMs.ParamDataStructures: GenericTransientRealization
 import GridapROMs.RBSteady: num_centroids,get_lhs,get_rhs,_get_label
 
-export HighOrderReduction
+export HighDimReduction
 export TransientReduction
 export KroneckerReduction
 export SequentialReduction
-export HighOrderHyperReduction
-export HighOrderMDEIMHyperReduction
+export HighDimHyperReduction
+export HighDimMDEIMHyperReduction
 include("ReductionMethods.jl")
 
 include("RBSolvers.jl")

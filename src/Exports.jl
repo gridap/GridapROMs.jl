@@ -32,9 +32,6 @@ end
 @publish ParamGeometry PhysicalMap
 @publish ParamGeometry DisplacementMap
 @publish ParamGeometry mapped_grid
-@publish ParamGeometry ∇ᵩ
-@publish ParamGeometry nᵩ
-@publish ParamGeometry MappedMeasure
 
 @publish ParamDataStructures Realization
 @publish ParamDataStructures TransientRealization
@@ -87,7 +84,7 @@ using GridapROMs.ParamODEs: ∂ₚt,∂ₚtt; export ∂ₚt,∂ₚtt
 @publish Extensions TransientExtensionLinearParamOperator
 @publish Extensions TransientExtensionLinearNonlinearParamOperator
 @publish Extensions ZeroExtension
-@publish Extensions FunctionExtension
+@publish Extensions MassExtension
 @publish Extensions HarmonicExtension
 @publish Extensions BlockExtension
 @publish Extensions ExtensionSolver
@@ -156,7 +153,7 @@ using GridapROMs.Extensions: ⊕; export ⊕
 @publish RBSteady load_results
 @publish RBSteady load_stats
 
-@publish RBTransient HighOrderReduction
-@publish RBTransient HighOrderMDEIMHyperReduction
+@publish RBTransient HighDimReduction
+@publish RBTransient HighDimMDEIMHyperReduction
 @publish RBTransient TransientProjection
 @publish RBTransient TransientRBOperator

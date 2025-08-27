@@ -1,3 +1,22 @@
+"""
+    struct MissingDofsFESpace{V} <: SingleFieldFESpace
+      vector_type::Type{V}
+      nfree::Int
+      ndirichlet::Int
+      cell_dofs_ids::AbstractArray
+      fe_basis::CellField
+      fe_dof_basis::CellDof
+      cell_is_dirichlet::AbstractArray{Bool}
+      dirichlet_dof_tag::Vector{Int8}
+      dirichlet_cells::Vector{Int32}
+      ntags::Int
+    end
+
+Same as an [`UnconstrainedFESpace`](@ref) in [`Gridap`](@ref), with the possibilty
+using zeros to indicate constrained DOFs -- i.e. DOFs that do not contribute to the
+assembly of FE vectors/matrices. Note: one could also use a [`FESpaceWithLinearConstraints`](@ref)
+instead, but that would be overly complicated in most scenarios
+"""
 struct MissingDofsFESpace{V} <: SingleFieldFESpace
   vector_type::Type{V}
   nfree::Int

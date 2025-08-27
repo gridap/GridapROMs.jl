@@ -45,8 +45,12 @@ end
 
 """
     struct ParamSubCellTriangulation{Dc,Dp,T,A} <: Triangulation{Dc,Dp}
+      subcells::ParamSubCellData{Dc,Dp,T}
+      bgmodel::A
+      subgrid::ParamUnstructuredGrid{Dc,Dp,T,NonOriented,Nothing}
+    end
 
-A triangulation for subcells.
+Parameterized version of a [`SubCellTriangulation`](@ref) in [`GridapEmbedded`](@ref)
 """
 struct ParamSubCellTriangulation{Dc,Dp,T,A} <: Triangulation{Dc,Dp}
   subcells::ParamSubCellData{Dc,Dp,T}

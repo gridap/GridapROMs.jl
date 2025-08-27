@@ -1,14 +1,14 @@
-abstract type HighOrderReduction{A<:ReductionStyle,B<:NormStyle} <: Reduction{A,B} end
+abstract type HighDimReduction{A<:ReductionStyle,B<:NormStyle} <: Reduction{A,B} end
 
 """
-    struct KroneckerReduction{A,B} <: HighOrderReduction{A,B}
+    struct KroneckerReduction{A,B} <: HighDimReduction{A,B}
       reductions::AbstractVector{<:Reduction}
     end
 
 Wrapper for reduction methods in high order problems, such as transient ones. The
 reduced subspaces are constructed as Kronecker product spaces
 """
-struct KroneckerReduction{A,B} <: HighOrderReduction{A,B}
+struct KroneckerReduction{A,B} <: HighDimReduction{A,B}
   reductions::AbstractVector{<:Reduction}
   function KroneckerReduction(reductions::AbstractVector{<:Reduction})
     A = typeof(ReductionStyle(first(reductions)))
@@ -32,41 +32,41 @@ get_reduction_time(r::KroneckerReduction) = last(r.reductions)
 
 # generic constructor
 
-function HighOrderReduction end
+function HighDimReduction end
 
-const TransientReduction = HighOrderReduction
+const TransientReduction = HighDimReduction
 
-function HighOrderReduction(reduction::HighOrderReduction,args...;kwargs...)
+function HighDimReduction(reduction::HighDimReduction,args...;kwargs...)
   reduction
 end
 
-function HighOrderReduction(styles::AbstractVector{<:ReductionStyle},args...;kwargs...)
+function HighDimReduction(styles::AbstractVector{<:ReductionStyle},args...;kwargs...)
   reductions = map(s -> Reduction(s,args...;kwargs...),styles)
   KroneckerReduction(reductions)
 end
 
-function HighOrderReduction(tolranks::AbstractVector{<:Union{Int,Float64}},args...;kwargs...)
+function HighDimReduction(tolranks::AbstractVector{<:Union{Int,Float64}},args...;kwargs...)
   reductions = map(t -> Reduction(t,args...;kwargs...),tolranks)
   KroneckerReduction(reductions)
 end
 
-function HighOrderReduction(tolrank::Union{Int,Float64},args...;dim=2,kwargs...)
-  HighOrderReduction(Fill(tolrank,dim),args...;kwargs...)
+function HighDimReduction(tolrank::Union{Int,Float64},args...;dim=2,kwargs...)
+  HighDimReduction(Fill(tolrank,dim),args...;kwargs...)
 end
 
-function HighOrderReduction(red_style::ReductionStyle,args...;dim=2,kwargs...)
-  HighOrderReduction(Fill(red_style,dim),args...;kwargs...)
+function HighDimReduction(red_style::ReductionStyle,args...;dim=2,kwargs...)
+  HighDimReduction(Fill(red_style,dim),args...;kwargs...)
 end
 
 """
-    struct SequentialReduction{A,B} <: HighOrderReduction{A,B}
+    struct SequentialReduction{A,B} <: HighDimReduction{A,B}
       reduction::Reduction{A,B}
     end
 
 Wrapper for sequential reduction methods in high-order problems, e.g. TT-SVD in
 transient applications
 """
-struct SequentialReduction{A,B} <: HighOrderReduction{A,B}
+struct SequentialReduction{A,B} <: HighDimReduction{A,B}
   reduction::Reduction{A,B}
 end
 
@@ -81,23 +81,23 @@ function SequentialReduction(r::LocalReduction)
   LocalReduction(r′,nc)
 end
 
-function HighOrderReduction(red_style::TTSVDRanks,args...;kwargs...)
+function HighDimReduction(red_style::TTSVDRanks,args...;kwargs...)
   reduction = Reduction(red_style,args...;kwargs...)
   SequentialReduction(reduction)
 end
 
-function HighOrderReduction(tolrank::Union{Vector{Int},Vector{Float64}},args...;kwargs...)
+function HighDimReduction(tolrank::Union{Vector{Int},Vector{Float64}},args...;kwargs...)
   reduction = Reduction(tolrank,args...;kwargs...)
   SequentialReduction(reduction)
 end
 
-function HighOrderReduction(supr_op::Function,args...;supr_tol=1e-2,kwargs...)
-  reduction = HighOrderReduction(args...;kwargs...)
+function HighDimReduction(supr_op::Function,args...;supr_tol=1e-2,kwargs...)
+  reduction = HighDimReduction(args...;kwargs...)
   SupremizerReduction(reduction,supr_op,supr_tol)
 end
 
 @doc raw"""
-    abstract type HighOrderHyperReduction{A} <: HyperReduction{A} end
+    abstract type HighDimHyperReduction{A} <: HyperReduction{A} end
 
 Hyper reduction strategies employed in high-order (e.g. transient) problems.
 They feature a field `combine`, a function used to group the reductions relative
@@ -181,74 +181,74 @@ The same can be said of any time marching scheme. This is the meaning of the
 function `combine`. Note that for a time marching with ``p`` interpolation points (e.g.
 for ``\theta`` method, ``p = 2``) the `combine` functions will have to accept ``p`` arguments.
 """
-abstract type HighOrderHyperReduction{A} <: HyperReduction{A} end
+abstract type HighDimHyperReduction{A} <: HyperReduction{A} end
 
-function HighOrderHyperReduction end
+function HighDimHyperReduction end
 
-const TransientHyperReduction = HighOrderHyperReduction
+const TransientHyperReduction = HighDimHyperReduction
 
-function HighOrderHyperReduction(combine::Function,args...;hypred_strategy=:mdeim,kwargs...)
-  reduction = HighOrderReduction(args...;kwargs...)
-  hypred_strategy==:mdeim ? HighOrderMDEIMHyperReduction(reduction,combine) : HighOrderRBFHyperReduction(reduction,combine)
+function HighDimHyperReduction(combine::Function,args...;hypred_strategy=:mdeim,kwargs...)
+  reduction = HighDimReduction(args...;kwargs...)
+  hypred_strategy==:mdeim ? HighDimMDEIMHyperReduction(reduction,combine) : HighDimRBFHyperReduction(reduction,combine)
 end
 
-function HighOrderHyperReduction(combine::Function,reduction::HighOrderReduction,args...;kwargs...)
+function HighDimHyperReduction(combine::Function,reduction::HighDimReduction,args...;kwargs...)
   red_style = ReductionStyle(reduction)
-  HighOrderHyperReduction(combine,red_style;kwargs...)
+  HighDimHyperReduction(combine,red_style;kwargs...)
 end
 
-function HighOrderHyperReduction(reduction::HighOrderReduction,combine::Function;kwargs...)
+function HighDimHyperReduction(reduction::HighDimReduction,combine::Function;kwargs...)
   red_style = ReductionStyle(reduction)
-  HighOrderMDEIMHyperReduction(combine,red_style;kwargs...)
+  HighDimMDEIMHyperReduction(combine,red_style;kwargs...)
 end
 
-function HighOrderHyperReduction(combine::Function,reduction::SupremizerReduction,args...;kwargs...)
-  HighOrderHyperReduction(combine,get_reduction(reduction),args...;kwargs...)
+function HighDimHyperReduction(combine::Function,reduction::SupremizerReduction,args...;kwargs...)
+  HighDimHyperReduction(combine,get_reduction(reduction),args...;kwargs...)
 end
 
-function HighOrderHyperReduction(reduction::SupremizerReduction,args...;kwargs...)
-  HighOrderHyperReduction(get_reduction(reduction),args...;kwargs...)
+function HighDimHyperReduction(reduction::SupremizerReduction,args...;kwargs...)
+  HighDimHyperReduction(get_reduction(reduction),args...;kwargs...)
 end
 
-function HighOrderHyperReduction(combine::Function,r::LocalReduction,args...;ncentroids=num_centroids(r),kwargs...)
-  LocalHighOrderHyperReduction(combine,get_reduction(r),args...;ncentroids,kwargs...)
+function HighDimHyperReduction(combine::Function,r::LocalReduction,args...;ncentroids=num_centroids(r),kwargs...)
+  LocalHighDimHyperReduction(combine,get_reduction(r),args...;ncentroids,kwargs...)
 end
 
-function HighOrderHyperReduction(r::LocalReduction,combine::Function;ncentroids=num_centroids(r),kwargs...)
-  LocalHighOrderHyperReduction(combine,get_reduction(r),args...;ncentroids,kwargs...)
+function HighDimHyperReduction(r::LocalReduction,combine::Function;ncentroids=num_centroids(r),kwargs...)
+  LocalHighDimHyperReduction(combine,get_reduction(r),args...;ncentroids,kwargs...)
 end
 
-get_combine(r::HighOrderHyperReduction) = @abstractmethod
+get_combine(r::HighDimHyperReduction) = @abstractmethod
 
-struct HighOrderMDEIMHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighOrderHyperReduction{A}
+struct HighDimMDEIMHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
   reduction::R
   combine::Function
 end
 
-function HighOrderMDEIMHyperReduction(combine::Function,args...;kwargs...)
-  reduction = HighOrderReduction(args...;kwargs...)
-  HighOrderMDEIMHyperReduction(reduction,combine)
+function HighDimMDEIMHyperReduction(combine::Function,args...;kwargs...)
+  reduction = HighDimReduction(args...;kwargs...)
+  HighDimMDEIMHyperReduction(reduction,combine)
 end
 
-RBSteady.get_reduction(r::HighOrderMDEIMHyperReduction) = r.reduction
-get_combine(r::HighOrderMDEIMHyperReduction) = r.combine
+RBSteady.get_reduction(r::HighDimMDEIMHyperReduction) = r.reduction
+get_combine(r::HighDimMDEIMHyperReduction) = r.combine
 
-struct HighOrderRBFHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighOrderHyperReduction{A}
+struct HighDimRBFHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
   reduction::R
   combine::Function
   strategy::AbstractRadialBasis
 end
 
-function HighOrderRBFHyperReduction(combine::Function,args...;strategy=PHS(),kwargs...)
-  reduction = HighOrderReduction(args...;kwargs...)
-  HighOrderRBFHyperReduction(reduction,combine,strategy)
+function HighDimRBFHyperReduction(combine::Function,args...;strategy=PHS(),kwargs...)
+  reduction = HighDimReduction(args...;kwargs...)
+  HighDimRBFHyperReduction(reduction,combine,strategy)
 end
 
-RBSteady.get_reduction(r::HighOrderRBFHyperReduction) = r.reduction
-RBSteady.interp_strategy(r::HighOrderRBFHyperReduction) = r.strategy
-get_combine(r::HighOrderRBFHyperReduction) = r.combine
+RBSteady.get_reduction(r::HighDimRBFHyperReduction) = r.reduction
+RBSteady.interp_strategy(r::HighDimRBFHyperReduction) = r.strategy
+get_combine(r::HighDimRBFHyperReduction) = r.combine
 
-function LocalHighOrderHyperReduction(args...;ncentroids=10,kwargs...)
-  reduction = HighOrderHyperReduction(args...;kwargs...)
+function LocalHighDimHyperReduction(args...;ncentroids=10,kwargs...)
+  reduction = HighDimHyperReduction(args...;kwargs...)
   LocalReduction(reduction,ncentroids)
 end

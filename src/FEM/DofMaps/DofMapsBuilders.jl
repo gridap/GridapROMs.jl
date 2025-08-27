@@ -1,7 +1,7 @@
 """
     get_dof_map(space::FESpace) -> VectorDofMap
 
-Returns the active dofs sorted by coordinate order, for every dimension. If `space` is a
+Returns the free dofs sorted by coordinate order, for every dimension. If `space` is a
 D-dimensional, scalar `FESpace`, the output index map will be a subtype of
 `AbstractDofMap{<:Integer,D}`. If `space` is a D-dimensional, vector-valued `FESpace`,
 the output index map will be a subtype of `AbstractDofMap{D+1}`.
@@ -15,6 +15,11 @@ function get_dof_map(f::MultiFieldFESpace,args...)
   map(f -> get_dof_map(f,args...),f.spaces)
 end
 
+"""
+    get_dof_map_with_diri(space::FESpace) -> VectorDofMap
+
+Same as [`get_dof_map`](@ref), but includes also Dirichlet dofs
+"""
 function get_dof_map_with_diri(f::FESpace,args...)
   @abstractmethod
 end
@@ -83,26 +88,68 @@ function get_bg_cell_to_cell(trian::Triangulation{Dt,Dp}) where {Dt,Dp}
   return bg_cell_to_cell
 end
 
+"""
+    get_bg_fdof_to_fdof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace) -> AbstractVector
+
+Given a background FE space `bg_f`, e.g. defined on a background discrete model,
+and a FE space `f` defined on an active portion of such model, defines an index
+mapping relating each free dof of `bg_f` to a free dof in `f`. In practice, it
+returns a map `v` of length `bg_nfdofs` such that `v[bg_fdof] = fdof` if `bg_fdof`
+is located in the active portion, and `v[bg_fdof] = 0` otherwise
+"""
 function get_bg_fdof_to_fdof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace)
   bg_fdof_to_fdof,_ = get_bg_dof_to_dof(bg_f,f)
   bg_fdof_to_fdof
 end
 
+"""
+    get_bg_ddof_to_ddof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace) -> AbstractVector
+
+Given a background FE space `bg_f`, e.g. defined on a background discrete model,
+and a FE space `f` defined on an active portion of such model, defines an index
+mapping relating each Dirichlet dof of `bg_f` to a Dirichlet dof in `f`. In practice, it
+returns a map `v` of length `bg_nddofs` such that `v[bg_ddof] = ddof` if `bg_ddof`
+is located in the active portion, and `v[bg_ddof] = 0` otherwise
+"""
 function get_bg_ddof_to_ddof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace)
   _,bg_ddof_to_ddof = get_bg_dof_to_dof(bg_f,f)
   bg_ddof_to_ddof
 end
 
+"""
+    get_fdof_to_bg_fdof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace) -> AbstractVector
+
+Given a background FE space `bg_f`, e.g. defined on a background discrete model,
+and a FE space `f` defined on an active portion of such model, defines an index
+mapping relating each free dof of `f` to a free dof in `bg_f`. In practice, it
+returns a map `v` of length `nfdofs` such that `v[fdof] = bg_fdof`
+"""
 function get_fdof_to_bg_fdof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace)
   fdof_to_bg_fdof,_ = get_dof_to_bg_dof(bg_f,f)
   fdof_to_bg_fdof
 end
 
+"""
+    get_ddof_to_bg_ddof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace) -> AbstractVector
+
+Given a background FE space `bg_f`, e.g. defined on a background discrete model,
+and a FE space `f` defined on an active portion of such model, defines an index
+mapping relating each Dirichlet dof of `f` to a Dirichlet dof in `bg_f`. In practice, it
+returns a map `v` of length `nddofs` such that `v[ddof] = bg_ddof`
+"""
 function get_ddof_to_bg_ddof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace)
   _,ddof_to_bg_ddof = get_dof_to_bg_dof(bg_f,f)
   ddof_to_bg_ddof
 end
 
+"""
+    get_bg_dof_to_dof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace
+      ) -> (AbstractVector,AbstractVector)
+
+Given a background FE space `bg_f`, e.g. defined on a background discrete model,
+and a FE space `f` defined on an active portion of such model, returns the results
+of [`get_bg_fdof_to_fdof`](@ref) and [`get_bg_ddof_to_ddof`](@ref)
+"""
 function get_bg_dof_to_dof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace)
   bg_fdof_to_fdof = zeros(Int,num_unconstrained_free_dofs(bg_f))
   bg_ddof_to_ddof = zeros(Int,num_dirichlet_dofs(bg_f))
@@ -145,6 +192,14 @@ function get_bg_dof_to_dof(bg_f::SingleFieldFESpace,agg_f::FESpaceWithLinearCons
   return bg_fdof_to_agg_fdof,bg_ddof_to_agg_ddof
 end
 
+"""
+    get_dof_to_bg_dof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace
+      ) -> (AbstractVector,AbstractVector)
+
+Given a background FE space `bg_f`, e.g. defined on a background discrete model,
+and a FE space `f` defined on an active portion of such model, returns the results
+of [`get_fdof_to_bg_fdof`](@ref) and [`get_ddof_to_bg_ddof`](@ref)
+"""
 function get_dof_to_bg_dof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace)
   fdof_to_bg_fdof = zeros(Int,num_free_dofs(f))
   ddof_to_bg_ddof = zeros(Int,num_dirichlet_dofs(f))
@@ -228,6 +283,13 @@ function get_mdof_to_dof(f::FESpaceWithLinearConstraints)
   return mfdof_to_fdof,mddof_to_ddof
 end
 
+"""
+    get_bg_dof_to_active_dof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace
+      ) -> (AbstractVector,AbstractVector)
+
+Same as [`get_bg_dof_to_dof`](@ref), unless `f` is a FESpaceWithLinearConstraints,
+in which case it calls `get_bg_dof_to_dof` on the underlying, unconstrained space
+"""
 function get_bg_dof_to_active_dof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace)
   get_bg_dof_to_dof(bg_f,f)
 end
@@ -236,6 +298,13 @@ function get_bg_dof_to_active_dof(bg_f::SingleFieldFESpace,f::FESpaceWithLinearC
   get_bg_dof_to_dof(bg_f,f.space)
 end
 
+"""
+    get_active_dof_to_bg_dof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace
+      ) -> (AbstractVector,AbstractVector)
+
+Same as [`get_dof_to_bg_dof`](@ref), unless `f` is a FESpaceWithLinearConstraints,
+in which case it calls `get_dof_to_bg_dof` on the underlying, unconstrained space
+"""
 function get_active_dof_to_bg_dof(bg_f::SingleFieldFESpace,f::SingleFieldFESpace)
   get_dof_to_bg_dof(bg_f,f)
 end

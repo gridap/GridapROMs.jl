@@ -141,6 +141,11 @@ recast(v::AbstractVector,a::SparseMatrixCSR{Bi}) where Bi = SparseMatrixCSR{Bi}(
 
 sparsify(a::AbstractArray) = nonzeros(a)
 
+"""
+    compose_index(i1_to_i2,i2_to_i3) -> AbstractVector
+
+Returns an index map `i1_to_i3` representing the composition `i1_to_i2 ∘ i2_to_i3`
+"""
 function compose_index(i1_to_i2,i2_to_i3)
   T_i3 = eltype(i2_to_i3)
   n_i1 = length(i1_to_i2)
@@ -153,6 +158,32 @@ function compose_index(i1_to_i2,i2_to_i3)
   return i1_to_i3
 end
 
+"""
+    get_group_to_labels(labels::AbstractVector) -> Table
+
+Given a vector of natural numbers `labels`, returns a table of length
+`maximum(labels) - minimum(labels)`, whose entries group equal entries of `labels`.
+An empty group is assigned whenever a label does not appear in `labels`
+Example:
+```
+julia> labels = [1,3,2,3,1,5,5]
+7-element Vector{Int64}:
+ 1
+ 3
+ 2
+ 3
+ 1
+ 5
+ 5
+julia> get_group_to_labels(labels)
+5-element Table{Int32, Vector{Int32}, Vector{Int32}}:
+ [1, 1]
+ [2]
+ [3, 3]
+ []
+ [5, 5]
+```
+"""
 function get_group_to_labels(labels::AbstractVector)
   labmin,labmax = extrema(labels)
   labels = labmin > 0 ? labels : labels .- labmin .+ 1
@@ -169,6 +200,30 @@ function get_group_to_labels(labels::AbstractVector)
   return Table(data,ptrs)
 end
 
+"""
+    group_labels(labels::AbstractVector) -> Table
+
+Same as [`get_group_to_labels`](@ref), but removes the empty groups corresponding
+to non-existing labels in `labels`
+Example:
+```
+julia> labels = [1,3,2,3,1,5,5]
+7-element Vector{Int64}:
+ 1
+ 3
+ 2
+ 3
+ 1
+ 5
+ 5
+julia> group_labels(labels)
+4-element Table{Int32, Vector{Int32}, Vector{Int32}}:
+ [1, 1]
+ [2]
+ [3, 3]
+ [5, 5]
+```
+"""
 function group_labels(labels::AbstractVector)
   labmin,labmax = extrema(labels)
   labels = labmin > 0 ? labels : labels .- labmin .+ 1
@@ -187,6 +242,33 @@ function group_labels(labels::AbstractVector)
   return Table(data,ptrs)
 end
 
+"""
+    get_group_to_ilabels(labels::AbstractVector) -> Table
+
+Given a vector of natural numbers `labels`, returns a table of length
+`maximum(labels) - minimum(labels)`, whose entries group the indices associated
+with equal entries of `labels`. An empty group is assigned whenever a label does
+not appear in `labels`
+Example:
+```
+julia> labels = [1,3,2,3,1,5,5]
+7-element Vector{Int64}:
+ 1
+ 3
+ 2
+ 3
+ 1
+ 5
+ 5
+julia> get_group_to_ilabels(labels)
+5-element Table{Int32, Vector{Int32}, Vector{Int32}}:
+ [1, 5]
+ [3]
+ [2, 4]
+ []
+ [6, 7]
+```
+"""
 function get_group_to_ilabels(labels::AbstractVector)
   labmin,labmax = extrema(labels)
   labels = labmin > 0 ? labels : labels .- labmin .+ 1
@@ -203,6 +285,30 @@ function get_group_to_ilabels(labels::AbstractVector)
   return Table(data,ptrs)
 end
 
+"""
+    group_ilabels(labels::AbstractVector) -> Table
+
+Same as [`get_group_to_ilabels`](@ref), but removes the empty groups corresponding
+to non-existing labels in `labels`
+Example:
+```
+julia> labels = [1,3,2,3,1,5,5]
+7-element Vector{Int64}:
+ 1
+ 3
+ 2
+ 3
+ 1
+ 5
+ 5
+julia> group_ilabels(labels)
+4-element Table{Int32, Vector{Int32}, Vector{Int32}}:
+ [1, 5]
+ [3]
+ [2, 4]
+ [6, 7]
+```
+"""
 function group_ilabels(labels::AbstractVector)
   labmin,labmax = extrema(labels)
   labels = labmin > 0 ? labels : labels .- labmin .+ 1
@@ -221,6 +327,24 @@ function group_ilabels(labels::AbstractVector)
   return Table(data,ptrs)
 end
 
+"""
+    inverse_table(a_to_b::Table) -> Table
+
+Given the input table `a_to_b`, returns the inverse table `b_to_a`
+Example:
+```
+julia> a = Table([[1,2,3],[2,3,4]])
+2-element Table{Int64, Vector{Int64}, Vector{Int32}}:
+ [1, 2, 3]
+ [2, 3, 4]
+julia> inverse_table(a)
+4-element Table{Int32, Vector{Int32}, Vector{Int32}}:
+ [1]
+ [1, 2]
+ [1, 2]
+ [2]
+```
+"""
 function inverse_table(cell_dofs::Table)
   ndofs = maximum(cell_dofs.data)
   ptrs = zeros(Int32,ndofs+1)

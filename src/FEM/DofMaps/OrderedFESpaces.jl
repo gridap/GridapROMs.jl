@@ -3,16 +3,26 @@
       space::S
       cell_odofs_ids::AbstractArray
       fe_odof_basis::CellDof
-      dirichlet_dof_tag::Vector{Int8}
+      dirichlet_odof_tag::Vector{Int8}
     end
 
-Interface for FE spaces that feature a DOF reordering
+Interface for FE spaces whose DOFs are ordered lexycographically. Notes:
+* There are two separate lexycographies for free and Dirichlet DOFs, as in standard
+  Gridap FE spaces: positive ids correspond to free DOFs, negative ids correspond
+  to Dirichlet DOFs
+* The following lexycographical hierarchy is considered: x-axis, y-axis, z-axis,
+  component axis (only for multi-valued problems)
+* An exception of the ordering is given by the function scatter_free_and_dirichlet_values,
+  which returns the scattered (cell) values in the standard Gridap ordering, in
+  order to prevent errors when comparing two FEFunctions defined on a standard
+  FE space or an ordered FE space. This feature can be removed with some work in
+  future versions
 """
 struct OrderedFESpace{S<:SingleFieldFESpace} <: SingleFieldFESpace
   space::S
   cell_odofs_ids::AbstractArray
   fe_odof_basis::CellDof
-  dirichlet_dof_tag::Vector{Int8}
+  dirichlet_odof_tag::Vector{Int8}
 end
 
 # Constructors
@@ -21,8 +31,8 @@ function OrderedFESpace(f::UnconstrainedFESpace)
   cell_odofs_ids = get_cell_odof_ids(f)
   odof_to_dof = get_local_ordering(cell_odofs_ids)
   fe_odof_basis = get_fe_odof_basis(f,odof_to_dof)
-  dirichlet_dof_tag = get_dirichlet_odof_tag(f,cell_odofs_ids)
-  OrderedFESpace(f,cell_odofs_ids,fe_odof_basis,dirichlet_dof_tag)
+  dirichlet_odof_tag = get_dirichlet_odof_tag(f,cell_odofs_ids)
+  OrderedFESpace(f,cell_odofs_ids,fe_odof_basis,dirichlet_odof_tag)
 end
 
 function OrderedFESpace(f::SingleFieldFESpace)
@@ -69,7 +79,7 @@ FESpaces.num_dirichlet_dofs(f::OrderedFESpace) = num_dirichlet_dofs(get_fe_space
 
 FESpaces.num_dirichlet_tags(f::OrderedFESpace) = num_dirichlet_tags(get_fe_space(f))
 
-FESpaces.get_dirichlet_dof_tag(f::OrderedFESpace) = f.dirichlet_dof_tag
+FESpaces.get_dirichlet_dof_tag(f::OrderedFESpace) = f.dirichlet_odof_tag
 
 FESpaces.get_vector_type(f::OrderedFESpace) = get_vector_type(get_fe_space(f))
 

@@ -166,11 +166,11 @@ function update_reduction(red::SequentialReduction,tol)
   SequentialReduction(update_reduction(red.reduction,tol))
 end
 
-function update_reduction(red::HighOrderMDEIMHyperReduction,tol)
-  HighOrderMDEIMHyperReduction(update_reduction(red.reduction,tol),red.combine)
+function update_reduction(red::HighDimMDEIMHyperReduction,tol)
+  HighDimMDEIMHyperReduction(update_reduction(red.reduction,tol),red.combine)
 end
 
-function update_reduction(red::NTuple{N,HighOrderMDEIMHyperReduction},tol) where N
+function update_reduction(red::NTuple{N,HighDimMDEIMHyperReduction},tol) where N
   map(r->update_reduction(r,tol),red)
 end
 

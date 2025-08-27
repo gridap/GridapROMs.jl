@@ -437,8 +437,15 @@ function get_bg_cell_dof_ids(space::SingleFieldFESpace,bg_space::SingleFieldFESp
   Table(lazy_map(k,1:length(cellids)))
 end
 
-# complementary space interface
+"""
+    complementary_space(space::EmbeddedFESpace) -> EmbeddedFESpace
 
+Given a FE space `space` embedded in a background FE space, called for e.g. `bg_space`,
+computes the complementary of `space` embedded in `bg_space`, defined as the space
+with free and Dirichlet dofs belonging to `bg_space` whose intersection with free
+and Dirichlet dofs belonging to `space` is empty. The reference FE space coincides
+with that belonging to `space`
+"""
 function complementary_space(space::EmbeddedFESpace)
   bg_space = space.bg_space
 
@@ -473,7 +480,7 @@ function complementary_space(space::EmbeddedFESpace)
   cell_is_dirichlet = get_cell_is_dirichlet(bg_space)[cface_to_mface]
   dirichlet_dof_tag = get_dirichlet_dof_tag(bg_space)[(-1).*ddof_to_bg_ddofs]
   dirichlet_cells = convert(Vector{Int32},1:length(cell_is_dirichlet))
-  ntags = num_dirichlet_tags(bg_space) #TODO this one is wrong, but should not impact the results
+  ntags = length(unique(dirichlet_dof_tag))
 
   cspace = MissingDofsFESpace(
     get_vector_type(bg_space),
@@ -710,14 +717,3 @@ end
 
 (f::EmbeddedTrialFESpace)(μ) = evaluate(f,μ)
 (f::EmbeddedTrialFESpace)(μ,t) = evaluate(f,μ,t)
-
-function _bg_vals_from_vals!(bg_fv,bg_dv,f::EmbeddedTrialFESpace,fv,dv)
-  f′ = EmbeddedFESpace(
-    get_fe_space(f.space),
-    get_fe_space(f.bg_space),
-    f.fdof_to_bg_fdofs,
-    f.ddof_to_bg_ddofs,
-    f.bg_cell_dof_ids
-    )
-  _bg_vals_from_vals!(bg_fv,bg_dv,f′,fv,dv)
-end

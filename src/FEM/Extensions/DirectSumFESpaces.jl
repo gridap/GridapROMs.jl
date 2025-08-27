@@ -1,3 +1,14 @@
+"""
+    struct DirectSumFESpace{S<:SingleFieldFESpace,T<:SingleFieldFESpace} <: SingleFieldFESpace
+      space::EmbeddedFESpace{S,T}
+      complementary::EmbeddedFESpace
+    end
+
+FE space which essentially acts as a wrapper around an [`EmbeddedFESpace`](@ref)
+`space`, but also stores its complementary space `complementary` obtained by calling
+[`complementary_space`](@ref). This interface is useful for defining extension
+operators from `space` onto `complementary`
+"""
 struct DirectSumFESpace{S<:SingleFieldFESpace,T<:SingleFieldFESpace} <: SingleFieldFESpace
   space::EmbeddedFESpace{S,T}
   complementary::EmbeddedFESpace
@@ -88,6 +99,15 @@ for F in (:(ParamFESpaces.UnEvalTrialFESpace),:(ODEs.TransientTrialFESpace),:(FE
   end
 end
 
+"""
+    (⊕)(uh::FEFunction,vh::FEFunction) -> FEFunction
+
+Given a FEFunction `uh` defined on a FE space and a FEFunction `vh` defined on its
+complementary (see [`complementary_space`](@ref) for more details), returns a
+FEFunction defined as their direct sum. In practice, the output's values coincides
+with those of `uh` on the DOFs associated with the space, and those of `vh` on the
+DOFs associated with the complementary
+"""
 function (⊕)(uh::FEFunction,vh::FEFunction)
   space = get_fe_space(uh)
   complementary = get_fe_space(vh)

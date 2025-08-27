@@ -64,7 +64,7 @@ include("ExtensionParamOperators.jl")
 
 export ExtensionStyle
 export ZeroExtension
-export FunctionExtension
+export MassExtension
 export HarmonicExtension
 export BlockExtension
 export ExtensionSolver

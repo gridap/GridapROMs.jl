@@ -1,7 +1,7 @@
 #TODO Functionalities are not yet implemented for a general high order PDE; eventually,
 # it would be desirable to have something like:
-# abstract type HighOrderProjection <: Projection end
-# abstract type TransientProjection <: HighOrderProjection end
+# abstract type HighDimProjection <: Projection end
+# abstract type TransientProjection <: HighDimProjection end
 
 abstract type TransientProjection <: Projection end
 

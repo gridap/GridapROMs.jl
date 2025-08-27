@@ -1,4 +1,4 @@
-# check HighOrderMDEIMHyperReduction for more details
+# check HighDimMDEIMHyperReduction for more details
 time_combinations(fesolver::ODESolver) = @notimplemented "For now, only theta methods are implemented"
 
 function time_combinations(fesolver::ThetaMethod)
@@ -18,9 +18,9 @@ function RBSteady.RBSolver(
   kwargs...)
 
   cres,cjac,cdjac = time_combinations(fesolver)
-  residual_reduction = HighOrderHyperReduction(cres,reduction;nparams=nparams_res,kwargs...)
-  jac_reduction = HighOrderHyperReduction(cjac,reduction;nparams=nparams_jac,kwargs...)
-  djac_reduction = HighOrderHyperReduction(cdjac,reduction;nparams=nparams_djac,kwargs...)
+  residual_reduction = HighDimHyperReduction(cres,reduction;nparams=nparams_res,kwargs...)
+  jac_reduction = HighDimHyperReduction(cjac,reduction;nparams=nparams_jac,kwargs...)
+  djac_reduction = HighDimHyperReduction(cdjac,reduction;nparams=nparams_djac,kwargs...)
   jacobian_reduction = (jac_reduction,djac_reduction)
 
   RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)
@@ -35,9 +35,9 @@ function RBSteady.RBSolver(
   kwargs...)
 
   cres,cjac,cdjac = time_combinations(fesolver)
-  residual_reduction = LocalHighOrderHyperReduction(cres,reduction;nparams=nparams_res,kwargs...)
-  jac_reduction = LocalHighOrderHyperReduction(cjac,reduction;nparams=nparams_jac,kwargs...)
-  djac_reduction = LocalHighOrderHyperReduction(cdjac,reduction;nparams=nparams_djac,kwargs...)
+  residual_reduction = LocalHighDimHyperReduction(cres,reduction;nparams=nparams_res,kwargs...)
+  jac_reduction = LocalHighDimHyperReduction(cjac,reduction;nparams=nparams_jac,kwargs...)
+  djac_reduction = LocalHighDimHyperReduction(cdjac,reduction;nparams=nparams_djac,kwargs...)
   jacobian_reduction = (jac_reduction,djac_reduction)
 
   RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)

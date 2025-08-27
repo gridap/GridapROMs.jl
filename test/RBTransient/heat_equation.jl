@@ -67,9 +67,9 @@ function main(
   uh0μ(μ) = interpolate_everywhere(u0μ(μ),trial(μ,t0))
 
   if method == :pod
-    state_reduction = HighOrderReduction(tol,energy;nparams,sketch,compression,ncentroids)
+    state_reduction = HighDimReduction(tol,energy;nparams,sketch,compression,ncentroids)
   else method == :ttsvd
-    state_reduction = HighOrderReduction(fill(tol,3),energy;nparams,sketch,compression,ncentroids)
+    state_reduction = HighDimReduction(fill(tol,3),energy;nparams,sketch,compression,ncentroids)
   end
 
   θ = 0.5

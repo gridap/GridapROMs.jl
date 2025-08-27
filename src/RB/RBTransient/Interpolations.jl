@@ -1,5 +1,5 @@
-RBSteady.Interpolation(::HighOrderMDEIMHyperReduction,args...) = MDEIMInterpolation(args...)
-RBSteady.Interpolation(::HighOrderRBFHyperReduction,args...) = RBFInterpolation(args...)
+RBSteady.Interpolation(::HighDimMDEIMHyperReduction,args...) = MDEIMInterpolation(args...)
+RBSteady.Interpolation(::HighDimRBFHyperReduction,args...) = RBFInterpolation(args...)
 
 get_domain_style(a::Interpolation) = get_domain_style(get_integration_domain(a))
 

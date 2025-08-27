@@ -35,9 +35,4 @@ include("SubCellTriangulations.jl")
 export ParamSubFacetData
 include("SubFacetTriangulations.jl")
 
-export MappedMeasure
-export mapped_integrate
-export ∇ᵩ, nᵩ
-include("MappedInterface.jl")
-
 end

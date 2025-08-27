@@ -1,9 +1,49 @@
+"""
+    abstract type GridMapStyle end
+
+Abstraction for maps used to modify a [`Grid`](@ref) in [`Gridap`](@ref).
+Subtypes:
+- [`PhysicalMap`](@ref)
+- [`DisplacementMap`](@ref)
+"""
 abstract type GridMapStyle end
+
+"""
+    struct PhysicalMap <: GridMapStyle end
+
+Trait for standard physical maps `φ: Ω ↦ φ∘Ω`, i.e. each coordinate `x` of Ω is
+mapped to `φ(x)`. Note: `φ` may be parameterized (see [`AbstractParamFunction`](@ref))
+"""
 struct PhysicalMap <: GridMapStyle end
+
+"""
+    struct DisplacementMap <: GridMapStyle end
+
+Trait for displacement maps `d: Ω ↦ (I+d)∘Ω`, with `I` being the identity; here, each
+coordinate `x` of Ω is mapped to `x + d(x)`. Note: `d` may be parameterized
+(see [`AbstractParamFunction`](@ref))
+"""
 struct DisplacementMap <: GridMapStyle end
 
+"""
+    abstract type ParamGrid{Dc,Dp} <: Grid{Dc,Dp} end
+
+Abstraction for mapped grids, whenever the map is parameterized. Subtypes:
+- [`ParamMappedGrid`](@ref)
+- [`ParamUnstructuredGrid`](@ref)
+"""
 abstract type ParamGrid{Dc,Dp} <: Grid{Dc,Dp} end
 
+"""
+    struct ParamMappedGrid{Dc,Dp,A} <: ParamGrid{Dc,Dp}
+      grid::Grid{Dc,Dp}
+      node_coords::A
+    end
+
+Standard implementation of a [`ParamGrid`](@ref). The field `grid` represents a
+[`Grid`](@ref) in a reference configuration, while `node_coords` is a structure
+collecting the mapped coordinates
+"""
 struct ParamMappedGrid{Dc,Dp,A} <: ParamGrid{Dc,Dp}
   grid::Grid{Dc,Dp}
   node_coords::A
@@ -30,6 +70,12 @@ function _mapped_grid(style::GridMapStyle,grid::Grid,phys_map::AbstractVector{<:
   return ParamMappedGrid(grid,pnode_coords)
 end
 
+"""
+    mapped_grid(style::GridMapStyle,grid::Grid,f) -> Grid
+
+Returns a [`Grid`](@ref) by applying the map `f` on a reference configuration `grid`,
+according to the strategy provided by `style`
+"""
 function mapped_grid(style::GridMapStyle,grid::Grid,phys_map::AbstractVector)
   return _mapped_grid(style,grid,phys_map)
 end
@@ -129,6 +175,21 @@ Geometry.get_cell_map(model::ParamMappedDiscreteModel) = get_cell_map(model.mapp
 Geometry.get_grid_topology(model::ParamMappedDiscreteModel) = get_grid_topology(model.model)
 Geometry.get_face_labeling(model::ParamMappedDiscreteModel) = get_face_labeling(model.model)
 
+"""
+    struct ParamUnstructuredGrid{Dc,Dp,Tp,O,Tn} <: ParamGrid{Dc,Dp}
+      node_coordinates::ParamBlock{Vector{Point{Dp,Tp}}}
+      cell_node_ids::Table{Int32,Vector{Int32},Vector{Int32}}
+      reffes::Vector{LagrangianRefFE{Dc}}
+      cell_types::Vector{Int8}
+      orientation_style::O
+      facet_normal::Tn
+      cell_map
+    end
+
+Parameterized version of a [`Gridap`](@ref) [`UnstructuredGrid`](@ref). Note: this
+struct could be avoided in future versions, by simply generalizing the type of
+the `node_coordinates` field in UnstructuredGrids.
+"""
 struct ParamUnstructuredGrid{Dc,Dp,Tp,O,Tn} <: ParamGrid{Dc,Dp}
   node_coordinates::ParamBlock{Vector{Point{Dp,Tp}}}
   cell_node_ids::Table{Int32,Vector{Int32},Vector{Int32}}

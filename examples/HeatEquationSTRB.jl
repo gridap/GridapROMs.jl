@@ -70,7 +70,7 @@ fesolver = ThetaMethod(LUSolver(),dt,θ)
 
 tol = 1e-5
 energy(du,v) = ∫(∇(v)⊙∇(du))dΩ
-state_reduction = HighOrderReduction(tol,energy;nparams=40,sketch=:sprn)
+state_reduction = HighDimReduction(tol,energy;nparams=40,sketch=:sprn)
 rbsolver = RBSolver(fesolver,state_reduction;nparams_res=20,nparams_jac=20,nparams_djac=1)
 
 dir = datadir("heateq_pod")

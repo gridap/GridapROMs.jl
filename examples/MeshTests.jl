@@ -369,7 +369,7 @@ function get_2d_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,
 
   energy(du,v) = ∫(v*du)dΩ + ∫(∇(v)⋅∇(du))dΩ
 
-  state_reduction = method==:pod ? HighOrderReduction(1e-4,energy;nparams) : HighOrderReduction(fill(1e-4,3),energy;nparams)
+  state_reduction = method==:pod ? HighDimReduction(1e-4,energy;nparams) : HighDimReduction(fill(1e-4,3),energy;nparams)
 
   fesolver = ThetaMethod(LUSolver(),dt,θ)
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,nparams_djac)
@@ -431,7 +431,7 @@ function get_3d_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,
 
   energy(du,v) = ∫(v*du)dΩ + ∫(∇(v)⋅∇(du))dΩ
 
-  state_reduction = method==:pod ? HighOrderReduction(1e-4,energy;nparams) : HighOrderReduction(fill(1e-4,4),energy;nparams)
+  state_reduction = method==:pod ? HighDimReduction(1e-4,energy;nparams) : HighDimReduction(fill(1e-4,4),energy;nparams)
 
   fesolver = ThetaMethod(LUSolver(),dt,θ)
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,nparams_djac)
@@ -504,7 +504,7 @@ function get_elasticity_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2
 
   energy(du,v) = ∫(v⋅du)dΩ + ∫(∇(v)⊙∇(du))dΩ
 
-  state_reduction = method==:pod ? HighOrderReduction(1e-4,energy;nparams) : HighOrderReduction(fill(1e-4,5),energy;nparams)
+  state_reduction = method==:pod ? HighDimReduction(1e-4,energy;nparams) : HighDimReduction(fill(1e-4,5),energy;nparams)
 
   fesolver = ThetaMethod(LUSolver(),dt,θ)
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,nparams_djac)

@@ -149,7 +149,7 @@ Subtypes:
 - [`GreedyReduction`](@ref)
 - [`SupremizerReduction`](@ref)
 - [`HyperReduction`](@ref)
-- [`HighOrderReduction`](@ref)
+- [`HighDimReduction`](@ref)
 """
 abstract type Reduction{A<:ReductionStyle,B<:NormStyle} end
 
@@ -395,7 +395,7 @@ Subtypes:
 
 - [`MDEIMHyperReduction`](@ref)
 - [`RBFHyperReduction`](@ref)
-- [`HighOrderHyperReduction`](@ref)
+- [`HighDimHyperReduction`](@ref)
 """
 abstract type HyperReduction{A<:ReductionStyle} <: Reduction{A,EuclideanNorm} end
 
