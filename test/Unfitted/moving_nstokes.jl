@@ -36,24 +36,15 @@ sketch=:sprn
 compression=:local
 ncentroids=8
 
-const L = 2
-const W = 1
+const L = 1.25
+const W = 1.25
+const H = 0.15
 
-const n = 40
+const n = 20
 
-domain = (0,L,0,W)
-partition = Int.((L,W) .* n)
+domain = (0,L,0,W,0,H)
+partition = Int.((L,W,H) .* n)
 bgmodel = CartesianDiscreteModel(domain,partition)
-
-const R = 0.3
-x0 = Point(3L/4,W/2)
-geo = disk(R,x0=x0)
-cutgeo = cut(bgmodel,!geo)
-
-Ωact = Triangulation(cutgeo,ACTIVE)
-Ω = Triangulation(cutgeo,PHYSICAL)
-Γ = EmbeddedBoundary(cutgeo)
-n_Γ = get_normal_vector(Γ)
 
 order = 2
 degree = 2*order
@@ -67,15 +58,42 @@ const λ = E*ν/((1+ν)*(1-2*ν))
 const p = E/(2(1+ν))
 σ(ε) = λ*tr(ε)*one(ε) + 2*p*ε
 
-const Re = 100
-
 # params
-μ0 = (0.0,0.0)
-pdomain = (0.0,L/2,0.0,W/2)
+μ0 = (0.625,0.625)
+pdomain = (0.625-0.2,0.625+0.2,0.625-0.2,0.625+0.2)
 pspace = ParamSpace(pdomain)
 
+# quantities on the base configuration
+const R = 0.25
+x0 = Point(μ0[1],μ0[2],0.0)
+v = VectorValue(0.0,0.0,H)
+geo = cylinder(0.25,x0=x0,v=v)
+cutgeo = cut(bgmodel,!geo)
+
+Ωbg = Triangulation(bgmodel)
+Ωact = Triangulation(cutgeo,ACTIVE)
+Ω = Triangulation(cutgeo,PHYSICAL)
+Γ = EmbeddedBoundary(cutgeo)
+n_Γ = get_normal_vector(Γ)
+
+dΩbg = Measure(Ωbg,degree)
 dΩ = Measure(Ω,degree)
 dΓ = Measure(Γ,degree)
+
+labels = get_face_labeling(bgmodel)
+
+topbottom = [14,16,21,22]
+sides = setdiff(1:26,topbottom)
+inlet = [13,15,25]
+outlet = 26
+walls = setdiff(sides,union(inlet,outlet))
+add_tag_from_tags!(labels,"sides",sides)
+add_tag_from_tags!(labels,"walls",walls)
+add_tag_from_tags!(labels,"inlet",inlet)
+add_tag_from_tags!(labels,"topbottom",topbottom)
+
+add_tag_from_tags!(labels,"_topbottom",[21,22])
+add_tag_from_tags!(labels,"_sides",setdiff(1:26,[21,22]))
 
 energy((du,dp),(v,q)) = ∫(du⋅v)dΩ + ∫(dp*q)dΩ + ∫(∇(v)⊙∇(du))dΩ + ∫((γd/hd)*du⋅v)dΓ
 coupling((du,dp),(v,q)) = ∫(dp*(∇⋅(v)))dΩ
@@ -86,16 +104,23 @@ aggregates = aggregate(strategy,cutgeo)
 domains_lin = FEDomains((Ω,),(Ω,Γ))
 domains_nlin = FEDomains((Ω,),(Ω,))
 
-reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
-reffe_p = ReferenceFE(lagrangian,Float64,order-1)
+const Re = 100
 
-g(μ) = x -> VectorValue(-x[2]*(x[2]-W),0.0)*(x[1]≈0.0)
+g(μ) = x -> VectorValue(x[2]*(W-x[2]),0.0,0.0)*(x[1]≈0.0)
 gμ(μ) = parameterize(g,μ)
 
 conv(u,∇u) = (∇u')⋅u
 dconv(du,∇du,u,∇u) = conv(u,∇du)+conv(du,∇u)
 
-testact_u = FESpace(Ωact,reffe_u,conformity=:H1,dirichlet_tags=[1,2,3,4,5,6,7])
+mask = [true,true,true]
+masktopbottom = [false,false,true]
+
+reffe_u = ReferenceFE(lagrangian,VectorValue{3,Float64},order)
+reffe_p = ReferenceFE(lagrangian,Float64,order-1)
+
+testact_u = FESpace(Ωact,reffe_u,conformity=:H1,
+  dirichlet_tags=["walls","inlet","topbottom"],
+  dirichlet_masks=[mask,mask,masktopbottom])
 testact_p = FESpace(Ωact,reffe_p,conformity=:H1)
 test_u = AgFEMSpace(testact_u,aggregates)
 trial_u = ParamTrialFESpace(test_u,gμ)
@@ -105,24 +130,22 @@ test = MultiFieldFESpace([test_u,test_p];style=BlockMultiFieldStyle())
 trial = MultiFieldFESpace([trial_u,trial_p];style=BlockMultiFieldStyle())
 
 function get_deformation_map(μ)
-  is_corner_x(x,μ) = x[1] ≈ 0.0
-  is_corner_y(x,μ) = x[2] ≈ 0.0 && x[1] < μ[1]
-  is_corner(x,μ) = is_corner_x(x,μ)||is_corner_y(x,μ)
-  sigmoid(x,μ) = (1+exp(0.1/μ[1]))/(1+exp(0.1/(μ[1]-x[1])))
-
-  φ(μ) = x -> VectorValue(0.0,μ[2]*(1-x[2]/W)*sigmoid(x,μ)*is_corner(x,μ))
+  φ(μ) = x -> VectorValue(μ[1]-μ0[1],μ[2]-μ0[2],0.0)
   φμ(μ) = parameterize(φ,μ)
 
   a(μ,u,v) = (
     ∫( ε(v)⊙(σ∘ε(u)) )*dΩ +
     ∫( (γd/hd)*v⋅u - v⋅(n_Γ⋅(σ∘ε(u))) - (n_Γ⋅(σ∘ε(v)))⋅u )dΓ
   )
-  res(μ,u,v) = ∫( ε(v)⊙(σ∘ε(u)) )*dΩ - ∫((n_Γ⋅(σ∘ε(v)))⋅φμ(μ))dΓ
+  l(μ,v) = ∫( (γd/hd)*v⋅φμ(μ) - (n_Γ⋅(σ∘ε(v)))⋅φμ(μ) )dΓ
+  res(μ,u,v) = ∫( ε(v)⊙(σ∘ε(u)) )*dΩ - l(μ,v)
 
-  reffeφ = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
-  Vφact = FESpace(Ωact,reffeφ,conformity=:H1,dirichlet_tags="boundary")
+  reffeφ = ReferenceFE(lagrangian,VectorValue{3,Float64},order)
+  Vφact = FESpace(Ωact,reffeφ,conformity=:H1,
+    dirichlet_tags=["_sides","_topbottom"],
+    dirichlet_masks=[mask,masktopbottom])
   Vφ = AgFEMSpace(Vφact,aggregates)
-  Uφ = ParamTrialFESpace(Vφ,φμ)
+  Uφ = ParamTrialFESpace(Vφ)
 
   feop = LinearParamOperator(res,a,pspace,Uφ,Vφ)
   dφ, = solve(LUSolver(),feop,μ)
@@ -244,67 +267,61 @@ create_dir(test_dir)
 
 rbsolver = rb_solver(tol,nparams)
 
-# fesnaps,x,festats,μ,feop,μon,feopon = try
-#   fesnaps = load_snapshots(test_dir)
-#   x = load_snapshots(test_dir;label="online")
-#   festats = load_stats(test_dir;label="online")
+fesnaps,x,festats,μ,feop,μon,feopon = try
+  fesnaps = load_snapshots(test_dir)
+  x = load_snapshots(test_dir;label="online")
+  festats = load_stats(test_dir;label="online")
 
-#   μ = get_realization(fesnaps)
-#   feop = def_fe_operator(μ)
+  μ = get_realization(fesnaps)
+  feop = def_fe_operator(μ)
 
-#   μon = get_realization(x)
-#   feopon = def_fe_operator(μon)
+  μon = get_realization(x)
+  feopon = def_fe_operator(μon)
 
-#   fesnaps,x,festats,μ,feop,μon,feopon
-# catch
-#   μ = realization(pspace;nparams)
-#   feop = def_fe_operator(μ)
+  fesnaps,x,festats,μ,feop,μon,feopon
+catch
+  μ = realization(pspace;nparams)
+  feop = def_fe_operator(μ)
 
-#   μon = realization(pspace;nparams=10,sampling=:uniform)
-#   feopon = def_fe_operator(μon)
+  μon = realization(pspace;nparams=10,sampling=:uniform)
+  feopon = def_fe_operator(μon)
 
-#   fesnaps, = solution_snapshots(rbsolver,feop,μ)
-#   save(test_dir,fesnaps)
+  fesnaps, = solution_snapshots(rbsolver,feop,μ)
+  save(test_dir,fesnaps)
 
-#   x,festats = solution_snapshots(rbsolver,feopon,μon)
-#   save(test_dir,x;label="online")
-#   save(test_dir,festats;label="online")
+  x,festats = solution_snapshots(rbsolver,feopon,μon)
+  save(test_dir,x;label="online")
+  save(test_dir,festats;label="online")
 
-#   fesnaps,x,festats,μ,feop,μon,feopon
-# end
+  fesnaps,x,festats,μ,feop,μon,feopon
+end
 
-# jacs_lin = jacobian_snapshots(rbsolver,get_linear_operator(feop),fesnaps)
-# ress_lin = residual_snapshots(rbsolver,get_linear_operator(feop),fesnaps)
-# jacs_nlin = jacobian_snapshots(rbsolver,get_nonlinear_operator(feop),fesnaps)
-# ress_nlin = residual_snapshots(rbsolver,get_nonlinear_operator(feop),fesnaps)
-# jacs = (jacs_lin,jacs_nlin)
-# ress = (ress_lin,ress_nlin)
+jacs_lin = jacobian_snapshots(rbsolver,get_linear_operator(feop),fesnaps)
+ress_lin = residual_snapshots(rbsolver,get_linear_operator(feop),fesnaps)
+jacs_nlin = jacobian_snapshots(rbsolver,get_nonlinear_operator(feop),fesnaps)
+ress_nlin = residual_snapshots(rbsolver,get_nonlinear_operator(feop),fesnaps)
+jacs = (jacs_lin,jacs_nlin)
+ress = (ress_lin,ress_nlin)
 
-# perfs = ROMPerformance[]
-# maxsizes = Int[]
+perfs = ROMPerformance[]
+maxsizes = Int[]
 
-# for tol in (1e-1,1e-2,1e-3,1e-4)
-#   rbsolver = rb_solver(tol,nparams)
-#   dir = joinpath(test_dir,string(compression)*"_"*string(tol))
-#   rbop = reduced_operator(rbsolver,feop,fesnaps,jacs,ress)
-#   maxsize = max_subspace_size(rbop)
-#   if compression == :global
-#     rbop′ = change_operator(rbop,feopon)
-#     x̂,rbstats = solve(rbsolver,rbop′,μon)
-#     perf = postprocess(dir,rbsolver,feopon,rbop′,x,x̂,festats,rbstats)
-#   else
-#     perf = local_solver(dir,rbsolver,rbop,μon,x,festats)
-#   end
-#   push!(perfs,perf)
-#   push!(maxsizes,maxsize)
-#   println(perf)
-# end
+for tol in (1e-1,1e-2,1e-3,1e-4)
+  rbsolver = rb_solver(tol,nparams)
+  dir = joinpath(test_dir,string(compression)*"_"*string(tol))
+  rbop = reduced_operator(rbsolver,feop,fesnaps,jacs,ress)
+  maxsize = max_subspace_size(rbop)
+  if compression == :global
+    rbop′ = change_operator(rbop,feopon)
+    x̂,rbstats = solve(rbsolver,rbop′,μon)
+    perf = postprocess(dir,rbsolver,feopon,rbop′,x,x̂,festats,rbstats)
+  else
+    perf = local_solver(dir,rbsolver,rbop,μon,x,festats)
+  end
+  push!(perfs,perf)
+  push!(maxsizes,maxsize)
+  println(perf)
+end
 
-# serialize(joinpath(test_dir,"results"),perfs)
-# serialize(joinpath(test_dir,"maxsizes"),maxsizes)
-
-μ = realization(pspace;nparams,start=101)
-feop = def_fe_operator(μ)
-
-fesnaps, = solution_snapshots(rbsolver,feop,μ)
-save(test_dir,fesnaps;label="new")
+serialize(joinpath(test_dir,"results"),perfs)
+serialize(joinpath(test_dir,"maxsizes"),maxsizes)
