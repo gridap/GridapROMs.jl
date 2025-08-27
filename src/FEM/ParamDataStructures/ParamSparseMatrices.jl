@@ -91,6 +91,10 @@ Subtypes:
 """
 abstract type ParamSparseMatrixCSC{Tv,Ti} <: ParamSparseMatrix{Tv,Ti,SparseMatrixCSC{Tv,Ti}} end
 
+function SparseArrays.nzrange(A::ParamSparseMatrixCSC,col::Integer)
+  SparseArrays.getcolptr(A)[col]:(SparseArrays.getcolptr(A)[col+1]-1)
+end
+
 """
     struct ConsecutiveParamSparseMatrixCSC{Tv,Ti<:Integer,A<:AbstractMatrix{Tv}} <: ParamSparseMatrixCSC{Tv,Ti}
       m::Int64
@@ -318,6 +322,10 @@ Subtypes:
 - [`GenericParamSparseMatrixCSR`](@ref)
 """
 abstract type ParamSparseMatrixCSR{Bi,Tv,Ti} <: ParamSparseMatrix{Tv,Ti,SparseMatrixCSR{Bi,Tv,Ti}} end
+
+function SparseArrays.nzrange(A::ParamSparseMatrixCSR,row::Integer)
+  SparseMatricesCSR.getrowptr(A)[row]:(SparseMatricesCSR.getrowptr(A)[row+1]-1)
+end
 
 """
     struct ConsecutiveParamSparseMatrixCSR{Bi,Tv,Ti<:Integer,A<:AbstractMatrix{Tv}} <: ParamSparseMatrixCSR{Bi,Tv,Ti}
@@ -572,18 +580,21 @@ function SparseArrays.sparse(
   coolen = length(I)
   csrrowptr = Vector{Ti}(undef,m+1)
   csrcolval = Vector{Ti}(undef,coolen)
+  csrnzval = Matrix{Tv}(undef,coolen,size(V,2))
   csccolptr = Vector{Ti}(undef,n+1)
   klasttouch = Vector{Ti}(undef,n)
   cscrowval = Vector{Ti}()
+  cscnzval = Vector{Tv}()
   combine = nothing
-  SparseArrays.sparse!(I,J,V,m,n,combine,klasttouch,csrrowptr,csrcolval,csccolptr,cscrowval)
+  SparseArrays.sparse!(I,J,V,m,n,combine,klasttouch,
+    csrrowptr,csrcolval,csrnzval,csccolptr,cscrowval,cscnzval)
 end
 
 function SparseArrays.sparse!(
   I::AbstractVector{Ti},J::AbstractVector{Ti},V::AbstractMatrix{Tv},
   m::Integer,n::Integer,combine,klasttouch::Vector{Tj},
-  csrrowptr::Vector{Tj},csrcolval::Vector{Ti},
-  csccolptr::Vector{Ti},cscrowval::Vector{Ti}
+  csrrowptr::Vector{Tj},csrcolval::Vector{Ti},csrnzval::Matrix{Tv},
+  csccolptr::Vector{Ti},cscrowval::Vector{Ti},cscnzval::Vector{Tv},
   ) where {Tv,Ti<:Integer,Tj<:Integer}
 
   SparseArrays.sparse_check_Ti(m,n,Ti)
@@ -612,6 +623,8 @@ function SparseArrays.sparse!(
     countsum += overwritten
   end
 
+  plength = size(V,2)
+
   @inbounds for k in 1:coolen
     Ik,Jk = I[k],J[k]
     if Ti(1) > Jk || Ti(n) < Jk
@@ -621,6 +634,11 @@ function SparseArrays.sparse!(
     @assert csrk >= Tj(1) "index into csrcolval exceeds typemax(Ti)"
     csrrowptr[Ik+1] = csrk + Tj(1)
     csrcolval[csrk] = Jk
+    if !only_sparsity_pattern
+      for l in 1:plength
+        csrnzval[csrk,l] = V[k,l]
+      end
+    end
   end
 
   resize!(csccolptr,n + 1)
@@ -638,9 +656,19 @@ function SparseArrays.sparse!(
         klasttouch[j] = writek
         if writek != readk
           csrcolval[writek] = j
+          if !only_sparsity_pattern
+            for l in 1:plength
+              csrnzval[writek,l] = csrnzval[readk,l]
+            end
+          end
         end
         writek += Tj(1)
         csccolptr[j+1] += Ti(1)
+      elseif !only_sparsity_pattern
+        klt = klasttouch[j]
+        for l in 1:plength
+          csrnzval[klt,l] = combine(csrnzval[klt,l],csrnzval[readk,l])
+        end
       end
     end
     newcsrrowptri = writek
@@ -660,6 +688,10 @@ function SparseArrays.sparse!(
 
   cscnnz = countsum - Tj(1)
   resize!(cscrowval,cscnnz)
+  resize!(cscnzval,cscnnz*plength)
+  cscnzval = reshape(cscnzval,cscnnz,plength)
+
+  z = zero(Tv)
 
   @inbounds for i in 1:m
     for csrk in csrrowptr[i]:(csrrowptr[i+1]-Tj(1))
@@ -667,10 +699,19 @@ function SparseArrays.sparse!(
       csck = csccolptr[j+1]
       csccolptr[j+1] = csck + Ti(1)
       cscrowval[csck] = i
+      if !only_sparsity_pattern
+        for l in 1:plength
+          cscnzval[csck,l] = csrnzval[csrk,l]
+        end
+      else
+        for l in 1:plength
+          cscnzval[csck,l] = z
+        end
+      end
     end
   end
 
-  ConsecutiveParamSparseMatrixCSC(m,n,csccolptr,cscrowval,V)
+  ConsecutiveParamSparseMatrixCSC(m,n,csccolptr,cscrowval,cscnzval)
 end
 
 const ConsecutiveParamSparseMatrix{Tv,Ti} = Union{

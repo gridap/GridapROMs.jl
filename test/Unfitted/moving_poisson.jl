@@ -23,7 +23,7 @@ using GridapROMs.Utils
 
 import Gridap.Geometry: push_normal
 
-method=:ttsvd
+method=:pod
 tol=1e-4
 rank=nothing
 nparams=200

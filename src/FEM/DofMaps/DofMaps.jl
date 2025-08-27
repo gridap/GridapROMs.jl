@@ -25,6 +25,7 @@ import Gridap.MultiField: MultiFieldFEFunction,restrict_to_field,_sum_if_first_p
 import PartitionedArrays: tuple_of_arrays
 import SparseArrays: AbstractSparseMatrix
 import SparseMatricesCSR: SparseMatrixCSR
+import StaticArrays: SVector, MVector
 
 export recast_indices
 export recast_split_indices
@@ -69,6 +70,7 @@ export change_dof_map
 include("DofMapsInterface.jl")
 
 export get_dof_map
+export get_dof_map_with_diri
 export get_sparse_dof_map
 export get_cell_to_bg_cell
 export get_bg_cell_to_cell

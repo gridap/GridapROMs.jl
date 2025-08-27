@@ -258,8 +258,7 @@ function Algebra.nz_allocation(a::ParamCounter{<:Algebra.ArrayCounter})
   global_parameterize(v,a.plength)
 end
 
-# alternative implementation
-# We assumes same sparsity across parameters, to be generalized in the future
+# csc
 
 function Algebra.nz_allocation(a::ParamCounter{<:Algebra.CounterCSC{Tv,Ti}}) where {Tv,Ti}
   counter = a.counter
@@ -389,7 +388,64 @@ function Algebra.create_from_nz(a::ParamInserterCSC)
   ConsecutiveParamSparseMatrixCSC(a.nrows,a.ncols,a.colptr,a.rowval,data)
 end
 
-# csr/coo: implentation needed
+# coo
+
+function Algebra.nz_allocation(a::ParamCounter{<:Algebra.CounterCOO{T}}) where T
+  counter = Algebra.CounterCOO{T}(a.counter.axes)
+  I,J,V = allocate_coo_vectors(T,a.counter.nnz)
+  pV = repeat(V,a.plength)
+  ParamAllocationCOO(counter,I,J,pV,a.plength)
+end
+
+struct ParamAllocationCOO{T,A,B,C}
+  counter::Algebra.CounterCOO{T,A}
+  I::B
+  J::B
+  V::C
+  plength::Int
+end
+
+ParamDataStructures.param_length(inserter::ParamAllocationCOO) = inserter.plength
+
+Algebra.LoopStyle(::Type{<:ParamAllocationCOO}) = Loop()
+
+@inline function Algebra.add_entry!(::typeof(+),a::ParamAllocationCOO{T},::Nothing,i,j) where T
+  if is_entry_stored(T,i,j)
+    a.counter.nnz = a.counter.nnz + 1
+    k = a.counter.nnz
+    a.I[k] = i
+    a.J[k] = j
+  end
+  nothing
+end
+
+@noinline function Algebra.add_entry!(::typeof(+),a::ParamAllocationCOO,v::Number,i,j)
+  add_entry!(+,a,fill(v,param_length(a)),i,j)
+end
+
+@inline function Algebra.add_entry!(::typeof(+),a::ParamAllocationCOO{T},v::AbstractArray,i,j) where T
+  N = length(a.V)
+  δ = Int(N / a.plength)
+  if is_entry_stored(T,i,j)
+    a.counter.nnz = a.counter.nnz + 1
+    k = a.counter.nnz
+    a.I[k] = i
+    a.J[k] = j
+    for (il,l) in enumerate(k:δ:N)
+      @inbounds a.V[l] = v[il]
+    end
+  end
+  nothing
+end
+
+function Algebra.create_from_nz(a::ParamAllocationCOO{T}) where T
+  m,n = map(length,a.counter.axes)
+  finalize_coo!(T,a.I,a.J,a.V,m,n)
+  M = reshape(a.V,:,a.plength)
+  sparse_from_coo(T,a.I,a.J,M,m,n)
+end
+
+# csr: implentation needed
 
 # utils
 

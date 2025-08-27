@@ -7,10 +7,6 @@ function ODEs.allocate_space(U::UnEvalTrialFESpace,μ::Realization,t)
   HomogeneousTrialParamFESpace(U.space,length(μ)*length(t))
 end
 
-function ODEs.allocate_space(U::UnEvalTrialFESpace,r::TransientRealization)
-  allocate_space(U,get_params(r),get_times(r))
-end
-
 function Arrays.evaluate!(
   Upt::TrialParamFESpace,
   U::UnEvalTrialFESpace,
@@ -47,6 +43,7 @@ end
 ODEs.allocate_space(U::FESpace,μ,t) = U
 Arrays.evaluate!(Upt::FESpace,U::FESpace,μ,t) = U
 Arrays.evaluate(U::FESpace,μ,t) = U
+Arrays.evaluate(U::FESpace,r::TransientRealization) = evaluate(U,get_params(r),get_times(r))
 (space::FESpace)(μ,t) = evaluate(space,μ,t)
 
 # Define the interface for MultiField
@@ -76,10 +73,6 @@ function ODEs.allocate_space(U::MultiFieldFESpace,μ,t)
   MultiFieldParamFESpace(spaces;style)
 end
 
-function ODEs.allocate_space(U::MultiFieldFESpace,r::TransientRealization)
-  allocate_space(U,get_params(r),get_times(r))
-end
-
 function Arrays.evaluate!(
   Upt::MultiFieldFESpace,
   U::MultiFieldFESpace,
@@ -92,10 +85,6 @@ function Arrays.evaluate!(
     evaluate!(Upti,Ui,μ,t)
   end
   Upt
-end
-
-function ODEs.evaluate!(Upt::MultiFieldFESpace,U::MultiFieldFESpace,r::TransientRealization)
-  evaluate!(Upt,U,get_params(r),get_times(r))
 end
 
 function Arrays.evaluate(U::MultiFieldFESpace,μ::Nothing,t::Nothing)
@@ -114,8 +103,4 @@ function Arrays.evaluate(U::MultiFieldFESpace,μ,t)
   Upt = allocate_space(U,μ,t)
   evaluate!(Upt,U,μ,t)
   Upt
-end
-
-function Arrays.evaluate(U::MultiFieldFESpace,r::TransientRealization)
-  evaluate(U,get_params(r),get_times(r))
 end

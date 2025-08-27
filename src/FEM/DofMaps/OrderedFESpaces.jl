@@ -2,6 +2,8 @@
     struct OrderedFESpace{S<:SingleFieldFESpace} <: SingleFieldFESpace
       space::S
       cell_odofs_ids::AbstractArray
+      fe_odof_basis::CellDof
+      dirichlet_dof_tag::Vector{Int8}
     end
 
 Interface for FE spaces that feature a DOF reordering
@@ -9,13 +11,18 @@ Interface for FE spaces that feature a DOF reordering
 struct OrderedFESpace{S<:SingleFieldFESpace} <: SingleFieldFESpace
   space::S
   cell_odofs_ids::AbstractArray
+  fe_odof_basis::CellDof
+  dirichlet_dof_tag::Vector{Int8}
 end
 
 # Constructors
 
 function OrderedFESpace(f::UnconstrainedFESpace)
   cell_odofs_ids = get_cell_odof_ids(f)
-  OrderedFESpace(f,cell_odofs_ids)
+  odof_to_dof = get_local_ordering(cell_odofs_ids)
+  fe_odof_basis = get_fe_odof_basis(f,odof_to_dof)
+  dirichlet_dof_tag = get_dirichlet_odof_tag(f,cell_odofs_ids)
+  OrderedFESpace(f,cell_odofs_ids,fe_odof_basis,dirichlet_dof_tag)
 end
 
 function OrderedFESpace(f::SingleFieldFESpace)
@@ -48,7 +55,7 @@ FESpaces.get_fe_basis(f::OrderedFESpace) = get_fe_basis(get_fe_space(f))
 
 FESpaces.get_trial_fe_basis(f::OrderedFESpace) = get_trial_fe_basis(get_fe_space(f))
 
-FESpaces.get_fe_dof_basis(f::OrderedFESpace) = get_fe_dof_basis(get_fe_space(f))
+FESpaces.get_fe_dof_basis(f::OrderedFESpace) = f.fe_odof_basis
 
 FESpaces.get_cell_isconstrained(f::OrderedFESpace) = get_cell_isconstrained(get_fe_space(f))
 
@@ -62,7 +69,7 @@ FESpaces.num_dirichlet_dofs(f::OrderedFESpace) = num_dirichlet_dofs(get_fe_space
 
 FESpaces.num_dirichlet_tags(f::OrderedFESpace) = num_dirichlet_tags(get_fe_space(f))
 
-FESpaces.get_dirichlet_dof_tag(f::OrderedFESpace) = get_dirichlet_dof_tag(get_fe_space(f))
+FESpaces.get_dirichlet_dof_tag(f::OrderedFESpace) = f.dirichlet_dof_tag
 
 FESpaces.get_vector_type(f::OrderedFESpace) = get_vector_type(get_fe_space(f))
 
@@ -73,9 +80,9 @@ function FESpaces.scatter_free_and_dirichlet_values(f::OrderedFESpace,fv,dv)
   cell_ovalue_to_value(f,cell_values)
 end
 
-# Gathers free and dirichlet values ordered according to Gridap
+# # Gathers free and dirichlet values ordered according to Gridap
 function FESpaces.gather_free_and_dirichlet_values!(fv,dv,f::OrderedFESpace,cv)
-  cell_ovals = cell_value_to_ovalue(f,cv)
+  cell_ovals = cv
   cell_dofs = get_cell_dof_ids(f)
   cache_vals = array_cache(cell_ovals)
   cache_dofs = array_cache(cell_dofs)
@@ -171,6 +178,7 @@ function get_dof_to_odof(
   ncomps = num_components(V)
   ndofs = nnodes*ncomps
 
+  o = one(eltype(V))
   odofs = zeros(eltype(V),ndofs)
   for (icell,cell) in enumerate(cells)
     first_new_node = orders .* (Tuple(cell) .- 1) .+ 1
@@ -187,17 +195,20 @@ function get_dof_to_odof(
         idof = comp_to_idof[comp]
         dof = cell_dofs[idof]
         odof = onode + (comp-1)*nnodes
-        # change only location of free dofs
-        odofs[odof] = dof > 0 ? one(eltype(V)) : dof
+        odofs[odof] = dof > 0 ? o : -o
       end
     end
   end
 
   nfree = 0
+  ndiri = 0
   for (i,odof) in enumerate(odofs)
     if odof > 0
       nfree += 1
       odofs[i] = nfree
+    else
+      ndiri -= 1
+      odofs[i] = ndiri
     end
   end
 
@@ -242,7 +253,79 @@ end
 function cell_value_to_ovalue(f::OrderedFESpace,cv)
   odof_to_dof = get_local_ordering(f)
   dof_to_odof = invperm_table(odof_to_dof)
-  lazy_map(OReindex(),odof_to_dof,cv)
+  lazy_map(OReindex(),dof_to_odof,cv)
+end
+
+function get_fe_odof_basis(f::SingleFieldFESpace,odof_to_dof)
+  s = get_fe_dof_basis(f)
+  dof_to_odof = invperm_table(odof_to_dof)
+  data = _get_fe_odof_basis(get_data(s),dof_to_odof)
+  CellDof(data,s.trian,s.domain_style)
+end
+
+function _get_fe_odof_basis(cell_dof::AbstractArray{<:Union{Dof,AbstractArray{<:Dof}}},dof_to_odof)
+  map(_get_fe_odof_basis,cell_dof,dof_to_odof)
+end
+
+function _get_fe_odof_basis(dof::Union{Dof,AbstractArray{<:Dof}},dof_to_odof)
+  @abstractmethod
+end
+
+function _get_fe_odof_basis(dof::LagrangianDofBasis,dof_to_odof)
+  odof_to_node = dof.dof_to_node[dof_to_odof]
+  odof_to_comp = dof.dof_to_comp[dof_to_odof]
+  node_and_comp_to_odof = dof.node_and_comp_to_dof[dof_to_odof]
+  LagrangianDofBasis(dof.nodes,odof_to_node,odof_to_comp,node_and_comp_to_odof)
+end
+
+function _get_fe_odof_basis(dof::LagrangianDofBasis{P,V},dof_to_odof) where {P,V<:MultiValue}
+  odof_to_node = similar(dof.dof_to_node)
+  odof_to_comp = similar(dof.dof_to_comp)
+  node_and_comp_to_odof = similar(dof.node_and_comp_to_dof)
+  ncomps = num_indep_components(V)
+  nnodes = Int(length(odof_to_node) / ncomps)
+  m = zero(MVector{ncomps,Int})
+  for node in 1:nnodes
+    for comp in 1:ncomps
+      o = nnodes*(comp-1)
+      odof = dof_to_odof[node+o]
+      odof_to_comp[odof] = comp
+      odof_to_node[odof] = node
+      m[comp] = odof
+    end
+    node_and_comp_to_odof[node] = Tuple(m)
+  end
+  LagrangianDofBasis(dof.nodes,odof_to_node,odof_to_comp,node_and_comp_to_odof)
+end
+
+function get_dirichlet_odof_tag(f::SingleFieldFESpace,cell_odofs)
+  dof_to_tag = get_dirichlet_dof_tag(f)
+  oddof_to_ddof = _get_oddof_to_ddof(f,cell_odofs)
+  odof_to_tag = zeros(eltype(dof_to_tag),length(oddof_to_ddof))
+  for (oddof,ddof) in enumerate(oddof_to_ddof)
+    odof_to_tag[oddof] = dof_to_tag[ddof]
+  end
+  return odof_to_tag
+end
+
+function _get_oddof_to_ddof(f::SingleFieldFESpace,cell_odofs)
+  oddof_to_ddof = zeros(Int32,num_dirichlet_dofs(f))
+  cell_dofs = get_cell_dof_ids(f)
+  cache = array_cache(cell_dofs)
+  ocache = array_cache(cell_odofs)
+  for cell in 1:length(cell_dofs)
+    dofs = getindex!(cache,cell_dofs,cell)
+    odofs = getindex!(ocache,cell_odofs,cell)
+    for (iodof,odof) in enumerate(odofs)
+      if odof < 0
+        idof = odofs.terms[iodof]
+        dof = dofs[idof]
+        @check dof < 0
+        oddof_to_ddof[-odof] = -dof
+      end
+    end
+  end
+  return oddof_to_ddof
 end
 
 function _local_node_to_pnode(p::Polytope,orders)

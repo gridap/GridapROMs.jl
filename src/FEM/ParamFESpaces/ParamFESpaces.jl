@@ -33,7 +33,6 @@ import Gridap.FESpaces: FEFunction,SparseMatrixAssembler,EvaluationFunction
 
 export SingleFieldParamFESpace
 export get_dirichlet_cells
-export get_vector_type2
 export param_zero_free_values
 export param_zero_dirichlet_values
 include("ParamFESpaceInterface.jl")

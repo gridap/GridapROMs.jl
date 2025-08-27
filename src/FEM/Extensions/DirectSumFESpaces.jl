@@ -128,6 +128,10 @@ function DofMaps.get_dof_map(f::DirectSumFESpace,args...)
   get_dof_map(get_bg_space(f),args...)
 end
 
+function DofMaps.get_dof_map_with_diri(f::DirectSumFESpace,args...)
+  get_dof_map_with_diri(get_bg_space(f),args...)
+end
+
 function ParamSteady._assemble_matrix(f,V::DirectSumFESpace)
   ParamSteady._assemble_matrix(f,get_bg_space(V))
 end

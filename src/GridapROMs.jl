@@ -26,6 +26,8 @@ include("RB/RBSteady/RBSteady.jl")
 
 include("RB/RBTransient/RBTransient.jl")
 
+include("Distributed/Distributed.jl")
+
 include("Exports.jl")
 
 end

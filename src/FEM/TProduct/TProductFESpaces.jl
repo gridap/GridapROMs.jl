@@ -135,6 +135,50 @@ function get_tp_dof_map(::Type{T},spaces_1d,dof_map) where T<:MultiValue
   reshape(dof_map,nnodes_1d...,ncomps)
 end
 
+function DofMaps.get_dof_map_with_diri(V::TProductFESpace)
+  T = get_dof_eltype(V)
+  get_dof_map_with_diri(T,V)
+end
+
+function DofMaps.get_dof_map_with_diri(::Type{T},V::TProductFESpace) where T
+  trian = get_triangulation(V)
+  model = get_background_model(trian)
+  cell_dof_ids = get_cell_dof_ids(V)
+  order = get_polynomial_order(V)
+  dof_map = _get_dof_map_with_diri(model,cell_dof_ids,order)
+  get_tp_dof_map_with_diri(T,V.spaces_1d,dof_map)
+end
+
+function DofMaps.get_dof_map_with_diri(::Type{T},V::TProductFESpace) where T<:MultiValue
+  trian = get_triangulation(V)
+  model = get_background_model(trian)
+  cell_dof_ids = get_cell_dof_ids(V)
+  order = get_polynomial_order(V)
+
+  D = num_cell_dims(model)
+  Ti = eltype(eltype(cell_dof_ids))
+  ncomps = num_indep_components(T)
+  dof_maps = Vector{Array{Ti,D}}(undef,ncomps)
+  for comp in 1:ncomps
+    cell_dof_comp_ids = _get_cell_dof_comp_ids(V,cell_dof_ids,comp)
+    dof_maps[comp] = _get_dof_map_with_diri(model,cell_dof_comp_ids,order)
+  end
+  dof_map = stack(dof_maps;dims=D+1)
+
+  get_tp_dof_map_with_diri(T,V.spaces_1d,dof_map)
+end
+
+function get_tp_dof_map_with_diri(::Type{T},spaces_1d,dof_map) where T
+  nnodes_1d = map(s -> num_free_dofs(s)+num_dirichlet_dofs(s),spaces_1d)
+  reshape(dof_map,nnodes_1d...)
+end
+
+function get_tp_dof_map_with_diri(::Type{T},spaces_1d,dof_map) where T<:MultiValue
+  nnodes_1d = map(s -> num_free_dofs(s)+num_dirichlet_dofs(s),spaces_1d)
+  ncomps = Int(length(dof_map)/prod(nnodes_1d))
+  reshape(dof_map,nnodes_1d...,ncomps)
+end
+
 for F in (:(DofMaps.get_bg_dof_to_dof),:(DofMaps.get_dof_to_bg_dof))
   for T in (:SingleFieldFESpace,:FESpaceWithLinearConstraints)
     @eval begin
@@ -200,3 +244,82 @@ function get_tp_trial_fe_basis(f::MultiFieldFESpace)
   trian = get_tp_triangulation(f)
   TProductFEBasis(basis,trian)
 end
+
+# utils
+
+function _get_dof_map_with_diri(model::CartesianDiscreteModel,cell_dof_ids,order)
+  desc = get_cartesian_descriptor(model)
+  periodic = desc.isperiodic
+  ncells = desc.partition
+  ndofs = order .* ncells .+ 1 .- periodic
+
+  cache_cell_dof_ids = array_cache(cell_dof_ids)
+  dof_ids = LinearIndices(ndofs)
+  fddof_map = zeros(eltype(eltype(cell_dof_ids)),ndofs)
+  touched_dof = zeros(Bool,ndofs)
+
+  for (icell,cell) in enumerate(CartesianIndices(ncells))
+    first_new_dof  = order .* (Tuple(cell) .- 1) .+ 1
+    dofs_range = map(i -> i:i+order,first_new_dof)
+    dofs = view(dof_ids,dofs_range...)
+    cell_dofs = getindex!(cache_cell_dof_ids,cell_dof_ids,icell)
+    for (idof,dof) in enumerate(cell_dofs)
+      i = dofs[idof]
+      touched_dof[i] && continue
+      fddof_map[i] = dof
+    end
+  end
+
+  return fddof_map
+end
+
+function _get_cell_dof_comp_ids(space,cell_dof_ids,comp)
+  dof = get_fe_dof_basis(space)
+  b = testitem(get_data(dof))
+  ldof_to_comp = get_dof_to_comp(b)
+  ldofs = findall(ldof_to_comp .== comp)
+  ptrs = similar(cell_dof_ids.ptrs)
+  fill!(ptrs,length(ldofs))
+  length_to_ptrs!(ptrs)
+  data = similar(cell_dof_ids.data,ptrs[end]-1)
+  for i in 1:length(ptrs)-1
+    pini = ptrs[i]
+    pend = ptrs[i+1]-1
+    _pini = cell_dof_ids.ptrs[i]
+    for (k,pk) in enumerate(pini:pend)
+      data[pk] = cell_dof_ids.data[_pini+ldofs[k]-1]
+    end
+  end
+  Table(data,ptrs)
+  # T = eltype(cell_dof_ids)
+  # ncells = length(cell_dof_ids)
+  # new_cell_ids = Vector{T}(undef,ncells)
+  # cache_cell_dof_ids = array_cache(cell_dof_ids)
+  # @inbounds for icell in 1:ncells
+  #   cell_dofs = getindex!(cache_cell_dof_ids,cell_dof_ids,icell)
+  #   ids_comp = findall(map(cd->cd ∈ dofs,cell_dofs))
+  #   new_cell_ids[icell] = cell_dofs[ids_comp]
+  # end
+  # return Table(new_cell_ids)
+end
+
+# function _get_comp_to_dofs(space,dof)
+#   b = testitem(get_data(dof))
+#   ldof_to_comp = get_dof_to_comp(b)
+#   cell_dof_ids = get_cell_dof_ids(space)
+#   ndofs = num_free_dofs(space)+num_dirichlet_dofs(space)
+#   dof_to_comp = zeros(eltype(ldof_to_comp),ndofs)
+#   @inbounds for dofs_cell in cell_dof_ids
+#     for (ldof,dof) in enumerate(dofs_cell)
+#       if dof > 0
+#         dof_to_comp[dof] = ldof_to_comp[ldof]
+#       else
+#         dof_to_comp[-dof] = ldof_to_comp[ldof]
+#       end
+#     end
+#   end
+#   return dof_to_comp
+# end
+
+get_dof_to_comp(b) = @abstractmethod
+get_dof_to_comp(b::LagrangianDofBasis) = b.dof_to_comp
