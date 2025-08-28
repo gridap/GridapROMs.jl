@@ -387,8 +387,8 @@ end
 Base.size(A::GenericParamVector) = (length(A.ptrs)-1,)
 
 function innersize(A::GenericParamVector)
-  innerlength = ptrs[2]-ptrs[1]
-  @check all(ptrs[i+1]-ptrs[i] == innerlength for i in 1:length(ptrs)-1)
+  innerlength = A.ptrs[2]-A.ptrs[1]
+  @check all(A.ptrs[i+1]-A.ptrs[i] == innerlength for i in 1:length(A.ptrs)-1)
   (innerlength,)
 end
 

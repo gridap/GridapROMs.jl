@@ -39,6 +39,7 @@ using GridapROMs.ParamODEs
 using GridapROMs.Extensions
 using GridapROMs.Uncommon
 
+import ArraysOfArrays: _ncolons
 import Base: +,-,*,\
 import FillArrays: Fill
 import GridapROMs.TProduct: get_factor

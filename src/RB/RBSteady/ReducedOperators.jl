@@ -471,8 +471,8 @@ function Algebra.solve(
 
   trial = get_trial(op)
   k, = get_clusters(trial)
-  labels = get_label(r,k)
-  rvec = cluster(r,k)
+  labels = get_label(k,r)
+  rvec = cluster(r,labels)
   x̂vec,statsvec = map(rvec) do ri
     opi = get_local(op,first(ri))
     solve(solver,opi,ri)
@@ -491,9 +491,8 @@ end
 function to_snapshots(op::AbstractLocalRBOperator,x̂::AbstractParamVector,r::AbstractRealization)
   trial = get_trial(op)
   k, = get_clusters(trial)
-  rvec = cluster(r,k)
-
   labels = get_label(k,r)
+  rvec = cluster(r,labels)
   x̂vec = cluster(x̂,labels)
 
   xvec = map(x̂vec,rvec) do x̂i,ri
@@ -501,5 +500,5 @@ function to_snapshots(op::AbstractLocalRBOperator,x̂::AbstractParamVector,r::Ab
     to_snapshots(opi,x̂i,ri)
   end
 
-  cat(xvec)
+  cluster_sort(param_cat(xvec),labels)
 end

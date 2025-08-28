@@ -64,6 +64,13 @@ function select_snapshots(s::Snapshots,pindex)
   end
 end
 
+function param_cat(v::AbstractVector{<:Snapshots})
+  data = param_cat(map(get_param_data,v))
+  i = get_dof_map(first(v))
+  r = param_cat(map(get_realization,v))
+  Snapshots(data,i,r)
+end
+
 """
     const SteadySnapshots{T,N,I,R<:Realization,A} = Snapshots{T,N,I,R,A}
 """
@@ -317,19 +324,25 @@ function get_param_data(s::BlockSnapshots)
   map(get_param_data,s.array) |> mortar
 end
 
-function Arrays.return_cache(::typeof(select_snapshots),s::BlockSnapshots,args...)
-  S = Snapshots
-  N = ndims(s)
-  block_cache = Array{S,N}(undef,size(s))
-  return block_cache
-end
-
 function select_snapshots(s::BlockSnapshots,pindex)
-  array = return_cache(select_snapshots,s,pindex)
+  array = Array{Snapshots,ndims(s)}(undef,size(s))
   touched = s.touched
   for i in eachindex(touched)
     if touched[i]
       array[i] = select_snapshots(s[i],pindex)
+    end
+  end
+  return BlockSnapshots(array,touched)
+end
+
+function param_cat(v::AbstractVector{BlockSnapshots{S,N}}) where {S,N}
+  s = first(v)
+  touched = s.touched
+  @check all(size(si)==size(s) && si.touched==touched for si in v)
+  array = Array{Snapshots,N}(undef,size(s))
+  for i in eachindex(touched)
+    if touched[i]
+      array[i] = param_cat(map(s -> getindex(s,i),v))
     end
   end
   return BlockSnapshots(array,touched)

@@ -94,6 +94,11 @@ function _select_snapshots(s::TransientSnapshotsWithIC,pindex)
   TransientSnapshotsWithIC(d0range,srange)
 end
 
+function param_cat(v::AbstractVector{<:TransientSnapshotsWithIC})
+  _get_snaps(s) = s.snaps
+  param_cat(map(_get_snaps,v))
+end
+
 const TransientReshapedSnapshots{T,N,I,R<:TransientRealization,A,B} = ReshapedSnapshots{T,N,I,R,A,B}
 
 function get_param_data(s::TransientReshapedSnapshots)

@@ -62,7 +62,20 @@ end
 
 function Base.zero(r::Realization)
   μ1 = first(_get_params(r))
-  Realization(zeros(eltype(μ1),length(μ1)) .+ 1e-16)
+  Realization(zeros(eltype(μ1),length(μ1)) .+ eps())
+end
+
+function param_cat(r::Vector{Realization{P}}) where P
+  n = sum(param_length(ri) for ri in r)
+  params = P(undef,n)
+  count = 0
+  for ri in r
+    for μ in ri
+      count += 1
+      params[count] = μ
+    end
+  end
+  Realization(params)
 end
 
 """
@@ -136,6 +149,15 @@ end
 
 function Base.zero(r::GenericTransientRealization)
   GenericTransientRealization(zero(get_params(r)),get_times(r),get_initial_time(r))
+end
+
+function param_cat(r::Vector{<:GenericTransientRealization})
+  r1 = first(r)
+  times = get_times(r1)
+  t0 = r1.t0
+  @check all(get_times(ri)==times && ri.t0==t0 for ri in r)
+  params = param_cat(map(get_params,r))
+  GenericTransientRealization(params,times,t0)
 end
 
 """

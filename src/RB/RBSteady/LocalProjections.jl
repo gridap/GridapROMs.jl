@@ -189,100 +189,43 @@ function reduced_jacobian(lred::LocalReduction,trial::RBSpace,test::RBSpace,c::A
   LocalProjection(hr,(kc,kr))
 end
 
-function cluster(a,i)
-  @abstractmethod
+for f in (:cluster,:cluster_sort)
+  @eval begin
+    function $f(a,red::LocalReduction)
+      r = _get_realization(a)
+      k = compute_clusters(r,red)
+      $f(a,k)
+    end
+
+    function $f(a,k::KmeansResult)
+      labels = get_label(k,a)
+      $f(a,labels)
+    end
+
+    function $f(a,labels::AbstractVector)
+      cluster_ids = group_ilabels(labels)
+      $f(a,cluster_ids)
+    end
+  end
 end
 
-function cluster(a,red::LocalReduction)
-  r = _get_realization(a)
-  k = compute_clusters(r,red)
-  cluster(a,k)
-end
-
-function cluster(a,k::KmeansResult)
-  labels = get_label(k,a)
-  cluster_ids = group_ilabels(labels)
+function cluster(a,cluster_ids::Table)
   cluster_cache = array_cache(cluster_ids)
   _ids = getindex!(cluster_cache,cluster_ids,1)
-  S = typeof(cluster(a,_ids))
+  S = typeof(_cluster(a,_ids))
   cache = Vector{S}(undef,length(cluster_ids))
 
   for icluster in 1:length(cluster_ids)
     ids = getindex!(cluster_cache,cluster_ids,icluster)
-    cache[icluster] = cluster(a,ids)
+    cache[icluster] = _cluster(a,ids)
   end
 
   return cache
 end
 
-function cluster(r::Realization,inds::AbstractVector)
-  r[inds]
-end
-
-function cluster(s::ArrayContribution,inds::AbstractVector)
-  contribution(get_domains(s)) do trian
-    cluster(s[trian],inds)
-  end
-end
-
-function cluster(s::GenericSnapshots,inds::AbstractVector)
-  sinds = select_snapshots(s,inds)
-  data = collect(get_all_data(sinds))
-  GenericSnapshots(data,get_dof_map(sinds),get_realization(sinds))
-end
-
-function cluster(s::ReshapedSnapshots,inds::AbstractVector)
-  sinds = select_snapshots(s,inds)
-  data = collect(get_all_data(sinds))
-  ReshapedSnapshots(data,get_param_data(sinds),get_dof_map(sinds),get_realization(sinds))
-end
-
-function cluster(s::BlockSnapshots,inds::AbstractVector)
-  array = Array{Snapshots,ndims(s)}(undef,size(s))
-  touched = s.touched
-  for i in eachindex(touched)
-    if touched[i]
-      array[i] = cluster(s[i],inds)
-    end
-  end
-  return BlockSnapshots(array,touched)
-end
-
-# cannot provide Kmeans in the following cases, as these types do not store realizations
-
-function cluster(a::AbstractParamArray{T,N},labels::AbstractVector) where {T,N}
-  S = ConsecutiveParamArray{T,N}
-  cluster_labels = group_labels(labels)
-  cache = Vector{S}(undef,length(cluster_labels))
-  for icluster in 1:length(cluster_labels)
-    pini = cluster_labels.ptrs[icluster]
-    pend = cluster_labels.ptrs[icluster+1]-1
-    cache[icluster] = ParamArray(a[pini:pend])
-  end
-  return cache
-end
-
-function cluster(a::BlockParamArray{T,N},labels::AbstractVector) where {T,N}
-  S = typeof(mortar(map(a -> ParamArray(a[1:1]),blocks(a))))
-  cluster_labels = group_labels(labels)
-  cache = Vector{S}(undef,length(cluster_labels))
-  for icluster in 1:length(cluster_labels)
-    pini = cluster_labels.ptrs[icluster]
-    pend = cluster_labels.ptrs[icluster+1]-1
-    cache[icluster] = mortar(map(a -> ParamArray(a[pini:pend]),blocks(a)))
-  end
-  return cache
-end
-
-function cluster(a::RBParamVector,labels::AbstractVector)
-  data = cluster(a.data,labels)
-  fe_data = cluster(a.fe_data,labels)
-  map(RBParamVector,data,fe_data)
-end
-
-function cluster_sort(a,labels::AbstractVector)
-  cluster_ids = group_ilabels(labels)
-  _cluster_sort(a,cluster_ids.data)
+function cluster_sort(a,cluster_ids::Table)
+  ids′ = sortperm(cluster_ids.data)
+  _cluster(a,ids′)
 end
 
 # utils
@@ -390,19 +333,64 @@ _get_realization(a::ArrayContribution) = get_realization(first(a.values))
 _get_params_marix(r::Realization) = stack(r.params)
 _get_params_marix(r::AbstractRealization) = _get_params_marix(get_params(r))
 
-_cluster_sort(a,inds::AbstractVector) = @abstractmethod
+function _cluster(a,i)
+  @abstractmethod
+end
 
-function _cluster_sort(a::AbstractParamVector,inds::AbstractVector)
-  data = map(i -> a[i],inds)
+function _cluster(r::Realization,inds::AbstractVector)
+  r[inds]
+end
+
+function _cluster(s::ArrayContribution,inds::AbstractVector)
+  contribution(get_domains(s)) do trian
+    _cluster(s[trian],inds)
+  end
+end
+
+function _cluster(s::GenericSnapshots,inds::AbstractVector)
+  sinds = select_snapshots(s,inds)
+  data = collect(get_all_data(sinds))
+  GenericSnapshots(data,get_dof_map(sinds),get_realization(sinds))
+end
+
+function _cluster(s::ReshapedSnapshots,inds::AbstractVector)
+  sinds = select_snapshots(s,inds)
+  data = collect(get_all_data(sinds))
+  ReshapedSnapshots(data,get_param_data(sinds),get_dof_map(sinds),get_realization(sinds))
+end
+
+function _cluster(s::BlockSnapshots,inds::AbstractVector)
+  array = Array{Snapshots,ndims(s)}(undef,size(s))
+  touched = s.touched
+  for i in eachindex(touched)
+    if touched[i]
+      array[i] = _cluster(s[i],inds)
+    end
+  end
+  return BlockSnapshots(array,touched)
+end
+
+function _cluster(a::ConsecutiveParamArray{T,N},inds::AbstractVector) where {T,N}
+  item = param_getindex(a,first(inds))
+  data = zeros(T,size(item)...,length(inds))
+  @inbounds @views for (ij,j) in enumerate(inds)
+    aj = param_getindex(a,j)
+    data[_ncolons(Val{N}())...,ij] .= aj
+  end
+  ConsecutiveParamArray(data)
+end
+
+function _cluster(a::AbstractParamArray,inds::AbstractVector)
+  data = [a[i] for i in inds]
   ParamArray(data)
 end
 
-function _cluster_sort(a::BlockParamVector,inds::AbstractVector)
-  mortar(map(a -> _cluster_sort(a,inds),blocks(a)))
+function _cluster(a::BlockParamArray,labels::AbstractVector)
+  mortar(map(ai -> _cluster(ai,labels),blocks(a)))
 end
 
-function _cluster_sort(a::RBParamVector,inds::AbstractVector)
-  data = _cluster_sort(a.data,inds)
-  fe_data = _cluster_sort(a.fe_data,inds)
+function _cluster(a::RBParamVector,labels::AbstractVector)
+  data = _cluster(a.data,labels)
+  fe_data = _cluster(a.fe_data,labels)
   RBParamVector(data,fe_data)
 end

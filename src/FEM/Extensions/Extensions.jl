@@ -25,7 +25,6 @@ using GridapROMs.ParamFESpaces
 using GridapROMs.ParamSteady
 using GridapROMs.ParamODEs
 
-import ArraysOfArrays: _ncolons
 import Gridap.FESpaces: LinearConstraintsMap
 import Gridap.MultiField: BlockSparseMatrixAssembler
 
