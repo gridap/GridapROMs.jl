@@ -49,8 +49,6 @@ function main(
   trian_stiffness = (Ω,)
   domains = FEDomains(trian_res,trian_stiffness)
 
-  energy((du,dp),(v,q)) = ∫(du⋅v)dΩ + ∫(∇(v)⊙∇(du))dΩ + ∫(dp*q)dΩ
-
   reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
   test_u = TestFESpace(Ω,reffe_u;conformity=:H1,dirichlet_tags=[1,2,3,4,5,6,7])
   trial_u = ParamTrialFESpace(test_u,gμ)
@@ -60,12 +58,12 @@ function main(
   test = MultiFieldParamFESpace([test_u,test_p];style=BlockMultiFieldStyle())
   trial = MultiFieldParamFESpace([trial_u,trial_p];style=BlockMultiFieldStyle())
 
+  energy((du,dp),(v,q)) = ∫(du⋅v)dΩ + ∫(∇(v)⊙∇(du))dΩ + ∫(dp*q)dΩ
+  coupling((du,dp),(v,q)) = method == :pod ? ∫(dp*(∇⋅(v)))dΩ : ∫(dp*∂₁(v))dΩ + ∫(dp*∂₂(v))dΩ
+
   if method == :pod
-    coupling((du,dp),(v,q)) = ∫(dp*(∇⋅(v)))dΩ
     state_reduction = SupremizerReduction(coupling,tol,energy;nparams,sketch,compression,ncentroids)
   else method == :ttsvd
-    tolranks = fill(tol,4)
-    ttcoupling((du,dp),(v,q)) = ∫(dp*∂₁(v))dΩ + ∫(dp*∂₂(v))dΩ
     state_reduction = SupremizerReduction(coupling,fill(tol,3),energy;nparams,sketch,compression,ncentroids)
   end
 
@@ -84,7 +82,7 @@ function main(
   println(perf)
 end
 
-for method in (:pod,:ttsvd), compression in (:local,:global), hypred_strategy in (:mdeim,:rbf)
+for method in (:pod,:ttsvd), compression in (:local,:global), hypred_strategy in (:mdeim,)
   main(method,compression,hypred_strategy)
 end
 

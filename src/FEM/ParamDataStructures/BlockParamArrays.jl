@@ -188,7 +188,12 @@ function Base.copyto!(A::BlockParamArray,B::BlockParamArray)
 end
 
 function param_cat(A::Vector{<:BlockParamArray})
-  mortar(map(param_cat,blocks(A)))
+  a = first(A)
+  @check all(blocklength(ai)==blocklength(a) for ai in A)
+  B = map(1:blocklength(a)) do i
+    param_cat(map(a -> blocks(a)[i],A))
+  end
+  mortar(B)
 end
 
 for op in (:+,:-)

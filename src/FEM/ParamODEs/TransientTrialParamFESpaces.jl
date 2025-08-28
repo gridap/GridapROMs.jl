@@ -42,8 +42,6 @@ function ODEs.time_derivative(U::UnEvalTrialFESpace)
   UnEvalTrialFESpace(U.space,∂tdir(U.dirichlet))
 end
 
-Arrays.evaluate(U::UnEvalTrialFESpace,r::TransientRealization) = evaluate(U,get_params(r),get_times(r))
-
 # Define the UnEvalTrialFESpace interface for stationary spaces
 
 ODEs.allocate_space(U::FESpace,μ,t) = U
@@ -78,6 +76,10 @@ function ODEs.allocate_space(U::MultiFieldFESpace,μ,t)
   MultiFieldParamFESpace(spaces;style)
 end
 
+function ODEs.allocate_space(U::MultiFieldFESpace,r::TransientRealization)
+  allocate_space(U,get_params(r),get_times(r))
+end
+
 function Arrays.evaluate!(
   Upt::MultiFieldFESpace,
   U::MultiFieldFESpace,
@@ -90,6 +92,10 @@ function Arrays.evaluate!(
     evaluate!(Upti,Ui,μ,t)
   end
   Upt
+end
+
+function ODEs.evaluate!(Upt::MultiFieldFESpace,U::MultiFieldFESpace,r::TransientRealization)
+  evaluate!(Upt,U,get_params(r),get_times(r))
 end
 
 function Arrays.evaluate(U::MultiFieldFESpace,μ::Nothing,t::Nothing)
@@ -108,4 +114,8 @@ function Arrays.evaluate(U::MultiFieldFESpace,μ,t)
   Upt = allocate_space(U,μ,t)
   evaluate!(Upt,U,μ,t)
   Upt
+end
+
+function Arrays.evaluate(U::MultiFieldFESpace,r::TransientRealization)
+  evaluate(U,get_params(r),get_times(r))
 end

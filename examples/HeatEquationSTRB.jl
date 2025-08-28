@@ -24,24 +24,20 @@ add_tag_from_tags!(labels,"dirichlet",["inlet","walls"])
 Ω = Triangulation(model)
 Γn = BoundaryTriangulation(model,tags="neumann")
 
-ν(x,μ,t) = 1+exp(sin(t)*x[1]/sum(μ))
-ν(μ,t) = x->ν(x,μ,t)
-νμt(μ,t) = TransientParamFunction(ν,μ,t)
+ν(μ,t) = x -> 1+exp(sin(t)*x[1]/sum(μ))
+νμt(μ,t) = parameterize(ν,μ,t)
 
-f(x,μ,t) = 1.
-f(μ,t) = x->f(x,μ,t)
-fμt(μ,t) = TransientParamFunction(f,μ,t)
+f(μ,t) = x -> 1.
+fμt(μ,t) = parameterize(f,μ,t)
 
-h(x,μ,t) = abs(cos(t/μ[3]))
-h(μ,t) = x->h(x,μ,t)
-hμt(μ,t) = TransientParamFunction(h,μ,t)
+h(μ,t) = x -> abs(cos(t/μ[3]))
+hμt(μ,t) = parameterize(h,μ,t)
 
-g(x,μ,t) = μ[1]*exp(-x[1]/μ[2])*abs(sin(t/μ[3]))
-g(μ,t) = x->g(x,μ,t)
-gμt(μ,t) = TransientParamFunction(g,μ,t)
+g(μ,t) = x -> μ[1]*exp(-x[1]/μ[2])*abs(sin(t/μ[3]))
+gμt(μ,t) = parameterize(g,μ,t)
 
 u0(μ) = x -> 0.0
-u0μ(μ) = ParamFunction(u0,μ)
+u0μ(μ) = parameterize(u0,μ)
 
 order = 1
 degree = 2*order+1

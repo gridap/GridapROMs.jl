@@ -20,6 +20,10 @@ function RBSteady.get_local(a::SequentialProjection,μ::AbstractVector)
   SequentialProjection(get_local(a.projection,μ))
 end
 
+function RBSteady.get_local(a::Tuple{Vararg{Any}},μ::AbstractVector)
+  map(a -> get_local(a,μ),a)
+end
+
 function RBSteady.enrich!(
   red::SupremizerReduction{A,<:LocalReduction{B,C,<:KroneckerReduction}},
   a::BlockProjection,

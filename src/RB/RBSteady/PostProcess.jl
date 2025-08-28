@@ -472,3 +472,21 @@ function plot_a_solution(
   rbsnaps = to_snapshots(rbop,x̂,r)
   plot_a_solution(dir,feop,fesnaps,rbsnaps;kwargs...)
 end
+
+# utils
+
+function to_snapshots(rbop::RBOperator,x̂::AbstractParamVector,r::AbstractRealization)
+  to_snapshots(get_trial(rbop),x̂,r)
+end
+
+function to_snapshots(rbop::AbstractLocalRBOperator,x̂::AbstractParamVector,r::AbstractRealization)
+  xvec = map(enumerate(r)) do (i,μ)
+    x̂μ = param_getindex(x̂,i)
+    opμ = get_local(rbop,μ)
+    trialμ = get_trial(opμ)
+    inv_project(trialμ,x̂μ)
+  end
+  x = ParamArray(xvec)
+  i = get_dof_map(rbop)
+  Snapshots(x,i,r)
+end

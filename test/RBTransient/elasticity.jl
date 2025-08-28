@@ -9,13 +9,18 @@ tol_or_rank(tol::Real,rank::Int) = tol
 tol_or_rank(tol,rank::Int) = rank
 
 function main(
-  method=:pod;
-  tol=1e-4,rank=nothing,nparams=50,nparams_res=floor(Int,nparams/3),
-  nparams_jac=floor(Int,nparams/4),nparams_djac=1,sketch=:sprn
+  method=:pod,compression=:global,hypred_strategy=:mdeim;
+  tol=1e-4,nparams=50,nparams_res=floor(Int,nparams/3),
+  nparams_jac=floor(Int,nparams/4),sketch=:sprn,ncentroids=2
   )
 
-  @assert method ∈ (:pod,:ttsvd) "Unrecognized reduction method! Should be one of (:pod,:ttsvd)"
-  pdomain = (1e10,9*1e10,0.25,0.42,-4*1e5,4*1e5)
+  method = method ∈ (:pod,:ttsvd) ? method : :pod
+  compression = compression ∈ (:global,:local) ? compression : :global
+  hypred_strategy = hypred_strategy ∈ (:mdeim,:rbf) ? hypred_strategy : :mdeim
+
+  println("Running test with compression $method, $compression compressions, and $hypred_strategy hyper-reduction")
+
+  pdomain = (1,0.9,0.25,0.42,-4*1e-4,4*1e-4)
 
   domain = (0,2.5,0,0.4)
   partition = (25,4)
@@ -36,7 +41,7 @@ function main(
   λ(μ) = μ[1]*μ[2]/((1+μ[2])*(1-2*μ[2]))
   p(μ) = μ[1]/(2(1+μ[2]))
 
-  σ(μ,t) = ε -> exp(sin(2*π*t/tf))*(λ(μ)*tr(ε)*one(ε) + 2*p(μ)*ε)
+  σ(μ,t) = ε -> λ(μ)*tr(ε)*one(ε) + 2*p(μ)*ε
   σμt(μ,t) = TransientParamFunction(σ,μ,t)
 
   h(μ,t) = x -> VectorValue(0.0,μ[3]*exp(sin(2*π*t/tf)))
@@ -65,12 +70,10 @@ function main(
 
   uh0μ(μ) = interpolate_everywhere(u0μ(μ),trial(μ,t0))
 
-  tolrank = tol_or_rank(tol,rank)
   if method == :pod
-    state_reduction = HighDimReduction(tolrank,energy;nparams,sketch)
+    state_reduction = HighDimReduction(tol,energy;nparams,sketch)
   else method == :ttsvd
-    tolranks = fill(tolrank,4)
-    state_reduction = HighDimReduction(tolranks,energy;nparams,)
+    state_reduction = HighDimReduction(fill(tol,4),energy;nparams,)
   end
 
   θ = 0.5
@@ -80,29 +83,23 @@ function main(
   tdomain = t0:dt:tf
 
   fesolver = ThetaMethod(LUSolver(),dt,θ)
-  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,nparams_djac)
+  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac)
 
-  ptspace_uniform = TransientParamSpace(pdomain,tdomain;sampling=:uniform)
-  feop_uniform = TransientLinearParamOperator((stiffness,mass),res,ptspace_uniform,trial,test,domains)
-  μon = realization(feop_uniform;nparams=10)
-  x,festats = solution_snapshots(rbsolver,feop_uniform,μon,uh0μ)
+  feop = TransientLinearParamOperator((stiffness,mass),res,ptspace,trial,test,domains)
+  fesnaps, = solution_snapshots(rbsolver,feop,uh0μ)
+  rbop = reduced_operator(rbsolver,feop,fesnaps)
 
-  for sampling in (:uniform,:halton,:latin_hypercube,:tensorial_uniform)
-    println("Running $method test with sampling strategy $sampling")
-    ptspace = TransientParamSpace(pdomain,tdomain;sampling)
-    feop = TransientLinearParamOperator((stiffness,mass),res,ptspace,trial,test,domains)
+  μon = realization(feop;nparams=10,sampling=:uniform)
+  x̂,rbstats = solve(rbsolver,rbop,μon,uh0μ)
+  x,festats = solution_snapshots(rbsolver,feop,μon,uh0μ)
+  perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
 
-    fesnaps, = solution_snapshots(rbsolver,feop,uh0μ)
-    rbop = reduced_operator(rbsolver,feop,fesnaps)
-    x̂,rbstats = solve(rbsolver,rbop,μon,uh0μ)
-    perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
-
-    println(perf)
-  end
+  println(perf)
 
 end
 
-main(:pod)
-main(:ttsvd)
+for method in (:pod,:ttsvd), compression in (:local,:global), hypred_strategy in (:mdeim,)
+  main(method,compression,hypred_strategy)
+end
 
 end

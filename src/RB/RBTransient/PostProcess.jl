@@ -134,9 +134,9 @@ end
 
 function RBSteady.to_snapshots(rbop::AbstractLocalRBOperator,x̂::AbstractParamVector,r::TransientRealization)
   xvec = map(enumerate(get_params(r))) do (i,μ)
+    x̂μ = param_getindex(x̂,i)
     opμ = get_local(rbop,μ)
     trialμ = get_trial(opμ)
-    x̂μ = param_getindex(x̂,i)
     inv_project(trialμ,x̂μ)
   end
   x = ParamArray(xvec)
@@ -148,7 +148,9 @@ end
 function _permutelastdims(s::Snapshots{T,N}) where {T,N}
   ids = (ntuple(i->i,Val(N-2))...,N,N-1)
   data = permutedims(get_all_data(s),ids)
-  Snapshots(data,get_dof_map(s),get_realization(s))
+  pids = (:,size(data,N-1),size(data,N))
+  pdata = ConsecutiveParamArray(reshape(data,pids))
+  Snapshots(pdata,get_dof_map(s),get_realization(s))
 end
 
 function _permutelastdims(s::TransientSnapshotsWithIC)

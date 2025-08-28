@@ -16,6 +16,10 @@ rom_interface = [
   "rbtransient.md",
 ]
 
+distributed_interface = [
+  "distributed.md",
+]
+
 makedocs(;
     modules=[GridapROMs],
     format=Documenter.HTML(size_threshold=nothing),
@@ -24,6 +28,7 @@ makedocs(;
         "Usage" => ["steady.md","transient.md"],
         "FEM Interface" => fem_interface,
         "ROM Interface" => rom_interface,
+        "Distributed Interface" => rom_interface,
         "Contributing" => "contributing.md",
     ],
     sitename="GridapROMs.jl",

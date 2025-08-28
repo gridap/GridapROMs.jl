@@ -61,8 +61,6 @@ function main(
   domains_lin = FEDomains(trian_res,trian_jac)
   domains_nlin = FEDomains(trian_res,trian_jac)
 
-  energy((du,dp),(v,q)) = ∫(du⋅v)dΩ + ∫(∇(v)⊙∇(du))dΩ + ∫(dp*q)dΩ
-
   reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
   test_u = TestFESpace(Ω,reffe_u;conformity=:H1,dirichlet_tags=[1,2,3,4,5,6,7])
   trial_u = ParamTrialFESpace(test_u,gμ)
@@ -72,13 +70,13 @@ function main(
   test = MultiFieldParamFESpace([test_u,test_p];style=BlockMultiFieldStyle())
   trial = MultiFieldParamFESpace([trial_u,trial_p];style=BlockMultiFieldStyle())
 
+  energy((du,dp),(v,q)) = ∫(du⋅v)dΩ + ∫(∇(v)⊙∇(du))dΩ + ∫(dp*q)dΩ
+  coupling((du,dp),(v,q)) = method == :pod ? ∫(dp*(∇⋅(v)))dΩ : ∫(dp*∂₁(v))dΩ + ∫(dp*∂₂(v))dΩ
+
   if method == :pod
-    coupling((du,dp),(v,q)) = ∫(dp*(∇⋅(v)))dΩ
     state_reduction = SupremizerReduction(coupling,tol,energy;nparams,sketch,compression,ncentroids)
   else method == :ttsvd
-    tolranks = fill(tol,4)
-    ttcoupling((du,dp),(v,q)) = ∫(dp*∂₁(v))dΩ + ∫(dp*∂₂(v))dΩ
-    state_reduction = SupremizerReduction(ttcoupling,fill(tol,3),energy;nparams,sketch,compression,ncentroids)
+    state_reduction = SupremizerReduction(coupling,fill(tol,3),energy;nparams,sketch,compression,ncentroids)
   end
 
   fesolver = NewtonSolver(LUSolver();rtol=1e-10,maxiter=20,verbose=true)

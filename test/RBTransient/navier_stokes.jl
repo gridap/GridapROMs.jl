@@ -82,7 +82,7 @@ function main(
   if method == :pod
     state_reduction = HighDimReduction(coupling,tol,energy;nparams,sketch,compression,ncentroids)
   else method == :ttsvd
-    state_reduction = HighDimReduction(coupling,tol,energy;nparams,sketch,compression,ncentroids)
+    state_reduction = HighDimReduction(coupling,fill(tol,4),energy;nparams,sketch,compression,ncentroids)
   end
 
   θ = 0.5
@@ -102,15 +102,18 @@ function main(
     trial,test,domains_nlin)
   feop = LinearNonlinearTransientParamOperator(feop_lin,feop_nlin)
 
+  fesnaps, = solution_snapshots(rbsolver,feop,xh0μ)
+  rbop = reduced_operator(rbsolver,feop,fesnaps)
+
   μon = realization(feop;nparams=10,sampling=:uniform)
-  x̂,rbstats = solve(rbsolver,rbop,μon,uh0μ)
-  x,festats = solution_snapshots(rbsolver,feop,μon)
+  x̂,rbstats = solve(rbsolver,rbop,μon,xh0μ)
+  x,festats = solution_snapshots(rbsolver,feop,μon,xh0μ)
   perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
 
   println(perf)
 end
 
-for method in (:pod,:ttsvd), compression in (:local,:global), hypred_strategy in (:mdeim,:rbf)
+for method in (:pod,:ttsvd), compression in (:local,:global), hypred_strategy in (:mdeim,)
   main(method,compression,hypred_strategy)
 end
 

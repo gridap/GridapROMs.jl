@@ -61,6 +61,9 @@ function symcholesky(X::AbstractSparseMatrix;check::Bool=false)
   cholesky((X+X')/2)
 end
 
+symcholesky(X::Rank1Tensor) = symcholesky.(get_factors(X))
+symcholesky(X::GenericRankTensor) = symcholesky(get_crossnorm(X))
+
 function _cholesky_decomp(X::AbstractSparseMatrix)
   C = symcholesky(X;check=true)
   L = sparse(C.L)

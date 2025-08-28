@@ -469,36 +469,12 @@ function Algebra.solve(
   op::AbstractLocalRBOperator,
   r::Realization)
 
-  trial = get_trial(op)
-  k, = get_clusters(trial)
-  labels = get_label(k,r)
-  rvec = cluster(r,labels)
-  x̂vec,statsvec = map(rvec) do ri
-    opi = get_local(op,first(ri))
-    solve(solver,opi,ri)
-  end |> tuple_of_arrays
-  x̂ = cluster_sort(param_cat(x̂vec),labels)
-  stats = mean(statsvec)
-  return (x̂,stats)
-end
-
-# utils
-
-function to_snapshots(op::RBOperator,x̂::AbstractParamVector,r::AbstractRealization)
-  to_snapshots(get_trial(op),x̂,r)
-end
-
-function to_snapshots(op::AbstractLocalRBOperator,x̂::AbstractParamVector,r::AbstractRealization)
-  trial = get_trial(op)
-  k, = get_clusters(trial)
-  labels = get_label(k,r)
-  rvec = cluster(r,labels)
-  x̂vec = cluster(x̂,labels)
-
-  xvec = map(x̂vec,rvec) do x̂i,ri
-    opi = get_local(op,first(ri))
-    to_snapshots(opi,x̂i,ri)
+  t = @timed x̂vec = map(r) do μ
+    opμ = get_local(op,μ)
+    x̂, = solve(solver,opμ,Realization([μ]))
+    x̂
   end
-
-  cluster_sort(param_cat(xvec),labels)
+  x̂ = param_cat(x̂vec)
+  stats = CostTracker(t,nruns=num_params(r),name="RB")
+  return (x̂,stats)
 end

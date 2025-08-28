@@ -145,14 +145,18 @@ function Algebra.solve(
   xh0::Union{Function,AbstractVector}
   )
 
-  trial = get_trial(op)
-  k, = get_clusters(trial)
-  rvec = cluster(r,k)
-  x̂vec,tvec = map(rvec) do ri
-    opi = get_local(op,first(ri))
-    solve(solver,opi,ri)
-  end |> tuple_of_arrays
+  t = @timed x̂vec = map(get_params(r)) do μ
+    opμt = get_local(op,μ)
+    rμt = _to_realization(r,μ)
+    x̂, = solve(solver,opμt,rμt,xh0)
+    x̂
+  end
   x̂ = param_cat(x̂vec)
-  stats = CostTracker(tvec,nruns=length(tvec),name="RB")
+  stats = CostTracker(t,nruns=num_params(r),name="RB")
   return (x̂,stats)
+end
+
+function _to_realization(r::TransientRealization,μ::AbstractVector)
+  all_times = [get_initial_time(r),get_times(r)...]
+  TransientRealization(Realization([μ]),all_times)
 end

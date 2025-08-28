@@ -330,8 +330,7 @@ _get_realization(r::AbstractRealization) = get_params(r)
 _get_realization(s::AbstractSnapshots) = get_realization(s)
 _get_realization(a::ArrayContribution) = get_realization(first(a.values))
 
-_get_params_marix(r::Realization) = stack(r.params)
-_get_params_marix(r::AbstractRealization) = _get_params_marix(get_params(r))
+_get_params_marix(r::AbstractRealization) = stack(ParamDataStructures._get_params(r))
 
 function _cluster(a,i)
   @abstractmethod
