@@ -218,29 +218,18 @@ for T in (:AbstractMatrix,:ConsecutiveParamVector)
       req_all = MPI.Request[]
       data_snd = JaggedArray(snd.item)
       data_rcv = rcv.item
-      if i_am_main(rcv)
-        println(methods(MPI.Irecv!))
-      end
       @assert isa(data_rcv,ParamJaggedArray)
       for (i,id_rcv) in enumerate(graph.rcv.item)
         rank_rcv = id_rcv-1
         ptrs_rcv = data_rcv.ptrs
-        axis1 = ptrs_rcv[i]:(ptrs_rcv[i+1]-1)
-        axis2 = 1:data_rcv.plength
-        scale = Int(ptrs_rcv[end]-1)
-        ids_rcv = range_2d(axis1,axis2,scale)
-        buff_rcv = view(data_rcv.data,ids_rcv)
+        buff_rcv = view(data_rcv.data,ptrs_rcv[i]:(ptrs_rcv[i+1]-1),:)
         reqr = MPI.Irecv!(buff_rcv,rank_rcv,PartitionedArrays.EXCHANGE_IMPL_TAG,comm)
         push!(req_all,reqr)
       end
       for (i,id_snd) in enumerate(graph.snd.item)
         rank_snd = id_snd-1
         ptrs_snd = data_snd.ptrs
-        axis1 = ptrs_snd[i]:(ptrs_snd[i+1]-1)
-        axis2 = 1:data_snd.plength
-        scale = Int(ptrs_snd[end]-1)
-        ids_snd = range_2d(axis1,axis2,scale)
-        buff_snd = view(data_snd.data,ids_snd)
+        buff_snd = view(data_snd.data,ptrs_snd[i]:(ptrs_snd[i+1]-1),:)
         reqs = MPI.Isend(buff_snd,rank_snd,PartitionedArrays.EXCHANGE_IMPL_TAG,comm)
         push!(req_all,reqs)
       end
@@ -268,7 +257,7 @@ for T in (:AbstractMatrix,:ConsecutiveParamVector)
       g = ExchangeGraph(graph.snd.items,graph.rcv.items)
       @async begin
         yield()
-        PartitionedArrays.exchange_impl!(rcv.items,snd.items,g,T) |> wait
+        PartitionedArrays.exchange_impl!(rcv.items,snd.items,g,$T) |> wait
         rcv
       end
     end
