@@ -560,7 +560,6 @@ end
 
 @inline function Algebra.add_entry!(combine::Function,A::ParamLocalView,v,i,j)
   i′,j′ = _local_ids(A.d_to_lid_to_plid,i,j)
-  println((i′,j′,v))
   add_entry!(combine,A.plids_to_value,v,i′,j′)
 end
 

@@ -117,101 +117,6 @@ function PartitionedArrays.allocate_exchange_impl(snd,graph,::Type{T}) where T<:
   rcv
 end
 
-function PartitionedArrays.exchange_impl!(
-  rcv::MPIArray,
-  snd::MPIArray,
-  graph::ExchangeGraph{<:MPIArray},
-  ::Type{T}
-  ) where T<:Union{AbstractParamVector,AbstractMatrix}
-
-  @assert size(rcv) == size(snd)
-  @assert graph.rcv.comm === graph.rcv.comm
-  @assert graph.rcv.comm === graph.snd.comm
-  comm = graph.rcv.comm
-  req_all = MPI.Request[]
-  data_snd = ParamJaggedArray(snd.item)
-  data_rcv = rcv.item
-  @assert isa(data_rcv,JaggedArray)
-  for (i,id_rcv) in enumerate(graph.rcv.item)
-    rank_rcv = id_rcv-1
-    ptrs_rcv = data_rcv.ptrs
-    axis1 = ptrs_rcv[i]:(ptrs_rcv[i+1]-1)
-    axis2 = 1:data_rcv.plength
-    scale = Int(ptrs_rcv[end]-1)
-    ids_rcv = range_2d(axis1,axis2,scale)
-    buff_rcv = view(data_rcv.data,ids_rcv)
-    reqr = MPI.Irecv!(buff_rcv,rank_rcv,EXCHANGE_IMPL_TAG,comm)
-    push!(req_all,reqr)
-  end
-  for (i,id_snd) in enumerate(graph.snd.item)
-    rank_snd = id_snd-1
-    ptrs_snd = data_snd.ptrs
-    axis1 = ptrs_snd[i]:(ptrs_snd[i+1]-1)
-    axis2 = 1:data_snd.plength
-    scale = Int(ptrs_snd[end]-1)
-    ids_snd = range_2d(axis1,axis2,scale)
-    buff_snd = view(data_snd.data,ids_snd)
-    reqs = MPI.Isend(buff_snd,rank_snd,EXCHANGE_IMPL_TAG,comm)
-    push!(req_all,reqs)
-  end
-  @async begin
-    @static if isdefined(MPI,:Testall)
-      while ! MPI.Testall(req_all)
-        yield()
-      end
-    else
-      while ! MPI.Testall!(req_all)[1]
-        yield()
-      end
-    end
-    rcv
-  end
-end
-
-function PartitionedArrays.exchange_impl!(
-  rcv::DebugArray,
-  snd::DebugArray,
-  graph::ExchangeGraph{<:DebugArray},
-  ::Type{T}
-  ) where T<:AbstractParamVector
-
-  g = ExchangeGraph(graph.snd.items,graph.rcv.items)
-  @async begin
-    yield()
-    PartitionedArrays.exchange_impl!(rcv.items,snd.items,g,T) |> wait
-    rcv
-  end
-end
-
-function PartitionedArrays.exchange_impl!(rcv,snd,graph,::Type{T}) where T<:AbstractParamVector
-  @assert PartitionedArrays.is_consistent(graph)
-  @assert eltype(rcv) <: ParamJaggedArray
-  snd_ids = graph.snd
-  rcv_ids = graph.rcv
-  @assert length(rcv_ids) == length(rcv)
-  @assert length(rcv_ids) == length(snd)
-  for rcv_id in 1:length(rcv_ids)
-    for (i,snd_id) in enumerate(rcv_ids[rcv_id])
-      snd_snd_id = JaggedArray(snd[snd_id])
-      j = first(findall(k->k==rcv_id,snd_ids[snd_id]))
-      ptrs_rcv = rcv[rcv_id].ptrs
-      ptrs_snd = snd_snd_id.ptrs
-      plength = param_length(snd[snd_id])
-      δ_snd = length(ptrs_snd)-1
-      δ_rcv = length(ptrs_rcv)-1
-      @assert ptrs_rcv[i+1]-ptrs_rcv[i] == ptrs_snd[j+1]-ptrs_snd[j]
-      for p in 1:(ptrs_rcv[i+1]-ptrs_rcv[i])
-        p_rcv = p+ptrs_rcv[i]-1
-        p_snd = p+ptrs_snd[j]-1
-        for i in 1:plength
-          rcv[rcv_id].data[p_rcv+(i-1)*δ_rcv] = snd_snd_id.data[p_snd+(i-1)*δ_snd]
-        end
-      end
-    end
-  end
-  @async rcv
-end
-
 #
 
 function PartitionedArrays.allocate_gather_impl(snd,destination,::Type{T}) where T<:AbstractMatrix
@@ -268,48 +173,95 @@ function PartitionedArrays.allocate_exchange_impl(snd,graph,::Type{T}) where T<:
   rcv
 end
 
-function PartitionedArrays.exchange_impl!(
-  rcv::DebugArray,
-  snd::DebugArray,
-  graph::ExchangeGraph{<:DebugArray},
-  ::Type{T}
-  ) where T<:AbstractMatrix
-
-  g = ExchangeGraph(graph.snd.items,graph.rcv.items)
-  @async begin
-    yield()
-    PartitionedArrays.exchange_impl!(rcv.items,snd.items,g,T) |> wait
-    rcv
-  end
-end
-
-function PartitionedArrays.exchange_impl!(rcv,snd,graph,::Type{T}) where T<:AbstractMatrix
-  @assert PartitionedArrays.is_consistent(graph)
-  @assert eltype(rcv) <: ParamJaggedArray
-  snd_ids = graph.snd
-  rcv_ids = graph.rcv
-  @assert length(rcv_ids) == length(rcv)
-  @assert length(rcv_ids) == length(snd)
-  for rcv_id in 1:length(rcv_ids)
-    for (i,snd_id) in enumerate(rcv_ids[rcv_id])
-      snd_snd_id = JaggedArray(snd[snd_id])
-      j = first(findall(k->k==rcv_id,snd_ids[snd_id]))
-      ptrs_rcv = rcv[rcv_id].ptrs
-      ptrs_snd = snd_snd_id.ptrs
-      plength = _get_plength(snd[snd_id])
-      δ_snd = length(ptrs_snd)-1
-      δ_rcv = length(ptrs_rcv)-1
-      @assert ptrs_rcv[i+1]-ptrs_rcv[i] == ptrs_snd[j+1]-ptrs_snd[j]
-      for p in 1:(ptrs_rcv[i+1]-ptrs_rcv[i])
-        p_rcv = p+ptrs_rcv[i]-1
-        p_snd = p+ptrs_snd[j]-1
-        for i in 1:plength
-          rcv[rcv_id].data[p_rcv+(i-1)*δ_rcv] = snd_snd_id.data[p_snd+(i-1)*δ_snd]
+for T in (:AbstractMatrix,:ConsecutiveParamVector)
+  @eval begin
+    function PartitionedArrays.exchange_impl!(rcv,snd,graph,::Type{<:$T})
+      @assert PartitionedArrays.is_consistent(graph)
+      @assert eltype(rcv) <: ParamJaggedArray
+      snd_ids = graph.snd
+      rcv_ids = graph.rcv
+      @assert length(rcv_ids) == length(rcv)
+      @assert length(rcv_ids) == length(snd)
+      for rcv_id in 1:length(rcv_ids)
+        for (i,snd_id) in enumerate(rcv_ids[rcv_id])
+          snd_snd_id = JaggedArray(snd[snd_id])
+          j = first(findall(k->k==rcv_id,snd_ids[snd_id]))
+          ptrs_rcv = rcv[rcv_id].ptrs
+          ptrs_snd = snd_snd_id.ptrs
+          plength = _get_plength(snd[snd_id])
+          δ_snd = length(ptrs_snd)-1
+          δ_rcv = length(ptrs_rcv)-1
+          @assert ptrs_rcv[i+1]-ptrs_rcv[i] == ptrs_snd[j+1]-ptrs_snd[j]
+          for p in 1:(ptrs_rcv[i+1]-ptrs_rcv[i])
+            p_rcv = p+ptrs_rcv[i]-1
+            p_snd = p+ptrs_snd[j]-1
+            for i in 1:plength
+              rcv[rcv_id].data[p_rcv+(i-1)*δ_rcv] = snd_snd_id.data[p_snd+(i-1)*δ_snd]
+            end
+          end
         end
+      end
+      @async rcv
+    end
+
+    function PartitionedArrays.exchange_impl!(
+      rcv::MPIArray,
+      snd::MPIArray,
+      graph::ExchangeGraph{<:MPIArray},
+      ::Type{<:$T}
+      )
+
+      @assert size(rcv) == size(snd)
+      @assert graph.rcv.comm === graph.rcv.comm
+      @assert graph.rcv.comm === graph.snd.comm
+      comm = graph.rcv.comm
+      req_all = MPI.Request[]
+      data_snd = JaggedArray(snd.item)
+      data_rcv = rcv.item
+      @assert isa(data_rcv,ParamJaggedArray)
+      for (i,id_rcv) in enumerate(graph.rcv.item)
+        rank_rcv = id_rcv-1
+        ptrs_rcv = data_rcv.ptrs
+        buff_rcv = view(data_rcv.data,ptrs_rcv[i]:(ptrs_rcv[i+1]-1),:)
+        reqr = MPI.Irecv!(buff_rcv,rank_rcv,PartitionedArrays.EXCHANGE_IMPL_TAG,comm)
+        push!(req_all,reqr)
+      end
+      for (i,id_snd) in enumerate(graph.snd.item)
+        rank_snd = id_snd-1
+        ptrs_snd = data_snd.ptrs
+        buff_snd = view(data_snd.data,ptrs_snd[i]:(ptrs_snd[i+1]-1),:)
+        reqs = MPI.Isend(buff_snd,rank_snd,PartitionedArrays.EXCHANGE_IMPL_TAG,comm)
+        push!(req_all,reqs)
+      end
+      @async begin
+        @static if isdefined(MPI,:Testall)
+          while ! MPI.Testall(req_all)
+            yield()
+          end
+        else
+          while ! MPI.Testall!(req_all)[1]
+            yield()
+          end
+        end
+        rcv
+      end
+    end
+
+    function PartitionedArrays.exchange_impl!(
+      rcv::DebugArray,
+      snd::DebugArray,
+      graph::ExchangeGraph{<:DebugArray},
+      ::Type{<:$T}
+      )
+
+      g = ExchangeGraph(graph.snd.items,graph.rcv.items)
+      @async begin
+        yield()
+        PartitionedArrays.exchange_impl!(rcv.items,snd.items,g,$T) |> wait
+        rcv
       end
     end
   end
-  @async rcv
 end
 
 # utils

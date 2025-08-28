@@ -59,53 +59,26 @@ function PartitionedArrays.assembly_buffers(
 end
 
 struct ParamJaggedArray{T,Ti,A} <: AbstractVector{A}
-  data::Vector{T}
+  data::Matrix{T}
   ptrs::Vector{Ti}
-  plength::Int
   array_type::Type{A}
 
-  function ParamJaggedArray(
-    a::ConsecutiveParamVector{T},
-    ptrs::Vector{Ti}
-    ) where {T,Ti}
-
-    A = _get_jagged_type(a)
-    data = vec(get_all_data(a))
-    plength = param_length(a)
-    new{T,Ti,A}(data,ptrs,plength,A)
+  function ParamJaggedArray(a::A,ptrs::Vector{Ti}) where {T,Ti,A<:ConsecutiveParamVector{T}}
+    data = get_all_data(a)
+    new{T,Ti,A}(data,ptrs,A)
   end
 
-  function ParamJaggedArray(
-    a::AbstractMatrix{T},
-    ptrs::Vector{Ti}
-    ) where {T,Ti}
-
-    A = _get_jagged_type(a)
-    data = vec(a)
-    plength = size(a,2)
-    new{T,Ti,A}(data,ptrs,plength,A)
+  function ParamJaggedArray(data::A,ptrs::Vector{Ti}) where {T,Ti,A<:AbstractMatrix{T}}
+    new{T,Ti,A}(data,ptrs,A)
   end
 
-  function ParamJaggedArray{T,Ti}(
-    a::ConsecutiveParamVector{T},
-    ptrs::AbstractVector
-    ) where {T,Ti}
-
-    A = _get_jagged_type(a)
-    data = vec(get_all_data(a))
-    plength = param_length(a)
-    new{T,Ti,A}(data,convert(Vector{Ti},ptrs),plength,A)
+  function ParamJaggedArray{T,Ti}(a::A,ptrs::AbstractVector) where {T,Ti,A<:ConsecutiveParamVector{T}}
+    data = get_all_data(a)
+    new{T,Ti,A}(data,convert(Vector{Ti},ptrs),A)
   end
 
-  function ParamJaggedArray{T,Ti}(
-    a::AbstractMatrix{T},
-    ptrs::Vector{Ti}
-    ) where {T,Ti}
-
-    A = _get_jagged_type(a)
-    data = vec(a)
-    plength = size(a,2)
-    new{T,Ti,A}(data,ptrs,plength,A)
+  function ParamJaggedArray{T,Ti}(data::A,ptrs::AbstractVector) where {T,Ti,A<:AbstractMatrix{T}}
+    new{T,Ti,A}(data,convert(Vector{Ti},ptrs),A)
   end
 end
 
@@ -121,16 +94,13 @@ for A in (:ConsecutiveParamVector,:AbstractMatrix)
   end
 end
 
-ParamDataStructures.param_length(a::ParamJaggedArray) = a.plength
+ParamDataStructures.param_length(a::ParamJaggedArray) = size(a.data,2)
 
 function ParamDataStructures.param_getindex(a::ParamJaggedArray{T},i::Integer) where T
-  axis1 = first(a.ptrs):last(a.ptrs)-1
-  axis2 = i:i
-  scale = a.ptrs[end]-1
-  ids = range_1d(axis1,axis2,scale)
+  ids = first(a.ptrs):last(a.ptrs)-1
   data = Vector{T}(undef,length(ids))
   for (ij,j) in enumerate(ids)
-    data[ij] = a.data[j]
+    data[ij] = a.data[j,i]
   end
   JaggedArray(data,a.ptrs)
 end
@@ -202,59 +172,25 @@ end
 Base.size(a::ParamJaggedArray) = (length(a.ptrs)-1,)
 
 function Base.getindex(a::ParamJaggedArray,i::Int)
-  _getindex(a,i)
+  view(a.data,a.ptrs[i]:a.ptrs[i+1]-1,:)
 end
 
 function Base.getindex(a::ParamJaggedArray{T,Ti,<:ConsecutiveParamVector},i::Int) where {T,Ti}
-  ConsecutiveParamArray(_getindex(a,i))
+  data = view(a.data,a.ptrs[i]:a.ptrs[i+1]-1,:)
+  ConsecutiveParamArray(data)
 end
 
 function Base.setindex!(a::ParamJaggedArray,v,i::Int)
-  _setindex!(a,v,i)
-end
-
-function Base.setindex!(a::ParamJaggedArray{T,Ti,<:ConsecutiveParamVector},v,i::Int) where {T,Ti}
-  _setindex!(get_all_data(a),v,i)
-end
-
-function Base.resize!(a::ParamJaggedArray,n::Integer)
-  δ = Int(length(a.data)/a.plength) - n
-  if δ > 0
-    for l in 1:a.plength
-      Base._deleteat!(a.data,l*n+1,δ)
-    end
-  end
-  a
-end
-
-# utils
-
-_get_jagged_element(a) = @abstractmethod
-function _get_jagged_element(a::T) where T<:AbstractVector
-  view(zero(T),range_2d(1:1,1:1))
-end
-_get_jagged_element(a::AbstractMatrix{<:Number}) = _get_jagged_element(vec(a))
-_get_jagged_element(a::AbstractParamArray) = ConsecutiveParamArray(_get_jagged_element(get_all_data(a)))
-
-_get_jagged_type(a) = typeof(_get_jagged_element(a))
-
-function _getindex(a::ParamJaggedArray,i::Int)
   axis1 = a.ptrs[i]:a.ptrs[i+1]-1
-  axis2 = 1:a.plength
-  scale = a.ptrs[end]-1
-  ids = range_2d(axis1,axis2,scale)
-  view(a.data,ids)
-end
-
-function _setindex!(a::ParamJaggedArray,v::AbstractArray,i::Int)
-  axis1 = a.ptrs[i]:a.ptrs[i+1]-1
-  axis2 = 1:a.plength
+  axis2 = 1:param_length(a)
   scale = a.ptrs[end]-1
   ids = range_1d(axis1,axis2,scale)
   for (k,ki) in enumerate(ids)
     a.data[ki] = v[k]
   end
 end
+
+# utils
 
 function _get_delta(a::ParamJaggedArray)
   length(a.ptrs)-1
