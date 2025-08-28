@@ -140,7 +140,7 @@ function RBSteady.to_snapshots(rbop::AbstractLocalRBOperator,x̂::AbstractParamV
     inv_project(trialμ,x̂μ)
   end
   x = ParamArray(xvec)
-  i = RBSteady.get_global_dof_map(rbop)
+  i = get_dof_map(rbop)
   s = Snapshots(x,i,r)
   _permutelastdims(s)
 end

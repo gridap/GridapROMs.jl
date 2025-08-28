@@ -469,33 +469,37 @@ function Algebra.solve(
   op::AbstractLocalRBOperator,
   r::Realization)
 
-  t = @timed x̂vec = map(r) do μ
-    opμ = get_local(op,μ)
-    x̂, = solve(solver,opμ,_to_realization(r,μ))
-    testitem(x̂)
-  end
-  x̂ = GenericParamArray(x̂vec)
-  stats = CostTracker(t,nruns=num_params(r),name="RB")
+  trial = get_trial(op)
+  k, = get_clusters(trial)
+  labels = get_label(r,k)
+  rvec = cluster(r,k)
+  x̂vec,statsvec = map(rvec) do ri
+    opi = get_local(op,first(ri))
+    solve(solver,opi,ri)
+  end |> tuple_of_arrays
+  x̂ = cluster_sort(param_cat(x̂vec),labels)
+  stats = mean(statsvec)
   return (x̂,stats)
 end
 
 # utils
 
-function to_snapshots(rbop::RBOperator,x̂::AbstractParamVector,r::AbstractRealization)
-  to_snapshots(get_trial(rbop),x̂,r)
+function to_snapshots(op::RBOperator,x̂::AbstractParamVector,r::AbstractRealization)
+  to_snapshots(get_trial(op),x̂,r)
 end
 
-function to_snapshots(rbop::AbstractLocalRBOperator,x̂::AbstractParamVector,r::Realization)
-  xvec = map(enumerate(r)) do (i,μ)
-    opμ = get_local(rbop,μ)
-    trialμ = get_trial(opμ)
-    inv_project(trialμ,x̂[i])
+function to_snapshots(op::AbstractLocalRBOperator,x̂::AbstractParamVector,r::AbstractRealization)
+  trial = get_trial(op)
+  k, = get_clusters(trial)
+  rvec = cluster(r,k)
+
+  labels = get_label(k,r)
+  x̂vec = cluster(x̂,labels)
+
+  xvec = map(x̂vec,rvec) do x̂i,ri
+    opi = get_local(op,first(ri))
+    to_snapshots(opi,x̂i,ri)
   end
-  x = ParamArray(xvec)
-  i = get_global_dof_map(rbop)
-  Snapshots(x,i,r)
+
+  cat(xvec)
 end
-
-get_global_dof_map(rbop::RBOperator) = get_global_dof_map(get_trial(rbop))
-
-_to_realization(r::Realization,μ) = Realization([μ])

@@ -277,9 +277,26 @@ function Base.hcat(A::ConsecutiveParamArray,B::ConsecutiveParamArray)
   ConsecutiveParamArray(data′)
 end
 
-function param_cat(A::Vector{<:ConsecutiveParamArray{T,N}}) where {T,N}
-  data′ = cat(map(get_all_data,A)...;dims=N+1)
-  ConsecutiveParamArray(data′)
+function param_cat(A::Vector{<:ConsecutiveParamArray})
+  @notimplemented
+end
+
+function param_cat(A::Vector{<:ConsecutiveParamVector{T}}) where T
+  ptrs = _vec_of_pointers(A)
+  n = length(A)
+  u = one(eltype(ptrs))
+  ndata = ptrs[end]-u
+  data = Vector{T}(undef,ndata)
+  p = 1
+  for i in 1:n
+    Ai = get_all_data(A[i])
+    for j in 1:length(Ai)
+      Aij = Ai[j]
+      data[p] = Aij
+      p += 1
+    end
+  end
+  GenericParamVector(data,ptrs)
 end
 
 for op in (:+,:-)
@@ -661,6 +678,26 @@ function _vec_of_pointers(a::AbstractVector{<:AbstractArray})
   @inbounds for i in 1:n
     ai = a[i]
     ptrs[i+1] = length(ai)
+  end
+  length_to_ptrs!(ptrs)
+  ptrs
+end
+
+function _vec_of_pointers(a::AbstractVector{<:AbstractParamArray})
+  n = length(a)
+  l = 0
+  @inbounds for i in 1:n
+    ai = a[i]
+    l += param_length(ai)
+  end
+  ptrs = Vector{Int}(undef,l+1)
+  count = 0
+  @inbounds for i in 1:n
+    ai = a[i]
+    for j in param_eachindex(ai)
+      count += 1
+      ptrs[count+1] = innerlength(ai)
+    end
   end
   length_to_ptrs!(ptrs)
   ptrs

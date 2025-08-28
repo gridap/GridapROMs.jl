@@ -37,6 +37,11 @@ const BlockParamVector{T,A,B} = BlockParamArray{T,1,A,B}
 const BlockParamMatrix{T,A,B} = BlockParamArray{T,2,A,B}
 
 """
+    const BlockConsecutiveParamArray{T,N,A<:Vector{<:ConsecutiveParamArray{T,N}},B} = BlockParamArray{T,N,A,B}
+"""
+const BlockConsecutiveParamArray{T,N,A<:Vector{<:ConsecutiveParamArray{T,N}},B} = BlockParamArray{T,N,A,B}
+
+"""
     const BlockConsecutiveParamVector{T,A<:Vector{<:ConsecutiveParamVector{T}},B} = BlockParamVector{T,A,B}
 """
 const BlockConsecutiveParamVector{T,A<:Vector{<:ConsecutiveParamVector{T}},B} = BlockParamVector{T,A,B}

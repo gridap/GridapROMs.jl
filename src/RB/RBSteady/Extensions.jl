@@ -97,6 +97,3 @@ function remove_extension(f::MultiFieldFESpace,exts::BlockSnapshots,aexts::Block
   end
   BlockSnapshots(cache,exts.touched),BlockSnapshots(acache,aexts.touched)
 end
-
-get_global_dof_map(r::RBSpace) = get_dof_map(get_fe_space(r))
-get_global_dof_map(r::DirectSumRBSpace) = get_dof_map(get_bg_space(get_fe_space(r)))

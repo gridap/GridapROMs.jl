@@ -113,6 +113,7 @@ include("ParamSparseMatrices.jl")
 export BlockParamArray
 export BlockParamVector
 export BlockParamMatrix
+export BlockConsecutiveParamArray
 export BlockConsecutiveParamVector
 export BlockConsecutiveParamMatrix
 include("BlockParamArrays.jl")

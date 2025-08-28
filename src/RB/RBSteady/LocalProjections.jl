@@ -200,27 +200,18 @@ function cluster(a,red::LocalReduction)
 end
 
 function cluster(a,k::KmeansResult)
-  cache = return_cache(cluster,a,k)
-  evaluate!(cache,cluster,a,k)
-  return first(cache)
-end
-
-function Arrays.return_cache(::typeof(cluster),a,k::KmeansResult)
   labels = get_label(k,a)
   cluster_ids = group_ilabels(labels)
   cluster_cache = array_cache(cluster_ids)
   _ids = getindex!(cluster_cache,cluster_ids,1)
   S = typeof(cluster(a,_ids))
   cache = Vector{S}(undef,length(cluster_ids))
-  return cache,cluster_ids,cluster_cache
-end
 
-function Arrays.evaluate!(c,::typeof(cluster),a,k::KmeansResult)
-  cache,cluster_ids,cluster_cache = c
   for icluster in 1:length(cluster_ids)
     ids = getindex!(cluster_cache,cluster_ids,icluster)
     cache[icluster] = cluster(a,ids)
   end
+
   return cache
 end
 
@@ -257,7 +248,44 @@ function cluster(s::BlockSnapshots,inds::AbstractVector)
   return BlockSnapshots(array,touched)
 end
 
-# local utils
+# cannot provide Kmeans in the following cases, as these types do not store realizations
+
+function cluster(a::AbstractParamArray{T,N},labels::AbstractVector) where {T,N}
+  S = ConsecutiveParamArray{T,N}
+  cluster_labels = group_labels(labels)
+  cache = Vector{S}(undef,length(cluster_labels))
+  for icluster in 1:length(cluster_labels)
+    pini = cluster_labels.ptrs[icluster]
+    pend = cluster_labels.ptrs[icluster+1]-1
+    cache[icluster] = ParamArray(a[pini:pend])
+  end
+  return cache
+end
+
+function cluster(a::BlockParamArray{T,N},labels::AbstractVector) where {T,N}
+  S = typeof(mortar(map(a -> ParamArray(a[1:1]),blocks(a))))
+  cluster_labels = group_labels(labels)
+  cache = Vector{S}(undef,length(cluster_labels))
+  for icluster in 1:length(cluster_labels)
+    pini = cluster_labels.ptrs[icluster]
+    pend = cluster_labels.ptrs[icluster+1]-1
+    cache[icluster] = mortar(map(a -> ParamArray(a[pini:pend]),blocks(a)))
+  end
+  return cache
+end
+
+function cluster(a::RBParamVector,labels::AbstractVector)
+  data = cluster(a.data,labels)
+  fe_data = cluster(a.fe_data,labels)
+  map(RBParamVector,data,fe_data)
+end
+
+function cluster_sort(a,labels::AbstractVector)
+  cluster_ids = group_ilabels(labels)
+  _cluster_sort(a,cluster_ids.data)
+end
+
+# utils
 
 function compute_clusters(red::LocalReduction,r::AbstractRealization)
   Random.seed!(1234)
@@ -355,9 +383,26 @@ function _compute_elbow(v::AbstractVector)
   argmin(dv)
 end
 
-_get_realization(r::AbstractRealization) = r
+_get_realization(r::AbstractRealization) = get_params(r)
 _get_realization(s::AbstractSnapshots) = get_realization(s)
 _get_realization(a::ArrayContribution) = get_realization(first(a.values))
 
 _get_params_marix(r::Realization) = stack(r.params)
 _get_params_marix(r::AbstractRealization) = _get_params_marix(get_params(r))
+
+_cluster_sort(a,inds::AbstractVector) = @abstractmethod
+
+function _cluster_sort(a::AbstractParamVector,inds::AbstractVector)
+  data = map(i -> a[i],inds)
+  ParamArray(data)
+end
+
+function _cluster_sort(a::BlockParamVector,inds::AbstractVector)
+  mortar(map(a -> _cluster_sort(a,inds),blocks(a)))
+end
+
+function _cluster_sort(a::RBParamVector,inds::AbstractVector)
+  data = _cluster_sort(a.data,inds)
+  fe_data = _cluster_sort(a.fe_data,inds)
+  RBParamVector(data,fe_data)
+end

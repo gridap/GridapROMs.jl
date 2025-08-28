@@ -7,6 +7,11 @@ mutable struct CostTracker <: PerformanceTracker
   nruns::Int
 end
 
+get_name(c::CostTracker) = c.name
+get_time(c::CostTracker) = c.time
+get_nallocs(c::CostTracker) = c.nallocs
+get_nruns(c::CostTracker) = c.nruns
+
 function CostTracker(;name="",time=0.0,nallocs=0.0,nruns=1)
   CostTracker(name,time,nallocs,nruns)
 end
@@ -32,6 +37,15 @@ end
 
 function Base.show(io::IO,t::CostTracker)
   show(io,MIME"text/plain"(),t)
+end
+
+function mean(cs::AbstractVector{<:CostTracker})
+  name = get_name(first(cs))
+  @check all(name == get_name(c) for c in cs)
+  time = sum(map(get_time,cs))
+  nallocs = sum(map(get_nallocs,cs))
+  nruns = sum(map(get_nruns,cs))
+  CostTracker(name,time,nallocs,nruns)
 end
 
 function reset_tracker!(t::CostTracker)

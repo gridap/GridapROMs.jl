@@ -51,6 +51,12 @@ ParamDataStructures.param_length(a::RBParamVector) = param_length(a.data)
 ParamDataStructures.get_all_data(a::RBParamVector) = get_all_data(a.data)
 ParamDataStructures.param_getindex(a::RBParamVector,i::Integer) = param_getindex(a.data,i)
 
+function ParamDataStructures.param_cat(a::Vector{<:RBParamVector})
+  data = param_cat(map(_data,a))
+  fe_data = param_cat(map(_fe_data,a))
+  RBParamVector(data,fe_data)
+end
+
 for T in (:RBParamVector,:RBVector)
   @eval begin
     function Base.copy(a::$T)
@@ -153,8 +159,7 @@ function ParamDataStructures.parameterize(a::RBVector,plength::Int)
 end
 
 function unfold(a::BlockVector{T,<:AbstractVector{<:RBVector{T}}}) where T
-  _data(a::RBVector) = a.data
-  _fe_data(a::RBVector) = a.fe_data
+
   ax = axes(a)
   data = mortar(map(_data,blocks(a)))
   fe_data = mortar(map(_fe_data,blocks(a)))
@@ -162,9 +167,16 @@ function unfold(a::BlockVector{T,<:AbstractVector{<:RBVector{T}}}) where T
 end
 
 function unfold(a::BlockParamVector{T,<:AbstractVector{<:RBParamVector{T}}}) where T
-  _data(a::RBParamVector) = a.data
-  _fe_data(a::RBParamVector) = a.fe_data
+
   data = mortar(map(_data,blocks(a)))
   fe_data = mortar(map(_fe_data,blocks(a)))
   RBParamVector(data,fe_data)
 end
+
+# utils
+
+_data(a::RBVector) = a.data
+_fe_data(a::RBVector) = a.fe_data
+
+_data(a::RBParamVector) = a.data
+_fe_data(a::RBParamVector) = a.fe_data
