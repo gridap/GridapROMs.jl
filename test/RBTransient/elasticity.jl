@@ -82,6 +82,8 @@ function main(
   tf = 10*dt
   tdomain = t0:dt:tf
 
+  ptspace = TransientParamSpace(pdomain,tdomain)
+
   fesolver = ThetaMethod(LUSolver(),dt,θ)
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac)
 
