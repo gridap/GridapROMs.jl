@@ -43,6 +43,7 @@ import ArraysOfArrays: _ncolons
 import Base: +,-,*,\
 import FillArrays: Fill
 import GridapROMs.TProduct: get_factor
+import LowRankApprox: getcols,qr!,svd!,psvdrank
 import PartitionedArrays: tuple_of_arrays
 import Statistics: mean
 

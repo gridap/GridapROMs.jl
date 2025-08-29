@@ -548,6 +548,60 @@ for f in (:gram_schmidt,:gram_schmidt!)
   end
 end
 
+# overload to prevent bugs when compressing matrices of zeros
+
+function LowRankApprox.psvdfact(
+  A::AbstractMatOrLinOp{Float64},opts::LRAOptions=LRAOptions(Float64);args...)
+  opts = isempty(args) ? opts : copy(opts; args...)
+  m,n = size(A)
+  if m >= n
+    V = idfact(:n,A,opts)
+    Q,R = qr!(getcols(:n,A,V[:sk]))
+    Ũ,σ,Ṽ = svd!(R*V)
+    if isempty(σ)
+      return _empty_decomposition(A)
+    end
+    k = psvdrank(σ,opts)
+    if k < V[:k]
+      U = Q*view(Ũ,:,1:k)
+      S  = σ[1:k]
+      Vt = Ṽ'[1:k,:]
+    else
+      U = Q*Ũ
+      S  = σ
+      Vt = Ṽ'
+    end
+  else
+    V = idfact(:c,A,opts)
+    Q,R = qr!(getcols(:c,A,V[:sk]))
+    Ũ,σ,Ṽ = svd!(V'*R')
+    if isempty(σ)
+      return _empty_decomposition(A)
+    end
+    k = psvdrank(σ,opts)
+    if k < V[:k]
+      U = Ũ[:,1:k]
+      S = σ[1:k]
+      Vt = view(Ṽ',1:k,:)*Q'
+    else
+      U = Ũ
+      S = σ
+      Vt = Ṽ'*Q'
+    end
+  end
+  PartialSVD(U,S,Vt)
+end
+
+function _empty_decomposition(A::AbstractMatOrLinOp{T}) where T
+  m,n = size(A)
+  U = zeros(T,m,1)
+  U[1] = one(T)
+  S = zeros(T,1)
+  Vt = zeros(T,1,n)
+  Vt[1] = one(T)
+  return PartialSVD(U,S,Vt)
+end
+
 # for testing purposes
 
 function check_orthogonality(cores::AbstractVector{<:AbstractArray{T,3}},X::AbstractRankTensor) where T
