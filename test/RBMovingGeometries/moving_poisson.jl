@@ -1,53 +1,39 @@
-using DrWatson
-using LinearAlgebra
-using Serialization
+module MovingPoisson
 
+using DrWatson
 using Gridap
 using GridapEmbedded
 using GridapROMs
 
 using Gridap.Geometry
-using Gridap.Arrays
-using Gridap.Algebra
 using Gridap.CellData
-using Gridap.ReferenceFEs
 using Gridap.FESpaces
-using Gridap.ODEs
-using GridapROMs.DofMaps
-using GridapROMs.Uncommon
-using GridapROMs.ParamAlgebra
-using GridapROMs.ParamDataStructures
 using GridapROMs.RBSteady
 using GridapROMs.Extensions
-using GridapROMs.Utils
 
 import Gridap.Geometry: push_normal
 
-method=:pod
-tol=1e-4
-rank=nothing
-nparams=200
-nparams_res=nparams_jac=nparams
-sketch=:sprn
-compression=:local
-ncentroids=16
+method = :pod
+tol = 1e-4
+nparams = 100
+compression = :local
+ncentroids = 8
 
-domain = (0,2,0,2)
-n = 80
+const L = 2
+const W = 2
+const n = 40
+const γd = 10.0
+const hd = max(L,W)/n
+
+domain = (0,L,0,W)
 partition = (n,n)
 bgmodel = method==:ttsvd ? TProductDiscreteModel(domain,partition) : CartesianDiscreteModel(domain,partition)
 
 order = 1
-degree = 2
+degree = 2*order
 
-# # case 1: translation
-# pdomain = (0.6,1.4)
-# case 2: translation and dilation
 pdomain = (0.6,1.4,0.25,0.35)
 pspace = ParamSpace(pdomain)
-
-const γd = 10.0
-const hd = 2/n
 
 # quantities on the base configuration
 
@@ -164,129 +150,50 @@ end
 
 get_feop = method==:ttsvd ? def_extended_fe_operator : def_fe_operator
 
-function rb_solver(tol,nparams)
-  fesolver = LUSolver()
-  if method == :ttsvd
-    tol = fill(tol,3)
-    fesolver = ExtensionSolver(fesolver)
-  end
-  hr = compression == :global ? HyperReduction : LocalHyperReduction
-  tolhr = tol.*1e-2
-  state_reduction = Reduction(tol,energy;nparams,sketch,compression,ncentroids)
-  residual_reduction = hr(tolhr;nparams,ncentroids)
-  jacobian_reduction = hr(tolhr;nparams,ncentroids)
-  RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
-end
-
-function change_norm(rbsolver,tol,nparams)
-  tol = method == :ttsvd ? fill(tol,3) : tol
-  new_energy(du,v) = ∫(v*du)dΩ + ∫(∇(v)⋅∇(du))dΩ + ∫((γd/hd)*v*du)dΓ
-  state_reduction = Reduction(tol,new_energy;nparams,sketch,compression,ncentroids)
-  RBSolver(rbsolver.fesolver,state_reduction,rbsolver.residual_reduction,rbsolver.jacobian_reduction)
-end
-
-function plot_sol(rbop,x,x̂,μon,dir,i=1)
-  φh = get_deformation_map(μon)
-  φhi = param_getindex(φh,i)
-  Ωφ = mapped_grid(Ω,φhi)
-
-  if method==:ttsvd
-    u,û = vec(x[:,:,i]),vec(x̂[:,:,i])
-    V = FESpace(Ωbg,reffe,conformity=:H1,dirichlet_tags=[1,3,7])
-    U = param_getindex(ParamTrialFESpace(V,gμ)(μon),i)
-  else
-    u,û = x[:,i],x̂[:,i]
-    V = test
-    U = param_getindex(trial(μon),i)
-  end
-
-  uh = FEFunction(U,u)
-  ûh = FEFunction(U,û)
-  eh = FEFunction(V,abs.(u-û))
-
-  writevtk(Ωφ,dir*".vtu",cellfields=["uh"=>uh,"ûh"=>ûh,"eh"=>eh])
-end
-
-function postprocess(
-  dir,
-  rbsolver,
-  feop,
-  rbop,
-  fesnaps,
-  x̂,
-  festats,
-  rbstats)
-
-  μon = get_realization(fesnaps)
-  rbsnaps = RBSteady.to_snapshots(rbop,x̂,μon)
-  plot_sol(rbop,fesnaps,rbsnaps,μon,dir)
-  return eval_performance(rbsolver,feopon,fesnaps,rbsnaps,festats,rbstats)
-end
-
-function local_solver(dir,rbsolver,rbop,μ,x,festats)
+function local_solver(rbsolver,rbop,μ,x,festats)
   k, = get_clusters(rbop.test)
   μsplit = cluster(μ,k)
   xsplit = cluster(x,k)
   perfs = ROMPerformance[]
   for (μi,xi) in zip(μsplit,xsplit)
-    feopi = def_fe_operator(μi)
+    feopi = get_feop(μi)
     rbopi = change_operator(get_local(rbop,first(μi)),feopi)
     x̂,rbstats = solve(rbsolver,rbopi,μi)
-    perf = postprocess(dir,rbsolver,feopi,rbopi,xi,x̂,festats,rbstats)
+    perf = eval_performance(rbsolver,feopi,rbopi,xi,x̂,festats,rbstats)
     push!(perfs,perf)
   end
   return mean(perfs)
 end
 
-max_subspace_size(op::RBOperator) = max_subspace_size(get_test(op))
-max_subspace_size(r::RBSpace) = max_subspace_size(r.subspace)
-max_subspace_size(a::Projection) = num_reduced_dofs(a)
-max_subspace_size(a::NormedProjection) = max_subspace_size(a.projection)
-max_subspace_size(a::AffineContribution) = maximum(map(max_subspace_size,a.values))
-
-function max_subspace_size(a::LocalProjection)
-  maxsize = 0
-  for proj in a.projections
-    maxsize = max(maxsize,max_subspace_size(proj))
-  end
-  return maxsize
+fesolver = LUSolver()
+if method == :ttsvd
+  tol = fill(tol,2)
+  fesolver = ExtensionSolver(fesolver)
 end
-
-test_dir = joinpath(datadir("moving_poisson"),string(method))
-create_dir(test_dir)
+hr = compression == :global ? HyperReduction : LocalHyperReduction
+state_reduction = Reduction(tol,energy;nparams,sketch=:sprn,compression,ncentroids)
+residual_reduction = hr(tol.*1e-2;nparams,ncentroids)
+jacobian_reduction = hr(tol.*1e-2;nparams,ncentroids)
+rbsolver = RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
 
 μ = realization(pspace;nparams)
 feop = get_feop(μ)
+fesnaps, = solution_snapshots(rbsolver,feop,μ)
 
 μon = realization(pspace;nparams=10,sampling=:uniform)
 feopon = get_feop(μon)
-
-rbsolver = rb_solver(tol,nparams)
-fesnaps, = solution_snapshots(rbsolver,feop,μ)
-jacs = jacobian_snapshots(rbsolver,feop,fesnaps)
-ress = residual_snapshots(rbsolver,feop,fesnaps)
-
 x,festats = solution_snapshots(rbsolver,feopon,μon)
 
-perfs = ROMPerformance[]
-maxsizes = Int[]
+rbop = reduced_operator(rbsolver,feop,fesnaps)
 
-for tol in (1e-1,1e-2,1e-3,1e-4)
-  rbsolver = rb_solver(tol,nparams)
-  dir = joinpath(test_dir,string(compression)*"_"*string(tol))
-  rbop = reduced_operator(rbsolver,feop,fesnaps,jacs,ress)
-  maxsize = max_subspace_size(rbop)
-  if compression == :global
-    rbop′ = change_operator(rbop,feopon)
-    x̂,rbstats = solve(rbsolver,rbop′,μon)
-    perf = postprocess(dir,rbsolver,feopon,rbop′,x,x̂,festats,rbstats)
-  else
-    perf = local_solver(dir,rbsolver,rbop,μon,x,festats)
-  end
-  push!(perfs,perf)
-  push!(maxsizes,maxsize)
-  println(perf)
+if compression == :global
+  rbop′ = change_operator(rbop,feopon)
+  x̂,rbstats = solve(rbsolver,rbop′,μon)
+  perf = eval_performance(rbsolver,feop,rbop′,x,x̂,festats,rbstats)
+else
+  perf = local_solver(rbsolver,rbop,μon,x,festats)
 end
 
-serialize(joinpath(test_dir,"results"),perfs)
-serialize(joinpath(test_dir,"maxsizes"),maxsizes)
+println(perf)
+
+end

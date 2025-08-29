@@ -11,4 +11,9 @@ using Test
 @testset "unsteady stokes" begin include("RBTransient/stokes.jl") end
 @testset "unsteady navier-stokes" begin include("RBTransient/navier_stokes.jl") end
 
+@testset "moving poisson" begin include("RBMovingGeometries/moving_poisson.jl") end
+@testset "moving elasticity" begin include("RBMovingGeometries/moving_elasticity.jl") end
+@testset "moving stokes" begin include("RBMovingGeometries/moving_stokes.jl") end
+@testset "moving navier-stokes" begin include("RBMovingGeometries/moving_nstokes.jl") end
+
 end # module

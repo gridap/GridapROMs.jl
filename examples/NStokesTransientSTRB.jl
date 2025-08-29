@@ -97,6 +97,6 @@ dir = datadir("transient_nstokes_pod")
 create_dir(dir)
 
 tols = [1e-4,]
-ExamplesInterface.run_test(dir,rbsolver,feop,tols,xh0μ;reuse_online=true)
+run_test(dir,rbsolver,feop,tols,xh0μ;reuse_online=true)
 
 end

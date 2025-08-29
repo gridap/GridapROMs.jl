@@ -124,9 +124,9 @@ function main_ex2(distribute,parts)
   end
 end
 
-# with_mpi() do distribute
-#   main_ex1(distribute,(2,2))
-# end
+with_mpi() do distribute
+  main_ex1(distribute,(2,2))
+end
 
 with_mpi() do distribute
   main_ex2(distribute,(2,2))

@@ -1,5 +1,3 @@
-module ExamplesInterface
-
 using DrWatson
 using Gridap
 using Plots
@@ -16,9 +14,8 @@ import Gridap.Helpers: @abstractmethod
 import Gridap.MultiField: BlockMultiFieldStyle
 import GridapROMs.ParamAlgebra: get_linear_operator,get_nonlinear_operator
 import GridapROMs.ParamDataStructures: AbstractSnapshots,ReshapedSnapshots,TransientSnapshotsWithIC,GenericTransientRealization,get_realization
-import GridapROMs.ParamSteady: ParamOperator,LinearNonlinearParamEq
-import GridapROMs.ParamODEs: ODEParamOperator,LinearNonlinearParamODE
-import GridapROMs.RBSteady: reduced_operator,get_state_reduction,get_residual_reduction,get_jacobian_reduction,load_stats
+import GridapROMs.ParamSteady: ParamOperator
+import GridapROMs.RBSteady: get_state_reduction,get_residual_reduction,get_jacobian_reduction,load_stats
 import GridapROMs.Utils: Contribution,TupOfArrayContribution,change_domains
 
 function change_dof_map(s::GenericSnapshots,dof_map)
@@ -182,45 +179,6 @@ function update_solver(rbsolver::RBSolver,tol)
   RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
 end
 
-function reduced_operator(rbsolver::RBSolver,feop::ParamOperator,red_trial,red_test,jac,res)
-  jac_red = get_jacobian_reduction(rbsolver)
-  red_lhs = reduced_jacobian(jac_red,red_trial,red_test,jac)
-  res_red = get_residual_reduction(rbsolver)
-  red_rhs = reduced_residual(res_red,red_test,res)
-  RBOperator(feop,red_trial,red_test,red_lhs,red_rhs)
-end
-
-function reduced_operator(rbsolver::RBSolver,odeop::ODEParamOperator,red_trial,red_test,jac,res)
-  jac_red = get_jacobian_reduction(rbsolver)
-  red_lhs = reduced_jacobian(jac_red,red_trial,red_test,jac)
-  res_red = get_residual_reduction(rbsolver)
-  red_rhs = reduced_residual(res_red,red_test,res)
-  RBOperator(odeop,red_trial,red_test,red_lhs,red_rhs)
-end
-
-for T in (:LinearNonlinearParamEq,:LinearNonlinearParamODE)
-  @eval begin
-    function reduced_operator(
-      rbsolver::RBSolver,
-      feop::ParamOperator{$T},
-      red_trial,
-      red_test,
-      (jac_lin,jac_nlin),
-      (res_lin,res_nlin)
-      )
-
-      rbop_lin = reduced_operator(rbsolver,get_linear_operator(feop),red_trial,red_test,jac_lin,res_lin)
-      rbop_nlin = reduced_operator(rbsolver,get_nonlinear_operator(feop),red_trial,red_test,jac_nlin,res_nlin)
-      LinearNonlinearRBOperator(rbop_lin,rbop_nlin)
-    end
-  end
-end
-
-function reduced_operator(rbsolver::RBSolver,feop::ParamOperator,sol::AbstractSnapshots,args...)
-  red_trial,red_test = reduced_spaces(rbsolver,feop,sol)
-  reduced_operator(rbsolver,feop,red_trial,red_test,args...)
-end
-
 function run_test(
   dir::String,rbsolver::RBSolver,feop::ParamOperator,tols=[1e-1,1e-2,1e-3,1e-4,1e-5],
   args...;nparams=10,reuse_online=false,sampling=:uniform,kwargs...)
@@ -268,18 +226,4 @@ function run_cost(
   for tol in tols
     reduced_spaces(rbsolver,feop,fesnaps)
   end
-end
-
-export DrWatson
-export Gridap
-export Plots
-export Serialization
-export Test
-
-export GridapROMs
-
-export BlockMultiFieldStyle
-
-export run_test
-
 end

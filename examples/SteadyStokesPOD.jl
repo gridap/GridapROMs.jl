@@ -29,7 +29,6 @@ cutgeo = cut(bgmodel,geo2)
 Ωbg = Triangulation(bgmodel)
 Ωact = Triangulation(cutgeo,ACTIVE)
 Ω = Triangulation(cutgeo,PHYSICAL_IN)
-Ω_out = Triangulation(cutgeo,PHYSICAL_OUT)
 Γ = EmbeddedBoundary(cutgeo)
 
 n_Γ = get_normal_vector(Γ)
@@ -40,7 +39,6 @@ degree = 2*order
 dΩbg = Measure(Ωbg,degree)
 dΩ = Measure(Ω,degree)
 dΓ = Measure(Γ,degree)
-dΩ_out = Measure(Ω_out,degree)
 
 ν(μ) = x -> μ[1]
 νμ(μ) = ParamFunction(ν,μ)
@@ -52,20 +50,19 @@ gμ(μ) = ParamFunction(g,μ)
 f(μ) = x -> VectorValue(0.0,0.0)
 fμ(μ) = ParamFunction(f,μ)
 
-a(μ,(u,p),(v,q),dΩ,dΩ_out,dΓ) = (
+a(μ,(u,p),(v,q),dΩ,dΓ) = (
   ∫( νμ(μ)*∇(v)⊙∇(u) - p*(∇⋅(v)) - q*(∇⋅(u)) )dΩ +
-  ∫( ∇(v)⊙∇(u) )dΩ_out +
   ∫( - v⋅(n_Γ⋅∇(u))*νμ(μ) + (n_Γ⋅∇(v))⋅u*νμ(μ) + (p*n_Γ)⋅v + (q*n_Γ)⋅u )dΓ
 )
 
 l(μ,(u,p),(v,q),dΩ) = ∫( νμ(μ)*∇(v)⊙∇(u) - p*(∇⋅(v)) - q*(∇⋅(u)) )dΩ
 
 trian_res = (Ω,)
-trian_jac = (Ω,Ω_out,Γ)
+trian_jac = (Ω,Γ)
 domains = FEDomains(trian_res,trian_jac)
 
 coupling((du,dp),(v,q)) = ∫(dp*(∇⋅(v)))dΩbg
-energy((du,dp),(v,q)) = ∫(du⋅v)dΩbg + ∫(∇(v)⊙∇(du))dΩbg + ∫(dp*q)dΩ
+energy((du,dp),(v,q)) = ∫(du⋅v)dΩ + ∫(dp*q)dΩ + ∫(∇(v)⊙∇(du))dΩ + ∫((γd/hd)*du⋅v)dΓ
 
 reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
 test_u = TestFESpace(Ωbg,reffe_u;conformity=:H1,dirichlet_tags="dirichlet")
@@ -87,6 +84,6 @@ dir = datadir("stokes_pod")
 create_dir(dir)
 
 tols = [1e-1,1e-2,1e-3,1e-4,1e-5]
-ExamplesInterface.run_test(dir,rbsolver,feop,tols;trian=Ω)
+run_test(dir,rbsolver,feop,tols;trian=Ω)
 
 end
