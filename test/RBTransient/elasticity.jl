@@ -20,7 +20,7 @@ function main(
 
   println("Running test with compression $method, $compression compressions, and $hypred_strategy hyper-reduction")
 
-  pdomain = (1,0.9,0.25,0.42,-4*1e-4,4*1e-4)
+  pdomain = (0.9,1.0,0.25,0.42,-4*1e-4,4*1e-4)
 
   domain = (0,2.5,0,0.4)
   partition = (25,4)
@@ -81,6 +81,8 @@ function main(
   t0 = 0.0
   tf = 10*dt
   tdomain = t0:dt:tf
+
+  ptspace = TransientParamSpace(pdomain,tdomain)
 
   fesolver = ThetaMethod(LUSolver(),dt,θ)
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac)
