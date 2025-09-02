@@ -44,6 +44,7 @@ export TransientReduction
 export KroneckerReduction
 export SequentialReduction
 export HighDimHyperReduction
+export TransientHyperReduction
 export HighDimMDEIMHyperReduction
 include("ReductionMethods.jl")
 

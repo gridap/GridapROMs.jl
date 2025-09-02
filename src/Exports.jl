@@ -70,7 +70,7 @@ end
 @publish ParamODEs TransientTrialParamFESpace
 @publish ParamODEs TransientMultiFieldParamFESpace
 @publish ParamODEs TransientParamFEOperator
-@publish ParamODEs TransientParamLinearFEOperator
+@publish ParamODEs TransientLinearParamFEOperator
 @publish ParamODEs LinearNonlinearTransientParamFEOperator
 using GridapROMs.ParamODEs: ∂ₚt,∂ₚtt; export ∂ₚt,∂ₚtt
 
@@ -154,6 +154,8 @@ using GridapROMs.Extensions: ⊕; export ⊕
 @publish RBSteady load_stats
 
 @publish RBTransient HighDimReduction
-@publish RBTransient HighDimMDEIMHyperReduction
+@publish RBTransient TransientReduction
+@publish RBTransient HighDimHyperReduction
+@publish RBTransient TransientHyperReduction
 @publish RBTransient TransientProjection
 @publish RBTransient TransientRBOperator

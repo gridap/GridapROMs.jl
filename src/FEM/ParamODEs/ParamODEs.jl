@@ -60,8 +60,8 @@ export TransientParamFEOperator
 export SplitTransientParamFEOperator
 export JointTransientParamFEOperator
 export TransientParamFEOpFromWeakForm
-export TransientParamLinearFEOperator
-export TransientParamLinearFEOpFromWeakForm
+export TransientLinearParamFEOperator
+export TransientLinearParamFEOpFromWeakForm
 include("TransientParamFEOperators.jl")
 
 include("ParamTimeMarching.jl")

@@ -29,6 +29,7 @@ export compute_speedup
 export compute_error
 export compute_relative_error
 export induced_norm
+export sqrtreal
 include("PerformanceTrackers.jl")
 
 export PartialDerivative

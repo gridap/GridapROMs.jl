@@ -89,6 +89,13 @@ function inv_project!(x::AbstractArray,a::Projection,x̂::AbstractArray)
   mul!(x,basis,x̂)
 end
 
+"""
+    projection_eltype(a::Projection) -> DataType
+
+Returns the eltype of the projection `a`
+"""
+projection_eltype(a::Projection) = eltype(get_basis(a))
+
 function Algebra.allocate_in_domain(a::Projection,x::V) where V<:AbstractVector
   x̂ = allocate_vector(V,num_reduced_dofs(a))
   return x̂
@@ -170,8 +177,9 @@ Base.:*(a::Projection,b::Projection,c::Projection) = galerkin_projection(a,b,c)
 Base.:*(a::Projection,x::AbstractArray) = inv_project(a,x)
 Base.:*(x::AbstractArray,b::Projection) = rescale(*,x,b)
 
-function Base.:*(b::Projection,y::ConsecutiveParamArray)
-  item = zeros(num_reduced_dofs(b))
+function Base.:*(b::Projection,y::ConsecutiveParamArray{T}) where T
+  S = promote_type(projection_eltype(b),T)
+  item = zeros(S,num_reduced_dofs(b))
   plength = param_length(y)
   x = global_parameterize(item,plength)
   mul!(x,b,y)
@@ -431,6 +439,10 @@ function _galerkin_projection(
 
   proj_basis = galerkin_projection(get_basis(proj_left),get_basis(a),get_basis(proj_right))
   return ReducedProjection(proj_basis)
+end
+
+function projection_eltype(a::TTSVDProjection)
+  promote_type(map(eltype,get_cores(a))...)
 end
 
 function empirical_interpolation(a::TTSVDProjection)

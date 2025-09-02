@@ -102,6 +102,7 @@ end
 
 get_basis(a::GenericHRProjection) = a.basis
 get_interpolation(a::GenericHRProjection) = a.interpolation
+projection_eltype(a::GenericHRProjection) = projection_eltype(get_basis(a))
 
 function HRProjection(
   red::Reduction,
@@ -110,8 +111,9 @@ function HRProjection(
   test::RBSpace
   )
 
+  T = get_dof_value_type(test)
   nrows = num_reduced_dofs(test)
-  basis = ReducedProjection(zeros(nrows,1))
+  basis = ReducedProjection(zeros(T,nrows,1))
   interp = Interpolation(red)
   return HRProjection(basis,red,interp)
 end
@@ -124,9 +126,10 @@ function HRProjection(
   test::RBSpace
   )
 
+  T = get_dof_value_type(trial)
   nrows = num_reduced_dofs(test)
   ncols = num_reduced_dofs(trial)
-  basis = ReducedProjection(zeros(nrows,1,ncols))
+  basis = ReducedProjection(zeros(T,nrows,1,ncols))
   interp = Interpolation(red)
   return HRProjection(basis,red,interp)
 end
@@ -186,22 +189,25 @@ function HRProjection(
 end
 
 function allocate_coefficient(a::Projection)
+  T = projection_eltype(a)
   n = num_reduced_dofs(a)
-  coeff = zeros(n)
+  coeff = zeros(T,n)
   return coeff
 end
 
 function allocate_hyper_reduction(a::HRVecProjection)
+  T = projection_eltype(a)
   nrows = num_reduced_dofs_left_projector(a)
-  hypred = zeros(nrows)
+  hypred = zeros(T,nrows)
   fill!(hypred,zero(eltype(hypred)))
   return hypred
 end
 
 function allocate_hyper_reduction(a::HRMatProjection)
+  T = projection_eltype(a)
   nrows = num_reduced_dofs_left_projector(a)
   ncols = num_reduced_dofs_right_projector(a)
-  hypred = zeros(nrows,ncols)
+  hypred = zeros(T,nrows,ncols)
   fill!(hypred,zero(eltype(hypred)))
   return hypred
 end
@@ -510,7 +516,8 @@ function Arrays.return_cache(
   a::HRProjection,
   r::AbstractRealization)
 
-  coeffvec = testvalue(Vector{Float64})
+  T = projection_eltype(T)
+  coeffvec = testvalue(Vector{T})
   global_parameterize(coeffvec,num_params(r))
 end
 

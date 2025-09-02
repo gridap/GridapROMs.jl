@@ -3,8 +3,8 @@ function empirical_interpolation(basis::AbstractMatrix)
   I = zeros(Int,n)
   basisI = zeros(eltype(basis),n,n)
   @inbounds @views begin
-    res = abs.(basis[:,1])
-    I[1] = argmax(res)
+    res = basis[:,1]
+    I[1] = argmax(abs.(res))
     basisI[1,:] = basis[I[1],:]
     for l = 2:n
       U = basis[:,1:l-1]
@@ -14,8 +14,8 @@ function empirical_interpolation(basis::AbstractMatrix)
       Pᵀuₗ = uₗ[P,:]
       c = vec(PᵀU \ Pᵀuₗ)
       mul!(res,U,c)
-      @. res = abs(uₗ - res)
-      I[l] = argmax(res)
+      @. res = uₗ - res
+      I[l] = argmax(abs.(res))
       basisI[l,:] = basis[I[l],:]
     end
   end

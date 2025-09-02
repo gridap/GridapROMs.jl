@@ -80,7 +80,7 @@ trial_p = TransientTrialParamFESpace(test_p)
 test = TransientMultiFieldParamFESpace([test_u,test_p];style=BlockMultiFieldStyle())
 trial = TransientMultiFieldParamFESpace([trial_u,trial_p];style=BlockMultiFieldStyle())
 
-feop_lin = TransientLinearParamOperator((stiffness,mass),res,ptspace,
+feop_lin = TransientLinearParamOperator(res,(stiffness,mass),ptspace,
   trial,test,domains_lin;constant_forms=(false,true))
 feop_nlin = TransientParamOperator(res_nlin,jac_nlin,ptspace,
   trial,test,domains_nlin)

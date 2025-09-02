@@ -85,7 +85,7 @@ function main(
   fesolver = ThetaMethod(LUSolver(),dt,θ)
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac)
 
-  feop = TransientLinearParamOperator((stiffness,mass),res,ptspace,trial,test,domains)
+  feop = TransientLinearParamOperator(res,(stiffness,mass),ptspace,trial,test,domains)
   fesnaps, = solution_snapshots(rbsolver,feop,uh0μ)
   rbop = reduced_operator(rbsolver,feop,fesnaps)
 

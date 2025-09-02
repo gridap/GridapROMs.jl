@@ -100,7 +100,7 @@ const DistributedMultiFieldParamFESpace{MS} = DistributedMultiFieldFESpace{MS,<:
 const DistributedParamFESpace = Union{DistributedSingleFieldParamFESpace,DistributedMultiFieldParamFESpace}
 
 function ParamDataStructures.param_length(f::DistributedParamFESpace)
-  PartitionedArrays.getany(map(param_length,local_views(f)))
+  getany(map(param_length,local_views(f)))
 end
 
 function FESpaces.zero_free_values(f::DistributedSingleFieldParamFESpace)
@@ -126,7 +126,7 @@ function FESpaces.SparseMatrixAssembler(
   par_strategy=SubAssembledRows()
   )
 
-  PT = PartitionedArrays.getany(map(get_vector_type,local_views(trial)))
+  PT = getany(map(get_vector_type,local_views(trial)))
   T  = eltype2(PT)
   Tm = SparseMatrixCSC{T,Int}
   Tv = Vector{T}
@@ -148,4 +148,16 @@ function ParamDataStructures.parameterize(a::GridapDistributed.DistributedSparse
     a.test_dofs_gids_prange,
     a.trial_dofs_gids_prange
   )
+end
+
+function DofMaps.get_dof_map(f::DistributedFESpace)
+  map(local_views(f)) do f
+    get_dof_map(f)
+  end
+end
+
+function DofMaps.get_sparse_dof_map(f::DistributedFESpace,g::DistributedFESpace)
+  map(local_views(f),local_views(g)) do f,g
+    get_sparse_dof_map(f,g)
+  end
 end

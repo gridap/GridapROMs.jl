@@ -93,7 +93,8 @@ Base.@propagate_inbounds function contraction(
   A = reshape(permutedims(factor1,(2,1,3)),size(factor1,2),:)
   B = reshape(permutedims(factor2,(2,1,3)),size(factor2,2),:)
   C = reshape(permutedims(factor3,(2,1,3)),size(factor3,2),:)
-  ABC = zeros(size(A,2),size(B,2),size(C,2))
+  TSU = promote_type(T,S,U)
+  ABC = zeros(TSU,size(A,2),size(B,2),size(C,2))
   for (iA,a) = enumerate(eachcol(A))
     for (iB,b) = enumerate(eachcol(B))
       for (iC,c) = enumerate(eachcol(C))
@@ -324,8 +325,9 @@ end
 
 # utils
 
-Base.@propagate_inbounds function _sparsemul(B,C,sparsity::SparsityCSC)
-  BC = zeros(size(B,1),DofMaps.num_rows(sparsity),size(C,2))
+Base.@propagate_inbounds function _sparsemul(B,C,sparsity::SparsityCSC{T}) where T
+  S = promote_type(eltype(B),eltype(C),T)
+  BC = zeros(S,size(B,1),DofMaps.num_rows(sparsity),size(C,2))
   rv = rowvals(sparsity)
   for (iB,b) in enumerate(eachrow(B))
     for (iC,c) in enumerate(eachcol(C))

@@ -7,16 +7,18 @@ function RBSteady.galerkin_projection(
 end
 
 function RBSteady.galerkin_projection(
-  basis_left::AbstractMatrix,
-  basis::AbstractMatrix,
-  basis_right::AbstractMatrix,
-  combine::Function)
+  basis_left::AbstractMatrix{S},
+  basis::ParamSparseMatrix{T},
+  basis_right::AbstractMatrix{S},
+  combine::Function
+  ) where {T,S}
 
   nleft = size(basis_left,2)
   n = size(basis,2)
   nright = size(basis_right,2)
 
-  proj_basis = zeros(nleft,n,nright)
+  TS = promote_type(T,S)
+  proj_basis = zeros(TS,nleft,n,nright)
   proj_basis′ = copy(proj_basis)
 
   @inbounds for i = 1:nleft, k = 1:n, j = 1:nright
@@ -37,9 +39,9 @@ end
 function RBSteady.galerkin_projection(
   core_left::AbstractArray{T,3},
   basis::AbstractMatrix,
-  core_right::AbstractArray{S,3},
+  core_right::AbstractArray{T,3},
   combine::Function
-  ) where {T,S}
+  ) where T
 
   s1,s2,s3 = size(core_left)
   s4,s5,s6 = size(core_right)

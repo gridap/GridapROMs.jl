@@ -258,7 +258,7 @@ get_error(perf::ROMPerformance) = perf.error
 get_speedup(perf::ROMPerformance) = perf.speedup
 
 function Base.show(io::IO,k::MIME"text/plain",perf::ROMPerformance)
-  println(io," ----------------------- ROMPerformance ----------------------------")
+  println(io," -------------------- ROMPerformance -------------------------")
   println(io," > error: $(perf.error)")
   println(io," > speedup in time: $(perf.speedup.speedup_time)")
   println(io," > speedup in memory: $(perf.speedup.speedup_memory)")

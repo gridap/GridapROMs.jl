@@ -482,7 +482,7 @@ end
 # constructors
 
 function TransientLinearParamOperator(args...;kwargs...)
-  feop = TransientParamLinearFEOperator(args...;kwargs...)
+  feop = TransientLinearParamFEOperator(args...;kwargs...)
   get_algebraic_operator(feop)
 end
 

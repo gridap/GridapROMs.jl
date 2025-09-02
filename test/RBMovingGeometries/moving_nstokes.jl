@@ -37,7 +37,7 @@ bgmodel = CartesianDiscreteModel(domain,partition)
 order = 2
 degree = 2*order
 
-pdomain = (0.6,1.4,0.25,0.35)
+pdomain = (0.7,1.3,0.25,0.35)
 pspace = ParamSpace(pdomain)
 
 # quantities on the base configuration
@@ -63,9 +63,10 @@ n_Γ = get_normal_vector(Γ)
 strategy = AggregateAllCutCells()
 aggregates = aggregate(strategy,cutgeo)
 
-domains = FEDomains((Ω,),(Ω,Γ))
+domains_lin = FEDomains((Ω,),(Ω,Γ))
+domains_nlin = FEDomains((Ω,),(Ω,))
 
-const Re = 100
+const Re = 10
 
 conv(u,∇u) = (∇u')⋅u
 dconv(du,∇du,u,∇u) = conv(u,∇du)+conv(du,∇u)
@@ -130,7 +131,7 @@ function def_fe_operator(μ)
 
   jac_lin(μ,(u,p),(v,q),dΩ,dΓ) =
     ∫_Ω( (1/Re)*∇_I(v)⊙∇_I(u) - q*(∇⋅u) - (∇⋅v)*p ) * dΩ +
-    ∫_Γ( (10*γd/hd)*v⋅u - (1/Re)*v⋅(_n_Γ⋅∇_I(u)) - (1/Re)*(_n_Γ⋅∇_I(v))⋅u + (p*_n_Γ)⋅v + (q*_n_Γ)⋅u ) * dΓ
+    ∫_Γ( (γd/hd)*v⋅u - (1/Re)*v⋅(_n_Γ⋅∇_I(u)) - (1/Re)*(_n_Γ⋅∇_I(v))⋅u + (p*_n_Γ)⋅v + (q*_n_Γ)⋅u ) * dΓ
   res_lin(μ,(u,p),(v,q),dΩ) = ∫_Ω( (1/Re)*∇_I(v)⊙∇_I(u) - q*(∇⋅u) - (∇⋅v)*p ) * dΩ
 
   jac_nlin(μ,(u,p),(du,dp),(v,q),dΩ) = ∫_Ω( v⊙(dconv∘(du,∇_I(du),u,∇_I(u))) )dΩ

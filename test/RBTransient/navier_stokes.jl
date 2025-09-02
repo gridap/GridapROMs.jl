@@ -96,7 +96,7 @@ function main(
 
   ptspace = TransientParamSpace(pdomain,tdomain)
 
-  feop_lin = TransientLinearParamOperator((stiffness,mass),res,ptspace,
+  feop_lin = TransientLinearParamOperator(res,(stiffness,mass),ptspace,
     trial,test,domains_lin)
   feop_nlin = TransientParamOperator(res_nlin,jac_nlin,ptspace,
     trial,test,domains_nlin)

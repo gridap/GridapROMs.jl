@@ -117,7 +117,7 @@ Note that we have split the linear terms of the Navier-Stokes equations from the
 domains_lin = FEDomains(τₕ_res,(τₕ_jac,τₕ_jac_t))
 domains_nlin = FEDomains(τₕ_res,(τₕ_jac,))
 
-feop_lin = TransientLinearParamOperator((stiffness,mass),res,Dt,
+feop_lin = TransientLinearParamOperator(res,(stiffness,mass),Dt,
   X,Y,domains_lin)
 feop_nlin = TransientParamOperator(res_nlin,jac_nlin,Dt,
   X,Y,domains_nlin)

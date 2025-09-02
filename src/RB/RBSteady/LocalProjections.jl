@@ -41,20 +41,20 @@ function Utils.change_domains(a::LocalProjection,trians)
   LocalProjection(projections′,a.k)
 end
 
-local_values(a) = @abstractmethod
-local_values(a::LocalProjection) = a.projections
+local_vals(a) = @abstractmethod
+local_vals(a::LocalProjection) = a.projections
 
-function local_values(a::BlockProjection)
-  litems = map(local_values,a.array)
+function local_vals(a::BlockProjection)
+  litems = map(local_vals,a.array)
   nlitems = length(first(litems))
   map(1:nlitems) do i
     BlockProjection(getindex.(litems,i),a.touched)
   end
 end
 
-function local_values(a::RBSpace)
+function local_vals(a::RBSpace)
   space = get_fe_space(a)
-  lsubspace = local_values(get_reduced_subspace(a))
+  lsubspace = local_vals(get_reduced_subspace(a))
   map(x -> reduced_subspace(space,x),lsubspace)
 end
 
@@ -109,11 +109,11 @@ function enrich!(
   a_primal,a_dual... = a.array
   X_primal = norm_matrix[Block(1,1)]
   H_primal = symcholesky(X_primal)
-  a_primal_loc = local_values(a_primal)
+  a_primal_loc = local_vals(a_primal)
   for j in eachindex(a_primal_loc)
     pj = a_primal_loc[j]
     for i = eachindex(a_dual)
-      a_dual_i_loc = local_values(a_dual[i])
+      a_dual_i_loc = local_vals(a_dual[i])
       dij = get_basis(a_dual_i_loc[j])
       C_primal_dual_i = supr_matrix[Block(1,i+1)]
       supr_i = H_primal \ C_primal_dual_i * dij
@@ -136,11 +136,11 @@ function enrich!(
   a_primal,a_dual... = a.array
   X_primal = norm_matrix[Block(1,1)]
   H_primal = symcholesky(X_primal)
-  a_primal_loc = local_values(a_primal)
+  a_primal_loc = local_vals(a_primal)
   for j in eachindex(a_primal_loc)
     pj = a_primal_loc[j]
     for i = eachindex(a_dual)
-      a_dual_i_loc = local_values(a_dual[i])
+      a_dual_i_loc = local_vals(a_dual[i])
       dij = get_cores(a_dual_i_loc[j])
       C_primal_dual_i = supr_matrix[Block(1,i+1)]
       supr_ij = tt_supremizer(H_primal,C_primal_dual_i,dij)

@@ -126,6 +126,7 @@ FESpaces.get_dirichlet_dof_ids(r::RBSpace) = get_dirichlet_dof_ids(get_fe_space(
 FESpaces.get_cell_is_dirichlet(r::RBSpace) = get_cell_is_dirichlet(get_fe_space(r))
 FESpaces.num_dirichlet_tags(r::RBSpace) = num_dirichlet_tags(get_fe_space(r))
 FESpaces.get_dirichlet_dof_tag(r::RBSpace) = get_dirichlet_dof_tag(get_fe_space(r))
+FESpaces.get_dof_value_type(f::RBSpace) = get_dof_value_type(get_fe_space(r))
 DofMaps.get_dof_map(r::RBSpace) = get_dof_map(get_fe_space(r))
 ParamDataStructures.param_length(r::RBSpace) = param_length(get_fe_space(r))
 

@@ -168,13 +168,22 @@ function RBSteady.galerkin_projection(
   n = num_reduced_dofs(a)
   nright = num_reduced_dofs(proj_right)
 
-  proj_basis = zeros(nleft,n,nright)
+  T = projection_eltype(proj_left)
+  S = projection_eltype(a)
+  TS = promote_type(T,S)
+  proj_basis = zeros(TS,nleft,n,nright)
   @inbounds for is = 1:ns, it = 1:nt
     ist = (it-1)*ns+is
     @views proj_basis[:,ist,:] = kron(proj_basis_time[:,it,:],proj_basis_space[:,is,:])
   end
 
   return ReducedProjection(proj_basis)
+end
+
+function RBSteady.projection_eltype(a::KroneckerProjection)
+  T = projection_eltype(a.projection_space)
+  S = projection_eltype(a.projection_time)
+  promote_type(T,S)
 end
 
 function RBSteady.empirical_interpolation(a::KroneckerProjection)
@@ -237,6 +246,10 @@ function RBSteady.galerkin_projection(
   combine)
 
   _galerkin_projection(get_dof_map(a),proj_left,a,proj_right,combine)
+end
+
+function RBSteady.projection_eltype(a::SequentialProjection)
+  projection_eltype(a.projection)
 end
 
 function _galerkin_projection(
@@ -376,6 +389,7 @@ end
 
 function time_enrichment(basis_primal,basis_dual;tol=1e-2)
   basis_pd = basis_primal'*basis_dual
+  T = eltype(basis_pd)
 
   function enrich!(basis_primal,basis_pd,v)
     vnew = copy(v)
@@ -389,7 +403,7 @@ function time_enrichment(basis_primal,basis_dual;tol=1e-2)
     basis_pd_start = view(basis_pd,:,1:i-1)
     basis_pd_i = view(basis_pd,:,i)
     basis_d_i = view(basis_dual,:,i)
-    proj = i == 1 ? zeros(size(basis_pd,1)) : orth_projection(basis_pd_i,basis_pd_start)
+    proj = i == 1 ? zeros(T,size(basis_pd,1)) : orth_projection(basis_pd_i,basis_pd_start)
     dist = norm(basis_pd_i-proj)
     if dist ≤ tol
       basis_primal,basis_pd = enrich!(basis_primal,basis_pd,basis_d_i)

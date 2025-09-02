@@ -6,42 +6,18 @@ Given an array (of snapshots) `A`, returns a reduced basis obtained by means of
 the reduction strategy `red`
 """
 function reduction(red::Reduction,A::AbstractArray,args...)
-  iszero(A) ? _zero_reduction(red,A,args...) : _reduction(red,A,args...)
-end
-
-function _reduction(red::Reduction,A::AbstractArray,args...)
   @abstractmethod
 end
 
-function _reduction(red::PODReduction,A::AbstractArray,args...)
+function reduction(red::PODReduction,A::AbstractArray,args...)
   red_style = ReductionStyle(red)
   U,S,V = tpod(red_style,A,args...)
   return U
 end
 
-function _reduction(red::TTSVDReduction,A::AbstractArray,args...)
+function reduction(red::TTSVDReduction,A::AbstractArray,args...)
   red_style = ReductionStyle(red)
   cores,remainder = ttsvd(red_style,A,args...)
-  return cores
-end
-
-function _zero_reduction(red::Reduction,A::AbstractArray,args...)
-  @abstractmethod
-end
-
-function _zero_reduction(red::PODReduction,A::AbstractArray)
-  U = zeros(size(A,1),1)
-  U[1] = 1.0
-  return U
-end
-
-function _zero_reduction(red::TTSVDReduction,A::AbstractArray{T,N}) where {T,N}
-  cores = Vector{Array{T,3}}(undef,N-1)
-  for d in 1:N-1
-    core = zeros(1,size(A,d),1)
-    core[1] = 1.0
-    cores[d] = core
-  end
   return cores
 end
 
@@ -409,12 +385,13 @@ function weight_array(prev_weight,core,X)
   rank_prev = size(core,1)
   rank = size(core,3)
   rrprev = rank_prev*rank
+  T = eltype(core)
   N = size(core,2)
 
-  cur_weight = zeros(rank,K,rank)
+  cur_weight = zeros(T,rank,K,rank)
   core2D = reshape(permutedims(core,(2,1,3)),N,rrprev)
-  cache_right = zeros(N,rrprev)
-  cache_left = zeros(rrprev,rrprev)
+  cache_right = zeros(T,N,rrprev)
+  cache_left = zeros(T,rrprev,rrprev)
 
   @inbounds for k = 1:K
     Xk = X[k]
@@ -432,10 +409,11 @@ function ttnorm_array(X::AbstractRankTensor{D,K},WD) where {D,K}
   @check size(WD,2) == K
   @check all(size(get_factor(X,D,1)) == size(get_factor(X,D,k)) for k = 2:K)
 
+  T = eltype(WD)
   s1 = size(WD,1)*size(get_factor(X,D,1),1)
   s2 = size(WD,3)*size(get_factor(X,D,1),2)
-  XW = zeros(s1,s2)
-  cache = zeros(s1,s2)
+  XW = zeros(T,s1,s2)
+  cache = zeros(T,s1,s2)
 
   for k = 1:rank(X)
     @views WDk = WD[:,k,:]

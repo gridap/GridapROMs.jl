@@ -1,15 +1,4 @@
-function RBSteady._zero_reduction(red::TTSVDReduction,A::TransientSnapshots{T,N}) where {T,N}
-  cores = Vector{Array{T,3}}(undef,N-1)
-  for d in 1:N-1
-    s = d == N-1 ? size(A,N) : size(A,d)
-    core = zeros(1,s,1)
-    core[1] = 1.0
-    cores[d] = core
-  end
-  return cores
-end
-
-function RBSteady._reduction(red::TTSVDReduction,A::TransientSnapshots,args...)
+function RBSteady.reduction(red::TTSVDReduction,A::TransientSnapshots,args...)
   red_style = ReductionStyle(red)
   cores,remainder = ttsvd(red_style,A,args...)
   add_temporal_core!(cores,red_style[end],remainder)

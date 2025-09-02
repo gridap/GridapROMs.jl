@@ -272,12 +272,12 @@ function tpmul(a::AbstractArray,b::AbstractRankTensor{D,K}) where {D,K}
 end
 
 function Utils.induced_norm(a::AbstractArray{T,D},X::AbstractRankTensor{D}) where {T,D}
-  sqrt(dot(vec(a),vec(X*a)))
+  sqrtreal(dot(vec(a),vec(X*a)))
 end
 
 function Utils.induced_norm(a::AbstractArray{T,D′},X::AbstractRankTensor{D}) where {T,D,D′}
   D ≥ D′ && @notimplemented
-  sqrt(sum(induced_norm(ai,X)^2 for ai in eachslice(a,dims=D′)))
+  sqrtreal(sum(induced_norm(ai,X)^2 for ai in eachslice(a,dims=D′)))
 end
 
 # to global array - should try avoiding using these functions

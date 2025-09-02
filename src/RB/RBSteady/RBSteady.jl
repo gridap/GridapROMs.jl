@@ -126,6 +126,7 @@ export project
 export project!
 export inv_project
 export inv_project!
+export projection_eltype
 export union_bases
 export get_norm_matrix
 export enrich!
@@ -183,7 +184,7 @@ export LocalProjection
 export compute_ncentroids
 export cluster
 export get_local
-export local_values
+export local_vals
 export get_clusters
 include("LocalProjections.jl")
 

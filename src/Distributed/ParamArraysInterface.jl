@@ -62,6 +62,14 @@ function PartitionedArrays.ghost_values(a::ConsecutiveParamVector,indices)
   ConsecutiveParamArray(gv)
 end
 
+function PartitionedArrays.own_values(a::AbstractMatrix{<:Number},indices)
+  view(a,own_to_local(indices),:)
+end
+
+function PartitionedArrays.ghost_values(a::AbstractMatrix{<:Number},indices)
+  view(a,ghost_to_local(indices),:)
+end
+
 # caches
 
 struct ParamVectorAssemblyCache{T,A}

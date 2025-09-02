@@ -1,9 +1,9 @@
-function RBSteady.local_values(a::KroneckerProjection)
-  map(KroneckerProjection,local_values(a.projection_space),local_values(a.projection_time))
+function RBSteady.local_vals(a::KroneckerProjection)
+  map(KroneckerProjection,local_vals(a.projection_space),local_vals(a.projection_time))
 end
 
-function RBSteady.local_values(a::SequentialProjection)
-  map(SequentialProjection,local_values(a.projection))
+function RBSteady.local_vals(a::SequentialProjection)
+  map(SequentialProjection,local_vals(a.projection))
 end
 
 RBSteady.get_clusters(a::KroneckerProjection) = get_clusters(a.projection_space)
@@ -36,13 +36,13 @@ function RBSteady.enrich!(
   a_primal,a_dual... = a.array
   X_primal = norm_matrix[Block(1,1)]
   H_primal = symcholesky(X_primal)
-  a_primal_loc = local_values(a_primal)
+  a_primal_loc = local_vals(a_primal)
   for j in eachindex(a_primal_loc)
     pj_space = a_primal_loc[j].projection_space
     pj_time = a_primal_loc[j].projection_time
     for i = eachindex(a_dual)
       if a.touched[i]
-        a_dual_i = local_values(a_dual[i])
+        a_dual_i = local_vals(a_dual[i])
         dij_space = get_basis_space(a_dual_i[j])
         C_primal_dual_i = supr_matrix[Block(1,i+1)]
         supr_space_i = H_primal \ C_primal_dual_i * dij_space
