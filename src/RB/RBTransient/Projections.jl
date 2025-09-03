@@ -20,7 +20,7 @@ function RBSteady.project!(x̂::ConsecutiveParamVector,a::TransientProjection,x:
   @inbounds for ip in eachindex(x̂)
     ipt = ip:np:np*nt
     xpt = vec(view(x.data,:,ipt))
-    x̂p = x̂[ip]
+    x̂p = view(x̂.data,:,ip)
     project!(x̂p,a,xpt)
   end
 end

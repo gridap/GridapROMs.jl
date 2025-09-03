@@ -42,16 +42,16 @@ function main(
   p(μ) = μ[1]/(2(1+μ[2]))
 
   σ(μ,t) = ε -> λ(μ)*tr(ε)*one(ε) + 2*p(μ)*ε
-  σμt(μ,t) = TransientParamFunction(σ,μ,t)
+  σμt(μ,t) = parameterize(σ,μ,t)
 
   h(μ,t) = x -> VectorValue(0.0,μ[3]*exp(sin(2*π*t/tf)))
-  hμt(μ,t) = TransientParamFunction(h,μ,t)
+  hμt(μ,t) = parameterize(h,μ,t)
 
   g(μ,t) = x -> VectorValue(0.0,0.0)
-  gμt(μ,t) = TransientParamFunction(g,μ,t)
+  gμt(μ,t) = parameterize(g,μ,t)
 
   u0(μ) = x -> VectorValue(0.0,0.0)
-  u0μ(μ) = ParamFunction(u0,μ)
+  u0μ(μ) = parameterize(u0,μ)
 
   stiffness(μ,t,u,v,dΩ) = ∫( ε(v) ⊙ (σμt(μ,t)∘ε(u)) )*dΩ
   mass(μ,t,uₜ,v,dΩ) = ∫(v⋅uₜ)dΩ

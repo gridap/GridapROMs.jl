@@ -529,7 +529,7 @@ end
 # overload to prevent bugs when compressing matrices of zeros
 
 function LowRankApprox.psvdfact(
-  A::AbstractMatOrLinOp{Float64},opts::LRAOptions=LRAOptions(Float64);args...)
+  A::AbstractMatOrLinOp{T},opts::LRAOptions=LRAOptions(T);args...) where T<:Number
   opts = isempty(args) ? opts : copy(opts; args...)
   m,n = size(A)
   if m >= n
@@ -574,7 +574,7 @@ function _empty_decomposition(A::AbstractMatOrLinOp{T}) where T
   m,n = size(A)
   U = zeros(T,m,1)
   U[1] = one(T)
-  S = zeros(T,1)
+  S = zeros(real(T),1)
   Vt = zeros(T,1,n)
   Vt[1] = one(T)
   return PartialSVD(U,S,Vt)

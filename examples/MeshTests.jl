@@ -349,7 +349,7 @@ function get_2d_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,
   hμt(μ,t) = parameterize(h,μ,t)
 
   u0(μ) = x -> 0.0
-  u0μ(μ) = ParamFunction(u0,μ)
+  u0μ(μ) = parameterize(u0,μ)
 
   stiffness(μ,t,u,v,dΩ) = ∫(νμt(μ,t)*∇(v)⋅∇(u))dΩ
   mass(μ,t,uₜ,v,dΩ) = ∫(v*uₜ)dΩ
@@ -411,7 +411,7 @@ function get_3d_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,
   hμt(μ,t) = parameterize(h,μ,t)
 
   u0(μ) = x -> 0.0
-  u0μ(μ) = ParamFunction(u0,μ)
+  u0μ(μ) = parameterize(u0,μ)
 
   stiffness(μ,t,u,v,dΩ) = ∫(νμt(μ,t)*∇(v)⋅∇(u))dΩ
   mass(μ,t,uₜ,v,dΩ) = ∫(v*uₜ)dΩ
@@ -469,7 +469,7 @@ function get_elasticity_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2
   p(μ) = μ[1]/(2(1+μ[2]))
 
   σ(μ,t) = ε -> exp(sin(2pi*t/tf))*(λ(μ)*tr(ε)*one(ε) + 2*p(μ)*ε)
-  σμt(μ,t) = TransientParamFunction(σ,μ,t)
+  σμt(μ,t) = parameterize(σ,μ,t)
 
   g(μ,t) = x -> VectorValue(0.0,0.0,0.0)
   gμt(μ,t) = parameterize(g,μ,t)
@@ -484,7 +484,7 @@ function get_elasticity_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2
   h3μt(μ,t) = parameterize(h3,μ,t)
 
   u0(μ) = x -> VectorValue(0.0,0.0,0.0)
-  u0μ(μ) = ParamFunction(u0,μ)
+  u0μ(μ) = parameterize(u0,μ)
 
   stiffness(μ,t,u,v,dΩ) = ∫( ε(v) ⊙ (σμt(μ,t)∘ε(u)) )dΩ
   mass(μ,t,uₜ,v,dΩ) = ∫(v⋅uₜ)dΩ

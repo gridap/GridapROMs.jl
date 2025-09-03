@@ -1,9 +1,10 @@
-function empirical_interpolation(basis::AbstractMatrix)
-  n = size(basis,2)
+function empirical_interpolation(basis::AbstractMatrix{T}) where T
+  m,n = size(basis)
+  res = zeros(T,m)
   I = zeros(Int,n)
-  basisI = zeros(eltype(basis),n,n)
+  basisI = zeros(T,n,n)
   @inbounds @views begin
-    res = basis[:,1]
+    @. res = basis[:,1]
     I[1] = argmax(abs.(res))
     basisI[1,:] = basis[I[1],:]
     for l = 2:n

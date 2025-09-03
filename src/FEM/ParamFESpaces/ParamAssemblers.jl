@@ -1,4 +1,21 @@
 function FESpaces.SparseMatrixAssembler(
+  matrix_builder,
+  vector_builder,
+  rows::AbstractUnitRange,
+  cols::AbstractUnitRange,
+  strategy::AssemblyStrategy
+  )
+
+  GenericSparseMatrixAssembler(
+    matrix_builder,
+    vector_builder,
+    rows,
+    cols,
+    strategy
+    )
+end
+
+function FESpaces.SparseMatrixAssembler(
   trial::SingleFieldParamFESpace,
   test::SingleFieldFESpace
   )
@@ -27,23 +44,23 @@ function ParamDataStructures.parameterize(
   a::MultiField.BlockSparseMatrixAssembler{NB,NV,SB,P},
   plength::Int) where {NB,NV,SB,P}
 
-  matrix_builder = parameterize(_getfirst(get_matrix_builder(a)),plength)
-  vector_builder = parameterize(_getfirst(get_vector_builder(a)),plength)
+  matrix_builder = get_matrix_builder(a)
+  vector_builder = get_vector_builder(a)
   rows = FESpaces.get_rows(a)
   cols = FESpaces.get_cols(a)
   strategy = FESpaces.get_assembly_strategy(a)
   block_idx = CartesianIndices((NB,NB))
   block_assemblers = map(block_idx) do idx
+    mb = matrix_builder[idx[1],idx[2]]
+    vb = vector_builder[idx[1]]
     r = rows[idx[1]]
     c = cols[idx[2]]
     s = strategy[idx[1],idx[2]]
-    GenericSparseMatrixAssembler(matrix_builder,vector_builder,r,c,s)
+    assem = SparseMatrixAssembler(mb,vb,r,c,s)
+    parameterize(assem,plength)
   end
   MultiField.BlockSparseMatrixAssembler{NB,NV,SB,P}(block_assemblers)
 end
-
-_getfirst(a::Fields.ArrayBlock) = a[findfirst(a.touched)]
-_getfirst(a::Fields.ArrayBlockView) = _getfirst(a.array)
 
 function FESpaces.assemble_vector_add!(
   b::BlockParamVector,

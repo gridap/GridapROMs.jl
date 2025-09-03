@@ -8,7 +8,7 @@ end
 
 function RBSteady.galerkin_projection(
   basis_left::AbstractMatrix{S},
-  basis::ParamSparseMatrix{T},
+  basis::AbstractMatrix{T},
   basis_right::AbstractMatrix{S},
   combine::Function
   ) where {T,S}

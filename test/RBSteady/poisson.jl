@@ -35,16 +35,16 @@ function main(
   dΓn = Measure(Γn,degree)
 
   a(μ) = x -> exp(-x[1]/sum(μ))
-  aμ(μ) = ParamFunction(a,μ)
+  aμ(μ) = parameterize(a,μ)
 
   f(μ) = x -> 1.
-  fμ(μ) = ParamFunction(f,μ)
+  fμ(μ) = parameterize(f,μ)
 
   g(μ) = x -> μ[1]*exp(-x[1]/μ[2])
-  gμ(μ) = ParamFunction(g,μ)
+  gμ(μ) = parameterize(g,μ)
 
   h(μ) = x -> abs(cos(μ[3]*x[2]))
-  hμ(μ) = ParamFunction(h,μ)
+  hμ(μ) = parameterize(h,μ)
 
   stiffness(μ,u,v,dΩ) = ∫(aμ(μ)*∇(v)⋅∇(u))dΩ
   rhs(μ,v,dΩ,dΓn) = ∫(fμ(μ)*v)dΩ + ∫(hμ(μ)*v)dΓn

@@ -34,19 +34,19 @@ function main(
   dΓn = Measure(Γn,degree)
 
   a(μ,t) = x -> 1+exp(-sin(t)^2*x[1]/sum(μ))
-  aμt(μ,t) = TransientParamFunction(a,μ,t)
+  aμt(μ,t) = parameterize(a,μ,t)
 
   f(μ,t) = x -> 1.
-  fμt(μ,t) = TransientParamFunction(f,μ,t)
+  fμt(μ,t) = parameterize(f,μ,t)
 
   h(μ,t) = x -> abs(cos(t/μ[3]))
-  hμt(μ,t) = TransientParamFunction(h,μ,t)
+  hμt(μ,t) = parameterize(h,μ,t)
 
   g(μ,t) = x -> μ[1]*exp(-x[1]/μ[2])*abs(sin(t/μ[3]))
-  gμt(μ,t) = TransientParamFunction(g,μ,t)
+  gμt(μ,t) = parameterize(g,μ,t)
 
   u0(μ) = x -> 0.0
-  u0μ(μ) = ParamFunction(u0,μ)
+  u0μ(μ) = parameterize(u0,μ)
 
   stiffness(μ,t,u,v,dΩ) = ∫(aμt(μ,t)*∇(v)⋅∇(u))dΩ
   mass(μ,t,uₜ,v,dΩ) = ∫(v*uₜ)dΩ

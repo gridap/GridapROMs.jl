@@ -40,10 +40,10 @@ function main(
 
   Re = 100
   a(μ) = x -> μ[1]/Re*exp(-x[1])
-  aμ(μ) = ParamFunction(a,μ)
+  aμ(μ) = parameterize(a,μ)
 
   g(μ) = x -> VectorValue(-(μ[2]*x[2]+μ[3])*x[2]*(1.0-x[2]),0.0)*(x[1]==0.0)
-  gμ(μ) = ParamFunction(g,μ)
+  gμ(μ) = parameterize(g,μ)
 
   conv(u,∇u) = (∇u')⋅u
   dconv(du,∇du,u,∇u) = conv(u,∇du)+conv(du,∇u)

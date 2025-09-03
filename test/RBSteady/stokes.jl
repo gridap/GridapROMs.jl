@@ -37,10 +37,10 @@ function main(
   dΩ = Measure(Ω,degree)
 
   a(μ) = x -> μ[1]*exp(-x[1])
-  aμ(μ) = ParamFunction(a,μ)
+  aμ(μ) = parameterize(a,μ)
 
   g(μ) = x -> VectorValue(-(μ[2]*x[2]+μ[3])*x[2]*(1.0-x[2]),0.0)*(x[1]==0.0)
-  gμ(μ) = ParamFunction(g,μ)
+  gμ(μ) = parameterize(g,μ)
 
   stiffness(μ,(u,p),(v,q),dΩ) = ∫(aμ(μ)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
   res(μ,(u,p),(v,q),dΩ) = stiffness(μ,(u,p),(v,q),dΩ)

@@ -46,10 +46,10 @@ h(μ) = x -> 1
 Next, we parameterize the data defined above exclusively by `μ` in the following manner:
 
 ```julia
-νₚ(μ) = ParamFunction(ν,μ)
-uₚ(μ) = ParamFunction(u,μ)
-fₚ(μ) = ParamFunction(f,μ)
-hₚ(μ) = ParamFunction(h,μ)
+νₚ(μ) = parameterize(ν,μ)
+uₚ(μ) = parameterize(u,μ)
+fₚ(μ) = parameterize(f,μ)
+hₚ(μ) = parameterize(h,μ)
 ```
 
 A [`ParamFunction`](@ref) is a function that can be evaluated efficiently for any number of desired parameters. In a steady setting, it takes as argument a function (`u`, `f` and `h` in the cases above) and a parameter variable. In a transient setting, an additional time variable must be included (more details can be found in the following tutorial for transient problems).

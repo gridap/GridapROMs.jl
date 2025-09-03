@@ -61,6 +61,21 @@ function RBSteady.solution_snapshots(
   return snaps,stats
 end
 
+# not needed
+function RBSteady.solution_snapshots(
+  fesolver::ODESolver,
+  op::ODEParamOperator,
+  r::TransientRealization,
+  args...)
+
+  sol = solve(fesolver,op,r,args...)
+  values,stats = collect(sol)
+  initial_values = initial_condition(sol)
+  i = get_dof_map(op)
+  snaps = Snapshots(values,initial_values,i,r)
+  return snaps,stats
+end
+
 function RBSteady.residual_snapshots(
   solver::RBSolver,
   odeop::ODEParamOperator,

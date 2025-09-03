@@ -28,6 +28,7 @@ using GridapROMs.ParamODEs
 using GridapROMs.RBSteady
 
 import ArraysOfArrays: innersize
+import BlockArrays: mortar
 import Gridap.Helpers: @abstractmethod, @check
 import GridapDistributed: BlockPArray, DistributedFESpace, DistributedSingleFieldFESpace, DistributedMultiFieldFESpace, to_parray_of_arrays
 import GridapROMs.DofMaps: range_2d, range_1d

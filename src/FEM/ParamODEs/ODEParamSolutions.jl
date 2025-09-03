@@ -48,8 +48,8 @@ function Base.iterate(sol::ODEParamSolution,state)
 end
 
 function Base.collect(sol::ODEParamSolution)
-  values = _collect_param_solutions(sol)
-  t = @timed values = _collect_param_solutions(sol)
+  values = collect_param_solutions(sol)
+  t = @timed values = collect_param_solutions(sol)
   tracker = CostTracker(t;name="FEM time marching",nruns=num_params(sol.r))
   return values,tracker
 end
@@ -87,30 +87,43 @@ end
 
 initial_condition(sol::ODEParamSolution) = sol.u0
 
-function _collect_param_solutions(sol)
+function collect_param_solutions(sol)
   @notimplemented
 end
 
-function _collect_param_solutions(sol::ODEParamSolution{<:ConsecutiveParamVector{T}}) where T
+function collect_param_solutions(sol::ODEParamSolution{<:ConsecutiveParamVector{T}}) where T
   u0item = testitem(sol.u0)
   ncols = num_params(sol.r)*num_times(sol.r)
-  values = similar(u0item,T,(size(u0item,1),ncols))
+  sols = _allocate_solutions(sol.u0,ncols)
   for (k,(rk,uk)) in enumerate(sol)
-    _collect_solutions!(values,uk,k)
+    _collect_solutions!(sols,uk,k)
   end
-  return ConsecutiveParamArray(values)
+  return sols
 end
 
-function _collect_param_solutions(sol::ODEParamSolution{<:BlockParamVector{T}}) where T
+function collect_param_solutions(sol::ODEParamSolution{<:BlockParamVector{T}}) where T
   u0item = testitem(sol.u0)
   ncols = num_params(sol.r)*num_times(sol.r)
-  values = map(b -> ConsecutiveParamArray(similar(b,T,(size(b,1),ncols))),blocks(u0item))
+  sols = _allocate_solutions(sol.u0,ncols)
   for (k,(rk,uk)) in enumerate(sol)
     for i in 1:blocklength(u0item)
-      _collect_solutions!(values[i].data,blocks(uk)[i],k)
+      _collect_solutions!(blocks(sols)[i],blocks(uk)[i],k)
     end
   end
-  return mortar(values)
+  return sols
+end
+
+function _allocate_solutions(u0::ConsecutiveParamVector{T},ncols) where T
+  data = similar(u0,T,(size(u0,1),ncols))
+  return ConsecutiveParamArray(data)
+end
+
+function _allocate_solutions(u0::BlockParamVector,ncols)
+  mortar(b -> _allocate_solutions(b,ncols),blocks(u0))
+end
+
+function _collect_solutions!(sols::ConsecutiveParamVector,ui::ConsecutiveParamVector,it::Int)
+  _collect_solutions!(get_all_data(sols),ui,it)
 end
 
 function _collect_solutions!(

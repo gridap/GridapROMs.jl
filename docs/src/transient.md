@@ -53,9 +53,9 @@ The way in which we simultaneously evaluate parameter- and time-dependent functi
 const W = 0.5
 inflow(μ,t) = abs(1-cos(2π*t/tf)+μ[3]*sin(μ[2]*2π*t/tf)/100)
 g_in(μ,t) = x -> VectorValue(-x[2]*(W-x[2])*inflow(μ,t),0.0)
-gₚₜ_in(μ,t) = TransientParamFunction(g_in,μ,t)
+gₚₜ_in(μ,t) = parameterize(g_in,μ,t)
 g_0(μ,t) = x -> VectorValue(0.0,0.0)
-gₚₜ_0(μ,t) = TransientParamFunction(g_0,μ,t)
+gₚₜ_0(μ,t) = parameterize(g_0,μ,t)
 ```
 
 which we use to define the FE spaces. We employ the Inf-Sup stable `P2-P1` (Taylor-Hood) pair for velocity and pressure, respectively:
@@ -93,7 +93,7 @@ and then the problem's weak formulation
 const Re = 100.0
 a(x,μ,t) = μ[1]/Re
 a(μ,t) = x->a(x,μ,t)
-aμt(μ,t) = TransientParamFunction(a,μ,t)
+aμt(μ,t) = parameterize(a,μ,t)
 
 conv(u,∇u) = (∇u')⋅u
 dconv(du,∇du,u,∇u) = conv(u,∇du)+conv(du,∇u)
@@ -130,10 +130,10 @@ Next, we define the time marching scheme for our problem, along with a suitable 
 ```julia 
 u0(x,μ) = VectorValue(0.0,0.0)
 u0(μ) = x->u0(x,μ)
-u0μ(μ) = ParamFunction(u0,μ)
+u0μ(μ) = parameterize(u0,μ)
 p0(x,μ) = 0.0
 p0(μ) = x->p0(x,μ)
-p0μ(μ) = ParamFunction(p0,μ)
+p0μ(μ) = parameterize(p0,μ)
 xh0μ(μ) = interpolate_everywhere([u0μ(μ),p0μ(μ)],X(μ,t0))
 
 nls = NewtonSolver(LUSolver();rtol=1e-10)
