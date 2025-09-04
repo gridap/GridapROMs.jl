@@ -56,20 +56,44 @@ end
 
 const DistributedUnEvalTrialFESpace = DistributedSingleFieldFESpace{<:AbstractArray{<:UnEvalTrialFESpace}}
 
+for f in (:(Arrays.evaluate),:(ODEs.allocate_space))
+  @eval begin
+    function $f(space::DistributedUnEvalTrialFESpace,x::AbstractRealization)
+      spaces = map(local_views(space)) do space
+        $f(space,x)
+      end
+      gids  = get_free_dof_ids(space)
+      trian = get_triangulation(space)
+      vector_type = get_vector_type(space)
+      DistributedSingleFieldFESpace(spaces,gids,trian,vector_type)
+    end
+
+    function $f(space::DistributedMultiFieldFESpace,x::AbstractRealization)
+      if !ParamFESpaces.has_param(space)
+        return space
+      end
+      field_fe_space = map(s->$f(s,x),space.field_fe_space)
+      style = MultiFieldStyle(space)
+      spaces = to_parray_of_arrays(map(local_views,field_fe_space))
+      part_fe_spaces = map(s->MultiFieldFESpace(s;style),spaces)
+      gids = get_free_dof_ids(space)
+      vector_type = get_vector_type(space)
+      DistributedMultiFieldFESpace(field_fe_space,part_fe_spaces,gids,vector_type)
+    end
+  end
+end
+
+function Arrays.evaluate!(spacex::DistributedFESpace,space::DistributedFESpace,x::AbstractRealization)
+  map(local_views(spacex),local_views(space)) do spacex,space
+    Arrays.evaluate!(spacex,space,x)
+  end
+  return spacex
+end
+
 for T in (:AbstractRealization,:Nothing)
   S = T==:Nothing ? :Nothing : :Any
   for f in (:(Arrays.evaluate),:(ODEs.allocate_space))
     @eval begin
-      function $f(space::DistributedUnEvalTrialFESpace,x::$T)
-        spaces = map(local_views(space)) do space
-          $f(space,x)
-        end
-        gids  = get_free_dof_ids(space)
-        trian = get_triangulation(space)
-        vector_type = get_vector_type(space)
-        DistributedSingleFieldFESpace(spaces,gids,trian,vector_type)
-      end
-
       function $f(space::DistributedUnEvalTrialFESpace,x::$T,y::$S)
         spaces = map(local_views(space)) do space
           $f(space,x,y)
@@ -78,22 +102,6 @@ for T in (:AbstractRealization,:Nothing)
         trian = get_triangulation(space)
         vector_type = get_vector_type(space)
         DistributedSingleFieldFESpace(spaces,gids,trian,vector_type)
-      end
-
-      function $f(
-        space::DistributedMultiFieldFESpace{MS,<:AbstractVector{<:DistributedUnEvalTrialFESpace}},
-        x::$T) where MS
-
-        if !ParamFESpaces.has_param(space)
-          return space
-        end
-        field_fe_space = map(s->$f(s,x),space.field_fe_space)
-        style = MultiFieldStyle(space)
-        spaces = to_parray_of_arrays(map(local_views,field_fe_space))
-        part_fe_spaces = map(s->MultiFieldFESpace(s;style),spaces)
-        gids = get_free_dof_ids(space)
-        vector_type = get_vector_type(space)
-        DistributedMultiFieldFESpace(field_fe_space,part_fe_spaces,gids,vector_type)
       end
 
       function $f(space::DistributedMultiFieldFESpace,x::$T,y::$S)
@@ -112,13 +120,6 @@ for T in (:AbstractRealization,:Nothing)
   end
 
   @eval begin
-    function Arrays.evaluate!(spacex::DistributedFESpace,space::DistributedFESpace,x::$T)
-      map(local_views(spacex),local_views(space)) do spacex,space
-        Arrays.evaluate!(spacex,space,x)
-      end
-      return spacex
-    end
-
     function Arrays.evaluate!(spacex::DistributedFESpace,space::DistributedFESpace,x::$T,y::$S)
       map(local_views(spacex),local_views(space)) do spacex,space
         Arrays.evaluate!(spacex,space,x,y)

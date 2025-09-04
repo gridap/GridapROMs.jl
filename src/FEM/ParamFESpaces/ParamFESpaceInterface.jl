@@ -179,8 +179,8 @@ function FESpaces.scatter_free_and_dirichlet_values(
 end
 
 function FESpaces.gather_free_and_dirichlet_values(
-  pf::SingleFieldParamFESpace{<:FESpaceWithConstantFixed{T}},
-  cv) where T<:FESpaces.FixConstant
+  pf::SingleFieldParamFESpace{<:FESpaceWithConstantFixed{FESpaces.FixConstant}},
+  cv)
 
   f = get_fe_space(pf)
   _fv,_dv = zero_free_and_dirichlet_values(f.space)
@@ -197,13 +197,13 @@ end
 function FESpaces.gather_free_and_dirichlet_values!(
   fv::AbstractParamVector,
   dv::AbstractParamVector,
-  f::FESpaceWithConstantFixed{T},
-  cv) where T<:FESpaces.FixConstant
+  f::FESpaceWithConstantFixed{FESpaces.FixConstant},
+  cv)
 
   @assert innerlength(dv) == 1
   _dv = similar(dv,eltype(dv),0)
   _fv = ParamVectorWithEntryInserted(fv,f.dof_to_fix,zeros(eltype2(fv),param_length(fv)))
-  gather_free_and_dirichlet_values!(_fv,_dv,f,cv)
+  gather_free_and_dirichlet_values!(_fv,_dv,f.space,cv)
   dv.data[1,:] = _fv.value
   (fv,dv)
 end

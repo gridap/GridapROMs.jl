@@ -1,3 +1,24 @@
+function FESpaces.SparseMatrixAssembler(
+  mat_builder::GridapDistributed.PSparseMatrixBuilderCOO,
+  vec_builder::GridapDistributed.PVectorBuilder,
+  rows::PRange,
+  cols::PRange,
+  par_strategy=SubAssembledRows()
+  )
+
+  assems = map(partition(rows),partition(cols)) do rows,cols
+    local_strategy = GridapDistributed.local_assembly_strategy(par_strategy,rows,cols)
+    FESpaces.GenericSparseMatrixAssembler(
+      SparseMatrixBuilder(mat_builder.local_matrix_type),
+      ArrayBuilder(vec_builder.local_vector_type),
+      Base.OneTo(length(rows)),
+      Base.OneTo(length(cols)),
+      local_strategy
+    )
+  end
+  return GridapDistributed.DistributedSparseMatrixAssembler(par_strategy,assems,mat_builder,vec_builder,rows,cols)
+end
+
 for T in (:(GridapDistributed.PSparseMatrixBuilderCOO),:(GridapDistributed.PVectorBuilder))
   @eval begin
     function ParamDataStructures.parameterize(a::$T,plength::Int)
@@ -145,7 +166,7 @@ function GridapDistributed.change_axes(
   block_ids = CartesianIndices(a.array)
   rows,cols = axes
   array = map(block_ids) do I
-    change_axes(a[I],(rows[I[1]],cols[I[2]]))
+    GridapDistributed.change_axes(a[I],(rows[I[1]],cols[I[2]]))
   end
   return ArrayBlock(array,a.touched)
 end
@@ -184,11 +205,11 @@ end
 
 GridapDistributed.get_test_gids(a::DistributedParamAllocationCOO)  = a.test_dofs_gids_prange
 GridapDistributed.get_trial_gids(a::DistributedParamAllocationCOO) = a.trial_dofs_gids_prange
-GridapDistributed.get_test_gids(a::ArrayBlock{<:DistributedParamAllocationCOO})  = map(get_test_gids,diag(a.array))
-GridapDistributed.get_trial_gids(a::ArrayBlock{<:DistributedParamAllocationCOO}) = map(get_trial_gids,diag(a.array))
+GridapDistributed.get_test_gids(a::ArrayBlock{<:DistributedParamAllocationCOO})  = map(GridapDistributed.get_test_gids,diag(a.array))
+GridapDistributed.get_trial_gids(a::ArrayBlock{<:DistributedParamAllocationCOO}) = map(GridapDistributed.get_trial_gids,diag(a.array))
 
 ParamDataStructures.param_length(a::DistributedParamAllocationCOO) = map(param_length,local_views(a))
-ParamDataStructures.param_length(a::ArrayBlock{<:DistributedParamAllocationCOO}) = param_length(first(a))
+ParamDataStructures.param_length(a::ArrayBlock{<:DistributedParamAllocationCOO}) = param_length(a[1])
 
 function Algebra.create_from_nz(a::DistributedParamAllocationCOO{<:FullyAssembledRows})
   f(x) = nothing

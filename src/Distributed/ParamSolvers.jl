@@ -1,8 +1,11 @@
+const AbstractParamPVector = Union{PVector{<:AbstractParamVector},BlockPArray{<:AbstractParamVector}}
+const AbstractParamPSparseMatrix = Union{PSparseMatrix{<:ParamSparseMatrix},BlockPArray{<:ParamSparseMatrix}}
+
 function Algebra.solve!(
-  x::PVector{<:AbstractParamVector},
+  x::AbstractParamPVector,
   ls::LinearSolver,
-  A::PSparseMatrix{<:ParamSparseMatrix},
-  b::PVector{<:AbstractParamVector})
+  A::AbstractParamPSparseMatrix,
+  b::AbstractParamPVector)
 
   A_item = param_getindex(A,1)
   x_item = param_getindex(x,1)
@@ -12,10 +15,10 @@ function Algebra.solve!(
 end
 
 function Algebra.solve!(
-  x::PVector{<:AbstractParamVector},
+  x::AbstractParamPVector,
   ns::NumericalSetup,
-  A::PSparseMatrix{<:ParamSparseMatrix},
-  b::PVector{<:AbstractParamVector})
+  A::AbstractParamPSparseMatrix,
+  b::AbstractParamPVector)
 
   @inbounds for i in param_eachindex(x)
     Ai = param_getindex(A,i)
@@ -30,9 +33,9 @@ function Algebra.solve!(
 end
 
 function Algebra._solve_nr!(
-  x::PVector{<:AbstractParamVector},
-  A::PSparseMatrix{<:ParamSparseMatrix},
-  b::PVector{<:AbstractParamVector},
+  x::AbstractParamPVector,
+  A::AbstractParamPSparseMatrix,
+  b::AbstractParamPVector,
   dx,ns,nls,op)
 
   log = nls.log
