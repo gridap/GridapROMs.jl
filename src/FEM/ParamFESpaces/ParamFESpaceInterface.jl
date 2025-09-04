@@ -129,6 +129,23 @@ function FESpaces.zero_dirichlet_values(f::SingleFieldParamFESpace)
   param_zero_dirichlet_values(f)
 end
 
+function FESpaces.scatter_free_and_dirichlet_values(
+  f::UnconstrainedFESpace,
+  free_values::AbstractParamVector,
+  dirichlet_values::AbstractParamVector
+  )
+
+  @check eltype2(free_values) == eltype2(dirichlet_values) """\n
+  The entries stored in free_values and dirichlet_values should be of the same type.
+
+  This error shows up e.g. when trying to build a FEFunction from a vector of integers
+  if the Dirichlet values of the underlying space are of type Float64, or when the
+  given free values are Float64 and the Dirichlet values ComplexF64.
+  """
+  cell_dof_ids = get_cell_dof_ids(f)
+  lazy_map(Broadcasting(PosNegReindex(free_values,dirichlet_values)),cell_dof_ids)
+end
+
 function FESpaces.FEFunction(
   pf::SingleFieldParamFESpace{<:ZeroMeanFESpace},
   free_values::AbstractParamVector,

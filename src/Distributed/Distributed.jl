@@ -28,13 +28,15 @@ using GridapROMs.ParamODEs
 using GridapROMs.RBSteady
 
 import ArraysOfArrays: innersize
-import BlockArrays: mortar, blocks
+import BlockArrays: BlockVector, BlockMatrix, BlockArray, mortar, blocks
 import Gridap.Helpers: @abstractmethod, @check
-import GridapDistributed: BlockPArray, DistributedFESpace, DistributedSingleFieldFESpace, DistributedMultiFieldFESpace, to_parray_of_arrays
+import GridapDistributed: BlockPMatrix, BlockPVector, BlockPArray, DistributedFESpace, DistributedSingleFieldFESpace, DistributedMultiFieldFESpace, to_parray_of_arrays
 import GridapROMs.DofMaps: range_2d, range_1d
 import GridapROMs.ParamAlgebra: ParamBuilder, ParamCounter
 import MPI
 import PartitionedArrays: VectorAssemblyCache, length_to_ptrs!, rewind_ptrs!, getany
+
+include("OwnAndGhostParamVectors.jl")
 
 include("ParamJaggedArrays.jl")
 

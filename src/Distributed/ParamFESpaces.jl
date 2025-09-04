@@ -220,6 +220,18 @@ function DofMaps.get_sparse_dof_map(f::DistributedFESpace,g::DistributedFESpace)
   end
 end
 
+function DofMaps.get_dof_map(f::DistributedMultiFieldFESpace,args...)
+  map(f -> get_dof_map(f,args...),f.field_fe_space)
+end
+
+function DofMaps.get_sparse_dof_map(trial::DistributedMultiFieldFESpace,test::DistributedMultiFieldFESpace,args...)
+  ntest = num_fields(test)
+  ntrial = num_fields(trial)
+  map(Iterators.product(1:ntest,1:ntrial)) do (i,j)
+    get_sparse_dof_map(trial[j],test[i],args...)
+  end
+end
+
 function ParamODEs.collect_param_solutions(sol::ODEParamSolution{<:PVector{T}}) where T
   ncols = num_params(sol.r)*num_times(sol.r)
   partition = map(local_values(sol.u0)) do u0item

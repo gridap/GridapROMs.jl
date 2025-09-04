@@ -49,7 +49,7 @@ function PartitionedArrays.assemble_impl!(
     local_indices_snd = cache.local_indices_snd
     for (p,lid) in enumerate(local_indices_snd.data)
       for i in param_eachindex(values)
-        cache.buffer_snd.data[p+(i-1)*δ] = values.data[lid,i]
+        cache.buffer_snd.data[p+(i-1)*δ] = _getindex(values,lid,i)
       end
     end
     cache.buffer_snd
@@ -67,7 +67,8 @@ function PartitionedArrays.assemble_impl!(
       local_indices_rcv = cache.local_indices_rcv
       for (p,lid) in enumerate(local_indices_rcv.data)
         for i in param_eachindex(values)
-          values.data[lid,i] = f(values.data[lid,i],cache.buffer_rcv.data[p+(i-1)*δ])
+          v = f(_getindex(values,lid,i),cache.buffer_rcv.data[p+(i-1)*δ])
+          _setindex!(values,v,lid,i)
         end
       end
     end
@@ -269,3 +270,26 @@ end
 _get_plength(a::AbstractParamArray) = param_length(a)
 _get_plength(a::ParamJaggedArray) = param_length(a)
 _get_plength(a::AbstractMatrix) = size(a,2)
+
+_getindex(a::ConsecutiveParamVector,i,j) = a.data[i,j]
+_setindex!(a::ConsecutiveParamVector,v,i,j) = (a.data[i,j] = v)
+
+function _getindex(a::OwnAndGhostParamVectors,i,j)
+  n_own = innerlength(a.own_values)
+  k = a.permutation[i]
+  if k > n_own
+    a.ghost_values.data[k-n_own,j]
+  else
+    a.own_values.data[k,j]
+  end
+end
+
+function _setindex!(a::OwnAndGhostParamVectors,v,i,j)
+  n_own = innerlength(a.own_values)
+  k = a.permutation[i]
+  if k > n_own
+    a.ghost_values.data[k-n_own,j] = v
+  else
+    a.own_values.data[k,j] = v
+  end
+end

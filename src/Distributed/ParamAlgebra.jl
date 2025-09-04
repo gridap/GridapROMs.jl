@@ -1,3 +1,21 @@
+for f in (:(Algebra.allocate_in_range),:(Algebra.allocate_in_domain))
+  @eval begin
+    function $f(matrix::PSparseMatrix{<:ParamSparseMatrix{T}}) where T
+      item = param_getindex(matrix,1)
+      plength = param_length(matrix)
+      v = $f(PVector{Vector{T}},item)
+      global_parameterize(v,plength)
+    end
+
+    function $f(matrix::BlockPMatrix{<:ParamSparseMatrix{T}}) where T
+      item = param_getindex(matrix,1)
+      plength = param_length(matrix)
+      v = $f(BlockPVector{Vector{T}},item)
+      global_parameterize(v,plength)
+    end
+  end
+end
+
 function FESpaces.SparseMatrixAssembler(
   mat_builder::GridapDistributed.PSparseMatrixBuilderCOO,
   vec_builder::GridapDistributed.PVectorBuilder,

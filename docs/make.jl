@@ -6,9 +6,11 @@ fem_interface = [
   "dof_maps.md",
   "tproduct.md",
   "param_data_structures.md",
+  "param_geometry.md",
   "param_fe_spaces.md",
   "param_steady.md",
   "param_odes.md",
+  "extensions.md"
   ]
 
 rom_interface = [
