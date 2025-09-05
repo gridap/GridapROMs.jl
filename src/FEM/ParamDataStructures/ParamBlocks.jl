@@ -2140,6 +2140,24 @@ function lazy_parameterize(a::Union{AbstractArray{<:Number},Nothing,Field,Abstra
   TrivialParamBlock(a,plength)
 end
 
+function local_parameterize(a::Union{AbstractArray{<:Number},Nothing,Field,AbstractArray{<:Field}},plength::Integer)
+  data = Vector{typeof(a)}(undef,plength)
+  @inbounds for i in 1:plength
+    data[i] = copy(a)
+  end
+  GenericParamBlock(data)
+end
+
+function local_parameterize(a::AbstractArray{<:AbstractArray},plength::Integer)
+  @check length(a) == plength
+  GenericParamBlock(a)
+end
+
+function local_parameterize(a::ParamBlock,plength::Integer)
+  @check param_length(a) == plength
+  a
+end
+
 function Fields.GenericField(f::AbstractParamFunction)
   GenericParamBlock(map(i -> GenericField(f[i]),1:length(f)))
 end

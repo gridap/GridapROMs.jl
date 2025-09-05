@@ -64,7 +64,7 @@ function _mapped_grid(style::GridMapStyle,grid::Grid,phys_map::AbstractVector{<:
   cell_node_ids = get_cell_node_ids(grid)
   old_nodes = get_node_coordinates(grid)
   node_coords = Vector{eltype(old_nodes)}(undef,length(old_nodes))
-  pnode_coords = parameterize(node_coords,plength)
+  pnode_coords = local_parameterize(node_coords,plength)
   _map_coords!(style,pnode_coords,old_nodes,cell_node_ids,phys_map)
 
   return ParamMappedGrid(grid,pnode_coords)

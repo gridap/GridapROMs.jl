@@ -25,7 +25,7 @@ for T in (:ParamReindex,:PosNegParamReindex)
       x::Union{Number,AbstractArray{<:Number}}...)
 
       vi = return_value(Broadcasting(testitem(f.f)),x...)
-      parameterize(vi,param_length(f.f))
+      local_parameterize(vi,param_length(f.f))
     end
 
     function Arrays.return_cache(
@@ -35,7 +35,7 @@ for T in (:ParamReindex,:PosNegParamReindex)
       c = return_cache(Broadcasting(testitem(f.f)),x...)
       a = evaluate!(c,Broadcasting(testitem(f.f)),x...)
       cache = Vector{typeof(c)}(undef,param_length(f.f))
-      data = parameterize(a,param_length(f.f))
+      data = local_parameterize(a,param_length(f.f))
       @inbounds for i = param_eachindex(f.f)
         cache[i] = return_cache(Broadcasting(param_getindex(f.f,i)),x...)
       end
@@ -83,14 +83,14 @@ for T in (:ParamReindex,:PosNegParamReindex)
 
     function Arrays.return_value(k::$T,j::Integer)
       vi = return_value(testitem(k),j)
-      parameterize(vi,param_length(k))
+      local_parameterize(vi,param_length(k))
     end
 
     function Arrays.return_cache(k::$T,j::Integer)
       c = return_cache(testitem(k),j)
       a = evaluate!(c,testitem(k),j)
       cache = Vector{typeof(c)}(undef,param_length(k))
-      data = parameterize(a,param_length(k))
+      data = local_parameterize(a,param_length(k))
       for i = param_eachindex(k)
         cache[i] = return_cache(param_getindex(k,i),j)
       end
@@ -112,7 +112,7 @@ function Arrays.return_cache(k::OReindex,indices::AbstractVector,values::Union{P
   v = testitem(values)
   c = return_cache(k,indices,v)
   a = evaluate!(c,k,indices,v)
-  data = parameterize(a,param_length(values))
+  data = local_parameterize(a,param_length(values))
   cache = Vector{typeof(c)}(undef,param_length(values))
   for i = param_eachindex(values)
     cache[i] = return_cache(k,indices,param_getindex(values,i))

@@ -50,7 +50,7 @@ function Base.empty(st::ParamSubFacetData{Dp,T,Tn}) where {Dp,T,Tn}
   facet_to_points = Table(Int32[],Int32[1,])
   facet_to_normal = Point{Dp,Tn}[]
   facet_to_bgcell = Int32[]
-  point_to_coords = parameterize(Point{Dp,T}[],plength)
+  point_to_coords = local_parameterize(Point{Dp,T}[],plength)
   point_to_rcoords = Point{Dp,T}[]
 
   ParamSubFacetData(

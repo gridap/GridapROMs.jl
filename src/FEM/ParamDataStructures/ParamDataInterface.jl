@@ -52,7 +52,7 @@ param_eachindex(a) = Base.OneTo(param_length(a))
 Returns a quantity with parametric length `plength` from `a`. When `a` already
 possesses a parametric length, i.e. it is a parametrized quantity, it returns `a`
 """
-parameterize(a,plength::Integer) = @abstractmethod
+parameterize(a,plength::Integer) = local_parameterize(a,plength)
 
 function parameterize(a...;plength=find_param_length(a...))
   pa = map(f->parameterize(f,plength),a)
