@@ -1,7 +1,7 @@
 function Algebra.allocate_vector(::Type{V},n::Integer) where V<:AbstractParamVector
   @warn "Allocating a vector of unit parametric length, will likely result in an error"
   vector = allocate_vector(eltype(V),n)
-  global_parameterize(vector,1)
+  parameterize(vector,1)
 end
 
 for f in (:(Algebra.allocate_in_range),:(Algebra.allocate_in_domain))
@@ -11,7 +11,7 @@ for f in (:(Algebra.allocate_in_range),:(Algebra.allocate_in_domain))
       item = testitem(matrix)
       plength = param_length(matrix)
       v = $f(V,item)
-      global_parameterize(v,plength)
+      parameterize(v,plength)
     end
 
     function $f(::Type{PV},matrix::BlockParamMatrix) where {T,PV<:BlockParamVector{T}}
@@ -19,7 +19,7 @@ for f in (:(Algebra.allocate_in_range),:(Algebra.allocate_in_domain))
       item = testitem(matrix)
       plength = param_length(matrix)
       v = $f(V,item)
-      global_parameterize(v,plength)
+      parameterize(v,plength)
     end
 
     function $f(matrix::AbstractParamMatrix{T}) where T
@@ -255,7 +255,7 @@ end
 
 function Algebra.nz_allocation(a::ParamCounter{<:Algebra.ArrayCounter})
   v = nz_allocation(a.counter)
-  global_parameterize(v,a.plength)
+  parameterize(v,a.plength)
 end
 
 # csc

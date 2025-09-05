@@ -15,8 +15,7 @@ for S in (:NonlinearSolver,:LinearSolver)
 end
 
 function Algebra.solve(solver::NonlinearSolver,op::ParamOperator,r::Realization)
-  U = get_trial(op)(r)
-  u = zero_free_values(U)
+  u = zero_initial_guess(op,r)
   stats = solve!(u,solver,op,r)
   u,stats
 end

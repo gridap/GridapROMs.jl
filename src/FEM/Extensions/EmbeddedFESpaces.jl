@@ -132,12 +132,12 @@ zero_bg_dirichlet_values(f::SingleFieldFESpace) = zero_dirichlet_values(get_bg_s
 
 function zero_bg_free_values(f::SingleFieldParamFESpace)
   bg_fv = zero_bg_free_values(get_emb_space(f))
-  global_parameterize(bg_fv,param_length(f))
+  parameterize(bg_fv,param_length(f))
 end
 
 function zero_bg_dirichlet_values(f::SingleFieldParamFESpace)
   bg_dv = zero_bg_dirichlet_values(get_emb_space(f))
-  global_parameterize(bg_dv,param_length(f))
+  parameterize(bg_dv,param_length(f))
 end
 
 function ExtendedFEFunction(f::SingleFieldFESpace,fv::AbstractVector,dv::AbstractVector)

@@ -61,9 +61,6 @@ include("ParamSpaces.jl")
 export AbstractParamData
 export eltype2
 export parameterize
-export local_parameterize
-export global_parameterize
-export lazy_parameterize
 export get_param_data
 export param_length
 export param_eachindex

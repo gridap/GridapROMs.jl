@@ -4,14 +4,14 @@ for f in (:(Algebra.allocate_in_range),:(Algebra.allocate_in_domain))
       item = param_getindex(matrix,1)
       plength = param_length(matrix)
       v = $f(PVector{Vector{T}},item)
-      global_parameterize(v,plength)
+      parameterize(v,plength)
     end
 
     function $f(matrix::BlockPMatrix{<:ParamSparseMatrix{T}}) where T
       item = param_getindex(matrix,1)
       plength = param_length(matrix)
       v = $f(BlockPVector{Vector{T}},item)
-      global_parameterize(v,plength)
+      parameterize(v,plength)
     end
   end
 end

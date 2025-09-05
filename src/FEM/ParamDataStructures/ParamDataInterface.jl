@@ -52,7 +52,7 @@ param_eachindex(a) = Base.OneTo(param_length(a))
 Returns a quantity with parametric length `plength` from `a`. When `a` already
 possesses a parametric length, i.e. it is a parametrized quantity, it returns `a`
 """
-parameterize(a,plength::Integer) = local_parameterize(a,plength)
+parameterize(a,plength::Integer) = @abstractmethod
 
 function parameterize(a...;plength=find_param_length(a...))
   pa = map(f->parameterize(f,plength),a)
@@ -63,27 +63,6 @@ function parameterize(a::AbstractParamFunction,plength::Integer)
   @check param_length(a) == plength
   return a
 end
-
-"""
-    lazy_parameterize(a,plength::Integer) -> Any
-
-Lazy version of [`parameterize`](@ref), does not allocate
-"""
-lazy_parameterize(a,plength::Integer) = parameterize(a,plength)
-
-function lazy_parameterize(a...;plength=find_param_length(a...))
-  pa = map(f->lazy_parameterize(f,plength),a)
-  return pa
-end
-
-"""
-    local_parameterize(a,plength::Integer) -> Any
-
-Returns a quantity with parametric length `plength` from `a`. This parameterization
-involves quantities defined at the local (or cell) level. For global parameterizations,
-see the function [`global_parameterize`](@ref)
-"""
-local_parameterize(a,plength::Integer) = @abstractmethod
 
 """
     find_param_length(a...) -> Int

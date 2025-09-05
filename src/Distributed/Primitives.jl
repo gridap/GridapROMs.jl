@@ -7,7 +7,7 @@ function PartitionedArrays.allocate_gather_impl(snd,destination,::Type{T}) where
     ndata = ptrs[end]-1
     data = Vector{S}(undef,ndata)
     plength = param_length(snd)
-    pdata = global_parameterize(data,plength)
+    pdata = parameterize(data,plength)
     ParamJaggedArray{S,Int32}(pdata,ptrs)
   end
   if isa(destination,Integer)
@@ -15,7 +15,7 @@ function PartitionedArrays.allocate_gather_impl(snd,destination,::Type{T}) where
       ptrs = Vector{Int32}(undef,1)
       data = Vector{S}(undef,0)
       plength = param_length(snd)
-      pdata = global_parameterize(data,plength)
+      pdata = parameterize(data,plength)
       ParamJaggedArray(pdata,ptrs)
     end
     rcv = map_main(f,l_dest,snd;otherwise=g,main=destination)
@@ -34,7 +34,7 @@ function PartitionedArrays.allocate_scatter_impl(snd,source,::Type{T}) where T<:
   counts_scat = scatter(counts;source)
   map(counts_scat,plength) do count,plength
     data = Vector{S}(undef,count)
-    global_parameterize(data,plength)
+    parameterize(data,plength)
   end
 end
 
@@ -112,7 +112,7 @@ function PartitionedArrays.allocate_exchange_impl(snd,graph,::Type{T}) where T<:
     length_to_ptrs!(ptrs)
     n_data = ptrs[end]-1
     data = Vector{S}(undef,n_data)
-    pdata = global_parameterize(data,plength)
+    pdata = parameterize(data,plength)
     ParamJaggedArray(pdata,ptrs)
   end
   rcv

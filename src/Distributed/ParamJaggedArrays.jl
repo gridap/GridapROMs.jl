@@ -105,8 +105,8 @@ function ParamDataStructures.param_getindex(a::ParamJaggedArray{T},i::Integer) w
   JaggedArray(data,a.ptrs)
 end
 
-function ParamDataStructures.global_parameterize(a::JaggedArray,plength::Integer)
-  data = global_parameterize(a.data,plength)
+function ParamDataStructures.parameterize(a::JaggedArray,plength::Integer)
+  data = parameterize(a.data,plength)
   ParamJaggedArray(data,a.ptrs)
 end
 

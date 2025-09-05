@@ -72,14 +72,13 @@ GenericParamArray(args...) = @abstractmethod
 GenericParamArray(A::AbstractArray{<:Number}) = ParamNumber(A)
 GenericParamArray(A::AbstractParamArray) = A
 
-"""
-    global_parameterize(a,plength::Integer) -> AbstractParamArray
+function parameterize(
+  a::Union{AbstractArray{<:Number},AbstractArray{<:AbstractArray{<:Number}}},
+  plength::Integer
+  )
 
-Returns a [`AbstractParamArray`](@ref) with parametric length `plength` from `a`.
-This parameterization involves quantities defined at the global (or assembled) level.
-For local parameterizations, see the function [`local_parameterize`](@ref)
-"""
-global_parameterize(args...) = ParamArray(args...)
+  ParamArray(a,plength)
+end
 
 param_getindex(A::AbstractParamArray{T,N},i::Integer) where {T,N} = getindex(A,tfill(i,Val{N}())...)
 param_setindex!(A::AbstractParamArray{T,N},v,i::Integer) where {T,N} = setindex!(A,v,tfill(i,Val{N}())...)

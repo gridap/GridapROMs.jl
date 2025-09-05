@@ -13,7 +13,6 @@ using Test
 
 function main_ex1(distribute,parts)
   ranks = distribute(LinearIndices((prod(parts),)))
-  output = mkpath(joinpath(@__DIR__,"output"))
 
   domain = (0,4,0,4)
   cells = (4,4)
@@ -53,25 +52,16 @@ function main_ex1(distribute,parts)
 
   μi = first(μ)
   Ui = TrialFESpace(V,u(μi))
-  ai(u,v) = ∫( ∇(v)⋅∇(u) )dΩ
-  li(v) = ∫( v*f(μi) )dΩ + ∫( v*(n_Γn⋅∇(u(μi))) )dΓn
-  opi = AffineFEOperator(ai,li,Ui,V)
-  uh = solve(solver,opi)
-
   uhi = FEFunction(Ui,param_getindex(sol,1))
 
-  eh = uh - uhi
+  eh = u(μi) - uhi
   @test sqrt(sum( ∫(abs2(eh))dΩ )) < 1.0e-9
-
-  writevtk(Ω,joinpath(output,"poisson_ex1"),cellfields=["uh" => uh,"uhμ" => uhi,"eh" => eh])
 end
 
 function main_ex2(distribute,parts)
   ranks = distribute(LinearIndices((prod(parts),)))
   options = "-ksp_type cg -pc_type gamg -ksp_monitor"
   GridapPETSc.with(args=split(options)) do
-    output = mkpath(joinpath(@__DIR__,"output"))
-
     domain = (0,4,0,4)
     cells = (4,4)
     model = CartesianDiscreteModel(ranks,parts,domain,cells)
@@ -110,17 +100,10 @@ function main_ex2(distribute,parts)
 
     μi = first(μ)
     Ui = TrialFESpace(V,u(μi))
-    ai(u,v) = ∫( ∇(v)⋅∇(u) )dΩ
-    li(v) = ∫( v*f(μi) )dΩ + ∫( v*(n_Γn⋅∇(u(μi))) )dΓn
-    opi = AffineFEOperator(ai,li,Ui,V)
-    uh = solve(solver,opi)
-
     uhi = FEFunction(Ui,param_getindex(sol,1))
 
-    eh = uh - uhi
+    eh = u(μi) - uhi
     @test sqrt(sum( ∫(abs2(eh))dΩ )) < 1.0e-9
-
-    writevtk(Ω,joinpath(output,"poisson_ex2"),cellfields=["uh" => uh,"uhμ" => uhi,"eh" => eh])
   end
 end
 

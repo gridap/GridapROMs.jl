@@ -399,9 +399,13 @@ Subtypes:
 """
 abstract type HyperReduction{A<:ReductionStyle} <: Reduction{A,EuclideanNorm} end
 
-function HyperReduction(args...;hypred_strategy=:mdeim,kwargs...)
-  reduction = Reduction(args...;kwargs...)
-  hypred_strategy==:mdeim ? MDEIMHyperReduction(reduction) : RBFHyperReduction(reduction)
+function HyperReduction(args...;compression=:global,hypred_strategy=:mdeim,kwargs...)
+  if compression==:global
+    reduction = Reduction(args...;kwargs...)
+    hypred_strategy==:mdeim ? MDEIMHyperReduction(reduction) : RBFHyperReduction(reduction)
+  else
+    LocalHyperReduction(args...;hypred_strategy,kwargs...)
+  end
 end
 
 function HyperReduction(reduction::Reduction;kwargs...)

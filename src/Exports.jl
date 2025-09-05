@@ -44,6 +44,8 @@ end
 @publish ParamDataStructures TransientParamFunction
 @publish ParamDataStructures realization
 @publish ParamDataStructures parameterize
+@publish ParamDataStructures param_length
+@publish ParamDataStructures param_getindex
 
 @publish ParamDataStructures ParamArray
 @publish ParamDataStructures ConsecutiveParamArray

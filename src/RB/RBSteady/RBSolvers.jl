@@ -250,8 +250,7 @@ function Algebra.solve(
   op::NonlinearOperator,
   r::AbstractRealization)
 
-  trial = get_trial(op)(r)
-  x̂ = zero_free_values(trial)
+  x̂ = zero_initial_guess(op,r)
 
   nlop = parameterize(op,r)
   syscache = allocate_systemcache(nlop,x̂)

@@ -40,9 +40,9 @@ function ParamDataStructures.param_getindex(a::OwnAndGhostParamVectors,i::Intege
   getindex(a,i)
 end
 
-function ParamDataStructures.global_parameterize(a::OwnAndGhostVectors,plength::Integer)
-  own_values = global_parameterize(a.own_values,plength)
-  ghost_values = global_parameterize(a.ghost_values,plength)
+function ParamDataStructures.parameterize(a::OwnAndGhostVectors,plength::Integer)
+  own_values = parameterize(a.own_values,plength)
+  ghost_values = parameterize(a.ghost_values,plength)
   OwnAndGhostVectors(own_values,ghost_values,a.permutation)
 end
 

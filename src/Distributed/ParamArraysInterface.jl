@@ -29,23 +29,23 @@ function ParamDataStructures.param_getindex(a::BlockPArray,i::Integer)
   BlockPArray(b,a.axes)
 end
 
-function ParamDataStructures.global_parameterize(a::PVector,plength::Integer)
+function ParamDataStructures.parameterize(a::PVector,plength::Integer)
   vector_partition,cache = map(a.vector_partition,a.cache) do values,cache
-    global_parameterize(values,plength),global_parameterize(cache,plength)
+    parameterize(values,plength),parameterize(cache,plength)
   end |> tuple_of_arrays
   PVector(vector_partition,a.index_partition,cache)
 end
 
-function ParamDataStructures.global_parameterize(a::PSparseMatrix,plength::Integer)
+function ParamDataStructures.parameterize(a::PSparseMatrix,plength::Integer)
   matrix_partition,cache = map(a.matrix_partition,a.cache) do values,cache
-    global_parameterize(values,plength),global_parameterize(cache,plength)
+    parameterize(values,plength),parameterize(cache,plength)
   end |> tuple_of_arrays
   PSparseMatrix(matrix_partition,a.row_partition,a.col_partition,cache)
 end
 
-function ParamDataStructures.global_parameterize(a::BlockPArray,plength::Integer)
+function ParamDataStructures.parameterize(a::BlockPArray,plength::Integer)
   b = map(blocks(a)) do a
-    global_parameterize(a,plength)
+    parameterize(a,plength)
   end
   BlockPArray(b,a.axes)
 end
@@ -133,7 +133,7 @@ function ParamDataStructures.param_getindex(a::ParamVectorAssemblyCache,i::Integ
   )
 end
 
-function ParamDataStructures.global_parameterize(
+function ParamDataStructures.parameterize(
   a::PartitionedArrays.VectorAssemblyCache,plength::Integer
   )
   ParamVectorAssemblyCache(
@@ -141,8 +141,8 @@ function ParamDataStructures.global_parameterize(
     a.neighbors_rcv,
     a.local_indices_snd,
     a.local_indices_rcv,
-    global_parameterize(a.buffer_snd,plength),
-    global_parameterize(a.buffer_rcv,plength)
+    parameterize(a.buffer_snd,plength),
+    parameterize(a.buffer_rcv,plength)
   )
 end
 
@@ -164,7 +164,7 @@ function ParamDataStructures.param_getindex(a::ParamSparseMatrixAssemblyCache,i:
   PartitionedArrays.SparseMatrixAssemblyCache(param_getindex(a.cache,i))
 end
 
-function ParamDataStructures.global_parameterize(
+function ParamDataStructures.parameterize(
   a::PartitionedArrays.SparseMatrixAssemblyCache,plength::Integer
   )
 
@@ -202,10 +202,10 @@ function ParamDataStructures.param_getindex(a::ParamJaggedArrayAssemblyCache,i::
   PartitionedArrays.JaggedArrayAssemblyCache(param_getindex(a.cache,i))
 end
 
-function ParamDataStructures.global_parameterize(
+function ParamDataStructures.parameterize(
   a::PartitionedArrays.JaggedArrayAssemblyCache,plength::Integer
   )
-  ParamJaggedArrayAssemblyCache(global_parameterize(a.cache,plength))
+  ParamJaggedArrayAssemblyCache(parameterize(a.cache,plength))
 end
 
 # remove the whole function when fixing the issue inside

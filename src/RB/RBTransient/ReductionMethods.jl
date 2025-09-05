@@ -187,9 +187,13 @@ function HighDimHyperReduction end
 
 const TransientHyperReduction = HighDimHyperReduction
 
-function HighDimHyperReduction(combine::Function,args...;hypred_strategy=:mdeim,kwargs...)
-  reduction = HighDimReduction(args...;kwargs...)
-  hypred_strategy==:mdeim ? HighDimMDEIMHyperReduction(reduction,combine) : HighDimRBFHyperReduction(reduction,combine)
+function HighDimHyperReduction(combine::Function,args...;compression=:global,hypred_strategy=:mdeim,kwargs...)
+  if compression==:global
+    reduction = HighDimReduction(args...;kwargs...)
+    hypred_strategy==:mdeim ? HighDimMDEIMHyperReduction(reduction,combine) : HighDimRBFHyperReduction(reduction,combine)
+  else
+    LocalHighDimHyperReduction(combine,args...;hypred_strategy,kwargs...)
+  end
 end
 
 function HighDimHyperReduction(combine::Function,reduction::HighDimReduction,args...;kwargs...)

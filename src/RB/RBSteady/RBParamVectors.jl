@@ -153,8 +153,8 @@ for T in (
 end
 
 function ParamDataStructures.parameterize(a::RBVector,plength::Int)
-  data = global_parameterize(a.data,plength)
-  fe_data = global_parameterize(a.fe_data,plength)
+  data = parameterize(a.data,plength)
+  fe_data = parameterize(a.fe_data,plength)
   RBParamVector(data,fe_data)
 end
 

@@ -77,10 +77,14 @@ function ParamAlgebra.allocate_paramcache(op::ParamOperator,μ::AbstractRealizat
   ParamCache(trial,ptrial)
 end
 
-function Algebra.zero_initial_guess(op::ParamOperator,μ::AbstractRealization)
-  ptrial = get_trial(op)
-  trial = evaluate(ptrial,μ)
+function Algebra.zero_initial_guess(op::ParamOperator)
+  trial = get_trial(op)
   zero_free_values(trial)
+end
+
+function Algebra.zero_initial_guess(op::ParamOperator,μ::AbstractRealization)
+  x = zero_initial_guess(op)
+  parameterize(x,μ)
 end
 
 function Algebra.allocate_residual(

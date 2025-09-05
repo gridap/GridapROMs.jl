@@ -65,7 +65,7 @@ dirichlet values
 """
 function HomogeneousTrialParamFESpace(U::SingleFieldFESpace,plength::Int)
   dv = zero_dirichlet_values(U)
-  dirichlet_values = global_parameterize(dv,plength)
+  dirichlet_values = parameterize(dv,plength)
   TrialParamFESpace(dirichlet_values,U)
 end
 

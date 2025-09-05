@@ -213,7 +213,7 @@ function allocate_hyper_reduction(a::HRMatProjection)
 end
 
 for f in (:allocate_coefficient,:allocate_hyper_reduction)
-  @eval $f(a::Projection,r::AbstractRealization) = global_parameterize($f(a),num_params(r))
+  @eval $f(a::Projection,r::AbstractRealization) = parameterize($f(a),num_params(r))
 end
 
 """
@@ -518,7 +518,7 @@ function Arrays.return_cache(
 
   T = projection_eltype(T)
   coeffvec = testvalue(Vector{T})
-  global_parameterize(coeffvec,num_params(r))
+  parameterize(coeffvec,num_params(r))
 end
 
 function Arrays.return_cache(
@@ -573,7 +573,7 @@ function Arrays.return_cache(
   r::AbstractRealization)
 
   hypvec = return_cache(allocate_hyper_reduction,a)
-  global_parameterize(hypvec,num_params(r))
+  parameterize(hypvec,num_params(r))
 end
 
 function Arrays.return_cache(

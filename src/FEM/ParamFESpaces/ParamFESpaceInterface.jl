@@ -97,7 +97,7 @@ function param_zero_free_values(f::FESpace,L::Integer=param_length(f))
   V = get_vector_type2(f)
   v = allocate_vector(V,get_free_dof_ids(f))
   fill!(v,zero(eltype(V)))
-  pv = global_parameterize(v,L)
+  pv = parameterize(v,L)
   return pv
 end
 
@@ -110,14 +110,14 @@ function param_zero_dirichlet_values(f::FESpace,L::Integer=param_length(f))
   V = get_vector_type2(f)
   v = allocate_vector(V,get_dirichlet_dof_ids(f))
   fill!(v,zero(eltype(V)))
-  pv = global_parameterize(v,L)
+  pv = parameterize(v,L)
   return pv
 end
 
 function FESpaces.get_vector_type(f::SingleFieldParamFESpace)
   V = get_vector_type(get_fe_space(f))
   L = param_length(f)
-  PV = global_parameterize(V(),L)
+  PV = parameterize(V(),L)
   typeof(PV)
 end
 
@@ -202,8 +202,8 @@ function FESpaces.gather_free_and_dirichlet_values(
   f = get_fe_space(pf)
   _fv,_dv = zero_free_and_dirichlet_values(f.space)
   @assert length(_dv) == 0
-  pfv = global_parameterize(_fv,param_length(pf))
-  pdv = global_parameterize(_dv,param_length(pf))
+  pfv = parameterize(_fv,param_length(pf))
+  pdv = parameterize(_dv,param_length(pf))
   gather_free_and_dirichlet_values!(pfv,pdv,f.space,cv)
 
   fv = ParamVectorWithEntryRemoved(pfv,f.dof_to_fix)
@@ -232,8 +232,8 @@ function FESpaces.scatter_free_and_dirichlet_values(
 
   @check param_length(fmdof_to_val) == param_length(dmdof_to_val)
   plength = param_length(fmdof_to_val)
-  fdof_to_val = global_parameterize(zero_free_values(f.space),plength)
-  ddof_to_val = global_parameterize(zero_dirichlet_values(f.space),plength)
+  fdof_to_val = parameterize(zero_free_values(f.space),plength)
+  ddof_to_val = parameterize(zero_dirichlet_values(f.space),plength)
 
   FESpaces._setup_dof_to_val!(
     fdof_to_val,
@@ -258,8 +258,8 @@ function FESpaces.gather_free_and_dirichlet_values!(
   plength = param_length(fmdof_to_val)
 
   _fv,_dv = zero_free_and_dirichlet_values(f.space)
-  fdof_to_val = global_parameterize(_fv,plength)
-  ddof_to_val = global_parameterize(_dv,plength)
+  fdof_to_val = parameterize(_fv,plength)
+  ddof_to_val = parameterize(_dv,plength)
   gather_free_and_dirichlet_values!(fdof_to_val,ddof_to_val,f.space,cell_to_ludof_to_val)
 
   FESpaces._setup_mdof_to_val!(
@@ -521,8 +521,8 @@ function FESpaces.gather_free_and_dirichlet_values(
   f = get_fe_space(pf)
   _fv,_dv = zero_free_and_dirichlet_values(f.space)
   @assert length(_dv) == 0
-  pfv = global_parameterize(_fv,param_length(pf))
-  pdv = global_parameterize(_dv,param_length(pf))
+  pfv = parameterize(_fv,param_length(pf))
+  pdv = parameterize(_dv,param_length(pf))
   gather_free_and_dirichlet_values!(pfv,pdv,f.space,cv)
 
   fv = ParamVectorWithEntryRemoved(pfv,f.dof_to_fix)
