@@ -516,7 +516,7 @@ function Arrays.return_cache(
   a::HRProjection,
   r::AbstractRealization)
 
-  T = projection_eltype(T)
+  T = projection_eltype(a)
   coeffvec = testvalue(Vector{T})
   parameterize(coeffvec,num_params(r))
 end

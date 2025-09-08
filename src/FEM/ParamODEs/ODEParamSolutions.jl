@@ -114,12 +114,12 @@ function collect_param_solutions(sol::ODEParamSolution{<:BlockParamVector{T}}) w
 end
 
 function _allocate_solutions(u0::ConsecutiveParamVector{T},ncols) where T
-  data = similar(u0,T,(size(u0,1),ncols))
+  data = similar(u0,T,(innerlength(u0),ncols))
   return ConsecutiveParamArray(data)
 end
 
 function _allocate_solutions(u0::BlockParamVector,ncols)
-  mortar(b -> _allocate_solutions(b,ncols),blocks(u0))
+  mortar(map(b -> _allocate_solutions(b,ncols),blocks(u0)))
 end
 
 function _collect_solutions!(sols::ConsecutiveParamVector,ui::ConsecutiveParamVector,it::Int)

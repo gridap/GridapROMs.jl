@@ -138,7 +138,8 @@ function Algebra.solve(
   r::TransientRealization,
   xh0::Union{Function,AbstractVector})
 
-  x̂ = zero_initial_guess(op,r)
+  trial = get_trial(op)(r)
+  x̂ = zero_free_values(trial)
 
   nlop = parameterize(op,r)
   syscache = allocate_systemcache(nlop,x̂)

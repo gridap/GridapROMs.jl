@@ -188,7 +188,7 @@ end
 function massive_cols_tpod(red_style::ReductionStyle,A::AbstractMatrix)
   AA = A*A'
   Ur,Sr,_ = truncated_svd(red_style,AA;issquare=true)
-  Vr = Diagonal(Sr)\(Ur'A)
+  Vr = Diagonal(Sr.+eps())\(Ur'A)
   return Ur,Sr,Vr'
 end
 
@@ -196,7 +196,7 @@ function massive_cols_tpod(red_style::ReductionStyle,A::AbstractMatrix,L::Abstra
   XA = _forward_cholesky(A,L,p)
   AXA = XA*XA'
   Ũr,Sr,_ = truncated_svd(red_style,AXA;issquare=true)
-  Vr = Diagonal(Sr)\(Ũr'XA)
+  Vr = Diagonal(Sr.+eps())\(Ũr'XA)
   Ur = _backward_cholesky(Ũr,L,p)
   return Ur,Sr,Vr'
 end
