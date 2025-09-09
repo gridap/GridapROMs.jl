@@ -65,6 +65,7 @@ export LocalReduction
 export SupremizerReduction
 export HyperReduction
 export MDEIMHyperReduction
+export SOPTHyperReduction
 export RBFHyperReduction
 export LocalHyperReduction
 export AdaptiveReduction

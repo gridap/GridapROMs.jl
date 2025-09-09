@@ -46,6 +46,7 @@ export SequentialReduction
 export HighDimHyperReduction
 export TransientHyperReduction
 export HighDimMDEIMHyperReduction
+export HighDimSOPTHyperReduction
 include("ReductionMethods.jl")
 
 include("RBSolvers.jl")

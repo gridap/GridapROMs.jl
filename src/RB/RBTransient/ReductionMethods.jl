@@ -190,7 +190,13 @@ const TransientHyperReduction = HighDimHyperReduction
 function HighDimHyperReduction(combine::Function,args...;compression=:global,hypred_strategy=:mdeim,kwargs...)
   if compression==:global
     reduction = HighDimReduction(args...;kwargs...)
-    hypred_strategy==:mdeim ? HighDimMDEIMHyperReduction(reduction,combine) : HighDimRBFHyperReduction(reduction,combine)
+    if hypred_strategy==:mdeim
+      HighDimMDEIMHyperReduction(reduction,combine)
+    elseif hypred_strategy==:sopt
+      HighDimSOPTHyperReduction(reduction,combine)
+    else hypred_strategy==:rbf
+      HighDimRBFHyperReduction(reduction,combine)
+    end
   else
     LocalHighDimHyperReduction(combine,args...;hypred_strategy,kwargs...)
   end
@@ -236,6 +242,19 @@ end
 
 RBSteady.get_reduction(r::HighDimMDEIMHyperReduction) = r.reduction
 get_combine(r::HighDimMDEIMHyperReduction) = r.combine
+
+struct HighDimSOPTHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
+  reduction::R
+  combine::Function
+end
+
+function HighDimSOPTHyperReduction(combine::Function,args...;kwargs...)
+  reduction = HighDimReduction(args...;kwargs...)
+  HighDimSOPTHyperReduction(reduction,combine)
+end
+
+RBSteady.get_reduction(r::HighDimSOPTHyperReduction) = r.reduction
+get_combine(r::HighDimSOPTHyperReduction) = r.combine
 
 struct HighDimRBFHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
   reduction::R

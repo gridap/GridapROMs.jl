@@ -1,4 +1,4 @@
-# check HighDimMDEIMHyperReduction for more details
+# check HighDimHyperReduction for more details
 time_combinations(fesolver::ODESolver) = @notimplemented "For now, only theta methods are implemented"
 
 function time_combinations(fesolver::ThetaMethod)

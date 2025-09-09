@@ -124,7 +124,7 @@ function PartitionedArrays.SubSparseMatrix(parent::ParamSparseMatrix,indices::Tu
 end
 
 ParamDataStructures.param_length(A::ParamSubSparseMatrix) = param_length(A.parent)
-innersize(a::ParamSubSparseMatrix) = map(length,a.indices)
+ParamDataStructures.innersize(a::ParamSubSparseMatrix) = map(length,a.indices)
 
 Base.@propagate_inbounds function Base.getindex(A::ParamSubSparseMatrix{T},i::Integer,j::Integer) where T
   @boundscheck checkbounds(A,i...)

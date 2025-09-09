@@ -385,7 +385,6 @@ function assemble_param_coo!(I,J,V,row_partition,plength)
     k_gi,k_gj,k_v = coo_values
     current_n = length(k_gi)
     new_n = current_n + length(gi_rcv.data)
-    δ = _get_delta(v_rcv)
     resize!(k_gi,new_n)
     resize!(k_gj,new_n)
     resize!(k_v,new_n*plength)
@@ -393,7 +392,7 @@ function assemble_param_coo!(I,J,V,row_partition,plength)
       k_gi[current_n+p] = gi_rcv.data[p]
       k_gj[current_n+p] = gj_rcv.data[p]
       for i in 1:plength
-        k_v[current_n+p+(i-1)*new_n] = v_rcv.data[p+(i-1)*δ]
+        k_v[current_n+p+(i-1)*new_n] = v_rcv.data[p,i]
       end
     end
     k_v
@@ -473,7 +472,6 @@ function assemble_param_coo_with_column_owner!(I,J,V,row_partition,plength,Jown)
     k_gi,k_gj,k_jo,k_v = coo_entries_with_column_owner
     current_n = length(k_gi)
     new_n = current_n + length(gi_rcv.data)
-    δ = _get_delta(v_rcv)
     resize!(k_gi,new_n)
     resize!(k_gj,new_n)
     resize!(k_jo,new_n)
@@ -483,7 +481,7 @@ function assemble_param_coo_with_column_owner!(I,J,V,row_partition,plength,Jown)
       k_gj[current_n+p] = gj_rcv.data[p]
       k_jo[current_n+p] = jo_rcv.data[p]
       for i in 1:plength
-        k_v[current_n+p+(i-1)*new_n] = v_rcv.data[p+(i-1)*δ]
+        k_v[current_n+p+(i-1)*new_n] = v_rcv.data[p,i]
       end
     end
   end

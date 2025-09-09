@@ -26,7 +26,7 @@ chosen interpolation strategy.
 
 Subtypes:
 - [`MDEIMProjection`](@ref)
-- [`RBFHyperReduction`](@ref)
+- [`RBFProjection`](@ref)
 """
 abstract type HRProjection{A<:ReducedProjection,B<:HyperReduction} <: Projection end
 

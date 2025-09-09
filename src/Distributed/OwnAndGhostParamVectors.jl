@@ -46,7 +46,7 @@ function ParamDataStructures.parameterize(a::OwnAndGhostVectors,plength::Integer
   OwnAndGhostVectors(own_values,ghost_values,a.permutation)
 end
 
-innersize(a::OwnAndGhostParamVectors) = (size(a.own_values.data,1)+size(a.ghost_values.data,1),)
+ParamDataStructures.innersize(a::OwnAndGhostParamVectors) = (size(a.own_values.data,1)+size(a.ghost_values.data,1),)
 
 Base.size(a::OwnAndGhostParamVectors) = (param_length(a),)
 
@@ -75,6 +75,15 @@ end
 
 function PartitionedArrays.ghost_values(values::OwnAndGhostParamVectors,indices)
   values.ghost_values
+end
+
+function PartitionedArrays.allocate_local_values(values::OwnAndGhostParamVectors,::Type{T},indices) where T
+  n_own = own_length(indices)
+  n_ghost = ghost_length(indices)
+  own_values = similar(values.own_values,T,n_own)
+  ghost_values = similar(values.ghost_values,T,n_ghost)
+  perm = PartitionedArrays.local_permutation(indices)
+  OwnAndGhostVectors(own_values,ghost_values,perm)
 end
 
 function GridapDistributed.change_ghost(::Type{<:OwnAndGhostParamVectors},a::PVector,ids::PRange)

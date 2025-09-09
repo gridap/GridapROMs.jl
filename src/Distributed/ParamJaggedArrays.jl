@@ -189,9 +189,3 @@ function Base.setindex!(a::ParamJaggedArray,v,i::Int)
     a.data[ki] = v[k]
   end
 end
-
-# utils
-
-function _get_delta(a::ParamJaggedArray)
-  length(a.ptrs)-1
-end

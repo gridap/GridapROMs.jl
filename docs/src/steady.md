@@ -172,7 +172,7 @@ A `RBSolver` contains the following information:
 
 * The reduction strategy for the solution `reduction_sol`. This information is used to build a projection map representing a low-dimensional approximation subspace (i.e. a trial space) for our differential problem. In the case above, we use a truncated POD with tolerance `tol` on a set of 20 snapshots. The output is orthogonal with respect to the form `inner_prod`, i.e. the `H^1_0` product. 
 
-* The hyper-reduction strategy for the residual `reduction_l`. This information is used to build a projection map representing a low-dimensional subspace for the residual, equipped with a reduced integration domain obtained via MDEIMProjection, i.e. the matrix-based empirical interpolation method. A total of 10 residual snapshots is used to compute the output.
+* The hyper-reduction strategy for the residual `reduction_l`. This information is used to build a projection map representing a low-dimensional subspace for the residual, equipped with a reduced integration domain obtained via MDEIM, i.e. the matrix-based empirical interpolation method. A total of 10 residual snapshots is used to compute the output.
 
 * Similarly, the hyper-reduction strategy for the Jacobian `reduction_a`.
 

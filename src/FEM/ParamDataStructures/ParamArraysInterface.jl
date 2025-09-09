@@ -83,13 +83,15 @@ end
 param_getindex(A::AbstractParamArray{T,N},i::Integer) where {T,N} = getindex(A,tfill(i,Val{N}())...)
 param_setindex!(A::AbstractParamArray{T,N},v,i::Integer) where {T,N} = setindex!(A,v,tfill(i,Val{N}())...)
 
-"""
-    innerlength(A::AbstractParamArray) -> Int
+innersize(A) = size(param_getindex(A,1))
 
-Returns the length of `A` for a single parameter. Thus, the total entries of `A`
+"""
+    innerlength(A) -> Int
+
+Returns the length of `A` for a single parameter. The total entries of `A`
 is equals to `param_length(A)*innerlength(A)`
 """
-innerlength(A::AbstractParamArray) = prod(innersize(A))
+innerlength(A) = prod(innersize(A))
 
 """
     inneraxes(A::AbstractParamArray) -> Tuple{Vararg{Base.OneTo}}

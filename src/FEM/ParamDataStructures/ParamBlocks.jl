@@ -21,9 +21,6 @@ Base.ndims(::Type{<:ParamBlock{<:Map}}) = 0
 
 Arrays.testitem(b::ParamBlock) = param_getindex(b,1)
 
-innersize(b::ParamBlock) = size(testitem(b))
-innerlength(b::ParamBlock) = prod(innersize(b))
-
 function Base.:≈(a::AbstractArray{<:ParamBlock},b::AbstractArray{<:ParamBlock})
   all(z->z[1]≈z[2],zip(a,b))
 end

@@ -45,11 +45,10 @@ function PartitionedArrays.assemble_impl!(
   ::Type{<:ParamVectorAssemblyCache})
 
   buffer_snd = map(vector_partition,cache) do values,cache
-    δ = _get_delta(cache.buffer_snd)
     local_indices_snd = cache.local_indices_snd
     for (p,lid) in enumerate(local_indices_snd.data)
       for i in param_eachindex(values)
-        cache.buffer_snd.data[p+(i-1)*δ] = _getindex(values,lid,i)
+        cache.buffer_snd.data[p,i] = _getindex(values,lid,i)
       end
     end
     cache.buffer_snd
@@ -63,11 +62,10 @@ function PartitionedArrays.assemble_impl!(
   @async begin
     wait(t)
     map(vector_partition,cache) do values,cache
-      δ = _get_delta(cache.buffer_rcv)
       local_indices_rcv = cache.local_indices_rcv
       for (p,lid) in enumerate(local_indices_rcv.data)
         for i in param_eachindex(values)
-          v = f(_getindex(values,lid,i),cache.buffer_rcv.data[p+(i-1)*δ])
+          v = f(_getindex(values,lid,i),cache.buffer_rcv.data[p,i])
           _setindex!(values,v,lid,i)
         end
       end
@@ -190,14 +188,12 @@ for T in (:AbstractMatrix,:ConsecutiveParamVector)
           ptrs_rcv = rcv[rcv_id].ptrs
           ptrs_snd = snd_snd_id.ptrs
           plength = _get_plength(snd[snd_id])
-          δ_snd = length(ptrs_snd)-1
-          δ_rcv = length(ptrs_rcv)-1
           @assert ptrs_rcv[i+1]-ptrs_rcv[i] == ptrs_snd[j+1]-ptrs_snd[j]
           for p in 1:(ptrs_rcv[i+1]-ptrs_rcv[i])
             p_rcv = p+ptrs_rcv[i]-1
             p_snd = p+ptrs_snd[j]-1
             for i in 1:plength
-              rcv[rcv_id].data[p_rcv+(i-1)*δ_rcv] = snd_snd_id.data[p_snd+(i-1)*δ_snd]
+              rcv[rcv_id].data[p_rcv,i] = snd_snd_id.data[p_snd,i]
             end
           end
         end
