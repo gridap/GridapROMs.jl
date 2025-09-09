@@ -11,7 +11,7 @@ using PartitionedArrays
 using Test
 
 sol(μ) = x -> μ[1]*x[1] + x[2]
-f(μ) = x -> -Δ(sol(μ),x)
+f(μ) = x -> -Δ(sol(μ))(x)
 fμ(μ) = parameterize(f,μ)
 solμ(μ) = parameterize(sol,μ)
 
