@@ -1,10 +1,5 @@
 module HeatEqExtensionTTSVD
 
-using DrWatson
-using Gridap
-using GridapROMs
-using GridapEmbedded
-
 include("ExamplesInterface.jl")
 
 θ = 0.5

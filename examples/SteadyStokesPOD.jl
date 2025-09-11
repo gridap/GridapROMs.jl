@@ -1,12 +1,5 @@
 module SteadyStokesPOD
 
-using DrWatson
-using Gridap
-using GridapEmbedded
-using GridapROMs
-
-import Gridap.MultiField: BlockMultiFieldStyle
-
 include("ExamplesInterface.jl")
 
 pdomain = (1,10,-1,5,1,2)

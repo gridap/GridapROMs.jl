@@ -1,9 +1,5 @@
 module HeatEquationSTRB
 
-using DrWatson
-using Gridap
-using GridapROMs
-
 include("ExamplesInterface.jl")
 
 θ = 0.5

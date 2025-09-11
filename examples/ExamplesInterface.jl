@@ -9,6 +9,10 @@ using GridapROMs.RBSteady
 using GridapROMs.RBTransient
 using GridapROMs.ParamDataStructures
 
+using GridapSolvers
+using GridapSolvers.LinearSolvers
+using GridapSolvers.NonlinearSolvers
+
 import Gridap.CellData: get_domains
 import Gridap.Helpers: @abstractmethod
 import Gridap.MultiField: BlockMultiFieldStyle

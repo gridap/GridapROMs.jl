@@ -15,7 +15,7 @@ function main(
 
   method = method ∈ (:pod,:ttsvd) ? method : :pod
   compression = compression ∈ (:global,:local) ? compression : :global
-  hypred_strategy = hypred_strategy ∈ (:mdeim,:rbf) ? hypred_strategy : :mdeim
+  hypred_strategy = hypred_strategy ∈ (:mdeim,:sopt) ? hypred_strategy : :mdeim
 
   println("Running test with compression $method, $compression compressions, and $hypred_strategy hyper-reduction")
 
@@ -125,7 +125,7 @@ ncentroids=2
 
 method = method ∈ (:pod,:ttsvd) ? method : :pod
 compression = compression ∈ (:global,:local) ? compression : :global
-hypred_strategy = hypred_strategy ∈ (:mdeim,:rbf) ? hypred_strategy : :mdeim
+hypred_strategy = hypred_strategy ∈ (:mdeim,:sopt) ? hypred_strategy : :mdeim
 
 println("Running test with compression $method, $compression compressions, and $hypred_strategy hyper-reduction")
 

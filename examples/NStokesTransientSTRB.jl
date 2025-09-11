@@ -1,15 +1,5 @@
 module NStokesTransientSTRB
 
-using GridapROMs
-using Gridap
-using DrWatson
-
-using GridapSolvers
-using GridapSolvers.LinearSolvers
-using GridapSolvers.NonlinearSolvers
-
-import Gridap.MultiField: BlockMultiFieldStyle
-
 include("ExamplesInterface.jl")
 
 θ = 1.0

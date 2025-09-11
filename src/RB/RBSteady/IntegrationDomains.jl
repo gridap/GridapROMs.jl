@@ -65,6 +65,17 @@ function best_s_opt_index(U,P,colnorms2)
   return best_i
 end
 
+function robust_logdet(A::AbstractMatrix{T}) where T
+  try
+    H = cholesky(Symmetric(A);check=true)
+    2.0*sum(log,diag(H.L))
+  catch
+    _,Σ,_ = svd(A)
+    tol = maximum(Σ)*eps(T)+eps(T)
+    sum(log,clamp.(Σ,tol,Inf))
+  end
+end
+
 for f in (:empirical_interpolation,:s_opt)
   @eval begin
     function $f(A::ParamSparseMatrix)

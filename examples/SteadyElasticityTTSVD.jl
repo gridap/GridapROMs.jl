@@ -1,9 +1,5 @@
 module SteadyElasticityTTSVD
 
-using DrWatson
-using Gridap
-using GridapROMs
-
 include("ExamplesInterface.jl")
 
 pdomain = (1e10,9*1e10,0.25,0.42,-4*1e5,4*1e5,-4*1e5,4*1e5,-4*1e5,4*1e5)

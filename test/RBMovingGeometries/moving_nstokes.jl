@@ -37,14 +37,14 @@ bgmodel = CartesianDiscreteModel(domain,partition)
 order = 2
 degree = 2*order
 
-pdomain = (0.7,1.3,0.25,0.35)
+pdomain = (0.7,1.3,0.7,1.3)
 pspace = ParamSpace(pdomain)
 
 # quantities on the base configuration
 
-μ0 = (1.0,0.3)
-x0 = Point(μ0[1],μ0[1])
-geo = !disk(μ0[2],x0=x0)
+μ0 = (1.0,1.0)
+x0 = Point(μ0[1],μ0[2])
+geo = !disk(0.3,x0=x0)
 cutgeo = cut(bgmodel,geo)
 
 Ωbg = Triangulation(bgmodel)
