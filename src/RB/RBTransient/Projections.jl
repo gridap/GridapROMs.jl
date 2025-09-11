@@ -186,11 +186,15 @@ function RBSteady.projection_eltype(a::KroneckerProjection)
   promote_type(T,S)
 end
 
-function RBSteady.empirical_interpolation(a::KroneckerProjection)
-  indices_space,interp_space = empirical_interpolation(get_basis_space(a))
-  indices_time,interp_time = empirical_interpolation(get_basis_time(a))
-  interp = kron(interp_time,interp_space)
-  return (indices_space,indices_time),interp
+for f in (:(RBSteady.empirical_interpolation),:(RBSteady.s_opt))
+  @eval begin
+    function $f(a::KroneckerProjection)
+      indices_space,interp_space = $f(get_basis_space(a))
+      indices_time,interp_time = $f(get_basis_time(a))
+      interp = kron(interp_time,interp_space)
+      return (indices_space,indices_time),interp
+    end
+  end
 end
 
 # tt interface
@@ -225,6 +229,7 @@ RBSteady.get_basis(a::SequentialProjection) = get_basis(a.projection)
 RBSteady.num_reduced_dofs(a::SequentialProjection) = num_reduced_dofs(a.projection)
 RBSteady.get_norm_matrix(a::SequentialProjection) = get_norm_matrix(a.projection)
 RBSteady.empirical_interpolation(a::SequentialProjection) = empirical_interpolation(a.projection)
+RBSteady.s_opt(a::SequentialProjection) = s_opt(a.projection)
 
 function RBSteady.union_bases(a::SequentialProjection,b::AbstractArray,args...)
   projection′ = union_bases(a.projection,b,args...)

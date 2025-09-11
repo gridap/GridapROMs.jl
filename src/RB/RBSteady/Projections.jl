@@ -155,6 +155,14 @@ Computes the EIM of `a`. The outputs are:
 empirical_interpolation(a::Projection) = @abstractmethod
 
 """
+    s_opt(a::Projection) -> (AbstractVector,AbstractMatrix)
+
+Computes the S-OPT hyper-reduction of `a`. Check [this](https://arxiv.org/abs/2203.16494)
+reference for more information
+"""
+s_opt(a::Projection) = @abstractmethod
+
+"""
     union_bases(a::Projection,b::Projection,args...) -> Projection
 
 Computes the projection corresponding to the union of `a` and `b`. In essence this
@@ -327,8 +335,10 @@ function union_bases(a::PODProjection,basis_b::AbstractMatrix,args...)
   PODProjection(basis_ab)
 end
 
-function empirical_interpolation(a::PODProjection)
-  empirical_interpolation(get_basis(a))
+for f in (:empirical_interpolation,:s_opt)
+  @eval begin
+    $f(a::PODProjection) = $f(get_basis(a))
+  end
 end
 
 function rescale(op::Function,x::AbstractArray,b::PODProjection)
@@ -445,32 +455,36 @@ function projection_eltype(a::TTSVDProjection)
   promote_type(map(eltype,get_cores(a))...)
 end
 
-function empirical_interpolation(a::TTSVDProjection)
-  cores = get_cores(a)
-  dof_map = get_dof_map(a)
+for f in (:empirical_interpolation,:s_opt)
+  @eval begin
+    function $f(a::TTSVDProjection)
+      cores = get_cores(a)
+      dof_map = get_dof_map(a)
 
-  ptrs = Vector{Int32}(undef,length(cores)+1)
-  for i in eachindex(cores)
-    ptrs[i+1] = size(cores[i],3)
-  end
-  length_to_ptrs!(ptrs)
+      ptrs = Vector{Int32}(undef,length(cores)+1)
+      for i in eachindex(cores)
+        ptrs[i+1] = size(cores[i],3)
+      end
+      length_to_ptrs!(ptrs)
 
-  interp = ones(1,1)
-  data = fill(zero(Int32),ptrs[end]-1)
-  for i = eachindex(cores)
-    interp_core = reshape(interp,1,size(interp)...)
-    c = cores2basis(interp_core,cores[i])
-    inds,interp = empirical_interpolation(c)
-    pini = ptrs[i]
-    pend = ptrs[i+1]-1
-    for (k,pk) in enumerate(pini:pend)
-      data[pk] = inds[k]
+      interp = ones(1,1)
+      data = fill(zero(Int32),ptrs[end]-1)
+      for i = eachindex(cores)
+        interp_core = reshape(interp,1,size(interp)...)
+        c = cores2basis(interp_core,cores[i])
+        inds,interp = $f(c)
+        pini = ptrs[i]
+        pend = ptrs[i+1]-1
+        for (k,pk) in enumerate(pini:pend)
+          data[pk] = inds[k]
+        end
+      end
+      linds = Table(data,ptrs)
+      ginds = get_basis_indices(linds,dof_map)
+
+      return ginds,interp
     end
   end
-  linds = Table(data,ptrs)
-  ginds = get_basis_indices(linds,dof_map)
-
-  return ginds,interp
 end
 
 function rescale(op::Function,X::AbstractRankTensor{D},b::TTSVDProjection) where D
@@ -536,8 +550,10 @@ function galerkin_projection(proj_left::NormedProjection,a::Projection,proj_righ
   galerkin_projection(get_projection(proj_left),get_projection(a),get_projection(proj_right),args...)
 end
 
-function empirical_interpolation(a::NormedProjection)
-  empirical_interpolation(a.projection)
+for f in (:empirical_interpolation,:s_opt)
+  @eval begin
+    $f(a::NormedProjection) = $f(a.projection)
+  end
 end
 
 function rescale(op::Function,x::Any,b::NormedProjection)

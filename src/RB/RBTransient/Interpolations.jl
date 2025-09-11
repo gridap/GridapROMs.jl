@@ -20,29 +20,34 @@ end
 
 const TransientMDEIMInterpolation{A,B} = MDEIMInterpolation{A,B}
 
-function RBSteady.MDEIMInterpolation(
-  basis::TransientProjection,
-  trian::Triangulation,
-  test::RBSpace
-  )
+for (f,g) in zip((:(RBSteady.MDEIMInterpolation),:(RBSteady.SOPTInterpolation)),
+                 (:(RBSteady.empirical_interpolation),:(RBSteady.s_opt)))
+  @eval begin
+    function $f(
+      basis::TransientProjection,
+      trian::Triangulation,
+      test::RBSpace
+      )
 
-  (rows,indices_time),interp = empirical_interpolation(basis)
-  factor = lu(interp)
-  domain = IntegrationDomain(typeof(basis),trian,test,rows,indices_time)
-  MDEIMInterpolation(factor,domain)
-end
+      (rows,indices_time),interp = $g(basis)
+      factor = lu(interp)
+      domain = IntegrationDomain(typeof(basis),trian,test,rows,indices_time)
+      MDEIMInterpolation(factor,domain)
+    end
 
-function RBSteady.MDEIMInterpolation(
-  basis::TransientProjection,
-  trian::Triangulation,
-  trial::RBSpace,
-  test::RBSpace
-  )
+    function $f(
+      basis::TransientProjection,
+      trian::Triangulation,
+      trial::RBSpace,
+      test::RBSpace
+      )
 
-  ((rows,cols),indices_time),interp = empirical_interpolation(basis)
-  factor = lu(interp)
-  domain = IntegrationDomain(typeof(basis),trian,trial,test,rows,cols,indices_time)
-  MDEIMInterpolation(factor,domain)
+      ((rows,cols),indices_time),interp = $g(basis)
+      factor = lu(interp)
+      domain = IntegrationDomain(typeof(basis),trian,trial,test,rows,cols,indices_time)
+      MDEIMInterpolation(factor,domain)
+    end
+  end
 end
 
 function get_param_itimes(a::TransientMDEIMInterpolation,common_ids::Range2D)

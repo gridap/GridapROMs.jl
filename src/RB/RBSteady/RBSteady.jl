@@ -146,6 +146,7 @@ include("RBSpaces.jl")
 export IntegrationDomain
 export GenericDomain
 export empirical_interpolation
+export s_opt
 export get_integration_cells
 export get_cell_idofs
 export get_owned_icells

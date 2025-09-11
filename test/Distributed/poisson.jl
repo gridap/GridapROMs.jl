@@ -35,7 +35,7 @@ function test_solver(solver,op,dΩ)
   uh = interpolate(sol(μi),Ui)
 
   eh = uh - uhi
-  @test sum(∫(eh*eh)*dΩ) < 1.0e-6
+  @test sqrt(sum(∫(eh*eh)*dΩ)) < 1.0e-6
 
   return x
 end

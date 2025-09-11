@@ -23,10 +23,56 @@ function empirical_interpolation(basis::AbstractMatrix{T}) where T
   return I,basisI
 end
 
-function empirical_interpolation(A::ParamSparseMatrix)
-  I,AI = empirical_interpolation(A.data)
-  R′,C′ = recast_split_indices(I,param_getindex(A,1))
-  return (R′,C′),AI
+function s_opt(basis::AbstractMatrix{T}) where T
+  m,n = size(basis)
+  I = zeros(Int,n)
+  basisI = zeros(T,n,n)
+  @inbounds @views begin
+    I[1] = argmax(abs.(basis[:,1]))
+    basisI[1,:] = basis[I[1],:]
+    for l in 2:n
+      U = basis[:,1:l]
+      P = I[1:l-1]
+      PᵀU = U[P,:]
+      colnorms2 = vec(sum(abs2,PᵀU;dims=1))
+      Il = best_s_opt_index(U,P,colnorms2)
+      @check Il > 0
+      I[l] = Il
+      basisI[l,:] = basis[Il,:]
+    end
+  end
+  return I,basisI
+end
+
+function best_s_opt_index(U,P,colnorms2)
+  m,n = size(U)
+  best_i = 0
+  best_logS = -Inf
+  @inbounds @views for l in 1:m
+    l ∈ P && continue
+    q = U[l,:]
+    A = U[vcat(P,l),:]
+    G = A'*A
+    logdet_plus = robust_logdet(G)
+    colnorms2_plus = colnorms2 .+ abs2.(q)
+    # S(A) in log form: (1/n)*( 0.5*logdet - 0.5*Σ log colnorms2 )
+    logS = (0.5/n)*(logdet_plus - sum(log,colnorms2_plus))
+    if logS > best_logS
+      best_logS = logS
+      best_i = l
+    end
+  end
+  return best_i
+end
+
+for f in (:empirical_interpolation,:s_opt)
+  @eval begin
+    function $f(A::ParamSparseMatrix)
+      I,AI = $f(A.data)
+      R′,C′ = recast_split_indices(I,param_getindex(A,1))
+      return (R′,C′),AI
+    end
+  end
 end
 
 """
@@ -163,7 +209,7 @@ end
     abstract type IntegrationDomain end
 
 Type representing the set of interpolation rows of a `Projection` subjected
-to a EIM approximation with `empirical_interpolation`.
+to a EIM approximation.
 Subtypes:
 - [`GenericDomain`](@ref)
 - [`TransientIntegrationDomain`](@ref)

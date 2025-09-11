@@ -91,33 +91,33 @@ function ParamDataStructures.Snapshots(
   BlockSnapshots(array,touched)
 end
 
-# function ParamDataStructures.Snapshots(
-#   b::BlockPArray,
-#   b0::BlockPArray,
-#   i::AbstractArray,
-#   r::TransientRealization
-#   ) where {T,N}
+function ParamDataStructures.Snapshots(
+  b::BlockPArray{V,T,N},
+  b0::BlockPArray,
+  i::AbstractArray,
+  r::TransientRealization
+  ) where {V,T,N}
 
-#   block_values = blocks(b)
-#   block_value0 = blocks(b0)
-#   s = size(block_values)
-#   @check s == size(i)
+  block_values = blocks(b)
+  block_value0 = blocks(b0)
+  s = size(block_values)
+  @check s == size(i)
 
-#   array = Array{DistributedSnapshots,N}(undef,s)
-#   touched = Array{Bool,N}(undef,s)
-#   for j in 1:length(block_values)
-#     dataj = block_values[j]
-#     data0j = block_value0[j]
-#     if !iszero(dataj)
-#       array[j] = Snapshots(dataj,data0j,i[j],r)
-#       touched[j] = true
-#     else
-#       touched[j] = false
-#     end
-#   end
+  array = Array{DistributedSnapshots,N}(undef,s)
+  touched = Array{Bool,N}(undef,s)
+  for j in 1:length(block_values)
+    dataj = block_values[j]
+    data0j = block_value0[j]
+    if !iszero(dataj)
+      array[j] = Snapshots(dataj,data0j,i[j],r)
+      touched[j] = true
+    else
+      touched[j] = false
+    end
+  end
 
-#   BlockSnapshots(array,touched)
-# end
+  BlockSnapshots(array,touched)
+end
 
 function Base.show(io::IO,k::MIME"text/plain",s::DistributedBlockSnapshots)
   vals = local_views(first(blocks(s)))

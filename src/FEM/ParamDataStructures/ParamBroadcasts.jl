@@ -62,8 +62,11 @@ function Base.broadcasted(f,a::AbstractVector{<:Number},B::AbstractParamArray)
 end
 
 function Base.materialize(B::ParamBroadcast)
-  ParamArray(Base.materialize(get_all_data(B)))
+  to_param_array(Base.materialize(get_all_data(B)))
 end
+
+to_param_array(A::AbstractArray{<:Number}) = ConsecutiveParamArray(A)
+to_param_array(A::AbstractArray{<:AbstractArray}) = ParamArray(A)
 
 function Base.materialize!(A::AbstractParamArray,B::ParamBroadcast)
   Base.materialize!(get_all_data(A),get_all_data(B))

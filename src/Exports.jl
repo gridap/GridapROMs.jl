@@ -135,6 +135,7 @@ using GridapROMs.Extensions: ⊕; export ⊕
 @publish RBSteady reduced_spaces
 
 @publish RBSteady empirical_interpolation
+@publish RBSteady s_opt
 @publish RBSteady reduced_jacobian
 @publish RBSteady reduced_residual
 @publish RBSteady reduced_weak_form
