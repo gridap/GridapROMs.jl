@@ -66,7 +66,7 @@ include("RBSpaces.jl")
 export TransientIntegrationDomain
 include("IntegrationDomains.jl")
 
-export TransientMDEIMInterpolation
+export TransientGreedyInterpolation
 export TransientRBFInterpolation
 export TransientBlockInterpolation
 include("Interpolations.jl")

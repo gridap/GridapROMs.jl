@@ -1,61 +1,25 @@
-function RBSteady.load_contribution(
-  dir,
-  trians::Tuple{Vararg{Tuple{Vararg{Triangulation}}}},
-  args...;
-  label="",
-  kwargs...)
-
-  c = ()
-  for (i,trian) in enumerate(trians)
-    ci = load_contribution(dir,trian,args...;label=_get_label(label,i),kwargs...)
-    c = (c...,ci)
-  end
-  return c
-end
-
 function DrWatson.save(
   dir,
-  contribs::Tuple{Vararg{Contribution}},
-  ::ODEParamOperator;
-  label="jac")
+  contribs::Tuple{Vararg{Contribution}};
+  label=""
+  )
 
   for (i,contrib) in enumerate(contribs)
     save(dir,contrib;label=_get_label(label,i))
   end
 end
 
-function DrWatson.save(
+function RBSteady.load_contribution(
   dir,
-  contrib::Tuple{Vararg{Contribution}},
-  feop::LinearNonlinearODEParamOperator;
-  label="res")
+  trians::Tuple{Vararg{Tuple{Vararg{Triangulation}}}};
+  label=""
+  )
 
-  @check length(contrib) == 2
-  save(dir,first(contrib),get_linear_operator(feop);label=_get_label(label,"lin"))
-  save(dir,last(contrib),get_nonlinear_operator(feop);label=_get_label(label,"nlin"))
-end
-
-function DrWatson.save(
-  dir,
-  contribs::Tuple{Vararg{Tuple{Vararg{Contribution}}}},
-  feop::LinearNonlinearODEParamOperator;
-  label="jac")
-
-  @check length(contribs) == 2
-  save(dir,first(contribs),get_linear_operator(feop);label=_get_label(label,"lin"))
-  save(dir,last(contribs),get_nonlinear_operator(feop);label=_get_label(label,"nlin"))
-end
-
-function RBSteady.load_residuals(dir,feop::LinearNonlinearODEParamOperator;label="res")
-  res_lin = load_residuals(dir,get_linear_operator(feop);label=_get_label(label,"lin"))
-  res_nlin = load_residuals(dir,get_nonlinear_operator(feop);label=_get_label(label,"nlin"))
-  return (res_lin,res_nlin)
-end
-
-function RBSteady.load_jacobians(dir,feop::LinearNonlinearODEParamOperator;label="jac")
-  jac_lin = load_jacobians(dir,get_linear_operator(feop);label=_get_label(label,"lin"))
-  jac_nlin = load_jacobians(dir,get_nonlinear_operator(feop);label=_get_label(label,"nlin"))
-  return (jac_lin,jac_nlin)
+  c = ()
+  for (i,trian) in enumerate(trians)
+    c = (c...,load_contribution(dir,trian;label=_get_label(label,i)))
+  end
+  return c
 end
 
 function RBSteady._save_trian_operator_parts(dir,op::TransientRBOperator;label="")
@@ -70,21 +34,18 @@ function DrWatson.save(dir,op::TransientRBOperator;kwargs...)
   RBSteady._save_trian_operator_parts(dir,op;kwargs...)
 end
 
-function RBSteady._load_trian_operator_parts(dir,feop::ODEParamOperator,trial,test;label="")
+function RBSteady._load_trian_operator_parts(dir,feop::ODEParamOperator;label="")
   trian_res = get_domains_res(feop)
   trian_jacs = get_domains_jac(feop)
-  red_rhs = load_contribution(dir,trian_res,test;label=_get_label(label,"rhs"))
-  red_lhs = load_contribution(dir,trian_jacs,trial,test;label=_get_label(label,"lhs"))
-  trians_rhs = get_domains(red_rhs)
-  trians_lhs = map(get_domains,red_lhs)
-  new_odeop = change_domains(feop,trians_rhs,trians_lhs)
-  return new_odeop,red_lhs,red_rhs
+  red_rhs = load_contribution(dir,trian_res;label=_get_label(label,"rhs"))
+  red_lhs = load_contribution(dir,trian_jacs;label=_get_label(label,"lhs"))
+  return red_lhs,red_rhs
 end
 
 function RBSteady.load_operator(dir,feop::ODEParamOperator;kwargs...)
   trial,test = RBSteady._load_fixed_operator_parts(dir,feop;kwargs...)
-  feop′,red_lhs,red_rhs = RBSteady._load_trian_operator_parts(dir,feop,trial,test;kwargs...)
-  op = RBOperator(feop′,trial,test,red_lhs,red_rhs)
+  red_lhs,red_rhs = RBSteady._load_trian_operator_parts(dir,feop;kwargs...)
+  op = RBOperator(feop,trial,test,red_lhs,red_rhs)
   return op
 end
 
@@ -92,12 +53,12 @@ function RBSteady.load_operator(dir,feop::LinearNonlinearODEParamOperator;label=
   feop_lin = get_linear_operator(feop)
   feop_nlin = get_nonlinear_operator(feop)
   trial,test = RBSteady._load_fixed_operator_parts(dir,feop_lin;label)
-  odeop_lin,red_lhs_lin,red_rhs_lin = RBSteady._load_trian_operator_parts(
-    dir,feop_lin,trial,test;label=_get_label("lin",label))
-  odeop_nlin,red_lhs_nlin,red_rhs_nlin = RBSteady._load_trian_operator_parts(
-    dir,feop_nlin,trial,test;label=_get_label("nlin",label))
-  op_lin = RBOperator(odeop_lin,trial,test,red_lhs_lin,red_rhs_lin)
-  op_nlin = RBOperator(odeop_nlin,trial,test,red_lhs_nlin,red_rhs_nlin)
+  red_lhs_lin,red_rhs_lin = RBSteady._load_trian_operator_parts(
+    dir,feop_lin;label=_get_label("lin",label))
+  red_lhs_nlin,red_rhs_nlin = RBSteady._load_trian_operator_parts(
+    dir,feop_nlin;label=_get_label("nlin",label))
+  op_lin = RBOperator(feop_lin,trial,test,red_lhs_lin,red_rhs_lin)
+  op_nlin = RBOperator(feop_nlin,trial,test,red_lhs_nlin,red_rhs_nlin)
   return LinearNonlinearRBOperator(op_lin,op_nlin)
 end
 

@@ -25,8 +25,8 @@ is completely characterized by the couple (`Φrb`,`i`), where `i` indicates the
 chosen interpolation strategy.
 
 Subtypes:
-- [`MDEIMProjection`](@ref)
-- [`RBFProjection`](@ref)
+- [`GenericHRProjection`](@ref)
+- [`BlockHRProjection`](@ref)
 """
 abstract type HRProjection{A<:ReducedProjection,B<:HyperReduction} <: Projection end
 
@@ -76,6 +76,10 @@ end
 """
 """
 const MDEIMProjection{A<:ReducedProjection} = HRProjection{A,<:MDEIMHyperReduction}
+
+"""
+"""
+const SOPTProjection{A<:ReducedProjection} = HRProjection{A,<:SOPTHyperReduction}
 
 """
 """
@@ -226,6 +230,10 @@ const AffineContribution{V<:Projection} = Contribution{V}
 """
 """
 const MDEIMContribution = AffineContribution{<:MDEIMProjection}
+
+"""
+"""
+const SOPTContribution = AffineContribution{<:SOPTProjection}
 
 """
 """

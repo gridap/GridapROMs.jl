@@ -7,9 +7,7 @@ get_cell_idofs(a::Interpolation) = get_cell_idofs(get_integration_domain(a))
 get_owned_icells(a::Interpolation,args...) = get_owned_icells(a,get_integration_cells(a,args...))
 get_owned_icells(a::Interpolation,cells::AbstractVector) = get_owned_icells(get_integration_domain(a),cells)
 
-Interpolation(red::MDEIMHyperReduction,args...) = MDEIMInterpolation(args...)
-Interpolation(red::SOPTHyperReduction,args...) = SOPTInterpolation(args...)
-Interpolation(red::RBFHyperReduction,args...) = RBFInterpolation(interp_strategy(red),args...)
+Interpolation(args...) = @abstractmethod
 
 function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,x::Any)
   @abstractmethod
@@ -33,47 +31,61 @@ end
 
 struct EmptyInterpolation <: Interpolation end
 
+function Interpolation(red::HyperReduction)
+  EmptyInterpolation()
+end
+
 # EIM interpolation
 
-struct MDEIMInterpolation{A,B<:IntegrationDomain} <: Interpolation
+struct GreedyInterpolation{A,B<:IntegrationDomain} <: Interpolation
   interpolation::A
   domain::B
 end
 
-MDEIMInterpolation() = EmptyInterpolation()
-SOPTInterpolation() = EmptyInterpolation()
-
-for (f,g) in zip((:MDEIMInterpolation,:SOPTInterpolation),(:empirical_interpolation,:s_opt))
+for (T,f) in zip((:MDEIMHyperReduction,:SOPTHyperReduction),(:empirical_interpolation,:s_opt))
   @eval begin
-    function $f(basis::Projection,trian::Triangulation,test::RBSpace)
-      rows,interp = $g(basis)
+    function Interpolation(
+      red::$T,
+      basis::Projection,
+      trian::Triangulation,
+      test::RBSpace
+      )
+
+      rows,interp = $f(basis)
       factor = lu(interp)
       domain = IntegrationDomain(trian,test,rows)
-      MDEIMInterpolation(factor,domain)
+      GreedyInterpolation(factor,domain)
     end
 
-    function $f(basis::Projection,trian::Triangulation,trial::RBSpace,test::RBSpace)
-      (rows,cols),interp = $g(basis)
+    function Interpolation(
+      red::$T,
+      basis::Projection,
+      trian::Triangulation,
+      trial::RBSpace,
+      test::RBSpace
+      )
+
+      (rows,cols),interp = $f(basis)
       factor = lu(interp)
       domain = IntegrationDomain(trian,trial,test,rows,cols)
-      MDEIMInterpolation(factor,domain)
+      GreedyInterpolation(factor,domain)
     end
   end
 end
 
-get_interpolation(a::MDEIMInterpolation) = a.interpolation
-get_integration_domain(a::MDEIMInterpolation) = a.domain
+get_interpolation(a::GreedyInterpolation) = a.interpolation
+get_integration_domain(a::GreedyInterpolation) = a.domain
 
-function reduced_triangulation(trian::Triangulation,a::MDEIMInterpolation)
+function reduced_triangulation(trian::Triangulation,a::GreedyInterpolation)
   red_cells = get_integration_cells(a)
   red_trian = view(trian,red_cells)
   return red_trian
 end
 
-function move_interpolation(a::MDEIMInterpolation,args...)
+function move_interpolation(a::GreedyInterpolation,args...)
   interpolation = get_interpolation(a)
   domain = move_integration_domain(get_integration_domain(a),args...)
-  MDEIMInterpolation(interpolation,domain)
+  GreedyInterpolation(interpolation,domain)
 end
 
 # RBF interpolation
@@ -82,9 +94,8 @@ struct RBFInterpolation{A<:Interpolator} <: Interpolation
   interpolation::A
 end
 
-RBFInterpolation(strategy::AbstractRadialBasis) = EmptyInterpolation()
-
-function RBFInterpolation(strategy::AbstractRadialBasis,a::Projection,s::Snapshots)
+function Interpolation(red::RBFHyperReduction,a::Projection,s::Snapshots)
+  strategy = interp_strategy(red)
   inds,interp = empirical_interpolation(a)
   factor = lu(interp)
   r = get_realization(s)
@@ -294,7 +305,7 @@ function move_interpolation(a::BlockInterpolation,test::FESpace,args...)
   return BlockInterpolation(cache,a.touched)
 end
 
-function reduced_triangulation(trian::Triangulation,a::BlockInterpolation{<:MDEIMInterpolation})
+function reduced_triangulation(trian::Triangulation,a::BlockInterpolation{<:GreedyInterpolation})
   red_cells = get_integration_cells(a)
   red_trian = view(trian,red_cells)
   return red_trian

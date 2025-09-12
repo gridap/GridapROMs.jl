@@ -1,7 +1,3 @@
-RBSteady.Interpolation(::HighDimMDEIMHyperReduction,args...) = MDEIMInterpolation(args...)
-RBSteady.Interpolation(::HighDimSOPTHyperReduction,args...) = MDEIMInterpolation(args...)
-RBSteady.Interpolation(::HighDimRBFHyperReduction,args...) = RBFInterpolation(args...)
-
 get_domain_style(a::Interpolation) = get_domain_style(get_integration_domain(a))
 
 get_indices_time(a::Interpolation) = get_indices_time(get_integration_domain(a))
@@ -18,39 +14,41 @@ end
 
 # EIM interpolation
 
-const TransientMDEIMInterpolation{A,B} = MDEIMInterpolation{A,B}
+const TransientGreedyInterpolation{A,B} = GreedyInterpolation{A,B}
 
-for (f,g) in zip((:(RBSteady.MDEIMInterpolation),:(RBSteady.SOPTInterpolation)),
-                 (:(RBSteady.empirical_interpolation),:(RBSteady.s_opt)))
+for (T,f) in zip((:HighDimMDEIMHyperReduction,:HighDimSOPTHyperReduction),
+                 (:empirical_interpolation,:s_opt))
   @eval begin
-    function $f(
+    function RBSteady.Interpolation(
+      red::$T,
       basis::TransientProjection,
       trian::Triangulation,
       test::RBSpace
       )
 
-      (rows,indices_time),interp = $g(basis)
+      (rows,indices_time),interp = $f(basis)
       factor = lu(interp)
       domain = IntegrationDomain(typeof(basis),trian,test,rows,indices_time)
-      MDEIMInterpolation(factor,domain)
+      GreedyInterpolation(factor,domain)
     end
 
-    function $f(
+    function RBSteady.Interpolation(
+      red::$T,
       basis::TransientProjection,
       trian::Triangulation,
       trial::RBSpace,
       test::RBSpace
       )
 
-      ((rows,cols),indices_time),interp = $g(basis)
+      ((rows,cols),indices_time),interp = $f(basis)
       factor = lu(interp)
       domain = IntegrationDomain(typeof(basis),trian,trial,test,rows,cols,indices_time)
-      MDEIMInterpolation(factor,domain)
+      GreedyInterpolation(factor,domain)
     end
   end
 end
 
-function get_param_itimes(a::TransientMDEIMInterpolation,common_ids::Range2D)
+function get_param_itimes(a::TransientGreedyInterpolation,common_ids::Range2D)
   common_param_ids = common_ids.axis1
   common_time_ids = common_ids.axis2
   local_time_ids = get_indices_time(a)
@@ -63,36 +61,25 @@ end
 
 const TransientRBFInterpolation{A} = RBFInterpolation{A}
 
-function RBSteady.RBFInterpolation(
-  strategy::AbstractRadialBasis,
-  a::KroneckerProjection,
-  s::TransientSnapshots
-  )
+for (T,f) in zip((:KroneckerProjection,:SequentialProjection),
+                 (:get_at_kron_domain,:get_at_seq_domain))
+  @eval begin
+    function RBSteady.Interpolation(
+      strategy::AbstractRadialBasis,
+      a::$T,
+      s::TransientSnapshots
+      )
 
-  inds,interp = empirical_interpolation(a)
-  factor = lu(interp)
-  r = get_realization(s)
-  red_data = get_at_kron_domain(s,inds...)
-  coeff = allocate_coefficient(a,r)
-  ldiv!(coeff,factor,red_data)
-  interp = Interpolator(get_params(r),coeff,strategy)
-  RBFInterpolation(interp)
-end
-
-function RBSteady.RBFInterpolation(
-  strategy::AbstractRadialBasis,
-  a::SequentialProjection,
-  s::TransientSnapshots
-  )
-
-  inds,interp = empirical_interpolation(a)
-  factor = lu(interp)
-  r = get_realization(s)
-  red_data = get_at_seq_domain(s,inds...)
-  coeff = allocate_coefficient(a,r)
-  ldiv!(coeff,factor,red_data)
-  interp = Interpolator(get_params(r),coeff,strategy)
-  RBFInterpolation(interp)
+      inds,interp = empirical_interpolation(a)
+      factor = lu(interp)
+      r = get_realization(s)
+      red_data = $f(s,inds...)
+      coeff = allocate_coefficient(a,r)
+      ldiv!(coeff,factor,red_data)
+      interp = Interpolator(get_params(r),coeff,strategy)
+      RBFInterpolation(interp)
+    end
+  end
 end
 
 function get_at_kron_domain(

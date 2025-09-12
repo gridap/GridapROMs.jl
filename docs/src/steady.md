@@ -180,14 +180,14 @@ A `RBSolver` contains the following information:
     Other reduction strategies include fixing the rank of the truncation
 
     ```julia 
-        rank = 5
-        PODReduction(rank,inner_prod;nparams=20)
+    rank = 5
+    PODReduction(rank,inner_prod;nparams=20)
     ```
 
     and using randomized POD algorithms
 
     ```julia 
-        PODReduction(tol,inner_prod;nparams=20,sketch=:sprn)
+    PODReduction(tol,inner_prod;nparams=20,sketch=:sprn)
     ```
 
     A comprehensive documentation on randomized POD algorithms can be found [here](https://github.com/JuliaLinearAlgebra/LowRankApprox.jl).
@@ -240,13 +240,8 @@ fesnaps, = solution_snapshots(rbsolver,feop)
 Û,V̂ = reduced_spaces(rbsolver,feop,fesnaps)
 # compute the hyper-reduction for LHS & RHS
 â,l̂ = reduced_weak_form(rbsolver,feop,Û,V̂,fesnaps)
-
-# fetch the reduced FEDomains
-τₕ_l̂,τₕ_â = get_domains(l̂),get_domains(â)
-# replace the original FEDomains with the reduced ones  
-feop′ = change_domains(feop,τₕ_l̂,τₕ_â)
 # definition of reduced operator 
-rbop = RBOperator(feop′,Û,V̂,â,l̂)
+RBOperator(feop,Û,V̂,â,l̂)
 ```
 
 ## Online phase 

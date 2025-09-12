@@ -19,7 +19,7 @@ import Gridap.MultiField: BlockMultiFieldStyle
 import GridapROMs.ParamAlgebra: get_linear_operator,get_nonlinear_operator
 import GridapROMs.ParamDataStructures: AbstractSnapshots,ReshapedSnapshots,TransientSnapshotsWithIC,GenericTransientRealization,get_realization
 import GridapROMs.ParamSteady: ParamOperator
-import GridapROMs.RBSteady: get_state_reduction,get_residual_reduction,get_jacobian_reduction,load_stats
+import GridapROMs.RBSteady: get_state_reduction,get_residual_reduction,get_jacobian_reduction,load_stats,get_filename,_get_label
 import GridapROMs.Utils: Contribution,TupOfArrayContribution,change_domains
 
 function change_dof_map(s::GenericSnapshots,dof_map)
@@ -54,6 +54,36 @@ function change_dof_map(jac::TupOfArrayContribution,dof_map::TupOfArrayContribut
   return jac′
 end
 
+for (f,l) in zip((:save_residuals,:save_jacobians),(:res,:jac))
+  @eval begin
+    function $f(dir,resjac,feop::ParamOperator;label="")
+      save(dir,resjac;label=_get_label(label,string($l)))
+    end
+
+    function $f(dir,resjac,feop::LinearNonlinearParamOperator;label="")
+      @assert length(resjac) == 2
+      resjac_lin,resjac_nlin = resjac
+      res_lin = $f(dir,resjac_lin,get_linear_operator(feop);label=_get_label(label,"lin"))
+      res_nlin = $f(dir,resjac_nlin,get_nonlinear_operator(feop);label=_get_label(label,"nlin"))
+      return (res_lin,res_nlin)
+    end
+  end
+end
+
+for (f,g,l) in zip((:load_residuals,:load_jacobians),(:get_domains_res,:get_domains_jac),(:res,:jac))
+  @eval begin
+    function $f(dir,feop::ParamOperator;label="")
+      load_contribution(dir,$g(feop);label=_get_label(label,string($l)))
+    end
+
+    function $f(dir,feop::LinearNonlinearParamOperator;label="")
+      res_lin = $f(dir,get_linear_operator(feop);label=_get_label(label,"lin"))
+      res_nlin = $f(dir,get_nonlinear_operator(feop);label=_get_label(label,"nlin"))
+      return (res_lin,res_nlin)
+    end
+  end
+end
+
 function try_loading_fe_snapshots(dir,rbsolver,feop,args...;label="",kwargs...)
   try
     fesnaps = load_snapshots(dir;label)
@@ -85,24 +115,29 @@ function try_loading_online_fe_snapshots(
   return x,festats,μon
 end
 
-function try_loading_reduced_operator(dir_tol,rbsolver,feop,fesnaps)
+function try_loading_fe_jac_res(dir,rbsolver,feop,fesnaps)
+  try
+    jac = load_jacobians(dir,feop)
+    res = load_residuals(dir,feop)
+    println("Load res/jac at $dir succeeded!")
+    return jac,res
+  catch
+    println("Load res/jac at $dir failed, must compute them")
+    jac = jacobian_snapshots(rbsolver,feop,fesnaps)
+    res = residual_snapshots(rbsolver,feop,fesnaps)
+    save_jacobians(dir,jac,feop)
+    save_residuals(dir,res,feop)
+    return jac,res
+  end
+end
+
+function try_loading_reduced_operator(dir_tol,rbsolver,feop,fesnaps,jac,res)
   try
     rbop = load_operator(dir_tol,feop)
     println("Load reduced operator at $dir_tol succeeded!")
     return rbop
   catch
     println("Load reduced operator at $dir_tol failed, must run offline phase")
-    dir = joinpath(splitpath(dir_tol)[1:end-1])
-    local res,jac
-    try
-      res = load_residuals(dir,feop)
-      jac = load_jacobians(dir,feop)
-    catch
-      res = residual_snapshots(rbsolver,feop,fesnaps)
-      jac = jacobian_snapshots(rbsolver,feop,fesnaps)
-      save(dir,res,feop;label="res")
-      save(dir,jac,feop;label="jac")
-    end
     rbop = reduced_operator(rbsolver,feop,fesnaps,jac,res)
     save(dir_tol,rbop)
     return rbop
@@ -188,6 +223,7 @@ function run_test(
   args...;nparams=10,reuse_online=false,sampling=:uniform,kwargs...)
 
   fesnaps, = try_loading_fe_snapshots(dir,rbsolver,feop,args...)
+  jac,res = try_loading_fe_jac_res(dir,rbsolver,feop,fesnaps)
   x,festats,μon = try_loading_online_fe_snapshots(
     dir,rbsolver,feop,args...;nparams,reuse_online,sampling)
 
@@ -203,7 +239,7 @@ function run_test(
     create_dir(plot_dir_tol)
 
     rbsolver = update_solver(rbsolver,tol)
-    rbop = try_loading_reduced_operator(dir_tol,rbsolver,feop,fesnaps)
+    rbop = try_loading_reduced_operator(dir_tol,rbsolver,feop,fesnaps,jac,res)
 
     x̂,rbstats = solve(rbsolver,rbop,μon,args...)
     perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)

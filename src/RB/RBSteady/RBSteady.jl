@@ -154,7 +154,7 @@ export move_integration_domain
 include("IntegrationDomains.jl")
 
 export Interpolation
-export MDEIMInterpolation
+export GreedyInterpolation
 export RBFInterpolation
 export BlockInterpolation
 export move_interpolation
@@ -204,8 +204,6 @@ export ROMPerformance
 export eval_performance
 export create_dir
 export load_snapshots
-export load_residuals
-export load_jacobians
 export load_contribution
 export load_operator
 export load_results
