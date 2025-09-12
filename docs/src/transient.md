@@ -29,7 +29,7 @@ add_tag_from_tags!(labels,"dirichlet0",["walls_p","walls","cylinders_p","cylinde
 add_tag_from_tags!(labels,"dirichlet",["inlet"])
 ```
 
-Now, we introduce the space of tuples `(μ,t)` 
+Now, we introduce the space of tuples ``(μ,t)``
 
 ``` julia 
 dt = 0.0025
@@ -41,11 +41,11 @@ tdomain = t0:dt:tf
 Dt = TransientParamSpace(pdomain,tdomain)
 ```
 
-The main difference with respect to the steady case is that we consider as realizations sets of tuples `(μ,t)`. This allows for a much cleaner representation of the `(μ,t)`-dependence in the problem. 
+The main difference with respect to the steady case is that we consider as realizations sets of tuples ``(μ,t)``. This allows for a much cleaner representation of the ``(μ,t)``-dependence in the problem. 
 
 !!! note
 
-  Times are not sampled from a [`TransientParamSpace`](@ref), in the sense that we consider the sets `(μ,t) ∀ t ∈ t0:dt:tf`, where `μ` is a sampled quantity.
+  Times are not sampled from a [`TransientParamSpace`](@ref), in the sense that we consider the sets ``(μ,t) ∀ t ∈ t0:dt:tf``, where ``μ`` is a sampled quantity.
 
 The way in which we simultaneously evaluate parameter- and time-dependent functions is with the structure `TransientParamFunction`, which generalizes a [`ParamFunction`](@ref) to the transient case. For example, we can consider the following Dirichlet datum for our problem
 
@@ -72,7 +72,7 @@ Y = TransientMultiFieldParamFESpace([V,Q];style=BlockMultiFieldStyle())
 X = TransientMultiFieldParamFESpace([U,P];style=BlockMultiFieldStyle())
 ```
 
-A [`TransientTrialParamFESpace`](@ref) extends a traditional `TransientTrialFESpace` in Gridap, as it allows to provide a `(μ,t)`-dependent Dirichlet datum. The same holds for the multi-field version [`TransientMultiFieldParamFESpace`](@ref). 
+A [`TransientTrialParamFESpace`](@ref) extends a traditional `TransientTrialFESpace` in Gridap, as it allows to provide a ``(μ,t)``-dependent Dirichlet datum. The same holds for the multi-field version [`TransientMultiFieldParamFESpace`](@ref). 
 
 !!! note
 

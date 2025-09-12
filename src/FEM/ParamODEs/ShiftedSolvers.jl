@@ -44,7 +44,6 @@ function Algebra.solve!(
   front_shift!(solver,r)
   _update_paramcache!(nlop,r)
   t = @timed _update_paramcache!(nlop,r)
-  println(CostTracker(t,name="Parametric cache construction"))
   solve!(x̂,solver.sysslvr,nlop,syscache)
   back_shift!(solver,r)
 end
