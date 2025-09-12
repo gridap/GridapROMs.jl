@@ -30,7 +30,7 @@ makedocs(;
         "Usage" => ["steady.md","transient.md"],
         "FEM Interface" => fem_interface,
         "ROM Interface" => rom_interface,
-        "Distributed Interface" => rom_interface,
+        "Distributed Interface" => distributed_interface,
         "Contributing" => "contributing.md",
     ],
     sitename="GridapROMs.jl",

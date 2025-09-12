@@ -3,7 +3,6 @@
 Welcome to the documentation for GridapROMs. 
 
 !!! note 
-
     The documentation is currently under construction.
 
 ## Introduction

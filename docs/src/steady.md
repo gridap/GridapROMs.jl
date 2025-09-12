@@ -38,7 +38,7 @@ In this example we solve a parameter dependent Poisson equation
 \right.
 ```
 
-where ``Ω`` is a sufficiently regular spatial domain, ``ν`` is a (positive) conductivity coefficient, ```u``` is the problem's unknown, ```f``` is a forcing term, and ```h``` a Neumann datum defined on the Neumann boundary ``Γn``. In this problem, we consider ``Ω = [0,1]^2`` and ``Γn`` to be the right leg of the square. The remaining boundary is Dirichlet, and here we impose a manufactured, parameter-dependent solution. We consider the problem given by the following data: 
+where ``Ω`` is a sufficiently regular spatial domain, ``ν`` is a (positive) conductivity coefficient, ```u``` is the problem's unknown, ```f``` is a forcing term, and ```h``` a Neumann datum defined on the Neumann boundary ``Γ_n``. In this problem, we consider ``Ω = [0,1]^2`` and ``Γ_n`` to be the right leg of the square. The remaining boundary is Dirichlet, and here we impose a manufactured, parameter-dependent solution. We consider the problem given by the following data: 
 
 ```julia
 ν(μ) = x -> exp(-μ[1]*x[1])
@@ -274,6 +274,6 @@ println(perf)
 
 In other words, we first compute the HF solution `xon` in the online parameters `μₒₙ`, and then we run the performance tester, which in particular returns
 
-* The relative error ||xon - x̂on|| / ||xon||, averaged on the 10 parameters in `μₒₙ`. The norm is the one specified by `inner_prod`, so in our case the `H^1_0` product.
+* The relative error `||xon - x̂on|| / ||xon||`, averaged on the 10 parameters in `μₒₙ`. The norm is the one specified by `inner_prod`, so in our case the `H^1_0` product.
 
 * The speedup in terms of time and memory achieved with respect to the HF simulations. This is done by comparing the variables `rbstats` and `festats`, which contain the time (in seconds) and memory allocations (in Gb) of the two algorithms.

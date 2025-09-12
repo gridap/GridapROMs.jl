@@ -104,12 +104,16 @@ They feature a field `combine`, a function used to group the reductions relative
 to the various Jacobians(in general, more than one in transient problems) in a
 smart way. We consider, for example, the ODE
 
-``\tfrac{du}{dt} - \nu \Delta u = f \ \ \text{in} \ \ Ω \times [0,T]``
+```math
+\tfrac{du}{dt} - \nu \Delta u = f \ \ \text{in} \ \ Ω \times [0,T]
+```
 
 subject to initial/boundary conditions. Upon applying a FE discretization in space,
 and a `θ`-method in time, one gets the space-time system
 
-``A_{\theta} u_{\theta} = f_{\theta}``
+```math
+A_{\theta} u_{\theta} = f_{\theta}
+```
 
 where
 
@@ -125,13 +129,13 @@ A_1 + M / (\theta \Delta t) & & & & & \\
 
 ```math
 u_{\theta} = \begin{bmatrix}
-& (1-\theta)u_0 + \theta u_1 & \hdots & (1-\theta)u_{n-1} + \theta u_n
+(1-\theta)u_0 + \theta u_1 & \hdots & (1-\theta)u_{n-1} + \theta u_n
 \end{bmatrix}^T;
 ```
 
 ```math
 f_{\theta} = \begin{bmatrix}
-& f_1 & \hdots & f_n
+f_1 & \hdots & f_n
 \end{bmatrix}^T;
 ```
 
