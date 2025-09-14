@@ -54,12 +54,16 @@ function change_dof_map(jac::TupOfArrayContribution,dof_map::TupOfArrayContribut
   return jac′
 end
 
-for (f,l) in zip((:save_residuals,:save_jacobians),(:res,:jac))
-  @eval begin
-    function $f(dir,resjac,feop::ParamOperator;label="")
-      save(dir,resjac;label=_get_label(label,string($l)))
-    end
+function save_residuals(dir,res,feop::ParamOperator;label="")
+  save(dir,res;label=_get_label(label,"res"))
+end
 
+function save_jacobians(dir,jac,feop::ParamOperator;label="")
+  save(dir,jac;label=_get_label(label,"jac"))
+end
+
+for f in (:save_residuals,:save_jacobians)
+  @eval begin
     function $f(dir,resjac,feop::LinearNonlinearParamOperator;label="")
       @assert length(resjac) == 2
       resjac_lin,resjac_nlin = resjac
@@ -70,12 +74,16 @@ for (f,l) in zip((:save_residuals,:save_jacobians),(:res,:jac))
   end
 end
 
-for (f,g,l) in zip((:load_residuals,:load_jacobians),(:get_domains_res,:get_domains_jac),(:res,:jac))
-  @eval begin
-    function $f(dir,feop::ParamOperator;label="")
-      load_contribution(dir,$g(feop);label=_get_label(label,string($l)))
-    end
+function load_residuals(dir,feop::ParamOperator;label="")
+  load_contribution(dir,get_domains_res(feop);label=_get_label(label,"res"))
+end
 
+function load_jacobians(dir,feop::ParamOperator;label="")
+  load_contribution(dir,get_domains_jac(feop);label=_get_label(label,"jac"))
+end
+
+for f in (:load_residuals,:load_jacobians)
+  @eval begin
     function $f(dir,feop::LinearNonlinearParamOperator;label="")
       res_lin = $f(dir,get_linear_operator(feop);label=_get_label(label,"lin"))
       res_nlin = $f(dir,get_nonlinear_operator(feop);label=_get_label(label,"nlin"))

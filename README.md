@@ -66,6 +66,28 @@ Solution             |  Convergence
 
 ### Test 3
 
+Solve an [advection-diffusion equation](https://gridap.github.io/Tutorials/dev/pages/t010_advection_diffusion/) with TT-SVD and TT-MDEIM. 
+
+```julia
+julia> include("examples/AdvectionDiffusionTTSVD.jl")
+```
+Solution             |  Convergence
+:-------------------------:|:-------------------------:
+<img src="docs/src/assets/results/adv_diff_ttsvd/plot/rbsol.png" alt="drawing" style="width:400px; height:250px;"/>  |  <img src="docs/src/assets/results/adv_diff_ttsvd/results/convergence.png" alt="drawing" style="width:400px; height:250px;"/>
+
+### Test 4
+
+Solve a 2D [electromagnetic wave scattering problem](https://gridap.github.io/Tutorials/dev/pages/t013_emscatter/) modeled by the steady Helmholtz equation in PLM condition. We employ POD and MDEIM for the reduced problem.
+
+```julia
+julia> include("examples/HelmholtzPOD.jl")
+```
+Solution             |  Convergence
+:-------------------------:|:-------------------------:
+<img src="docs/src/assets/results/helmholtz/plot/rbsol.png" alt="drawing" style="width:400px; height:250px;"/>  |  <img src="docs/src/assets/results/helmholtz/results/convergence.png" alt="drawing" style="width:400px; height:250px;"/>
+
+### Test 5
+
 Solve a steady Stokes equation with a POD+MDEIM method.
 
 ```julia
@@ -76,7 +98,7 @@ Solution - velocity          |  Solution - pressure        |  Convergence
 :-------------------------:|:-------------------------:|:-------------------------:
 <img src="docs/src/assets/results/stokes_pod/plot/rbvel.png" alt="drawing" style="width:275px; height:250px;"/>  |  <img src="docs/src/assets/results/stokes_pod/plot/rbpress.png" alt="drawing" style="width:275px; height:250px;"/>  |  <img src="docs/src/assets/results/stokes_pod/results/convergence.png" alt="drawing" style="width:275px; height:250px;"/> 
 
-### Test 4 
+### Test 6 
 
 Moving to transient applications, we first solve a heat equation with a [space-time RB-MDEIM method](https://www.sciencedirect.com/science/article/pii/S0377042724000165).
 
@@ -88,7 +110,7 @@ Solution             |  Convergence
 :-------------------------:|:-------------------------:
 <img src="docs/src/assets/results/heateq_pod/plot/rbsol.gif" alt="drawing" style="width:400px; height:250px;"/>  |  <img src="docs/src/assets/results/heateq_pod/results/convergence.png" alt="drawing" style="width:400px; height:250px;"/> 
 
-### Test 5
+### Test 7
 
 Lastly, we solve a transient Navier-Stokes equation with the same space-time RB method as in `Test 4`.
 

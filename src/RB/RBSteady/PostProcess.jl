@@ -348,11 +348,20 @@ function Utils.compute_relative_error(
   error
 end
 
+function _writevtk(::Type{T},Ω,dir,uh,ûh,eh) where T
+  writevtk(Ω,dir,cellfields=["uh"=>uh,"ûh"=>ûh,"eh"=>eh])
+end
+
+function _writevtk(::Type{T},Ω,dir,uh,ûh,eh) where T<:Complex
+  writevtk(Ω,dir,cellfields=["uh"=>abs2(uh),"ûh"=>abs2(ûh),"eh"=>abs2(eh)])
+end
+
 function plot_a_solution(dir,Ω,uh,ûh,r::Realization)
+  T = eltype2(get_free_dof_values(uh))
   uh1 = param_getindex(uh,1)
   ûh1 = param_getindex(ûh,1)
   eh1 = uh1 - ûh1
-  writevtk(Ω,dir*".vtu",cellfields=["uh"=>uh1,"ûh"=>ûh1,"eh"=>eh1])
+  _writevtk(T,Ω,dir*".vtu",uh1,ûh1,eh1)
 end
 
 function plot_a_solution(

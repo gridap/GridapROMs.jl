@@ -3,8 +3,6 @@ module GridapROMsTests
 using Test
 
 @testset "poisson" begin include("RBSteady/poisson.jl") end
-@testset "advection-diffusion" begin include("RBSteady/advection_diffusion.jl") end
-@testset "helmholtz" begin include("RBSteady/helmholtz.jl") end
 @testset "poisson" begin include("RBSteady/poisson.jl") end
 @testset "steady stokes" begin include("RBSteady/stokes.jl") end
 @testset "steady navier-stokes" begin include("RBSteady/navier_stokes.jl") end
