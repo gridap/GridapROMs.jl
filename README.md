@@ -84,7 +84,7 @@ julia> include("examples/HelmholtzPOD.jl")
 ```
 Solution             |  Convergence
 :-------------------------:|:-------------------------:
-<img src="docs/src/assets/results/helmholtz/plot/rbsol.png" alt="drawing" style="width:400px; height:250px;"/>  |  <img src="docs/src/assets/results/helmholtz/results/convergence.png" alt="drawing" style="width:400px; height:250px;"/>
+<img src="docs/src/assets/results/helmholtz_pod/plot/rbsol.png" alt="drawing" style="width:400px; height:250px;"/>  |  <img src="docs/src/assets/results/helmholtz_pod/results/convergence.png" alt="drawing" style="width:400px; height:250px;"/>
 
 ### Test 5
 
