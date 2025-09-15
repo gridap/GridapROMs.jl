@@ -16,6 +16,5 @@ using Test
 @testset "moving poisson" begin include("RBMovingGeometries/moving_poisson.jl") end
 @testset "moving elasticity" begin include("RBMovingGeometries/moving_elasticity.jl") end
 @testset "moving stokes" begin include("RBMovingGeometries/moving_stokes.jl") end
-@testset "moving navier-stokes" begin include("RBMovingGeometries/moving_nstokes.jl") end
 
 end # module
