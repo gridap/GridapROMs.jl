@@ -1,24 +1,22 @@
 name: CI
-on: 
+on:
   push:
-    branches: [main,master]
-  pull_request: 
-    branches: [main,master]
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
 jobs:
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        version:
-          - '1.11.1'
-        os:
-          - ubuntu-latest
-        arch:
-          - x64
+        version: ['1.11.1']
+        os: [ubuntu-latest]
+        arch: [x64]
     steps:
-      - uses: actions/checkout@v2
-      - uses: julia-actions/setup-julia@v1
+      - uses: actions/checkout@v3
+      - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
@@ -44,8 +42,10 @@ jobs:
     name: Documentation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: julia-actions/setup-julia@v1
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # required by Documenter
+      - uses: julia-actions/setup-julia@v2
         with:
           version: '1.11.1'
       - run: |
