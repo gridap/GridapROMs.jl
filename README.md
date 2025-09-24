@@ -8,7 +8,7 @@ This package provides a set of tools for the solution of parameterized partial d
 | **Citation** |
 | [![DOI](https://img.shields.io/badge/DOI-10.1016%2Fj.jcp.2022.111162-blue)](https://arxiv.org/abs/2503.15994) |
 |**Build Status** |
-| [![CI](https://github.com/gridap/GridapROMs.jl/workflows/CI/badge.svg)](https://github.com:gridap/GridapROMs.jl/actions?query=workflow%3ACI) [![codecov](https://codecov.io/gh/github.com:gridap/GridapROMs.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/github.com:gridap/GridapROMs.jl) |
+| [![CI](https://github.com/gridap/GridapROMs.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/gridap/GridapROMs.jl/actions/workflows/CI.yml) [![codecov](https://codecov.io/gh/gridap/GridapROMs.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/gridap/GridapROMs.jl) |
 
 ## Installation
 
