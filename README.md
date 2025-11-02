@@ -122,9 +122,9 @@ Solution - velocity          |  Solution - pressure        |  Convergence
 :-------------------------:|:-------------------------:|:-------------------------:
 <img src="docs/src/assets/results/nstokes_strb/plot/rbvel.gif" alt="drawing" style="width:275px; height:250px;"/>  |  <img src="docs/src/assets/results/nstokes_strb/plot/rbpress.gif" alt="drawing" style="width:275px; height:250px;"/>  |  <img src="docs/src/assets/results/nstokes_strb/results/convergence.png" alt="drawing" style="width:275px; height:250px;"/> 
 
-## How to cite ROManifolds
+## How to cite GridapROMs
 
-In order to give credit to the `ROManifolds` contributors, we simply ask you to cite the references below in any publication in which you have made use of the `ROManifolds` project. 
+In order to give credit to the `GridapROMs` contributors, we simply ask you to cite the references below in any publication in which you have made use of the `ROManifolds` project. 
 
 ```
 @misc{mueller2025gridapromsjlefficientreducedorder,
