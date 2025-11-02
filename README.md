@@ -112,7 +112,7 @@ Solution             |  Convergence
 
 ### Test 7
 
-Lastly, we solve a transient Navier-Stokes equation with the same space-time RB method as in `Test 4`.
+Lastly, we solve a transient Navier-Stokes equation with the same space-time RB method as in `Test 6`.
 
 ```julia
 julia> include("examples/NStokesTransientSTRB.jl")
@@ -124,7 +124,7 @@ Solution - velocity          |  Solution - pressure        |  Convergence
 
 ## How to cite GridapROMs
 
-In order to give credit to the `GridapROMs` contributors, we simply ask you to cite the references below in any publication in which you have made use of the `ROManifolds` project. 
+In order to give credit to the `GridapROMs` contributors, we simply ask you to cite the references below in any publication in which you have made use of the `GridapROMs` project. 
 
 ```
 @misc{mueller2025gridapromsjlefficientreducedorder,
