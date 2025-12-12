@@ -96,7 +96,6 @@ function get_local(a::RBSpace,μ::AbstractVector)
 end
 
 get_local(a::ParamOperator,μ::AbstractVector) = a
-get_local(a::UncommonParamOperator,μ::AbstractVector) = a[μ]
 
 function enrich!(
   red::SupremizerReduction{A,<:LocalReduction},

@@ -26,8 +26,7 @@ import Gridap.Algebra: residual!,jacobian!
 import Gridap.FESpaces: FEFunction,SparseMatrixAssembler,EvaluationFunction
 import Gridap.ODEs: TransientCellField
 import Gridap.ReferenceFEs: get_order
-import GridapROMs.ParamSteady: get_domains_res,get_domains_jac
-import GridapROMs.Utils: change_domains,set_domains
+import GridapROMs.Utils: change_domains,set_domains,get_domains_res,get_domains_jac
 
 export ∂ₚt,∂ₚtt
 include("TimeDerivatives.jl")

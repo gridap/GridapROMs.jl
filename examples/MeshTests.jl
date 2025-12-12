@@ -11,9 +11,9 @@ using GridapROMs.RBSteady
 using GridapROMs.RBTransient
 
 import Gridap.Helpers: @abstractmethod
-import GridapROMs.Utils: Contribution,TupOfArrayContribution
+import GridapROMs.Utils: Contribution,TupOfArrayContribution,get_domains_res,get_domains_jac
 import GridapROMs.ParamDataStructures: ReshapedSnapshots,TransientSnapshotsWithIC,GenericTransientRealization,_get_params
-import GridapROMs.ParamSteady: get_domains_res,get_domains_jac,get_dof_map_at_domains,get_sparse_dof_map_at_domains
+import GridapROMs.ParamSteady: get_dof_map_at_domains,get_sparse_dof_map_at_domains
 import GridapROMs.RBSteady: load_stats
 
 include("ExamplesInterface.jl")

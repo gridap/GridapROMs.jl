@@ -1303,21 +1303,21 @@ function Arrays.setsize_op!(::typeof(copy),a::ParamBlock,b::ParamBlock)
   end
 end
 
-function Arrays.setsize_op!(::typeof(copy),c::ParamBlock,a::AbstractArray,b::ParamBlock)
+function Arrays.setsize_op!(::typeof(*),c::ParamBlock,a::AbstractArray,b::ParamBlock)
   for i in eachindex(c.data)
-    Arrays.setsize_op!(copy,param_getindex(c,i),a,param_getindex(b,i))
+    Arrays.setsize_op!(*,param_getindex(c,i),a,param_getindex(b,i))
   end
 end
 
-function Arrays.setsize_op!(::typeof(copy),c::ParamBlock,a::ParamBlock,b::AbstractArray)
+function Arrays.setsize_op!(::typeof(*),c::ParamBlock,a::ParamBlock,b::AbstractArray)
   for i in eachindex(c.data)
-    Arrays.setsize_op!(copy,param_getindex(c,i),param_getindex(a,i),b)
+    Arrays.setsize_op!(*,param_getindex(c,i),param_getindex(a,i),b)
   end
 end
 
-function Arrays.setsize_op!(::typeof(copy),c::ParamBlock,a::ParamBlock,b::ParamBlock)
+function Arrays.setsize_op!(::typeof(*),c::ParamBlock,a::ParamBlock,b::ParamBlock)
   for i in eachindex(c.data)
-    Arrays.setsize_op!(copy,param_getindex(c,i),param_getindex(a,i),param_getindex(b,i))
+    Arrays.setsize_op!(*,param_getindex(c,i),param_getindex(a,i),param_getindex(b,i))
   end
 end
 
@@ -1893,12 +1893,15 @@ for T in (:AbstractArray,:Nothing)
   end
 end
 
-# param geometry
-
 # utils
 
 function Fields.AffineField(gradients::ParamBlock,origins::ParamBlock)
   data = map(AffineField,get_param_data(gradients),get_param_data(origins))
+  GenericParamBlock(data)
+end
+
+function Fields.VoidField(field::ParamBlock,isvoid::Bool)
+  data = map(a -> VoidField(a,isvoid),get_param_data(field))
   GenericParamBlock(data)
 end
 

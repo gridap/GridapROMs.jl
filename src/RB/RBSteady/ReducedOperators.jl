@@ -118,7 +118,7 @@ abstract type RBOperator{O,T} <: ParamOperator{O,T} end
 const JointRBOperator{O} = RBOperator{O,JointDomains}
 const SplitRBOperator{O} = RBOperator{O,SplitDomains}
 
-Utils.get_fe_operator(op::RBOperator) = @abstractmethod
+ParamSteady.get_fe_operator(op::RBOperator) = @abstractmethod
 FESpaces.get_trial(op::RBOperator) = @abstractmethod
 FESpaces.get_test(op::RBOperator) = @abstractmethod
 get_lhs(op::RBOperator) = @abstractmethod
@@ -318,7 +318,7 @@ function RBOperator(
   GenericRBOperator(op,trial,test,lhs,rhs)
 end
 
-Utils.get_fe_operator(op::GenericRBOperator) = op.op
+ParamSteady.get_fe_operator(op::GenericRBOperator) = op.op
 FESpaces.get_trial(op::GenericRBOperator) = op.trial
 FESpaces.get_test(op::GenericRBOperator) = op.test
 get_lhs(op::GenericRBOperator) = op.lhs
@@ -371,7 +371,7 @@ struct LocalRBOperator{O,T,A,B} <: RBOperator{O,T}
   rhs::B
 end
 
-Utils.get_fe_operator(op::LocalRBOperator) = op.op
+ParamSteady.get_fe_operator(op::LocalRBOperator) = op.op
 FESpaces.get_trial(op::LocalRBOperator) = op.trial
 FESpaces.get_test(op::LocalRBOperator) = op.test
 get_lhs(op::LocalRBOperator) = op.lhs
@@ -416,7 +416,7 @@ ParamAlgebra.get_nonlinear_operator(op::LinearNonlinearRBOperator) = op.op_nonli
 FESpaces.get_trial(op::LinearNonlinearRBOperator) = get_trial(get_nonlinear_operator(op))
 FESpaces.get_test(op::LinearNonlinearRBOperator) = get_test(get_nonlinear_operator(op))
 
-Utils.get_fe_operator(op::LinearNonlinearRBOperator) = get_fe_operator(get_nonlinear_operator(op))
+ParamSteady.get_fe_operator(op::LinearNonlinearRBOperator) = get_fe_operator(get_nonlinear_operator(op))
 
 function ParamAlgebra.allocate_paramcache(op::LinearNonlinearRBOperator,μ::AbstractRealization)
   op_nlin = get_nonlinear_operator(op)

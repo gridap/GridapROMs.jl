@@ -37,7 +37,6 @@ using GridapROMs.ParamFESpaces
 using GridapROMs.ParamSteady
 using GridapROMs.ParamODEs
 using GridapROMs.Extensions
-using GridapROMs.Uncommon
 
 import ArraysOfArrays: _ncolons
 import Base: +,-,*,\

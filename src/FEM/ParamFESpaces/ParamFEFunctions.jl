@@ -145,6 +145,7 @@ function FESpaces.get_cell_dof_values(f::MultiFieldParamFEFunction,trian::Triang
 end
 
 MultiField.num_fields(m::MultiFieldParamFEFunction) = length(m.single_fe_functions)
+Base.length(m::MultiFieldParamFEFunction) = num_fields(m)
 Base.iterate(m::MultiFieldParamFEFunction) = iterate(m.single_fe_functions)
 Base.iterate(m::MultiFieldParamFEFunction,state) = iterate(m.single_fe_functions,state)
 Base.getindex(m::MultiFieldParamFEFunction,field_id::Integer) = m.single_fe_functions[field_id]

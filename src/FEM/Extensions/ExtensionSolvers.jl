@@ -140,12 +140,6 @@ function Algebra.solve!(
   solve!(u_bg,solver.solver,op,cache)
 end
 
-function Algebra.solve(solver::ExtensionSolver,op::DomainOperator)
-  u = solve(solver.solver,op)
-  u_bg = extend_solution(solver.extension,get_trial(op),u)
-  return u_bg
-end
-
 function Algebra.solve(solver::ExtensionSolver,op::ParamOperator,r::Realization)
   u,stats = solve(solver.solver,op,r)
   u_bg = extend_solution(solver.extension,get_trial(op)(r),u)

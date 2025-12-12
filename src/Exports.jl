@@ -11,12 +11,6 @@ end
 @publish Utils ∂₂
 @publish Utils ∂₃
 @publish Utils FEDomains
-@publish Utils FEDomainOperator
-@publish Utils LinearFEOperator
-@publish Utils DomainOperator
-@publish Utils LinearDomainOperator
-@publish Utils GenericFEDomainOperator
-@publish Utils GenericDomainOperator
 
 @publish DofMaps OrderedFESpace
 @publish DofMaps slow_index
@@ -86,11 +80,6 @@ using GridapROMs.ParamODEs: ∂ₚt,∂ₚtt; export ∂ₚt,∂ₚtt
 @publish Extensions ExtensionODESolver
 @publish Extensions extend_solution
 using GridapROMs.Extensions: ⊕; export ⊕
-
-@publish Uncommon UncommonParamOperator
-@publish Uncommon param_operator
-@publish Uncommon allocate_batchvector
-@publish Uncommon allocate_batchmatrix
 
 @publish RBSteady Reduction
 @publish RBSteady PODReduction

@@ -230,18 +230,6 @@ _get_sparse_dof_map(op::ParamOperator,a::ArrayContribution) = get_sparse_dof_map
 _get_dof_map(op::ParamOperator,a::AbstractParamArray) = get_dof_map(op)
 _get_sparse_dof_map(op::ParamOperator,a::AbstractParamArray) = _get_trivial_sparse_dof_map(a)
 
-function _get_dof_map(op::UncommonParamOperator,a::ArrayContribution)
-  contribution(get_domains(a)) do trian
-    get_dof_map(op)
-  end
-end
-
-function _get_sparse_dof_map(op::UncommonParamOperator,a::ArrayContribution)
-  contribution(get_domains(a)) do trian
-    _get_trivial_sparse_dof_map(a[trian])
-  end
-end
-
 _get_trivial_sparse_dof_map(a::ParamSparseMatrix) = TrivialSparseMatrixDofMap(a)
 _get_trivial_sparse_dof_map(a::BlockParamArray) = map(_get_trivial_sparse_dof_map,a.data)
 

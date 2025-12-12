@@ -60,25 +60,12 @@ export LinearNonlinearEq
 export TriangulationStyle
 export JointDomains
 export SplitDomains
-include("FEDomains.jl")
-
-export FEDomainOperator
-export LinearFEOperator
-export GenericFEDomainOperator
-export get_fe_operator
-export get_jac
-export get_domains
 export get_domains_res
 export get_domains_jac
 export get_polynomial_order
 export get_polynomial_orders
-include("FEDomainOperators.jl")
-
-export DomainOperator
-export LinearDomainOperator
-export GenericDomainOperator
 export collect_cell_matrix_for_trian
 export collect_cell_vector_for_trian
-include("DomainOperators.jl")
+include("FEDomains.jl")
 
 end # module

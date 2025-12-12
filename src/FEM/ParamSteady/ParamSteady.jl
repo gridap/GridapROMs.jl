@@ -31,7 +31,7 @@ import Test: @test
 import Gridap.Algebra: residual!,jacobian!
 import Gridap.FESpaces: FEFunction,SparseMatrixAssembler,EvaluationFunction
 import Gridap.ReferenceFEs: get_order
-import GridapROMs.Utils: CostTracker,get_fe_operator,change_domains,set_domains
+import GridapROMs.Utils: CostTracker,change_domains,set_domains
 
 export UnEvalOperatorType
 export NonlinearParamEq
@@ -42,6 +42,7 @@ export JointParamOperator
 export SplitParamOperator
 export LinearParamOperator
 export LinearNonlinearParamOperator
+export get_jac
 include("ParamOperators.jl")
 
 export ParamFEOperator
