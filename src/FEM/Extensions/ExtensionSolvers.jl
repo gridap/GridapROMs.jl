@@ -165,7 +165,7 @@ struct ExtensionODEParamSolution{E<:ExtensionStyle}
 end
 
 function ExtensionODEParamSolution(
-  solver::ODESolver,
+  solver::ExtensionODESolver,
   odeop::ODEParamOperator,
   r::TransientRealization,
   u0)
@@ -175,7 +175,7 @@ function ExtensionODEParamSolution(
 end
 
 function ParamODEs.ODEParamSolution(
-  solver::ODESolver,
+  solver::ExtensionODESolver,
   odeop::ODEParamOperator,
   r::TransientRealization,
   u0::V) where V

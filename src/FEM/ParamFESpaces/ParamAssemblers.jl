@@ -34,14 +34,17 @@ function ParamDataStructures.parameterize(
   rows = FESpaces.get_rows(a)
   cols = FESpaces.get_cols(a)
   strategy = FESpaces.get_assembly_strategy(a)
-  block_idx = CartesianIndices((NB,NB))
+  NBr,SBr,Pr = R
+  NBc,SBc,Pc = C
+  block_idx = CartesianIndices((NBr,NBc))
   block_assemblers = map(block_idx) do idx
-    mb = matrix_builder[idx[1],idx[2]]
-    vb = vector_builder[idx[1]]
-    r = rows[idx[1]]
-    c = cols[idx[2]]
-    s = strategy[idx[1],idx[2]]
-    assem = SparseMatrixAssembler(mb,vb,r,c,s)
+    assem = GenericSparseMatrixAssembler(
+      matrix_builder[idx[1],idx[2]],
+      vector_builder[idx[1]],
+      rows[idx[1]],
+      cols[idx[2]],
+      strategy[idx[1],idx[2]]
+      )
     parameterize(assem,plength)
   end
   MultiField.BlockSparseMatrixAssembler{R,C}(block_assemblers)

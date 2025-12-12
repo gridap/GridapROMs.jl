@@ -1586,7 +1586,7 @@ function Geometry.pos_neg_data(
   nineg = length(i_to_iposneg.ineg_to_i)
   ipos_to_v = lazy_map(VoidFieldMap(false),ipos_to_val)
   ineg_to_v = Fill(VoidField(testitem(ipos_to_val),true),nineg)
-  ipos_to_v, ineg_to_v
+  ipos_to_v,ineg_to_v
 end
 
 # reference FEs
@@ -1778,64 +1778,70 @@ for S in (:ParamBlock,:AbstractArray)
   end
 end
 
-function Arrays.return_value(k::BroadcastingFieldOpMap,a::Union{ArrayBlock,ParamBlock}...)
-  evaluate(k,a...)
-end
-
-function Arrays.return_cache(k::BroadcastingFieldOpMap,a::Union{ArrayBlock,ParamBlock}...)
-  function _replace_nz_blocks(a::ArrayBlock,bi::ParamBlock)
-    N = ndims(a.array)
-    array = Array{typeof(bi),N}(undef,size(a))
-    for i in eachindex(a.array)
-      if a.touched[i]
-        array[i] = bi
-      end
-    end
-    ArrayBlock(array,a.touched)
-  end
-
-  function _replace_nz_blocks(a::ArrayBlock,bi::ArrayBlock)
-    bi
-  end
-
-  inds = findall(ai->isa(ai,ArrayBlock),a)
-  @notimplementedif length(inds) == 0
-  a1 = a[inds[1]]
-  b = map(ai->_replace_nz_blocks(a1,ai),a)
-  c = return_cache(k,b...)
-  c,b
-end
-
 for A in (:ArrayBlock,:ParamBlock)
   for B in (:ArrayBlock,:ParamBlock)
     for C in (:ArrayBlock,:ParamBlock)
       if !(A == B == C)
         @eval begin
+          function Arrays.return_value(k::BroadcastingFieldOpMap,a::$A,b::$B,c::$C)
+            evaluate(k,a,b,c)
+          end
+
+          function Arrays.return_cache(k::BroadcastingFieldOpMap,a::$A,b::$B,c::$C)
+            tup = (a,b,c)
+            i = findfirst(Base.Fix2(isa,ArrayBlock),tup)
+            @notimplementedif isnothing(i)
+            m = Arrays.MatchingBlockMap(tup[i])
+            ca = return_cache(m,a)
+            cb = return_cache(m,b)
+            cc = return_cache(m,c)
+            ea = evaluate!(ca,m,a)
+            eb = evaluate!(cb,m,b)
+            ec = evaluate!(cc,m,c)
+            ctup = return_cache(k,ea,eb,ec)
+            return ctup,m,(ca,cb,cc)
+          end
+
           function Arrays.evaluate!(cache,k::BroadcastingFieldOpMap,a::$A,b::$B,c::$C)
-            eval_cache,replace_cache = cache
-            cachea,cacheb,cachec = replace_cache
-
-            _replace_nz_blocks!(cachea,a)
-            _replace_nz_blocks!(cacheb,b)
-            _replace_nz_blocks!(cachec,c)
-
-            evaluate!(eval_cache,k,cachea,cacheb,cachec)
+            ctup,m,(ca,cb,cc) = cache
+            ea = evaluate!(ca,m,a)
+            eb = evaluate!(cb,m,b)
+            ec = evaluate!(cc,m,c)
+            evaluate!(ctup,k,ea,eb,ec)
           end
         end
       end
       for D in (:ArrayBlock,:ParamBlock)
         if !(A == B == C == D)
           @eval begin
+            function Arrays.return_value(k::BroadcastingFieldOpMap,a::$A,b::$B,c::$C,d::$D)
+              evaluate(k,a,b,c,d)
+            end
+
+            function Arrays.return_cache(k::BroadcastingFieldOpMap,a::$A,b::$B,c::$C,d::$D)
+              tup = (a,b,c,d)
+              i = findfirst(Base.Fix2(isa,ArrayBlock),tup)
+              @notimplementedif isnothing(i)
+              m = Arrays.MatchingBlockMap(tup[i])
+              ca = return_cache(m,a)
+              cb = return_cache(m,b)
+              cc = return_cache(m,c)
+              cd = return_cache(m,d)
+              ea = evaluate!(ca,m,a)
+              eb = evaluate!(cb,m,b)
+              ec = evaluate!(cc,m,c)
+              ed = evaluate!(cd,m,d)
+              ctup = return_cache(k,ea,eb,ec,ed)
+              return ctup,m,(ca,cb,cc,cd)
+            end
+
             function Arrays.evaluate!(cache,k::BroadcastingFieldOpMap,a::$A,b::$B,c::$C,d::$D)
-              eval_cache,replace_cache = cache
-              cachea,cacheb,cachec,cached = replace_cache
-
-              _replace_nz_blocks!(cachea,a)
-              _replace_nz_blocks!(cacheb,b)
-              _replace_nz_blocks!(cachec,c)
-              _replace_nz_blocks!(cached,d)
-
-              evaluate!(eval_cache,k,cachea,cacheb,cachec,cached)
+              ctup,m,(ca,cb,cc,cd) = cache
+              ea = evaluate!(ca,m,a)
+              eb = evaluate!(cb,m,b)
+              ec = evaluate!(cc,m,c)
+              ed = evaluate!(cd,m,d)
+              evaluate!(ctup,k,ea,eb,ec,ed)
             end
           end
         end
@@ -2153,24 +2159,6 @@ for T in (:ParamBlock,:(ArrayBlock{<:ParamBlock}))
 end
 
 # utils
-
-function _replace_nz_blocks!(cache::ArrayBlock,val::ParamBlock)
-  for i in eachindex(cache.array)
-    if cache.touched[i]
-      cache.array[i] = val
-    end
-  end
-  cache
-end
-
-function _replace_nz_blocks!(cache::ArrayBlock,val::ArrayBlock)
-  for i in eachindex(cache.array)
-    if cache.touched[i]
-      cache.array[i] = val.array[i]
-    end
-  end
-  cache
-end
 
 function _test_values(h::ParamBlock,f::ParamBlock)
   @check param_length(h) == param_length(f)

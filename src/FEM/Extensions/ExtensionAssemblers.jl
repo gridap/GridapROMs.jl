@@ -193,7 +193,10 @@ function ParamDataStructures.parameterize(
   a::BlockExtensionAssembler{R,C},
   plength::Int) where {R,C}
 
-  block_assemblers = map(eachindex(a.block_assemblers)) do idx
+  NBr,SBr,Pr = R
+  NBc,SBc,Pc = C
+  block_idx = CartesianIndices((NBr,NBc))
+  block_assemblers = map(block_idx) do idx
     parameterize(a.block_assemblers[idx],plength)
   end
   BlockSparseMatrixAssembler{R,C}(block_assemblers)
