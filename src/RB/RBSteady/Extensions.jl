@@ -37,24 +37,17 @@ end
 
 # post process
 
-function Utils.compute_relative_error(
-  norm_style::EuclideanNorm,feop::ExtensionParamOperator,extsol,extsol_approx
-  )
+const RBExtensionSolver{B} = RBSolver{ExtensionSolver,B}
 
-  trial = get_trial(feop)
-  sol,sol_approx = remove_extension(trial,extsol,extsol_approx)
-  compute_relative_error(sol,sol_approx)
+function remove_extension(s::RBExtensionSolver)
+  RBSolver(s.solver.solver,s.state_reduction,s.residual_reduction,s.jacobian_reduction)
 end
 
-function Utils.compute_relative_error(
-  norm_style::EnergyNorm,feop::ExtensionParamOperator,extsol,extsol_approx
-  )
-
+function Utils.compute_relative_error(extsolver::RBSolver{<:ExtensionSolver},feop,extsol,extsol_approx)
+  solver = remove_extension(extsolver)
   trial = get_trial(feop)
-  test = get_test(feop)
   sol,sol_approx = remove_extension(trial,extsol,extsol_approx)
-  X = assemble_matrix(get_norm(norm_style),trial,test)
-  compute_relative_error(sol,sol_approx,X)
+  compute_relative_error(solver,feop,sol,sol_approx)
 end
 
 # utils

@@ -140,24 +140,24 @@ function Algebra.solve!(
   solve!(u_bg,solver.solver,op,cache)
 end
 
-function Algebra.solve(solver::ExtensionSolver,op::ExtensionOperator)
-  u = solve(solver.solver,op.op)
+function Algebra.solve(solver::ExtensionSolver,op::DomainOperator)
+  u = solve(solver.solver,op)
   u_bg = extend_solution(solver.extension,get_trial(op),u)
   return u_bg
 end
 
-function Algebra.solve(solver::ExtensionSolver,op::ExtensionParamOperator,r::Realization)
-  u,stats = solve(solver.solver,op.op,r)
+function Algebra.solve(solver::ExtensionSolver,op::ParamOperator,r::Realization)
+  u,stats = solve(solver.solver,op,r)
   u_bg = extend_solution(solver.extension,get_trial(op)(r),u)
   return u_bg,stats
 end
 
 # transient
 
-remove_extension(s::ODESolver) = @abstractmethod
-remove_extension(s::ThetaMethod) = ThetaMethod(s.sysslvr.solver,s.dt,s.θ)
-get_extension(s::ODESolver) = @abstractmethod
-get_extension(s::ThetaMethod) = s.sysslvr.extension
+struct ExtensionODESolver <: ODESolver
+  solver::ODESolver
+  extension::ExtensionStyle
+end
 
 struct ExtensionODEParamSolution{E<:ExtensionStyle}
   extension::E
@@ -166,18 +166,17 @@ end
 
 function ExtensionODEParamSolution(
   solver::ODESolver,
-  odeop::ODEExtensionParamOperator,
+  odeop::ODEParamOperator,
   r::TransientRealization,
   u0)
 
-  extension = get_extension(solver)
-  odesol = ODEParamSolution(remove_extension(solver),odeop.op,r,u0)
-  ExtensionODEParamSolution(extension,odesol)
+  odesol = ODEParamSolution(solver.solver,odeop,r,u0)
+  ExtensionODEParamSolution(solver.extension,odesol)
 end
 
 function ParamODEs.ODEParamSolution(
   solver::ODESolver,
-  odeop::ODEExtensionParamOperator,
+  odeop::ODEParamOperator,
   r::TransientRealization,
   u0::V) where V
 

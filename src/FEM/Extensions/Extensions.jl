@@ -53,24 +53,13 @@ export BlockMultiFieldExtensionStyle
 export BlockExtensionSparseMatrixAssembler
 include("MultiFieldFESpaces.jl")
 
-export ExtensionOperator
-export ExtensionLinearOperator
-include("ExtensionOperators.jl")
-
-export ExtensionParamOperator
-export ExtensionLinearParamOperator
-export ExtensionLinearNonlinearParamOperator
-export TransientExtensionParamOperator
-export TransientExtensionLinearParamOperator
-export TransientExtensionLinearNonlinearParamOperator
-include("ExtensionParamOperators.jl")
-
 export ExtensionStyle
 export ZeroExtension
 export MassExtension
 export HarmonicExtension
 export BlockExtension
 export ExtensionSolver
+export ExtensionODESolver
 export extend_solution
 include("ExtensionSolvers.jl")
 

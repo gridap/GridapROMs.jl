@@ -78,18 +78,12 @@ using GridapROMs.ParamODEs: ∂ₚt,∂ₚtt; export ∂ₚt,∂ₚtt
 
 @publish Extensions DirectSumFESpace
 @publish Extensions EmbeddedFESpace
-@publish Extensions ExtensionOperator
-@publish Extensions ExtensionParamOperator
-@publish Extensions ExtensionLinearParamOperator
-@publish Extensions ExtensionLinearNonlinearParamOperator
-@publish Extensions TransientExtensionParamOperator
-@publish Extensions TransientExtensionLinearParamOperator
-@publish Extensions TransientExtensionLinearNonlinearParamOperator
 @publish Extensions ZeroExtension
 @publish Extensions MassExtension
 @publish Extensions HarmonicExtension
 @publish Extensions BlockExtension
 @publish Extensions ExtensionSolver
+@publish Extensions ExtensionODESolver
 @publish Extensions extend_solution
 using GridapROMs.Extensions: ⊕; export ⊕
 

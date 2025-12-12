@@ -257,9 +257,7 @@ function eval_performance(
   rbstats::CostTracker
   )
 
-  state_red = get_state_reduction(solver)
-  norm_style = NormStyle(state_red)
-  error = compute_relative_error(norm_style,feop,fesnaps,rbsnaps)
+  error = compute_relative_error(solver,feop,fesnaps,rbsnaps)
   speedup = compute_speedup(festats,rbstats)
   ROMPerformance(error,speedup)
 end
@@ -289,6 +287,12 @@ end
 function load_results(dir;label="")
   results_dir = get_filename(dir,"results",label)
   deserialize(results_dir,perf)
+end
+
+function Utils.compute_relative_error(solver::RBSolver,feop,sol,sol_approx)
+  state_red = get_state_reduction(solver)
+  norm_style = NormStyle(state_red)
+  compute_relative_error(norm_style,feop,sol,sol_approx)
 end
 
 function Utils.compute_relative_error(norm_style::EnergyNorm,feop,sol,sol_approx)
