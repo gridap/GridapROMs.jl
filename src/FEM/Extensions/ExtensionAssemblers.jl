@@ -1,7 +1,3 @@
-abstract type ExtensionAssemblerStyle end
-
-
-
 """
     struct ExtensionAssembler <: SparseMatrixAssembler
       assem::SparseMatrixAssembler
@@ -26,32 +22,20 @@ struct ExtensionAssembler <: SparseMatrixAssembler
   test_dof_to_bg_dofs::NTuple{2,AbstractVector}
 end
 
-function ExtensionAssembler(trial::SingleFieldFESpace,test::SingleFieldFESpace)
+function ExtensionAssembler(
+  mat,
+  vec,
+  trial::FESpace,
+  test::FESpace,
+  strategy::AssemblyStrategy
+  )
+
   bg_trial = get_bg_space(trial)
   bg_test = get_bg_space(test)
-  assem = SparseMatrixAssembler(bg_trial,bg_test)
+  assem = SparseMatrixAssembler(mat,vec,bg_trial,bg_test,strategy)
   trial_dof_to_bg_dofs = get_dof_to_bg_dof(trial)
   test_dof_to_bg_dofs = get_dof_to_bg_dof(test)
   ExtensionAssembler(assem,trial_dof_to_bg_dofs,test_dof_to_bg_dofs)
-end
-
-function ExtensionAssembler(
-  ::BlockMultiFieldStyle{R,C},
-  trial::MultiFieldFESpace,
-  test::MultiFieldFESpace
-  ) where {R,C}
-
-  NV = length(test.spaces)
-  block_idx = CartesianIndices((NB,NB))
-  block_assem = map(block_idx) do idx
-    ExtensionAssembler(trial[idx[2]],test[idx[1]])
-  end
-  BlockSparseMatrixAssembler{R,C}(block_assem)
-end
-
-function ExtensionAssembler(trial::MultiFieldFESpace,test::MultiFieldFESpace)
-  mfs = MultiFieldStyle(test)
-  ExtensionAssembler(mfs,trial,test)
 end
 
 FESpaces.get_vector_type(a::ExtensionAssembler) = get_vector_type(a.assem)

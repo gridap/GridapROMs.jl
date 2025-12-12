@@ -49,6 +49,10 @@ include("DirectSumFESpaces.jl")
 export ExtensionAssembler
 include("ExtensionAssemblers.jl")
 
+export BlockMultiFieldExtensionStyle 
+export BlockExtensionSparseMatrixAssembler
+include("MultiFieldFESpaces.jl")
+
 export ExtensionOperator
 export ExtensionLinearOperator
 include("ExtensionOperators.jl")

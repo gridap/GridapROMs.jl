@@ -1,26 +1,11 @@
 function FESpaces.SparseMatrixAssembler(
-  matrix_builder,
-  vector_builder,
-  rows::AbstractUnitRange,
-  cols::AbstractUnitRange,
-  strategy::AssemblyStrategy
-  )
-
-  GenericSparseMatrixAssembler(
-    matrix_builder,
-    vector_builder,
-    rows,
-    cols,
-    strategy
-    )
-end
-
-function FESpaces.SparseMatrixAssembler(
+  mat,
+  vec,
   trial::SingleFieldParamFESpace,
-  test::SingleFieldFESpace
-  )
+  test::SingleFieldFESpace,
+  strategy::AssemblyStrategy=FESpaces.DefaultAssemblyStrategy())
 
-  assem = SparseMatrixAssembler(get_fe_space(trial),test)
+  assem = SparseMatrixAssembler(mat,vec,get_fe_space(trial),test,strategy)
   parameterize(assem,param_length(trial))
 end
 

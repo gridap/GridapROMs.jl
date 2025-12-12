@@ -74,6 +74,28 @@ function FESpaces.zero_dirichlet_values(f::DirectSumFESpace)
   zero_dirichlet_values(f.space)
 end
 
+function FESpaces.SparseMatrixAssembler(
+  mat,
+  vec,
+  trial::DirectSumFESpace,
+  test::DirectSumFESpace,
+  strategy::AssemblyStrategy=FESpaces.DefaultAssemblyStrategy())
+
+  ExtensionAssembler(mat,vec,trial,test,strategy)
+end
+
+function FESpaces.SparseMatrixAssembler(
+  mat,
+  vec,
+  trial::DirectSumFESpace{<:SingleFieldParamFESpace,<:SingleFieldParamFESpace},
+  test::DirectSumFESpace,
+  strategy::AssemblyStrategy=FESpaces.DefaultAssemblyStrategy())
+
+  trial′ = DirectSumFESpace(get_fe_space(trial.space.space),get_fe_space(trial.complementary.space))
+  assem = SparseMatrixAssembler(mat,vec,trial′,test,strategy)
+  parameterize(assem,param_length(trial.space.space))
+end
+
 # utils
 
 get_emb_space(f::DirectSumFESpace) = get_emb_space(f.space)
@@ -205,3 +227,4 @@ end
 
 (f::DirectSumTrialFESpace)(μ) = evaluate(f,μ)
 (f::DirectSumTrialFESpace)(μ,t) = evaluate(f,μ,t)
+

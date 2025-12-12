@@ -692,6 +692,7 @@ end
 function _bg_vals_from_vals!(bg_fv,bg_dv,f::EmbeddedTrialFESpace,fv,dv)
   _bg_vals_from_vals!(bg_fv,bg_dv,get_emb_space(f),fv,dv)
 end
+
 function _bg_vals_from_vals!(
   bg_fv::ConsecutiveParamVector,
   bg_dv::ConsecutiveParamVector,
@@ -699,14 +700,6 @@ function _bg_vals_from_vals!(
   fv::ConsecutiveParamVector,
   dv::ConsecutiveParamVector)
   _bg_vals_from_vals!(bg_fv,bg_dv,get_emb_space(f),fv,dv)
-end
-
-function FESpaces.SparseMatrixAssembler(
-  trial::EmbeddedTrialFESpace,
-  test::SingleFieldFESpace
-  )
-
-  SparseMatrixAssembler(trial.space,test)
 end
 
 function Arrays.evaluate(f::EmbeddedTrialFESpace,args...)
