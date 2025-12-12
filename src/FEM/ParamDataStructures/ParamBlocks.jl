@@ -129,27 +129,27 @@ function Arrays.CachedArray(a::GenericParamBlock)
   GenericParamBlock(data)
 end
 
-function Fields.unwrap_cached_array(a::GenericParamBlock)
-  cache = return_cache(Fields.unwrap_cached_array,a)
-  evaluate!(cache,Fields.unwrap_cached_array,a)
+function Arrays.unwrap_cached_array(a::GenericParamBlock)
+  cache = return_cache(Arrays.unwrap_cached_array,a)
+  evaluate!(cache,Arrays.unwrap_cached_array,a)
 end
 
-function Arrays.return_cache(::typeof(Fields.unwrap_cached_array),a::GenericParamBlock)
+function Arrays.return_cache(::typeof(Arrays.unwrap_cached_array),a::GenericParamBlock)
   ai = testitem(a)
-  ci = return_cache(Fields.unwrap_cached_array,ai)
-  ri = evaluate!(ci,Fields.unwrap_cached_array,ai)
+  ci = return_cache(Arrays.unwrap_cached_array,ai)
+  ri = evaluate!(ci,Arrays.unwrap_cached_array,ai)
   c = Vector{typeof(ci)}(undef,length(a.data))
   data = Vector{typeof(ri)}(undef,length(a.data))
   for i in eachindex(a.data)
-    c[i] = return_cache(Fields.unwrap_cached_array,a.data[i])
+    c[i] = return_cache(Arrays.unwrap_cached_array,a.data[i])
   end
   GenericParamBlock(data),c
 end
 
-function Arrays.evaluate!(cache,::typeof(Fields.unwrap_cached_array),a::GenericParamBlock)
+function Arrays.evaluate!(cache,::typeof(Arrays.unwrap_cached_array),a::GenericParamBlock)
   r,c = cache
   for i in eachindex(a.data)
-    r.data[i] = evaluate!(c[i],Fields.unwrap_cached_array,a.data[i])
+    r.data[i] = evaluate!(c[i],Arrays.unwrap_cached_array,a.data[i])
   end
   r
 end
@@ -234,8 +234,8 @@ function Arrays.CachedArray(a::TrivialParamBlock)
   TrivialParamBlock(CachedArray(a.data),a.plength)
 end
 
-function Fields.unwrap_cached_array(a::TrivialParamBlock)
-  TrivialParamBlock(Fields.unwrap_cached_array(a.data),a.plength)
+function Arrays.unwrap_cached_array(a::TrivialParamBlock)
+  TrivialParamBlock(Arrays.unwrap_cached_array(a.data),a.plength)
 end
 
 ###################### end trivial case ######################
@@ -1252,27 +1252,6 @@ function LinearAlgebra.rmul!(a::GenericParamBlock,β)
   end
 end
 
-function Fields._zero_entries!(a::GenericParamBlock)
-  for i in eachindex(a.data)
-    Fields._zero_entries!(a.data[i])
-  end
-end
-
-function LinearAlgebra.mul!(c::ParamBlock,a::ParamBlock,b::AbstractArray)
-  Fields._zero_entries!(c)
-  mul!(c,a,b,1,0)
-end
-
-function LinearAlgebra.mul!(c::ParamBlock,a::AbstractArray,b::ParamBlock)
-  Fields._zero_entries!(c)
-  mul!(c,a,b,1,0)
-end
-
-function LinearAlgebra.mul!(c::ParamBlock,a::ParamBlock,b::ParamBlock)
-  Fields._zero_entries!(c)
-  mul!(c,a,b,1,0)
-end
-
 function LinearAlgebra.mul!(
   c::ParamBlock,
   a::ParamBlock,
@@ -1306,21 +1285,39 @@ function LinearAlgebra.mul!(
   end
 end
 
-function Fields._setsize_mul!(c,a::AbstractArray,b::ParamBlock)
-  for i in eachindex(c.data)
-    Fields._setsize_mul!(param_getindex(c,i),a,param_getindex(b,i))
+function Arrays.setsize_op!(::typeof(copy),a::AbstractArray,b::ParamBlock)
+  for i in eachindex(b.data)
+    Arrays.setsize_op!(copy,a,param_getindex(b,i))
   end
 end
 
-function Fields._setsize_mul!(c,a::ParamBlock,b::AbstractArray)
-  for i in eachindex(c.data)
-    Fields._setsize_mul!(param_getindex(c,i),param_getindex(a,i),b)
+function Arrays.setsize_op!(::typeof(copy),a::ParamBlock,b::AbstractArray)
+  for i in eachindex(a.data)
+    Arrays.setsize_op!(copy,param_getindex(a,i),b)
   end
 end
 
-function Fields._setsize_mul!(c,a::ParamBlock,b::ParamBlock)
+function Arrays.setsize_op!(::typeof(copy),a::ParamBlock,b::ParamBlock)
+  for i in eachindex(a.data)
+    Arrays.setsize_op!(copy,param_getindex(a,i),param_getindex(b,i))
+  end
+end
+
+function Arrays.setsize_op!(::typeof(copy),c::ParamBlock,a::AbstractArray,b::ParamBlock)
   for i in eachindex(c.data)
-    Fields._setsize_mul!(param_getindex(c,i),param_getindex(a,i),param_getindex(b,i))
+    Arrays.setsize_op!(copy,param_getindex(c,i),a,param_getindex(b,i))
+  end
+end
+
+function Arrays.setsize_op!(::typeof(copy),c::ParamBlock,a::ParamBlock,b::AbstractArray)
+  for i in eachindex(c.data)
+    Arrays.setsize_op!(copy,param_getindex(c,i),param_getindex(a,i),b)
+  end
+end
+
+function Arrays.setsize_op!(::typeof(copy),c::ParamBlock,a::ParamBlock,b::ParamBlock)
+  for i in eachindex(c.data)
+    Arrays.setsize_op!(copy,param_getindex(c,i),param_getindex(a,i),param_getindex(b,i))
   end
 end
 
@@ -1334,14 +1331,14 @@ end
 
 function Arrays.return_cache(::typeof(*),a::AbstractArray,b::ParamBlock)
   c1 = CachedArray(a*b)
-  c2 = return_cache(Fields.unwrap_cached_array,c1)
+  c2 = return_cache(Arrays.unwrap_cached_array,c1)
   (c1,c2)
 end
 
 function Arrays.evaluate!(cache,::typeof(*),a::AbstractArray,b::ParamBlock)
   c1,c2 = cache
-  Fields._setsize_mul!(c1,a,b)
-  c = evaluate!(c2,Fields.unwrap_cached_array,c1)
+  Arrays.setsize_op!(*,c1,a,b)
+  c = evaluate!(c2,Arrays.unwrap_cached_array,c1)
   mul!(c,a,b)
   c
 end
@@ -1357,14 +1354,14 @@ end
 
 function Arrays.return_cache(::typeof(*),a::ParamBlock,b::AbstractArray)
   c1 = CachedArray(a*b)
-  c2 = return_cache(Fields.unwrap_cached_array,c1)
+  c2 = return_cache(Arrays.unwrap_cached_array,c1)
   (c1,c2)
 end
 
 function Arrays.evaluate!(cache,::typeof(*),a::ParamBlock,b::AbstractArray)
   c1,c2 = cache
-  Fields._setsize_mul!(c1,a,b)
-  c = evaluate!(c2,Fields.unwrap_cached_array,c1)
+  Arrays.setsize_op!(*,c1,a,b)
+  c = evaluate!(c2,Arrays.unwrap_cached_array,c1)
   mul!(c,a,b)
   c
 end
@@ -1381,23 +1378,16 @@ end
 
 function Arrays.return_cache(::typeof(*),a::ParamBlock,b::ParamBlock)
   c1 = CachedArray(a*b)
-  c2 = return_cache(Fields.unwrap_cached_array,c1)
+  c2 = return_cache(Arrays.unwrap_cached_array,c1)
   (c1,c2)
 end
 
 function Arrays.evaluate!(cache,::typeof(*),a::ParamBlock,b::ParamBlock)
   c1,c2 = cache
-  Fields._setsize_mul!(c1,a,b)
-  c = evaluate!(c2,Fields.unwrap_cached_array,c1)
+  Arrays.setsize_op!(*,c1,a,b)
+  c = evaluate!(c2,Arrays.unwrap_cached_array,c1)
   mul!(c,a,b)
   c
-end
-
-function Fields._setsize_as!(d,a::GenericParamBlock)
-  for i in eachindex(a.data)
-    Fields._setsize_as!(param_getindex(d,i),param_getindex(a,i))
-  end
-  d
 end
 
 function Arrays.return_value(k::MulAddMap,a,b::ParamBlock,c::ParamBlock)
@@ -1407,40 +1397,19 @@ end
 
 function Arrays.return_cache(k::MulAddMap,a,b::ParamBlock,c::ParamBlock)
   c1 = CachedArray(a*b+c)
-  c2 = return_cache(Fields.unwrap_cached_array,c1)
+  c2 = return_cache(Arrays.unwrap_cached_array,c1)
   (c1,c2)
 end
 
 function Arrays.evaluate!(cache,k::MulAddMap,a,b::ParamBlock,c::ParamBlock)
   c1,c2 = cache
-  Fields._setsize_as!(c1,c)
-  Fields._setsize_mul!(c1,a,b)
-  d = evaluate!(c2,Fields.unwrap_cached_array,c1)
+  Arrays.setsize_op!(copy,c1,c)
+  Arrays.setsize_op!(*,c1,a,b)
+  d = evaluate!(c2,Arrays.unwrap_cached_array,c1)
   copyto!(d,c)
   iszero(k.α) && isone(k.β) && return d
   mul!(d,a,b,k.α,k.β)
   d
-end
-
-function Fields._mymul!(cIJ::ParamBlock,aIK::ParamBlock,bKJ::ParamBlock,α)
-  @check param_length(cIJ)==param_length(aIK)==param_length(bKJ)
-  for i in param_eachindex(cIJ)
-    Fields._mymul!(param_getindex(cIJ,i),param_getindex(aIK,i),param_getindex(bKJ,i),α)
-  end
-end
-
-function Fields._mymul!(cIJ::ParamBlock,aIK::ParamBlock,bKJ::AbstractArray,α)
-  @check param_length(cIJ)==param_length(aIK)
-  for i in param_eachindex(cIJ)
-    Fields._mymul!(param_getindex(cIJ,i),param_getindex(aIK,i),bKJ,α)
-  end
-end
-
-function Fields._mymul!(cIJ::ParamBlock,aIK::AbstractArray,bKJ::ParamBlock,α)
-  @check param_length(cIJ)==param_length(bKJ)
-  for i in param_eachindex(cIJ)
-    Fields._mymul!(param_getindex(cIJ,i),aIK,param_getindex(bKJ,i),α)
-  end
 end
 
 # Autodiff related
@@ -1540,7 +1509,7 @@ end
 
 function Geometry._cache_compress(a::ParamBlock)
   c1 = CachedArray(a)
-  c2 = return_cache(Fields.unwrap_cached_array,c1)
+  c2 = return_cache(Arrays.unwrap_cached_array,c1)
   c1,c2
 end
 
@@ -1555,7 +1524,7 @@ function Geometry._setempty_compress!(a::GenericParamBlock)
 end
 
 function Geometry._uncached_compress!(c1::ParamBlock,c2)
-  evaluate!(c2,Fields.unwrap_cached_array,c1)
+  evaluate!(c2,Arrays.unwrap_cached_array,c1)
 end
 
 function Geometry._setsize_compress!(a::TrivialParamBlock,b::TrivialParamBlock)

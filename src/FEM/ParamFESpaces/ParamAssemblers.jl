@@ -41,8 +41,8 @@ function ParamDataStructures.parameterize(a::SparseMatrixAssembler,plength::Int)
 end
 
 function ParamDataStructures.parameterize(
-  a::MultiField.BlockSparseMatrixAssembler{NB,NV,SB,P},
-  plength::Int) where {NB,NV,SB,P}
+  a::MultiField.BlockSparseMatrixAssembler{R,C},
+  plength::Int) where {R,C}
 
   matrix_builder = get_matrix_builder(a)
   vector_builder = get_vector_builder(a)
@@ -59,7 +59,7 @@ function ParamDataStructures.parameterize(
     assem = SparseMatrixAssembler(mb,vb,r,c,s)
     parameterize(assem,plength)
   end
-  MultiField.BlockSparseMatrixAssembler{NB,NV,SB,P}(block_assemblers)
+  MultiField.BlockSparseMatrixAssembler{R,C}(block_assemblers)
 end
 
 function FESpaces.assemble_vector_add!(

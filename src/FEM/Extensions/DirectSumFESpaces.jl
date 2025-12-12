@@ -197,14 +197,6 @@ end
 
 const DirectSumTrialFESpace = DirectSumFESpace{<:AbstractTrialFESpace,<:AbstractTrialFESpace}
 
-function FESpaces.SparseMatrixAssembler(
-  trial::DirectSumTrialFESpace,
-  test::SingleFieldFESpace
-  )
-
-  SparseMatrixAssembler(trial.space,test)
-end
-
 function Arrays.evaluate(f::DirectSumTrialFESpace,args...)
   space = evaluate(f.space,args...)
   complementary = evaluate(f.complementary,args...)

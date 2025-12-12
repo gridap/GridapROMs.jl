@@ -394,8 +394,8 @@ end
 function Arrays.evaluate!(c,k::BGCellDofIds,i::Int)
   cache,a = c
   ids = getindex!(cache,k.cell_dof_ids,i)
-  Fields._setsize_as!(a,ids)
-  r = Fields.unwrap_cached_array(a)
+  Arrays.setsize_op!(copy,a,ids)
+  r = Arrays.unwrap_cached_array(a)
   _set_bgcelldof!(r,k.fdof_to_bg_fdofs,k.ddof_to_bg_ddofs,ids)
   return r
 end

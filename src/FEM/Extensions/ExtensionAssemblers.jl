@@ -1,3 +1,7 @@
+abstract type ExtensionAssemblerStyle end
+
+
+
 """
     struct ExtensionAssembler <: SparseMatrixAssembler
       assem::SparseMatrixAssembler
@@ -32,17 +36,17 @@ function ExtensionAssembler(trial::SingleFieldFESpace,test::SingleFieldFESpace)
 end
 
 function ExtensionAssembler(
-  ::BlockMultiFieldStyle{NB,SB,P},
+  ::BlockMultiFieldStyle{R,C},
   trial::MultiFieldFESpace,
   test::MultiFieldFESpace
-  ) where {NB,SB,P}
+  ) where {R,C}
 
   NV = length(test.spaces)
   block_idx = CartesianIndices((NB,NB))
   block_assem = map(block_idx) do idx
     ExtensionAssembler(trial[idx[2]],test[idx[1]])
   end
-  BlockSparseMatrixAssembler{NB,NV,SB,P}(block_assem)
+  BlockSparseMatrixAssembler{R,C}(block_assem)
 end
 
 function ExtensionAssembler(trial::MultiFieldFESpace,test::MultiFieldFESpace)
@@ -61,7 +65,7 @@ FESpaces.get_matrix_builder(a::ExtensionAssembler)= get_matrix_builder(a.assem)
 FESpaces.get_vector_builder(a::ExtensionAssembler) = get_vector_builder(a.assem)
 
 
-const BlockExtensionAssembler{NB,NV,SB,P} = BlockSparseMatrixAssembler{NB,NV,SB,P,ExtensionAssembler}
+const BlockExtensionAssembler{R,C} = BlockSparseMatrixAssembler{R,C,ExtensionAssembler}
 const AbstractExtensionAssembler = Union{ExtensionAssembler,BlockExtensionAssembler}
 
 get_assem(a::ExtensionAssembler) = a.assem
@@ -70,9 +74,9 @@ get_cols_to_bg_cols(a::ExtensionAssembler) = a.trial_dof_to_bg_dofs[1]
 get_drows_to_bg_drows(a::ExtensionAssembler) = a.test_dof_to_bg_dofs[2]
 get_dcols_to_bg_dcols(a::ExtensionAssembler) = a.trial_dof_to_bg_dofs[2]
 
-function get_assem(a::BlockExtensionAssembler{NB,NV,SB,P}) where {NB,NV,SB,P}
+function get_assem(a::BlockExtensionAssembler{R,C}) where {R,C}
   block_assem = map(get_assem,a.block_assemblers)
-  BlockSparseMatrixAssembler{NB,NV,SB,P}(block_assem)
+  BlockSparseMatrixAssembler{R,C}(block_assem)
 end
 
 for f in (:get_rows_to_bg_rows,:get_drows_to_bg_drows)
@@ -202,12 +206,11 @@ function ParamDataStructures.parameterize(a::ExtensionAssembler,plength::Int)
 end
 
 function ParamDataStructures.parameterize(
-  a::BlockExtensionAssembler{NB,NV,SB,P},
-  plength::Int) where {NB,NV,SB,P}
+  a::BlockExtensionAssembler{R,C},
+  plength::Int) where {R,C}
 
-  block_idx = CartesianIndices((NB,NB))
-  block_assemblers = map(block_idx) do idx
+  block_assemblers = map(eachindex(a.block_assemblers)) do idx
     parameterize(a.block_assemblers[idx],plength)
   end
-  BlockSparseMatrixAssembler{NB,NV,SB,P}(block_assemblers)
+  BlockSparseMatrixAssembler{R,C}(block_assemblers)
 end
