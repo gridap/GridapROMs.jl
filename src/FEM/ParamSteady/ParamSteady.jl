@@ -42,6 +42,7 @@ export JointParamOperator
 export SplitParamOperator
 export LinearParamOperator
 export LinearNonlinearParamOperator
+export get_fe_operator
 export get_jac
 include("ParamOperators.jl")
 
