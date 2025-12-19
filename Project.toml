@@ -27,7 +27,6 @@ PartitionedArrays = "5a9dfac6-5c52-46f7-8278-5e2210713be9"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 RadialBasisFunctions = "79ee0514-adf7-4479-8807-6f72ea8967e8"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
-Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 SparseMatricesCSR = "a0a7dd2c-ebf4-11e9-1f05-cf50bc540ca1"
@@ -59,7 +58,6 @@ MPI = "0.20.23"
 PartitionedArrays = "0.3"
 Plots = "1.40.9"
 RadialBasisFunctions = "0.2.5"
-Revise = "3.7.6"
 SparseMatricesCSR = "0.6.7"
 StaticArrays = "1.9.14"
 StatsBase = "0.34.4"
@@ -68,6 +66,7 @@ julia = "1.9 - 1.11"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 
 [targets]
-test = ["Test"]
+test = ["Test", "Revise"]
