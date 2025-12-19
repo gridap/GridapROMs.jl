@@ -127,13 +127,16 @@ Solution - velocity          |  Solution - pressure        |  Convergence
 In order to give credit to the `GridapROMs` contributors, we simply ask you to cite the references below in any publication in which you have made use of the `GridapROMs` project. 
 
 ```
-@misc{mueller2025gridapromsjlefficientreducedorder,
-      title={GridapROMs.jl: Efficient reduced order modelling in the Julia programming language}, 
-      author={Nicholas Mueller and Santiago Badia},
-      year={2025},
-      eprint={2503.15994},
-      archivePrefix={arXiv},
-      primaryClass={math.NA},
-      url={https://arxiv.org/abs/2503.15994}, 
+@article{MUELLER2026109985,
+      title = {GridapROMs.jl: Efficient reduced order modelling in the Julia programming language},
+      journal = {Computer Physics Communications},
+      volume = {320},
+      pages = {109985},
+      year = {2026},
+      issn = {0010-4655},
+      doi = {https://doi.org/10.1016/j.cpc.2025.109985},
+      url = {https://www.sciencedirect.com/science/article/pii/S0010465525004862},
+      author = {Nicholas Mueller and Santiago Badia},
+      keywords = {PDE, Reduced order model, Julia}
 }
 ```
