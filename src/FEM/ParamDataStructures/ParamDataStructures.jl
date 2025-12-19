@@ -25,7 +25,6 @@ import HaltonSequences: HaltonPoint
 import LinearAlgebra: ⋅
 import Random: GLOBAL_RNG,randperm
 import StatsBase: sample
-import Test: @test
 import Gridap.Fields: BroadcastOpFieldArray,BroadcastingFieldOpMap,LinearCombinationField,LinearCombinationMap,AffineMap,ConstantMap
 import Gridap.ReferenceFEs: LagrangianDofBasis
 import Gridap.TensorValues: ⊗, ⊙

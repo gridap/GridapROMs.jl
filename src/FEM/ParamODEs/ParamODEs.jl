@@ -21,7 +21,6 @@ using GridapROMs.ParamFESpaces
 using GridapROMs.ParamSteady
 
 import BlockArrays: blocks,blocklength,mortar
-import Test: @test
 import Gridap.Algebra: residual!,jacobian!
 import Gridap.FESpaces: FEFunction,SparseMatrixAssembler,EvaluationFunction
 import Gridap.ODEs: TransientCellField

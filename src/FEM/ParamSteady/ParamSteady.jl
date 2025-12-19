@@ -27,7 +27,6 @@ using GridapROMs.ParamDataStructures
 using GridapROMs.ParamAlgebra
 using GridapROMs.ParamFESpaces
 
-import Test: @test
 import Gridap.Algebra: residual!,jacobian!
 import Gridap.FESpaces: FEFunction,SparseMatrixAssembler,EvaluationFunction
 import Gridap.ReferenceFEs: get_order
