@@ -1,7 +1,7 @@
 name = "GridapROMs"
 uuid = "9ec1d169-1b02-4ed6-9618-ff21f43ad569"
-authors = ["Nicholas Mueller <nicholas.mueller@monash.edu>"]
 version = "0.1.1"
+authors = ["Nicholas Mueller <nicholas.mueller@monash.edu>"]
 
 [deps]
 ArraysOfArrays = "65a8f2f4-9b39-5baf-92e2-a9cc46fdf018"
@@ -60,6 +60,7 @@ Plots = "1.40.9"
 RadialBasisFunctions = "0.2.5"
 SparseMatricesCSR = "0.6.7"
 StaticArrays = "1.9.14"
+Statistics = "1"
 StatsBase = "0.34.4"
 UnPack = "1"
 julia = "1.9 - 1.11"
