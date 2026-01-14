@@ -256,30 +256,19 @@ end
 
 get_combine(r::HighDimHyperReduction) = @abstractmethod
 
-"""
-    struct SteadyHyperReduction{A} <: HighDimHyperReduction{A}
-      reduction::HyperReduction{A}
-    end
-
-Wrapper for steady hyper-reduction methods in high order problems, such as transient ones.
-"""
-struct SteadyHyperReduction{A} <: HighDimHyperReduction{A}
-  reduction::HyperReduction{A}
-end
-
-RBSteady.get_reduction(r::SteadyHyperReduction) = SteadyReduction(get_reduction(r.reduction))
-
-function SteadyHyperReduction(args...;kwargs...)
-  reduction = HyperReduction(args...;kwargs...)
-  SteadyHyperReduction(reduction)
-end
+_steady_reduction(r::HyperReduction) = SteadyReduction(get_reduction(r))
+_replace_reduction(r::MDEIMHyperReduction) = MDEIMHyperReduction(_steady_reduction(r))
+_replace_reduction(r::SOPTHyperReduction) = SOPTHyperReduction(_steady_reduction(r))
+_replace_reduction(r::RBFHyperReduction) = RBFHyperReduction(_steady_reduction(r),r.strategy)
 
 function HighDimHyperReduction(combine::Function,reduction::SteadyReduction,args...;kwargs...)
-  SteadyHyperReduction(reduction,args...;kwargs...)
+  hr = HyperReduction(reduction,args...;kwargs...)
+  _replace_reduction(hr)
 end
 
 function HighDimHyperReduction(reduction::SteadyReduction,combine::Function;kwargs...)
-  SteadyHyperReduction(reduction;kwargs...)
+  hr = SteadyHyperReduction(reduction;kwargs...)
+  _replace_reduction(hr)
 end
 
 struct HighDimMDEIMHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
