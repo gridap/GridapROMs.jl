@@ -1,4 +1,18 @@
 function RBSteady.HRProjection(
+  red::SteadyHyperReduction,
+  s::Snapshots,
+  trian::Triangulation,
+  trial::RBSpace,
+  test::RBSpace
+  )
+
+  basis = projection(get_reduction(red),s)
+  proj_basis = project(test,basis,trial)
+  interp = Interpolation(red.reduction,basis,trian,trial,test)
+  return HRProjection(proj_basis,red,interp)
+end
+
+function RBSteady.HRProjection(
   red::HighDimHyperReduction,
   s::Snapshots,
   trian::Triangulation,

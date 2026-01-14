@@ -1,9 +1,9 @@
 """
-    struct RBSolver{A<:GridapType,B} <: GridapType
+    struct RBSolver{A,B,C,D} <: GridapType
       fesolver::A
-      state_reduction::Reduction
-      residual_reduction::Reduction
-      jacobian_reduction::B
+      state_reduction::B
+      residual_reduction::C
+      jacobian_reduction::D
     end
 
 Wrapper around a FE solver (e.g. `NonlinearSolver` or `ODESolver` in [`Gridap`](@ref)) with
@@ -31,11 +31,11 @@ In particular:
 - nparams_test:  number of snapshots considered when computing the error the RB
   method commits with respect to the FE procedure
 """
-struct RBSolver{A<:GridapType,B} <: GridapType
+struct RBSolver{A,B,C,D} <: GridapType
   fesolver::A
-  state_reduction::Reduction
-  residual_reduction::Reduction
-  jacobian_reduction::B
+  state_reduction::B
+  residual_reduction::C
+  jacobian_reduction::D
 end
 
 function RBSolver(

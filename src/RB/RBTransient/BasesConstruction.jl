@@ -1,5 +1,5 @@
-function RBSteady.reduction(red::PODReduction,A::TransientSnapshots,args...)
-  reduction(red,first_unfold(A),args...)
+function RBSteady.reduction(red::SteadyReduction,A::TransientSnapshots,args...)
+  reduction(red.reduction,first_unfold(A),args...)
 end
 
 function RBSteady.reduction(red::TTSVDReduction,A::TransientSnapshots,args...)

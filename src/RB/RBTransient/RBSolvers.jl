@@ -43,25 +43,6 @@ function RBSteady.RBSolver(
   RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)
 end
 
-for T in (:DirectReduction,:AdaptiveReduction)
-  @eval begin
-    function RBSteady.RBSolver(
-      fesolver::ODESolver,
-      reduction::$T;
-      nparams_res=20,
-      nparams_jac=20,
-      nparams_djac=nparams_jac,
-      kwargs...)
-
-      residual_reduction = HyperReduction(reduction;nparams=nparams_res,kwargs...)
-      jac_reduction = HyperReduction(reduction;nparams=nparams_jac,kwargs...)
-      djac_reduction = HyperReduction(reduction;nparams=nparams_djac,kwargs...)
-      jacobian_reduction = (jac_reduction,djac_reduction)
-      RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)
-    end
-  end
-end
-
 RBSteady.num_jac_params(s::RBSolver{<:ODESolver}) = num_params(first(s.jacobian_reduction))
 get_system_solver(s::RBSolver{<:ODESolver}) = ShiftedSolver(s.fesolver)
 

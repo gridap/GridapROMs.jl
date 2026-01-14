@@ -40,10 +40,12 @@ import GridapROMs.ParamDataStructures: GenericTransientRealization, TransientRea
 import GridapROMs.RBSteady: num_centroids,get_lhs,get_rhs,_get_label
 
 export HighDimReduction
+export SteadyReduction
 export TransientReduction
 export KroneckerReduction
 export SequentialReduction
 export HighDimHyperReduction
+export SteadyHyperReduction
 export TransientHyperReduction
 export HighDimMDEIMHyperReduction
 export HighDimSOPTHyperReduction

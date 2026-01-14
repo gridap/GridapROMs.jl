@@ -37,9 +37,7 @@ end
 
 # post process
 
-const RBExtensionSolver{B} = RBSolver{ExtensionSolver,B}
-
-function remove_extension(s::RBExtensionSolver)
+function remove_extension(s::RBSolver{<:ExtensionSolver})
   RBSolver(s.solver.solver,s.state_reduction,s.residual_reduction,s.jacobian_reduction)
 end
 

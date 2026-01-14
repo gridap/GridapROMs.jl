@@ -1,6 +1,28 @@
 abstract type HighDimReduction{A<:ReductionStyle,B<:NormStyle} <: Reduction{A,B} end
 
 """
+    struct SteadyReduction{A,B} <: HighDimReduction{A,B}
+      reduction::Reduction{A,B}
+    end
+
+Wrapper for steady reduction methods in high order problems, such as transient ones. 
+In practice, the resulting ROM will still need to run the time marching scheme, since 
+no temporal reduction occurs.
+"""
+struct SteadyReduction{A,B} <: HighDimReduction{A,B}
+  reduction::Reduction{A,B}
+end
+
+function SteadyReduction(args...;kwargs...)
+  reduction = Reduction(args...;kwargs...)
+  SteadyReduction(reduction)
+end
+
+RBSteady.ReductionStyle(r::SteadyReduction) = ReductionStyle(r.reduction)
+RBSteady.NormStyle(r::SteadyReduction) = NormStyle(r.reduction)
+ParamDataStructures.num_params(r::SteadyReduction) = num_params(r.reduction)
+
+"""
     struct KroneckerReduction{A,B} <: HighDimReduction{A,B}
       reductions::AbstractVector{<:Reduction}
     end
@@ -233,6 +255,32 @@ function HighDimHyperReduction(r::LocalReduction,combine::Function;ncentroids=nu
 end
 
 get_combine(r::HighDimHyperReduction) = @abstractmethod
+
+"""
+    struct SteadyHyperReduction{A} <: HighDimHyperReduction{A}
+      reduction::HyperReduction{A}
+    end
+
+Wrapper for steady hyper-reduction methods in high order problems, such as transient ones.
+"""
+struct SteadyHyperReduction{A} <: HighDimHyperReduction{A}
+  reduction::HyperReduction{A}
+end
+
+RBSteady.get_reduction(r::SteadyHyperReduction) = SteadyReduction(get_reduction(r.reduction))
+
+function SteadyHyperReduction(args...;kwargs...)
+  reduction = HyperReduction(args...;kwargs...)
+  SteadyHyperReduction(reduction)
+end
+
+function HighDimHyperReduction(combine::Function,reduction::SteadyReduction,args...;kwargs...)
+  SteadyHyperReduction(reduction,args...;kwargs...)
+end
+
+function HighDimHyperReduction(reduction::SteadyReduction,combine::Function;kwargs...)
+  SteadyHyperReduction(reduction;kwargs...)
+end
 
 struct HighDimMDEIMHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
   reduction::R
