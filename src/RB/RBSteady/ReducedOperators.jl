@@ -124,6 +124,16 @@ FESpaces.get_test(op::RBOperator) = @abstractmethod
 get_lhs(op::RBOperator) = @abstractmethod
 get_rhs(op::RBOperator) = @abstractmethod
 
+function ParamSteady.set_domains(op::RBOperator,args...) 
+  feop = set_domains(get_fe_operator(op),args...)
+  RBOperator(feop,get_trial(op),get_test(op),get_lhs(op),get_rhs(op))
+end
+
+function ParamSteady.change_domains(op::RBOperator,args...) 
+  feop = set_domains(get_fe_operator(op),args...)
+  RBOperator(feop,get_trial(op),get_test(op),get_lhs(op),get_rhs(op))
+end
+
 function Algebra.allocate_residual(
   op::RBOperator,
   r::Realization,

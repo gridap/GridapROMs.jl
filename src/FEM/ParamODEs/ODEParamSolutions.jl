@@ -92,7 +92,6 @@ function collect_param_solutions(sol)
 end
 
 function collect_param_solutions(sol::ODEParamSolution{<:ConsecutiveParamVector{T}}) where T
-  u0item = testitem(sol.u0)
   ncols = num_params(sol.r)*num_times(sol.r)
   sols = _allocate_solutions(sol.u0,ncols)
   for (k,(rk,uk)) in enumerate(sol)

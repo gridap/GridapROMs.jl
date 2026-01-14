@@ -43,7 +43,6 @@ function Algebra.solve!(
   r = _get_realization(nlop)
   front_shift!(solver,r)
   _update_paramcache!(nlop,r)
-  t = @timed _update_paramcache!(nlop,r)
   solve!(x̂,solver.sysslvr,nlop,syscache)
   back_shift!(solver,r)
 end

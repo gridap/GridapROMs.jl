@@ -152,6 +152,18 @@ for T in (
   end
 end
 
+for T in (:AbstractDofMap,:TrivialDofMap)
+  @eval begin
+    function ParamDataStructures.Snapshots(s::RBParamVector,i::$T,r::Realization)
+      Snapshots(s.fe_data,i,r)
+    end
+    
+    function ParamDataStructures.Snapshots(s::RBParamVector,s0::RBParamVector,i::$T,r::TransientRealization)
+      Snapshots(s.fe_data,s0.fe_data,i,r)
+    end
+  end
+end
+
 function ParamDataStructures.parameterize(a::RBVector,plength::Int)
   data = parameterize(a.data,plength)
   fe_data = parameterize(a.fe_data,plength)
@@ -159,15 +171,12 @@ function ParamDataStructures.parameterize(a::RBVector,plength::Int)
 end
 
 function unfold(a::BlockVector{T,<:AbstractVector{<:RBVector{T}}}) where T
-
-  ax = axes(a)
   data = mortar(map(_data,blocks(a)))
   fe_data = mortar(map(_fe_data,blocks(a)))
   RBVector(data,fe_data)
 end
 
 function unfold(a::BlockParamVector{T,<:AbstractVector{<:RBParamVector{T}}}) where T
-
   data = mortar(map(_data,blocks(a)))
   fe_data = mortar(map(_fe_data,blocks(a)))
   RBParamVector(data,fe_data)

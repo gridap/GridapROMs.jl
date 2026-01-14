@@ -1,3 +1,7 @@
+function RBSteady.reduction(red::PODReduction,A::TransientSnapshots,args...)
+  reduction(red,first_unfold(A),args...)
+end
+
 function RBSteady.reduction(red::TTSVDReduction,A::TransientSnapshots,args...)
   red_style = ReductionStyle(red)
   cores,remainder = ttsvd(red_style,A,args...)

@@ -81,6 +81,10 @@ function Base.fill!(a::AbstractHRArray,b::Number)
   fill!(a.hypred,b)
 end
 
+function LinearAlgebra.fillstored!(a::AbstractHRArray,b::Number)
+  fill!(a,b)
+end
+
 # this correction is needed
 
 function Base.fill!(a::ArrayBlock,b::Number)
