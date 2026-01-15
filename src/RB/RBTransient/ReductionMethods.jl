@@ -151,13 +151,13 @@ A_1 + M / (\theta \Delta t) & & & & & \\
 
 ```math
 u_{\theta} = \begin{bmatrix}
-(1-\theta)u_0 + \theta u_1 & \hdots & (1-\theta)u_{n-1} + \theta u_n
+(1-\theta)u_0 + \theta u_1 \\ \vdots \\ (1-\theta)u_{n-1} + \theta u_n
 \end{bmatrix}^T;
 ```
 
 ```math
 f_{\theta} = \begin{bmatrix}
-f_1 & \hdots & f_n
+f_1 \\ \vdots \\ f_n
 \end{bmatrix}^T;
 ```
 
@@ -194,7 +194,7 @@ We notice that the expression of ``\hat{A}_{\theta}`` can be written in a more g
 \hat{A}_{\theta} = combine_A(A_{backwards},A_{forwards}) + combine_M(M_{backwards},M_{forwards}),
 ```
 
-where combine_A and combine_M are two function specific to A and M:
+where ``combine_A`` and ``combine_M`` are two function specific to ``A`` and ``M``:
 
 ```math
 \begin{align*}

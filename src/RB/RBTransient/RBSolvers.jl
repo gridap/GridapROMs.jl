@@ -100,10 +100,11 @@ function RBSteady.residual_snapshots(
   odeop::ODEParamOperator,
   s::AbstractSnapshots)
 
+  fesolver = get_fe_solver(solver)
   sres = select_snapshots(s,RBSteady.res_params(solver))
   us_res = get_param_data(sres)
   r_res = get_realization(sres)
-  b = residual(odeop,r_res,us_res)
+  b = residual(fesolver,odeop,r_res,us_res)
   ib = get_dof_map_at_domains(odeop)
   return Snapshots(b,ib,r_res)
 end
@@ -148,8 +149,7 @@ function RBSteady.jacobian_snapshots(
   sjac = select_snapshots(s,RBSteady.jac_params(solver))
   us_jac = get_param_data(sjac)
   r_jac = get_realization(sjac)
-  ws = ParamODEs.stage_weight(fesolver)
-  A = jacobian(odeop,r_jac,us_jac,ws)
+  A = jacobian(fesolver,odeop,r_jac,us_jac)
   iA = get_sparse_dof_map_at_domains(odeop)
   jac_reduction = RBSteady.get_jacobian_reduction(solver)
   sA = ()

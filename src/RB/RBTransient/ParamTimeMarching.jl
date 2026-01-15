@@ -102,21 +102,6 @@ function Algebra.jacobian!(
   interpolate!(A,lhss)
 end
 
-# function ODEs.ode_start(
-#   solver::ODESolver,
-#   odeop::RBOperator,
-#   r0::TransientRealizationAt,
-#   u0::AbstractVector)
-
-#   state0 = stage_variable(solver,u0)
-#   upcache = allocate_updatecache(solver,u0)
-#   order = get_order(odeop)
-#   us0 = tfill(u0,Val{order+1}())
-#   paramcache = allocate_paramcache(odeop,r0)
-#   syscache = allocate_systemcache(odeop,r0,us0,paramcache)
-#   return state0,(upcache,paramcache,syscache)
-# end
-
 function ParamODEs.collect_param_solutions(sol::ODEParamSolution{<:RBParamVector{T,<:ConsecutiveParamVector{T}}}) where T
   ncols = num_params(sol.r)*num_times(sol.r)
   sols = ParamODEs._allocate_solutions(sol.u0,ncols)

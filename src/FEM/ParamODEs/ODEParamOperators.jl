@@ -571,6 +571,24 @@ function Algebra.residual(
   return b
 end
 
+function Algebra.residual(
+  solver::ThetaMethod,
+  odeop::ODEParamOperator{LinearParamODE},
+  r::TransientRealization,
+  u::AbstractParamVector)
+
+  dt,θ = solver.dt,solver.θ
+  x = copy(u)
+  fill!(x,zero(eltype(x)))
+  us = (u,x)
+
+  shift!(r,dt*(θ-1))
+  b = residual(odeop,r,us)
+  shift!(r,dt*(1-θ))
+
+  return b
+end
+
 function Algebra.jacobian(
   solver::ThetaMethod,
   odeop::ODEParamOperator{LinearParamODE},
@@ -583,6 +601,25 @@ function Algebra.jacobian(
   x = copy(u)
   fill!(x,zero(eltype(x)))
   us = (x,x)
+
+  shift!(r,dt*(θ-1))
+  A = jacobian(odeop,r,us,ws)
+  shift!(r,dt*(1-θ))
+
+  return A
+end
+
+function Algebra.jacobian(
+  solver::ThetaMethod,
+  odeop::ODEParamOperator{LinearParamODE},
+  r::TransientRealization,
+  u::AbstractParamVector)
+
+  dt,θ = solver.dt,solver.θ
+  ws = (dt*θ,1)
+  x = copy(u)
+  fill!(x,zero(eltype(x)))
+  us = (u,x)
 
   shift!(r,dt*(θ-1))
   A = jacobian(odeop,r,us,ws)
