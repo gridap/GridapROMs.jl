@@ -506,23 +506,31 @@ function ParamAlgebra.allocate_systemcache(nlop::ODEParamNonlinearOperator)
   allocate_systemcache(nlop,x)
 end
 
-# compute space-time residuals/jacobians (no time marching)
+# if shift=:spacetime => compute space-time residuals/jacobians (no time marching)
+# if shift=:spaceonly => compute time-dependent residuals/jacobians (time marching)
 
 function Algebra.residual(
   solver::ThetaMethod,
   odeop::ODEParamOperator,
   r::TransientRealization,
   u::AbstractParamVector,
-  u0::AbstractParamVector)
+  u0::AbstractParamVector;
+  shift=:spacetime)
 
   dt,θ = solver.dt,solver.θ
   x = copy(u)
   uθ = copy(u)
 
+  if shift==:spacetime
+    shift!(uθ,u0,θ,1-θ)
+    shift!(x,u0,1/dt,-1/dt)
+    us = (uθ,x)
+  else
+    shift!(uθ,u0,0,1)
+    us = (uθ,x)
+  end
+
   shift!(r,dt*(θ-1))
-  shift!(uθ,u0,θ,1-θ)
-  shift!(x,u0,1/dt,-1/dt)
-  us = (uθ,x)
   b = residual(odeop,r,us)
   shift!(r,dt*(1-θ))
 
@@ -534,18 +542,25 @@ function Algebra.jacobian(
   odeop::ODEParamOperator,
   r::TransientRealization,
   u::AbstractParamVector,
-  u0::AbstractParamVector)
+  u0::AbstractParamVector;
+  shift=:spacetime)
 
   dt,θ = solver.dt,solver.θ
   x = copy(u)
   uθ = copy(u)
 
-  shift!(r,dt*(θ-1))
-  shift!(uθ,u0,θ,1-θ)
-  shift!(x,u0,1/dt,-1/dt)
-  us = (uθ,x)
-  ws = (1,1)
+  if shift==:spacetime
+    shift!(uθ,u0,θ,1-θ)
+    shift!(x,u0,1/dt,-1/dt)
+    us = (uθ,x)
+    ws = (1,1)
+  else
+    shift!(uθ,u0,0,1)
+    us = (uθ,x)
+    ws = (dt*θ,1)
+  end
 
+  shift!(r,dt*(θ-1))
   A = jacobian(odeop,r,us,ws)
   shift!(r,dt*(1-θ))
 
@@ -557,30 +572,20 @@ function Algebra.residual(
   odeop::ODEParamOperator{LinearParamODE},
   r::TransientRealization,
   u::AbstractParamVector,
-  u0::AbstractParamVector)
+  u0::AbstractParamVector;
+  shift=:spacetime)
 
   dt,θ = solver.dt,solver.θ
   x = copy(u)
   fill!(x,zero(eltype(x)))
-  us = (x,x)
 
-  shift!(r,dt*(θ-1))
-  b = residual(odeop,r,us)
-  shift!(r,dt*(1-θ))
-
-  return b
-end
-
-function Algebra.residual(
-  solver::ThetaMethod,
-  odeop::ODEParamOperator{LinearParamODE},
-  r::TransientRealization,
-  u::AbstractParamVector)
-
-  dt,θ = solver.dt,solver.θ
-  x = copy(u)
-  fill!(x,zero(eltype(x)))
-  us = (u,x)
+  if shift==:spacetime
+    us = (x,x)
+  else
+    uθ = copy(u)
+    shift!(uθ,u0,0,1)
+    us = (uθ,x)
+  end
 
   shift!(r,dt*(θ-1))
   b = residual(odeop,r,us)
@@ -594,32 +599,22 @@ function Algebra.jacobian(
   odeop::ODEParamOperator{LinearParamODE},
   r::TransientRealization,
   u::AbstractParamVector,
-  u0::AbstractParamVector)
+  u0::AbstractParamVector;
+  shift=:spacetime)
 
   dt,θ = solver.dt,solver.θ
-  ws = (1,1)
   x = copy(u)
   fill!(x,zero(eltype(x)))
-  us = (x,x)
 
-  shift!(r,dt*(θ-1))
-  A = jacobian(odeop,r,us,ws)
-  shift!(r,dt*(1-θ))
-
-  return A
-end
-
-function Algebra.jacobian(
-  solver::ThetaMethod,
-  odeop::ODEParamOperator{LinearParamODE},
-  r::TransientRealization,
-  u::AbstractParamVector)
-
-  dt,θ = solver.dt,solver.θ
-  ws = (dt*θ,1)
-  x = copy(u)
-  fill!(x,zero(eltype(x)))
-  us = (u,x)
+  if shift==:spacetime
+    ws = (1,1)
+    us = (x,x)
+  else
+    ws = (dt*θ,1)
+    uθ = copy(u)
+    shift!(uθ,u0,0,1)
+    us = (uθ,x)
+  end
 
   shift!(r,dt*(θ-1))
   A = jacobian(odeop,r,us,ws)

@@ -11,6 +11,20 @@ function Algebra.solve(
   ODEParamSolution(solver,op,r,ûu0)
 end
 
+function ODEs.ode_finish!(
+  uf::RBParamVector,
+  solver::ODESolver,
+  op::RBOperator,
+  r::TransientRealization,
+  statef::Tuple{Vararg{RBParamVector}},
+  odecache)
+
+  _uf = first(statef)
+  inv_project!(_uf.fe_data,get_trial(op),_uf.data)
+  copy!(uf,_uf)
+  uf
+end
+
 function Algebra.allocate_residual(
   op::JointTransientRBOperator, 
   r::TransientRealizationAt,

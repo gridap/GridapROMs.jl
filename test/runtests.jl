@@ -3,7 +3,6 @@ module GridapROMsTests
 using Test
 
 @testset "poisson" begin include("RBSteady/poisson.jl") end
-@testset "poisson" begin include("RBSteady/poisson.jl") end
 @testset "steady stokes" begin include("RBSteady/stokes.jl") end
 @testset "steady navier-stokes" begin include("RBSteady/navier_stokes.jl") end
 

@@ -44,8 +44,6 @@ function RBSteady.RBSolver(
 end
 
 const TransientRBSolver{A<:ODESolver,B,C,D} = RBSolver{A,B,C,D}
-const ODERBSolver{A<:ODESolver,B<:SteadyReduction,C,D} = RBSolver{A,B,C,D}
-const SpaceTimeRBSolver{A<:ODESolver,B<:HighDimReduction,C,D} = RBSolver{A,B,C,D}
 
 RBSteady.num_jac_params(s::TransientRBSolver) = num_params(first(s.jacobian_reduction))
 get_system_solver(s::TransientRBSolver) = ShiftedSolver(s.fesolver)
@@ -80,8 +78,13 @@ function RBSteady.solution_snapshots(
   return snaps,stats
 end
 
+_get_shift(red::SteadyReduction) = :spaceonly 
+_get_shift(red::HighDimReduction) = :spacetime 
+_get_shift(red::Reduction) = _get_shift(get_reduction(red))
+_get_shift(solver::TransientRBSolver) = _get_shift(solver.state_reduction)
+
 function RBSteady.residual_snapshots(
-  solver::SpaceTimeRBSolver,
+  solver::RBSolver,
   odeop::ODEParamOperator,
   s::AbstractSnapshots)
 
@@ -90,21 +93,8 @@ function RBSteady.residual_snapshots(
   us_res = get_param_data(sres)
   us0_res = get_initial_param_data(sres)
   r_res = get_realization(sres)
-  b = residual(fesolver,odeop,r_res,us_res,us0_res)
-  ib = get_dof_map_at_domains(odeop)
-  return Snapshots(b,ib,r_res)
-end
-
-function RBSteady.residual_snapshots(
-  solver::ODERBSolver,
-  odeop::ODEParamOperator,
-  s::AbstractSnapshots)
-
-  fesolver = get_fe_solver(solver)
-  sres = select_snapshots(s,RBSteady.res_params(solver))
-  us_res = get_param_data(sres)
-  r_res = get_realization(sres)
-  b = residual(fesolver,odeop,r_res,us_res)
+  shift = _get_shift(solver)
+  b = residual(fesolver,odeop,r_res,us_res,us0_res;shift)
   ib = get_dof_map_at_domains(odeop)
   return Snapshots(b,ib,r_res)
 end
@@ -120,7 +110,7 @@ function RBSteady.residual_snapshots(
 end
 
 function RBSteady.jacobian_snapshots(
-  solver::SpaceTimeRBSolver,
+  solver::RBSolver,
   odeop::ODEParamOperator,
   s::AbstractSnapshots)
 
@@ -129,27 +119,8 @@ function RBSteady.jacobian_snapshots(
   us_jac = get_param_data(sjac)
   us0_jac = get_initial_param_data(sjac)
   r_jac = get_realization(sjac)
-  A = jacobian(fesolver,odeop,r_jac,us_jac,us0_jac)
-  iA = get_sparse_dof_map_at_domains(odeop)
-  jac_reduction = RBSteady.get_jacobian_reduction(solver)
-  sA = ()
-  for (reda,a,ia) in zip(jac_reduction,A,iA)
-    sa = Snapshots(a,ia,r_jac)
-    sA = (sA...,select_snapshots(sa,1:num_params(reda)))
-  end
-  return sA
-end
-
-function RBSteady.jacobian_snapshots(
-  solver::ODERBSolver,
-  odeop::ODEParamOperator,
-  s::AbstractSnapshots)
-
-  fesolver = get_fe_solver(solver)
-  sjac = select_snapshots(s,RBSteady.jac_params(solver))
-  us_jac = get_param_data(sjac)
-  r_jac = get_realization(sjac)
-  A = jacobian(fesolver,odeop,r_jac,us_jac)
+  shift = _get_shift(solver)
+  A = jacobian(fesolver,odeop,r_jac,us_jac,us0_jac;shift)
   iA = get_sparse_dof_map_at_domains(odeop)
   jac_reduction = RBSteady.get_jacobian_reduction(solver)
   sA = ()
