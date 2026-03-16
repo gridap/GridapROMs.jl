@@ -54,7 +54,8 @@ Sampling according to a normal distribution
 struct NormalSampling <: SamplingStyle end
 
 function generate_param(::NormalSampling,param_domain)
-  [rand(Uniform(first(d),last(d))) for d = param_domain]
+  μσ = [(first(d)+last(d))/2 => (last(d)-first(d))/6 for d = param_domain]
+  [rand(Normal(μ,σ)) for (μ,σ) = μσ]
 end
 
 """
