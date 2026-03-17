@@ -53,8 +53,24 @@ Sampling according to a normal distribution
 """
 struct NormalSampling <: SamplingStyle end
 
-function generate_param(::NormalSampling,param_domain)
-  [rand(Uniform(first(d),last(d))) for d = param_domain]
+# here we generate a parameter according to a normal distribution that follows an approximate 
+# mean and standard deviation. Essentially, the mean is chosen as the midpoint between 
+# the upper and lower limits, and the standard deviation is chosen so that the points fall within 
+# the upper and lower limits with a (very) high probability (p=0.995 by default).
+function generate_param(::NormalSampling,param_domain;kwargs...) 
+  param = zeros(length(param_domain))
+  for (i,d) in enumerate(param_domain)
+    μ_i,σ_i = _normal_mean_std(first(d),last(d);kwargs...)
+    param[i] = rand(Normal(μ_i,σ_i))
+  end
+  param 
+end
+
+function _normal_mean_std(a,b;q=2.576)
+  # NOTE: q = 2.576 is the quantile of order 0.995 in a Normal distribution
+  μ = (a+b)/2
+  σ = (b-a)/(2*q)
+  return (μ,σ)
 end
 
 """
