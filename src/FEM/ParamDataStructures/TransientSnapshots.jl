@@ -260,7 +260,7 @@ end
 function get_mode2(s::TransientSnapshots)
   mode1 = get_mode1(s)
   m2 = change_mode(mode1.data,num_params(s))
-  ModeTransientSnapshots(Mode2Axes(),s.data,s.dof_map,s.realization)
+  ModeTransientSnapshots(Mode2Axes(),m2,get_dof_map(s),get_realization(s))
 end
 
 function change_mode(a::AbstractMatrix,np::Integer)
