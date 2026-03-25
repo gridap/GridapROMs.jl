@@ -2,7 +2,8 @@ module SnapshotsTests
 
 using Test
 using GridapROMs
-
+using GridapROMs.DofMaps
+using GridapROMs.ParamDataStructures
 # Regression test: get_mode2 was constructing ModeTransientSnapshots with s.data
 # (an N-dimensional array) instead of the computed m2 matrix (2D). For any standard
 # TransientSnapshots backed by 3D+ data this caused a MethodError at the
