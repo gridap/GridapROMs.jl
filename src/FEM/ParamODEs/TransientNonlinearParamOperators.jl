@@ -1,6 +1,6 @@
 function Algebra.allocate_residual(
   nlop::NonlinearParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache)
 
@@ -10,7 +10,7 @@ end
 function Algebra.residual!(
   b,
   nlop::NonlinearParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache;
   add::Bool=false)
@@ -20,7 +20,7 @@ end
 
 function Algebra.residual(
   nlop::NonlinearParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}})
 
   paramcache = allocate_paramcache(nlop,r;evaluated=true)
@@ -29,7 +29,7 @@ end
 
 function Algebra.residual(
   nlop::NonlinearParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache)
 
@@ -40,7 +40,7 @@ end
 
 function Algebra.allocate_jacobian(
   nlop::NonlinearParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache)
 
@@ -50,7 +50,7 @@ end
 function ODEs.jacobian_add!(
   A,
   nlop::NonlinearParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
   paramcache)
@@ -61,7 +61,7 @@ end
 function Algebra.jacobian!(
   A,
   nlop::NonlinearParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
   paramcache)
@@ -73,7 +73,7 @@ end
 
 function Algebra.jacobian(
   nlop::NonlinearParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}})
 
@@ -83,7 +83,7 @@ end
 
 function Algebra.jacobian(
   nlop::NonlinearParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
   paramcache)

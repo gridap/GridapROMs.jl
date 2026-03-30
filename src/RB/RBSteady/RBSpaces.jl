@@ -249,14 +249,14 @@ end
 
 # utils
 
-function to_snapshots(f::RBSpace,x̂::AbstractParamVector,r::AbstractRealization)
+function to_snapshots(f::RBSpace,x̂::AbstractParamVector,r::AbstractRealisation)
   fr = f(r)
   x = inv_project(fr,x̂)
   i = get_dof_map(fr)
   Snapshots(x,i,r)
 end
 
-function projection_error(f::RBSpace,x::AbstractParamVector,r::AbstractRealization)
+function projection_error(f::RBSpace,x::AbstractParamVector,r::AbstractRealisation)
   fr = f(r)
   i = get_dof_map(fr)
   a = get_reduced_subspace(f)

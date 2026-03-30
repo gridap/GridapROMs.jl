@@ -37,10 +37,10 @@ function main(
   dΩ = Measure(Ω,degree)
 
   a(μ,t) = x -> μ[1]*exp(sin(t))
-  aμt(μ,t) = parameterize(a,μ,t)
+  aμt(μ,t) = parameterise(a,μ,t)
 
   g(μ,t) = x -> VectorValue(-(μ[2]*x[2]+μ[3])*x[2]*(1.0-x[2])*t,0.0)*(x[1]==0.0)
-  gμt(μ,t) = parameterize(g,μ,t)
+  gμt(μ,t) = parameterise(g,μ,t)
 
   conv(u,∇u) = (∇u')⋅u
   dconv(du,∇du,u,∇u) = conv(u,∇du)+conv(du,∇u)
@@ -48,9 +48,9 @@ function main(
   dc(u,du,v,dΩ) = ∫( v⊙(dconv∘(du,∇(du),u,∇(u))) )dΩ
 
   u0(μ) = x -> VectorValue(0.0,0.0)
-  u0μ(μ) = parameterize(u0,μ)
+  u0μ(μ) = parameterise(u0,μ)
   p0(μ) = x -> 0.0
-  p0μ(μ) = parameterize(p0,μ)
+  p0μ(μ) = parameterise(p0,μ)
 
   stiffness(μ,t,(u,p),(v,q),dΩ) = ∫(aμt(μ,t)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
   mass(μ,t,(uₜ,pₜ),(v,q),dΩ) = ∫(v⋅uₜ)dΩ
@@ -105,7 +105,7 @@ function main(
   fesnaps, = solution_snapshots(rbsolver,feop,xh0μ)
   rbop = reduced_operator(rbsolver,feop,fesnaps)
 
-  μon = realization(feop;nparams=10,sampling=:uniform)
+  μon = realisation(feop;nparams=10,sampling=:uniform)
   x̂,rbstats = solve(rbsolver,rbop,μon,xh0μ)
   x,festats = solution_snapshots(rbsolver,feop,μon,xh0μ)
   perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)

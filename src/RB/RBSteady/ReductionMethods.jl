@@ -180,7 +180,7 @@ get_norm(r::Reduction) = get_norm(NormStyle(r))
     end
 
 Reduction employed when the input data is independent with respect to the
-considered realization. Therefore, simply considering a number of parameters
+considered realisation. Therefore, simply considering a number of parameters
 equal to 1 suffices for this type of reduction
 """
 struct AffineReduction{A,B} <: DirectReduction{A,B}

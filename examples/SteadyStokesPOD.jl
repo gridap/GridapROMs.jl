@@ -34,14 +34,14 @@ dΩ = Measure(Ω,degree)
 dΓ = Measure(Γ,degree)
 
 ν(μ) = x -> μ[1]
-νμ(μ) = parameterize(ν,μ)
+νμ(μ) = parameterise(ν,μ)
 
 const W = 1.0
 g(μ) = x -> VectorValue(-(μ[2]*x[2]+μ[3])*x[2]*(W-x[2]),0.0)*(x[1]==0.0)
-gμ(μ) = parameterize(g,μ)
+gμ(μ) = parameterise(g,μ)
 
 f(μ) = x -> VectorValue(0.0,0.0)
-fμ(μ) = parameterize(f,μ)
+fμ(μ) = parameterise(f,μ)
 
 a(μ,(u,p),(v,q),dΩ,dΓ) = (
   ∫( νμ(μ)*∇(v)⊙∇(u) - p*(∇⋅(v)) - q*(∇⋅(u)) )dΩ +

@@ -1,7 +1,7 @@
 function Algebra.solve(
   solver::ODESolver,
   op::JointTransientRBOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   u0::AbstractVector)
 
   r0 = get_at_time(r,:initial)
@@ -15,7 +15,7 @@ function ODEs.ode_finish!(
   uf::RBParamVector,
   solver::ODESolver,
   op::RBOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   statef::Tuple{Vararg{RBParamVector}},
   odecache)
 
@@ -27,7 +27,7 @@ end
 
 function Algebra.allocate_residual(
   op::JointTransientRBOperator, 
-  r::TransientRealizationAt,
+  r::TransientRealisationAt,
   us::Tuple{Vararg{AbstractVector}},
   paramcache)
 
@@ -36,7 +36,7 @@ end
 
 function Algebra.allocate_jacobian(
   op::JointTransientRBOperator,
-  r::TransientRealizationAt,
+  r::TransientRealisationAt,
   us::Tuple{Vararg{AbstractVector}},
   paramcache)
 
@@ -46,7 +46,7 @@ end
 function Algebra.residual!(
   b::HRParamArray,
   op::JointTransientRBOperator,
-  r::TransientRealizationAt,
+  r::TransientRealisationAt,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
   )
@@ -77,7 +77,7 @@ end
 function Algebra.jacobian!(
   A::HRParamArray,
   op::JointTransientRBOperator,
-  r::TransientRealizationAt,
+  r::TransientRealisationAt,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
   paramcache

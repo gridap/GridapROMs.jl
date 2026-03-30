@@ -140,7 +140,7 @@ function Algebra.solve!(
   solve!(u_bg,solver.solver,op,cache)
 end
 
-function Algebra.solve(solver::ExtensionSolver,op::ParamOperator,r::Realization)
+function Algebra.solve(solver::ExtensionSolver,op::ParamOperator,r::Realisation)
   u,stats = solve(solver.solver,op,r)
   u_bg = extend_solution(solver.extension,get_trial(op)(r),u)
   return u_bg,stats
@@ -161,7 +161,7 @@ end
 function ExtensionODEParamSolution(
   solver::ExtensionODESolver,
   odeop::ODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   u0)
 
   odesol = ODEParamSolution(solver.solver,odeop,r,u0)
@@ -171,7 +171,7 @@ end
 function ParamODEs.ODEParamSolution(
   solver::ExtensionODESolver,
   odeop::ODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   u0::V) where V
 
   ExtensionODEParamSolution(solver,odeop,r,u0)

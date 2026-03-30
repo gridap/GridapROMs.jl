@@ -34,19 +34,19 @@ function main(
   dΓn = Measure(Γn,degree)
 
   a(μ,t) = x -> 1+exp(-sin(t)^2*x[1]/sum(μ))
-  aμt(μ,t) = parameterize(a,μ,t)
+  aμt(μ,t) = parameterise(a,μ,t)
 
   f(μ,t) = x -> 1.
-  fμt(μ,t) = parameterize(f,μ,t)
+  fμt(μ,t) = parameterise(f,μ,t)
 
   h(μ,t) = x -> abs(cos(t/μ[3]))
-  hμt(μ,t) = parameterize(h,μ,t)
+  hμt(μ,t) = parameterise(h,μ,t)
 
   g(μ,t) = x -> μ[1]*exp(-x[1]/μ[2])*abs(sin(t/μ[3]))
-  gμt(μ,t) = parameterize(g,μ,t)
+  gμt(μ,t) = parameterise(g,μ,t)
 
   u0(μ) = x -> 0.0
-  u0μ(μ) = parameterize(u0,μ)
+  u0μ(μ) = parameterise(u0,μ)
 
   stiffness(μ,t,u,v,dΩ) = ∫(aμt(μ,t)*∇(v)⋅∇(u))dΩ
   mass(μ,t,uₜ,v,dΩ) = ∫(v*uₜ)dΩ
@@ -87,7 +87,7 @@ function main(
   fesnaps, = solution_snapshots(rbsolver,feop,uh0μ)
   rbop = reduced_operator(rbsolver,feop,fesnaps)
 
-  μon = realization(feop;nparams=10,sampling=:uniform)
+  μon = realisation(feop;nparams=10,sampling=:uniform)
   x̂,rbstats = solve(rbsolver,rbop,μon,uh0μ)
   x,festats = solution_snapshots(rbsolver,feop,μon,uh0μ)
   perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)

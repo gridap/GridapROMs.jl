@@ -27,7 +27,7 @@ end
 function ODEs.ode_start(
   solver::ODESolver,
   odeop::ODEParamOperator,
-  r0::TransientRealization,
+  r0::TransientRealisation,
   u0::AbstractVector)
 
   state0 = stage_variable(solver,u0)
@@ -43,7 +43,7 @@ function ODEs.ode_march!(
   statef::NTuple{1,AbstractVector},
   solver::ThetaMethod,
   odeop::ODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   state::NTuple{1,AbstractVector},
   odecache)
 
@@ -74,7 +74,7 @@ function ODEs.ode_march!(
   statef::NTuple{1,AbstractVector},
   solver::ThetaMethod,
   odeop::ODEParamOperator{LinearParamODE},
-  r::TransientRealization,
+  r::TransientRealisation,
   state::NTuple{1,AbstractVector},
   odecache)
 
@@ -102,7 +102,7 @@ function ODEs.ode_finish!(
   uf::AbstractVector,
   solver::ODESolver,
   odeop::ODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   statef::Tuple{Vararg{AbstractVector}},
   odecache)
 
@@ -115,7 +115,7 @@ end
 function ODEs.ode_start(
   solver::ODESolver,
   odeop::LinearNonlinearODEParamOperator,
-  r0::TransientRealization,
+  r0::TransientRealisation,
   u0::AbstractVector)
 
   state0 = stage_variable(solver,u0)
@@ -140,7 +140,7 @@ function ODEs.ode_march!(
   statef::NTuple{1,AbstractVector},
   solver::ThetaMethod,
   odeop::LinearNonlinearODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   state::NTuple{1,AbstractVector},
   odecache)
 

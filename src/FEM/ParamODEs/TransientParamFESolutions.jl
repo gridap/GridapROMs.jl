@@ -18,7 +18,7 @@ initial_condition(sol::TransientParamFESolution) = initial_condition(sol.odesol)
 function TransientParamFESolution(
   solver::ODESolver,
   op::TransientParamFEOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   u0)
 
   odeop = get_algebraic_operator(op)

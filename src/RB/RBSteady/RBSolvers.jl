@@ -94,8 +94,8 @@ res_params(s::RBSolver) = 1:num_res_params(s)
 jac_params(s::RBSolver) = 1:num_jac_params(s)
 
 """
-    solution_snapshots(solver::NonlinearSolver,feop::ParamOperator,r::Realization) -> SteadySnapshots
-    solution_snapshots(solver::ODESolver,feop::TransientParamOperator,r::TransientRealization,u0) -> TransientSnapshots
+    solution_snapshots(solver::NonlinearSolver,feop::ParamOperator,r::Realisation) -> SteadySnapshots
+    solution_snapshots(solver::ODESolver,feop::TransientParamOperator,r::TransientRealisation,u0) -> TransientSnapshots
 
 The problem encoded in the FE operator `feop` is solved several times, and the solution
 snapshots are returned along with the information related to the computational
@@ -107,7 +107,7 @@ function solution_snapshots(
   feop::ParamOperator,
   args...;
   nparams=num_offline_params(solver),
-  r=realization(feop;nparams))
+  r=realisation(feop;nparams))
 
   solution_snapshots(solver,feop,r,args...)
 end
@@ -115,7 +115,7 @@ end
 function solution_snapshots(
   solver::RBSolver,
   feop::ParamOperator,
-  r::AbstractRealization,
+  r::AbstractRealisation,
   args...)
 
   fesolver = get_fe_solver(solver)
@@ -129,7 +129,7 @@ end
 function solution_snapshots(
   fesolver::NonlinearSolver,
   op::ParamOperator,
-  r::Realization)
+  r::Realisation)
 
   dof_map = get_dof_map(op)
   values,stats = solve(fesolver,op,r)
@@ -151,7 +151,7 @@ function residual_snapshots(
 
   sres = select_snapshots(s,res_params(solver))
   us_res = get_param_data(sres)
-  r_res = get_realization(sres)
+  r_res = get_realisation(sres)
   b = residual(op,r_res,us_res)
   ib = _get_dof_map(op,b)
   return Snapshots(b,ib,r_res)
@@ -165,7 +165,7 @@ function residual_snapshots(
   sres = select_snapshots(s,res_params(solver))
   us_res = get_param_data(sres) |> similar
   fill!(us_res,zero(eltype2(us_res)))
-  r_res = get_realization(sres)
+  r_res = get_realisation(sres)
   b = residual(op,r_res,us_res)
   ib = _get_dof_map(op,b)
   return Snapshots(b,ib,r_res)
@@ -194,7 +194,7 @@ function jacobian_snapshots(
   fesolver = get_fe_solver(solver)
   sjac = select_snapshots(s,jac_params(solver))
   us_jac = get_param_data(sjac)
-  r_jac = get_realization(sjac)
+  r_jac = get_realisation(sjac)
   A = jacobian(op,r_jac,us_jac)
   iA = _get_sparse_dof_map(op,A)
   return Snapshots(A,iA,r_jac)
@@ -209,7 +209,7 @@ function jacobian_snapshots(
   sjac = select_snapshots(s,jac_params(solver))
   us_jac = get_param_data(sjac) |> similar
   fill!(us_jac,zero(eltype2(us_jac)))
-  r_jac = get_realization(sjac)
+  r_jac = get_realisation(sjac)
   A = jacobian(op,r_jac,us_jac)
   iA = _get_sparse_dof_map(op,A)
   return Snapshots(A,iA,r_jac)
@@ -236,12 +236,12 @@ _get_trivial_sparse_dof_map(a::BlockParamArray) = map(_get_trivial_sparse_dof_ma
 function Algebra.solve(
   solver::RBSolver,
   op::NonlinearOperator,
-  r::AbstractRealization)
+  r::AbstractRealisation)
 
   trial = get_trial(op)(r)
   x̂ = zero_free_values(trial)
 
-  nlop = parameterize(op,r)
+  nlop = parameterise(op,r)
   syscache = allocate_systemcache(nlop,x̂)
 
   fesolver = get_fe_solver(solver)

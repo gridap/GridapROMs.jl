@@ -51,7 +51,7 @@ get_system_solver(s::TransientRBSolver) = ShiftedSolver(s.fesolver)
 function RBSteady.solution_snapshots(
   solver::RBSolver,
   feop::ODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   args...)
 
   fesolver = get_fe_solver(solver)
@@ -67,7 +67,7 @@ end
 function RBSteady.solution_snapshots(
   fesolver::ODESolver,
   op::ODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   args...)
 
   sol = solve(fesolver,op,r,args...)
@@ -92,7 +92,7 @@ function RBSteady.residual_snapshots(
   sres = select_snapshots(s,RBSteady.res_params(solver))
   us_res = get_param_data(sres)
   us0_res = get_initial_param_data(sres)
-  r_res = get_realization(sres)
+  r_res = get_realisation(sres)
   shift = _get_shift(solver)
   b = residual(fesolver,odeop,r_res,us_res,us0_res;shift)
   ib = get_dof_map_at_domains(odeop)
@@ -118,7 +118,7 @@ function RBSteady.jacobian_snapshots(
   sjac = select_snapshots(s,RBSteady.jac_params(solver))
   us_jac = get_param_data(sjac)
   us0_jac = get_initial_param_data(sjac)
-  r_jac = get_realization(sjac)
+  r_jac = get_realisation(sjac)
   shift = _get_shift(solver)
   A = jacobian(fesolver,odeop,r_jac,us_jac,us0_jac;shift)
   iA = get_sparse_dof_map_at_domains(odeop)
@@ -147,13 +147,13 @@ end
 function Algebra.solve(
   solver::RBSolver,
   op::NonlinearOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   xh0::Union{Function,AbstractVector})
 
   trial = get_trial(op)(r)
   x̂ = zero_free_values(trial)
 
-  nlop = parameterize(op,r)
+  nlop = parameterise(op,r)
   syscache = allocate_systemcache(nlop,x̂)
 
   fesolver = get_system_solver(solver)
@@ -168,13 +168,13 @@ end
 function Algebra.solve(
   solver::RBSolver,
   op::AbstractLocalRBOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   xh0::Union{Function,AbstractVector}
   )
 
   t = @timed x̂vec = map(get_params(r)) do μ
     opμt = get_local(op,μ)
-    rμt = _to_realization(r,μ)
+    rμt = _to_realisation(r,μ)
     x̂, = solve(solver,opμt,rμt,xh0)
     x̂
   end
@@ -183,7 +183,7 @@ function Algebra.solve(
   return (x̂,stats)
 end
 
-function _to_realization(r::TransientRealization,μ::AbstractVector)
+function _to_realisation(r::TransientRealisation,μ::AbstractVector)
   all_times = [get_initial_time(r),get_times(r)...]
-  TransientRealization(Realization([μ]),all_times)
+  TransientRealisation(Realisation([μ]),all_times)
 end

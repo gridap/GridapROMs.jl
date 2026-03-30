@@ -42,7 +42,7 @@ const TransientLocalRBOperator{O<:ODEParamOperatorType,T,B} = LocalRBOperator{O,
 
 function Algebra.allocate_residual(
   op::TransientRBOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   u::AbstractVector,
   paramcache)
 
@@ -51,7 +51,7 @@ end
 
 function Algebra.allocate_jacobian(
   op::TransientRBOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   u::AbstractVector,
   paramcache)
 
@@ -61,7 +61,7 @@ end
 function Algebra.residual!(
   b::HRParamArray,
   op::SplitTransientRBOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   u::AbstractVector,
   paramcache
   )
@@ -96,7 +96,7 @@ end
 function Algebra.jacobian!(
   A::HRParamArray,
   op::SplitTransientRBOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   u::AbstractVector,
   paramcache
   )
@@ -139,7 +139,7 @@ end
 function Algebra.residual!(
   b::HRParamArray,
   op::TransientGenericRBOperator{O,T,<:RBFContribution},
-  r::TransientRealization,
+  r::TransientRealisation,
   u::AbstractVector,
   paramcache) where {O,T}
 
@@ -150,7 +150,7 @@ end
 function Algebra.jacobian!(
   A::HRParamArray,
   op::TransientGenericRBOperator{O,T,<:RBFContribution},
-  r::TransientRealization,
+  r::TransientRealisation,
   u::AbstractVector,
   paramcache) where {O,T}
 

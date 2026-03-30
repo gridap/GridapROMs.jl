@@ -136,7 +136,7 @@ end
 
 function Algebra.allocate_residual(
   op::RBOperator,
-  r::Realization,
+  r::Realisation,
   u::AbstractVector,
   paramcache)
 
@@ -145,7 +145,7 @@ end
 
 function Algebra.allocate_jacobian(
   op::RBOperator,
-  r::Realization,
+  r::Realisation,
   u::AbstractVector,
   paramcache)
 
@@ -155,7 +155,7 @@ end
 function Algebra.residual!(
   b::HRParamArray,
   op::SplitRBOperator,
-  r::Realization,
+  r::Realisation,
   u::AbstractVector,
   paramcache)
 
@@ -183,7 +183,7 @@ end
 function Algebra.jacobian!(
   A::HRParamArray,
   op::SplitRBOperator,
-  r::Realization,
+  r::Realisation,
   u::AbstractVector,
   paramcache)
 
@@ -213,7 +213,7 @@ end
 function Algebra.residual!(
   b::HRParamArray,
   op::JointRBOperator,
-  r::Realization,
+  r::Realisation,
   u::AbstractVector,
   paramcache)
 
@@ -240,7 +240,7 @@ end
 function Algebra.jacobian!(
   A::HRParamArray,
   op::JointRBOperator,
-  r::Realization,
+  r::Realisation,
   u::AbstractVector,
   paramcache)
 
@@ -337,7 +337,7 @@ get_rhs(op::GenericRBOperator) = op.rhs
 function Algebra.residual!(
   b::HRParamArray,
   op::GenericRBOperator{O,T,A,<:RBFContribution},
-  r::Realization,
+  r::Realisation,
   u::AbstractVector,
   paramcache) where {O,T,A}
 
@@ -348,7 +348,7 @@ end
 function Algebra.jacobian!(
   A::HRParamArray,
   op::GenericRBOperator{O,T,<:RBFContribution,B},
-  r::Realization,
+  r::Realisation,
   u::AbstractVector,
   paramcache) where {O,T,B}
 
@@ -428,7 +428,7 @@ FESpaces.get_test(op::LinearNonlinearRBOperator) = get_test(get_nonlinear_operat
 
 ParamSteady.get_fe_operator(op::LinearNonlinearRBOperator) = get_fe_operator(get_nonlinear_operator(op))
 
-function ParamAlgebra.allocate_paramcache(op::LinearNonlinearRBOperator,μ::AbstractRealization)
+function ParamAlgebra.allocate_paramcache(op::LinearNonlinearRBOperator,μ::AbstractRealisation)
   op_nlin = get_nonlinear_operator(op)
   allocate_paramcache(op_nlin,μ)
 end
@@ -441,15 +441,15 @@ end
 function ParamAlgebra.update_paramcache!(
   paramcache::AbstractParamCache,
   op::LinearNonlinearRBOperator,
-  μ::AbstractRealization)
+  μ::AbstractRealisation)
 
   op_nlin = get_nonlinear_operator(op)
   update_paramcache!(paramcache,op_nlin,μ)
 end
 
-function ParamDataStructures.parameterize(op::LinearNonlinearRBOperator,μ::AbstractRealization)
-  op_lin = parameterize(get_linear_operator(op),μ)
-  op_nlin = parameterize(get_nonlinear_operator(op),μ)
+function ParamDataStructures.parameterise(op::LinearNonlinearRBOperator,μ::AbstractRealisation)
+  op_lin = parameterise(get_linear_operator(op),μ)
+  op_nlin = parameterise(get_nonlinear_operator(op),μ)
   syscache_lin = allocate_systemcache(op_lin)
   LinNonlinParamOperator(op_lin,op_nlin,syscache_lin)
 end
@@ -477,11 +477,11 @@ end
 function Algebra.solve(
   solver::RBSolver,
   op::AbstractLocalRBOperator,
-  r::Realization)
+  r::Realisation)
 
   t = @timed x̂vec = map(r) do μ
     opμ = get_local(op,μ)
-    x̂, = solve(solver,opμ,Realization([μ]))
+    x̂, = solve(solver,opμ,Realisation([μ]))
     x̂
   end
   x̂ = param_cat(x̂vec)

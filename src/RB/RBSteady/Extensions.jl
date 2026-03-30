@@ -65,7 +65,7 @@ function _remove_extension(s::Snapshots,ids::AbstractVector)
   data = reshape(get_all_data(s),:,num_params(s))
   fdata = view(data,ids,:)
   fdof_map = VectorDofMap(length(ids))
-  r = get_realization(s)
+  r = get_realisation(s)
   Snapshots(fdata,fdof_map,r)
 end
 

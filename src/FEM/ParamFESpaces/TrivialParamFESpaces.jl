@@ -13,11 +13,11 @@ FESpaces.get_fe_space(f::TrivialParamFESpace) = f.space
 ParamDataStructures.param_length(f::TrivialParamFESpace) = f.plength
 ParamDataStructures.param_getindex(f::TrivialParamFESpace,index::Integer) = f.space
 
-function ParamDataStructures.parameterize(f::SingleFieldFESpace,plength::Int)
+function ParamDataStructures.parameterise(f::SingleFieldFESpace,plength::Int)
   TrivialParamFESpace(f,plength)
 end
 
-function ParamDataStructures.parameterize(f::SingleFieldParamFESpace,plength::Int)
+function ParamDataStructures.parameterise(f::SingleFieldParamFESpace,plength::Int)
   @check param_length(f) == plength
   f
 end

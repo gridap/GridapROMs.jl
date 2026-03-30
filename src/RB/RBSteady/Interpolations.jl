@@ -18,7 +18,7 @@ function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,b::Abstract
   cache
 end
 
-function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,r::AbstractRealization)
+function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,r::AbstractRealisation)
   interpolate!(cache,get_interpolation(a),r)
   cache
 end
@@ -98,7 +98,7 @@ function Interpolation(red::RBFHyperReduction,a::Projection,s::Snapshots)
   strategy = interp_strategy(red)
   inds,interp = empirical_interpolation(a)
   factor = lu(interp)
-  r = get_realization(s)
+  r = get_realisation(s)
   red_data = get_at_domain(s,inds)
   coeff = allocate_coefficient(a,r)
   ldiv!(coeff,factor,red_data)
@@ -109,7 +109,7 @@ end
 get_interpolation(a::RBFInterpolation) = a.interpolation
 
 function RadialBasisFunctions.Interpolator(
-  x::Realization,
+  x::Realisation,
   y::ConsecutiveParamArray,
   basis::B=PHS()
   ) where B<:AbstractRadialBasis
@@ -134,9 +134,9 @@ function RadialBasisFunctions.Interpolator(
   return Interpolator(x,y,view(w,1:k,:),view(w,1+k:n,:),basis,mon)
 end
 
-(rbfi::Interpolator)(x::AbstractRealization) = interpolate(rbfi,x)
+(rbfi::Interpolator)(x::AbstractRealisation) = interpolate(rbfi,x)
 
-function FESpaces.interpolate(rbfi::Interpolator,x::AbstractRealization)
+function FESpaces.interpolate(rbfi::Interpolator,x::AbstractRealisation)
   k′ = param_length(x)
   l = size(rbfi.rbf_weights,2)
   cache = ConsecutiveParamArray(zeros(l,k′))
@@ -144,7 +144,7 @@ function FESpaces.interpolate(rbfi::Interpolator,x::AbstractRealization)
   return cache
 end
 
-function FESpaces.interpolate!(cache::ConsecutiveParamVector,rbfi::Interpolator,x::Realization)
+function FESpaces.interpolate!(cache::ConsecutiveParamVector,rbfi::Interpolator,x::Realisation)
   k′ = param_length(x)
   l = size(rbfi.rbf_weights,2)
 

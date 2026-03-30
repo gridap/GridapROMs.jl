@@ -80,7 +80,7 @@ end
 
 function Base.setindex!(i::InverseDofMap,v,j::Integer)
   index = i.dof_map[j]
-  !iszero(value) && setindex!(i.dof_map,v,index)
+  !iszero(index) && setindex!(i.dof_map,v,index)
 end
 
 function Base.reshape(i::InverseDofMap,s::Vararg{Int})

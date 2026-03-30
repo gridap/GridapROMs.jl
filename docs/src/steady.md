@@ -47,13 +47,13 @@ f(μ) = x -> -ν(μ)(x)*Δ(u(μ))(x)
 h(μ) = x -> 1
 ```
 
-Next, we parameterize the data defined above exclusively by ``μ`` in the following manner:
+Next, we parameterise the data defined above exclusively by ``μ`` in the following manner:
 
 ```julia
-νₚ(μ) = parameterize(ν,μ)
-uₚ(μ) = parameterize(u,μ)
-fₚ(μ) = parameterize(f,μ)
-hₚ(μ) = parameterize(h,μ)
+νₚ(μ) = parameterise(ν,μ)
+uₚ(μ) = parameterise(u,μ)
+fₚ(μ) = parameterise(f,μ)
+hₚ(μ) = parameterise(h,μ)
 ```
 
 A [`ParamFunction`](@ref) is a function that can be evaluated efficiently for any number of desired parameters. In a steady setting, it takes as argument a function (``u``, ``f`` and ``h`` in the cases above) and a parameter variable. In a transient setting, an additional time variable must be included (more details can be found in the following tutorial for transient problems).
@@ -89,7 +89,7 @@ We define a space of parameters, in this case ``[1,10]^2``:
 D = ParamSpace((1,10,1,10))
 ```
 
-A parameter, in our case a 2-dimensional vector, is a single realization from ``D``. By default, a parameter is sampled according to a [Halton](https://en.wikipedia.org/wiki/Halton_sequence) sequence. Other sampling methods can be defined by providing appropriate keyword arguments: 
+A parameter, in our case a 2-dimensional vector, is a single realisation from ``D``. By default, a parameter is sampled according to a [Halton](https://en.wikipedia.org/wiki/Halton_sequence) sequence. Other sampling methods can be defined by providing appropriate keyword arguments: 
 
 ```julia
 ParamSpace((1,10,1,10),sampling=:latin_hypercube)
@@ -101,13 +101,13 @@ ParamSpace((1,10,1,10),sampling=:uniform_tensorial)
 A single parameter is sampled from ``D`` by calling
 
 ```julia
-μ = realization(D) 
+μ = realisation(D) 
 ```
 
-whereas a collection of 10 realizations can be obtained by running
+whereas a collection of 10 realisations can be obtained by running
 
 ```julia
-realization(D;nparams=10)
+realisation(D;nparams=10)
 ``` 
 
 ## Numerical integration 
@@ -253,7 +253,7 @@ RBOperator(feop,Û,V̂,â,l̂)
 This step consists in computing the GridapROMs approximation for any desired parameter. We consider, for e.g., 10 parameters distributed uniformly on ``D``
 
 ```julia
-μₒₙ = realization(D;nparams=10,sampling=:uniform)
+μₒₙ = realisation(D;nparams=10,sampling=:uniform)
 ```
 
 and we solve the reduced problem 

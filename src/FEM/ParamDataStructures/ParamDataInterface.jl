@@ -13,7 +13,7 @@ Returns the parametric length of `a`
 """
 param_length(a) = @abstractmethod
 param_length(a::Union{Nothing,Function,Map,Field,AbstractArray{<:Field}}) = 0
-param_length(a::Union{AbstractRealization,AbstractParamFunction}) = length(a)
+param_length(a::Union{AbstractRealisation,AbstractParamFunction}) = length(a)
 param_length(a::Union{Number,AbstractArray{<:Number}}) = 0
 param_length(a::CellField) = param_length(testitem(get_data(a)))
 
@@ -47,19 +47,19 @@ Returns the parametric range of `a` 1:`param_length(a)`
 param_eachindex(a) = Base.OneTo(param_length(a))
 
 """
-    parameterize(a,plength::Integer) -> Any
+    parameterise(a,plength::Integer) -> Any
 
 Returns a quantity with parametric length `plength` from `a`. When `a` already
 possesses a parametric length, i.e. it is a parametrized quantity, it returns `a`
 """
-parameterize(a,plength::Integer) = local_parameterize(a,plength)
+parameterise(a,plength::Integer) = local_parameterise(a,plength)
 
-function parameterize(a...;plength=find_param_length(a...))
-  pa = map(f->parameterize(f,plength),a)
+function parameterise(a...;plength=find_param_length(a...))
+  pa = map(f->parameterise(f,plength),a)
   return pa
 end
 
-function parameterize(a::AbstractParamFunction,plength::Integer)
+function parameterise(a::AbstractParamFunction,plength::Integer)
   @check param_length(a) == plength
   return a
 end
@@ -90,7 +90,7 @@ abstract type AbstractParamData{T,N} <: AbstractArray{T,N} end
 
 get_param_data(a::AbstractParamData) = (param_getindex(a,i) for i in param_eachindex(a))
 
-function parameterize(a::AbstractParamData,plength::Integer)
+function parameterise(a::AbstractParamData,plength::Integer)
   @check param_length(a) == plength
   return a
 end

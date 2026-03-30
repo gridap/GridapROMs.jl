@@ -37,15 +37,15 @@ export LatinHypercubeSampling
 export TensorialUniformSampling
 include("Sampling.jl")
 
-export AbstractRealization
-export Realization
-export TransientRealization
+export AbstractRealisation
+export Realisation
+export TransientRealisation
 export ParamSpace
 export TransientParamSpace
 export AbstractParamFunction
 export ParamFunction
 export TransientParamFunction
-export realization
+export realisation
 export get_params
 export get_times
 export get_at_time
@@ -59,8 +59,8 @@ include("ParamSpaces.jl")
 
 export AbstractParamData
 export eltype2
-export parameterize
-export local_parameterize
+export parameterise
+export local_parameterise
 export get_param_data
 export param_length
 export param_eachindex
@@ -127,7 +127,7 @@ export ReshapedSnapshots
 export SnapshotsAtIndices
 export SparseSnapshots
 export BlockSnapshots
-export get_realization
+export get_realisation
 export select_snapshots
 export num_space_dofs
 include("Snapshots.jl")

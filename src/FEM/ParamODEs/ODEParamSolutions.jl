@@ -2,14 +2,14 @@
     struct ODEParamSolution{V} <: ODESolution
       solver::ODESolver
       odeop::ODEParamOperator
-      r::TransientRealization
+      r::TransientRealisation
       us0::Tuple{Vararg{V}}
     end
 """
 struct ODEParamSolution{V} <: ODESolution
   solver::ODESolver
   odeop::ODEParamOperator
-  r::TransientRealization
+  r::TransientRealisation
   u0::V
 end
 
@@ -56,7 +56,7 @@ end
 function Algebra.solve(
   solver::ODESolver,
   odeop::ODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   u0::AbstractVector)
 
   ODEParamSolution(solver,odeop,r,u0)
@@ -65,7 +65,7 @@ end
 function Algebra.solve(
   solver::ODESolver,
   odeop::SplitODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   u0::AbstractVector)
 
   solve(solver,set_domains(odeop),r,u0)
@@ -74,7 +74,7 @@ end
 function Algebra.solve(
   solver::ODESolver,
   odeop::ODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   uh0::Function)
 
   params = get_params(r)

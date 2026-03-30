@@ -66,7 +66,7 @@ get_clusters(a::LocalProjection) = a.k
 get_clusters(a::BlockProjection) = get_clusters(testitem(a))
 get_clusters(a::RBSpace) = get_clusters(get_reduced_subspace(a))
 
-function get_local(a,r::Realization)
+function get_local(a,r::Realisation)
   map(r) do μ
     get_local(a,μ)
   end
@@ -191,7 +191,7 @@ end
 for f in (:cluster,:cluster_sort)
   @eval begin
     function $f(a,red::LocalReduction)
-      r = _get_realization(a)
+      r = _get_realisation(a)
       k = compute_clusters(r,red)
       $f(a,k)
     end
@@ -229,7 +229,7 @@ end
 
 # utils
 
-function compute_clusters(red::LocalReduction,r::AbstractRealization)
+function compute_clusters(red::LocalReduction,r::AbstractRealisation)
   Random.seed!(1234)
   pmat = _get_params_marix(r)
   k = kmeans(pmat,red.ncentroids)
@@ -237,7 +237,7 @@ function compute_clusters(red::LocalReduction,r::AbstractRealization)
 end
 
 function compute_clusters(red::LocalReduction,s::AbstractSnapshots)
-  compute_clusters(red,get_realization(s))
+  compute_clusters(red,get_realisation(s))
 end
 
 function compute_clusters(red::LocalReduction,s::ArrayContribution)
@@ -245,10 +245,10 @@ function compute_clusters(red::LocalReduction,s::ArrayContribution)
 end
 
 function get_label(k::KmeansResult,a)
-  get_label(k,_get_realization(a))
+  get_label(k,_get_realisation(a))
 end
 
-function get_label(k::KmeansResult,r::Realization)
+function get_label(k::KmeansResult,r::Realisation)
   map(r) do μ
     get_label(k,μ)
   end
@@ -280,7 +280,7 @@ function centroid_distances(k::KmeansResult,x::AbstractMatrix)
 end
 
 function compute_ncentroids(
-  r::AbstractRealization;
+  r::AbstractRealisation;
   init=min(4,num_params(r)),
   iend=min(16,floor(Int,num_params(r)/2))
   )
@@ -325,17 +325,17 @@ function _compute_elbow(v::AbstractVector)
   argmin(dv)
 end
 
-_get_realization(r::AbstractRealization) = get_params(r)
-_get_realization(s::AbstractSnapshots) = get_realization(s)
-_get_realization(a::ArrayContribution) = get_realization(first(a.values))
+_get_realisation(r::AbstractRealisation) = get_params(r)
+_get_realisation(s::AbstractSnapshots) = get_realisation(s)
+_get_realisation(a::ArrayContribution) = get_realisation(first(a.values))
 
-_get_params_marix(r::AbstractRealization) = stack(ParamDataStructures._get_params(r))
+_get_params_marix(r::AbstractRealisation) = stack(ParamDataStructures._get_params(r))
 
 function _cluster(a,i)
   @abstractmethod
 end
 
-function _cluster(r::Realization,inds::AbstractVector)
+function _cluster(r::Realisation,inds::AbstractVector)
   r[inds]
 end
 
@@ -348,13 +348,13 @@ end
 function _cluster(s::GenericSnapshots,inds::AbstractVector)
   sinds = select_snapshots(s,inds)
   data = collect(get_all_data(sinds))
-  GenericSnapshots(data,get_dof_map(sinds),get_realization(sinds))
+  GenericSnapshots(data,get_dof_map(sinds),get_realisation(sinds))
 end
 
 function _cluster(s::ReshapedSnapshots,inds::AbstractVector)
   sinds = select_snapshots(s,inds)
   data = collect(get_all_data(sinds))
-  ReshapedSnapshots(data,get_param_data(sinds),get_dof_map(sinds),get_realization(sinds))
+  ReshapedSnapshots(data,get_param_data(sinds),get_dof_map(sinds),get_realisation(sinds))
 end
 
 function _cluster(s::BlockSnapshots,inds::AbstractVector)

@@ -12,17 +12,17 @@ using Test
 
 sol(μ) = x -> μ[1]*x[1] + x[2]
 f(μ) = x -> -Δ(sol(μ))(x)
-fμ(μ) = parameterize(f,μ)
-solμ(μ) = parameterize(sol,μ)
+fμ(μ) = parameterise(f,μ)
+solμ(μ) = parameterise(sol,μ)
 
 pspace = ParamSpace((1,2))
-μ = Realization([[1.0],[2.0]])
+μ = Realisation([[1.0],[2.0]])
 
 function test_solver(solver,op,dΩ)
   test = get_test(op)
   trial = get_trial(op)
   y = zero_free_values(trial(μ))
-  nlop = parameterize(op,μ)
+  nlop = parameterise(op,μ)
   syscache = allocate_systemcache(nlop,y)
   A = get_matrix(syscache)
   x = allocate_in_domain(A); fill!(x,0.0)

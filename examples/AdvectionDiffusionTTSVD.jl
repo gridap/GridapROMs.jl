@@ -13,19 +13,19 @@ model = TProductDiscreteModel(domain,partition)
 Γn = BoundaryTriangulation(model,tags=[8])
 
 a(μ) = x -> exp(-x[1]/sum(μ))
-aμ(μ) = parameterize(a,μ)
+aμ(μ) = parameterise(a,μ)
 
 f(μ) = x -> 1.
-fμ(μ) = parameterize(f,μ)
+fμ(μ) = parameterise(f,μ)
 
 g(μ) = x -> μ[1]*exp(-x[1]/μ[2])
-gμ(μ) = parameterize(g,μ)
+gμ(μ) = parameterise(g,μ)
 
 h(μ) = x -> abs(cos(μ[3]*x[2]))
-hμ(μ) = parameterize(h,μ)
+hμ(μ) = parameterise(h,μ)
 
 b(μ) = x -> VectorValue(0.0,μ[4])
-bμ(μ) = parameterize(b,μ)
+bμ(μ) = parameterise(b,μ)
 
 order = 2
 reffe = ReferenceFE(lagrangian,Float64,order)

@@ -83,7 +83,7 @@ function Utils.compute_relative_error(
   return mean(errors)
 end
 
-function RBSteady.plot_a_solution(dir,Ω,uh,ûh,r::TransientRealization)
+function RBSteady.plot_a_solution(dir,Ω,uh,ûh,r::TransientRealisation)
   T = eltype2(get_free_dof_values(uh))
   np = num_params(r)
   for i in 1:num_times(r)
@@ -94,7 +94,7 @@ function RBSteady.plot_a_solution(dir,Ω,uh,ûh,r::TransientRealization)
   end
 end
 
-function RBSteady.to_snapshots(rbop::AbstractLocalRBOperator,x̂::AbstractParamVector,r::TransientRealization)
+function RBSteady.to_snapshots(rbop::AbstractLocalRBOperator,x̂::AbstractParamVector,r::TransientRealisation)
   xvec = map(enumerate(get_params(r))) do (i,μ)
     x̂μ = param_getindex(x̂,i)
     opμ = get_local(rbop,μ)
@@ -112,7 +112,7 @@ function _permutelastdims(s::Snapshots{T,N}) where {T,N}
   data = permutedims(get_all_data(s),ids)
   pids = (:,size(data,N-1),size(data,N))
   pdata = ConsecutiveParamArray(reshape(data,pids))
-  Snapshots(pdata,get_dof_map(s),get_realization(s))
+  Snapshots(pdata,get_dof_map(s),get_realisation(s))
 end
 
 function _permutelastdims(s::TransientSnapshotsWithIC)

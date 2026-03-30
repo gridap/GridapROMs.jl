@@ -14,22 +14,22 @@ function ShiftedSolver(odesolver::ThetaMethod)
   ShiftedSolver(sysslvr,δ)
 end
 
-front_shift!(solver::ShiftedSolver,r::TransientRealization) = shift!(r,solver.δ)
-back_shift!(solver::ShiftedSolver,r::TransientRealization) = shift!(r,-solver.δ)
+front_shift!(solver::ShiftedSolver,r::TransientRealisation) = shift!(r,solver.δ)
+back_shift!(solver::ShiftedSolver,r::TransientRealisation) = shift!(r,-solver.δ)
 
-_get_realization(nlop::NonlinearParamOperator) = @abstractmethod
-_get_realization(nlop::GenericParamNonlinearOperator) = nlop.μ
-_get_realization(nlop::LinNonlinParamOperator) = _get_realization(nlop.op_nonlinear)
+_get_realisation(nlop::NonlinearParamOperator) = @abstractmethod
+_get_realisation(nlop::GenericParamNonlinearOperator) = nlop.μ
+_get_realisation(nlop::LinNonlinParamOperator) = _get_realisation(nlop.op_nonlinear)
 
-function _update_paramcache!(nlop::NonlinearParamOperator,r::TransientRealization)
+function _update_paramcache!(nlop::NonlinearParamOperator,r::TransientRealisation)
   @abstractmethod
 end
 
-function _update_paramcache!(nlop::GenericParamNonlinearOperator,r::TransientRealization)
+function _update_paramcache!(nlop::GenericParamNonlinearOperator,r::TransientRealisation)
   update_paramcache!(nlop.paramcache,nlop.op,r)
 end
 
-function _update_paramcache!(nlop::LinNonlinParamOperator,r::TransientRealization)
+function _update_paramcache!(nlop::LinNonlinParamOperator,r::TransientRealisation)
   _update_paramcache!(nlop.op_linear,r)
   _update_paramcache!(nlop.op_nonlinear,r)
 end
@@ -40,7 +40,7 @@ function Algebra.solve!(
   nlop::NonlinearParamOperator,
   syscache)
 
-  r = _get_realization(nlop)
+  r = _get_realisation(nlop)
   front_shift!(solver,r)
   _update_paramcache!(nlop,r)
   solve!(x̂,solver.sysslvr,nlop,syscache)

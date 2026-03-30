@@ -67,15 +67,15 @@ Utils.get_domains_res(op::ParamOperator) = get_domains_res(get_fe_operator(op))
 Utils.get_domains_jac(op::ParamOperator) = get_domains_jac(get_fe_operator(op))
 
 get_param_space(op::ParamOperator) = get_param_space(get_fe_operator(op))
-ParamDataStructures.realization(op::ParamOperator;kwargs...) = realization(get_fe_operator(op);kwargs...)
+ParamDataStructures.realisation(op::ParamOperator;kwargs...) = realisation(get_fe_operator(op);kwargs...)
 
 ODEs.get_assembler(op::ParamOperator) = get_assembler(get_fe_operator(op))
-get_param_assembler(op::ParamOperator,r::AbstractRealization) = parameterize(get_assembler(op),r)
+get_param_assembler(op::ParamOperator,r::AbstractRealisation) = parameterise(get_assembler(op),r)
 FESpaces.assemble_matrix(op::ParamOperator,form::Function) = assemble_matrix(get_fe_operator(op),form)
 
 # basic interface
 
-function ParamAlgebra.allocate_paramcache(op::ParamOperator,μ::AbstractRealization)
+function ParamAlgebra.allocate_paramcache(op::ParamOperator,μ::AbstractRealisation)
   feop = get_fe_operator(op)
   ptrial = get_trial(feop)
   trial = evaluate(ptrial,μ)
@@ -87,14 +87,14 @@ function Algebra.zero_initial_guess(op::ParamOperator)
   zero_free_values(trial)
 end
 
-function Algebra.zero_initial_guess(op::ParamOperator,μ::AbstractRealization)
+function Algebra.zero_initial_guess(op::ParamOperator,μ::AbstractRealisation)
   x = zero_initial_guess(op)
-  parameterize(x,μ)
+  parameterise(x,μ)
 end
 
 function Algebra.allocate_residual(
   op::JointParamOperator,
-  μ::Realization,
+  μ::Realisation,
   u::AbstractVector,
   paramcache)
 
@@ -114,7 +114,7 @@ end
 function Algebra.residual!(
   b::AbstractVector,
   op::JointParamOperator,
-  μ::Realization,
+  μ::Realisation,
   u::AbstractVector,
   paramcache;
   add::Bool=false)
@@ -136,7 +136,7 @@ end
 
 function Algebra.allocate_jacobian(
   op::JointParamOperator,
-  μ::Realization,
+  μ::Realisation,
   u::AbstractVector,
   paramcache)
 
@@ -157,7 +157,7 @@ end
 function ODEs.jacobian_add!(
   A::AbstractMatrix,
   op::JointParamOperator,
-  μ::Realization,
+  μ::Realisation,
   u::AbstractVector,
   paramcache)
 
@@ -178,7 +178,7 @@ end
 
 function Algebra.allocate_residual(
   op::SplitParamOperator,
-  μ::Realization,
+  μ::Realisation,
   u::AbstractVector,
   paramcache)
 
@@ -199,7 +199,7 @@ end
 function Algebra.residual!(
   b::Contribution,
   op::SplitParamOperator,
-  μ::Realization,
+  μ::Realisation,
   u::AbstractVector,
   paramcache;
   add::Bool=false)
@@ -225,7 +225,7 @@ end
 
 function Algebra.allocate_jacobian(
   op::SplitParamOperator,
-  μ::Realization,
+  μ::Realisation,
   u::AbstractVector,
   paramcache)
 
@@ -248,7 +248,7 @@ end
 function ODEs.jacobian_add!(
   A::Contribution,
   op::SplitParamOperator,
-  μ::Realization,
+  μ::Realisation,
   u::AbstractVector,
   paramcache)
 
@@ -277,7 +277,7 @@ const LinearNonlinearParamOperator{T<:TriangulationStyle} = ParamOperator{Linear
 get_fe_operator(op::LinearNonlinearParamOperator) = get_fe_operator(get_nonlinear_operator(op))
 join_operators(op::LinearNonlinearParamOperator) = get_algebraic_operator(join_operators(get_fe_operator(op)))
 
-function ParamAlgebra.allocate_paramcache(op::LinearNonlinearParamOperator,μ::AbstractRealization)
+function ParamAlgebra.allocate_paramcache(op::LinearNonlinearParamOperator,μ::AbstractRealisation)
   op_nlin = get_nonlinear_operator(op)
   allocate_paramcache(op_nlin,μ)
 end
@@ -290,22 +290,22 @@ end
 function ParamAlgebra.update_paramcache!(
   paramcache::AbstractParamCache,
   op::LinearNonlinearParamOperator,
-  μ::AbstractRealization)
+  μ::AbstractRealisation)
 
   op_nlin = get_nonlinear_operator(op)
   update_paramcache!(paramcache,op_nlin,μ)
 end
 
-function ParamDataStructures.parameterize(op::LinearNonlinearParamOperator,μ::AbstractRealization)
-  op_lin = parameterize(get_linear_operator(op),μ)
-  op_nlin = parameterize(get_nonlinear_operator(op),μ)
+function ParamDataStructures.parameterise(op::LinearNonlinearParamOperator,μ::AbstractRealisation)
+  op_lin = parameterise(get_linear_operator(op),μ)
+  op_nlin = parameterise(get_nonlinear_operator(op),μ)
   syscache_lin = allocate_systemcache(op_lin)
   LinNonlinParamOperator(op_lin,op_nlin,syscache_lin)
 end
 
 function Algebra.allocate_residual(
   op::LinearNonlinearParamOperator,
-  μ::Realization,
+  μ::Realisation,
   u::AbstractVector,
   paramcache)
 
@@ -315,7 +315,7 @@ end
 
 function Algebra.allocate_jacobian(
   op::LinearNonlinearParamOperator,
-  μ::Realization,
+  μ::Realisation,
   u::AbstractVector,
   paramcache)
 
@@ -326,7 +326,7 @@ end
 function Algebra.residual!(
   b,
   op::LinearNonlinearParamOperator,
-  μ::Realization,
+  μ::Realisation,
   u::AbstractVector,
   paramcache)
 
@@ -337,7 +337,7 @@ end
 function ODEs.jacobian_add!(
   A,
   op::LinearNonlinearParamOperator,
-  μ::Realization,
+  μ::Realisation,
   u::AbstractVector,
   paramcache)
 

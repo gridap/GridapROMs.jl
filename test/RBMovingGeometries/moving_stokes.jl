@@ -64,7 +64,7 @@ aggregates = aggregate(strategy,cutgeo)
 domains = FEDomains((Ω,),(Ω,Γ))
 
 g(μ) = x -> VectorValue(x[2]*(W-x[2]),0.0)*(x[1]≈0.0)
-gμ(μ) = parameterize(g,μ)
+gμ(μ) = parameterise(g,μ)
 
 reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
 reffe_p = ReferenceFE(lagrangian,Float64,order-1)
@@ -80,7 +80,7 @@ trial = MultiFieldFESpace([trial_u,trial_p];style=BlockMultiFieldStyle())
 
 function get_deformation_map(μ)
   φ(μ) = x -> VectorValue(μ[1]-x[1] + (μ[2]/μ0[2])*(x[1]-μ0[1]),μ[1]-x[2] + (μ[2]/μ0[2])*(x[2]-μ0[1]))
-  φμ(μ) = parameterize(φ,μ)
+  φμ(μ) = parameterise(φ,μ)
 
   E = 1
   ν = 0.33
@@ -152,11 +152,11 @@ residual_reduction = hr(tol.*1e-2;nparams,ncentroids)
 jacobian_reduction = hr(tol.*1e-2;nparams,ncentroids)
 rbsolver = RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
 
-μ = realization(pspace;nparams)
+μ = realisation(pspace;nparams)
 feop = def_fe_operator(μ)
 fesnaps, = solution_snapshots(rbsolver,feop,μ)
 
-μon = realization(pspace;nparams=10,sampling=:uniform)
+μon = realisation(pspace;nparams=10,sampling=:uniform)
 feopon = def_fe_operator(μon)
 x,festats = solution_snapshots(rbsolver,feopon,μon)
 

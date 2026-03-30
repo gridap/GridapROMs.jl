@@ -72,7 +72,7 @@ GenericParamArray(args...) = @abstractmethod
 GenericParamArray(A::AbstractArray{<:Number}) = ParamNumber(A)
 GenericParamArray(A::AbstractParamArray) = A
 
-function parameterize(
+function parameterise(
   a::Union{AbstractArray{<:Number},AbstractArray{<:AbstractArray{<:Number}}},
   plength::Integer
   )
@@ -241,13 +241,13 @@ Arrays.testitem(A::AbstractParamArray) = param_getindex(A,1)
 function Arrays.testvalue(A::AbstractParamArray{T,N}) where {T,N}
   tv = testvalue(Array{T,N})
   plength = param_length(A)
-  parameterize(tv,plength)
+  parameterise(tv,plength)
 end
 
 function Arrays.testvalue(::Type{A}) where {T,N,A<:AbstractParamArray{T,N}}
   tv = testvalue(Array{T,N})
   plength = one(Int)
-  parameterize(tv,plength)
+  parameterise(tv,plength)
 end
 
 function Arrays.CachedArray(A::AbstractParamArray)

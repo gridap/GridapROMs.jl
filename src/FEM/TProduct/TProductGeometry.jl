@@ -1,8 +1,29 @@
 """
-    TProductDiscreteModel{D,A,B} <: DiscreteModel{D,D} end
+    struct TProductDiscreteModel{D,A,B} <: DiscreteModel{D,D}
+      model::A
+      models_1d::B
+    end
 
-Tensor product discrete model, storing a vector of 1-D models `models_1d` of length D,
-and the D-dimensional model `model` defined as their tensor product.
+A `D`-dimensional `CartesianDiscreteModel` together with `D` 1D
+`CartesianDiscreteModel`s whose Cartesian product reproduces it.
+
+Use [`TProductTriangulation`](@ref) and [`TProductMeasure`](@ref) to build
+the corresponding integration objects, and [`TProductFESpace`](@ref) (or the
+[`TensorProductReferenceFE`](@ref) interface) to build the FE space.
+
+# Construction
+
+    TProductDiscreteModel(args...; kwargs...)
+
+Accepts the same arguments as `CartesianDiscreteModel`: a domain tuple and a
+partition tuple. The 1D components are split automatically from the
+D-dimensional `CartesianDescriptor`.
+
+# Example
+
+```julia
+model = TProductDiscreteModel((0,1,0,1),(10,10))  # 10×10 Cartesian mesh on [0,1]²
+```
 """
 struct TProductDiscreteModel{D,A<:CartesianDiscreteModel{D},B<:AbstractVector{<:CartesianDiscreteModel}} <: DiscreteModel{D,D}
   model::A
@@ -100,11 +121,19 @@ function get_1d_tags(model::TProductDiscreteModel{D},tags) where D
 end
 
 """
-    TProductTriangulation{Dt,Dp,A,B,C} <: Triangulation{Dt,Dp}
+    struct TProductTriangulation{Dt,Dp,A,B,C} <: Triangulation{Dt,Dp}
+      model::A
+      trian::B
+      trians_1d::C
+    end
 
-Tensor product triangulation, storing a tensor product model, a vector of 1-D
-triangulations `trians_1d` of length D, and the D-dimensional triangulation `trian`
-defined as their tensor product.
+A `Triangulation` whose cells are the Cartesian product of `D` 1D
+triangulations stored in `trians_1d`. The full D-dimensional triangulation
+`trian` and the background [`TProductDiscreteModel`](@ref) `model` are also
+stored for standard Gridap compatibility.
+
+Construct via `Triangulation(model::TProductDiscreteModel)` or by wrapping an
+existing `Triangulation` with a vector of 1D triangulations.
 """
 struct TProductTriangulation{Dt,Dp,A<:TProductDiscreteModel,B<:BodyFittedTriangulation{Dt,Dp},C<:AbstractVector{<:Triangulation}} <: Triangulation{Dt,Dp}
   model::A
@@ -155,8 +184,16 @@ end
       measures_1d::B
     end
 
-Tensor product measure, storing a vector of 1-D measures `measures_1d` of length D,
-and the D-dimensional measure `measure` defined as their tensor product.
+A `Measure` whose quadrature is the Cartesian product of `D` 1D quadratures
+stored in `measures_1d`. The full D-dimensional measure `measure` is also kept
+for standard Gridap integration.
+
+Integrating a [`TProductCellField`](@ref) against a `TProductMeasure` returns
+a vector of `D` `DomainContribution`s, one per spatial direction, which are
+later assembled into a [`AbstractRankTensor`](@ref) by
+[`TProductSparseMatrixAssembler`](@ref).
+
+Construct via `Measure(trian::TProductTriangulation,degree;kwargs...)`.
 """
 struct TProductMeasure{A,B} <: Measure
   measure::A
