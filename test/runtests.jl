@@ -2,6 +2,15 @@ module GridapROMsTests
 
 using Test
 
+@testset "utils" begin include("FEM/utils.jl") end
+@testset "param data structures" begin include("FEM/param_data_structures.jl") end
+@testset "dof maps" begin include("FEM/dof_maps.jl") end
+@testset "param FE spaces" begin include("FEM/param_fe_spaces.jl") end
+@testset "extensions" begin include("FEM/extensions.jl") end
+@testset "TProduct" begin include("TProduct/tproduct.jl") end
+@testset "rb steady algorithms" begin include("RB/rb_steady.jl") end
+@testset "rb transient algorithms" begin include("RB/rb_transient.jl") end
+
 @testset "snapshots" begin include("snapshots.jl") end
 
 @testset "poisson" begin include("RBSteady/poisson.jl") end

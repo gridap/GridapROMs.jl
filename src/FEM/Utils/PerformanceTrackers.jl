@@ -142,8 +142,9 @@ function compute_error(
   ) where {T,N}
 
   @check size(sol) == size(sol_approx)
-  errors = size(sol,N)
-  @inbounds for i = 1:nruns
+  n = size(sol,N)
+  errors = zeros(T,n)
+  @inbounds for i = 1:n
     soli = selectdim(sol,N,i)
     soli_approx = selectdim(sol_approx,N,i)
     errors[i] = compute_relative_error(soli,soli_approx,args...)

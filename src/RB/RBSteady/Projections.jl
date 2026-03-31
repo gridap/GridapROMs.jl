@@ -558,7 +558,7 @@ end
 
 function rescale(op::Function,x::Any,b::NormedProjection)
   projection′ = rescale(op,x,b.projection)
-  NormedProjection(projection′,a.norm_matrix)
+  NormedProjection(projection′,b.norm_matrix)
 end
 
 # multi field interface
@@ -719,10 +719,10 @@ for f in (:project!,:inv_project!)
 end
 
 function Arrays.return_cache(::typeof(get_norm_matrix),a::BlockProjection)
-  i = findfirst(s.touched)
+  i = findfirst(a.touched)
   @notimplementedif isnothing(i)
   A = typeof(get_norm_matrix(a[i]))
-  norm_matrix = Array{A,ndims(s)}(undef,size(s))
+  norm_matrix = Array{A,ndims(a)}(undef,size(a))
   return norm_matrix
 end
 

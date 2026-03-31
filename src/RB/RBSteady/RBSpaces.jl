@@ -256,13 +256,3 @@ function to_snapshots(f::RBSpace,x̂::AbstractParamVector,r::AbstractRealisation
   Snapshots(x,i,r)
 end
 
-function projection_error(f::RBSpace,x::AbstractParamVector,r::AbstractRealisation)
-  fr = f(r)
-  i = get_dof_map(fr)
-  a = get_reduced_subspace(f)
-  x̂ = project(fr,x)
-  x′ = inv_project(fr,x̂)
-  s = Snapshots(x,i,r)
-  s′ = Snapshots(x′,i,r)
-  return compute_relative_error(s,s′,get_norm_matrix(a))
-end

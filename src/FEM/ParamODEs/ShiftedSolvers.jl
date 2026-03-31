@@ -4,7 +4,7 @@ struct ShiftedSolver <: NonlinearSolver
 end
 
 function ShiftedSolver(odesolver::ODESolver)
-  @notimplemented "For now, only theta methods are implemented"
+  @abstractmethod
 end
 
 function ShiftedSolver(odesolver::ThetaMethod)
@@ -13,6 +13,20 @@ function ShiftedSolver(odesolver::ThetaMethod)
   sysslvr = odesolver.sysslvr
   ShiftedSolver(sysslvr,δ)
 end
+
+function ShiftedSolver(odesolver::GeneralizedAlpha1)
+  dt,αf = odeslvr.dt,odeslvr.αf
+  δ = αf*dt
+  sysslvr = odesolver.sysslvr
+  ShiftedSolver(sysslvr,δ)
+end
+
+function ShiftedSolver(odesolver::GeneralizedAlpha2)
+  dt,αf = odeslvr.dt,odeslvr.αf
+  δ = (1-αf)*dt
+  sysslvr = odesolver.sysslvr
+  ShiftedSolver(sysslvr,δ)
+end 
 
 front_shift!(solver::ShiftedSolver,r::TransientRealisation) = shift!(r,solver.δ)
 back_shift!(solver::ShiftedSolver,r::TransientRealisation) = shift!(r,-solver.δ)

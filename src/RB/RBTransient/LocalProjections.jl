@@ -9,7 +9,7 @@ end
 RBSteady.get_clusters(a::KroneckerProjection) = get_clusters(a.projection_space)
 RBSteady.get_clusters(a::SequentialProjection) = get_clusters(a.projection)
 
-RBSteady.get_local(a,r::TransientRealisation) = get_local(a,get_params(r),get_times(t))
+RBSteady.get_local(a,r::TransientRealisation) = get_local(a,get_params(r),get_times(r))
 RBSteady.get_local(a,μt::Tuple{Any,Any}) = get_local(a,first(μt))
 
 function RBSteady.get_local(a::KroneckerProjection,μ::AbstractVector)

@@ -531,6 +531,17 @@ end
 
 function Arrays.return_cache(
   ::typeof(allocate_coefficient),
+  a::BlockHRProjection)
+
+  i = findfirst(a.touched)
+  @notimplementedif isnothing(i)
+  coeff = return_cache(allocate_coefficient,a[i])
+  block_coeff = Array{typeof(coeff),ndims(a)}(undef,size(a))
+  return block_coeff
+end
+
+function Arrays.return_cache(
+  ::typeof(allocate_coefficient),
   a::BlockHRProjection,
   r::AbstractRealisation)
 
@@ -542,10 +553,10 @@ function Arrays.return_cache(
 end
 
 function allocate_coefficient(a::BlockHRProjection)
-  coeff = return_cache(allocate_coefficient,a,args...)
+  coeff = return_cache(allocate_coefficient,a)
   for i in eachindex(a)
     if a.touched[i]
-      coeff[i] = allocate_coefficient(a[i],args...)
+      coeff[i] = allocate_coefficient(a[i])
     end
   end
   return ArrayBlock(coeff,a.touched)

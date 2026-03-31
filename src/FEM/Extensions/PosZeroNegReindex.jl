@@ -110,17 +110,17 @@ function Arrays.return_cache(k::PosZeroNegParamReindex,i::Integer)
   a = evaluate!(c,ki,i)
   cache = Vector{typeof(c)}(undef,param_length(k))
   data = local_parameterise(a,param_length(k))
-  @inbounds for i = param_eachindex(k)
-    cache[i] = return_cache(param_getindex(k,i),i)
+  @inbounds for p = param_eachindex(k)
+    cache[p] = return_cache(param_getindex(k,p),i)
   end
   cache,data
 end
 
 function Arrays.evaluate!(cache,k::PosZeroNegParamReindex,i::Integer)
   c,data = cache
-  @inbounds for i = param_eachindex(k)
-    vi = evaluate!(c[i],param_getindex(k,i),x...)
-    param_setindex!(data,vi,i)
+  @inbounds for p = param_eachindex(k)
+    vip = evaluate!(c[p],param_getindex(k,p),i)
+    param_setindex!(data,vip,p)
   end
   data
 end

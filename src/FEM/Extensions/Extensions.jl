@@ -1,3 +1,35 @@
+"""
+    module Extensions
+
+Extension machinery for embedded / unfitted FE methods and direct-sum spaces.
+
+Provides the infrastructure needed when the computational mesh does not conform
+to the boundary or interface of the physical domain (i.e., cut-cell / level-set
+methods).  Key components:
+
+- **`PosZeroNegReindex`** — re-index an array of DOF values according to a
+  three-way split (positive / zero / negative cells), as used by `AgFEM` aggregation
+  maps.  Parametric variant (`PosZeroNegParamReindex`) handles batched reindexing.
+- **`MissingDofsFESpace`** — wraps an FE space and marks DOFs that are geometrically
+  "missing" (outside the physical domain) so they can be filled by an extension.
+- **`EmbeddedFESpace`** — an FE space on an embedded (cut) mesh, holding references
+  to the background space, active space, and aggregated space together with the
+  corresponding dof-id maps.
+- **`DirectSumFESpace` (`⊕`)** — the direct sum of two FE spaces, used to combine,
+  e.g., an interior space with an extension space.
+- **`ExtensionAssembler`** — a `SparseMatrixAssembler` that assembles into the
+  combined direct-sum DOF numbering.
+- **`BlockExtensionSparseMatrixAssembler`** — multi-field block assembler for
+  extension problems.
+- **Extension solvers** — `ExtensionStyle` hierarchy (`ZeroExtension`,
+  `MassExtension`, `HarmonicExtension`, `BlockExtension`) selects how missing DOF
+  values are extrapolated from active DOF values.  `ExtensionSolver` and
+  `ExtensionODESolver` drive steady and transient extension problems, and
+  `extend_solution` is the high-level entry point.
+
+Depends on `ParamSteady` and `ParamODEs` for operator/solver abstractions, and on
+`TProduct`, `DofMaps`, `ParamFESpaces` for the underlying FE infrastructure.
+"""
 module Extensions
 
 using BlockArrays

@@ -161,38 +161,6 @@ function ExtendedFEFunction(
   FEFunction(f.space,zmfv,zmdv)
 end
 
-function extended_interpolate(object,f::SingleFieldFESpace)
-  fv = zero_free_values(f)
-  extended_interpolate!(object,fv,f)
-end
-
-function extended_interpolate!(object,fv,f::SingleFieldFESpace)
-  interpolate!(object,fv,get_act_space(f))
-  ExtendedFEFunction(f,fv)
-end
-
-function extended_interpolate_everywhere(object,f::SingleFieldFESpace)
-  fv = zero_free_values(f)
-  dv = zero_dirichlet_values(f)
-  extended_interpolate_everywhere!(object,fv,dv,f)
-end
-
-function extended_interpolate_everywhere!(object,fv,dv,f::SingleFieldFESpace)
-  interpolate_everywhere!(object,fv,dv,get_act_space(f))
-  ExtendedFEFunction(f,fv,dv)
-end
-
-function extended_interpolate_dirichlet(object,f::SingleFieldFESpace)
-  fv = zero_free_values(f)
-  dv = zero_dirichlet_values(f)
-  extended_interpolate_dirichlet!(object,fv,dv,f)
-end
-
-function extended_interpolate_dirichlet!(object,fv,dv,f::SingleFieldFESpace)
-  interpolate_dirichlet!(object,fv,dv,get_act_space(f))
-  ExtendedFEFunction(f,fv,dv)
-end
-
 function ExtendedCellField(f::SingleFieldFESpace,bg_cellvals)
   CellField(get_bg_space(f),bg_cellvals)
 end
@@ -203,34 +171,10 @@ function scatter_extended_free_and_dirichlet_values(f::SingleFieldFESpace,fv,dv)
   scatter_free_and_dirichlet_values(bg_f,bg_fv,bg_dv)
 end
 
-function gather_extended_dirichlet_values(f::SingleFieldFESpace,bg_cell_vals)
-  bg_dv = zero_bg_dirichlet_values(f)
-  gather_extended_dirichlet_values!(bg_dv,f,bg_cell_vals)
-  dv
-end
-
-function gather_extended_dirichlet_values!(bg_dv,f::SingleFieldFESpace,bg_cell_vals)
-  bg_fv = zero_bg_free_values(f)
-  gather_extended_free_and_dirichlet_values!(bg_fv,bg_dv,f,bg_cell_vals)
-  bg_dv
-end
-
-function gather_extended_free_values(f::SingleFieldFESpace,bg_cell_vals)
-  bg_fv = zero_bg_free_values(f)
-  gather_extended_free_values!(bg_fv,f,bg_cell_vals)
-  bg_fv
-end
-
 function gather_extended_free_values!(bg_fv,f::SingleFieldFESpace,bg_cell_vals)
   bg_dv = zero_bg_dirichlet_values(f)
   gather_extended_free_and_dirichlet_values!(bg_fv,bg_dv,f,bg_cell_vals)
   bg_fv
-end
-
-function gather_extended_free_and_dirichlet_values(f::SingleFieldFESpace,bg_cell_vals)
-  bg_fv = zero_bg_free_values(f)
-  bg_dv = zero_bg_dirichlet_values(f)
-  gather_extended_free_and_dirichlet_values!(bg_fv,bg_dv,f,bg_cell_vals)
 end
 
 function gather_extended_free_and_dirichlet_values!(bg_fv,bg_dv,f::SingleFieldFESpace,bg_cell_vals)
@@ -243,25 +187,11 @@ function extend_free_values(f::SingleFieldFESpace,fv)
   return fv
 end
 
-function extend_dirichlet_values(f::SingleFieldFESpace,dv)
-  fv = zero_free_values(f)
-  fv,dv = extend_free_and_dirichlet_values(f,fv,dv)
-  return dv
-end
-
 function extend_free_and_dirichlet_values(f::SingleFieldFESpace,fv,dv)
   bg_fv = zero_bg_free_values(f)
   bg_dv = zero_bg_dirichlet_values(f)
   _bg_vals_from_vals!(bg_fv,bg_dv,f,fv,dv)
   return bg_fv,bg_dv
-end
-
-# utils
-
-function extend_cell_vals(f::SingleFieldFESpace,cell_vals)
-  bg_f = get_bg_space(f)
-  bg_fv,bg_dv = gather_extended_free_and_dirichlet_values(f,cell_vals)
-  scatter_free_and_dirichlet_values(bg_f,bg_fv,bg_dv)
 end
 
 function _bg_vals_from_vals!(bg_fv,bg_dv,f::SingleFieldFESpace,fv,dv)

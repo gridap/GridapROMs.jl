@@ -1,3 +1,20 @@
+"""
+    module Utils
+
+Foundational utilities for GridapROMs, providing:
+
+- **Performance tracking** — [`CostTracker`](@ref), [`Speedup`](@ref),
+  [`compute_error`](@ref), [`compute_relative_error`](@ref).
+- **Partial derivatives** — [`PartialDerivative`](@ref), [`∂₁`](@ref),
+  [`∂₂`](@ref), [`∂₃`](@ref).
+- **Triangulation helpers** — [`get_parent`](@ref), [`order_domains`](@ref),
+  [`change_triangulation`](@ref), [`filter_domains`](@ref).
+- **Contribution types** — [`ArrayContribution`](@ref),
+  [`VectorContribution`](@ref), [`MatrixContribution`](@ref).
+- **FE domain metadata** — [`FEDomains`](@ref), [`OperatorType`](@ref),
+  [`JointDomains`](@ref), [`SplitDomains`](@ref),
+  [`get_polynomial_order`](@ref).
+"""
 module Utils
 
 using LinearAlgebra

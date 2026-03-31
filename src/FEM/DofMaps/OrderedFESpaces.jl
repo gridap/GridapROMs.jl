@@ -260,12 +260,6 @@ function cell_ovalue_to_value(f::OrderedFESpace,cv)
   lazy_map(OReindex(),odof_to_dof,cv)
 end
 
-function cell_value_to_ovalue(f::OrderedFESpace,cv)
-  odof_to_dof = get_local_ordering(f)
-  dof_to_odof = invperm_table(odof_to_dof)
-  lazy_map(OReindex(),dof_to_odof,cv)
-end
-
 function get_fe_odof_basis(f::SingleFieldFESpace,odof_to_dof)
   s = get_fe_dof_basis(f)
   dof_to_odof = invperm_table(odof_to_dof)

@@ -272,7 +272,7 @@ function TTSVDReduction(tolrank,args...;nparams=50,kwargs...)
   TTSVDReduction(red_style,args...;nparams)
 end
 
-Base.size(r::TTSVDReduction) = (length(r.tols),)
+Base.size(r::TTSVDReduction) = (length(r.red_style.style),)
 Base.getindex(r::TTSVDReduction,i::Integer) = Reduction(r.red_style[i],r.norm_style;nparams=r.nparams)
 
 ReductionStyle(r::TTSVDReduction) = r.red_style

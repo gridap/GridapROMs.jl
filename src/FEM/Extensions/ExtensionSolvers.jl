@@ -87,39 +87,6 @@ function extend_solution(f::FESpace,u::AbstractVector)
   extend_solution(HarmonicExtension(),f,u)
 end
 
-"""
-    extend_solution!(u_bg::AbstractVector,ext::ExtensionStyle,f::FESpace,u::AbstractVector)
-
-In-place version of [`extend_solution`](@ref)
-"""
-function extend_solution!(u_bg::AbstractVector,ext::ZeroExtension,f::FESpace,u::AbstractVector)
-  u_bg
-end
-
-function extend_solution!(u_bg::AbstractVector,ext::MassExtension,f::SingleFieldFESpace,u::AbstractVector)
-  fin = get_space(f)
-  uh_in_bg = ExtendedFEFunction(f,u)
-
-  fout = get_out_space(f)
-  uh_out = mass_extension(fout,uh_in_bg)
-
-  gather_extended_free_values!(u_bg,f,get_cell_dof_values(uh_out))
-end
-
-function extend_solution!(u_bg::AbstractVector,ext::HarmonicExtension,f::SingleFieldFESpace,u::AbstractVector)
-  fin = get_space(f)
-  uh_in_bg = ExtendedFEFunction(f,u)
-
-  fout = get_out_space(f)
-  uh_out = harmonic_extension(fout,uh_in_bg)
-
-  gather_extended_free_values!(u_bg,f,get_cell_dof_values(uh_out))
-end
-
-function extend_solution!(u_bg::AbstractVector,f::FESpace,u::AbstractVector)
-  extend_solution!(u_bg,HarmonicExtension(),f,u)
-end
-
 struct ExtensionSolver <: NonlinearSolver
   solver::NonlinearSolver
   extension::ExtensionStyle

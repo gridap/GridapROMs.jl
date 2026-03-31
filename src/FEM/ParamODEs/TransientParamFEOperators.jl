@@ -395,7 +395,7 @@ function ParamSteady.join_operators(
         get_jacs(op_lin)[i](μ,t,u,du,v) + get_jacs(op_nlin)[i](μ,t,u,du,v)
       elseif i <= order_lin+1
         get_jacs(op_lin)[i](μ,t,u,du,v)
-      else i <= order_nlin+1
+      elseif i <= order_nlin+1
         get_jacs(op_nlin)[i](μ,t,u,du,v)
       end
     end

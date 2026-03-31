@@ -1,3 +1,54 @@
+"""
+    module RBSteady
+
+Reduced-basis infrastructure for steady parametric PDEs.
+
+Implements the offline–online decomposition for parameter-dependent FE problems.
+The offline stage compresses high-fidelity snapshots into a low-dimensional basis
+and constructs hyper-reduced operators; the online stage solves the resulting
+small system for new parameter values.  Main building blocks:
+
+- **Reduction methods** (`ReductionMethods.jl`) — `PODReduction` (SVD-based),
+  `TTSVDReduction` (tensor-train SVD), `GreedyReduction`, `AffineReduction`,
+  `SupremizerReduction`, `MDEIMHyperReduction`, `SOPTHyperReduction`,
+  `RBFHyperReduction`, and composites.  Rank/tolerance criteria are expressed via
+  `SearchSVDRank`, `FixedSVDRank`, `LRApproxRank`, `TTSVDRanks`.
+
+- **Bases construction** (`BasesConstruction.jl`) — `tpod` (truncated POD),
+  `ttsvd` (tensor-train SVD), `gram_schmidt` / `orth_complement!`, `orth_projection`.
+
+- **Projections** (`Projections.jl`) — `PODProjection`, `TTSVDProjection`,
+  `NormedProjection` (energy norm), `BlockProjection`, `ReducedProjection`.
+  Core operations: `project`/`project!`, `inv_project`/`inv_project!`,
+  `union_bases`, `enrich!`.
+
+- **RB spaces** (`RBSpaces.jl`) — `SingleFieldRBSpace`, `MultiFieldRBSpace`,
+  `reduced_subspace`, `reduced_basis`.
+
+- **Hyper-reduction** (`HyperReductions.jl`) — `HRProjection` hierarchy
+  (`MDEIMProjection`, `RBFProjection`, `BlockHRProjection`) together with
+  `IntegrationDomain` (DEIM-style reduced integration), `Interpolation`
+  (`GreedyInterpolation`, `RBFInterpolation`), and `reduced_triangulation` /
+  `reduced_jacobian` / `reduced_residual` / `reduced_weak_form`.
+
+- **Reduced operators** (`ReducedOperators.jl`) — `GenericRBOperator`,
+  `LinearNonlinearRBOperator`, `LocalRBOperator`; `reduced_operator`.
+
+- **RB solvers** (`RBSolvers.jl`) — `RBSolver` orchestrates snapshot collection,
+  offline reduction, and online solve; `solution_snapshots`, `residual_snapshots`,
+  `jacobian_snapshots`.
+
+- **Tensor-train linear algebra** (`TTLinearAlgebra.jl`) — `contraction`,
+  `unbalanced_contractions`, `sequential_product`, `cores2basis`, `TTCores`.
+
+- **Local / cluster-based projections** (`LocalProjections.jl`) — `LocalProjection`,
+  `cluster`, `get_clusters`, `get_local`, `local_vals`.
+
+- **Post-processing** (`PostProcess.jl`) — `ROMPerformance`, `eval_performance`,
+  I/O helpers (`load_snapshots`, `load_contribution`, `load_operator`, …).
+
+The `RBTransient` module extends all of the above to the time-dependent setting.
+"""
 module RBSteady
 
 using BlockArrays

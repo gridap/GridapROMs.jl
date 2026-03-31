@@ -220,7 +220,7 @@ function HighDimHyperReduction(combine::Function,args...;compression=:global,hyp
       HighDimMDEIMHyperReduction(reduction,combine)
     elseif hypred_strategy==:sopt
       HighDimSOPTHyperReduction(reduction,combine)
-    else hypred_strategy==:rbf
+    elseif hypred_strategy==:rbf
       HighDimRBFHyperReduction(reduction,combine)
     end
   else
@@ -251,7 +251,7 @@ function HighDimHyperReduction(combine::Function,r::LocalReduction,args...;ncent
 end
 
 function HighDimHyperReduction(r::LocalReduction,combine::Function;ncentroids=num_centroids(r),kwargs...)
-  LocalHighDimHyperReduction(combine,get_reduction(r),args...;ncentroids,kwargs...)
+  LocalHighDimHyperReduction(combine,get_reduction(r);ncentroids,kwargs...)
 end
 
 get_combine(r::HighDimHyperReduction) = @abstractmethod

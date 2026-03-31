@@ -1,5 +1,5 @@
 # check HighDimHyperReduction for more details
-time_combinations(fesolver::ODESolver) = @notimplemented "For now, only theta methods are implemented"
+time_combinations(fesolver::ODESolver) = @abstractmethod
 
 function time_combinations(fesolver::ThetaMethod)
   dt,θ = fesolver.dt,fesolver.θ
@@ -7,6 +7,14 @@ function time_combinations(fesolver::ThetaMethod)
   combine_jac(x,y) = θ*x+(1-θ)*y
   combine_djac(x,y) = (x-y)/dt
   return combine_res,combine_jac,combine_djac
+end
+
+function time_combinations(fesolver::GeneralizedAlpha1)
+  
+end
+
+function time_combinations(fesolver::GeneralizedAlpha2)
+  
 end
 
 function RBSteady.RBSolver(

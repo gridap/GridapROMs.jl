@@ -623,6 +623,95 @@ function Algebra.jacobian(
   return A
 end
 
+function Algebra.residual(
+  solver::GeneralizedAlpha1,
+  odeop::ODEParamOperator,
+  r::TransientRealisation,
+  u::AbstractParamVector,
+  u0::AbstractParamVector;
+  shift=:spacetime)
+
+  
+end
+
+function Algebra.jacobian(
+  solver::GeneralizedAlpha1,
+  odeop::ODEParamOperator,
+  r::TransientRealisation,
+  u::AbstractParamVector,
+  u0::AbstractParamVector;
+  shift=:spacetime)
+
+  
+end
+
+function Algebra.residual(
+  solver::GeneralizedAlpha1,
+  odeop::ODEParamOperator{LinearParamODE},
+  r::TransientRealisation,
+  u::AbstractParamVector,
+  u0::AbstractParamVector;
+  shift=:spacetime)
+
+  
+end
+
+function Algebra.jacobian(
+  solver::GeneralizedAlpha1,
+  odeop::ODEParamOperator{LinearParamODE},
+  r::TransientRealisation,
+  u::AbstractParamVector,
+  u0::AbstractParamVector;
+  shift=:spacetime)
+
+  
+end
+
+
+function Algebra.residual(
+  solver::GeneralizedAlpha2,
+  odeop::ODEParamOperator,
+  r::TransientRealisation,
+  u::AbstractParamVector,
+  u0::AbstractParamVector;
+  shift=:spacetime)
+
+  
+end
+
+function Algebra.jacobian(
+  solver::GeneralizedAlpha2,
+  odeop::ODEParamOperator,
+  r::TransientRealisation,
+  u::AbstractParamVector,
+  u0::AbstractParamVector;
+  shift=:spacetime)
+
+  
+end
+
+function Algebra.residual(
+  solver::GeneralizedAlpha2,
+  odeop::ODEParamOperator{LinearParamODE},
+  r::TransientRealisation,
+  u::AbstractParamVector,
+  u0::AbstractParamVector;
+  shift=:spacetime)
+
+  
+end
+
+function Algebra.jacobian(
+  solver::GeneralizedAlpha2,
+  odeop::ODEParamOperator{LinearParamODE},
+  r::TransientRealisation,
+  u::AbstractParamVector,
+  u0::AbstractParamVector;
+  shift=:spacetime)
+
+  
+end
+
 # utils
 
 function ParamDataStructures.shift!(

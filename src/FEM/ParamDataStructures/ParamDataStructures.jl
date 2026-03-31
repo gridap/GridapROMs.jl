@@ -1,3 +1,35 @@
+"""
+    module ParamDataStructures
+
+Data structures for parametric PDEs: parameter spaces, realisations, parametric
+arrays, sparse matrices, and solution snapshots.
+
+## Parameter spaces and sampling
+
+- [`ParamSpace`](@ref) / [`TransientParamSpace`](@ref) — domains over which
+  parameters vary, with sampling strategies [`UniformSampling`](@ref),
+  [`NormalSampling`](@ref), [`HaltonSampling`](@ref), etc.
+- [`Realisation`](@ref) / [`TransientRealisation`](@ref) — concrete parameter
+  (and time) values drawn from a `ParamSpace`.
+- [`ParamFunction`](@ref) / [`TransientParamFunction`](@ref) — functions
+  parameterised over a `ParamSpace`.
+
+## Parametric arrays
+
+- [`AbstractParamArray`](@ref) — abstract supertype; concrete subtypes are
+  `ConsecutiveParamArray` (contiguous data layout, most efficient) and
+  `GenericParamArray`.
+- [`ParamSparseMatrix`](@ref) — sparse matrix with one entry per parameter.
+- [`BlockParamArray`](@ref) — block-structured parametric array for
+  multi-field problems.
+
+## Snapshots
+
+- [`Snapshots`](@ref) — collection of FE solution vectors indexed by
+  parameter (and optionally time).
+- [`TransientSnapshots`](@ref) and its subtypes for time-dependent problems.
+- [`select_snapshots`](@ref) — extract a subset of snapshots.
+"""
 module ParamDataStructures
 
 using LinearAlgebra

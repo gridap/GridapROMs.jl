@@ -70,7 +70,7 @@ function RBSolver(
   nparams=100,
   kwargs...)
 
-  reduction = Reduction(style;nparam)
+  reduction = Reduction(style;nparams)
   RBSolver(fesolver,reduction;kwargs...)
 end
 

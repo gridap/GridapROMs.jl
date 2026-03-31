@@ -172,10 +172,6 @@ get_final_time(r::GenericTransientRealisation) = last(get_times(r))
 
 get_delta(r::GenericTransientRealisation) = (get_final_time(r) - get_initial_time(r)) / num_times(r)
 
-function change_time!(r::GenericTransientRealisation{P,T} where P,time::T) where T
-  r.times .= time
-end
-
 """
     shift!(r::TransientRealisation,δ::Real) -> Nothing
 
@@ -238,10 +234,6 @@ function Base.getindex(r::TransientRealisationAt,i,j)
 end
 
 Base.iterate(r::TransientRealisationAt,i...) = iterate(r.params,i...)
-
-function change_time!(r::TransientRealisationAt{P,T} where P,time::T) where T
-  r.t[] = time
-end
 
 function shift!(r::TransientRealisationAt,δ::Real)
   r.t[] += δ
