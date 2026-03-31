@@ -98,7 +98,7 @@ export ShiftedSolver
 include("ShiftedSolvers.jl")
 
 export ODEParamSolution
-export initial_condition
+export initial_conditions
 include("ODEParamSolutions.jl")
 
 include("TransientParamFESolutions.jl")

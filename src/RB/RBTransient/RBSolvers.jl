@@ -65,7 +65,7 @@ function RBSteady.solution_snapshots(
   fesolver = get_fe_solver(solver)
   sol = solve(fesolver,feop,r,args...)
   values,stats = collect(sol)
-  initial_values = initial_condition(sol)
+  initial_values = initial_conditions(sol)
   i = get_dof_map(feop)
   snaps = Snapshots(values,initial_values,i,r)
   return snaps,stats
@@ -80,7 +80,7 @@ function RBSteady.solution_snapshots(
 
   sol = solve(fesolver,op,r,args...)
   values,stats = collect(sol)
-  initial_values = initial_condition(sol)
+  initial_values = initial_conditions(sol)
   i = get_dof_map(op)
   snaps = Snapshots(values,initial_values,i,r)
   return snaps,stats
@@ -156,7 +156,7 @@ function Algebra.solve(
   solver::RBSolver,
   op::NonlinearOperator,
   r::TransientRealisation,
-  xh0::Union{Function,AbstractVector})
+  us0)
 
   trial = get_trial(op)(r)
   x̂ = zero_free_values(trial)
@@ -177,7 +177,7 @@ function Algebra.solve(
   solver::RBSolver,
   op::AbstractLocalRBOperator,
   r::TransientRealisation,
-  xh0::Union{Function,AbstractVector}
+  us0
   )
 
   t = @timed x̂vec = map(get_params(r)) do μ

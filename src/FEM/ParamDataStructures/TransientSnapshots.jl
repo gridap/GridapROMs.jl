@@ -75,7 +75,7 @@ end
 
 get_all_data(s::TransientSnapshotsWithIC) = get_all_data(s.snaps)
 get_initial_data(s::TransientSnapshotsWithIC) = s.initial_data
-get_initial_param_data(s::TransientSnapshotsWithIC) = ConsecutiveParamArray(s.initial_data)
+get_initial_param_data(s::TransientSnapshotsWithIC) = ConsecutiveParamArray.(s.initial_data)
 DofMaps.get_dof_map(s::TransientSnapshotsWithIC) = get_dof_map(s.snaps)
 get_realisation(s::TransientSnapshotsWithIC) = get_realisation(s.snaps)
 
@@ -199,20 +199,19 @@ end
 
 for f in (:get_initial_data,:get_initial_param_data)
   @eval begin
-    function Arrays.return_cache(::typeof($f),s::BlockSnapshots{S,N}) where {S,N}
-      cache = $f(testitem(s))
-      block_cache = Array{typeof(cache),N}(undef,size(s))
-      return block_cache
-    end
-
-    function $f(s::BlockSnapshots)
-      values = return_cache($f,s)
-      for i in eachindex(s.touched)
-        if s.touched[i]
-          values[i] = $f(s[i])
+    function $f(s::BlockSnapshots{S,N}) where {S,N}
+      t = $f(testitem(s))
+      a = ()
+      for (j,tj) in enumerate(t) 
+        vj = Array{typeof(tj),N}(undef,size(s))
+        for i in eachindex(s.touched)
+          if s.touched[i]
+            vj[i] = $f(s[i])[j]
+          end
         end
+        a = (a...,mortar(vj))
       end
-      return mortar(values)
+      return a
     end
   end
 end

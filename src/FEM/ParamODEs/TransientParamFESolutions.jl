@@ -13,7 +13,7 @@ struct TransientParamFESolution{V} <: TransientFESolution
   trial
 end
 
-initial_condition(sol::TransientParamFESolution) = initial_condition(sol.odesol)
+initial_conditions(sol::TransientParamFESolution) = initial_conditions(sol.odesol)
 
 function TransientParamFESolution(
   solver::ODESolver,

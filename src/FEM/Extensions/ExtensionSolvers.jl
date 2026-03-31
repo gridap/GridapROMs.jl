@@ -129,9 +129,9 @@ function ExtensionODEParamSolution(
   solver::ExtensionODESolver,
   odeop::ODEParamOperator,
   r::TransientRealisation,
-  u0)
+  us0)
 
-  odesol = ODEParamSolution(solver.solver,odeop,r,u0)
+  odesol = ODEParamSolution(solver.solver,odeop,r,us0)
   ExtensionODEParamSolution(solver.extension,odesol)
 end
 
@@ -139,9 +139,9 @@ function ParamODEs.ODEParamSolution(
   solver::ExtensionODESolver,
   odeop::ODEParamOperator,
   r::TransientRealisation,
-  u0::V) where V
+  us0) 
 
-  ExtensionODEParamSolution(solver,odeop,r,u0)
+  ExtensionODEParamSolution(solver,odeop,r,us0)
 end
 
 function Base.collect(sol::ExtensionODEParamSolution)
@@ -150,10 +150,10 @@ function Base.collect(sol::ExtensionODEParamSolution)
   return u_bg,stats
 end
 
-function ParamODEs.initial_condition(sol::ExtensionODEParamSolution)
-  u0 = initial_condition(sol.odesol)
+function ParamODEs.initial_conditions(sol::ExtensionODEParamSolution)
+  us0 = initial_conditions(sol.odesol)
   r0 = get_at_time(sol.odesol.r,:initial)
-  extend_solution(sol.extension,get_trial(sol.odesol.odeop)(r0),u0)
+  extend_solution(sol.extension,get_trial(sol.odesol.odeop)(r0),us0)
 end
 
 # utils

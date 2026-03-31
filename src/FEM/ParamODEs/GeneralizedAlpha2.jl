@@ -1,22 +1,3 @@
-function stage_variable(
-  solver::GeneralizedAlpha2,
-  u0::AbstractVector,
-  v0::AbstractVector
-  )
-
-  stage_variable(solver,u0,v0,v0)
-end
-
-function stage_variable(
-  solver::GeneralizedAlpha2,
-  u0::AbstractVector,
-  v0::AbstractVector,
-  a0::AbstractVector
-  )
-
-  (copy(u0),copy(v0),copy(a0))
-end
-
 function ODEs.ode_march!(
   statef::NTuple{3,AbstractVector},
   solver::GeneralizedAlpha2,

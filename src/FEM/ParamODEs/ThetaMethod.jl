@@ -1,7 +1,3 @@
-function stage_variable(solver::ThetaMethod,u0::AbstractVector)
-  (copy(u0),)
-end
-
 function ODEs.ode_march!(
   statef::NTuple{1,AbstractVector},
   solver::ThetaMethod,
