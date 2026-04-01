@@ -70,11 +70,6 @@ function RBSteady.solution_snapshots(
   return snaps,stats
 end
 
-_get_shift(red::SteadyReduction) = :spaceonly 
-_get_shift(red::HighDimReduction) = :spacetime 
-_get_shift(red::Reduction) = _get_shift(get_reduction(red))
-_get_shift(solver::TransientRBSolver) = _get_shift(solver.state_reduction)
-
 function RBSteady.residual_snapshots(
   solver::RBSolver,
   odeop::ODEParamOperator,

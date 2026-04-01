@@ -80,6 +80,16 @@ import UnPack: @unpack
 import GridapROMs.ParamDataStructures: GenericTransientRealisation, TransientRealisationAt
 import GridapROMs.RBSteady: num_centroids,get_lhs,get_rhs,_get_label
 
+export TimeCombination
+export CombinationOrder
+export ThetaMethodCombination
+export GenAlpha1Combination
+export GenAlpha2Combination
+export ThetaMethodStrategy
+export GenAlpha1Strategy
+export GenAlpha2Strategy
+include("TimeCombinations.jl")
+
 export HighDimReduction
 export SteadyReduction
 export TransientReduction

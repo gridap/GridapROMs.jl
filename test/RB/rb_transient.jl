@@ -298,20 +298,6 @@ end
   @test all(r -> r isa HighDimMDEIMHyperReduction, solver.jacobian_reduction)
 end
 
-# ─── _get_shift ───────────────────────────────────────────────────────────────
-
-@testset "_get_shift returns :spacetime for HighDimReduction" begin
-  # HighDimReduction (Kronecker or Sequential) requires full space-time assemby
-  red = HighDimReduction(1e-2; dim=2)
-  @test _get_shift(red) == :spacetime
-end
-
-@testset "_get_shift returns :spaceonly for SteadyReduction" begin
-  # SteadyReduction keeps the time loop intact → only space-shift needed
-  red = SteadyReduction(SearchSVDRank(1e-3))
-  @test _get_shift(red) == :spaceonly
-end
-
 # ─── _to_realisation ──────────────────────────────────────────────────────────
 
 @testset "_to_realisation creates a single-param TransientRealisation" begin
