@@ -94,6 +94,18 @@ include("TransientParamFEOperators.jl")
 
 include("ParamTimeMarching.jl")
 
+export TimeCombination
+export CombinationOrder
+export ThetaMethodCombination
+export GenAlpha1Combination
+export GenAlpha2Combination
+export ThetaMethodStrategy
+export GenAlpha1Strategy
+export GenAlpha2Strategy
+include("TimeCombinations.jl")
+
+include("SpaceTime.jl")
+
 export ShiftedSolver
 include("ShiftedSolvers.jl")
 

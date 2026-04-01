@@ -315,7 +315,7 @@ function get_3d_poisson_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2
   return feop,rbsolver
 end
 
-function get_2d_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,nparams_djac=1,sampling=:halton,start=1)
+function get_2d_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jacs=(2,1),sampling=:halton,start=1)
   order = 1
   degree = 2*order
 
@@ -372,12 +372,12 @@ function get_2d_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,
   state_reduction = method==:pod ? HighDimReduction(1e-4,energy;nparams) : HighDimReduction(fill(1e-4,3),energy;nparams)
 
   fesolver = ThetaMethod(LUSolver(),dt,θ)
-  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,nparams_djac)
+  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jacs)
 
   return feop,rbsolver,uh0μ
 end
 
-function get_3d_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,nparams_djac=1,sampling=:halton,start=1)
+function get_3d_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jacs=(2,1),sampling=:halton,start=1)
   order = 1
   degree = 2*order
 
@@ -434,12 +434,12 @@ function get_3d_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,
   state_reduction = method==:pod ? HighDimReduction(1e-4,energy;nparams) : HighDimReduction(fill(1e-4,4),energy;nparams)
 
   fesolver = ThetaMethod(LUSolver(),dt,θ)
-  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,nparams_djac)
+  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jacs)
 
   return feop,rbsolver,uh0μ
 end
 
-function get_elasticity_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,nparams_djac=1,sampling=:halton,start=1)
+function get_elasticity_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jacs=(2,1),sampling=:halton,start=1)
   order = 1
   degree = 2*order
 
@@ -507,22 +507,22 @@ function get_elasticity_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2
   state_reduction = method==:pod ? HighDimReduction(1e-4,energy;nparams) : HighDimReduction(fill(1e-4,5),energy;nparams)
 
   fesolver = ThetaMethod(LUSolver(),dt,θ)
-  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,nparams_djac)
+  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jacs)
 
   return feop,rbsolver,uh0μ
 end
 
-function get_test_info(args...;label="2d_heateq",nparams_djac=1,kwargs...)
+function get_test_info(args...;label="2d_heateq",nparams_jacs=(20,1),kwargs...)
   if label=="2d_poisson"
     get_2d_poisson_info(args...;kwargs...)
   elseif label=="3d_poisson"
     get_3d_poisson_info(args...;kwargs...)
   elseif label=="2d_heateq"
-    get_2d_heateq_info(args...;nparams_djac,kwargs...)
+    get_2d_heateq_info(args...;nparams_jacs,kwargs...)
   elseif label=="3d_heateq"
-    get_3d_heateq_info(args...;nparams_djac,kwargs...)
+    get_3d_heateq_info(args...;nparams_jacs,kwargs...)
   else label=="elasticity"
-    get_elasticity_info(args...;nparams_djac,kwargs...)
+    get_elasticity_info(args...;nparams_jacs,kwargs...)
   end
 end
 
@@ -602,7 +602,7 @@ end
 
 function main_rb(;method=:pod,M_test=(25,50,100),tols=(1e-1,1e-2,1e-3,1e-4,1e-5),label="2d_heateq")
   for M in M_test
-    feop,rbsolver,args... = get_test_info(M,method;label,nparams=80,nparams_res=80,nparams_jac=20,nparams_djac=1)
+    feop,rbsolver,args... = get_test_info(M,method;label,nparams=80,nparams_res=80,nparams_jacs=(20,1))
 
     dir = datadir(label*"_$M")
     fesnaps,(x,festats) = get_offline_online_solutions(dir,feop,method)

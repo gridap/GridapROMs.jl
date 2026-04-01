@@ -81,7 +81,7 @@ function main(
   ptspace = TransientParamSpace(pdomain,tdomain)
 
   fesolver = ThetaMethod(LUSolver(),dt,θ)
-  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy)
+  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jacs=(nparams_jac,nparams_jac),hypred_strategy)
 
   feop = TransientLinearParamOperator(res,(stiffness,mass),ptspace,trial,test,domains)
   fesnaps, = solution_snapshots(rbsolver,feop,uh0μ)

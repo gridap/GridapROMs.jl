@@ -39,7 +39,7 @@ function ODEs.ode_march!(
   αf,αm,γ,β = odeslvr.αf,odeslvr.αm,odeslvr.γ,odeslvr.β
   ws = ((1 - αf) * β * dt^2,(1 - αf) * γ * dt,1 - αm)
 
-  shift!(r,(1-αf)*dt)
+  mid_shift!(solver,r)
   function state_update(x)
     copyto!(uα,u0)
     axpy!((1 - αf) * dt,v0,uα)
@@ -59,7 +59,7 @@ function ODEs.ode_march!(
   update_paramcache!(paramcache,odeop,r)
   nlop = ParamStageOperator(odeop,r,state_update,ws,paramcache)
   solve!(x,solver.sysslvr,nlop,syscache)
-  shift!(r,αf*dt)
+  mid_front_shift!(solver,r)
 
   statef = ODEs._update_alpha2!(statef,state,dt,x,γ,β)
   (r,statef)
@@ -82,7 +82,7 @@ function ODEs.ode_march!(
   αf,αm,γ,β = odeslvr.αf,odeslvr.αm,odeslvr.γ,odeslvr.β
   ws = ((1 - αf) * β * dt^2,(1 - αf) * γ * dt,1 - αm)
 
-  shift!(r,(1-αf)*dt)
+  mid_shift!(solver,r)
   copyto!(uα,u0)
   axpy!((1 - αf) * dt,v0,uα)
   axpy!((1 - αf) * (1 - 2 * β) * dt^2 / 2,a0,uα)
@@ -94,7 +94,7 @@ function ODEs.ode_march!(
   update_paramcache!(paramcache,odeop,r)
   nlop = ParamStageOperator(odeop,r,state_update,ws,paramcache)
   solve!(x,solver.sysslvr,nlop,syscache)
-  shift!(r,αf*dt)
+  mid_front_shift!(solver,r)
 
   statef = ODEs._update_alpha2!(statef,state,dt,x,γ,β)
   (r,statef)
@@ -121,7 +121,7 @@ function ODEs.ode_march!(
   αf,αm,γ,β = odeslvr.αf,odeslvr.αm,odeslvr.γ,odeslvr.β
   ws = ((1 - αf) * β * dt^2,(1 - αf) * γ * dt,1 - αm)
 
-  shift!(r,αf*dt)
+  mid_shift!(solver,r)
 
   # linear updates
   op_lin = get_linear_operator(odeop)
@@ -159,8 +159,26 @@ function ODEs.ode_march!(
 
   nlop = LinNonlinParamOperator(nlop_lin,nlop_nlin,syscache_lin)
   solve!(x,solver.sysslvr,nlop,syscache_nlin)
-  shift!(r,dt*αf)
+  mid_front_shift!(solver,r)
 
   statef = ODEs._update_alpha2!(statef,state,dt,x,γ,β)
   (r,statef)
+end
+
+function mid_shift!(
+  solver::GeneralizedAlpha2,
+  r::TransientRealisation
+  ) 
+
+  δ = solver.dt*(1-solver.αf)
+  shift!(r,δ)
+end
+
+function mid_front_shift!(
+  solver::GeneralizedAlpha2,
+  r::TransientRealisation
+  ) 
+
+  δ = solver.αf*solver.dt
+  shift!(r,δ)
 end

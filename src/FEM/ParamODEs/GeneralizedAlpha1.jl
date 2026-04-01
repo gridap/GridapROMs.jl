@@ -38,7 +38,7 @@ function ODEs.ode_march!(
   dt,αf,αm,γ = odeslvr.dt,odeslvr.αf,odeslvr.αm,odeslvr.γ
   ws = (αf*γ*dt,αm)
 
-  shift!(r,αf*dt)
+  mid_shift!(solver,r)
   function state_update(x)
     copyto!(uα,u0)
     axpy!(αf * (1 - γ) * dt,v0,uα)
@@ -53,7 +53,7 @@ function ODEs.ode_march!(
   update_paramcache!(paramcache,odeop,r)
   nlop = ParamStageOperator(odeop,r,state_update,ws,paramcache)
   solve!(x,solver.sysslvr,nlop,syscache)
-  shift!(r,dt*(1-αf))
+  mid_front_shift!(solver,r)
 
   statef = ODEs._update_alpha1!(statef,state,dt,x,γ)
   (r,statef)
@@ -75,7 +75,7 @@ function ODEs.ode_march!(
   dt,αf,αm,γ = odeslvr.dt,odeslvr.αf,odeslvr.αm,odeslvr.γ
   ws = (αf*γ*dt,αm)
   
-  shift!(r,αf*dt)
+  mid_shift!(solver,r)
   copyto!(uα,u0)
   axpy!(αf * (1 - γ) * dt,v0,uα)
   copyto!(vα,v0)
@@ -84,7 +84,7 @@ function ODEs.ode_march!(
   update_paramcache!(paramcache,odeop,r)
   nlop = ParamStageOperator(odeop,r,state_update,ws,paramcache)
   solve!(x,solver.sysslvr,nlop,syscache)
-  shift!(r,dt*(1-αf))
+  mid_front_shift!(solver,r)
 
   statef = ODEs._update_alpha1!(statef,state,dt,x,γ)
   (r,statef)
@@ -110,7 +110,7 @@ function ODEs.ode_march!(
   dt,αf,αm,γ = odeslvr.dt,odeslvr.αf,odeslvr.αm,odeslvr.γ
   ws = (αf*γ*dt,αm)
 
-  shift!(r,αf*dt)
+  mid_shift!(solver,r)
 
   # linear updates
   op_lin = get_linear_operator(odeop)
@@ -140,8 +140,26 @@ function ODEs.ode_march!(
 
   nlop = LinNonlinParamOperator(nlop_lin,nlop_nlin,syscache_lin)
   solve!(x,solver.sysslvr,nlop,syscache_nlin)
-  shift!(r,dt*(1-αf))
+  mid_front_shift!(solver,r)
 
   statef = ODEs._update_alpha1!(statef,state,dt,x,γ)
   (r,statef)
+end
+
+function mid_shift!(
+  solver::GeneralizedAlpha1,
+  r::TransientRealisation
+  ) 
+
+  δ = solver.αf*solver.dt
+  shift!(r,δ)
+end
+
+function mid_front_shift!(
+  solver::GeneralizedAlpha1,
+  r::TransientRealisation
+  ) 
+
+  δ = solver.dt*(1-solver.αf)
+  shift!(r,δ)
 end

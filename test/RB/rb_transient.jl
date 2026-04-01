@@ -288,7 +288,7 @@ end
   # RBSolver dispatches on ODESolver to build hyper-reduction for each Jacobian.
   fesolver = ThetaMethod(LUSolver(), 0.1, 0.5)
   red      = HighDimReduction(1e-2; dim=2)
-  solver   = RBSolver(fesolver, red; nparams_res=5, nparams_jac=5, nparams_djac=5)
+  solver   = RBSolver(fesolver, red; nparams_res=5, nparams_jacs=(5,5))
 
   @test solver isa RBSolver    # TransientRBSolver is a type alias for RBSolver{<:ODESolver,...}
   @test get_fe_solver(solver) === fesolver
