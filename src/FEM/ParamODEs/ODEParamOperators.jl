@@ -514,8 +514,10 @@ function Algebra.residual(
   odeop::ODEParamOperator,
   r::TransientRealisation,
   u::AbstractParamVector,
-  u0::AbstractParamVector;
+  us0::Tuple{Vararg{AbstractParamVector}};
   shift=:spacetime)
+
+  u0, = us0
 
   dt,θ = solver.dt,solver.θ
   x = copy(u)
@@ -542,8 +544,10 @@ function Algebra.jacobian(
   odeop::ODEParamOperator,
   r::TransientRealisation,
   u::AbstractParamVector,
-  u0::AbstractParamVector;
+  us0::Tuple{Vararg{AbstractParamVector}};
   shift=:spacetime)
+
+  u0, = us0
 
   dt,θ = solver.dt,solver.θ
   x = copy(u)
@@ -572,8 +576,10 @@ function Algebra.residual(
   odeop::ODEParamOperator{LinearParamODE},
   r::TransientRealisation,
   u::AbstractParamVector,
-  u0::AbstractParamVector;
+  us0::Tuple{Vararg{AbstractParamVector}};
   shift=:spacetime)
+
+  u0, = us0
 
   dt,θ = solver.dt,solver.θ
   x = copy(u)
@@ -599,9 +605,11 @@ function Algebra.jacobian(
   odeop::ODEParamOperator{LinearParamODE},
   r::TransientRealisation,
   u::AbstractParamVector,
-  u0::AbstractParamVector;
+  us0::Tuple{Vararg{AbstractParamVector}};
   shift=:spacetime)
 
+  u0, = us0
+  
   dt,θ = solver.dt,solver.θ
   x = copy(u)
   fill!(x,zero(eltype(x)))
@@ -628,7 +636,7 @@ function Algebra.residual(
   odeop::ODEParamOperator,
   r::TransientRealisation,
   u::AbstractParamVector,
-  u0::AbstractParamVector;
+  us0::Tuple{Vararg{AbstractParamVector}};
   shift=:spacetime)
 
   
@@ -639,7 +647,7 @@ function Algebra.jacobian(
   odeop::ODEParamOperator,
   r::TransientRealisation,
   u::AbstractParamVector,
-  u0::AbstractParamVector;
+  us0::Tuple{Vararg{AbstractParamVector}};
   shift=:spacetime)
 
   
@@ -650,7 +658,7 @@ function Algebra.residual(
   odeop::ODEParamOperator{LinearParamODE},
   r::TransientRealisation,
   u::AbstractParamVector,
-  u0::AbstractParamVector;
+  us0::Tuple{Vararg{AbstractParamVector}};
   shift=:spacetime)
 
   
@@ -661,7 +669,7 @@ function Algebra.jacobian(
   odeop::ODEParamOperator{LinearParamODE},
   r::TransientRealisation,
   u::AbstractParamVector,
-  u0::AbstractParamVector;
+  us0::Tuple{Vararg{AbstractParamVector}};
   shift=:spacetime)
 
   
@@ -673,7 +681,7 @@ function Algebra.residual(
   odeop::ODEParamOperator,
   r::TransientRealisation,
   u::AbstractParamVector,
-  u0::AbstractParamVector;
+  us0::Tuple{Vararg{AbstractParamVector}};
   shift=:spacetime)
 
   
@@ -684,7 +692,7 @@ function Algebra.jacobian(
   odeop::ODEParamOperator,
   r::TransientRealisation,
   u::AbstractParamVector,
-  u0::AbstractParamVector;
+  us0::Tuple{Vararg{AbstractParamVector}};
   shift=:spacetime)
 
   
@@ -695,7 +703,7 @@ function Algebra.residual(
   odeop::ODEParamOperator{LinearParamODE},
   r::TransientRealisation,
   u::AbstractParamVector,
-  u0::AbstractParamVector;
+  us0::Tuple{Vararg{AbstractParamVector}};
   shift=:spacetime)
 
   
@@ -706,7 +714,7 @@ function Algebra.jacobian(
   odeop::ODEParamOperator{LinearParamODE},
   r::TransientRealisation,
   u::AbstractParamVector,
-  u0::AbstractParamVector;
+  us0::Tuple{Vararg{AbstractParamVector}};
   shift=:spacetime)
 
   

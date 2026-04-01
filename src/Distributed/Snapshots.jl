@@ -18,7 +18,7 @@ function ParamDataStructures.Snapshots(s::PVector,s0::PVector,i::AbstractArray,r
   DistributedSnapshots(snaps)
 end
 
-struct DistributedSnapshots{T,N,I,R,A,B} <: Snapshots{T,N,I,R,A}
+struct DistributedSnapshots{T,N,I,R,A,B} <: Snapshots{T,N,I,R}
   snaps::A
   function DistributedSnapshots(snaps::GenericPArray{B}) where {T,N,I,R,B<:Snapshots{T,N,I,R}}
     A = typeof(snaps)

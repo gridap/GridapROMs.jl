@@ -1,3 +1,27 @@
+function ode_start(
+  odeslvr::GeneralizedAlpha2,
+  odeop::ODEParamOperator,
+  r0::TransientRealisation,
+  us0::NTuple{2,AbstractVector}
+  )
+
+  nstates = length(us0)
+  state0 = ntuple(i -> copy(us0[i]),Val{nstates}())
+  upcache = ntuple(i -> copy(us0[i]),Val{nstates}())
+  paramcache = allocate_paramcache(odeop,r0)
+  syscache = allocate_systemcache(odeop,r0,us0,paramcache)
+
+  ws = (0,0,1)
+  
+  u0,v0,x = state0[1]
+  state_update(x) = (u0,v0,x)
+  update_paramcache!(paramcache,odeop,r)
+  nlop = ParamStageOperator(odeop,r,state_update,ws,paramcache)
+  solve!(x,solver.sysslvr,nlop,syscache)
+
+  return state0,(upcache,paramcache,syscache)
+end
+
 function ODEs.ode_march!(
   statef::NTuple{3,AbstractVector},
   solver::GeneralizedAlpha2,

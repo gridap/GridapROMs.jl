@@ -29,7 +29,7 @@ DofMaps.get_dof_map(s::AbstractSnapshots) = @abstractmethod
 num_params(s::AbstractSnapshots) = num_params(get_realisation(s))
 
 """
-    abstract type Snapshots{T,N,I,R,A} <: AbstractSnapshots{T,N} end
+    abstract type Snapshots{T,N,I,R} <: AbstractSnapshots{T,N} end
 
 Type representing a collection of parametric abstract arrays of eltype `T`,
 that are associated with a realisation of type `R`. Unlike `AbstractParamArray`,
@@ -40,7 +40,7 @@ Subtypes:
 - [`SteadySnapshots`](@ref)
 - [`TransientSnapshots`](@ref)
 """
-abstract type Snapshots{T,N,I,R,A} <: AbstractSnapshots{T,N} end
+abstract type Snapshots{T,N,I,R} <: AbstractSnapshots{T,N} end
 
 function Snapshots(s::AbstractArray,i::AbstractDofMap,r::AbstractRealisation)
   @abstractmethod
@@ -72,9 +72,9 @@ function param_cat(v::AbstractVector{<:Snapshots})
 end
 
 """
-    const SteadySnapshots{T,N,I,R<:Realisation,A} = Snapshots{T,N,I,R,A}
+    const SteadySnapshots{T,N,I,R<:Realisation} = Snapshots{T,N,I,R}
 """
-const SteadySnapshots{T,N,I,R<:Realisation,A} = Snapshots{T,N,I,R,A}
+const SteadySnapshots{T,N,I,R<:Realisation} = Snapshots{T,N,I,R}
 
 """
     space_dofs(s::SteadySnapshots{T,N}) where {T,N} -> NTuple{N-1,Integer}
@@ -109,7 +109,7 @@ _format_index(i) = i
 _format_index(i::Number) = i:i
 
 """
-    struct GenericSnapshots{T,N,I,R,A} <: Snapshots{T,N,I,R,A}
+    struct GenericSnapshots{T,N,I,R,A} <: Snapshots{T,N,I,R}
       data::A
       dof_map::I
       realisation::R
@@ -117,7 +117,7 @@ _format_index(i::Number) = i:i
 
 Most standard implementation of a [`Snapshots`](@ref)
 """
-struct GenericSnapshots{T,N,I,R,A} <: Snapshots{T,N,I,R,A}
+struct GenericSnapshots{T,N,I,R,A} <: Snapshots{T,N,I,R}
   data::A
   dof_map::I
   realisation::R
@@ -149,7 +149,7 @@ function Base.setindex!(s::GenericSnapshots{T,N},v,i::Vararg{Integer,N}) where {
 end
 
 """
-    struct ReshapedSnapshots{T,N,I,R,A,B} <: Snapshots{T,N,I,R,A}
+    struct ReshapedSnapshots{T,N,I,R,A,B} <: Snapshots{T,N,I,R}
       data::A
       param_data::B
       dof_map::I
@@ -158,7 +158,7 @@ end
 
 Most standard implementation of a [`Snapshots`](@ref)
 """
-struct ReshapedSnapshots{T,N,I,R,A,B} <: Snapshots{T,N,I,R,A}
+struct ReshapedSnapshots{T,N,I,R,A,B} <: Snapshots{T,N,I,R}
   data::A
   param_data::B
   dof_map::I
@@ -234,7 +234,7 @@ end
 
 """
 """
-const SparseSnapshots{T,N,I<:AbstractSparseDofMap,R,A} = Snapshots{T,N,I,R,A}
+const SparseSnapshots{T,N,I<:AbstractSparseDofMap,R} = Snapshots{T,N,I,R}
 
 function DofMaps.recast(a::AbstractArray,s::SparseSnapshots)
   return recast(a,get_dof_map(s))

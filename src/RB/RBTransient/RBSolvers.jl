@@ -1,22 +1,3 @@
-# check HighDimHyperReduction for more details
-time_combinations(fesolver::ODESolver) = @abstractmethod
-
-function time_combinations(fesolver::ThetaMethod)
-  dt,θ = fesolver.dt,fesolver.θ
-  combine_res(x) = x
-  combine_jac(x,y) = θ*x+(1-θ)*y
-  combine_djac(x,y) = (x-y)/dt
-  return combine_res,combine_jac,combine_djac
-end
-
-function time_combinations(fesolver::GeneralizedAlpha1)
-  
-end
-
-function time_combinations(fesolver::GeneralizedAlpha2)
-  
-end
-
 function RBSteady.RBSolver(
   fesolver::ODESolver,
   reduction::Reduction;
@@ -25,10 +6,10 @@ function RBSteady.RBSolver(
   nparams_djac=nparams_jac,
   kwargs...)
 
-  cres,cjac,cdjac = time_combinations(fesolver)
-  residual_reduction = HighDimHyperReduction(cres,reduction;nparams=nparams_res,kwargs...)
-  jac_reduction = HighDimHyperReduction(cjac,reduction;nparams=nparams_jac,kwargs...)
-  djac_reduction = HighDimHyperReduction(cdjac,reduction;nparams=nparams_djac,kwargs...)
+  tcomb = TimeCombination(fesolver)
+  residual_reduction = HighDimHyperReduction(tcomb,reduction;nparams=nparams_res,kwargs...)
+  jac_reduction = HighDimHyperReduction(tcomb,reduction;nparams=nparams_jac,kwargs...)
+  djac_reduction = HighDimHyperReduction(tcomb,reduction;nparams=nparams_djac,kwargs...)
   jacobian_reduction = (jac_reduction,djac_reduction)
 
   RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)

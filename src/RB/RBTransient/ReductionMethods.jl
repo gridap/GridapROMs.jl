@@ -122,9 +122,9 @@ end
     abstract type HighDimHyperReduction{A} <: HyperReduction{A} end
 
 Hyper reduction strategies employed in high-order (e.g. transient) problems.
-They feature a field `combine`, a function used to group the reductions relative
-to the various Jacobians(in general, more than one in transient problems) in a
-smart way. We consider, for example, the ODE
+They feature a field `combine`, a [`TimeCombination`](@ref) used to group the 
+reductions relative to the various Jacobians (in general, more than one in 
+transient problems) in a smart way. We consider, for example, the ODE
 
 ```math
 \tfrac{du}{dt} - \nu \Delta u = f \ \ \text{in} \ \ Ω \times [0,T]
@@ -203,9 +203,7 @@ combine_M(x,y) &= (x - y) / \Delta t
 \end{align*}
 ```
 
-The same can be said of any time marching scheme. This is the meaning of the
-function `combine`. Note that for a time marching with ``p`` interpolation points (e.g.
-for ``\theta`` method, ``p = 2``) the `combine` functions will have to accept ``p`` arguments.
+The same can be said of any time marching scheme. This is the meaning of `combine`. 
 """
 abstract type HighDimHyperReduction{A} <: HyperReduction{A} end
 
@@ -213,7 +211,7 @@ function HighDimHyperReduction end
 
 const TransientHyperReduction = HighDimHyperReduction
 
-function HighDimHyperReduction(combine::Function,args...;compression=:global,hypred_strategy=:mdeim,kwargs...)
+function HighDimHyperReduction(combine::TimeCombination,args...;compression=:global,hypred_strategy=:mdeim,kwargs...)
   if compression==:global
     reduction = HighDimReduction(args...;kwargs...)
     if hypred_strategy==:mdeim
@@ -228,17 +226,17 @@ function HighDimHyperReduction(combine::Function,args...;compression=:global,hyp
   end
 end
 
-function HighDimHyperReduction(combine::Function,reduction::HighDimReduction,args...;kwargs...)
+function HighDimHyperReduction(combine::TimeCombination,reduction::HighDimReduction,args...;kwargs...)
   red_style = ReductionStyle(reduction)
   HighDimHyperReduction(combine,red_style;kwargs...)
 end
 
-function HighDimHyperReduction(reduction::HighDimReduction,combine::Function;kwargs...)
+function HighDimHyperReduction(reduction::HighDimReduction,combine::TimeCombination;kwargs...)
   red_style = ReductionStyle(reduction)
   HighDimMDEIMHyperReduction(combine,red_style;kwargs...)
 end
 
-function HighDimHyperReduction(combine::Function,reduction::SupremizerReduction,args...;kwargs...)
+function HighDimHyperReduction(combine::TimeCombination,reduction::SupremizerReduction,args...;kwargs...)
   HighDimHyperReduction(combine,get_reduction(reduction),args...;kwargs...)
 end
 
@@ -246,11 +244,11 @@ function HighDimHyperReduction(reduction::SupremizerReduction,args...;kwargs...)
   HighDimHyperReduction(get_reduction(reduction),args...;kwargs...)
 end
 
-function HighDimHyperReduction(combine::Function,r::LocalReduction,args...;ncentroids=num_centroids(r),kwargs...)
+function HighDimHyperReduction(combine::TimeCombination,r::LocalReduction,args...;ncentroids=num_centroids(r),kwargs...)
   LocalHighDimHyperReduction(combine,get_reduction(r),args...;ncentroids,kwargs...)
 end
 
-function HighDimHyperReduction(r::LocalReduction,combine::Function;ncentroids=num_centroids(r),kwargs...)
+function HighDimHyperReduction(r::LocalReduction,combine::TimeCombination;ncentroids=num_centroids(r),kwargs...)
   LocalHighDimHyperReduction(combine,get_reduction(r);ncentroids,kwargs...)
 end
 
@@ -261,22 +259,22 @@ _replace_reduction(r::MDEIMHyperReduction) = MDEIMHyperReduction(_steady_reducti
 _replace_reduction(r::SOPTHyperReduction) = SOPTHyperReduction(_steady_reduction(r))
 _replace_reduction(r::RBFHyperReduction) = RBFHyperReduction(_steady_reduction(r),r.strategy)
 
-function HighDimHyperReduction(combine::Function,reduction::SteadyReduction,args...;kwargs...)
+function HighDimHyperReduction(combine::TimeCombination,reduction::SteadyReduction,args...;kwargs...)
   hr = HyperReduction(reduction,args...;kwargs...)
   _replace_reduction(hr)
 end
 
-function HighDimHyperReduction(reduction::SteadyReduction,combine::Function;kwargs...)
+function HighDimHyperReduction(reduction::SteadyReduction,combine::TimeCombination;kwargs...)
   hr = SteadyHyperReduction(reduction;kwargs...)
   _replace_reduction(hr)
 end
 
 struct HighDimMDEIMHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
   reduction::R
-  combine::Function
+  combine::TimeCombination
 end
 
-function HighDimMDEIMHyperReduction(combine::Function,args...;kwargs...)
+function HighDimMDEIMHyperReduction(combine::TimeCombination,args...;kwargs...)
   reduction = HighDimReduction(args...;kwargs...)
   HighDimMDEIMHyperReduction(reduction,combine)
 end
@@ -286,10 +284,10 @@ get_combine(r::HighDimMDEIMHyperReduction) = r.combine
 
 struct HighDimSOPTHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
   reduction::R
-  combine::Function
+  combine::TimeCombination
 end
 
-function HighDimSOPTHyperReduction(combine::Function,args...;kwargs...)
+function HighDimSOPTHyperReduction(combine::TimeCombination,args...;kwargs...)
   reduction = HighDimReduction(args...;kwargs...)
   HighDimSOPTHyperReduction(reduction,combine)
 end
@@ -299,11 +297,11 @@ get_combine(r::HighDimSOPTHyperReduction) = r.combine
 
 struct HighDimRBFHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
   reduction::R
-  combine::Function
+  combine::TimeCombination
   strategy::AbstractRadialBasis
 end
 
-function HighDimRBFHyperReduction(combine::Function,args...;strategy=PHS(),kwargs...)
+function HighDimRBFHyperReduction(combine::TimeCombination,args...;strategy=PHS(),kwargs...)
   reduction = HighDimReduction(args...;kwargs...)
   HighDimRBFHyperReduction(reduction,combine,strategy)
 end

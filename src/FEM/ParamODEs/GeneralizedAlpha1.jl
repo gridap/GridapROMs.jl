@@ -1,64 +1,25 @@
 function ode_start(
-  odeslvr::GeneralizedAlpha1, 
+  odeslvr::GeneralizedAlpha1,
   odeop::ODEParamOperator,
-  r0::TransientRealisation, 
-  us0::NTuple{1,AbstractVector},
-  odecache
+  r0::TransientRealisation,
+  us0::NTuple{1,AbstractVector}
   )
 
-  # Unpack inputs
-  u0 = us0[1]
-  odeslvrcache, odeopcache = odecache
-  uα, vα, sysslvrcache = odeslvrcache
+  nstates = length(us0)
+  state0 = ntuple(i -> copy(us0[i]),Val{nstates}())
+  upcache = ntuple(i -> copy(us0[i]),Val{nstates}())
+  paramcache = allocate_paramcache(odeop,r0)
+  syscache = allocate_systemcache(odeop,r0,us0,paramcache)
 
-  # Unpack solver
-  sysslvr = odeslvr.sysslvr
+  ws = (0,1)
+  
+  u0,x = state0[1]
+  state_update(x) = (u0,x)
+  update_paramcache!(paramcache,odeop,r)
+  nlop = ParamStageOperator(odeop,r,state_update,ws,paramcache)
+  solve!(x,solver.sysslvr,nlop,syscache)
 
-  # Allocate state
-  s0, s1 = copy(u0), copy(u0)
-
-  # Define scheme
-  x = s1
-  tx = t0
-  usx(x) = (u0, x)
-  ws = (0, 1)
-
-  # Update ODE operator cache
-  update_odeopcache!(odeopcache, odeop, tx)
-
-  # Create and solve stage operator
-  stageop = NonlinearStageOperator(
-    odeop, odeopcache,
-    tx, usx, ws
-  )
-
-  sysslvrcache = solve!(x, sysslvr, stageop, sysslvrcache)
-
-  # Update state
-  state0 = (s0, s1)
-
-  # Pack outputs
-  odeslvrcache = (uα, vα, sysslvrcache)
-  odecache = (odeslvrcache, odeopcache)
-  (state0, odecache)
-end
-
-function ode_start(
-  odeslvr::GeneralizedAlpha1, odeop::ODEOperator,
-  t0::Real, us0::NTuple{2,AbstractVector},
-  odecache
-)
-  # Unpack inputs
-  u0, v0 = us0[1], us0[2]
-
-  # Allocate state
-  s0, s1 = copy(u0), copy(v0)
-
-  # Update state
-  state0 = (s0, s1)
-
-  # Pack outputs
-  (state0, odecache)
+  return state0,(upcache,paramcache,syscache)
 end
 
 function ODEs.ode_march!(

@@ -1,5 +1,5 @@
 """
-    const TransientSnapshots{T,N,I,R<:TransientRealisation,A} = Snapshots{T,N,I,R,A}
+    const TransientSnapshots{T,N,I,R<:TransientRealisation} = Snapshots{T,N,I,R}
 
 Transient specialization of a `Snapshots`
 
@@ -7,7 +7,7 @@ Subtypes:
 - [`TransientSnapshotsWithIC`](@ref)
 - [`ModeTransientSnapshots`](@ref)
 """
-const TransientSnapshots{T,N,I,R<:TransientRealisation,A} = Snapshots{T,N,I,R,A}
+const TransientSnapshots{T,N,I,R<:TransientRealisation} = Snapshots{T,N,I,R}
 
 space_dofs(s::TransientSnapshots{T,N}) where {T,N} = size(get_all_data(s))[1:N-2]
 
@@ -48,14 +48,14 @@ function param_getindex(s::TransientSnapshots{T,N},pindex::Integer,tindex::Integ
 end
 
 """
-    struct TransientSnapshotsWithIC{T,N,I,R,A,B<:TransientSnapshots{T,N,I,R,A}} <: TransientSnapshots{T,N,I,R,A}
+    struct TransientSnapshotsWithIC{T,N,I,R,A,B<:TransientSnapshots{T,N,I,R}} <: TransientSnapshots{T,N,I,R}
       initial_data::A
       snaps::B
     end
 
 Stores a [`TransientSnapshots`](@ref) `snaps` alongside a parametric initial condition `initial_data`
 """
-struct TransientSnapshotsWithIC{T,N,I,R,A,B<:TransientSnapshots{T,N,I,R}} <: TransientSnapshots{T,N,I,R,A}
+struct TransientSnapshotsWithIC{T,N,I,R,A,B<:TransientSnapshots{T,N,I,R}} <: TransientSnapshots{T,N,I,R}
   initial_data::A
   snaps::B
 end
@@ -165,7 +165,7 @@ end
 
 """
 """
-const TransientSparseSnapshots{T,N,I<:AbstractSparseDofMap,R<:TransientRealisation,A} = TransientSnapshots{T,N,I,R,A}
+const TransientSparseSnapshots{T,N,I<:AbstractSparseDofMap,R<:TransientRealisation} = Snapshots{T,N,I,R}
 
 # block snapshots
 
