@@ -181,7 +181,7 @@ end
 function load_operator(dir,feop::LinearNonlinearParamOperator;label="")
   feop_lin = get_linear_operator(feop)
   feop_nlin = get_nonlinear_operator(feop)
-  trial,test = _fixed_operator_parts(dir,feop_lin;label)
+  trial,test = _load_fixed_operator_parts(dir,feop_lin;label)
   red_lhs_lin,red_rhs_lin = _load_trian_operator_parts(
     dir,feop_lin;label=_get_label("lin",label))
   red_lhs_nlin,red_rhs_nlin = _load_trian_operator_parts(

@@ -7,6 +7,7 @@ using Test
 @testset "poisson" begin include("RBSteady/poisson.jl") end
 @testset "steady stokes" begin include("RBSteady/stokes.jl") end
 @testset "steady navier-stokes" begin include("RBSteady/navier_stokes.jl") end
+@testset "steady save operator" begin include("RBSteady/save_operator.jl") end
 
 @testset "heat equation" begin include("RBTransient/heat_equation.jl") end
 @testset "unsteady elasticity" begin include("RBTransient/elasticity.jl") end
