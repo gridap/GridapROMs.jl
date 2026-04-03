@@ -74,7 +74,7 @@ function get_coefficients(c::GenAlpha1Strategy{2},N::Int)
   a = 1 / (γ*dt)
   b = 1 - 1/γ
   c = a * (1 - αm + b*αm)
-  θ = (a * αm,c - a*αm)
+  θ = (a*αm,c - a*αm)
   for j in 3:N
     θ = (θ...,c*(b^(j-2) - b^(j-3)))
   end
