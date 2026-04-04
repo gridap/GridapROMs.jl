@@ -1,0 +1,109 @@
+include("TimeCombinations.jl")
+
+function Algebra.residual(
+  solver::ODESolver,
+  odeop::ODEParamOperator,
+  r::TransientRealisation,
+  s::Snapshots
+  )
+
+  u = get_param_data(s)
+  us0 = get_initial_param_data(s)
+
+  tcomb = TimeCombination(solver)
+  usx = ()
+
+  for (i,u0i) in enumerate(us0)
+    tcomb_i = CombinationOrder{i}(tcomb)
+    usx = (usx...,get_combination(tcomb_i,u,u0i))
+  end
+
+  _prev_mid_shift!(solver,r)
+  b = residual(odeop,r,usx)
+  _cur_shift!(solver,r)
+
+  return b
+end
+
+function Algebra.jacobian(
+  solver::ODESolver,
+  odeop::ODEParamOperator,
+  r::TransientRealisation,
+  s::Snapshots
+  )
+
+  u = get_param_data(s)
+  us0 = get_initial_param_data(s)
+
+  tcomb = TimeCombination(solver)
+  usx = ()
+
+  for (i,u0i) in enumerate(us0)
+    tcomb_i = CombinationOrder{i}(tcomb)
+    usx = (usx...,get_combination(tcomb_i,u,u0i))
+  end
+
+  ws = ntuple(_ -> 1,Val(length(us0)))
+
+  _prev_mid_shift!(solver,r)
+  b = jacobian(odeop,r,usx,ws)
+  _cur_shift!(solver,r)
+
+  return b
+end
+
+# utils 
+
+function _prev_mid_shift!(
+  solver::ThetaMethod,
+  r::TransientRealisation
+  ) 
+
+  δ = solver.dt*(1-solver.θ)
+  shift!(r,-δ)
+end
+
+function _cur_shift!(
+  solver::ThetaMethod,
+  r::TransientRealisation
+  ) 
+
+  δ = solver.dt*(1-solver.θ)
+  shift!(r,δ)
+end
+
+function _prev_mid_shift!(
+  solver::GeneralizedAlpha1,
+  r::TransientRealisation
+  ) 
+
+  δ = solver.dt*(1-solver.αf)
+  shift!(r,-δ)
+end
+
+function _cur_shift!(
+  solver::GeneralizedAlpha1,
+  r::TransientRealisation
+  ) 
+
+  δ = solver.dt*(1-solver.αf)
+  shift!(r,δ)
+end
+
+function _prev_mid_shift!(
+  solver::GeneralizedAlpha2,
+  r::TransientRealisation
+  ) 
+
+  δ = solver.dt*solver.αf
+  shift!(r,-δ)
+end
+
+function _cur_shift!(
+  solver::GeneralizedAlpha2,
+  r::TransientRealisation
+  ) 
+
+  δ = solver.dt*solver.αf
+  shift!(r,δ)
+end

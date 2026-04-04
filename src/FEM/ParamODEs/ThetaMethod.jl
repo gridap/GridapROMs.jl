@@ -38,7 +38,6 @@ function ODEs.ode_march!(
 
   u0 = state[1]
   x = statef[1]
-  fill!(x,zero(eltype(x)))
 
   uθ,paramcache,syscache = odecache
   dt,θ = solver.dt,solver.θ
