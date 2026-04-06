@@ -719,10 +719,9 @@ for f in (:project!,:inv_project!)
 end
 
 function Arrays.return_cache(::typeof(get_norm_matrix),a::BlockProjection)
-  i = findfirst(s.touched)
-  @notimplementedif isnothing(i)
-  A = typeof(get_norm_matrix(a[i]))
-  norm_matrix = Array{A,ndims(s)}(undef,size(s))
+  blocksizes = num_fe_dofs(a)
+  n = sum(blocksizes)
+  norm_matrix = BlockArray(zeros(n,n),blocksizes,blocksizes)
   return norm_matrix
 end
 
