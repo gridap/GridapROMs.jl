@@ -4,7 +4,7 @@
 Parametric extension of a `TransientFEOperator` in [`Gridap`](@ref). Compared to
 a standard TransientFEOperator, there are the following novelties:
 
-- a [`TransientParamSpace`](@ref) is provided, so that parametric realizations can be extracted
+- a [`TransientParamSpace`](@ref) is provided, so that parametric realisations can be extracted
   directly from the `TransientParamFEOperator`
 - a function representing a norm matrix is provided, so that errors in the
   desired norm can be automatically computed
@@ -395,7 +395,7 @@ function ParamSteady.join_operators(
         get_jacs(op_lin)[i](μ,t,u,du,v) + get_jacs(op_nlin)[i](μ,t,u,du,v)
       elseif i <= order_lin+1
         get_jacs(op_lin)[i](μ,t,u,du,v)
-      else i <= order_nlin+1
+      elseif i <= order_nlin+1
         get_jacs(op_nlin)[i](μ,t,u,du,v)
       end
     end

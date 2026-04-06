@@ -1,3 +1,14 @@
+"""
+    struct TProductCellPoint{DS,A,B} <: CellDatum
+      point::A
+      single_points::B
+    end
+
+Cell quadrature points on a [`TProductTriangulation`](@ref), storing the
+D-dimensional `CellPoint` `point` and a vector of `D` 1D `CellPoint`s
+`single_points`. Used internally when evaluating [`TProductFEBasis`](@ref)
+or [`TProductCellField`](@ref) on a [`TProductMeasure`](@ref).
+"""
 struct TProductCellPoint{DS<:DomainStyle,A<:CellPoint{DS},B<:AbstractVector{<:CellPoint{DS}}} <: CellDatum
   point::A
   single_points::B
@@ -20,6 +31,15 @@ function Arrays.evaluate!(cache,f::CellField,x::TProductCellPoint)
   evaluate!(cache,f,x.point)
 end
 
+"""
+    abstract type TProductCellField <: CellField end
+
+Abstract supertype for cell fields defined on a [`TProductTriangulation`](@ref).
+Concrete subtypes store D 1D `CellField`s in separated form.
+
+See also: [`GenericTProductCellField`](@ref), [`GenericTProductDiffCellField`](@ref),
+[`TProductFEBasis`](@ref).
+"""
 abstract type TProductCellField <: CellField end
 
 get_tp_data(f::AbstractVector{<:AbstractArray}) = f
@@ -32,6 +52,17 @@ get_tp_diff_data(f::AbstractVector{<:AbstractArray}) = f
 get_tp_diff_data(f::AbstractVector{<:CellField}) = f
 get_tp_diff_data(f::TProductCellField) = @abstractmethod
 
+"""
+    struct GenericTProductCellField{DS,A,B} <: TProductCellField
+      single_fields::A
+      trian::B
+      domain_style::DS
+    end
+
+A [`TProductCellField`](@ref) in separated form: `single_fields` is a vector of
+`D` 1D `CellField`s and `trian` is the underlying [`TProductTriangulation`](@ref).
+All 1D fields must share the same `DomainStyle`.
+"""
 struct GenericTProductCellField{DS<:DomainStyle,A,B} <: TProductCellField
   single_fields::A
   trian::B
@@ -56,6 +87,22 @@ CellData.DomainStyle(::Type{<:GenericTProductCellField{DS}}) where DS = DS()
 
 abstract type TProductDiffCellField <: TProductCellField end
 
+"""
+    struct GenericTProductDiffCellField{O,A,B,C} <: TProductDiffCellField
+      op::O
+      cell_data::A
+      diff_cell_data::B
+      summation::C
+    end
+
+A differentiated [`TProductCellField`](@ref). Stores the original field
+`cell_data`, its differentiated counterpart `diff_cell_data` (e.g. the
+gradient of each 1D factor), the differentiation operator `op`, and an
+optional `summation` cache used during multi-field or mixed block assembly.
+
+The type alias [`GradientTProductCellField`](@ref) is provided for the
+`op = gradient` case.
+"""
 struct GenericTProductDiffCellField{O,A,B,C} <: TProductDiffCellField
   op::O
   cell_data::A
@@ -110,6 +157,22 @@ get_tp_diff_data(f::GenericTProductDiffEval) = get_tp_data(f.g)
 
 # fe basis
 
+"""
+    struct TProductFEBasis{DS,BS,A,B} <: FEBasis
+      basis::A
+      trian::B
+      domain_style::DS
+      basis_style::BS
+    end
+
+FE basis in separated tensor product form. `basis` is a vector of `D` 1D FE
+bases (or `MultiFieldCellField`s in the multi-field case), one per spatial
+direction. `trian` is the [`TProductTriangulation`](@ref).
+
+Construct via [`get_tp_fe_basis`](@ref) or [`get_tp_trial_fe_basis`](@ref).
+Supports `gradient` and `PartialDerivative` differentiation, and integration
+against a [`TProductMeasure`](@ref).
+"""
 struct TProductFEBasis{DS,BS,A,B} <: FEBasis
   basis::A
   trian::B
@@ -255,14 +318,14 @@ end
 function Arrays.evaluate!(_cache,k::Operation{typeof(*)},α::TProductCellDatum,β::PartialDerivativeTProductCellField{N}) where N
   cache,diff_cache = _cache
   αβ = evaluate!(cache,k,α,get_data(β))
-  dαβ = evaluate!(cache,k,α,get_diff_data(β))
+  dαβ = evaluate!(diff_cache,k,α,get_diff_data(β))
   return GenericTProductDiffCellField(β.op,αβ,dαβ)
 end
 
 function Arrays.evaluate!(_cache,k::Operation{typeof(*)},α::PartialDerivativeTProductCellField{N},β::TProductCellDatum) where N
   cache,diff_cache = _cache
   αβ = evaluate!(cache,k,get_data(α),β)
-  dαβ = evaluate!(cache,k,get_diff_data(α),β)
+  dαβ = evaluate!(diff_cache,k,get_diff_data(α),β)
   return GenericTProductDiffCellField(α.op,αβ,dαβ)
 end
 

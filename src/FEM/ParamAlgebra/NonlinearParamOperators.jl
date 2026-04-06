@@ -5,7 +5,7 @@ abstract type NonlinearParamOperator <: NonlinearOperator end
 
 function Algebra.allocate_residual(
   nlop::NonlinearParamOperator,
-  μ::Realization,
+  μ::Realisation,
   x::AbstractVector,
   paramcache)
 
@@ -15,7 +15,7 @@ end
 function Algebra.residual!(
   b,
   nlop::NonlinearParamOperator,
-  μ::Realization,
+  μ::Realisation,
   x::AbstractVector,
   paramcache)
 
@@ -24,7 +24,7 @@ end
 
 function Algebra.residual(
   nlop::NonlinearParamOperator,
-  μ::Realization,
+  μ::Realisation,
   x::AbstractVector)
 
   paramcache = allocate_paramcache(nlop,μ)
@@ -33,7 +33,7 @@ end
 
 function Algebra.residual(
   nlop::NonlinearParamOperator,
-  μ::Realization,
+  μ::Realisation,
   x::AbstractVector,
   paramcache)
 
@@ -44,7 +44,7 @@ end
 
 function Algebra.allocate_jacobian(
   nlop::NonlinearParamOperator,
-  μ::Realization,
+  μ::Realisation,
   x::AbstractVector,
   paramcache)
 
@@ -54,7 +54,7 @@ end
 function Algebra.jacobian!(
   A,
   nlop::NonlinearParamOperator,
-  μ::Realization,
+  μ::Realisation,
   x::AbstractVector,
   paramcache)
 
@@ -65,7 +65,7 @@ end
 
 function Algebra.jacobian(
   nlop::NonlinearParamOperator,
-  μ::Realization,
+  μ::Realisation,
   x::AbstractVector)
 
   paramcache = allocate_paramcache(nlop,μ)
@@ -74,7 +74,7 @@ end
 
 function Algebra.jacobian(
   nlop::NonlinearParamOperator,
-  μ::Realization,
+  μ::Realisation,
   x::AbstractVector,
   paramcache)
 
@@ -91,20 +91,20 @@ end
 abstract type AbstractParamCache <: GridapType end
 
 """
-    allocate_paramcache(nlop::NonlinearParamOperator,μ::AbstractRealization) -> AbstractParamCache
+    allocate_paramcache(nlop::NonlinearParamOperator,μ::AbstractRealisation) -> AbstractParamCache
 
 Similar to `allocate_odecache` in [`Gridap`](@ref), when dealing with parametric problems
 """
-function allocate_paramcache(nlop::NonlinearParamOperator,μ::AbstractRealization)
+function allocate_paramcache(nlop::NonlinearParamOperator,μ::AbstractRealisation)
   @abstractmethod
 end
 
 """
-    update_paramcache!(paramcache::AbstractParamCache,nlop::NonlinearParamOperator,μ::AbstractRealization) -> AbstractParamCache
+    update_paramcache!(paramcache::AbstractParamCache,nlop::NonlinearParamOperator,μ::AbstractRealisation) -> AbstractParamCache
 
 Similar to `update_odecache!` in [`Gridap`](@ref), when dealing with parametric problems
 """
-function update_paramcache!(paramcache::AbstractParamCache,nlop::NonlinearParamOperator,μ::AbstractRealization)
+function update_paramcache!(paramcache::AbstractParamCache,nlop::NonlinearParamOperator,μ::AbstractRealisation)
   @abstractmethod
 end
 
@@ -119,7 +119,7 @@ mutable struct ParamCache <: AbstractParamCache
   ptrial
 end
 
-function update_paramcache!(c::ParamCache,nlop::NonlinearParamOperator,μ::AbstractRealization)
+function update_paramcache!(c::ParamCache,nlop::NonlinearParamOperator,μ::AbstractRealisation)
   c.trial = evaluate!(c.trial,c.ptrial,μ)
   c
 end
@@ -163,22 +163,22 @@ Base.similar(c::SystemCache) = SystemCache(similar(c.A),similar(c.b))
 """
     struct GenericParamNonlinearOperator{A} <: NonlinearParamOperator
       op::A
-      μ::AbstractRealization
+      μ::AbstractRealisation
       paramcache::ParamCache
     end
 
 Fields:
 - `op`: `NonlinearParamOperator` representing a parametric differential problem
-- `μ`: `AbstractRealization` representing the parameters at which the problem is solved
+- `μ`: `AbstractRealisation` representing the parameters at which the problem is solved
 - `paramcache`: cache of the problem
 """
 struct GenericParamNonlinearOperator{A} <: NonlinearParamOperator
   op::A
-  μ::AbstractRealization
+  μ::AbstractRealisation
   paramcache::ParamCache
 end
 
-function ParamDataStructures.parameterize(op::NonlinearParamOperator,μ::AbstractRealization)
+function ParamDataStructures.parameterise(op::NonlinearParamOperator,μ::AbstractRealisation)
   paramcache = allocate_paramcache(op,μ)
   GenericParamNonlinearOperator(op,μ,paramcache)
 end

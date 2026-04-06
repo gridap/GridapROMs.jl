@@ -51,7 +51,7 @@ ODEs.is_form_constant(odeop::ODEParamOperator,k::Integer) = is_form_constant(get
 
 function ParamAlgebra.allocate_paramcache(
   odeop::ODEParamOperator,
-  r::TransientRealization;
+  r::TransientRealisation;
   evaluated=false)
 
   feop = get_fe_operator(odeop)
@@ -71,7 +71,7 @@ end
 function ParamAlgebra.update_paramcache!(
   paramcache::ParamCache,
   odeop::ODEParamOperator,
-  r::TransientRealization)
+  r::TransientRealisation)
 
   trials = ()
   for k in 1:get_order(odeop)+1
@@ -83,7 +83,7 @@ end
 
 function ParamAlgebra.allocate_systemcache(
   odeop::ODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache::ParamCache)
 
@@ -94,7 +94,7 @@ end
 
 function Algebra.allocate_residual(
   odeop::JointODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache)
 
@@ -113,7 +113,7 @@ end
 function Algebra.residual!(
   b::AbstractVector,
   odeop::JointODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache;
   add::Bool=false)
@@ -138,7 +138,7 @@ end
 function Algebra.residual!(
   b::AbstractVector,
   odeop::JointODEParamOperator{LinearParamODE},
-  r::TransientRealization,
+  r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache;
   add::Bool=false)
@@ -164,7 +164,7 @@ end
 
 function Algebra.allocate_jacobian(
   odeop::JointODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache)
 
@@ -190,7 +190,7 @@ end
 function ODEs.jacobian_add!(
   A::AbstractMatrix,
   odeop::JointODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
   paramcache)
@@ -223,7 +223,7 @@ end
 
 function Algebra.allocate_residual(
   odeop::SplitODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache)
 
@@ -247,7 +247,7 @@ end
 function Algebra.residual!(
   b::ArrayContribution,
   odeop::SplitODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache;
   add::Bool=false)
@@ -274,7 +274,7 @@ end
 
 function Algebra.residual(
   odeop::SplitODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache)
 
@@ -298,7 +298,7 @@ end
 
 function Algebra.allocate_jacobian(
   odeop::SplitODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache)
 
@@ -330,7 +330,7 @@ end
 function ODEs.jacobian_add!(
   As::TupOfArrayContribution,
   odeop::SplitODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
   paramcache)
@@ -366,7 +366,7 @@ end
 
 function Algebra.jacobian(
   odeop::SplitODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
   paramcache)
@@ -406,7 +406,7 @@ const LinearNonlinearODEParamOperator{T<:TriangulationStyle} = ODEParamOperator{
 ParamSteady.get_fe_operator(op::LinearNonlinearODEParamOperator) = get_fe_operator(get_nonlinear_operator(op))
 ParamSteady.join_operators(op::LinearNonlinearODEParamOperator) = get_algebraic_operator(join_operators(get_fe_operator(op)))
 
-function ParamAlgebra.allocate_paramcache(op::LinearNonlinearODEParamOperator,r::TransientRealization)
+function ParamAlgebra.allocate_paramcache(op::LinearNonlinearODEParamOperator,r::TransientRealisation)
   op_nlin = get_nonlinear_operator(op)
   allocate_paramcache(op_nlin,r)
 end
@@ -419,25 +419,25 @@ end
 function ParamAlgebra.update_paramcache!(
   paramcache::AbstractParamCache,
   op::LinearNonlinearODEParamOperator,
-  r::TransientRealization)
+  r::TransientRealisation)
 
   op_nlin = get_nonlinear_operator(op)
   update_paramcache!(paramcache,op_nlin,r)
 end
 
-function ParamDataStructures.parameterize(
+function ParamDataStructures.parameterise(
   op::LinearNonlinearODEParamOperator,
-  r::TransientRealization)
+  r::TransientRealisation)
 
-  op_lin = parameterize(get_linear_operator(op),r)
-  op_nlin = parameterize(get_nonlinear_operator(op),r)
+  op_lin = parameterise(get_linear_operator(op),r)
+  op_nlin = parameterise(get_nonlinear_operator(op),r)
   syscache_lin = allocate_systemcache(op_lin)
   LinNonlinParamOperator(op_lin,op_nlin,syscache_lin)
 end
 
 function Algebra.allocate_residual(
   op::LinearNonlinearODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache)
 
@@ -447,7 +447,7 @@ end
 
 function Algebra.allocate_jacobian(
   op::LinearNonlinearODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache)
 
@@ -458,7 +458,7 @@ end
 function Algebra.residual!(
   b,
   op::LinearNonlinearODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache;
   kwargs...)
@@ -470,7 +470,7 @@ end
 function ODEs.jacobian_add!(
   A,
   op::LinearNonlinearODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
   paramcache)
@@ -504,158 +504,4 @@ function ParamAlgebra.allocate_systemcache(nlop::ODEParamNonlinearOperator)
   xh = zero(first(nlop.paramcache.trial))
   x = get_free_dof_values(xh)
   allocate_systemcache(nlop,x)
-end
-
-# if shift=:spacetime => compute space-time residuals/jacobians (no time marching)
-# if shift=:spaceonly => compute time-dependent residuals/jacobians (time marching)
-
-function Algebra.residual(
-  solver::ThetaMethod,
-  odeop::ODEParamOperator,
-  r::TransientRealization,
-  u::AbstractParamVector,
-  u0::AbstractParamVector;
-  shift=:spacetime)
-
-  dt,θ = solver.dt,solver.θ
-  x = copy(u)
-  uθ = copy(u)
-
-  if shift==:spacetime
-    shift!(uθ,u0,θ,1-θ)
-    shift!(x,u0,1/dt,-1/dt)
-    us = (uθ,x)
-  else
-    shift!(uθ,u0,0,1)
-    us = (uθ,x)
-  end
-
-  shift!(r,dt*(θ-1))
-  b = residual(odeop,r,us)
-  shift!(r,dt*(1-θ))
-
-  return b
-end
-
-function Algebra.jacobian(
-  solver::ThetaMethod,
-  odeop::ODEParamOperator,
-  r::TransientRealization,
-  u::AbstractParamVector,
-  u0::AbstractParamVector;
-  shift=:spacetime)
-
-  dt,θ = solver.dt,solver.θ
-  x = copy(u)
-  uθ = copy(u)
-
-  if shift==:spacetime
-    shift!(uθ,u0,θ,1-θ)
-    shift!(x,u0,1/dt,-1/dt)
-    us = (uθ,x)
-    ws = (1,1)
-  else
-    shift!(uθ,u0,0,1)
-    us = (uθ,x)
-    ws = (dt*θ,1)
-  end
-
-  shift!(r,dt*(θ-1))
-  A = jacobian(odeop,r,us,ws)
-  shift!(r,dt*(1-θ))
-
-  return A
-end
-
-function Algebra.residual(
-  solver::ThetaMethod,
-  odeop::ODEParamOperator{LinearParamODE},
-  r::TransientRealization,
-  u::AbstractParamVector,
-  u0::AbstractParamVector;
-  shift=:spacetime)
-
-  dt,θ = solver.dt,solver.θ
-  x = copy(u)
-  fill!(x,zero(eltype(x)))
-
-  if shift==:spacetime
-    us = (x,x)
-  else
-    uθ = copy(u)
-    shift!(uθ,u0,0,1)
-    us = (uθ,x)
-  end
-
-  shift!(r,dt*(θ-1))
-  b = residual(odeop,r,us)
-  shift!(r,dt*(1-θ))
-
-  return b
-end
-
-function Algebra.jacobian(
-  solver::ThetaMethod,
-  odeop::ODEParamOperator{LinearParamODE},
-  r::TransientRealization,
-  u::AbstractParamVector,
-  u0::AbstractParamVector;
-  shift=:spacetime)
-
-  dt,θ = solver.dt,solver.θ
-  x = copy(u)
-  fill!(x,zero(eltype(x)))
-
-  if shift==:spacetime
-    ws = (1,1)
-    us = (x,x)
-  else
-    ws = (dt*θ,1)
-    uθ = copy(u)
-    shift!(uθ,u0,0,1)
-    us = (uθ,x)
-  end
-
-  shift!(r,dt*(θ-1))
-  A = jacobian(odeop,r,us,ws)
-  shift!(r,dt*(1-θ))
-
-  return A
-end
-
-# utils
-
-function ParamDataStructures.shift!(
-  a::ConsecutiveParamVector,
-  a0::ConsecutiveParamVector,
-  α::Number,
-  β::Number)
-
-  data = get_all_data(a)
-  data0 = get_all_data(a0)
-  data′ = copy(data)
-  np = param_length(a0)
-  for ipt = param_eachindex(a)
-    it = slow_index(ipt,np)
-    if it == 1
-      for is in axes(data,1)
-        data[is,ipt] = α*data[is,ipt] + β*data0[is,ipt]
-      end
-    else
-      for is in axes(data,1)
-        data[is,ipt] = α*data[is,ipt] + β*data′[is,ipt-np]
-      end
-    end
-  end
-end
-
-function ParamDataStructures.shift!(
-  a::BlockParamVector,
-  a0::BlockParamVector,
-  α::Number,
-  β::Number)
-
-  @inbounds for (ai,a0i) in zip(blocks(a),blocks(a0))
-    ParamDataStructures.shift!(ai,a0i,α,β)
-  end
 end

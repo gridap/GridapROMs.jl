@@ -4,14 +4,14 @@ for f in (:(Algebra.allocate_in_range),:(Algebra.allocate_in_domain))
       item = param_getindex(matrix,1)
       plength = param_length(matrix)
       v = $f(PVector{Vector{T}},item)
-      parameterize(v,plength)
+      parameterise(v,plength)
     end
 
     function $f(matrix::BlockPMatrix{<:ParamSparseMatrix{T}}) where T
       item = param_getindex(matrix,1)
       plength = param_length(matrix)
       v = $f(BlockPVector{Vector{T}},item)
-      parameterize(v,plength)
+      parameterise(v,plength)
     end
   end
 end
@@ -39,7 +39,7 @@ end
 
 for T in (:(GridapDistributed.PSparseMatrixBuilderCOO),:(GridapDistributed.PVectorBuilder))
   @eval begin
-    function ParamDataStructures.parameterize(a::$T,plength::Int)
+    function ParamDataStructures.parameterise(a::$T,plength::Int)
       ParamBuilder(a,plength)
     end
   end

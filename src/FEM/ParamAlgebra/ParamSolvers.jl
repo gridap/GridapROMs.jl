@@ -88,7 +88,7 @@ function Algebra.solve!(
   cache::Nothing)
 
   cache = allocate_systemcache(op,x)
-  solve!(x,ls,op,cache)
+  solve!(x,nls,op,cache)
 end
 
 function Algebra.solve!(

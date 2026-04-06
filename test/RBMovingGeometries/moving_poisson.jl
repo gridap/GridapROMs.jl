@@ -60,9 +60,9 @@ aggregates = aggregate(strategy,cutgeo)
 domains = FEDomains((Ω,),(Ω,Γ))
 
 f(μ) = x -> 1.0
-fμ(μ) = parameterize(f,μ)
+fμ(μ) = parameterise(f,μ)
 g(μ) = x -> 0.0
-gμ(μ) = parameterize(g,μ)
+gμ(μ) = parameterise(g,μ)
 
 reffe = ReferenceFE(lagrangian,Float64,order)
 testact = FESpace(Ωact,reffe,conformity=:H1,dirichlet_tags=[1,3,7])
@@ -74,7 +74,7 @@ function get_deformation_map(μ)
   # φ(μ) = x -> VectorValue(μ[1]-μ0[1],μ[1]-μ0[1])
   # case 2: translation and dilation
   φ(μ) = x -> VectorValue(μ[1]-x[1] + (μ[2]/μ0[2])*(x[1]-μ0[1]),μ[1]-x[2] + (μ[2]/μ0[2])*(x[2]-μ0[1]))
-  φμ(μ) = parameterize(φ,μ)
+  φμ(μ) = parameterise(φ,μ)
 
   E = 1
   ν = 0.33
@@ -176,11 +176,11 @@ residual_reduction = hr(tol.*1e-2;nparams,ncentroids)
 jacobian_reduction = hr(tol.*1e-2;nparams,ncentroids)
 rbsolver = RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
 
-μ = realization(pspace;nparams)
+μ = realisation(pspace;nparams)
 feop = get_feop(μ)
 fesnaps, = solution_snapshots(rbsolver,feop,μ)
 
-μon = realization(pspace;nparams=10,sampling=:uniform)
+μon = realisation(pspace;nparams=10,sampling=:uniform)
 feopon = get_feop(μon)
 x,festats = solution_snapshots(rbsolver,feopon,μon)
 

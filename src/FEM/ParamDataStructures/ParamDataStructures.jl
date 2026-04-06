@@ -1,3 +1,35 @@
+"""
+    module ParamDataStructures
+
+Data structures for parametric PDEs: parameter spaces, realisations, parametric
+arrays, sparse matrices, and solution snapshots.
+
+## Parameter spaces and sampling
+
+- [`ParamSpace`](@ref) / [`TransientParamSpace`](@ref) — domains over which
+  parameters vary, with sampling strategies [`UniformSampling`](@ref),
+  [`NormalSampling`](@ref), [`HaltonSampling`](@ref), etc.
+- [`Realisation`](@ref) / [`TransientRealisation`](@ref) — concrete parameter
+  (and time) values drawn from a `ParamSpace`.
+- [`ParamFunction`](@ref) / [`TransientParamFunction`](@ref) — functions
+  parameterised over a `ParamSpace`.
+
+## Parametric arrays
+
+- [`AbstractParamArray`](@ref) — abstract supertype; concrete subtypes are
+  `ConsecutiveParamArray` (contiguous data layout, most efficient) and
+  `GenericParamArray`.
+- [`ParamSparseMatrix`](@ref) — sparse matrix with one entry per parameter.
+- [`BlockParamArray`](@ref) — block-structured parametric array for
+  multi-field problems.
+
+## Snapshots
+
+- [`Snapshots`](@ref) — collection of FE solution vectors indexed by
+  parameter (and optionally time).
+- [`TransientSnapshots`](@ref) and its subtypes for time-dependent problems.
+- [`select_snapshots`](@ref) — extract a subset of snapshots.
+"""
 module ParamDataStructures
 
 using LinearAlgebra
@@ -37,15 +69,15 @@ export LatinHypercubeSampling
 export TensorialUniformSampling
 include("Sampling.jl")
 
-export AbstractRealization
-export Realization
-export TransientRealization
+export AbstractRealisation
+export Realisation
+export TransientRealisation
 export ParamSpace
 export TransientParamSpace
 export AbstractParamFunction
 export ParamFunction
 export TransientParamFunction
-export realization
+export realisation
 export get_params
 export get_times
 export get_at_time
@@ -59,8 +91,8 @@ include("ParamSpaces.jl")
 
 export AbstractParamData
 export eltype2
-export parameterize
-export local_parameterize
+export parameterise
+export local_parameterise
 export get_param_data
 export param_length
 export param_eachindex
@@ -127,7 +159,7 @@ export ReshapedSnapshots
 export SnapshotsAtIndices
 export SparseSnapshots
 export BlockSnapshots
-export get_realization
+export get_realisation
 export select_snapshots
 export num_space_dofs
 include("Snapshots.jl")

@@ -1,6 +1,6 @@
 for T in (:PVector,:PSparseMatrix)
   @eval begin
-    function ParamDataStructures.Snapshots(s::$T,i::AbstractArray,r::AbstractRealization)
+    function ParamDataStructures.Snapshots(s::$T,i::AbstractArray,r::AbstractRealisation)
       data = map(local_views(s),local_views(i)) do s,i
         Snapshots(s,i,r)
       end
@@ -10,7 +10,7 @@ for T in (:PVector,:PSparseMatrix)
   end
 end
 
-function ParamDataStructures.Snapshots(s::PVector,s0::PVector,i::AbstractArray,r::TransientRealization)
+function ParamDataStructures.Snapshots(s::PVector,s0::PVector,i::AbstractArray,r::TransientRealisation)
   data = map(local_views(s),local_views(s0),local_views(i)) do s,s0,i
     Snapshots(s,s0,i,r)
   end
@@ -18,7 +18,7 @@ function ParamDataStructures.Snapshots(s::PVector,s0::PVector,i::AbstractArray,r
   DistributedSnapshots(snaps)
 end
 
-struct DistributedSnapshots{T,N,I,R,A,B} <: Snapshots{T,N,I,R,A}
+struct DistributedSnapshots{T,N,I,R,A,B} <: Snapshots{T,N,I,R}
   snaps::A
   function DistributedSnapshots(snaps::GenericPArray{B}) where {T,N,I,R,B<:Snapshots{T,N,I,R}}
     A = typeof(snaps)
@@ -44,7 +44,7 @@ function Base.show(io::IO,k::MIME"text/plain",s::DistributedSnapshots)
   end
 end
 
-ParamDataStructures.get_realization(s::DistributedSnapshots) = get_realization(getany(local_views(s)))
+ParamDataStructures.get_realisation(s::DistributedSnapshots) = get_realisation(getany(local_views(s)))
 
 function DofMaps.get_dof_map(s::DistributedSnapshots)
   map(local_views(s)) do s
@@ -72,7 +72,7 @@ const DistributedBlockSnapshots{N} = BlockSnapshots{<:DistributedSnapshots,N}
 function ParamDataStructures.Snapshots(
   b::BlockPArray,
   i::AbstractArray,
-  r::AbstractRealization
+  r::AbstractRealisation
   )
 
   N = ndims(b)
@@ -95,7 +95,7 @@ function ParamDataStructures.Snapshots(
   b::BlockPArray{V,T,N},
   b0::BlockPArray,
   i::AbstractArray,
-  r::TransientRealization
+  r::TransientRealisation
   ) where {V,T,N}
 
   block_values = blocks(b)

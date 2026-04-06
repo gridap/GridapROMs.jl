@@ -46,7 +46,19 @@ struct Rank1Tensor{D,A<:AbstractArray} <: AbstractRankTensor{D,1}
   end
 end
 
+"""
+    get_factors(a::Rank1Tensor) -> Vector
+
+Returns the vector of D factor arrays of the rank-1 tensor `a`.
+"""
 get_factors(a::Rank1Tensor) = a.factors
+
+"""
+    get_factor(a::AbstractRankTensor,d::Integer,k::Integer) -> AbstractArray
+
+Returns the `d`-th factor array of the `k`-th rank-1 decomposition of `a`.
+For a [`Rank1Tensor`](@ref) `k` must equal 1.
+"""
 function get_factor(a::Rank1Tensor,d::Integer,k::Integer)
   @check k==1
   get_factors(a)[d]
@@ -278,6 +290,33 @@ end
 function Utils.induced_norm(a::AbstractArray{T,D′},X::AbstractRankTensor{D}) where {T,D,D′}
   D ≥ D′ && @notimplemented
   sqrtreal(sum(induced_norm(ai,X)^2 for ai in eachslice(a,dims=D′)))
+end
+
+# helpers for in-place assembly of gradient tensors
+
+"""
+    get_arrays_1d(a::GenericRankTensor{D,D}) -> Vector
+
+For a gradient-assembled `GenericRankTensor` built by `tproduct_array(gradient,arrays,grads)`,
+recovers the original `arrays_1d` (mass-like factors) as a vector of length D.
+"""
+function get_arrays_1d(a::GenericRankTensor{D,D}) where D
+  map(1:D) do d
+    k = d == 1 ? 2 : 1
+    get_factor(a,d,k)
+  end
+end
+
+"""
+    get_gradients_1d(a::GenericRankTensor{D,D}) -> Vector
+
+For a gradient-assembled `GenericRankTensor` built by `tproduct_array(gradient,arrays,grads)`,
+recovers the original `gradients_1d` (stiffness-like factors) as a vector of length D.
+"""
+function get_gradients_1d(a::GenericRankTensor{D,D}) where D
+  map(1:D) do d
+    get_factor(a,d,d)
+  end
 end
 
 # to global array - should try avoiding using these functions

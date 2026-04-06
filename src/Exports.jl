@@ -27,8 +27,8 @@ end
 @publish ParamGeometry DisplacementMap
 @publish ParamGeometry mapped_grid
 
-@publish ParamDataStructures Realization
-@publish ParamDataStructures TransientRealization
+@publish ParamDataStructures Realisation
+@publish ParamDataStructures TransientRealisation
 @publish ParamDataStructures UniformSampling
 @publish ParamDataStructures NormalSampling
 @publish ParamDataStructures HaltonSampling
@@ -36,8 +36,8 @@ end
 @publish ParamDataStructures TransientParamSpace
 @publish ParamDataStructures ParamFunction
 @publish ParamDataStructures TransientParamFunction
-@publish ParamDataStructures realization
-@publish ParamDataStructures parameterize
+@publish ParamDataStructures realisation
+@publish ParamDataStructures parameterise
 @publish ParamDataStructures param_length
 @publish ParamDataStructures param_getindex
 

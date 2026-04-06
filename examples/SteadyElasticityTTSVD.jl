@@ -23,19 +23,19 @@ add_tag_from_tags!(labels,"neumann3",[26])
 p(μ) = μ[1]/(2(1+μ[2]))
 
 σ(μ) = ε ->  λ(μ)*tr(ε)*one(ε) + 2*p(μ)*ε
-σμ(μ) = parameterize(σ,μ)
+σμ(μ) = parameterise(σ,μ)
 
 h1(μ) = x -> VectorValue(0.0,0.0,μ[3])
-h1μ(μ) = parameterize(h1,μ)
+h1μ(μ) = parameterise(h1,μ)
 
 h2(μ) = x -> VectorValue(0.0,μ[4],0.0)
-h2μ(μ) = parameterize(h2,μ)
+h2μ(μ) = parameterise(h2,μ)
 
 h3(μ) = x -> VectorValue(μ[5]*x[1],0.0,0.0)
-h3μ(μ) = parameterize(h3,μ)
+h3μ(μ) = parameterise(h3,μ)
 
 g(μ) = x -> VectorValue(0.0,0.0,0.0)
-gμ(μ) = parameterize(g,μ)
+gμ(μ) = parameterise(g,μ)
 
 order = 2
 reffe = ReferenceFE(lagrangian,VectorValue{3,Float64},order)

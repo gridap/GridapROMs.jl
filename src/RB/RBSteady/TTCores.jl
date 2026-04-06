@@ -168,18 +168,6 @@ function first_block(a::AbstractArray{T,3},b::AbstractArray{S,3}) where {T,S}
   return ab
 end
 
-function last_block(a::AbstractArray{T,3},b::AbstractArray{S,3}) where {T,S}
-  @check size(a,3) == size(b,3) == 1
-  @check size(a,2) == size(b,2) "Cannot sum the two input cores"
-  TS = promote_type(T,S)
-  r1 = size(a,1) + size(b,1)
-  r2 = size(a,2)
-  ab = zeros(TS,r1,r2,1)
-  @views ab[1:size(a,1),:,:] = a
-  @views ab[1+size(a,1):end,:,:] = b
-  return ab
-end
-
 function block_core(a::AbstractArray{T,3},b::AbstractArray{S,3}) where {T,S}
   @check size(a,2) == size(b,2) "Cannot sum the two input cores"
   TS = promote_type(T,S)
@@ -214,18 +202,6 @@ function block_cores(a::AbstractVector{<:AbstractVector{<:AbstractArray{T,3}}}) 
   abfirst = first_block(map(x -> getindex(x,1),a))
   ablasts = map(d -> block_core(map(x -> getindex(x,d),a)),2:D)
   return [abfirst,ablasts...]
-end
-
-function block_cat(a::AbstractVector{<:AbstractArray{T,3}};kwargs...) where T
-  D = length(a)
-  @check D ≤ 3
-  if D == 1
-    a[1]
-  elseif D == 2
-    cat(a[1],a[2];kwargs...)
-  else
-    cat(a[1],a[2],a[3];kwargs...)
-  end
 end
 
 function _block_cores_add_component(

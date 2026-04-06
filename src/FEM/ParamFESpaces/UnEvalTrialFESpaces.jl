@@ -33,11 +33,11 @@ const ParamTrialFESpace = UnEvalTrialFESpace
 function ParamTrialFESpace(space)
   dof = get_fe_dof_basis(space)
   T = get_dof_eltype(dof)
-  function _param_zero(μ::Realization)
+  function _param_zero(μ::Realisation)
     z(μ) = x -> zero(T)
     ParamFunction(z,μ)
   end
-  function _param_zero(μ::Realization,t)
+  function _param_zero(μ::Realisation,t)
     z(μ,t) = x -> zero(T)
     TransientParamFunction(z,μ,t)
   end
@@ -77,7 +77,7 @@ end
 
 # Evaluations
 
-function ODEs.allocate_space(U::UnEvalTrialFESpace,r::Realization)
+function ODEs.allocate_space(U::UnEvalTrialFESpace,r::Realisation)
   HomogeneousTrialParamFESpace(U.space,length(r))
 end
 
@@ -87,7 +87,7 @@ function Arrays.evaluate(U::UnEvalTrialFESpace,args...)
   Upt
 end
 
-function Arrays.evaluate!(Upt::TrialParamFESpace,U::UnEvalTrialFESpace,r::Realization)
+function Arrays.evaluate!(Upt::TrialParamFESpace,U::UnEvalTrialFESpace,r::Realisation)
   dir(f) = f(r)
   dir(f::Vector) = dir.(f)
   TrialParamFESpace!(Upt,dir(U.dirichlet))
@@ -100,7 +100,7 @@ Arrays.evaluate(U::UnEvalTrialFESpace,r::Nothing) = U.space0
 # Define the UnEvalTrialFESpace interface for stationary spaces
 
 ODEs.allocate_space(U::FESpace,r) = U
-Arrays.evaluate!(Upt::FESpace,U::FESpace,r::AbstractRealization) = U
+Arrays.evaluate!(Upt::FESpace,U::FESpace,r::AbstractRealisation) = U
 Arrays.evaluate(U::FESpace,r) = U
 
 # Useful for dispatching
@@ -136,7 +136,7 @@ function has_param(U::MultiFieldFESpace)
   any(space -> space isa UnEvalTrialFESpace,U.spaces)
 end
 
-function ODEs.allocate_space(U::MultiFieldFESpace,r::Realization)
+function ODEs.allocate_space(U::MultiFieldFESpace,r::Realisation)
   if !has_param(U)
     return U
   end
@@ -145,7 +145,7 @@ function ODEs.allocate_space(U::MultiFieldFESpace,r::Realization)
   MultiFieldParamFESpace(spaces;style)
 end
 
-function Arrays.evaluate!(Upt::MultiFieldFESpace,U::MultiFieldFESpace,r::Realization)
+function Arrays.evaluate!(Upt::MultiFieldFESpace,U::MultiFieldFESpace,r::Realisation)
   if !has_param(U)
     return U
   end
@@ -155,7 +155,7 @@ function Arrays.evaluate!(Upt::MultiFieldFESpace,U::MultiFieldFESpace,r::Realiza
   Upt
 end
 
-function Arrays.evaluate(U::MultiFieldFESpace,r::Realization)
+function Arrays.evaluate(U::MultiFieldFESpace,r::Realisation)
   if !has_param(U)
     return U
   end

@@ -217,7 +217,7 @@ function allocate_hyper_reduction(a::HRMatProjection)
 end
 
 for f in (:allocate_coefficient,:allocate_hyper_reduction)
-  @eval $f(a::Projection,r::AbstractRealization) = parameterize($f(a),num_params(r))
+  @eval $f(a::Projection,r::AbstractRealisation) = parameterise($f(a),num_params(r))
 end
 
 """
@@ -274,7 +274,7 @@ function FESpaces.interpolate!(
   hypred::AbstractArray,
   coeff::ArrayContribution,
   a::AffineContribution,
-  r::AbstractRealization)
+  r::AbstractRealisation)
 
   @check length(coeff) == length(a)
   fill!(hypred,zero(eltype(hypred)))
@@ -497,7 +497,7 @@ function FESpaces.interpolate!(
   hypred::Union{BlockParamArray,BlockArray},
   coeff::ArrayBlock,
   a::BlockHRProjection,
-  r::AbstractRealization)
+  r::AbstractRealisation)
 
   for i in eachindex(a)
     if a.touched[i]
@@ -513,7 +513,7 @@ for T in (:AffineContribution,:BlockHRProjection)
       interpolate!(cache.hypred,cache.coeff,a,cache.fecache)
     end
 
-    function FESpaces.interpolate!(cache::AbstractHRArray,a::$T,r::AbstractRealization)
+    function FESpaces.interpolate!(cache::AbstractHRArray,a::$T,r::AbstractRealisation)
       interpolate!(cache.hypred,cache.coeff,a,r)
     end
   end
@@ -522,17 +522,28 @@ end
 function Arrays.return_cache(
   ::typeof(allocate_coefficient),
   a::HRProjection,
-  r::AbstractRealization)
+  r::AbstractRealisation)
 
   T = projection_eltype(a)
   coeffvec = testvalue(Vector{T})
-  parameterize(coeffvec,num_params(r))
+  parameterise(coeffvec,num_params(r))
+end
+
+function Arrays.return_cache(
+  ::typeof(allocate_coefficient),
+  a::BlockHRProjection)
+
+  i = findfirst(a.touched)
+  @notimplementedif isnothing(i)
+  coeff = return_cache(allocate_coefficient,a[i])
+  block_coeff = Array{typeof(coeff),ndims(a)}(undef,size(a))
+  return block_coeff
 end
 
 function Arrays.return_cache(
   ::typeof(allocate_coefficient),
   a::BlockHRProjection,
-  r::AbstractRealization)
+  r::AbstractRealisation)
 
   i = findfirst(a.touched)
   @notimplementedif isnothing(i)
@@ -542,16 +553,16 @@ function Arrays.return_cache(
 end
 
 function allocate_coefficient(a::BlockHRProjection)
-  coeff = return_cache(allocate_coefficient,a,args...)
+  coeff = return_cache(allocate_coefficient,a)
   for i in eachindex(a)
     if a.touched[i]
-      coeff[i] = allocate_coefficient(a[i],args...)
+      coeff[i] = allocate_coefficient(a[i])
     end
   end
   return ArrayBlock(coeff,a.touched)
 end
 
-function allocate_coefficient(a::BlockHRProjection,r::AbstractRealization)
+function allocate_coefficient(a::BlockHRProjection,r::AbstractRealisation)
   coeff = return_cache(allocate_coefficient,a,r)
   for i in eachindex(a)
     if a.touched[i]
@@ -578,16 +589,16 @@ end
 function Arrays.return_cache(
   ::typeof(allocate_hyper_reduction),
   a::HRProjection,
-  r::AbstractRealization)
+  r::AbstractRealisation)
 
   hypvec = return_cache(allocate_hyper_reduction,a)
-  parameterize(hypvec,num_params(r))
+  parameterise(hypvec,num_params(r))
 end
 
 function Arrays.return_cache(
   ::typeof(allocate_hyper_reduction),
   a::BlockHRProjection,
-  r::AbstractRealization)
+  r::AbstractRealisation)
 
   i = findfirst(a.touched)
   @notimplementedif isnothing(i)
@@ -604,7 +615,7 @@ function allocate_hyper_reduction(a::BlockHRProjection)
   return mortar(hypred)
 end
 
-function allocate_hyper_reduction(a::BlockHRProjection,r::AbstractRealization)
+function allocate_hyper_reduction(a::BlockHRProjection,r::AbstractRealisation)
   hypred = return_cache(allocate_hyper_reduction,a,r)
   for i in eachindex(a)
     hypred[i] = allocate_hyper_reduction(a.array[i],r)

@@ -35,7 +35,7 @@ end
 function petsc_asm_solve(solver,op,μ)
   trial = get_trial(op)
   y = zero_free_values(trial(μ))
-  nlop = parameterize(op,μ)
+  nlop = parameterise(op,μ)
   syscache = allocate_systemcache(nlop,y)
   A = get_matrix(syscache)
   x = allocate_in_domain(A); fill!(x,0.0)
@@ -71,12 +71,12 @@ function main(parts,model)
 
   # Weak formulation
   f(μ) = x -> VectorValue(μ[1],1.0)
-  fμ(μ) = parameterize(f,μ)
+  fμ(μ) = parameterise(f,μ)
 
   g(μ) = x -> VectorValue(μ[2],0.0)
-  gμ(μ) = parameterize(g,μ)
+  gμ(μ) = parameterise(g,μ)
   g0(μ) = x -> VectorValue(0.0,0.0)
-  g0μ(μ) = parameterize(g0,μ)
+  g0μ(μ) = parameterise(g0,μ)
 
   a(μ,(u,p),(v,q)) = ∫(∇(v)⊙∇(u))dΩ - ∫((∇⋅v)*p)dΩ - ∫((∇⋅u)*q)dΩ
   res(μ,(u,p),(v,q)) = a(μ,(u,p),(v,q)) - ∫(v⋅fμ(μ))dΩ
@@ -110,7 +110,7 @@ function main(parts,model)
   Prec = BlockTriangularSolver(blocks,[solver_u,solver_p])
   solver = FGMRESSolver(30,Prec;rtol=1.e-8,verbose=i_am_main(parts))
 
-  μ = realization(pspace;nparams=2)
+  μ = realisation(pspace;nparams=2)
   build_snapshots(solver,op,μ)
 end
 

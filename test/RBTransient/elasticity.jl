@@ -42,16 +42,16 @@ function main(
   p(μ) = μ[1]/(2(1+μ[2]))
 
   σ(μ,t) = ε -> λ(μ)*tr(ε)*one(ε) + 2*p(μ)*ε
-  σμt(μ,t) = parameterize(σ,μ,t)
+  σμt(μ,t) = parameterise(σ,μ,t)
 
   h(μ,t) = x -> VectorValue(0.0,μ[3]*exp(sin(2*π*t/tf)))
-  hμt(μ,t) = parameterize(h,μ,t)
+  hμt(μ,t) = parameterise(h,μ,t)
 
   g(μ,t) = x -> VectorValue(0.0,0.0)
-  gμt(μ,t) = parameterize(g,μ,t)
+  gμt(μ,t) = parameterise(g,μ,t)
 
   u0(μ) = x -> VectorValue(0.0,0.0)
-  u0μ(μ) = parameterize(u0,μ)
+  u0μ(μ) = parameterise(u0,μ)
 
   stiffness(μ,t,u,v,dΩ) = ∫( ε(v) ⊙ (σμt(μ,t)∘ε(u)) )*dΩ
   mass(μ,t,uₜ,v,dΩ) = ∫(v⋅uₜ)dΩ
@@ -85,13 +85,13 @@ function main(
   ptspace = TransientParamSpace(pdomain,tdomain)
 
   fesolver = ThetaMethod(LUSolver(),dt,θ)
-  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac)
+  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jacs=(nparams_jac,nparams_jac))
 
   feop = TransientLinearParamOperator(res,(stiffness,mass),ptspace,trial,test,domains)
   fesnaps, = solution_snapshots(rbsolver,feop,uh0μ)
   rbop = reduced_operator(rbsolver,feop,fesnaps)
 
-  μon = realization(feop;nparams=10,sampling=:uniform)
+  μon = realisation(feop;nparams=10,sampling=:uniform)
   x̂,rbstats = solve(rbsolver,rbop,μon,uh0μ)
   x,festats = solution_snapshots(rbsolver,feop,μon,uh0μ)
   perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)

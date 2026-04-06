@@ -28,15 +28,6 @@ function BlockMultiFieldExtensionStyle(::BlockMultiFieldExtensionStyle{0,0,0},sp
 end
 
 @inline MultiField.get_block_parameters(::BlockMultiFieldExtensionStyle{NB,SB,P}) where {NB,SB,P} = (NB,SB,P)
-function MultiFieldExtensionFESpace(
-  spaces::Vector{<:SingleFieldFESpace}; style = BlockMultiFieldExtensionStyle()
-)
-  @check style == BlockMultiFieldExtensionStyle()
-  style = BlockMultiFieldExtensionStyle(style,spaces)
-  VT = typeof(mortar(map(zero_free_values,spaces)))
-  MultiFieldFESpace(VT,spaces,style)
-end
-
 function BlockArrays.blocks(f::MultiFieldFESpace{<:BlockMultiFieldExtensionStyle})
   block_ranges = MultiField.get_block_ranges(get_block_parameters(MultiFieldStyle(f))...)
   block_spaces = map(block_ranges) do range

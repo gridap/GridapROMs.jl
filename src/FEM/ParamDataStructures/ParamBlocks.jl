@@ -1046,13 +1046,13 @@ end
 function Arrays.return_cache(
   k::BroadcastingFieldOpMap,a::Union{ParamBlock,AbstractArray}...)
 
-  return_cache(k,lazy_parameterize(a...)...)
+  return_cache(k,lazy_parameterise(a...)...)
 end
 
 function Arrays.evaluate!(
   cache,k::BroadcastingFieldOpMap,a::Union{ParamBlock,AbstractArray}...)
 
-  evaluate!(cache,k,lazy_parameterize(a...)...)
+  evaluate!(cache,k,lazy_parameterise(a...)...)
 end
 
 const ParamBroadcastingFieldOpMap{F<:AbstractParamFunction} = BroadcastingFieldOpMap{F}
@@ -1164,13 +1164,13 @@ end
 function Arrays.return_cache(
   k::ParamBroadcastingFieldOpMap,a::Union{ParamBlock,AbstractArray}...)
 
-  return_cache(k,lazy_parameterize(a...;plength=param_length(k))...)
+  return_cache(k,lazy_parameterise(a...;plength=param_length(k))...)
 end
 
 function Arrays.evaluate!(
   cache,k::ParamBroadcastingFieldOpMap,a::Union{ParamBlock,AbstractArray}...)
 
-  evaluate!(cache,k,lazy_parameterize(a...;plength=param_length(k))...)
+  evaluate!(cache,k,lazy_parameterise(a...;plength=param_length(k))...)
 end
 
 for op in (:+,:-)
@@ -1875,20 +1875,20 @@ end
 for T in (:AbstractArray,:Nothing)
   @eval begin
     function Arrays.return_cache(k::Fields.ZeroBlockMap,h::ParamBlock,f::$T)
-      return_cache(k,h,lazy_parameterize(f,param_length(h)))
+      return_cache(k,h,lazy_parameterise(f,param_length(h)))
     end
     function Arrays.return_cache(k::Fields.ZeroBlockMap,h::$T,f::ParamBlock)
-      return_cache(k,lazy_parameterize(h,param_length(f)),f)
+      return_cache(k,lazy_parameterise(h,param_length(f)),f)
     end
     function Arrays.evaluate!(cache::Tuple,k::Fields.ZeroBlockMap,h::ParamBlock,f::$T)
-      evaluate!(cache,k,h,lazy_parameterize(f,param_length(h)))
+      evaluate!(cache,k,h,lazy_parameterise(f,param_length(h)))
     end
     function Arrays.evaluate!(cache::Tuple,k::Fields.ZeroBlockMap,h::$T,f::ParamBlock)
-      evaluate!(cache,k,lazy_parameterize(h,param_length(f)),f)
+      evaluate!(cache,k,lazy_parameterise(h,param_length(f)),f)
     end
     function Arrays.evaluate!(cache::Tuple,k::Fields.ZeroBlockMap,h::$T,f::AbstractArray)
       plength = param_length(cache[1])
-      evaluate!(cache,k,lazy_parameterize(h,plength),lazy_parameterize(f,plength))
+      evaluate!(cache,k,lazy_parameterise(h,plength),lazy_parameterise(f,plength))
     end
   end
 end
@@ -2099,23 +2099,23 @@ end
 
 # constructors
 
-lazy_parameterize(a,plength::Integer) = parameterize(a,plength)
+lazy_parameterise(a,plength::Integer) = parameterise(a,plength)
 
-function lazy_parameterize(a...;plength=find_param_length(a...))
-  pa = map(f->lazy_parameterize(f,plength),a)
+function lazy_parameterise(a...;plength=find_param_length(a...))
+  pa = map(f->lazy_parameterise(f,plength),a)
   return pa
 end
 
-function lazy_parameterize(a::ParamBlock,plength::Integer=param_length(a))
+function lazy_parameterise(a::ParamBlock,plength::Integer=param_length(a))
   @check param_length(a) == plength
   a
 end
 
-function lazy_parameterize(a::Union{AbstractArray{<:Number},Nothing,Field,AbstractArray{<:Field}},plength::Integer)
+function lazy_parameterise(a::Union{AbstractArray{<:Number},Nothing,Field,AbstractArray{<:Field}},plength::Integer)
   TrivialParamBlock(a,plength)
 end
 
-function local_parameterize(a::Union{AbstractArray{<:Number},Nothing,Field,AbstractArray{<:Field}},plength::Integer)
+function local_parameterise(a::Union{AbstractArray{<:Number},Nothing,Field,AbstractArray{<:Field}},plength::Integer)
   data = Vector{typeof(a)}(undef,plength)
   @inbounds for i in 1:plength
     data[i] = copy(a)
@@ -2123,12 +2123,12 @@ function local_parameterize(a::Union{AbstractArray{<:Number},Nothing,Field,Abstr
   GenericParamBlock(data)
 end
 
-function local_parameterize(a::AbstractArray{<:AbstractArray},plength::Integer)
+function local_parameterise(a::AbstractArray{<:AbstractArray},plength::Integer)
   @check length(a) == plength
   GenericParamBlock(a)
 end
 
-function local_parameterize(a::ParamBlock,plength::Integer)
+function local_parameterise(a::ParamBlock,plength::Integer)
   @check param_length(a) == plength
   a
 end
@@ -2171,12 +2171,12 @@ function _test_values(h::ParamBlock,f::ParamBlock)
 end
 
 function _test_values(h::ParamBlock,_f)
-  f = lazy_parameterize(_f,param_length(h))
+  f = lazy_parameterise(_f,param_length(h))
   _test_values(h,f)
 end
 
 function _test_values(_h,f::ParamBlock)
-  h = lazy_parameterize(_h,param_length(f))
+  h = lazy_parameterise(_h,param_length(f))
   _test_values(h,f)
 end
 

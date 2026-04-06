@@ -10,8 +10,8 @@ using GridapROMs.ParamDataStructures
 # ModeTransientSnapshots constructor, which requires A<:AbstractMatrix{T}.
 @testset "get_mode2 uses computed m2 matrix" begin
   ns, np, nt = 5, 3, 4
-  params = Realization([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
-  r = TransientRealization(params, [0.1, 0.2, 0.3, 0.4], 0.0)
+  params = Realisation([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
+  r = TransientRealisation(params, [0.1, 0.2, 0.3, 0.4], 0.0)
   i = VectorDofMap(ns)
   data = reshape(collect(1.0:Float64(ns*np*nt)), ns, np, nt)
   s = GenericSnapshots(data, i, r)

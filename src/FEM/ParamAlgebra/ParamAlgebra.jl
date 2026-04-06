@@ -1,3 +1,20 @@
+"""
+    module ParamAlgebra
+
+Algebraic infrastructure for parametric operators and solvers.
+
+- [`NonlinearParamOperator`](@ref) — abstract parametric nonlinear operator;
+  residual and Jacobian are assembled for all parameter values simultaneously.
+- [`GenericParamNonlinearOperator`](@ref) — generic concrete implementation.
+- [`LazyParamNonlinearOperator`](@ref) — lazily-evaluated variant.
+- [`LinearNonlinearParamOperator`](@ref) — operator split into a
+  parameter-independent linear part and a parameter-dependent nonlinear part,
+  enabling efficient reuse of the linear factorisation.
+- [`ParamCache`](@ref) / [`SystemCache`](@ref) — caches for operator
+  evaluations (residuals and Jacobians).
+- Solver extensions: `solve!` overloads for `LinearSolver` and `NewtonSolver`
+  acting on parametric operators.
+"""
 module ParamAlgebra
 
 using LinearAlgebra

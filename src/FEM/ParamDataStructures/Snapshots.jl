@@ -5,7 +5,7 @@ Type representing N-dimensional arrays of snapshots. Subtypes must contain the
 following information:
 
 - data: a (parametric) array
-- realization: a subtype of [`AbstractRealization`](@ref), representing the points
+- realisation: a subtype of [`AbstractRealisation`](@ref), representing the points
   in the parameter space used to compute the array `data`
 - dof map: a subtype of [`AbstractDofMap`](@ref), representing a reindexing strategy
   for the array `data`
@@ -18,21 +18,21 @@ Subtypes:
 abstract type AbstractSnapshots{T,N} <: AbstractParamData{T,N} end
 
 """
-    get_realization(s::AbstractSnapshots) -> AbstractRealization
+    get_realisation(s::AbstractSnapshots) -> AbstractRealisation
 
-Returns the realizations associated to the snapshots `s`
+Returns the realisations associated to the snapshots `s`
 """
-get_realization(s::AbstractSnapshots) = @abstractmethod
+get_realisation(s::AbstractSnapshots) = @abstractmethod
 
 DofMaps.get_dof_map(s::AbstractSnapshots) = @abstractmethod
 
-num_params(s::AbstractSnapshots) = num_params(get_realization(s))
+num_params(s::AbstractSnapshots) = num_params(get_realisation(s))
 
 """
-    abstract type Snapshots{T,N,I,R,A} <: AbstractSnapshots{T,N} end
+    abstract type Snapshots{T,N,I,R} <: AbstractSnapshots{T,N} end
 
 Type representing a collection of parametric abstract arrays of eltype `T`,
-that are associated with a realization of type `R`. Unlike `AbstractParamArray`,
+that are associated with a realisation of type `R`. Unlike `AbstractParamArray`,
 which are arrays of arrays, subtypes of `Snapshots` are arrays of numbers.
 
 Subtypes:
@@ -40,9 +40,9 @@ Subtypes:
 - [`SteadySnapshots`](@ref)
 - [`TransientSnapshots`](@ref)
 """
-abstract type Snapshots{T,N,I,R,A} <: AbstractSnapshots{T,N} end
+abstract type Snapshots{T,N,I,R} <: AbstractSnapshots{T,N} end
 
-function Snapshots(s::AbstractArray,i::AbstractDofMap,r::AbstractRealization)
+function Snapshots(s::AbstractArray,i::AbstractDofMap,r::AbstractRealisation)
   @abstractmethod
 end
 
@@ -67,14 +67,14 @@ end
 function param_cat(v::AbstractVector{<:Snapshots})
   data = param_cat(map(get_param_data,v))
   i = get_dof_map(first(v))
-  r = param_cat(map(get_realization,v))
+  r = param_cat(map(get_realisation,v))
   Snapshots(data,i,r)
 end
 
 """
-    const SteadySnapshots{T,N,I,R<:Realization,A} = Snapshots{T,N,I,R,A}
+    const SteadySnapshots{T,N,I,R<:Realisation} = Snapshots{T,N,I,R}
 """
-const SteadySnapshots{T,N,I,R<:Realization,A} = Snapshots{T,N,I,R,A}
+const SteadySnapshots{T,N,I,R<:Realisation} = Snapshots{T,N,I,R}
 
 """
     space_dofs(s::SteadySnapshots{T,N}) where {T,N} -> NTuple{N-1,Integer}
@@ -86,18 +86,18 @@ space_dofs(s::SteadySnapshots{T,N}) where {T,N} = size(get_all_data(s))[1:N-1]
 
 Base.size(s::SteadySnapshots) = (space_dofs(s)...,num_params(s))
 
-function Snapshots(s::AbstractParamVector,i::TrivialDofMap,r::Realization)
+function Snapshots(s::AbstractParamVector,i::TrivialDofMap,r::Realisation)
   Snapshots(get_all_data(s),i,r)
 end
 
-function Snapshots(s::ParamSparseMatrix,i::TrivialDofMap,r::Realization)
+function Snapshots(s::ParamSparseMatrix,i::TrivialDofMap,r::Realisation)
   Snapshots(get_all_data(s),i,r)
 end
 
 function _select_snapshots(s::SteadySnapshots,pindex)
   prange = _format_index(pindex)
   drange = view(get_all_data(s),:,prange)
-  rrange = get_realization(s)[prange]
+  rrange = get_realisation(s)[prange]
   Snapshots(drange,get_dof_map(s),rrange)
 end
 
@@ -109,36 +109,36 @@ _format_index(i) = i
 _format_index(i::Number) = i:i
 
 """
-    struct GenericSnapshots{T,N,I,R,A} <: Snapshots{T,N,I,R,A}
+    struct GenericSnapshots{T,N,I,R,A} <: Snapshots{T,N,I,R}
       data::A
       dof_map::I
-      realization::R
+      realisation::R
     end
 
 Most standard implementation of a [`Snapshots`](@ref)
 """
-struct GenericSnapshots{T,N,I,R,A} <: Snapshots{T,N,I,R,A}
+struct GenericSnapshots{T,N,I,R,A} <: Snapshots{T,N,I,R}
   data::A
   dof_map::I
-  realization::R
+  realisation::R
 
   function GenericSnapshots(
     data::A,
     dof_map::I,
-    realization::R
+    realisation::R
     ) where {T,N,R,A<:AbstractArray{T,N},I<:AbstractDofMap}
 
-    new{T,N,I,R,A}(data,dof_map,realization)
+    new{T,N,I,R,A}(data,dof_map,realisation)
   end
 end
 
-function Snapshots(s::AbstractArray{<:Number},i::TrivialDofMap,r::AbstractRealization)
+function Snapshots(s::AbstractArray{<:Number},i::TrivialDofMap,r::AbstractRealisation)
   GenericSnapshots(s,i,r)
 end
 
 get_all_data(s::GenericSnapshots) = s.data
 DofMaps.get_dof_map(s::GenericSnapshots) = s.dof_map
-get_realization(s::GenericSnapshots) = s.realization
+get_realisation(s::GenericSnapshots) = s.realisation
 
 function Base.getindex(s::GenericSnapshots{T,N},i::Vararg{Integer,N}) where {T,N}
   s.data[i...]
@@ -149,33 +149,33 @@ function Base.setindex!(s::GenericSnapshots{T,N},v,i::Vararg{Integer,N}) where {
 end
 
 """
-    struct ReshapedSnapshots{T,N,I,R,A,B} <: Snapshots{T,N,I,R,A}
+    struct ReshapedSnapshots{T,N,I,R,A,B} <: Snapshots{T,N,I,R}
       data::A
       param_data::B
       dof_map::I
-      realization::R
+      realisation::R
     end
 
 Most standard implementation of a [`Snapshots`](@ref)
 """
-struct ReshapedSnapshots{T,N,I,R,A,B} <: Snapshots{T,N,I,R,A}
+struct ReshapedSnapshots{T,N,I,R,A,B} <: Snapshots{T,N,I,R}
   data::A
   param_data::B
   dof_map::I
-  realization::R
+  realisation::R
 
   function ReshapedSnapshots(
     data::A,
     param_data::B,
     dof_map::I,
-    realization::R
+    realisation::R
     ) where {T,N,R,A<:AbstractArray{T,N},B,I<:AbstractDofMap}
 
-    new{T,N,I,R,A,B}(data,param_data,dof_map,realization)
+    new{T,N,I,R,A,B}(data,param_data,dof_map,realisation)
   end
 end
 
-function Snapshots(s::AbstractParamVector,i::AbstractDofMap,r::Realization)
+function Snapshots(s::AbstractParamVector,i::AbstractDofMap,r::Realisation)
   data = get_all_data(s)
   param_data = s
   dims = (size(i)...,num_params(r))
@@ -183,7 +183,7 @@ function Snapshots(s::AbstractParamVector,i::AbstractDofMap,r::Realization)
   ReshapedSnapshots(idata,param_data,i,r)
 end
 
-function Snapshots(s::ParamSparseMatrix,i::SparseMatrixDofMap,r::Realization)
+function Snapshots(s::ParamSparseMatrix,i::SparseMatrixDofMap,r::Realisation)
   T = eltype2(s)
   data = get_all_data(s)
   param_data = s
@@ -202,13 +202,13 @@ end
 get_all_data(s::ReshapedSnapshots) = s.data
 get_param_data(s::ReshapedSnapshots) = s.param_data
 DofMaps.get_dof_map(s::ReshapedSnapshots) = s.dof_map
-get_realization(s::ReshapedSnapshots) = s.realization
+get_realisation(s::ReshapedSnapshots) = s.realisation
 
 function _select_snapshots(s::ReshapedSnapshots{T,N},pindex) where {T,N}
   prange = _format_index(pindex)
   drange = view(get_all_data(s),_ncolons(Val{N-1}())...,prange)
   pdrange = _get_param_data(s.param_data,prange)
-  rrange = get_realization(s)[prange]
+  rrange = get_realisation(s)[prange]
   ReshapedSnapshots(drange,pdrange,get_dof_map(s),rrange)
 end
 
@@ -234,7 +234,7 @@ end
 
 """
 """
-const SparseSnapshots{T,N,I<:AbstractSparseDofMap,R,A} = Snapshots{T,N,I,R,A}
+const SparseSnapshots{T,N,I<:AbstractSparseDofMap,R} = Snapshots{T,N,I,R}
 
 function DofMaps.recast(a::AbstractArray,s::SparseSnapshots)
   return recast(a,get_dof_map(s))
@@ -272,7 +272,7 @@ end
 function Snapshots(
   data::BlockParamArray{T,N},
   i::AbstractArray{<:AbstractDofMap},
-  r::AbstractRealization) where {T,N}
+  r::AbstractRealisation) where {T,N}
 
   block_values = blocks(data)
   s = size(block_values)
@@ -318,7 +318,7 @@ function Arrays.testitem(s::BlockSnapshots)
 end
 
 DofMaps.get_dof_map(s::BlockSnapshots) = map(get_dof_map,s.array)
-get_realization(s::BlockSnapshots) = get_realization(testitem(s))
+get_realisation(s::BlockSnapshots) = get_realisation(testitem(s))
 
 function get_param_data(s::BlockSnapshots)
   map(get_param_data,s.array) |> mortar
@@ -350,7 +350,7 @@ end
 
 # utils
 
-function Snapshots(a::ArrayContribution,i::ArrayContribution,r::AbstractRealization)
+function Snapshots(a::ArrayContribution,i::ArrayContribution,r::AbstractRealisation)
   contribution(a.trians) do trian
     Snapshots(a[trian],i[trian],r)
   end

@@ -43,7 +43,7 @@ get_linear_operator(op::LinNonlinParamOperator) = op.op_linear
 get_nonlinear_operator(op::LinNonlinParamOperator) = op.op_nonlinear
 get_linear_systemcache(op::LinNonlinParamOperator) = op.cache_linear
 
-function allocate_paramcache(op::LinNonlinParamOperator,μ::AbstractRealization)
+function allocate_paramcache(op::LinNonlinParamOperator,μ::AbstractRealisation)
   op_nlin = get_nonlinear_operator(op)
   allocate_paramcache(op_nlin,μ)
 end
@@ -58,7 +58,7 @@ end
 function update_paramcache!(
   paramcache::AbstractParamCache,
   op::LinNonlinParamOperator,
-  μ::AbstractRealization)
+  μ::AbstractRealisation)
 
   op_nlin = get_nonlinear_operator(op)
   update_paramcache!(paramcache,op_nlin,μ)

@@ -113,8 +113,8 @@ function FESpaces.zero_dirichlet_values(f::MultiFieldParamFESpace{<:BlockMultiFi
   mortar(map(zero_dirichlet_values,f.spaces))
 end
 
-function ParamDataStructures.parameterize(f::MultiFieldParamFESpace,plength::Int)
-  spaces = map(s -> parameterize(s,plength),f.spaces)
+function ParamDataStructures.parameterise(f::MultiFieldParamFESpace,plength::Int)
+  spaces = map(s -> parameterise(s,plength),f.spaces)
   style = f.multi_field_style
   MultiFieldFESpace(spaces;style)
 end

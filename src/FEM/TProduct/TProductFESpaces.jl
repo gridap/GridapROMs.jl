@@ -5,10 +5,31 @@
       trian::TProductTriangulation
     end
 
-Tensor product single field `FESpace`, storing a vector of 1-D `FESpace`s `spaces_1d`
-of length D, and the D-dimensional `FESpace` `space` defined as their tensor product.
-The tensor product triangulation `trian` is provided as a field to avoid
-incompatibility issues when passing to `MultiField` scenarios
+A `SingleFieldFESpace` on a tensor product mesh, storing the D-dimensional
+[`OrderedFESpace`](@ref) `space` and a vector of `D` 1D `OrderedFESpace`s
+`spaces_1d`. The [`TProductTriangulation`](@ref) `trian` is stored explicitly
+to ensure compatibility with `MultiField` scenarios.
+
+All standard `SingleFieldFESpace` interface methods are delegated to `space`.
+The 1D spaces are used exclusively for tensor product assembly via
+[`TProductSparseMatrixAssembler`](@ref) and basis extraction via
+[`get_tp_fe_basis`](@ref) / [`get_tp_trial_fe_basis`](@ref).
+
+The preferred construction path is via [`TensorProductReferenceFE`](@ref):
+
+```julia
+model = TProductDiscreteModel((0,1,0,1),(10,10))
+reffe = TensorProductReferenceFE(model,lagrangian,Float64,1)
+V = FESpace(model,reffe;conformity=:H1,dirichlet_tags="boundary")
+```
+
+Alternatively, the reffe tuple form is still supported:
+
+```julia
+Ω  = Triangulation(model)
+dΩ = Measure(Ω,2)
+V  = FESpace(Ω,(lagrangian,Float64,1);conformity=:H1,dirichlet_tags="boundary")
+```
 """
 struct TProductFESpace{S} <: SingleFieldFESpace
   space::S

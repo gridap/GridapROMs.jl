@@ -87,39 +87,6 @@ function extend_solution(f::FESpace,u::AbstractVector)
   extend_solution(HarmonicExtension(),f,u)
 end
 
-"""
-    extend_solution!(u_bg::AbstractVector,ext::ExtensionStyle,f::FESpace,u::AbstractVector)
-
-In-place version of [`extend_solution`](@ref)
-"""
-function extend_solution!(u_bg::AbstractVector,ext::ZeroExtension,f::FESpace,u::AbstractVector)
-  u_bg
-end
-
-function extend_solution!(u_bg::AbstractVector,ext::MassExtension,f::SingleFieldFESpace,u::AbstractVector)
-  fin = get_space(f)
-  uh_in_bg = ExtendedFEFunction(f,u)
-
-  fout = get_out_space(f)
-  uh_out = mass_extension(fout,uh_in_bg)
-
-  gather_extended_free_values!(u_bg,f,get_cell_dof_values(uh_out))
-end
-
-function extend_solution!(u_bg::AbstractVector,ext::HarmonicExtension,f::SingleFieldFESpace,u::AbstractVector)
-  fin = get_space(f)
-  uh_in_bg = ExtendedFEFunction(f,u)
-
-  fout = get_out_space(f)
-  uh_out = harmonic_extension(fout,uh_in_bg)
-
-  gather_extended_free_values!(u_bg,f,get_cell_dof_values(uh_out))
-end
-
-function extend_solution!(u_bg::AbstractVector,f::FESpace,u::AbstractVector)
-  extend_solution!(u_bg,HarmonicExtension(),f,u)
-end
-
 struct ExtensionSolver <: NonlinearSolver
   solver::NonlinearSolver
   extension::ExtensionStyle
@@ -140,7 +107,7 @@ function Algebra.solve!(
   solve!(u_bg,solver.solver,op,cache)
 end
 
-function Algebra.solve(solver::ExtensionSolver,op::ParamOperator,r::Realization)
+function Algebra.solve(solver::ExtensionSolver,op::ParamOperator,r::Realisation)
   u,stats = solve(solver.solver,op,r)
   u_bg = extend_solution(solver.extension,get_trial(op)(r),u)
   return u_bg,stats
@@ -161,20 +128,20 @@ end
 function ExtensionODEParamSolution(
   solver::ExtensionODESolver,
   odeop::ODEParamOperator,
-  r::TransientRealization,
-  u0)
+  r::TransientRealisation,
+  us0)
 
-  odesol = ODEParamSolution(solver.solver,odeop,r,u0)
+  odesol = ODEParamSolution(solver.solver,odeop,r,us0)
   ExtensionODEParamSolution(solver.extension,odesol)
 end
 
 function ParamODEs.ODEParamSolution(
   solver::ExtensionODESolver,
   odeop::ODEParamOperator,
-  r::TransientRealization,
-  u0::V) where V
+  r::TransientRealisation,
+  us0) 
 
-  ExtensionODEParamSolution(solver,odeop,r,u0)
+  ExtensionODEParamSolution(solver,odeop,r,us0)
 end
 
 function Base.collect(sol::ExtensionODEParamSolution)
@@ -183,10 +150,10 @@ function Base.collect(sol::ExtensionODEParamSolution)
   return u_bg,stats
 end
 
-function ParamODEs.initial_condition(sol::ExtensionODEParamSolution)
-  u0 = initial_condition(sol.odesol)
+function ParamODEs.initial_conditions(sol::ExtensionODEParamSolution)
+  us0 = initial_conditions(sol.odesol)
   r0 = get_at_time(sol.odesol.r,:initial)
-  extend_solution(sol.extension,get_trial(sol.odesol.odeop)(r0),u0)
+  extend_solution(sol.extension,get_trial(sol.odesol.odeop)(r0),us0)
 end
 
 # utils

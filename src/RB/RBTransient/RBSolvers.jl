@@ -1,28 +1,19 @@
-# check HighDimHyperReduction for more details
-time_combinations(fesolver::ODESolver) = @notimplemented "For now, only theta methods are implemented"
-
-function time_combinations(fesolver::ThetaMethod)
-  dt,θ = fesolver.dt,fesolver.θ
-  combine_res(x) = x
-  combine_jac(x,y) = θ*x+(1-θ)*y
-  combine_djac(x,y) = (x-y)/dt
-  return combine_res,combine_jac,combine_djac
-end
-
 function RBSteady.RBSolver(
   fesolver::ODESolver,
   reduction::Reduction;
   nparams_res=20,
-  nparams_jac=20,
-  nparams_djac=nparams_jac,
+  nparams_jacs=ntuple(_ -> 20,get_time_order(fesolver)+1),
   kwargs...)
 
-  cres,cjac,cdjac = time_combinations(fesolver)
-  residual_reduction = HighDimHyperReduction(cres,reduction;nparams=nparams_res,kwargs...)
-  jac_reduction = HighDimHyperReduction(cjac,reduction;nparams=nparams_jac,kwargs...)
-  djac_reduction = HighDimHyperReduction(cdjac,reduction;nparams=nparams_djac,kwargs...)
-  jacobian_reduction = (jac_reduction,djac_reduction)
-
+  tcomb = TimeCombination(fesolver)
+  residual_reduction = HighDimHyperReduction(tcomb,reduction;nparams=nparams_res,kwargs...)
+  jacobian_reduction = ntuple(
+    i -> HighDimHyperReduction(
+      CombinationOrder{i}(tcomb),reduction;
+      nparams=nparams_jacs[i],kwargs...
+    ),
+    Val(get_time_order(fesolver)+1)
+  )
   RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)
 end
 
@@ -30,16 +21,17 @@ function RBSteady.RBSolver(
   fesolver::ODESolver,
   reduction::LocalReduction;
   nparams_res=20,
-  nparams_jac=20,
-  nparams_djac=nparams_jac,
+  nparams_jacs=ntuple(_ -> 20,get_time_order(fesolver)+1),
   kwargs...)
 
-  cres,cjac,cdjac = time_combinations(fesolver)
+  tcomb = TimeCombination(fesolver)
   residual_reduction = LocalHighDimHyperReduction(cres,reduction;nparams=nparams_res,kwargs...)
-  jac_reduction = LocalHighDimHyperReduction(cjac,reduction;nparams=nparams_jac,kwargs...)
-  djac_reduction = LocalHighDimHyperReduction(cdjac,reduction;nparams=nparams_djac,kwargs...)
-  jacobian_reduction = (jac_reduction,djac_reduction)
-
+  jacobian_reduction = ntuple(
+    i -> LocalHighDimHyperReduction(
+      CombinationOrder{i}(tcomb),reduction;
+      nparams=nparams_jacs[i],kwargs...),
+    Val(get_time_order(fesolver)+1)
+  )
   RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)
 end
 
@@ -51,13 +43,13 @@ get_system_solver(s::TransientRBSolver) = ShiftedSolver(s.fesolver)
 function RBSteady.solution_snapshots(
   solver::RBSolver,
   feop::ODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   args...)
 
   fesolver = get_fe_solver(solver)
   sol = solve(fesolver,feop,r,args...)
   values,stats = collect(sol)
-  initial_values = initial_condition(sol)
+  initial_values = initial_conditions(sol)
   i = get_dof_map(feop)
   snaps = Snapshots(values,initial_values,i,r)
   return snaps,stats
@@ -67,21 +59,16 @@ end
 function RBSteady.solution_snapshots(
   fesolver::ODESolver,
   op::ODEParamOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   args...)
 
   sol = solve(fesolver,op,r,args...)
   values,stats = collect(sol)
-  initial_values = initial_condition(sol)
+  initial_values = initial_conditions(sol)
   i = get_dof_map(op)
   snaps = Snapshots(values,initial_values,i,r)
   return snaps,stats
 end
-
-_get_shift(red::SteadyReduction) = :spaceonly 
-_get_shift(red::HighDimReduction) = :spacetime 
-_get_shift(red::Reduction) = _get_shift(get_reduction(red))
-_get_shift(solver::TransientRBSolver) = _get_shift(solver.state_reduction)
 
 function RBSteady.residual_snapshots(
   solver::RBSolver,
@@ -90,11 +77,9 @@ function RBSteady.residual_snapshots(
 
   fesolver = get_fe_solver(solver)
   sres = select_snapshots(s,RBSteady.res_params(solver))
-  us_res = get_param_data(sres)
-  us0_res = get_initial_param_data(sres)
-  r_res = get_realization(sres)
+  r_res = get_realisation(sres)
   shift = _get_shift(solver)
-  b = residual(fesolver,odeop,r_res,us_res,us0_res;shift)
+  b = residual(fesolver,odeop,r_res,s;shift)
   ib = get_dof_map_at_domains(odeop)
   return Snapshots(b,ib,r_res)
 end
@@ -118,7 +103,7 @@ function RBSteady.jacobian_snapshots(
   sjac = select_snapshots(s,RBSteady.jac_params(solver))
   us_jac = get_param_data(sjac)
   us0_jac = get_initial_param_data(sjac)
-  r_jac = get_realization(sjac)
+  r_jac = get_realisation(sjac)
   shift = _get_shift(solver)
   A = jacobian(fesolver,odeop,r_jac,us_jac,us0_jac;shift)
   iA = get_sparse_dof_map_at_domains(odeop)
@@ -147,13 +132,13 @@ end
 function Algebra.solve(
   solver::RBSolver,
   op::NonlinearOperator,
-  r::TransientRealization,
-  xh0::Union{Function,AbstractVector})
+  r::TransientRealisation,
+  us0)
 
   trial = get_trial(op)(r)
   x̂ = zero_free_values(trial)
 
-  nlop = parameterize(op,r)
+  nlop = parameterise(op,r)
   syscache = allocate_systemcache(nlop,x̂)
 
   fesolver = get_system_solver(solver)
@@ -168,13 +153,13 @@ end
 function Algebra.solve(
   solver::RBSolver,
   op::AbstractLocalRBOperator,
-  r::TransientRealization,
-  xh0::Union{Function,AbstractVector}
+  r::TransientRealisation,
+  us0
   )
 
   t = @timed x̂vec = map(get_params(r)) do μ
     opμt = get_local(op,μ)
-    rμt = _to_realization(r,μ)
+    rμt = _to_realisation(r,μ)
     x̂, = solve(solver,opμt,rμt,xh0)
     x̂
   end
@@ -183,7 +168,14 @@ function Algebra.solve(
   return (x̂,stats)
 end
 
-function _to_realization(r::TransientRealization,μ::AbstractVector)
+function _to_realisation(r::TransientRealisation,μ::AbstractVector)
   all_times = [get_initial_time(r),get_times(r)...]
-  TransientRealization(Realization([μ]),all_times)
+  TransientRealisation(Realisation([μ]),all_times)
 end
+
+# utils 
+
+get_time_order(::ODESolver) = @abstractmethod
+get_time_order(::ThetaMethod) = 1
+get_time_order(::GeneralizedAlpha1) = 1
+get_time_order(::GeneralizedAlpha2) = 2

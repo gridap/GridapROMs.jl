@@ -1,3 +1,28 @@
+"""
+    module ParamSteady
+
+Parametric FE operators and solvers for steady parametric PDEs.
+
+Extends Gridap's `FEOperator`/`FESpaces` layer with parameter awareness, so that
+residuals and Jacobians can be evaluated at a `Realisation` (a batch of parameter
+samples).  The module introduces:
+
+- **Operator types** — `LinearParamEq`, `NonlinearParamEq`, `LinearNonlinearParamEq`
+  tag whether a parametric operator is linear, nonlinear, or a split linear + nonlinear
+  combination.
+- **Low-level algebraic operators** — `ParamOperator`, `JointParamOperator`,
+  `SplitParamOperator`, `LinearParamOperator`, `LinearNonlinearParamOperator` wrap
+  assembled matrices/vectors and expose the `residual!`/`jacobian!` interface at
+  parameter level.
+- **FE-level operators** — `ParamFEOperator` (joint or split), `LinearParamFEOperator`,
+  `LinearNonlinearParamFEOperator` manage Gridap assemblers, FE domains, and
+  parameter-to-sample dispatch.
+- **Solvers** — thin wrappers in `ParamFESolvers.jl` dispatch parametric solves to
+  the underlying Gridap / GridapSolvers linear or nonlinear solvers.
+
+Downstream modules (`ParamODEs`, `RBSteady`, `Extensions`) all build on the
+abstractions defined here.
+"""
 module ParamSteady
 
 using LinearAlgebra

@@ -1,3 +1,44 @@
+"""
+    module RBTransient
+
+Reduced-basis infrastructure for transient parametric PDEs.
+
+Extends `RBSteady` to the space–time setting.  The additional complexity arises
+from the time dimension: snapshots are matrices (space × time) and bases must
+capture temporal as well as spatial structure.  Key extensions:
+
+- **Reduction methods** — `TransientReduction`, `KroneckerReduction`,
+  `SequentialReduction` extend the steady reductions; `HighDimReduction`,
+  `SteadyReduction` handle the "high-dimensional" (full-space) and purely-spatial
+  cases.  Corresponding hyper-reduction variants: `TransientHyperReduction`,
+  `HighDimMDEIMHyperReduction`, `HighDimSOPTHyperReduction`.
+
+- **Tucker / Kronecker bases** (`BasesConstruction.jl`) — `tucker` computes a
+  Tucker decomposition, used for Kronecker-product basis representations.
+
+- **Transient projections** (`Projections.jl`) — `TransientProjection` wraps a
+  spatial projection with a temporal one.
+
+- **Transient integration domains** (`IntegrationDomains.jl`) —
+  `TransientIntegrationDomain` extends DEIM-style reduced integration to include
+  a reduced time-index set.
+
+- **Transient interpolations** (`Interpolations.jl`) —
+  `TransientGreedyInterpolation`, `TransientRBFInterpolation`,
+  `TransientBlockInterpolation`.
+
+- **Transient operators** (`ReducedOperators.jl`) — `TransientRBOperator` adds
+  time-stepping to the reduced operator interface.
+
+- **Time marching** (`ParamTimeMarching.jl`) — hooks into `ParamODEs` to drive
+  the online transient solve with the reduced operator.
+
+- **Post-processing and I/O** (`PostProcess.jl`) — transient counterpart of the
+  steady post-processing utilities.
+
+All space-only functionality (RB spaces, hyper-reduction infrastructure, linear
+algebra) is imported directly from `RBSteady`.
+"""
 module RBTransient
 
 using BlockArrays
@@ -36,8 +77,18 @@ using GridapROMs.RBSteady
 import Base: +,-,*,\
 import FillArrays: Fill
 import UnPack: @unpack
-import GridapROMs.ParamDataStructures: GenericTransientRealization, TransientRealizationAt
+import GridapROMs.ParamDataStructures: GenericTransientRealisation, TransientRealisationAt
 import GridapROMs.RBSteady: num_centroids,get_lhs,get_rhs,_get_label
+
+export TimeCombination
+export CombinationOrder
+export ThetaMethodCombination
+export GenAlpha1Combination
+export GenAlpha2Combination
+export ThetaMethodStrategy
+export GenAlpha1Strategy
+export GenAlpha2Strategy
+include("TimeCombinations.jl")
 
 export HighDimReduction
 export SteadyReduction

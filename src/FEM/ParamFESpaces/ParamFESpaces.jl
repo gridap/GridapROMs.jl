@@ -1,3 +1,30 @@
+"""
+    module ParamFESpaces
+
+Parametric FE spaces and FE functions for multi-sample parameter studies.
+
+Wraps Gridap's `FESpace` layer so that every DOF array can hold a full batch of
+parameter samples simultaneously.  The module provides:
+
+- **`SingleFieldParamFESpace`** — a single-field FE space whose free-value and
+  Dirichlet-value arrays are `ParamArray`s (one block per parameter sample).
+- **`MultiFieldParamFESpace`** — multi-field counterpart, holding a vector of
+  `SingleFieldParamFESpace`s and forwarding the Gridap `MultiFieldFESpace` interface.
+- **`TrivialParamFESpace`** — wraps a plain Gridap `FESpace` as a trivially
+  parametric space (same DOF values for every parameter sample).
+- **`TrialParamFESpace` / `HomogeneousTrialParamFESpace`** — trial spaces with
+  parameter-dependent Dirichlet boundary conditions; `TrialParamFESpace!` mutates
+  an existing space in-place.
+- **`UnEvalTrialFESpace` / `ParamTrialFESpace`** — lazy (unevaluated) trial FE
+  spaces that instantiate Dirichlet values only when a `Realisation` is supplied.
+- **`ParamFEFunction`** (`SingleFieldParamFEFunction`, `MultiFieldParamFEFunction`) —
+  Gridap `FEFunction` carrying a `ParamArray` of free DOF values.
+- **Assemblers** — `ParamAssemblers.jl` extends Gridap's `SparseMatrixAssembler`
+  to fill parametric matrices and vectors in a single assembly pass.
+
+The `AgFEM` tools from `GridapEmbedded` are available for aggregated FE spaces on
+cut meshes; see `Extensions` for the full embedded FEM machinery.
+"""
 module ParamFESpaces
 
 using LinearAlgebra

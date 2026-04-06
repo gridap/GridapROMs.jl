@@ -80,7 +80,7 @@ end
 
 function Base.setindex!(i::InverseDofMap,v,j::Integer)
   index = i.dof_map[j]
-  !iszero(value) && setindex!(i.dof_map,v,index)
+  !iszero(index) && setindex!(i.dof_map,v,index)
 end
 
 function Base.reshape(i::InverseDofMap,s::Vararg{Int})
@@ -243,15 +243,3 @@ function sparsify_split_indices(A::AbstractArray,B::AbstractArray,i::SparseMatri
   sparsify_split_indices(A,B,get_sparsity(i))
 end
 
-# utils
-
-# i1 ∘ i2
-function compose_maps(i1::AbstractArray{Ti,D},i2::AbstractArray{Ti,D}) where {Ti,D}
-  @assert size(i1) == size(i2)
-  i12 = zeros(Ti,size(i1))
-  for (i,m2i) in enumerate(i2)
-    iszero(m2i) && continue
-    i12[i] = i1[m2i]
-  end
-  return i12
-end

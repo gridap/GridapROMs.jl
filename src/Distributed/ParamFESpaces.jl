@@ -58,7 +58,7 @@ const DistributedUnEvalTrialFESpace = DistributedSingleFieldFESpace{<:AbstractAr
 
 for f in (:(Arrays.evaluate),:(ODEs.allocate_space))
   @eval begin
-    function $f(space::DistributedUnEvalTrialFESpace,x::AbstractRealization)
+    function $f(space::DistributedUnEvalTrialFESpace,x::AbstractRealisation)
       spaces = map(local_views(space)) do space
         $f(space,x)
       end
@@ -68,7 +68,7 @@ for f in (:(Arrays.evaluate),:(ODEs.allocate_space))
       DistributedSingleFieldFESpace(spaces,gids,trian,vector_type)
     end
 
-    function $f(space::DistributedMultiFieldFESpace,x::AbstractRealization)
+    function $f(space::DistributedMultiFieldFESpace,x::AbstractRealisation)
       if !ParamFESpaces.has_param(space)
         return space
       end
@@ -83,14 +83,14 @@ for f in (:(Arrays.evaluate),:(ODEs.allocate_space))
   end
 end
 
-function Arrays.evaluate!(spacex::DistributedFESpace,space::DistributedFESpace,x::AbstractRealization)
+function Arrays.evaluate!(spacex::DistributedFESpace,space::DistributedFESpace,x::AbstractRealisation)
   map(local_views(spacex),local_views(space)) do spacex,space
     Arrays.evaluate!(spacex,space,x)
   end
   return spacex
 end
 
-for T in (:AbstractRealization,:Nothing)
+for T in (:AbstractRealisation,:Nothing)
   S = T==:Nothing ? :Nothing : :Any
   for f in (:(Arrays.evaluate),:(ODEs.allocate_space))
     @eval begin
@@ -189,12 +189,12 @@ function FESpaces.SparseMatrixAssembler(
   SparseMatrixAssembler(Tm,Tv,trial,test,par_strategy)
 end
 
-function ParamDataStructures.parameterize(a::GridapDistributed.DistributedSparseMatrixAssembler,plength::Int)
+function ParamDataStructures.parameterise(a::GridapDistributed.DistributedSparseMatrixAssembler,plength::Int)
   assems = map(local_views(a)) do assem
-    parameterize(assem,plength)
+    parameterise(assem,plength)
   end
-  matrix_builder = parameterize(a.matrix_builder,plength)
-  vector_builder = parameterize(a.vector_builder,plength)
+  matrix_builder = parameterise(a.matrix_builder,plength)
+  vector_builder = parameterise(a.vector_builder,plength)
 
   GridapDistributed.DistributedSparseMatrixAssembler(
     a.strategy,

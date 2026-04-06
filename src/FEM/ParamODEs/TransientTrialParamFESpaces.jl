@@ -3,18 +3,18 @@
 """
 const TransientTrialParamFESpace = UnEvalTrialFESpace
 
-function ODEs.allocate_space(U::UnEvalTrialFESpace,μ::Realization,t)
+function ODEs.allocate_space(U::UnEvalTrialFESpace,μ::Realisation,t)
   HomogeneousTrialParamFESpace(U.space,length(μ)*length(t))
 end
 
-function ODEs.allocate_space(U::UnEvalTrialFESpace,r::TransientRealization)
+function ODEs.allocate_space(U::UnEvalTrialFESpace,r::TransientRealisation)
   allocate_space(U,get_params(r),get_times(r))
 end
 
 function Arrays.evaluate!(
   Upt::TrialParamFESpace,
   U::UnEvalTrialFESpace,
-  μ::Realization,t)
+  μ::Realisation,t)
 
   dir(f) = f(μ,t)
   dir(f::Vector) = dir.(f)
@@ -25,7 +25,7 @@ end
 function Arrays.evaluate!(
   Upt::TrialParamFESpace,
   U::UnEvalTrialFESpace,
-  r::TransientRealization)
+  r::TransientRealisation)
 
   evaluate!(Upt,U,get_params(r),get_times(r))
 end
@@ -76,7 +76,7 @@ function ODEs.allocate_space(U::MultiFieldFESpace,μ,t)
   MultiFieldParamFESpace(spaces;style)
 end
 
-function ODEs.allocate_space(U::MultiFieldFESpace,r::TransientRealization)
+function ODEs.allocate_space(U::MultiFieldFESpace,r::TransientRealisation)
   allocate_space(U,get_params(r),get_times(r))
 end
 
@@ -94,7 +94,7 @@ function Arrays.evaluate!(
   Upt
 end
 
-function ODEs.evaluate!(Upt::MultiFieldFESpace,U::MultiFieldFESpace,r::TransientRealization)
+function ODEs.evaluate!(Upt::MultiFieldFESpace,U::MultiFieldFESpace,r::TransientRealisation)
   evaluate!(Upt,U,get_params(r),get_times(r))
 end
 
@@ -116,6 +116,6 @@ function Arrays.evaluate(U::MultiFieldFESpace,μ,t)
   Upt
 end
 
-function Arrays.evaluate(U::MultiFieldFESpace,r::TransientRealization)
+function Arrays.evaluate(U::MultiFieldFESpace,r::TransientRealisation)
   evaluate(U,get_params(r),get_times(r))
 end

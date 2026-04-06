@@ -1,7 +1,28 @@
 """
-    TProductSparseMatrixAssembler{A<:SparseMatrixAssembler} <: SparseMatrixAssembler
+    struct TProductSparseMatrixAssembler{A<:SparseMatrixAssembler} <: SparseMatrixAssembler
+      assems_1d::Vector{A}
+    end
 
-Assembly-related information when constructing a [`AbstractRankTensor`](@ref)
+A `SparseMatrixAssembler` for tensor product FE spaces. Wraps `D` 1D
+`SparseMatrixAssembler`s, one per spatial direction.
+
+Assembly operates direction-by-direction: integrating a bilinear form against
+a [`TProductMeasure`](@ref) yields a vector of `D` `DomainContribution`s, and
+the assembler collects and assembles each into a 1D sparse matrix. The results
+are combined into an [`AbstractRankTensor`](@ref):
+
+- A [`Rank1Tensor`](@ref) for forms without derivatives (e.g. mass matrix).
+- A [`GenericRankTensor`](@ref) for forms involving `gradient` or
+  `PartialDerivative` (e.g. stiffness matrix), where the rank equals the
+  spatial dimension `D`.
+
+# Construction
+
+    TProductSparseMatrixAssembler(trial::TProductFESpace,test::TProductFESpace)
+    TProductSparseMatrixAssembler(mat,trial::TProductFESpace,test::TProductFESpace)
+    TProductSparseMatrixAssembler(mat,vec,trial,test[,strategy])
+
+For multi-field scenarios use [`TProductBlockSparseMatrixAssembler`](@ref).
 """
 struct TProductSparseMatrixAssembler{A<:SparseMatrixAssembler} <: SparseMatrixAssembler
   assems_1d::Vector{A}
@@ -97,12 +118,12 @@ function FESpaces.allocate_vector(a::TProductSparseMatrixAssembler,vecdata::Vect
   return tproduct_array(vecs_1d)
 end
 
-function FESpaces.assemble_vector!(b,a::TProductSparseMatrixAssembler,vecdata::Vector)
-  map(b.arrays_1d,assemble_vector!,a.assems_1d,vecdata)
+function FESpaces.assemble_vector!(b::Rank1Tensor,a::TProductSparseMatrixAssembler,vecdata::Vector)
+  map(assemble_vector!,get_factors(b),a.assems_1d,vecdata)
 end
 
-function FESpaces.assemble_vector_add!(b,a::TProductSparseMatrixAssembler,vecdata::Vector)
-  map(b.arrays_1d,assemble_vector_add!,a.assems_1d,vecdata)
+function FESpaces.assemble_vector_add!(b::Rank1Tensor,a::TProductSparseMatrixAssembler,vecdata::Vector)
+  map(assemble_vector_add!,get_factors(b),a.assems_1d,vecdata)
 end
 
 function FESpaces.assemble_vector(a::TProductSparseMatrixAssembler,vecdata::Vector)
@@ -115,12 +136,12 @@ function FESpaces.allocate_matrix(a::TProductSparseMatrixAssembler,matdata::Vect
   return tproduct_array(mats_1d)
 end
 
-function FESpaces.assemble_matrix!(A,a::TProductSparseMatrixAssembler,matdata::Vector)
-  map(assemble_matrix!,A.arrays_1d,a.assems_1d,matdata)
+function FESpaces.assemble_matrix!(A::Rank1Tensor,a::TProductSparseMatrixAssembler,matdata::Vector)
+  map(assemble_matrix!,get_factors(A),a.assems_1d,matdata)
 end
 
-function FESpaces.assemble_matrix_add!(A,a::TProductSparseMatrixAssembler,matdata::Vector)
-  map(assemble_matrix_add!,A.arrays_1d,a.assems_1d,matdata)
+function FESpaces.assemble_matrix_add!(A::Rank1Tensor,a::TProductSparseMatrixAssembler,matdata::Vector)
+  map(assemble_matrix_add!,get_factors(A),a.assems_1d,matdata)
 end
 
 function FESpaces.assemble_matrix(a::TProductSparseMatrixAssembler,matdata::Vector)
@@ -134,14 +155,14 @@ function FESpaces.allocate_vector(a::TProductSparseMatrixAssembler,vecdata::Gene
   return tproduct_array(vecdata.op,vecs_1d,gradvecs_1d,vecdata.summation)
 end
 
-function FESpaces.assemble_vector!(b,a::TProductSparseMatrixAssembler,vecdata::GenericTProductDiffEval)
-  map(assemble_vector!,b.arrays_1d,a.assems_1d,vecdata.f)
-  map(assemble_vector!,b.gradients_1d,a.assems_1d,vecdata.g)
+function FESpaces.assemble_vector!(b::GenericRankTensor,a::TProductSparseMatrixAssembler,vecdata::GenericTProductDiffEval)
+  map(assemble_vector!,get_arrays_1d(b),a.assems_1d,vecdata.f)
+  map(assemble_vector!,get_gradients_1d(b),a.assems_1d,vecdata.g)
 end
 
-function FESpaces.assemble_vector_add!(b,a::TProductSparseMatrixAssembler,vecdata::GenericTProductDiffEval)
-  map(assemble_vector_add!,b.arrays_1d,a.assems_1d,vecdata.f)
-  map(assemble_vector_add!,b.gradients_1d,a.assems_1d,vecdata.g)
+function FESpaces.assemble_vector_add!(b::GenericRankTensor,a::TProductSparseMatrixAssembler,vecdata::GenericTProductDiffEval)
+  map(assemble_vector_add!,get_arrays_1d(b),a.assems_1d,vecdata.f)
+  map(assemble_vector_add!,get_gradients_1d(b),a.assems_1d,vecdata.g)
 end
 
 function FESpaces.assemble_vector(a::TProductSparseMatrixAssembler,vecdata::GenericTProductDiffEval)
@@ -156,14 +177,14 @@ function FESpaces.allocate_matrix(a::TProductSparseMatrixAssembler,matdata::Gene
   return tproduct_array(matdata.op,mats_1d,gradmats_1d,matdata.summation)
 end
 
-function FESpaces.assemble_matrix!(A,a::TProductSparseMatrixAssembler,matdata::GenericTProductDiffEval)
-  map(assemble_matrix!,A.arrays_1d,a.assems_1d,matdata.f)
-  map(assemble_matrix!,A.gradients_1d,a.assems_1d,matdata.g)
+function FESpaces.assemble_matrix!(A::GenericRankTensor,a::TProductSparseMatrixAssembler,matdata::GenericTProductDiffEval)
+  map(assemble_matrix!,get_arrays_1d(A),a.assems_1d,matdata.f)
+  map(assemble_matrix!,get_gradients_1d(A),a.assems_1d,matdata.g)
 end
 
-function FESpaces.assemble_matrix_add!(A,a::TProductSparseMatrixAssembler,matdata::GenericTProductDiffEval)
-  map(assemble_matrix_add!,A.arrays_1d,a.assems_1d,matdata.f)
-  map(assemble_matrix_add!,A.gradients_1d,a.assems_1d,matdata.g)
+function FESpaces.assemble_matrix_add!(A::GenericRankTensor,a::TProductSparseMatrixAssembler,matdata::GenericTProductDiffEval)
+  map(assemble_matrix_add!,get_arrays_1d(A),a.assems_1d,matdata.f)
+  map(assemble_matrix_add!,get_gradients_1d(A),a.assems_1d,matdata.g)
 end
 
 function FESpaces.assemble_matrix(a::TProductSparseMatrixAssembler,matdata::GenericTProductDiffEval)

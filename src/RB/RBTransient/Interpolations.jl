@@ -72,7 +72,7 @@ for (T,f) in zip((:KroneckerProjection,:SequentialProjection),
 
       inds,interp = empirical_interpolation(a)
       factor = lu(interp)
-      r = get_realization(s)
+      r = get_realisation(s)
       red_data = $f(s,inds...)
       coeff = allocate_coefficient(a,r)
       ldiv!(coeff,factor,red_data)

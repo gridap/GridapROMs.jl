@@ -23,7 +23,7 @@ dΩ = Measure(Ω,degree)
 const Re = 100.0
 a(x,μ,t) = μ[1]/Re
 a(μ,t) = x->a(x,μ,t)
-aμt(μ,t) = parameterize(a,μ,t)
+aμt(μ,t) = parameterise(a,μ,t)
 
 conv(u,∇u) = (∇u')⋅u
 dconv(du,∇du,u,∇u) = conv(u,∇du)+conv(du,∇u)
@@ -35,15 +35,15 @@ const Ub = 0.4
 inflow(μ,t) = abs(1-cos(2π*t/tf)+sin((2π*t/tf)/μ[2])/μ[2])
 g_in(x,μ,t) = VectorValue(μ[3]*(x[2]-Ub)*(x[2]-Lb)*inflow(μ,t),0.0)
 g_in(μ,t) = x->g_in(x,μ,t)
-gμt_in(μ,t) = parameterize(g_in,μ,t)
+gμt_in(μ,t) = parameterise(g_in,μ,t)
 g_0(x,μ,t) = VectorValue(0.0,0.0)
 g_0(μ,t) = x->g_0(x,μ,t)
-gμt_0(μ,t) = parameterize(g_0,μ,t)
+gμt_0(μ,t) = parameterise(g_0,μ,t)
 
 u0(μ) = x -> VectorValue(0.0,0.0)
-u0μ(μ) = parameterize(u0,μ)
+u0μ(μ) = parameterise(u0,μ)
 p0(μ) = x -> 0.0
-p0μ(μ) = parameterize(p0,μ)
+p0μ(μ) = parameterise(p0,μ)
 
 stiffness(μ,t,(u,p),(v,q),dΩ) = ∫(aμt(μ,t)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
 mass(μ,t,(uₜ,pₜ),(v,q),dΩ) = ∫(v⋅uₜ)dΩ
@@ -81,7 +81,7 @@ xh0μ(μ) = interpolate_everywhere([u0μ(μ),p0μ(μ)],trial(μ,t0))
 
 tol = 1e-4
 state_reduction = HighDimReduction(coupling,tol,energy;nparams=60,sketch=:sprn)
-rbsolver = RBSolver(fesolver,state_reduction;nparams_res=50,nparams_jac=20,nparams_djac=1)
+rbsolver = RBSolver(fesolver,state_reduction;nparams_res=50,nparams_jacs=(20,1))
 
 dir = datadir("transient_nstokes_pod")
 create_dir(dir)

@@ -46,8 +46,8 @@ function FESpaces.get_trial(op::LinearNonlinearParamFEOperator)
   get_trial(op.op_nonlinear)
 end
 
-function ParamDataStructures.realization(op::LinearNonlinearParamFEOperator;kwargs...)
-  realization(op.op_nonlinear;kwargs...)
+function ParamDataStructures.realisation(op::LinearNonlinearParamFEOperator;kwargs...)
+  realisation(op.op_nonlinear;kwargs...)
 end
 
 function FESpaces.assemble_matrix(op::LinearNonlinearParamFEOperator,form::Function)

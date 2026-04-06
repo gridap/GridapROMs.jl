@@ -41,14 +41,14 @@ function Algebra.allocate_in_domain(a::TransientProjection,x::V) where V<:Abstra
   x̂ = allocate_vector(eltype(V),num_reduced_dofs(a))
   nt = num_times(a)
   np = Int(param_length(x) / nt)
-  return parameterize(x̂,np)
+  return parameterise(x̂,np)
 end
 
 function Algebra.allocate_in_range(a::TransientProjection,x̂::V) where V<:AbstractParamVector
   x = allocate_vector(eltype(V),num_space_dofs(a))
   nt = num_times(a)
   npt = param_length(x̂) * nt
-  return parameterize(x,npt)
+  return parameterise(x,npt)
 end
 
 """

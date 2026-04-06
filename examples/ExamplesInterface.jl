@@ -17,20 +17,20 @@ import Gridap.CellData: get_domains
 import Gridap.Helpers: @abstractmethod
 import Gridap.MultiField: BlockMultiFieldStyle
 import GridapROMs.ParamAlgebra: get_linear_operator,get_nonlinear_operator
-import GridapROMs.ParamDataStructures: AbstractSnapshots,ReshapedSnapshots,TransientSnapshotsWithIC,GenericTransientRealization,get_realization
+import GridapROMs.ParamDataStructures: AbstractSnapshots,ReshapedSnapshots,TransientSnapshotsWithIC,GenericTransientRealisation,get_realisation
 import GridapROMs.ParamSteady: ParamOperator
 import GridapROMs.RBSteady: get_state_reduction,get_residual_reduction,get_jacobian_reduction,load_stats,get_filename,_get_label
 import GridapROMs.Utils: Contribution,TupOfArrayContribution,change_domains
 
 function change_dof_map(s::GenericSnapshots,dof_map)
   pdata = get_param_data(s)
-  r = get_realization(s)
+  r = get_realisation(s)
   Snapshots(pdata,dof_map,r)
 end
 
 function change_dof_map(s::ReshapedSnapshots,dof_map)
   pdata = get_param_data(s)
-  r = get_realization(s)
+  r = get_realisation(s)
   Snapshots(pdata,dof_map,r)
 end
 
@@ -113,9 +113,9 @@ function try_loading_online_fe_snapshots(
   label = "online"
   if reuse_online
     x,festats = try_loading_fe_snapshots(dir,rbsolver,feop,args...;nparams,label)
-    μon = get_realization(x)
+    μon = get_realisation(x)
   else
-    μon = realization(feop;nparams,sampling=:uniform)
+    μon = realisation(feop;nparams,sampling=:uniform)
     x,festats = solution_snapshots(rbsolver,feop,μon,args...;kwargs...)
     save(dir,x;label)
     save(dir,festats;label)

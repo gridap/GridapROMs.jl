@@ -580,11 +580,3 @@ function _empty_decomposition(A::AbstractMatOrLinOp{T}) where T
   return PartialSVD(U,S,Vt)
 end
 
-# for testing purposes
-
-function check_orthogonality(cores::AbstractVector{<:AbstractArray{T,3}},X::AbstractRankTensor) where T
-  Xglobal = kron(X)
-  basis = cores2basis(cores...)
-  isorth = norm(basis'*Xglobal*basis - I) ≤ 1e-10
-  return isorth
-end

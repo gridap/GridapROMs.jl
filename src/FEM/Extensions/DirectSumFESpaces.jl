@@ -93,7 +93,7 @@ function FESpaces.SparseMatrixAssembler(
 
   trial′ = DirectSumFESpace(get_fe_space(trial.space.space),get_fe_space(trial.complementary.space))
   assem = SparseMatrixAssembler(mat,vec,trial′,test,strategy)
-  parameterize(assem,param_length(trial.space.space))
+  parameterise(assem,param_length(trial.space.space))
 end
 
 # utils

@@ -12,7 +12,7 @@ using GridapROMs.RBTransient
 
 import Gridap.Helpers: @abstractmethod
 import GridapROMs.Utils: Contribution,TupOfArrayContribution,get_domains_res,get_domains_jac
-import GridapROMs.ParamDataStructures: ReshapedSnapshots,TransientSnapshotsWithIC,GenericTransientRealization,_get_params
+import GridapROMs.ParamDataStructures: ReshapedSnapshots,TransientSnapshotsWithIC,GenericTransientRealisation,_get_params
 import GridapROMs.ParamSteady: get_dof_map_at_domains,get_sparse_dof_map_at_domains
 import GridapROMs.RBSteady: load_stats
 
@@ -72,14 +72,14 @@ function get_offline_dirs(dir::String;kwargs...)
   end
 end
 
-function merge_realizations(rvec::Vector{<:Realization})
-  Realization(vcat(map(_get_params,rvec)...))
+function merge_realisations(rvec::Vector{<:Realisation})
+  Realisation(vcat(map(_get_params,rvec)...))
 end
 
-function merge_realizations(rvec::Vector{<:GenericTransientRealization})
+function merge_realisations(rvec::Vector{<:GenericTransientRealisation})
   r1 = first(rvec)
-  GenericTransientRealization(
-    merge_realizations(map(get_params,rvec)),
+  GenericTransientRealisation(
+    merge_realisations(map(get_params,rvec)),
     get_times(r1),
     r1.t0
     )
@@ -101,9 +101,9 @@ end
 
 function merge_snapshots(svec::Vector{<:GenericSnapshots})
   dvec = map(get_all_data,svec)
-  rvec = map(get_realization,svec)
+  rvec = map(get_realisation,svec)
   d = hcat(dvec...)
-  r = merge_realizations(rvec)
+  r = merge_realisations(rvec)
   i = get_dof_map(first(svec))
   GenericSnapshots(d,i,r)
 end
@@ -111,10 +111,10 @@ end
 function merge_snapshots(svec::Vector{<:ReshapedSnapshots})
   dvec = map(get_all_data,svec)
   pvec = map(get_param_data,svec)
-  rvec = map(get_realization,svec)
+  rvec = map(get_realisation,svec)
   d = hcat(dvec...)
   p = merge_param_data(pvec)
-  r = merge_realizations(rvec)
+  r = merge_realisations(rvec)
   i = get_dof_map(first(svec))
   ReshapedSnapshots(d,p,i,r)
 end
@@ -176,13 +176,13 @@ end
 
 function change_snaps_dof_map(s::GenericSnapshots,dof_map)
   pdata = get_param_data(s)
-  r = get_realization(s)
+  r = get_realisation(s)
   Snapshots(pdata,dof_map,r)
 end
 
 function change_snaps_dof_map(s::ReshapedSnapshots,dof_map)
   pdata = get_param_data(s)
-  r = get_realization(s)
+  r = get_realisation(s)
   Snapshots(pdata,dof_map,r)
 end
 
@@ -233,16 +233,16 @@ function get_2d_poisson_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2
   pspace = sampling==:halton ? ParamSpace(pdomain;sampling,start) : ParamSpace(pdomain;sampling)
 
   ν(μ) = x -> μ[1]#*exp(-μ[2]*x[1])
-  νμ(μ) = parameterize(ν,μ)
+  νμ(μ) = parameterise(ν,μ)
 
   f(μ) = x -> μ[3]
-  fμ(μ) = parameterize(f,μ)
+  fμ(μ) = parameterise(f,μ)
 
   g(μ) = x -> μ[4]#exp(-μ[4]*x[2])
-  gμ(μ) = parameterize(g,μ)
+  gμ(μ) = parameterise(g,μ)
 
   h(μ) = x -> μ[5]
-  hμ(μ) = parameterize(h,μ)
+  hμ(μ) = parameterise(h,μ)
 
   stiffness(μ,u,v,dΩ) = ∫(νμ(μ)*∇(v)⋅∇(u))dΩ
   rhs(μ,v,dΩ,dΓn) = ∫(fμ(μ)*v)dΩ + ∫(hμ(μ)*v)dΓn
@@ -282,16 +282,16 @@ function get_3d_poisson_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2
   pspace = sampling==:halton ? ParamSpace(pdomain;sampling,start) : ParamSpace(pdomain;sampling)
 
   ν(μ) = x -> μ[1]*exp(-μ[2]*x[1])
-  νμ(μ) = parameterize(ν,μ)
+  νμ(μ) = parameterise(ν,μ)
 
   f(μ) = x -> μ[3]
-  fμ(μ) = parameterize(f,μ)
+  fμ(μ) = parameterise(f,μ)
 
   g(μ) = x -> exp(-μ[4]*x[2])
-  gμ(μ) = parameterize(g,μ)
+  gμ(μ) = parameterise(g,μ)
 
   h(μ) = x -> μ[5]
-  hμ(μ) = parameterize(h,μ)
+  hμ(μ) = parameterise(h,μ)
 
   stiffness(μ,u,v,dΩ) = ∫(νμ(μ)*∇(v)⋅∇(u))dΩ
   rhs(μ,v,dΩ,dΓn) = ∫(fμ(μ)*v)dΩ + ∫(hμ(μ)*v)dΓn
@@ -315,7 +315,7 @@ function get_3d_poisson_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2
   return feop,rbsolver
 end
 
-function get_2d_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,nparams_djac=1,sampling=:halton,start=1)
+function get_2d_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jacs=(2,1),sampling=:halton,start=1)
   order = 1
   degree = 2*order
 
@@ -337,19 +337,19 @@ function get_2d_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,
   ptspace = sampling==:halton ? TransientParamSpace(pdomain,tdomain;sampling,start) : TransientParamSpace(pdomain,tdomain;sampling)
 
   ν(μ,t) = x -> μ[1]*exp(-μ[2]*sin(2pi*t/tf)*x[1])
-  νμt(μ,t) = parameterize(ν,μ,t)
+  νμt(μ,t) = parameterise(ν,μ,t)
 
   f(μ,t) = x -> μ[3]
-  fμt(μ,t) = parameterize(f,μ,t)
+  fμt(μ,t) = parameterise(f,μ,t)
 
   g(μ,t) = x -> exp(-μ[4]*x[2])*(1-cos(2pi*t/tf)+sin(2pi*t/tf)/μ[5])
-  gμt(μ,t) = parameterize(g,μ,t)
+  gμt(μ,t) = parameterise(g,μ,t)
 
   h(μ,t) = x -> μ[6]
-  hμt(μ,t) = parameterize(h,μ,t)
+  hμt(μ,t) = parameterise(h,μ,t)
 
   u0(μ) = x -> 0.0
-  u0μ(μ) = parameterize(u0,μ)
+  u0μ(μ) = parameterise(u0,μ)
 
   stiffness(μ,t,u,v,dΩ) = ∫(νμt(μ,t)*∇(v)⋅∇(u))dΩ
   mass(μ,t,uₜ,v,dΩ) = ∫(v*uₜ)dΩ
@@ -372,12 +372,12 @@ function get_2d_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,
   state_reduction = method==:pod ? HighDimReduction(1e-4,energy;nparams) : HighDimReduction(fill(1e-4,3),energy;nparams)
 
   fesolver = ThetaMethod(LUSolver(),dt,θ)
-  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,nparams_djac)
+  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jacs)
 
   return feop,rbsolver,uh0μ
 end
 
-function get_3d_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,nparams_djac=1,sampling=:halton,start=1)
+function get_3d_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jacs=(2,1),sampling=:halton,start=1)
   order = 1
   degree = 2*order
 
@@ -399,19 +399,19 @@ function get_3d_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,
   ptspace = sampling==:halton ? TransientParamSpace(pdomain,tdomain;sampling,start) : TransientParamSpace(pdomain,tdomain;sampling)
 
   ν(μ,t) = x -> μ[1]*exp(-μ[2]*sin(2pi*t/tf)*x[1])
-  νμt(μ,t) = parameterize(ν,μ,t)
+  νμt(μ,t) = parameterise(ν,μ,t)
 
   f(μ,t) = x -> μ[3]
-  fμt(μ,t) = parameterize(f,μ,t)
+  fμt(μ,t) = parameterise(f,μ,t)
 
   g(μ,t) = x -> exp(-μ[4]*x[2])*(1-cos(2pi*t/tf)+sin(2pi*t/tf)/μ[5])
-  gμt(μ,t) = parameterize(g,μ,t)
+  gμt(μ,t) = parameterise(g,μ,t)
 
   h(μ,t) = x -> μ[6]
-  hμt(μ,t) = parameterize(h,μ,t)
+  hμt(μ,t) = parameterise(h,μ,t)
 
   u0(μ) = x -> 0.0
-  u0μ(μ) = parameterize(u0,μ)
+  u0μ(μ) = parameterise(u0,μ)
 
   stiffness(μ,t,u,v,dΩ) = ∫(νμt(μ,t)*∇(v)⋅∇(u))dΩ
   mass(μ,t,uₜ,v,dΩ) = ∫(v*uₜ)dΩ
@@ -434,12 +434,12 @@ function get_3d_heateq_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,
   state_reduction = method==:pod ? HighDimReduction(1e-4,energy;nparams) : HighDimReduction(fill(1e-4,4),energy;nparams)
 
   fesolver = ThetaMethod(LUSolver(),dt,θ)
-  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,nparams_djac)
+  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jacs)
 
   return feop,rbsolver,uh0μ
 end
 
-function get_elasticity_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2,nparams_djac=1,sampling=:halton,start=1)
+function get_elasticity_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jacs=(2,1),sampling=:halton,start=1)
   order = 1
   degree = 2*order
 
@@ -469,22 +469,22 @@ function get_elasticity_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2
   p(μ) = μ[1]/(2(1+μ[2]))
 
   σ(μ,t) = ε -> exp(sin(2pi*t/tf))*(λ(μ)*tr(ε)*one(ε) + 2*p(μ)*ε)
-  σμt(μ,t) = parameterize(σ,μ,t)
+  σμt(μ,t) = parameterise(σ,μ,t)
 
   g(μ,t) = x -> VectorValue(0.0,0.0,0.0)
-  gμt(μ,t) = parameterize(g,μ,t)
+  gμt(μ,t) = parameterise(g,μ,t)
 
   h1(μ,t) = x -> VectorValue(μ[3]*sin(2pi*t/tf),0.0,0.0)
-  h1μt(μ,t) = parameterize(h1,μ,t)
+  h1μt(μ,t) = parameterise(h1,μ,t)
 
   h2(μ,t) = x -> VectorValue(0.0,μ[4]*sin(2pi*t/tf),0.0)
-  h2μt(μ,t) = parameterize(h2,μ,t)
+  h2μt(μ,t) = parameterise(h2,μ,t)
 
   h3(μ,t) = x -> VectorValue(0.0,0.0,μ[5]*t)
-  h3μt(μ,t) = parameterize(h3,μ,t)
+  h3μt(μ,t) = parameterise(h3,μ,t)
 
   u0(μ) = x -> VectorValue(0.0,0.0,0.0)
-  u0μ(μ) = parameterize(u0,μ)
+  u0μ(μ) = parameterise(u0,μ)
 
   stiffness(μ,t,u,v,dΩ) = ∫( ε(v) ⊙ (σμt(μ,t)∘ε(u)) )dΩ
   mass(μ,t,uₜ,v,dΩ) = ∫(v⋅uₜ)dΩ
@@ -507,22 +507,22 @@ function get_elasticity_info(M,method=:pod;nparams=5,nparams_res=5,nparams_jac=2
   state_reduction = method==:pod ? HighDimReduction(1e-4,energy;nparams) : HighDimReduction(fill(1e-4,5),energy;nparams)
 
   fesolver = ThetaMethod(LUSolver(),dt,θ)
-  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,nparams_djac)
+  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jacs)
 
   return feop,rbsolver,uh0μ
 end
 
-function get_test_info(args...;label="2d_heateq",nparams_djac=1,kwargs...)
+function get_test_info(args...;label="2d_heateq",nparams_jacs=(20,1),kwargs...)
   if label=="2d_poisson"
     get_2d_poisson_info(args...;kwargs...)
   elseif label=="3d_poisson"
     get_3d_poisson_info(args...;kwargs...)
   elseif label=="2d_heateq"
-    get_2d_heateq_info(args...;nparams_djac,kwargs...)
+    get_2d_heateq_info(args...;nparams_jacs,kwargs...)
   elseif label=="3d_heateq"
-    get_3d_heateq_info(args...;nparams_djac,kwargs...)
+    get_3d_heateq_info(args...;nparams_jacs,kwargs...)
   else label=="elasticity"
-    get_elasticity_info(args...;nparams_djac,kwargs...)
+    get_elasticity_info(args...;nparams_jacs,kwargs...)
   end
 end
 
@@ -602,11 +602,11 @@ end
 
 function main_rb(;method=:pod,M_test=(25,50,100),tols=(1e-1,1e-2,1e-3,1e-4,1e-5),label="2d_heateq")
   for M in M_test
-    feop,rbsolver,args... = get_test_info(M,method;label,nparams=80,nparams_res=80,nparams_jac=20,nparams_djac=1)
+    feop,rbsolver,args... = get_test_info(M,method;label,nparams=80,nparams_res=80,nparams_jacs=(20,1))
 
     dir = datadir(label*"_$M")
     fesnaps,(x,festats) = get_offline_online_solutions(dir,feop,method)
-    μ = get_realization(x)
+    μ = get_realisation(x)
 
     for tol in tols
       println("Running test $dir with tol = $tol")

@@ -13,7 +13,7 @@ for T in (
 
       cell_row_ids = get_bg_cell_dof_ids(test,trian)
       cells = RBSteady.get_rows_to_cells(cell_row_ids,rows)
-      irows = get_spacetime_irows(cell_row_ids,cells,rows,indices_times)
+      irows = get_spacetime_irows(cell_row_ids,cells,rows)
       domain_space = IntegrationDomain(cells,irows,rows)
       TransientIntegrationDomain(SequentialDomain(),domain_space,indices_time)
     end
@@ -31,7 +31,7 @@ for T in (
       cell_row_ids = get_bg_cell_dof_ids(test,trian)
       cell_col_ids = get_bg_cell_dof_ids(trial,trian)
       cells = RBSteady.get_rowcols_to_cells(cell_row_ids,cell_col_ids,rows,cols)
-      irowcols = get_spacetime_irowcols(cell_row_ids,cell_col_ids,cells,rows,cols,indices_time)
+      irowcols = get_spacetime_irowcols(cell_row_ids,cell_col_ids,cells,rows,cols)
       domain_space = IntegrationDomain(cells,irowcols,(rows,cols))
       TransientIntegrationDomain(SequentialDomain(),domain_space,indices_time)
     end

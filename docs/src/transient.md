@@ -41,7 +41,7 @@ tdomain = t0:dt:tf
 Dt = TransientParamSpace(pdomain,tdomain)
 ```
 
-The main difference with respect to the steady case is that we consider as realizations sets of tuples ``(μ,t)``. This allows for a much cleaner representation of the ``(μ,t)``-dependence in the problem. 
+The main difference with respect to the steady case is that we consider as realisations sets of tuples ``(μ,t)``. This allows for a much cleaner representation of the ``(μ,t)``-dependence in the problem. 
 
 !!! note
   Times are not sampled from a [`TransientParamSpace`](@ref), in the sense that we consider the sets ``(μ,t) ∀ t ∈ t0:dt:tf``, where ``μ`` is a sampled quantity.
@@ -52,9 +52,9 @@ The way in which we simultaneously evaluate parameter- and time-dependent functi
 const W = 0.5
 inflow(μ,t) = abs(1-cos(2π*t/tf)+μ[3]*sin(μ[2]*2π*t/tf)/100)
 g_in(μ,t) = x -> VectorValue(-x[2]*(W-x[2])*inflow(μ,t),0.0)
-gₚₜ_in(μ,t) = parameterize(g_in,μ,t)
+gₚₜ_in(μ,t) = parameterise(g_in,μ,t)
 g_0(μ,t) = x -> VectorValue(0.0,0.0)
-gₚₜ_0(μ,t) = parameterize(g_0,μ,t)
+gₚₜ_0(μ,t) = parameterise(g_0,μ,t)
 ```
 
 which we use to define the FE spaces. We employ the Inf-Sup stable `P2-P1` (Taylor-Hood) pair for velocity and pressure, respectively:
@@ -91,7 +91,7 @@ and then the problem's weak formulation
 const Re = 100.0
 a(x,μ,t) = μ[1]/Re
 a(μ,t) = x->a(x,μ,t)
-aμt(μ,t) = parameterize(a,μ,t)
+aμt(μ,t) = parameterise(a,μ,t)
 
 conv(u,∇u) = (∇u')⋅u
 dconv(du,∇du,u,∇u) = conv(u,∇du)+conv(du,∇u)
@@ -128,10 +128,10 @@ Next, we define the time marching scheme for our problem, along with a suitable 
 ```julia 
 u0(x,μ) = VectorValue(0.0,0.0)
 u0(μ) = x->u0(x,μ)
-u0μ(μ) = parameterize(u0,μ)
+u0μ(μ) = parameterise(u0,μ)
 p0(x,μ) = 0.0
 p0(μ) = x->p0(x,μ)
-p0μ(μ) = parameterize(p0,μ)
+p0μ(μ) = parameterise(p0,μ)
 xh0μ(μ) = interpolate_everywhere([u0μ(μ),p0μ(μ)],X(μ,t0))
 
 nls = NewtonSolver(LUSolver();rtol=1e-10)
@@ -177,7 +177,7 @@ catch # offline phase
     save(dir,rbop)
 end
 
-μₒₙ = realization(Dt;nparams=10,sampling=:uniform)
+μₒₙ = realisation(Dt;nparams=10,sampling=:uniform)
 x̂on,rbstats = solve(rbsolver,rbop,μₒₙ,xh0μ)
 
 xon,festats = solution_snapshots(rbsolver,feop,μₒₙ,xh0μ)

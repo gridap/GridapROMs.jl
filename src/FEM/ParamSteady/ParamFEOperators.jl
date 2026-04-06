@@ -4,7 +4,7 @@
 Parametric extension of a `FEOperator` in [`Gridap`](@ref). Compared to
 a standard FEOperator, there are the following novelties:
 
-- a ParamSpace is provided, so that parametric realizations can be extracted
+- a ParamSpace is provided, so that parametric realisations can be extracted
   directly from the ParamFEOperator
 - a function representing a norm matrix is provided, so that errors in the
   desired norm can be automatically computed
@@ -49,9 +49,9 @@ function FESpaces.get_algebraic_operator(op::ParamFEOperator)
   GenericParamOperator(op)
 end
 
-ParamDataStructures.realization(op::ParamFEOperator;kwargs...) = realization(get_param_space(op);kwargs...)
+ParamDataStructures.realisation(op::ParamFEOperator;kwargs...) = realisation(get_param_space(op);kwargs...)
 
-get_param_assembler(op::ParamFEOperator,r::AbstractRealization) = parameterize(get_assembler(op),r)
+get_param_assembler(op::ParamFEOperator,r::AbstractRealisation) = parameterise(get_assembler(op),r)
 
 CellData.get_domains(op::ParamFEOperator) = @abstractmethod
 Utils.get_domains_res(op::ParamFEOperator) = get_domains_res(get_domains(op))

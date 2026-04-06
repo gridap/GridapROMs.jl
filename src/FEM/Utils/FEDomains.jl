@@ -30,18 +30,39 @@ get_domains_res(d::FEDomains) = d.domains_res
 get_domains_jac(d::FEDomains) = d.domains_jac
 
 """
+    abstract type OperatorType <: GridapType end
+
+Trait encoding the linearity structure of a parametric FE operator.
+
+Subtypes:
+
+- [`LinearEq`](@ref)
+- [`NonlinearEq`](@ref)
+- [`LinearNonlinearEq`](@ref)
 """
 abstract type OperatorType <: GridapType end
 
 """
+    struct LinearEq <: OperatorType end
+
+Trait indicating that a parametric FE operator is fully linear.
 """
 struct LinearEq <: OperatorType end
 
 """
+    struct NonlinearEq <: OperatorType end
+
+Trait indicating that a parametric FE operator is nonlinear.
 """
 struct NonlinearEq <: OperatorType end
 
 """
+    struct LinearNonlinearEq <: OperatorType end
+
+Trait indicating that a parametric FE operator is the sum of a linear and a
+nonlinear part (used e.g. for linearised Navier–Stokes or generalised saddle-point
+problems where the linear block is assembled once and the nonlinear block is
+updated at every Newton step).
 """
 struct LinearNonlinearEq <: OperatorType end
 

@@ -13,12 +13,12 @@ struct TransientParamFESolution{V} <: TransientFESolution
   trial
 end
 
-initial_condition(sol::TransientParamFESolution) = initial_condition(sol.odesol)
+initial_conditions(sol::TransientParamFESolution) = initial_conditions(sol.odesol)
 
 function TransientParamFESolution(
   solver::ODESolver,
   op::TransientParamFEOperator,
-  r::TransientRealization,
+  r::TransientRealisation,
   u0)
 
   odeop = get_algebraic_operator(op)
@@ -32,10 +32,8 @@ function Base.iterate(sol::TransientParamFESolution)
   if isnothing(ode_it)
     return nothing
   end
-  uf,ode_it_state = ode_it
-  timeid = first(ode_it_state)
+  (rf,uf),ode_it_state = ode_it
 
-  rf = sol.odesol.stageop[timeid].r
   Uh = allocate_space(sol.trial,rf)
   Uh = evaluate!(Uh,sol.trial,rf)
   uhf = FEFunction(Uh,uf)
@@ -50,10 +48,8 @@ function Base.iterate(sol::TransientParamFESolution,state)
   if isnothing(ode_it)
     return nothing
   end
-  uf,ode_it_state = ode_it
-  timeid = first(ode_it_state)
+  (rf,uf),ode_it_state = ode_it
 
-  rf = sol.odesol.stageop[timeid].r
   Uh = evaluate!(Uh,sol.trial,rf)
   uhf = FEFunction(Uh,uf)
 
@@ -67,8 +63,7 @@ function Base.collect(sol::TransientParamFESolution{V}) where V
 
   free_values = Vector{V}(undef,ntimes)
   for (k,uhk) in enumerate(sol)
-    uk = get_free_dof_values(uhk)
-    free_values[k] = copy(uhk)
+    free_values[k] = copy(get_free_dof_values(uhk))
   end
 
   return free_values,odesol.tracker

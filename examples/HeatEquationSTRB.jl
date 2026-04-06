@@ -21,19 +21,19 @@ add_tag_from_tags!(labels,"dirichlet",["inlet","walls"])
 Γn = BoundaryTriangulation(model,tags="neumann")
 
 ν(μ,t) = x -> 1+exp(sin(t)*x[1]/sum(μ))
-νμt(μ,t) = parameterize(ν,μ,t)
+νμt(μ,t) = parameterise(ν,μ,t)
 
 f(μ,t) = x -> 1.
-fμt(μ,t) = parameterize(f,μ,t)
+fμt(μ,t) = parameterise(f,μ,t)
 
 h(μ,t) = x -> abs(cos(t/μ[3]))
-hμt(μ,t) = parameterize(h,μ,t)
+hμt(μ,t) = parameterise(h,μ,t)
 
 g(μ,t) = x -> μ[1]*exp(-x[1]/μ[2])*abs(sin(t/μ[3]))
-gμt(μ,t) = parameterize(g,μ,t)
+gμt(μ,t) = parameterise(g,μ,t)
 
 u0(μ) = x -> 0.0
-u0μ(μ) = parameterize(u0,μ)
+u0μ(μ) = parameterise(u0,μ)
 
 order = 1
 degree = 2*order+1
@@ -63,7 +63,7 @@ fesolver = ThetaMethod(LUSolver(),dt,θ)
 tol = 1e-5
 energy(du,v) = ∫(∇(v)⊙∇(du))dΩ
 state_reduction = HighDimReduction(tol,energy;nparams=40,sketch=:sprn)
-rbsolver = RBSolver(fesolver,state_reduction;nparams_res=20,nparams_jac=20,nparams_djac=1)
+rbsolver = RBSolver(fesolver,state_reduction;nparams_res=20,nparams_jacs=(20,1))
 
 dir = datadir("heateq_pod")
 create_dir(dir)

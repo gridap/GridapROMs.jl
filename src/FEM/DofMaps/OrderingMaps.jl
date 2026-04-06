@@ -53,19 +53,6 @@ function DofsToODofs(fe_dof_basis::AbstractVector{<:Dof},args...)
   @notimplemented "This function is only implemented for Lagrangian dof bases"
 end
 
-function get_ndofs(k::DofsToODofs{D,P}) where {D,P}
-  ncomps = num_components(P)
-  nnodes = length(k.node_and_comps_to_odof)
-  ncomps*nnodes
-end
-
-function get_odof(k::DofsToODofs{D,P},dof::Integer) where {D,P}
-  nnodes = length(k.node_and_comps_to_odof)
-  comp = slow_index(dof,nnodes)
-  node = fast_index(dof,nnodes)
-  k.node_and_comps_to_odof[node][comp]
-end
-
 function Arrays.return_cache(k::DofsToODofs{D},cell::CartesianIndex{D}) where D
   local_ndofs = length(k.odof_to_dof)
   zeros(Int32,local_ndofs)

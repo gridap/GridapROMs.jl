@@ -184,12 +184,12 @@ function to_bg_cellcols(cellids,a::AbstractExtensionAssembler)
   lazy_map(k,1:length(cellids))
 end
 
-function ParamDataStructures.parameterize(a::ExtensionAssembler,plength::Int)
-  assem = parameterize(get_assem(a),plength)
+function ParamDataStructures.parameterise(a::ExtensionAssembler,plength::Int)
+  assem = parameterise(get_assem(a),plength)
   ExtensionAssembler(assem,a.trial_dof_to_bg_dofs,a.test_dof_to_bg_dofs)
 end
 
-function ParamDataStructures.parameterize(
+function ParamDataStructures.parameterise(
   a::BlockExtensionAssembler{R,C},
   plength::Int) where {R,C}
 
@@ -197,7 +197,7 @@ function ParamDataStructures.parameterize(
   NBc,SBc,Pc = C
   block_idx = CartesianIndices((NBr,NBc))
   block_assemblers = map(block_idx) do idx
-    parameterize(a.block_assemblers[idx],plength)
+    parameterise(a.block_assemblers[idx],plength)
   end
   BlockSparseMatrixAssembler{R,C}(block_assemblers)
 end

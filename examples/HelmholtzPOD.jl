@@ -77,7 +77,7 @@ function ξ(μ)
   return ξtag
 end
 
-ξμ(μ) = parameterize(ξ,μ)
+ξμ(μ) = parameterise(ξ,μ)
 
 τ = CellField(tags,Ω)
 Λf = Λ(σ,k,LH,d_pml)

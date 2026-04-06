@@ -272,7 +272,7 @@ function eval_performance(
   rbstats::CostTracker
   )
 
-  r = get_realization(fesnaps)
+  r = get_realisation(fesnaps)
   rbsnaps = to_snapshots(rbop,x̂,r)
   eval_performance(solver,feop,fesnaps,rbsnaps,festats,rbstats)
 end
@@ -360,7 +360,7 @@ function _writevtk(::Type{T},Ω,dir,uh,ûh,eh) where T<:Complex
   writevtk(Ω,dir,cellfields=["uh"=>abs2(uh),"ûh"=>abs2(ûh),"eh"=>abs2(eh)])
 end
 
-function plot_a_solution(dir,Ω,uh,ûh,r::Realization)
+function plot_a_solution(dir,Ω,uh,ûh,r::Realisation)
   T = eltype2(get_free_dof_values(uh))
   uh1 = param_getindex(uh,1)
   ûh1 = param_getindex(ûh,1)
@@ -376,7 +376,7 @@ function plot_a_solution(
   trian=get_triangulation(trial),
   field=1)
 
-  r = get_realization(sol)
+  r = get_realisation(sol)
   Ur = trial(r)
   uh = FEFunction(Ur,get_param_data(sol))
   ûh = FEFunction(Ur,get_param_data(sol_approx))
@@ -430,7 +430,7 @@ function plot_a_solution(
   rbop::RBOperator,
   fesnaps::AbstractSnapshots,
   x̂::AbstractParamVector,
-  r::AbstractRealization;
+  r::AbstractRealisation;
   kwargs...)
 
   rbsnaps = to_snapshots(rbop,x̂,r)
@@ -439,11 +439,11 @@ end
 
 # utils
 
-function to_snapshots(rbop::RBOperator,x̂::AbstractParamVector,r::AbstractRealization)
+function to_snapshots(rbop::RBOperator,x̂::AbstractParamVector,r::AbstractRealisation)
   to_snapshots(get_trial(rbop),x̂,r)
 end
 
-function to_snapshots(rbop::AbstractLocalRBOperator,x̂::AbstractParamVector,r::AbstractRealization)
+function to_snapshots(rbop::AbstractLocalRBOperator,x̂::AbstractParamVector,r::AbstractRealisation)
   xvec = map(enumerate(r)) do (i,μ)
     x̂μ = param_getindex(x̂,i)
     opμ = get_local(rbop,μ)
