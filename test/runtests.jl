@@ -27,4 +27,6 @@ using Test
 @testset "moving elasticity" begin include("RBMovingGeometries/moving_elasticity.jl") end
 @testset "moving stokes" begin include("RBMovingGeometries/moving_stokes.jl") end
 
+@testset "NeuralOperatorROMs" begin include("NeuralOperatorROMs/runtests.jl") end
+
 end # module

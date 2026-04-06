@@ -146,3 +146,17 @@ using GridapROMs.Extensions: ⊕; export ⊕
 @publish RBTransient TransientHyperReduction
 @publish RBTransient TransientProjection
 @publish RBTransient TransientRBOperator
+
+@publish NeuralOperatorROMs SnapshotData
+@publish NeuralOperatorROMs collect_snapshots
+@publish NeuralOperatorROMs extract_coordinates
+@publish NeuralOperatorROMs sample_parameters
+@publish NeuralOperatorROMs DeepONetLayer
+@publish NeuralOperatorROMs build_deeponet
+@publish NeuralOperatorROMs precompute_trunk_matrix
+@publish NeuralOperatorROMs NormalizationStats
+@publish NeuralOperatorROMs TrainingConfig
+@publish NeuralOperatorROMs TrainingResult
+@publish NeuralOperatorROMs train_operator
+@publish NeuralOperatorROMs reconstruct_fe_function
+@publish NeuralOperatorROMs evaluate_rom
