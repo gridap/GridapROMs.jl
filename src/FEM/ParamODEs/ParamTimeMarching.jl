@@ -4,7 +4,7 @@ function ODEs.ode_start(
   r0::TransientRealisation,
   us0::Tuple{Vararg{AbstractVector}})
 
-  nstates = get_order(odeop)
+  nstates = get_order(odeop)+1
   state0 = ntuple(i -> copy(us0[i]),Val{nstates}())
   upcache = ntuple(i -> copy(us0[i]),Val{nstates}())
   paramcache = allocate_paramcache(odeop,r0)
@@ -24,6 +24,16 @@ function ODEs.ode_finish!(
   uf
 end
 
+function add_initial_conditions(
+  solver::ODESolver,
+  odeop::ODEParamOperator,
+  r::TransientRealisation,
+  _us0::Tuple{Vararg{AbstractVector}}
+  )
+  
+  @abstractmethod
+end
+
 # linear - nonlinear interface
 
 function ODEs.ode_start(
@@ -36,22 +46,22 @@ function ODEs.ode_start(
   op_nlin =  get_nonlinear_operator(odeop)
   order_lin = get_order(op_lin)
   order_nlin = get_order(op_nlin)
-  nstates = max(order_lin,order_nlin)
+  nstates = max(order_lin,order_nlin)+1
   state0 = ntuple(i -> copy(us0[i]),Val{nstates}())
 
   # linear caches
   upcache_lin = ntuple(i -> copy(us0[i]),Val{nstates}())
-  us0_lin = ntuple(i -> us0[i],Val{order_lin+1}())
+  us0_lin = ntuple(i -> us0[i],Val{nstates}())
   paramcache_lin = allocate_paramcache(op_lin,r0)
   syscache_lin = allocate_systemcache(op_lin,r0,us0_lin,paramcache_lin)
 
   # nonlinear caches
   upcache_nlin = ntuple(i -> copy(us0[i]),Val{nstates}())
-  us0_nlin = ntuple(i -> us0[i],Val{order_nlin+1}())
+  us0_nlin = ntuple(i -> us0[i],Val{nstates}())
   paramcache_nlin = allocate_paramcache(op_nlin,r0)
   _syscache_nlin = allocate_systemcache(op_nlin,r0,us0_nlin,paramcache_nlin)
   syscache_nlin = compatible_cache(_syscache_nlin,syscache_lin)
-  
+
   return state0,(upcache_lin,upcache_nlin,paramcache_lin,paramcache_nlin,syscache_lin,syscache_nlin)
 end
 

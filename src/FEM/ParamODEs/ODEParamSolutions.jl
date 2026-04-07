@@ -57,8 +57,11 @@ function Algebra.solve(
   solver::ODESolver,
   odeop::ODEParamOperator,
   r::TransientRealisation,
-  us0::Tuple{Vararg{AbstractVector}})
+  _us0::Tuple{Vararg{AbstractVector}})
 
+  if length(_us0) < get_order(odeop) + 1
+    us0 = add_initial_conditions(solver,odeop,r,_us0)
+  end
   ODEParamSolution(solver,odeop,r,us0)
 end
 

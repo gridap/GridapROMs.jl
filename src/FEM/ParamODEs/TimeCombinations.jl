@@ -82,7 +82,7 @@ function _combination!(
   uθ::AbstractParamVector,
   c::ThetaMethodStrategy,
   u::AbstractParamVector,
-  us0::NTuple{1,AbstractParamVector}
+  us0::NTuple{2,AbstractParamVector}
   )
   
   u0, = us0 
@@ -170,6 +170,11 @@ function _combination!(
   )
   
   u0,v0 = us0 
+
+  np = param_length(u0)
+  nt = round(Int,param_length(u) / np)
+  η = get_coefficients(c,nt)
+
   @unpack dt,αf,αm,γ = c.combination 
   a = 1 / (γ*dt)
   b = 1 - 1/γ
@@ -187,13 +192,13 @@ function _combination!(
     n = it - 1
     if it == 1
       for is in axes(data,1)
-        ddataα[is,ipt] = a*αm*data[is,ipt] - a*αm*data0[is,ip] + c / a * ddata0[is,ip]
+        ddataα[is,ipt] = η[1]*data[is,ipt] - a*αm*data0[is,ip] + c / a * ddata0[is,ip]
       end
     else
       for is in axes(data,1)
-        ddataα[is,ipt] = a*αm*data[is,ipt] + (c - a*αm)*data[is,ipt-np] + (c / a * b^n)*ddata0[is,ip] - c * b^(n-1)*data0[is,ip]
+        ddataα[is,ipt] = η[1]*data[is,ipt] + η[2]*data[is,ipt-np] + (c / a * b^n)*ddata0[is,ip] - c * b^(n-1)*data0[is,ip]
         for (j,ipt_back) in enumerate(ipt-2*np : -np : 1)
-          ddataα[is,ipt] += c*(b^j - b^(j-1))*data[is,ipt_back]
+          ddataα[is,ipt] += η[2+j]*data[is,ipt_back]
         end
       end
     end
@@ -232,10 +237,11 @@ function get_coefficients(c::GenAlpha2Strategy{2},N::Int)
   fαnj(n,j) = (1-αf) * κnj(n,j) + αf * κnj(n-1,j)
 
   η = (aαn(0),bαn(0))
-  for j in 3:N
-    η = (η...,fαnj(j,j))
+  for j in 1:N-2
+    η = (η...,fαnj(N,j))
   end
-  η
+  
+  return η
 end
 
 function get_coefficients(c::GenAlpha2Strategy{3},N::Int)
@@ -262,10 +268,11 @@ function get_coefficients(c::GenAlpha2Strategy{3},N::Int)
   lαnj(n,j) = (1-αm) * ηnj(n,j) + αm * ηnj(n-1,j)
 
   η = (gαn(0),hαn(0))
-  for j in 3:N
-    η = (η...,lαnj(j,j))
+  for j in 1:N-2
+    η = (η...,lαnj(N,j))
   end
-  η
+
+  return η
 end
 
 function _combination!(
@@ -309,6 +316,11 @@ function _combination!(
   )
   
   u0,v0,a0 = us0 
+
+  np = param_length(u0)
+  nt = round(Int,param_length(u) / np)
+  η = get_coefficients(c,nt)
+
   @unpack dt,αf,αm,γ,β = c.combination 
   a = γ / (dt * β)
   b = -a 
@@ -325,41 +337,42 @@ function _combination!(
 
   an(n) = ([1 0] * P^(n) * [1,0])[1]
   bn(n) = ([1 0] * P^(n) * [0,1])[1]
-  cn(n) = ([0 1] * P^(n) * [1,0])[1]
-  dn(n) = ([0 1] * P^(n) * [0,1])[1]
   αnj(n,j) = ([1 0] * P^(n-j) * [a,e])[1]
   βnj(n,j) = ([1 0] * P^(n-j) * [b,f])[1]
-  γnj(n,j) = ([0 1] * P^(n-j) * [a,e])[1]
-  δnj(n,j) = ([0 1] * P^(n-j) * [b,f])[1]
-  κnj(n,j) = αnj(n,j-1) + βnj(n,j)
-  ηnj(n,j) = γnj(n,j-1) + δnj(n,j)
-
-  aαn(n) = (1-αf) * αnj(n,n)
-  bαn(n) = (1-αf) * κnj(n,n) + αf * αnj(n-1,n-1)
   cαn(n) = (1-αf) * βnj(n,0) + αf * βnj(n-1,0)
   dαn(n) = (1-αf) * an(n+1) + αf * an(n)
   eαn(n) = (1-αf) * bn(n+1) + αf * bn(n)
-  fαnj(n,j) = (1-αf) * κnj(n,j) + αf * κnj(n-1,j)
 
-  np = param_length(u0)
+  βnj00 = βnj(0,0)
+  an1 = an(1)
+  bn1 = bn(1)
+  cvec = zeros(nt-1)
+  dvec = zeros(nt-1)
+  evec = zeros(nt-1)
+  for it in 1:nt-1
+    cvec[it] = cαn(it)
+    dvec[it] = dαn(it)
+    evec[it] = eαn(it)
+  end
 
   ddataα = get_all_data(vα)
   data = get_all_data(u)
   data0 = get_all_data(u0)
   ddata0 = get_all_data(v0)
+  dddata0 = get_all_data(a0)
   for ipt = param_eachindex(u)
     ip = fast_index(ipt,np)
     it = slow_index(ipt,np)
     n = it - 1
     if it == 1
       for is in axes(data,1)
-        ddataα[is,ipt] = aαn(n)*data[is,ipt] - bαn(n)*data0[is,ipt] + cαn(n)*ddata0[is,ipt]
+        ddataα[is,ipt] = η[1]*data[is,ipt] + (1-αf)*βnj00*data0[is,ip] + ((1-αf)*an1 + αf)*ddata0[is,ip] + (1-αf)*bn1*dddata0[is,ip]
       end
     else
       for is in axes(data,1)
-        ddataα[is,ipt] = aαn(n)*data[is,ipt] + (1-αf)*βnj(0,0)*data0[is,ip] + ((1-αf)*an(n) + αf)*ddata0[is,ip] + (1-αf)*bn(n)*dddata0[is,ip]
+        ddataα[is,ipt] = η[1]*data[is,ipt] + η[2]*data[is,ipt-np] + cvec[n]*data0[is,ip] + dvec[n]*ddata0[is,ip] + evec[n]*dddata0[is,ip]
         for (j,ipt_back) in enumerate(ipt-2*np : -np : 1)
-          ddataα[is,ipt] += fαnj(n,j)*data[is,ipt_back]
+          ddataα[is,ipt] += η[2+j]*data[is,ipt_back]
         end
       end
     end
@@ -369,14 +382,19 @@ function _combination!(
 end
 
 function _combination!(
-  vα::AbstractParamVector,
+  aα::AbstractParamVector,
   c::GenAlpha2Strategy{3},
   u::AbstractParamVector,
   us0::NTuple{3,AbstractParamVector}
   )
   
   u0,v0,a0 = us0 
-  @unpack dt,αf,αm,γ = c.combination 
+
+  np = param_length(u0)
+  nt = round(Int,param_length(u) / np)
+  η = get_coefficients(c,nt)
+
+  @unpack dt,αf,αm,γ,β = c.combination 
   a = γ / (dt * β)
   b = -a 
   c = 1 - γ / β 
@@ -390,52 +408,48 @@ function _combination!(
   P = [c d 
       g h]
 
-  an(n) = ([1 0] * P^(n) * [1,0])[1]
-  bn(n) = ([1 0] * P^(n) * [0,1])[1]
   cn(n) = ([0 1] * P^(n) * [1,0])[1]
   dn(n) = ([0 1] * P^(n) * [0,1])[1]
-  αnj(n,j) = ([1 0] * P^(n-j) * [a,e])[1]
-  βnj(n,j) = ([1 0] * P^(n-j) * [b,f])[1]
   γnj(n,j) = ([0 1] * P^(n-j) * [a,e])[1]
   δnj(n,j) = ([0 1] * P^(n-j) * [b,f])[1]
-  κnj(n,j) = αnj(n,j-1) + βnj(n,j)
-  ηnj(n,j) = γnj(n,j-1) + δnj(n,j)
-
-  aαn(n) = (1-αf) * αnj(n,n)
-  bαn(n) = (1-αf) * κnj(n,n) + αf * αnj(n-1,n-1)
-  cαn(n) = (1-αf) * βnj(n,0) + αf * βnj(n-1,0)
-  dαn(n) = (1-αf) * an(n+1) + αf * an(n)
-  eαn(n) = (1-αf) * bn(n+1) + αf * bn(n)
-  fαnj(n,j) = (1-αf) * κnj(n,j) + αf * κnj(n-1,j)
-
-  gαn(n) = (1-αm) * γnj(n,n)
-  hαn(n) = (1-αm) * ηnj(n,n) + αm * γnj(n-1,n-1)
   iαn(n) = (1-αm) * δnj(n,0) + αm * δnj(n-1,0)
   jαn(n) = (1-αm) * cn(n+1) + αm * cn(n)
   kαn(n) = (1-αm) * dn(n+1) + αm * dn(n)
-  lαnj(n,j) = (1-αm) * ηnj(n,j) + αm * ηnj(n-1,j)
 
-  np = param_length(u0)
+  ivec = zeros(nt-1)
+  jvec = zeros(nt-1)
+  kvec = zeros(nt-1)
+  for it in 1:nt-1
+    ivec[it] = iαn(it)
+    jvec[it] = jαn(it)
+    kvec[it] = kαn(it)
+  end
+  δnj00 = δnj(0,0)
+  cn1 = cn(1)
+  dn1 = dn(1)
 
-  ddataα = get_all_data(vα)
+  dddataα = get_all_data(aα)
   data = get_all_data(u)
   data0 = get_all_data(u0)
   ddata0 = get_all_data(v0)
+  dddata0 = get_all_data(a0)
   for ipt = param_eachindex(u)
+    ip = fast_index(ipt,np)
     it = slow_index(ipt,np)
+    n = it - 1
     if it == 1
       for is in axes(data,1)
-        ddataα[is,ipt] = a*αm*data[is,ipt] - a*αm*data0[is,ipt] + c / a * ddata0[is,ipt]
+        dddataα[is,ipt] = η[1]*data[is,ipt] + (1-αf)*δnj00*data0[is,ip] + (1-αm)*cn1*ddata0[is,ip] + ((1-αm)*dn1 + αm)*dddata0[is,ip]
       end
     else
       for is in axes(data,1)
-        ddataα[is,ipt] = a*αm*data[is,ipt] + (c - a*αm)*data[is,ipt-np]
+        dddataα[is,ipt] = η[1]*data[is,ipt] + η[2]*data[is,ipt-np] + ivec[n]*data0[is,ip] + jvec[n]*ddata0[is,ip] + kvec[n]*dddata0[is,ip]
         for (j,ipt_back) in enumerate(ipt-2*np : -np : 1)
-          ddataα[is,ipt] += c*(b^(j-1) - b^(j-2))*data[is,ipt_back]
+          dddataα[is,ipt] += η[2+j]*data[is,ipt_back]
         end
       end
     end
   end
 
-  return ddataα
+  return dddataα
 end

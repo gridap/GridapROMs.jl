@@ -1,20 +1,21 @@
-function ODEs.ode_start(
-  solver::ODESolver,
-  odeop::ODEParamOperator,
-  r0::TransientRealisation,
-  us0::NTuple{1,AbstractVector}
-  )
-
-  u0, = us0
-  ode_start(solver,odeop,r0,(u0,u0))
-end
-
-function ODEs.ode_march!(
-  statef::NTuple{1,AbstractVector},
+function add_initial_conditions(
   solver::ThetaMethod,
   odeop::ODEParamOperator,
   r::TransientRealisation,
-  state::NTuple{1,AbstractVector},
+  _us0::NTuple{1,AbstractVector}
+  )
+  
+  u0, = _us0
+  us0 = (u0,copy(u0))
+  return us0
+end
+
+function ODEs.ode_march!(
+  statef::NTuple{2,AbstractVector},
+  solver::ThetaMethod,
+  odeop::ODEParamOperator,
+  r::TransientRealisation,
+  state::NTuple{2,AbstractVector},
   odecache)
 
   u0 = state[1]
@@ -40,11 +41,11 @@ function ODEs.ode_march!(
 end
 
 function ODEs.ode_march!(
-  statef::NTuple{1,AbstractVector},
+  statef::NTuple{2,AbstractVector},
   solver::ThetaMethod,
   odeop::ODEParamOperator{LinearParamODE},
   r::TransientRealisation,
-  state::NTuple{1,AbstractVector},
+  state::NTuple{2,AbstractVector},
   odecache)
 
   u0 = state[1]
@@ -68,11 +69,11 @@ end
 # linear - nonlinear case 
 
 function ODEs.ode_march!(
-  statef::NTuple{1,AbstractVector},
+  statef::NTuple{2,AbstractVector},
   solver::ThetaMethod,
   odeop::LinearNonlinearODEParamOperator,
   r::TransientRealisation,
-  state::NTuple{1,AbstractVector},
+  state::NTuple{2,AbstractVector},
   odecache)
 
   u0 = state[1]
@@ -126,4 +127,18 @@ function mid_front_shift!(
 
   δ = solver.dt*(1-solver.θ)
   shift!(r,δ)
+end
+
+function ODEs._udate_theta!(
+  statef::NTuple{2,AbstractVector}, 
+  state0::NTuple{2,AbstractVector},
+  dt::Real, 
+  x::AbstractVector
+  )
+  
+  u0 = state0[1]
+  uf,vf = statef
+  rmul!(uf,dt)
+  axpy!(1,u0,uf)
+  (uf,vf)
 end
