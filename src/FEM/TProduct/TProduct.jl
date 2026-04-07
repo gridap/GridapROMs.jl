@@ -80,9 +80,6 @@ export get_tp_fe_basis
 export get_tp_trial_fe_basis
 include("TProductFESpaces.jl")
 
-export TensorProductReferenceFE
-include("TProductReferenceFEs.jl")
-
 export AbstractRankTensor
 export Rank1Tensor
 export GenericRankTensor

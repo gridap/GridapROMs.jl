@@ -1,11 +1,11 @@
-function ode_start(
+function ODEs.ode_start(
   odeslvr::GeneralizedAlpha1,
   odeop::ODEParamOperator,
   r0::TransientRealisation,
   us0::NTuple{1,AbstractVector}
   )
 
-  nstates = length(us0)
+  nstates = get_order(odeop)
   state0 = ntuple(i -> copy(us0[i]),Val{nstates}())
   upcache = ntuple(i -> copy(us0[i]),Val{nstates}())
   paramcache = allocate_paramcache(odeop,r0)

@@ -57,7 +57,7 @@ function RBSteady.galerkin_projection(
     s = 0.0 
     for γ = eachindex(θ)
       for α = axes(basis,1)
-        α+γ > Nt && break 
+        α+γ > Nt+1 && break 
         s += θ[γ]*basis_left[α+γ-1,i]*basis[α+γ-1,k]*basis_right[α,j]
       end
     end

@@ -1,3 +1,14 @@
+function ODEs.ode_start(
+  solver::ODESolver,
+  odeop::ODEParamOperator,
+  r0::TransientRealisation,
+  us0::NTuple{1,AbstractVector}
+  )
+
+  u0, = us0
+  ode_start(solver,odeop,r0,(u0,u0))
+end
+
 function ODEs.ode_march!(
   statef::NTuple{1,AbstractVector},
   solver::ThetaMethod,

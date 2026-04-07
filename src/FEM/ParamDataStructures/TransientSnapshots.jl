@@ -60,13 +60,13 @@ struct TransientSnapshotsWithIC{T,N,I,R,A,B<:TransientSnapshots{T,N,I,R}} <: Tra
   snaps::B
 end
 
-function Snapshots(s::AbstractParamMatrix,s0,i::AbstractDofMap,r::TransientRealisation)
-  initial_data = get_all_data(s0)
+function Snapshots(s::AbstractParamMatrix,s0::Tuple{Vararg{AbstractParamVector}},i::AbstractDofMap,r::TransientRealisation)
+  initial_data = get_all_data.(s0)
   snaps = Snapshots(s,i,r)
   TransientSnapshotsWithIC(initial_data,snaps)
 end
 
-function Snapshots(s::AbstractParamVector,s0,i::AbstractDofMap,r::TransientRealisation)
+function Snapshots(s::AbstractParamVector,s0::Tuple{Vararg{AbstractParamVector}},i::AbstractDofMap,r::TransientRealisation)
   data = get_all_data(s)
   data′ = reshape(data,:,num_params(r),num_times(r))
   s′ = ConsecutiveParamArray(data′)
@@ -89,7 +89,7 @@ end
 
 function _select_snapshots(s::TransientSnapshotsWithIC,pindex)
   prange = _format_index(pindex)
-  d0range = view(s.initial_data,:,prange)
+  d0range = map(d0 -> view(d0,:,prange),s.initial_data)
   srange = _select_snapshots(s.snaps,pindex)
   TransientSnapshotsWithIC(d0range,srange)
 end
@@ -222,7 +222,7 @@ abstract type ModeAxes end
 struct Mode1Axes <: ModeAxes end
 struct Mode2Axes <: ModeAxes end
 
-struct ModeTransientSnapshots{M<:ModeAxes,T,I,R,A<:AbstractMatrix{T}} <: TransientSnapshots{T,2,I,R,A}
+struct ModeTransientSnapshots{M<:ModeAxes,T,I,R,A<:AbstractMatrix{T}} <: TransientSnapshots{T,2,I,R}
   mode::M
   data::A
   dof_map::I

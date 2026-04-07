@@ -56,6 +56,7 @@ import Gridap.FESpaces: FEFunction,SparseMatrixAssembler,EvaluationFunction
 import Gridap.ODEs: TransientCellField
 import Gridap.ReferenceFEs: get_order
 import GridapROMs.Utils: change_domains,set_domains,get_domains_res,get_domains_jac
+import UnPack: @unpack
 
 export ∂ₚt,∂ₚtt
 include("TimeDerivatives.jl")
@@ -102,6 +103,8 @@ export GenAlpha2Combination
 export ThetaMethodStrategy
 export GenAlpha1Strategy
 export GenAlpha2Strategy
+export get_coefficients
+export get_combination
 include("SpaceTime.jl")
 
 export ShiftedSolver
