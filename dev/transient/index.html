@@ -18,12 +18,12 @@ tf = 60*dt
 
 pdomain = fill([1.0,10.0],3)
 tdomain = t0:dt:tf
-Dt = TransientParamSpace(pdomain,tdomain)</code></pre><p>The main difference with respect to the steady case is that we consider as realizations sets of tuples <span>$(μ,t)$</span>. This allows for a much cleaner representation of the <span>$(μ,t)$</span>-dependence in the problem. </p><div class="admonition is-info" id="Note-21c3bc41db71c2ce"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-21c3bc41db71c2ce" title="Permalink"></a></header><div class="admonition-body"></div></div><p>Times are not sampled from a <a href="../param_data_structures/#GridapROMs.ParamDataStructures.TransientParamSpace"><code>TransientParamSpace</code></a>, in the sense that we consider the sets <span>$(μ,t) ∀ t ∈ t0:dt:tf$</span>, where <span>$μ$</span> is a sampled quantity.</p><p>The way in which we simultaneously evaluate parameter- and time-dependent functions is with the structure <code>TransientParamFunction</code>, which generalizes a <a href="../param_data_structures/#GridapROMs.ParamDataStructures.ParamFunction"><code>ParamFunction</code></a> to the transient case. For example, we can consider the following Dirichlet datum for our problem</p><pre><code class="language-julia hljs">const W = 0.5
+Dt = TransientParamSpace(pdomain,tdomain)</code></pre><p>The main difference with respect to the steady case is that we consider as realisations sets of tuples <span>$(μ,t)$</span>. This allows for a much cleaner representation of the <span>$(μ,t)$</span>-dependence in the problem. </p><div class="admonition is-info" id="Note-21c3bc41db71c2ce"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-21c3bc41db71c2ce" title="Permalink"></a></header><div class="admonition-body"></div></div><p>Times are not sampled from a <a href="../param_data_structures/#GridapROMs.ParamDataStructures.TransientParamSpace"><code>TransientParamSpace</code></a>, in the sense that we consider the sets <span>$(μ,t) ∀ t ∈ t0:dt:tf$</span>, where <span>$μ$</span> is a sampled quantity.</p><p>The way in which we simultaneously evaluate parameter- and time-dependent functions is with the structure <code>TransientParamFunction</code>, which generalizes a <a href="../param_data_structures/#GridapROMs.ParamDataStructures.ParamFunction"><code>ParamFunction</code></a> to the transient case. For example, we can consider the following Dirichlet datum for our problem</p><pre><code class="language-julia hljs">const W = 0.5
 inflow(μ,t) = abs(1-cos(2π*t/tf)+μ[3]*sin(μ[2]*2π*t/tf)/100)
 g_in(μ,t) = x -&gt; VectorValue(-x[2]*(W-x[2])*inflow(μ,t),0.0)
-gₚₜ_in(μ,t) = parameterize(g_in,μ,t)
+gₚₜ_in(μ,t) = parameterise(g_in,μ,t)
 g_0(μ,t) = x -&gt; VectorValue(0.0,0.0)
-gₚₜ_0(μ,t) = parameterize(g_0,μ,t)</code></pre><p>which we use to define the FE spaces. We employ the Inf-Sup stable <code>P2-P1</code> (Taylor-Hood) pair for velocity and pressure, respectively:</p><pre><code class="language-julia hljs">order = 2
+gₚₜ_0(μ,t) = parameterise(g_0,μ,t)</code></pre><p>which we use to define the FE spaces. We employ the Inf-Sup stable <code>P2-P1</code> (Taylor-Hood) pair for velocity and pressure, respectively:</p><pre><code class="language-julia hljs">order = 2
 reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
 V = TestFESpace(Ωₕ,reffe_u;conformity=:H1,dirichlet_tags=[&quot;dirichlet&quot;,&quot;dirichlet0&quot;])
 U = TransientTrialParamFESpace(V,[gₚₜ_in,gₚₜ_0])
@@ -37,7 +37,7 @@ degree = 2*order+1
 dΩₕ = Measure(τₕ,degree)</code></pre><p>and then the problem&#39;s weak formulation </p><pre><code class="language-julia hljs">const Re = 100.0
 a(x,μ,t) = μ[1]/Re
 a(μ,t) = x-&gt;a(x,μ,t)
-aμt(μ,t) = parameterize(a,μ,t)
+aμt(μ,t) = parameterise(a,μ,t)
 
 conv(u,∇u) = (∇u&#39;)⋅u
 dconv(du,∇du,u,∇u) = conv(u,∇du)+conv(du,∇u)
@@ -62,10 +62,10 @@ feop_nlin = TransientParamOperator(res_nlin,jac_nlin,Dt,
 
 feop = LinearNonlinearTransientParamOperator(feop_lin,feop_nlin)</code></pre><p>Next, we define the time marching scheme for our problem, along with a suitable initial condition </p><pre><code class="language-julia hljs">u0(x,μ) = VectorValue(0.0,0.0)
 u0(μ) = x-&gt;u0(x,μ)
-u0μ(μ) = parameterize(u0,μ)
+u0μ(μ) = parameterise(u0,μ)
 p0(x,μ) = 0.0
 p0(μ) = x-&gt;p0(x,μ)
-p0μ(μ) = parameterize(p0,μ)
+p0μ(μ) = parameterise(p0,μ)
 xh0μ(μ) = interpolate_everywhere([u0μ(μ),p0μ(μ)],X(μ,t0))
 
 nls = NewtonSolver(LUSolver();rtol=1e-10)
@@ -89,9 +89,9 @@ catch # offline phase
     save(dir,rbop)
 end
 
-μₒₙ = realization(Dt;nparams=10,sampling=:uniform)
+μₒₙ = realisation(Dt;nparams=10,sampling=:uniform)
 x̂on,rbstats = solve(rbsolver,rbop,μₒₙ,xh0μ)
 
 xon,festats = solution_snapshots(rbsolver,feop,μₒₙ,xh0μ)
 perf = eval_performance(rbsolver,feop,rbop,xon,x̂on,festats,rbstats)
-println(perf)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../steady/">« Usage - Steady problem</a><a class="docs-footer-nextpage" href="../utils/">GridapROMs.Utils »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Wednesday 25 March 2026 08:10">Wednesday 25 March 2026</span>. Using Julia version 1.11.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+println(perf)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../steady/">« Usage - Steady problem</a><a class="docs-footer-nextpage" href="../utils/">GridapROMs.Utils »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 7 April 2026 13:51">Tuesday 7 April 2026</span>. Using Julia version 1.11.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
