@@ -40,10 +40,11 @@ cpa(data::Matrix) = ConsecutiveParamArray(data)
   u  = cpa(u_data)
   u0 = cpa(u0_data)
 
+  v0  = cpa(similar(u0_data))         # ThetaMethod ignores v0; provide anyway
   c   = ThetaMethodCombination(dt,θ)
-  usx = get_combination(c,u,(u0,))   # NTuple{1,...} → returns 1-tuple
+  usx = get_combination(c,u,(u0,v0))  # NTuple{2,...} → returns 2-tuple
 
-  @test length(usx) == 1
+  @test length(usx) == 2
   uθ = get_all_data(usx[1])
 
   # t=1: uθ = θ·u[n] + (1-θ)·u0
@@ -66,7 +67,7 @@ end
 
   u  = cpa(u_data);  u0 = cpa(u0_data)
   c  = ThetaMethodCombination(dt,θ)
-  uθ = get_all_data(get_combination(c,u,(u0,))[1])
+  uθ = get_all_data(get_combination(c,u,(u0,similar(u0)))[1])
 
   # θ=1: uθ = u (current time step only)
   @test uθ[1,1] ≈ 1.0   # t1,p1
@@ -82,7 +83,7 @@ end
 
   u  = cpa(u_data);  u0 = cpa(u0_data)
   c  = ThetaMethodCombination(dt,θ)
-  uθ = get_all_data(get_combination(c,u,(u0,))[1])
+  uθ = get_all_data(get_combination(c,u,(u0,similar(u0)))[1])
 
   # θ=0: uθ = previous time step
   @test uθ[1,1] ≈ 0.0   # t1: u0[p1]
@@ -94,8 +95,6 @@ end
 
 @testset "get_combination ThetaMethod velocity (CombinationOrder{2})" begin
   # CombinationOrder{2} computes (u_n - u_{n-1})/dt.
-  # Even though us0 has length 1,get_combination returns 1 output.
-  # To access the velocity we call _combination! directly via a 1-element NTuple.
   dt = 0.1; θ = 0.5
   np = 1; nt = 3; ndof = 1
   u_data  = reshape(Float64[1.0,3.0,6.0],1,3)  # single param
@@ -104,9 +103,10 @@ end
   u  = cpa(u_data);  u0 = cpa(u0_data)
 
   # Velocity-order combination: coefficients (1/dt,-1/dt)
+  # ThetaMethod _combination! requires NTuple{2}; v0 (2nd entry) is unused here.
   c_vel = CombinationOrder{2}(ThetaMethodCombination(dt,θ))
   v = similar(u)
-  ParamODEs._combination!(v,c_vel,u,(u0,))
+  ParamODEs._combination!(v,c_vel,u,(u0,similar(u0)))
   vdata = get_all_data(v)
 
   @test vdata[1,1] ≈ (1.0 - 0.0) / dt   # (u[t1] - u0) / dt
@@ -206,6 +206,133 @@ end
   @test vαm[1,3] ≈ expected_t3 atol=1e-10
 end
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 2b. get_combination — GeneralizedAlpha2
+# ─────────────────────────────────────────────────────────────────────────────
+# Use ρ∞=1 → αf=αm=γ=0.5,β=0.25 (average-acceleration Newmark limit).
+
+@testset "get_combination GenAlpha2 (ρ∞=1) displacement" begin
+  dt = 0.1
+  αf = 0.5; αm = 0.5; γ = 0.5; β = 0.25
+  u_data  = Float64[1 2 3 4 5 6]
+  u0_data = Float64[0 0.5]
+  v0_data = Float64[0 0]
+  a0_data = Float64[0 0]
+
+  u  = cpa(u_data)
+  u0 = cpa(u0_data)
+  v0 = cpa(v0_data)
+  a0 = cpa(a0_data)
+
+  c = GenAlpha2Combination(dt,αf,αm,γ,β)
+  usx = get_combination(c,u,(u0,v0,a0))
+
+  @test length(usx) == 3
+
+  # Displacement: uαf = (1-αf)·u[n] + αf·u[n-1]
+  uαf = get_all_data(usx[1])
+  @test uαf[1,1] ≈ 0.5*1 + 0.5*0
+  @test uαf[1,2] ≈ 0.5*2 + 0.5*0.5
+  @test uαf[1,3] ≈ 0.5*3 + 0.5*1
+  @test uαf[1,4] ≈ 0.5*4 + 0.5*2
+  @test uαf[1,5] ≈ 0.5*5 + 0.5*3
+end
+
+@testset "get_combination GenAlpha2 (ρ∞=1) velocity (zero ICs → FD)" begin
+  # With αf=αm=γ=0.5,β=0.25 and zero initial velocity/acceleration:
+  #   vαf[t=1] = (u[1]-u0)/dt
+  #   vαf[t>1] = (u[t]-u[t-1])/dt
+  dt = 0.1
+  αf = 0.5; αm = 0.5; γ = 0.5; β = 0.25
+  u_data  = reshape(Float64[1.0,3.0,6.0],1,3)
+  u0_data = reshape(Float64[0.0],1,1)
+  v0_data = reshape(Float64[0.0],1,1)
+  a0_data = reshape(Float64[0.0],1,1)
+
+  u  = cpa(u_data)
+  u0 = cpa(u0_data)
+  v0 = cpa(v0_data)
+  a0 = cpa(a0_data)
+  c  = GenAlpha2Combination(dt,αf,αm,γ,β)
+  vαf = get_all_data(get_combination(c,u,(u0,v0,a0))[2])
+
+  @test vαf[1,1] ≈ (1.0 - 0.0) / dt
+  @test vαf[1,2] ≈ (3.0 - 1.0) / dt
+  @test vαf[1,3] ≈ (6.0 - 3.0) / dt
+end
+
+@testset "get_combination GenAlpha2 (ρ∞=0.5) velocity and acceleration — multi-step sums" begin
+  fesolver_ref = GeneralizedAlpha2(LUSolver(),0.1,0.5)
+  dt = fesolver_ref.dt
+  αf = fesolver_ref.αf
+  αm = fesolver_ref.αm
+  γ = fesolver_ref.γ
+  β = fesolver_ref.β
+
+  u_raw  = [2.0,5.0,9.0]
+  u0_raw = 0.5
+  v0_raw = -1.0
+  a0_raw = 0.25
+
+  u_data  = reshape(u_raw,1,length(u_raw))
+  u0_data = reshape([u0_raw],1,1)
+  v0_data = reshape([v0_raw],1,1)
+  a0_data = reshape([a0_raw],1,1)
+
+  u  = cpa(u_data)
+  u0 = cpa(u0_data)
+  v0 = cpa(v0_data)
+  a0 = cpa(a0_data)
+  c  = GenAlpha2Combination(dt,αf,αm,γ,β)
+
+  ηv = get_coefficients(CombinationOrder{2}(c),length(u_raw))
+  ηa = get_coefficients(CombinationOrder{3}(c),length(u_raw))
+  vαf = get_all_data(get_combination(c,u,(u0,v0,a0))[2])
+  aαm = get_all_data(get_combination(c,u,(u0,v0,a0))[3])
+
+  a = γ / (dt * β)
+  b = -a
+  cP = 1 - γ / β
+  d = dt * (1 - γ / (2 * β))
+  e = 1 / (dt^2 * β)
+  f = -e
+  g = -1 / (dt * β)
+  h = 1 - 1 / (2 * β)
+  P = [cP d; g h]
+
+  an(n) = ([1.0 0.0] * P^n * [1.0,0.0])[1]
+  bn(n) = ([1.0 0.0] * P^n * [0.0,1.0])[1]
+  cn(n) = ([0.0 1.0] * P^n * [1.0,0.0])[1]
+  dn(n) = ([0.0 1.0] * P^n * [0.0,1.0])[1]
+
+  βnj(n,j) = ([1.0 0.0] * P^(n-j) * [b,f])[1]
+  δnj(n,j) = ([0.0 1.0] * P^(n-j) * [b,f])[1]
+
+  cαn(n) = (1 - αf) * βnj(n,0) + αf * βnj(n-1,0)
+  dαn(n) = (1 - αf) * an(n+1) + αf * an(n)
+  eαn(n) = (1 - αf) * bn(n+1) + αf * bn(n)
+
+  iαn(n) = (1 - αm) * δnj(n,0) + αm * δnj(n-1,0)
+  jαn(n) = (1 - αm) * cn(n+1) + αm * cn(n)
+  kαn(n) = (1 - αm) * dn(n+1) + αm * dn(n)
+
+  expected_v1 = ηv[1]*u_raw[1] + (1-αf)*βnj(0,0)*u0_raw + ((1-αf)*an(1) + αf)*v0_raw + (1-αf)*bn(1)*a0_raw
+  expected_v2 = ηv[1]*u_raw[2] + ηv[2]*u_raw[1] + cαn(1)*u0_raw + dαn(1)*v0_raw + eαn(1)*a0_raw
+  expected_v3 = ηv[1]*u_raw[3] + ηv[2]*u_raw[2] + ηv[3]*u_raw[1] + cαn(2)*u0_raw + dαn(2)*v0_raw + eαn(2)*a0_raw
+
+  expected_a1 = ηa[1]*u_raw[1] + (1-αf)*δnj(0,0)*u0_raw + (1-αm)*cn(1)*v0_raw + ((1-αm)*dn(1) + αm)*a0_raw
+  expected_a2 = ηa[1]*u_raw[2] + ηa[2]*u_raw[1] + iαn(1)*u0_raw + jαn(1)*v0_raw + kαn(1)*a0_raw
+  expected_a3 = ηa[1]*u_raw[3] + ηa[2]*u_raw[2] + ηa[3]*u_raw[1] + iαn(2)*u0_raw + jαn(2)*v0_raw + kαn(2)*a0_raw
+
+  @test vαf[1,1] ≈ expected_v1 atol=1e-10
+  @test vαf[1,2] ≈ expected_v2 atol=1e-10
+  @test vαf[1,3] ≈ expected_v3 atol=1e-10
+
+  @test aαm[1,1] ≈ expected_a1 atol=1e-10
+  @test aαm[1,2] ≈ expected_a2 atol=1e-10
+  @test aαm[1,3] ≈ expected_a3 atol=1e-10
+end
+
 @testset "get_combination consistent with CombinationOrder accessors" begin
   # Calling get_combination with the outer TimeCombination returns the same
   # as calling _combination! on each CombinationOrder{i} individually.
@@ -215,12 +342,12 @@ end
 
   u  = cpa(u_data);  u0 = cpa(u0_data)
   c  = ThetaMethodCombination(dt,θ)
-  usx = get_combination(c,u,(u0,))
+  usx = get_combination(c,u,(u0,similar(u0)))
 
   # Also test via CombinationOrder{1} directly
   c1 = CombinationOrder{1}(c)
   uθ_direct = similar(u)
-  ParamODEs._combination!(uθ_direct,c1,u,(u0,))
+  ParamODEs._combination!(uθ_direct,c1,u,(u0,similar(u0)))
 
   @test get_all_data(usx[1]) ≈ get_all_data(uθ_direct)
 end
@@ -348,7 +475,7 @@ end
 end
 
 @testset "galerkin_projection GenAlpha1 (ρ∞=0.5) velocity — multi-step sum" begin
-  Nt = 6; nl = 2; n = 4; nr = 4
+  Nt = 4; nl = 2; n = 4; nr = 4
   Φl = Matrix(qr(rand(Nt,nl)).Q)
   Φ  = rand(Nt,n)
   Φr = Matrix(qr(rand(Nt,nr)).Q)
@@ -390,17 +517,62 @@ end
       idx = α + 4 - 1
       _proj2_alpha[i,k,j] += θ[4] * Φl[idx,i] * Φ[idx,k] * Φr[α,j]
     end
-    for α = 1:Nt-4
-      idx = α + 5 - 1
-      _proj2_alpha[i,k,j] += θ[5] * Φl[idx,i] * Φ[idx,k] * Φr[α,j]
-    end
-    for α = 1:Nt-5
-      idx = α + 6 - 1
-      _proj2_alpha[i,k,j] += θ[6] * Φl[idx,i] * Φ[idx,k] * Φr[α,j]
-    end
   end
 
   @test proj2_alpha ≈ _proj2_alpha atol=1e-12
+end
+
+@testset "galerkin_projection GenAlpha2 (ρ∞=1) displacement" begin
+  Nt = 6; nl = 2; n = 3; nr = 4
+  Φl = Matrix(qr(rand(Nt,nl)).Q)
+  Φ  = rand(Nt,n)
+  Φr = Matrix(qr(rand(Nt,nr)).Q)
+
+  αf = 0.5; αm = 0.5; γ = 0.5; β = 0.25; dt = 0.1
+  c1_alpha2 = CombinationOrder{1}(GenAlpha2Combination(dt,αf,αm,γ,β))
+  c1_theta  = CombinationOrder{1}(ThetaMethodCombination(dt,1-αf))
+
+  proj_alpha2 = galerkin_projection(Φl,Φ,Φr,c1_alpha2)
+  proj_theta  = galerkin_projection(Φl,Φ,Φr,c1_theta)
+
+  @test proj_alpha2 ≈ proj_theta atol=1e-12
+end
+
+@testset "galerkin_projection GenAlpha2 (ρ∞=0.5) velocity and acceleration — multi-step sums" begin
+  Nt = 6; nl = 2; n = 4; nr = 4
+  Φl = Matrix(qr(rand(Nt,nl)).Q)
+  Φ  = rand(Nt,n)
+  Φr = Matrix(qr(rand(Nt,nr)).Q)
+
+  fesolver_ref = GeneralizedAlpha2(LUSolver(),0.1,0.5)
+  dt = fesolver_ref.dt
+  αf = fesolver_ref.αf
+  αm = fesolver_ref.αm
+  γ = fesolver_ref.γ
+  β = fesolver_ref.β
+
+  c2_alpha2 = CombinationOrder{2}(GenAlpha2Combination(dt,αf,αm,γ,β))
+  c3_alpha2 = CombinationOrder{3}(GenAlpha2Combination(dt,αf,αm,γ,β))
+  θv = get_coefficients(c2_alpha2,Nt)
+  θa = get_coefficients(c3_alpha2,Nt)
+
+  proj2_alpha2 = galerkin_projection(Φl,Φ,Φr,c2_alpha2)
+  proj3_alpha2 = galerkin_projection(Φl,Φ,Φr,c3_alpha2)
+
+  proj2_ref = zeros(nl,n,nr)
+  proj3_ref = zeros(nl,n,nr)
+  @inbounds for i = 1:nl, k = 1:n, j = 1:nr
+    for shift = eachindex(θv)
+      for α = 1:(Nt - shift + 1)
+        idx = α + shift - 1
+        proj2_ref[i,k,j] += θv[shift] * Φl[idx,i] * Φ[idx,k] * Φr[α,j]
+        proj3_ref[i,k,j] += θa[shift] * Φl[idx,i] * Φ[idx,k] * Φr[α,j]
+      end
+    end
+  end
+
+  @test proj2_alpha2 ≈ proj2_ref atol=1e-12
+  @test proj3_alpha2 ≈ proj3_ref atol=1e-12
 end
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -415,7 +587,7 @@ end
 #   (c) For the linear problem the residual at the discrete solution is
 #       well below a loose tolerance (consistent residual check).
 
-function _heat_eq_setup(fesolver;nparams=3)
+function _heat_eq_setup(;nparams=3)
   domain = (0,1,0,1)
   partition = (6,6)
   model = CartesianDiscreteModel(domain,partition)
@@ -461,7 +633,7 @@ function _heat_eq_setup(fesolver;nparams=3)
   return feop,r,uh0μ
 end
 
-function _wave_eq_setup(fesolver;nparams=3)
+function _wave_eq_setup(;nparams=3)
   domain = (0,1,0,1)
   partition = (6,6)
   model = CartesianDiscreteModel(domain,partition)
@@ -476,20 +648,22 @@ function _wave_eq_setup(fesolver;nparams=3)
   aμt(μ,t) = parameterise(a,μ,t)
   g(μ,t) = x -> x[1] * (1 + t)^2
   gμt(μ,t) = parameterise(g,μ,t)
-  u0(μ)   = x -> 2 * x[1] * (1 + t)
+  # u(x,t) = x[1]*(1+t)²  ⟹  u(x,0) = x[1],  ∂_t u(x,0) = 2 x[1]
+  u0(μ)   = x -> x[1]
   u0μ(μ)  = parameterise(u0,μ)
   v0(μ)   = x -> 2 * x[1]
   v0μ(μ)  = parameterise(v0,μ)
 
-  stiffness(μ,t,u,v,dΩ) = ∫(aμt(μ,t) * ∇(v) ⋅ ∇(u))dΩ
-  damping(_,_,uₜ,v,dΩ) = ∫(v * uₜ)dΩ
+  stiffness(μ,t,u,v,dΩ)  = ∫(aμt(μ,t) * ∇(v) ⋅ ∇(u))dΩ
+  damping(_,_,uₜ,v,dΩ)   = ∫(v * uₜ)dΩ
   mass(_,_,uₜₜ,v,dΩ)     = ∫(v * uₜₜ)dΩ
-  res(μ,t,u,v,dΩ)       = mass(μ,t,∂ₚtt(u),v,dΩ) + damping(μ,t,∂ₚt(u),v,dΩ) + stiffness(μ,t,u,v,dΩ) 
+  res(μ,t,u,v,dΩ)        = mass(μ,t,∂ₚtt(u),v,dΩ) + damping(μ,t,∂ₚt(u),v,dΩ) + stiffness(μ,t,u,v,dΩ)
 
   trian_res       = (Ω,)
   trian_stiffness = (Ω,)
+  trian_damping   = (Ω,)
   trian_mass      = (Ω,)
-  domains = FEDomains(trian_res,(trian_stiffness,trian_mass))
+  domains = FEDomains(trian_res,(trian_stiffness,trian_damping,trian_mass))
 
   reffe = ReferenceFE(lagrangian,Float64,order)
   test  = TestFESpace(Ω,reffe; conformity=:H1,dirichlet_tags="boundary")
@@ -516,7 +690,7 @@ end
   )
 
   for fesolver in fesolvers 
-    feop,r,uh0μ = _heat_eq_setup(fesolver; nparams=3)
+    feop,r,uh0μ = _heat_eq_setup(;nparams=3)
 
     # Collect solution snapshots via the standard offline pipeline
     sol    = solve(fesolver,feop,r,uh0μ)
@@ -537,4 +711,131 @@ end
   end
 end
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Helper: compare heat-equation snapshots/residuals/jacobians with plain Gridap
+# ─────────────────────────────────────────────────────────────────────────────
+# Strategy
+#   • residual check : at the discrete solution residual(solver,op,r,snaps) ≈ 0
+#   • jacobian check : after `A = sum(A[1].values)+sum(A[2].values)`, A is a
+#     ConsecutiveParamArray whose p-th column = NZ values of K(μ_p)+M.
+#     We reconstruct the sparse matrix and compare against Gridap assembly.
+
+function _compare_with_gridap_heateq(_, _, r, _, A, b)
+  domain    = (0,1,0,1); partition = (6,6)
+  model     = CartesianDiscreteModel(domain, partition)
+  reffe     = ReferenceFE(lagrangian, Float64, 1)
+  V         = TestFESpace(model, reffe; conformity=:H1, dirichlet_tags="boundary")
+  U0        = TrialFESpace(V, 0.0)   # zero Dirichlet — matrix assembly only
+  Ω         = Triangulation(model)
+  dΩ        = Measure(Ω, 2)
+
+  np = num_params(r)
+  nt = num_times(r)
+
+  # 1 — residual at the discrete solution must be ≈ 0 (consistency check)
+  b_data = get_all_data(b)            # shape: (ndofs_free, np*nt)
+  ok_res = true
+  for ip in 1:np, it in 1:nt
+    ipt    = (it-1)*np + ip
+    ok_res = ok_res && (norm(b_data[:, ipt]) < 1e-8)
+  end
+
+  # 2 — jacobian ≈ K(μ) + M assembled by plain Gridap
+  # For both ThetaMethod and GeneralizedAlpha1 with ws = (1,1), the offline
+  # jacobian is J = K(μ) + M (stiffness + mass), parameter-scaled stiffness.
+  M_ref = assemble_matrix((u,v) -> ∫(v * u)dΩ, U0, V)
+
+  ok_jac = true
+  for (ip, μ_vec) in enumerate(get_params(r))
+    μ     = μ_vec[1]
+    K_ref = assemble_matrix((u,v) -> ∫(μ * ∇(v) ⋅ ∇(u))dΩ, U0, V)
+    A_ref = K_ref + M_ref
+
+    for it in 1:nt
+      ipt      = (it-1)*np + ip
+      # param_getindex on a ConsecutiveParamArray returns a view of the NZ column
+      nz       = collect(param_getindex(A, ipt))
+      A_groms  = SparseMatrixCSC(A_ref.m, A_ref.n, A_ref.colptr, A_ref.rowval, nz)
+      ok_jac   = ok_jac && isapprox(Matrix(A_groms), Matrix(A_ref), atol=1e-8)
+    end
+  end
+
+  return ok_res && ok_jac
+end
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5.  Wave equation — SpaceTime.jl residual and jacobian (GeneralizedAlpha2)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@testset "SpaceTime solution+residual+jacobian — wave equation" begin
+  dt = 0.05
+  fesolver = GeneralizedAlpha2(LUSolver(), dt, 0.5)
+
+  feop, r, uh0μ, vh0μ = _wave_eq_setup(;nparams=2)
+
+  sol          = solve(fesolver, feop, r, (uh0μ, vh0μ))
+  vals, _      = collect(sol)
+  initial_vals = initial_conditions(sol)
+  i            = get_dof_map(feop)
+  snaps        = Snapshots(vals, initial_vals, i, r)
+
+  b = Algebra.residual(fesolver, feop, r, snaps)
+  A = Algebra.jacobian(fesolver, feop, r, snaps)
+
+  @test isa(b, ArrayContribution)
+  @test isa(A, TupOfArrayContribution)
+  b = sum(b.values)
+  A = sum(A[1].values) + sum(A[2].values) + sum(A[3].values)
+
+  @test _compare_with_gridap_waveeq(fesolver, feop, r, snaps, A, b)
+end
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Helper: compare wave-equation snapshots/residuals/jacobians with plain Gridap
+# ─────────────────────────────────────────────────────────────────────────────
+# Wave equation: ∂²u/∂t² + ∂u/∂t + μ Δu = 0
+#   jacobian order 0  →  K(μ)  = ∫ μ ∇v⋅∇u dΩ
+#   jacobian order 1  →  C     = ∫ v uₜ  dΩ   (bilinear form = mass matrix M)
+#   jacobian order 2  →  M     = ∫ v uₜₜ dΩ   (same bilinear form as C)
+# After A = K + C + M = K + 2*M_ref.
+
+function _compare_with_gridap_waveeq(_, _, r, _, A, b)
+  domain    = (0,1,0,1); partition = (6,6)
+  model     = CartesianDiscreteModel(domain, partition)
+  reffe     = ReferenceFE(lagrangian, Float64, 1)
+  V         = TestFESpace(model, reffe; conformity=:H1, dirichlet_tags="boundary")
+  U0        = TrialFESpace(V, 0.0)
+  Ω         = Triangulation(model)
+  dΩ        = Measure(Ω, 2)
+
+  np = num_params(r)
+  nt = num_times(r)
+
+  # 1 — residual ≈ 0 at the discrete solution
+  b_data = get_all_data(b)
+  ok_res = true
+  for ip in 1:np, it in 1:nt
+    ipt    = (it-1)*np + ip
+    ok_res = ok_res && (norm(b_data[:, ipt]) < 1e-8)
+  end
+
+  # 2 — jacobian ≈ K(μ) + 2*M from Gridap  (damping C = M bilinear form)
+  M_ref = assemble_matrix((u,v) -> ∫(v * u)dΩ, U0, V)
+
+  ok_jac = true
+  for (ip, μ_vec) in enumerate(get_params(r))
+    μ     = μ_vec[1]
+    K_ref = assemble_matrix((u,v) -> ∫(μ * ∇(v) ⋅ ∇(u))dΩ, U0, V)
+    A_ref = K_ref + 2 * M_ref
+
+    for it in 1:nt
+      ipt      = (it-1)*np + ip
+      nz       = collect(param_getindex(A, ipt))
+      A_groms  = SparseMatrixCSC(A_ref.m, A_ref.n, A_ref.colptr, A_ref.rowval, nz)
+      ok_jac   = ok_jac && isapprox(Matrix(A_groms), Matrix(A_ref), atol=1e-8)
+    end
+  end
+
+  return ok_res && ok_jac
+end
 
