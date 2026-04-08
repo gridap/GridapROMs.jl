@@ -104,7 +104,7 @@ export ThetaMethodStrategy
 export GenAlpha1Strategy
 export GenAlpha2Strategy
 export get_coefficients
-export get_combination
+export get_time_combination
 include("SpaceTime.jl")
 
 export ShiftedSolver

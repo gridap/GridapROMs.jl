@@ -68,7 +68,7 @@ function main(
 
   if method == :pod
     state_reduction = HighDimReduction(tol,energy;nparams,sketch,compression,ncentroids)
-  else method == :ttsvd
+  elseif method == :ttsvd
     state_reduction = HighDimReduction(fill(tol,3),energy;nparams,sketch,compression,ncentroids)
   end
 

@@ -12,11 +12,8 @@ using GridapROMs.RBSteady
   @test SearchSVDRank(1e-4) isa SearchSVDRank
   @test FixedSVDRank(5) isa FixedSVDRank
   @test TTSVDRanks([1e-3,1e-3]) isa TTSVDRanks
-end
-
-@testset "EnergyNorm / EuclideanNorm" begin
   @test EuclideanNorm() isa EuclideanNorm
-  @test EnergyNorm() isa EnergyNorm
+  @test EnergyNorm(x -> x) isa EnergyNorm
 end
 
 # ─── truncated POD ────────────────────────────────────────────────────────────

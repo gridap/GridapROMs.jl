@@ -142,7 +142,7 @@ function local_solver(rbsolver,rbop,μ,x,festats)
     perf = eval_performance(rbsolver,feopi,rbopi,xi,x̂,festats,rbstats)
     push!(perfs,perf)
   end
-  return mean(perfs)
+  return RBSteady.mean(perfs)
 end
 
 fesolver = LUSolver()

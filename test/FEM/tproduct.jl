@@ -8,6 +8,7 @@ using Gridap.ReferenceFEs
 using Gridap.FESpaces
 using Gridap.CellData
 using GridapROMs
+using GridapROMs.TProduct
 
 # ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -63,9 +64,9 @@ end
 
 @testset "TensorProductReferenceFE" begin
   model = make_model_2d()
-  tp_reffe = TensorProductReferenceFE(model,lagrangian,Float64,1)
+  tp_reffe = TProduct.TensorProductReferenceFE(model,lagrangian,Float64,1)
 
-  @test tp_reffe isa TensorProductReferenceFE
+  @test tp_reffe isa TProduct.TensorProductReferenceFE
   # Must have D=2 1D reffes
   @test length(tp_reffe.reffes_1d) == 2
   # The wrapped D-dim reffe must be a 2D reference FE
@@ -76,7 +77,7 @@ end
   @test get_order(tp_reffe) == 1
 
   # Order-2 reffe
-  tp_reffe2 = TensorProductReferenceFE(model,lagrangian,Float64,2)
+  tp_reffe2 = TProduct.TensorProductReferenceFE(model,lagrangian,Float64,2)
   @test get_order(tp_reffe2) == 2
 end
 
@@ -91,7 +92,7 @@ end
   dΩ = Measure(Ω,degree)
 
   # Construction via TensorProductReferenceFE
-  tp_reffe = TensorProductReferenceFE(model,lagrangian,Float64,order)
+  tp_reffe = TProduct.TensorProductReferenceFE(model,lagrangian,Float64,order)
   V = FESpace(model,tp_reffe;conformity=:H1,dirichlet_tags=[1,2,3,4,5,6,7,8])
   @test V isa TProductFESpace
   @test length(V.spaces_1d) == 2
@@ -113,7 +114,7 @@ end
 @testset "TProductFESpace homogeneous Dirichlet" begin
   model = make_model_2d()
   order = 1
-  tp_reffe = TensorProductReferenceFE(model,lagrangian,Float64,order)
+  tp_reffe = TProduct.TensorProductReferenceFE(model,lagrangian,Float64,order)
   # Full Dirichlet boundary
   V = FESpace(model,tp_reffe;conformity=:H1,dirichlet_tags="boundary")
   @test num_free_dofs(V) == 9*9   # interior nodes for 10×10 mesh, Q1
@@ -121,14 +122,14 @@ end
 
 @testset "TProductFESpace no Dirichlet" begin
   model = make_model_2d()
-  tp_reffe = TensorProductReferenceFE(model,lagrangian,Float64,1)
+  tp_reffe = TProduct.TensorProductReferenceFE(model,lagrangian,Float64,1)
   V = FESpace(model,tp_reffe;conformity=:H1)
   @test num_free_dofs(V) == 11*11
 end
 
 @testset "TProductFESpace quadratic" begin
   model = make_model_2d()
-  tp_reffe = TensorProductReferenceFE(model,lagrangian,Float64,2)
+  tp_reffe = TProduct.TensorProductReferenceFE(model,lagrangian,Float64,2)
   V = FESpace(model,tp_reffe;conformity=:H1,dirichlet_tags="boundary")
   @test V isa TProductFESpace
   # Q2 on 10×10: 21 nodes per direction, interior = 19×19
@@ -137,7 +138,7 @@ end
 
 @testset "TProductFESpace 3D" begin
   model = make_model_3d()
-  tp_reffe = TensorProductReferenceFE(model,lagrangian,Float64,1)
+  tp_reffe = TProduct.TensorProductReferenceFE(model,lagrangian,Float64,1)
   V = FESpace(model,tp_reffe;conformity=:H1,dirichlet_tags="boundary")
   @test V isa TProductFESpace
   @test length(V.spaces_1d) == 3
@@ -149,7 +150,7 @@ end
 
 @testset "TProductFEBasis" begin
   model = make_model_2d()
-  tp_reffe = TensorProductReferenceFE(model,lagrangian,Float64,1)
+  tp_reffe = TProduct.TensorProductReferenceFE(model,lagrangian,Float64,1)
   V = FESpace(model,tp_reffe;conformity=:H1)
   U = TrialFESpace(V)
 
@@ -201,10 +202,10 @@ end
   @test GridapROMs.TProduct.dimension(g) == 2
 
   # get_factor: g[d,k] = d-th factor of k-th decomposition
-  @test get_factor(g,1,1) === dA1
-  @test get_factor(g,2,1) === A2
-  @test get_factor(g,1,2) === A1
-  @test get_factor(g,2,2) === dA2
+  @test TProduct.get_factor(g,1,1) === dA1
+  @test TProduct.get_factor(g,2,1) === A2
+  @test TProduct.get_factor(g,1,2) === A1
+  @test TProduct.get_factor(g,2,2) === dA2
 
   # get_arrays_1d / get_gradients_1d
   @test GridapROMs.TProduct.get_arrays_1d(g)[1] === A1
@@ -231,10 +232,10 @@ end
 
 @testset "TProductSparseMatrixAssembler mass matrix" begin
   model = make_model_2d()
-  tp_reffe = TensorProductReferenceFE(model,lagrangian,Float64,1)
+  tp_reffe = TProduct.TensorProductReferenceFE(model,lagrangian,Float64,1)
   V = FESpace(model,tp_reffe;conformity=:H1)
 
-  Ω = get_tp_triangulation(V)
+  Ω = TProduct.get_tp_triangulation(V)
   dΩ = Measure(Ω,2)
 
   v = get_tp_fe_basis(V)
@@ -259,10 +260,10 @@ end
 
 @testset "TProductSparseMatrixAssembler stiffness matrix" begin
   model = make_model_2d()
-  tp_reffe = TensorProductReferenceFE(model,lagrangian,Float64,1)
+  tp_reffe = TProduct.TensorProductReferenceFE(model,lagrangian,Float64,1)
   V = FESpace(model,tp_reffe;conformity=:H1,dirichlet_tags="boundary")
 
-  Ω = get_tp_triangulation(V)
+  Ω = TProduct.get_tp_triangulation(V)
   dΩ = Measure(Ω,2)
 
   v = get_tp_fe_basis(V)
@@ -286,10 +287,10 @@ end
 
 @testset "TProductSparseMatrixAssembler in-place assembly Rank1Tensor" begin
   model = make_model_2d()
-  tp_reffe = TensorProductReferenceFE(model,lagrangian,Float64,1)
+  tp_reffe = TProduct.TensorProductReferenceFE(model,lagrangian,Float64,1)
   V = FESpace(model,tp_reffe;conformity=:H1)
 
-  Ω = get_tp_triangulation(V)
+  Ω = TProduct.get_tp_triangulation(V)
   dΩ = Measure(Ω,2)
 
   v = get_tp_fe_basis(V)
@@ -309,10 +310,10 @@ end
 
 @testset "TProductSparseMatrixAssembler in-place assembly GenericRankTensor" begin
   model = make_model_2d()
-  tp_reffe = TensorProductReferenceFE(model,lagrangian,Float64,1)
+  tp_reffe = TProduct.TensorProductReferenceFE(model,lagrangian,Float64,1)
   V = FESpace(model,tp_reffe;conformity=:H1,dirichlet_tags="boundary")
 
-  Ω = get_tp_triangulation(V)
+  Ω = TProduct.get_tp_triangulation(V)
   dΩ = Measure(Ω,2)
 
   v = get_tp_fe_basis(V)
@@ -334,7 +335,7 @@ end
 
 @testset "get_dof_map TProductFESpace" begin
   model = make_model_2d()
-  tp_reffe = TensorProductReferenceFE(model,lagrangian,Float64,1)
+  tp_reffe = TProduct.TensorProductReferenceFE(model,lagrangian,Float64,1)
   V = FESpace(model,tp_reffe;conformity=:H1)
   dmap = get_dof_map(V)
   # For no-Dirichlet Q1 on 10×10: 11×11 dof array
@@ -344,7 +345,7 @@ end
 
 @testset "get_dof_map_with_diri TProductFESpace" begin
   model = make_model_2d()
-  tp_reffe = TensorProductReferenceFE(model,lagrangian,Float64,1)
+  tp_reffe = TProduct.TensorProductReferenceFE(model,lagrangian,Float64,1)
   V = FESpace(model,tp_reffe;conformity=:H1,dirichlet_tags="boundary")
   dmap = get_dof_map_with_diri(V)
   @test ndims(dmap) == 2
@@ -358,7 +359,7 @@ end
   Ω = Triangulation(model)
 
   # New path
-  tp_reffe = TensorProductReferenceFE(model,lagrangian,Float64,1)
+  tp_reffe = TProduct.TensorProductReferenceFE(model,lagrangian,Float64,1)
   V1 = FESpace(model,tp_reffe;conformity=:H1,dirichlet_tags=[1,2,3,4,5,6,7,8])
 
   # Legacy tuple path

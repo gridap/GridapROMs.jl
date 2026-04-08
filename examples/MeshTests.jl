@@ -86,7 +86,7 @@ function merge_realisations(rvec::Vector{<:GenericTransientRealisation})
 end
 
 function merge_param_data(pvec::Vector{<:ConsecutiveParamVector})
-  ConsecutiveParamVector(hcat(map(get_all_data,pvec)...))
+  ConsecutiveParamArray(hcat(map(get_all_data,pvec)...))
 end
 
 function merge_param_data(pvec::Vector{<:ConsecutiveParamSparseMatrixCSC})

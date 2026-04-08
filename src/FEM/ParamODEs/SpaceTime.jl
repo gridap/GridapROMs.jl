@@ -11,7 +11,7 @@ function Algebra.residual(
   us0 = get_initial_param_data(s)
 
   tcomb = TimeCombination(solver)
-  usx = get_combination(tcomb,u,us0)
+  usx = get_time_combination(tcomb,u,us0)
 
   _prev_mid_shift!(solver,r)
   b = residual(odeop,r,usx)
@@ -31,7 +31,7 @@ function Algebra.jacobian(
   us0 = get_initial_param_data(s)
 
   tcomb = TimeCombination(solver)
-  usx = get_combination(tcomb,u,us0)
+  usx = get_time_combination(tcomb,u,us0)
   ws = ntuple(_ -> 1,Val(length(us0)))
 
   _prev_mid_shift!(solver,r)

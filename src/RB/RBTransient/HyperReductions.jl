@@ -7,7 +7,7 @@ function RBSteady.HRProjection(
   )
 
   basis = projection(get_reduction(red),s)
-  proj_basis = project(test,basis,trial,get_combine(red))
+  proj_basis = project(test,basis,trial,get_time_combination(red))
   interp = Interpolation(red,basis,trian,trial,test)
   return HRProjection(proj_basis,red,interp)
 end
@@ -21,7 +21,7 @@ function RBSteady.HRProjection(
   )
 
   basis = projection(get_reduction(red),s)
-  proj_basis = project(test,basis,trial,get_combine(red))
+  proj_basis = project(test,basis,trial,get_time_combination(red))
   interp = Interpolation(red,basis,s)
   return HRProjection(proj_basis,red,interp)
 end

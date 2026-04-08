@@ -5,7 +5,7 @@ TimeCombination(odesolver::ODESolver) = @abstractmethod
 
 get_coefficients(c::TimeCombination,args...) = @abstractmethod
 
-function get_combination(
+function get_time_combination(
   c::TimeCombination,
   u::AbstractParamVector,
   us0::NTuple{N,AbstractParamVector}
@@ -238,7 +238,7 @@ function get_coefficients(c::GenAlpha2Strategy{2},N::Int)
 
   η = (aαn(0),bαn(0))
   for j in 1:N-2
-    η = (η...,fαnj(N,j))
+    η = (η...,fαnj(j+1,1))
   end
   
   return η
@@ -269,7 +269,7 @@ function get_coefficients(c::GenAlpha2Strategy{3},N::Int)
 
   η = (gαn(0),hαn(0))
   for j in 1:N-2
-    η = (η...,lαnj(N,j))
+    η = (η...,lαnj(j+1,1))
   end
 
   return η
@@ -439,7 +439,7 @@ function _combination!(
     n = it - 1
     if it == 1
       for is in axes(data,1)
-        dddataα[is,ipt] = η[1]*data[is,ipt] + (1-αf)*δnj00*data0[is,ip] + (1-αm)*cn1*ddata0[is,ip] + ((1-αm)*dn1 + αm)*dddata0[is,ip]
+        dddataα[is,ipt] = η[1]*data[is,ipt] + (1-αm)*δnj00*data0[is,ip] + (1-αm)*cn1*ddata0[is,ip] + ((1-αm)*dn1 + αm)*dddata0[is,ip]
       end
     else
       for is in axes(data,1)

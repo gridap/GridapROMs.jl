@@ -68,7 +68,7 @@ function main(
   coupling((du,dp),(v,q)) = method==:pod ? ∫(dp*(∇⋅(v)))dΩ : ∫(dp*∂₁(v))dΩ + ∫(dp*∂₂(v))dΩ
   if method == :pod
     state_reduction = HighDimReduction(coupling,tol,energy;nparams,sketch,compression,ncentroids)
-  else method == :ttsvd
+  elseif method == :ttsvd
     state_reduction = HighDimReduction(coupling,fill(tol,4),energy;nparams,sketch,compression,ncentroids)
   end
 

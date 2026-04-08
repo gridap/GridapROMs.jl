@@ -41,33 +41,17 @@ end
 @testset "TrialParamFESpace with parametric Dirichlet data" begin
   model = make_model()
   V = make_test_space(model)
-  r = make_realisation(4)
+  l = 4
+  r = make_realisation(l)
   g = parameterise(μ -> x -> μ[1]*x[1] + μ[2]*x[2],r)
-  U = TrialParamFESpace(V,g)
-  @test U isa TrialParamFESpace
-  @test num_free_dofs(U) == num_free_dofs(V)
-end
-
-@testset "HomogeneousTrialParamFESpace" begin
-  model = make_model()
-  V = make_test_space(model)
-  l = 6
-  U = HomogeneousTrialParamFESpace(V,l)
-  @test U isa HomogeneousTrialParamFESpace
-  @test num_free_dofs(U) == num_free_dofs(V)
-end
-
-# ─── SingleFieldParamFESpace ──────────────────────────────────────────────────
-
-@testset "SingleFieldParamFESpace param_zero_free_values" begin
-  model = make_model()
-  V = make_test_space(model)
-  r = make_realisation(4)
-  U = TrialParamFESpace(V,r)
-  z = param_zero_free_values(U)
-  @test z isa AbstractParamArray
-  @test param_length(z) == 4
-  @test all(iszero,get_all_data(z))
+  for U in (TrialParamFESpace(V,g),HomogeneousTrialParamFESpace(V,l))
+    @test U isa TrialParamFESpace
+    @test num_free_dofs(U) == num_free_dofs(V)
+    z = param_zero_free_values(U)
+    @test z isa AbstractParamArray
+    @test param_length(z) == 4
+    @test all(iszero,get_all_data(z))
+  end
 end
 
 # ─── MultiFieldParamFESpace ───────────────────────────────────────────────────

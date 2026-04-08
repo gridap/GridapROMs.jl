@@ -211,7 +211,7 @@ function update_reduction(red::SequentialReduction,tol)
 end
 
 function update_reduction(red::HighDimMDEIMHyperReduction,tol)
-  HighDimMDEIMHyperReduction(update_reduction(red.reduction,tol),red.combine)
+  HighDimMDEIMHyperReduction(update_reduction(red.reduction,tol),red.combination)
 end
 
 function update_reduction(red::NTuple{N,HighDimMDEIMHyperReduction},tol) where N

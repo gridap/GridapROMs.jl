@@ -5,23 +5,23 @@ using LinearAlgebra
 using SparseArrays
 using Gridap
 using Gridap.Arrays: Table
+using Gridap.ODEs: Newmark
 using GridapROMs
 using GridapROMs.ParamDataStructures
+using GridapROMs.ParamODEs
 using GridapROMs.RBSteady
 using GridapROMs.RBTransient
 
 # Pull in non-exported symbols used throughout the tests
-const time_combinations         = RBTransient.time_combinations
 const KroneckerProjection       = RBTransient.KroneckerProjection
 const SequentialProjection      = RBTransient.SequentialProjection
 const KroneckerDomain           = RBTransient.KroneckerDomain
 const SequentialDomain          = RBTransient.SequentialDomain
 const time_enrichment           = RBTransient.time_enrichment
-const get_combine               = RBTransient.get_combine
+const get_time_order            = RBTransient.get_time_order
 const get_domain_style          = RBTransient.get_domain_style
 const get_indices_time          = RBTransient.get_indices_time
 const get_integration_domain_space = RBTransient.get_integration_domain_space
-const _get_shift                = RBTransient._get_shift
 const _to_realisation           = RBTransient._to_realisation
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -68,56 +68,37 @@ end
   @test ReductionStyle(red) isa SearchSVDRank
 end
 
-# ─── time_combinations ────────────────────────────────────────────────────────
-
-@testset "time_combinations ThetaMethod θ=1 (implicit Euler)" begin
-  # With θ=1, combine_jac(x,y) = 1·x + 0·y = x
-  dt = 0.1
-  fesolver = ThetaMethod(LUSolver(), dt, 1.0)
-  combine_res, combine_jac, combine_djac = time_combinations(fesolver)
-
-  @test combine_res isa Function
-  @test combine_jac isa Function
-  @test combine_djac isa Function
-
-  x = rand(4, 3); y = rand(4, 3)
-  @test combine_jac(x, y) ≈ x
-  @test combine_djac(x, y) ≈ (x .- y) / dt
-  @test combine_res(x) === x        # identity — no copy
-end
-
-@testset "time_combinations ThetaMethod θ=0.5 (Crank-Nicolson)" begin
-  dt = 0.2
-  fesolver = ThetaMethod(LUSolver(), dt, 0.5)
-  _, combine_jac, combine_djac = time_combinations(fesolver)
-
-  x = rand(3); y = rand(3)
-  @test combine_jac(x, y)  ≈ 0.5 .* x .+ 0.5 .* y
-  @test combine_djac(x, y) ≈ (x .- y) / dt
-end
-
 # ─── HighDimHyperReduction constructors ───────────────────────────────────────
 
-@testset "HighDimMDEIMHyperReduction construction (explicit)" begin
-  _, cjac, _ = time_combinations(ThetaMethod(LUSolver(), 0.1, 0.5))
+@testset "HighDimHyperReduction construction" begin
   red = HighDimReduction(1e-2; dim=2)
-  hr  = HighDimMDEIMHyperReduction(red, cjac)
-  @test hr isa HighDimMDEIMHyperReduction
-  @test get_combine(hr) === cjac
-end
 
-@testset "HighDimHyperReduction dispatch :mdeim" begin
-  _, cjac, _ = time_combinations(ThetaMethod(LUSolver(), 0.1, 0.5))
-  hr = HighDimHyperReduction(cjac, 1e-2; dim=2, hypred_strategy=:mdeim)
-  @test hr isa HighDimMDEIMHyperReduction
-  @test get_combine(hr) === cjac
-end
+  solver = ThetaMethod(LUSolver(), 0.1, 0.5)
+  tcomb = TimeCombination(solver)
+  
+  hrs = ntuple(i -> HighDimHyperReduction(
+    CombinationOrder{i}(tcomb),red),Val(get_time_order(solver)+1)
+  )
+  @test length(hrs) == 2
+  @test hrs[1] isa HighDimMDEIMHyperReduction
+  @test hrs[2] isa HighDimMDEIMHyperReduction
+  @test isa(get_time_combination(hrs[1]),ThetaMethodStrategy{1})
+  @test isa(get_time_combination(hrs[2]),ThetaMethodStrategy{2})
 
-@testset "HighDimHyperReduction dispatch :sopt" begin
-  _, cjac, _ = time_combinations(ThetaMethod(LUSolver(), 0.1, 0.5))
-  hr = HighDimHyperReduction(cjac, 1e-2; dim=2, hypred_strategy=:sopt)
-  @test hr isa HighDimSOPTHyperReduction
-  @test get_combine(hr) === cjac
+  solver = Newmark(LUSolver(),0.1,0.5,0.25)
+  tcomb = TimeCombination(solver)
+  
+  hrs = ntuple(i -> HighDimHyperReduction(
+    CombinationOrder{i}(tcomb),red;hypred_strategy=:sopt),
+    Val(get_time_order(solver)+1)
+  )
+  @test length(hrs) == 3
+  @test hrs[1] isa HighDimSOPTHyperReduction
+  @test hrs[2] isa HighDimSOPTHyperReduction
+  @test hrs[3] isa HighDimSOPTHyperReduction
+  @test isa(get_time_combination(hrs[1]),GenAlpha2Strategy{1})
+  @test isa(get_time_combination(hrs[2]),GenAlpha2Strategy{2})
+  @test isa(get_time_combination(hrs[3]),GenAlpha2Strategy{3})
 end
 
 # ─── tucker ───────────────────────────────────────────────────────────────────
@@ -211,41 +192,6 @@ end
   x̂2 = zeros(ns * nt)
   project!(x̂2, kp, x_rec)
   @test x̂2 ≈ x̂ atol=1e-10
-end
-
-# ─── galerkin_projection for transient ────────────────────────────────────────
-
-@testset "galerkin_projection — matrix×matrix×matrix with combine" begin
-  # All three matrices are Nt × k_i; the inner loop contracts over Nt time points.
-  # Result shape: (nleft, n_basis, nright).
-  Nt = 12; nleft = 4; n = 6; nright = 5
-  Φl = Matrix(qr(rand(Nt, nleft)).Q)
-  A  = rand(Nt, n)
-  Φr = Matrix(qr(rand(Nt, nright)).Q)
-
-  θ = 0.5
-  combine(x, y) = θ .* x .+ (1 - θ) .* y
-
-  proj = galerkin_projection(Φl, A, Φr, combine)
-  @test size(proj) == (nleft, n, nright)
-end
-
-@testset "galerkin_projection — combine respects θ=1 (implicit)" begin
-  # With θ=1, combine(x,y)=x, so result equals the standard Galerkin projection
-  # Φl' * (A*Φr_scaled) contracted over time — checked via the identity limit.
-  Nt = 10; n = 3; nl = 2; nr = 4
-  Φl = Matrix(qr(rand(Nt, nl)).Q)
-  A  = rand(Nt, n)
-  Φr = Matrix(qr(rand(Nt, nr)).Q)
-
-  proj1 = galerkin_projection(Φl, A, Φr, (x, y) -> x)  # θ=1 → take x
-  proj0 = galerkin_projection(Φl, A, Φr, (x, y) -> y)  # θ=0 → take y (shifted)
-
-  # The two results should generally differ (shifted vs current time step)
-  @test size(proj1) == (nl, n, nr)
-  @test size(proj0) == (nl, n, nr)
-  # With a generic random A, the shifted and unshifted projections are different
-  @test !(proj1 ≈ proj0)
 end
 
 # ─── TransientIntegrationDomain ───────────────────────────────────────────────

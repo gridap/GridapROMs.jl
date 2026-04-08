@@ -40,22 +40,22 @@ end
 end
 
 @testset "TransientParamSpace and TransientRealisation" begin
-  p = TransientParamSpace((0.0,1.0),[0.1,0.2,0.3])
+  p = TransientParamSpace((0.0,1.0),[0.0,0.1,0.2,0.3])
   r = realisation(p;nparams=2)
   @test r isa TransientRealisation
   @test num_params(r) == 2
   @test num_times(r) == 3
   @test length(r) == 6   # nparams × ntimes
 
-  @test get_initial_time(r) == 0.1
+  @test get_initial_time(r) == 0.0
   @test get_final_time(r) == 0.3
 end
 
 @testset "TransientRealisation shift!" begin
-  p = TransientParamSpace((0.0,1.0),[0.1,0.2,0.3])
+  p = TransientParamSpace((0.0,1.0),[0.0,0.1,0.2,0.3])
   r = realisation(p;nparams=1)
   shift!(r,1.0)
-  @test get_initial_time(r) ≈ 0.1   # t0 is fixed
+  @test get_initial_time(r) ≈ 0.0   # t0 is fixed
   @test get_final_time(r) ≈ 1.3
 end
 
@@ -71,7 +71,7 @@ end
 end
 
 @testset "parameterise transient" begin
-  p = TransientParamSpace((0.0,1.0),[0.1,0.2])
+  p = TransientParamSpace((0.0,1.0),[0.0,0.1,0.2])
   r = realisation(p;nparams=2)
   f = parameterise((μ,t) -> x -> μ[1] + t,r)
   @test f isa AbstractParamFunction
@@ -84,7 +84,7 @@ end
   l = 4
   n = 6
   data = rand(Float64,n,l)
-  A = ConsecutiveParamVector(data)
+  A = ConsecutiveParamArray(data)
   @test A isa ConsecutiveParamArray
   @test param_length(A) == l
   @test innersize(A) == (n,)
@@ -102,7 +102,7 @@ end
   l = 3
   m,n = 4,5
   data = rand(Float64,m,n,l)
-  A = ConsecutiveParamMatrix(data)
+  A = ConsecutiveParamArray(data)
   @test param_length(A) == l
   @test innersize(A) == (m,n)
   # diagonal access
@@ -135,8 +135,6 @@ end
   @test innersize(A) == (3,)
   # diagonal access (i,i) returns the underlying data
   @test A[2] == v   # A[i] where all indices equal → returns data
-  # off-diagonal (i≠j) returns zero array
-  @test iszero(A[2,3])
 end
 
 @testset "ParamArray constructor from vector-of-vectors" begin

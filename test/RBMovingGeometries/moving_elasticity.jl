@@ -148,7 +148,7 @@ function def_extended_fe_operator(μ)
   testbg = FESpace(Ωbg,reffe,conformity=:H1,dirichlet_tags=[1,3,7])
   testext = DirectSumFESpace(testbg,test)
   trialext = ParamTrialFESpace(testext,gμ)
-  ExtensionLinearParamOperator(res,a,pspace,trialext,testext,domains)
+  LinearParamOperator(res,a,pspace,trialext,testext,domains)
 end
 
 get_feop = method==:ttsvd ? def_extended_fe_operator : def_fe_operator
@@ -165,7 +165,7 @@ function local_solver(rbsolver,rbop,μ,x,festats)
     perf = eval_performance(rbsolver,feopi,rbopi,xi,x̂,festats,rbstats)
     push!(perfs,perf)
   end
-  return mean(perfs)
+  return RBSteady.mean(perfs)
 end
 
 fesolver = LUSolver()

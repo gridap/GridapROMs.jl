@@ -12,36 +12,36 @@ using GridapROMs.Utils
 @testset "CostTracker construction" begin
   t = CostTracker()
   @test t isa CostTracker
-  @test get_time(t) == 0.0
-  @test get_nallocs(t) == 0.0
-  @test get_nruns(t) == 1
+  @test Utils.get_time(t) == 0.0
+  @test Utils.get_nallocs(t) == 0.0
+  @test Utils.get_nruns(t) == 1
 
   t2 = CostTracker(;name="foo",time=1.5,nallocs=10.0,nruns=3)
-  @test get_name(t2) == "foo"
-  @test get_time(t2) == 1.5
-  @test get_nruns(t2) == 3
+  @test Utils.get_name(t2) == "foo"
+  @test Utils.get_time(t2) == 1.5
+  @test Utils.get_nruns(t2) == 3
 end
 
 @testset "CostTracker from NamedTuple" begin
   stats = (time=2.0,bytes=Int(1e6))
   t = CostTracker(stats;nruns=2,name="bar")
-  @test get_time(t) == 2.0
-  @test get_nallocs(t) ≈ 1.0   # 1e6 bytes → 1.0 Mb
-  @test get_nruns(t) == 2
-  @test get_name(t) == "bar"
+  @test Utils.get_time(t) == 2.0
+  @test Utils.get_nallocs(t) ≈ 1.0   # 1e6 bytes → 1.0 Mb
+  @test Utils.get_nruns(t) == 2
+  @test Utils.get_name(t) == "bar"
 end
 
 @testset "reset_tracker! and update_tracker!" begin
   t = CostTracker(;name="x",time=5.0,nallocs=2.0,nruns=1)
   reset_tracker!(t)
-  @test get_time(t) == 0.0
-  @test get_nallocs(t) == 0.0
-  @test get_nruns(t) == 0
+  @test Utils.get_time(t) == 0.0
+  @test Utils.get_nallocs(t) == 0.0
+  @test Utils.get_nruns(t) == 0
 
   stats = (time=3.0,bytes=Int(2e6))
   update_tracker!(t,stats)
-  @test get_time(t) == 3.0
-  @test get_nallocs(t) ≈ 2.0
+  @test Utils.get_time(t) == 3.0
+  @test Utils.get_nallocs(t) ≈ 2.0
 end
 
 @testset "compute_speedup" begin
@@ -49,8 +49,8 @@ end
   t2 = CostTracker(;name="rom",time=1.0,nallocs=10.0,nruns=1)
   su = compute_speedup(t1,t2)
   @test su isa Speedup
-  @test get_speedup_time(su) ≈ 10.0
-  @test get_speedup_memory(su) ≈ 10.0
+  @test Utils.get_speedup_time(su) ≈ 10.0
+  @test Utils.get_speedup_memory(su) ≈ 10.0
 end
 
 @testset "compute_error" begin
@@ -93,7 +93,7 @@ end
   @test c[1] === val
 
   # contribution do-block
-  c2 = contribution([Ω]) do trian
+  c2 = contribution((Ω,)) do trian
     [4.0,5.0]
   end
   @test c2[1] == [4.0,5.0]

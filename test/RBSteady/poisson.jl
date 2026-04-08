@@ -62,7 +62,7 @@ function main(
 
   if method == :pod
     state_reduction = Reduction(tol,energy;nparams,sketch,compression,ncentroids)
-  else method == :ttsvd
+  elseif method == :ttsvd
     state_reduction = Reduction(fill(tol,3),energy;nparams,sketch,compression,ncentroids)
   end
 
