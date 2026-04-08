@@ -25,7 +25,7 @@ function RBSteady.RBSolver(
   kwargs...)
 
   tcomb = TimeCombination(fesolver)
-  residual_reduction = LocalHighDimHyperReduction(cres,reduction;nparams=nparams_res,kwargs...)
+  residual_reduction = LocalHighDimHyperReduction(tcomb,reduction;nparams=nparams_res,kwargs...)
   jacobian_reduction = ntuple(
     i -> LocalHighDimHyperReduction(
       CombinationOrder{i}(tcomb),reduction;
@@ -77,11 +77,10 @@ function RBSteady.residual_snapshots(
 
   fesolver = get_fe_solver(solver)
   sres = select_snapshots(s,RBSteady.res_params(solver))
-  r_res = get_realisation(sres)
-  shift = _get_shift(solver)
-  b = residual(fesolver,odeop,r_res,s;shift)
+  rres = get_realisation(sres)
+  b = residual(fesolver,odeop,rres,sres)
   ib = get_dof_map_at_domains(odeop)
-  return Snapshots(b,ib,r_res)
+  return Snapshots(b,ib,rres)
 end
 
 function RBSteady.residual_snapshots(
@@ -101,16 +100,13 @@ function RBSteady.jacobian_snapshots(
 
   fesolver = get_fe_solver(solver)
   sjac = select_snapshots(s,RBSteady.jac_params(solver))
-  us_jac = get_param_data(sjac)
-  us0_jac = get_initial_param_data(sjac)
-  r_jac = get_realisation(sjac)
-  shift = _get_shift(solver)
-  A = jacobian(fesolver,odeop,r_jac,us_jac,us0_jac;shift)
+  rjac = get_realisation(sjac)
+  A = jacobian(fesolver,odeop,rjac,sjac)
   iA = get_sparse_dof_map_at_domains(odeop)
   jac_reduction = RBSteady.get_jacobian_reduction(solver)
   sA = ()
   for (reda,a,ia) in zip(jac_reduction,A,iA)
-    sa = Snapshots(a,ia,r_jac)
+    sa = Snapshots(a,ia,rjac)
     sA = (sA...,select_snapshots(sa,1:num_params(reda)))
   end
   return sA
@@ -160,7 +156,7 @@ function Algebra.solve(
   t = @timed x̂vec = map(get_params(r)) do μ
     opμt = get_local(op,μ)
     rμt = _to_realisation(r,μ)
-    x̂, = solve(solver,opμt,rμt,xh0)
+    x̂, = solve(solver,opμt,rμt,us0)
     x̂
   end
   x̂ = param_cat(x̂vec)

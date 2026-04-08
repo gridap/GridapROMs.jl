@@ -1,10 +1,50 @@
-# check HighDimHyperReduction for more details
+@doc raw"""
+    abstract type TimeCombination end
+
+Encodes how an ODE time-marching scheme combines contributions from different
+time levels when building a reduced space-time system.
+
+For every ODE solver there is exactly one `TimeCombination` that stores the
+scheme parameters (time step, weights, …).  Use the constructor
+
+    TimeCombination(odesolver::ODESolver)
+
+to obtain the appropriate concrete subtype:
+
+| Solver               | `TimeCombination` subtype    |
+|:---------------------|:-----------------------------|
+| `ThetaMethod`        | [`ThetaMethodCombination`](@ref) |
+| `GeneralizedAlpha1`  | [`GenAlpha1Combination`](@ref)   |
+| `GeneralizedAlpha2`  | [`GenAlpha2Combination`](@ref)   |
+
+The per-order time-level weights are accessed through
+[`get_coefficients`](@ref), while [`get_time_combination`](@ref) applies the
+full combination to a parametric solution vector.
+
+See also: [`CombinationOrder`](@ref), [`HighDimHyperReduction`](@ref).
+"""
 abstract type TimeCombination end
 
 TimeCombination(odesolver::ODESolver) = @abstractmethod
 
+"""
+    get_coefficients(c::TimeCombination, args...) -> NTuple{N,Real}
+
+Return the tuple of coefficients that the combination `c` uses to weight
+snapshots at successive time levels. The length of the tuple equals the
+number of time levels involved (the *stencil width* of the scheme for the
+corresponding [`CombinationOrder`](@ref)).
+"""
 get_coefficients(c::TimeCombination,args...) = @abstractmethod
 
+"""
+    get_time_combination(c::TimeCombination, u, us0) -> NTuple{N,AbstractParamVector}
+
+Apply the time combination `c` to the parametric solution vector `u` and the
+`N` initial-condition vectors `us0`.  Returns an `N`-tuple of combined
+vectors, one per derivative order of the ODE (e.g. ``u_{\\theta}`` and
+``\\dot{u}_{\\theta}`` for a first-order scheme).
+"""
 function get_time_combination(
   c::TimeCombination,
   u::AbstractParamVector,
@@ -19,6 +59,19 @@ function get_time_combination(
   return usx
 end
 
+@doc raw"""
+    struct ThetaMethodCombination <: TimeCombination
+      dt::Real
+      θ::Real
+    end
+
+[`TimeCombination`](@ref) for the θ-method applied to a first-order ODE.
+Stores the time step `dt` and the implicitness parameter `θ`.
+
+Two [`CombinationOrder`](@ref) levels are defined:
+- Order 1 (stiffness ``A``):  coefficients ``(\theta,\, 1-\theta)``.
+- Order 2 (mass ``M``):       coefficients ``(1/\Delta t,\, -1/\Delta t)``.
+"""
 struct ThetaMethodCombination <: TimeCombination
   dt::Real
   θ::Real
@@ -28,6 +81,19 @@ function TimeCombination(odesolver::ThetaMethod)
   ThetaMethodCombination(odesolver.dt,odesolver.θ)
 end
 
+"""
+    struct GenAlpha1Combination <: TimeCombination
+      dt::Real
+      αf::Real
+      αm::Real
+      γ::Real
+    end
+
+[`TimeCombination`](@ref) for the Generalized-α method for first-order ODEs.
+Stores `dt`, `αf`, `αm`, and `γ`.
+
+Two [`CombinationOrder`](@ref) levels are defined (stiffness and mass/damping).
+"""
 struct GenAlpha1Combination <: TimeCombination
   dt::Real
   αf::Real
@@ -44,6 +110,20 @@ function TimeCombination(odesolver::GeneralizedAlpha1)
   )
 end
 
+"""
+    struct GenAlpha2Combination <: TimeCombination
+      dt::Real
+      αf::Real
+      αm::Real
+      γ::Real
+      β::Real
+    end
+
+[`TimeCombination`](@ref) for the Generalized-α method for second-order ODEs
+(Newmark family).  Stores `dt`, `αf`, `αm`, `γ`, and `β`.
+
+Three [`CombinationOrder`](@ref) levels are defined (stiffness, damping, mass).
+"""
 struct GenAlpha2Combination <: TimeCombination
   dt::Real
   αf::Real
@@ -62,12 +142,39 @@ function TimeCombination(odesolver::GeneralizedAlpha2)
   )
 end
 
+@doc raw"""
+    struct CombinationOrder{A<:TimeCombination, N} <: TimeCombination
+      combination::A
+    end
+
+Wraps a [`TimeCombination`](@ref) and selects the *N*-th derivative order
+for coefficient retrieval. In a ``p``-th order ODE, the time-marching scheme
+produces ``p+1`` operators (e.g. stiffness, damping, mass for ``p=2``);
+`CombinationOrder{A,N}` isolates the coefficients for the ``N``-th one.
+
+The type parameter `N` is a positive integer:
+- `N = 1` — zeroth-derivative operator (stiffness ``A``).
+- `N = 2` — first-derivative operator (mass ``M`` for first-order; damping for second-order).
+- `N = 3` — second-derivative operator (mass ``M`` for second-order).
+
+Convenience aliases:
+- [`ThetaMethodStrategy{N}`](@ref)  = `CombinationOrder{ThetaMethodCombination, N}`
+- [`GenAlpha1Strategy{N}`](@ref)    = `CombinationOrder{GenAlpha1Combination, N}`
+- [`GenAlpha2Strategy{N}`](@ref)    = `CombinationOrder{GenAlpha2Combination, N}`
+"""
 struct CombinationOrder{A,N} <: TimeCombination
   combination::A 
   CombinationOrder{N}(c::A) where {A,N} = new{A,N}(c)
   CombinationOrder{N}(c::CombinationOrder) where N = CombinationOrder{N}(c.combination)
 end
 
+@doc raw"""
+    const ThetaMethodStrategy{N} = CombinationOrder{ThetaMethodCombination, N}
+
+Specialised alias for `CombinationOrder` with a [`ThetaMethodCombination`](@ref).
+`N = 1` yields stiffness coefficients ``(\theta,\, 1-\theta)``;
+`N = 2` yields mass coefficients ``(1/\Delta t,\, -1/\Delta t)``.
+"""
 const ThetaMethodStrategy{N} = CombinationOrder{ThetaMethodCombination,N}
 
 function get_coefficients(c::ThetaMethodStrategy{1},args...)
@@ -111,6 +218,13 @@ function _combination!(
   return dataθ
 end
 
+"""
+    const GenAlpha1Strategy{N} = CombinationOrder{GenAlpha1Combination, N}
+
+Specialised alias for `CombinationOrder` with a [`GenAlpha1Combination`](@ref).
+Orders 1 and 2 correspond to the stiffness and mass/damping operators of a
+first-order Generalized-α scheme.
+"""
 const GenAlpha1Strategy{N} = CombinationOrder{GenAlpha1Combination,N}
 
 function get_coefficients(c::GenAlpha1Strategy{1},args...)
@@ -207,6 +321,13 @@ function _combination!(
   return ddataα
 end
 
+"""
+    const GenAlpha2Strategy{N} = CombinationOrder{GenAlpha2Combination, N}
+
+Specialised alias for `CombinationOrder` with a [`GenAlpha2Combination`](@ref).
+Orders 1, 2, and 3 correspond to the stiffness, damping, and mass operators of a
+second-order Generalized-α (Newmark) scheme.
+"""
 const GenAlpha2Strategy{N} = CombinationOrder{GenAlpha2Combination,N}
 
 function get_coefficients(c::GenAlpha2Strategy{1},args...)

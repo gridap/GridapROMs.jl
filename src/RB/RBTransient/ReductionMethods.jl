@@ -1,3 +1,20 @@
+"""
+    abstract type HighDimReduction{A<:ReductionStyle,B<:NormStyle} <: Reduction{A,B} end
+
+Abstract supertype for reduction methods in high-order (e.g. transient)
+parametric problems.
+
+Concrete subtypes:
+- [`SteadyReduction`](@ref) — wraps a steady `Reduction`; no temporal
+  compression is applied (the ROM still time-steps).
+- [`KroneckerReduction`](@ref) — builds a Kronecker (Tucker) product space
+  from independent spatial and temporal reductions.
+- [`SequentialReduction`](@ref) — uses TT-SVD (tensor-train) decomposition
+  for the snapshot tensor.
+
+Use the generic constructor `HighDimReduction(args...; kwargs...)` to dispatch
+to the appropriate subtype based on the arguments.
+"""
 abstract type HighDimReduction{A<:ReductionStyle,B<:NormStyle} <: Reduction{A,B} end
 
 """
@@ -121,89 +138,56 @@ end
 @doc raw"""
     abstract type HighDimHyperReduction{A} <: HyperReduction{A} end
 
-Hyper reduction strategies employed in high-order (e.g. transient) problems.
-They feature a field `combination`, a [`TimeCombination`](@ref) used to group the 
-reductions relative to the various Jacobians (in general, more than one in 
-transient problems) in a smart way. We consider, for example, the ODE
+Hyper-reduction strategies employed in high-order (e.g. transient) problems.
+
+Every concrete subtype stores a [`TimeCombination`](@ref), which encodes the
+way an ODE time-marching scheme combines contributions from different time
+levels. See [`TimeCombination`](@ref) and [`CombinationOrder`](@ref) for
+the full treatment; here we summarise the key idea for the simplest case.
+
+### Theta method (first-order ODE)
+
+Consider
 
 ```math
-\tfrac{du}{dt} - \nu \Delta u = f \ \ \text{in} \ \ Ω \times [0,T]
+M \dot{u}(t) + A\, u(t) = f(t).
 ```
 
-subject to initial/boundary conditions. Upon applying a FE discretization in space,
-and a `θ`-method in time, one gets the space-time system
+The ``\theta``-method reads
 
 ```math
-A_{\theta} u_{\theta} = f_{\theta}
+M \frac{u_{n+1} - u_n}{\Delta t}
++ \theta\, A\, u_{n+1} + (1-\theta)\, A\, u_n
+= f_{n+\theta},
 ```
 
-where
+which can be rewritten as
 
 ```math
-A_{\theta} = \begin{bmatrix}
-A_1 + M / (\theta \Delta t) & & & & & \\
-- M / (\theta \Delta t) & A_2 + M / (\theta \Delta t) & & & & \\
-& - M / (\theta \Delta t) & A_3 + M / (\theta \Delta t) & & & \\
-& & \ddots & \ddots & & \\
-& & & & - M / (\theta \Delta t) & A_n + M / (\theta \Delta t)
-\end{bmatrix};
+\left( \frac{1}{\Delta t} M + \theta\, A \right) u_{n+1}
+=
+\left( \frac{1}{\Delta t} M - (1-\theta)\, A \right) u_n
++ f_{n+\theta}.
 ```
+
+The scheme is therefore purely one-step:
 
 ```math
-u_{\theta} = \begin{bmatrix}
-(1-\theta)u_0 + \theta u_1 \\ \vdots \\ (1-\theta)u_{n-1} + \theta u_n
-\end{bmatrix};
+\boxed{
+\left( \frac{1}{\Delta t} M + \theta\, A \right) u_{n+1}
+=
+\left( \frac{1}{\Delta t} M - (1-\theta)\, A \right) u_n
++ f_{n+\theta}.
+}
 ```
 
-```math
-f_{\theta} = \begin{bmatrix}
-f_1 \\ \vdots \\ f_n
-\end{bmatrix};
-```
-
-```math
-A_k = A(t_{k-1} + \theta \Delta t);
-```
-
-```math
-f_k = f(t_{k-1} + \theta \Delta t).
-```
-
-Note: instead of multiplying ``A_{\theta}`` by ``u_{\theta}``, we multiply ``\tilde{A}_{\theta}`` by ``u``, where
-
-```math
-\tilde{A}_{\theta} = tridiag((1-\theta)A_{k-1} - M / \Delta t, \theta A_k + M / \Delta t, 0).
-```
-
-We now denote with ``\Phi`` and ``\Psi`` the spatial and temporal basis obtained by reducing the
-snapshots associated to the state variable ``u``. The Galerkin projection of the
-space-time system is equal to ``\hat{A}_{\theta}\hat{u} = \hat{f}_{\theta}``, where ``\hat{u}`` is the unknown, and
-
-```math
-\begin{align*}
-\hat{A}_{\theta} &= \sum\limits_{k=1}^{n-1} ( (1-θ) \Phi^T A_k \Phi - \Phi^T M \Phi / \Delta t) \otimes \Psi[k-1,:]^T \Psi[k,:]
-  + \sum\limits_{k=1}^n (\theta \Phi^T A_k \Phi + \Phi^T M \Phi / \Delta t) \otimes \Psi[k,:]^T \Psi[k,:] \\
-  &= \theta A_{backwards} + (1-\theta)A_{forwards} + (M_{backwards} + M_{forwards}) / \Delta t \\
-\hat{f}_{\theta} &= \sum\limits_{k=1}^n \Phi^T f_k \otimes \Psi[k,:]
-\end{align*}
-```
-
-We notice that the expression of ``\hat{A}_{\theta}`` can be written in a more general form as
-
-```math
-\hat{A}_{\theta} = combination_A(A_{backwards},A_{forwards}) + combination_M(M_{backwards},M_{forwards}),
-```
-
-where ``combination_A`` and ``combination_M`` are two function specific to ``A`` and ``M``:
-
-```math
-\begin{align*}
-combination_A(x,y) &= \theta y + (1-\theta)y \\
-combination_M(x,y) &= (x - y) / \Delta t
-\end{align*}
-```
-
-The same can be said of any time marching scheme. This is the meaning of `combination`. 
+Within the ROM framework the two operators ``A`` and ``M`` are associated
+with distinct [`CombinationOrder`](@ref) indices (1 and 2 for a first-order
+problem).  The [`TimeCombination`](@ref) object stores the scheme parameters
+(``\theta``, ``\Delta t``, …) and the function [`get_coefficients`](@ref)
+returns the per-order weights that combine snapshots from successive time
+levels.  Higher-order schemes (Newmark / Generalized-α) follow the same
+pattern with additional combination orders.
 """
 abstract type HighDimHyperReduction{A} <: HyperReduction{A} end
 
