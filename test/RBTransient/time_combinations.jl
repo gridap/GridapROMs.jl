@@ -5,6 +5,7 @@ using LinearAlgebra
 using SparseArrays
 
 using Gridap
+using Gridap.FESpaces
 using Gridap.Algebra
 using Gridap.ODEs
 
@@ -98,7 +99,7 @@ end
   dt = 0.1; θ = 0.5
   np = 1; nt = 3; ndof = 1
   u_data  = reshape(Float64[1.0,3.0,6.0],1,3)  # single param
-  u0_data = reshape(Float64[0.0],         1,1)
+  u0_data = reshape(Float64[0.0],   1,1)
 
   u  = cpa(u_data);  u0 = cpa(u0_data)
 
@@ -153,8 +154,8 @@ end
   αf = 0.5; αm = 0.5; γ = 0.5
   np = 1; nt = 3; ndof = 1
   u_data  = reshape(Float64[1.0,3.0,6.0],1,3)
-  u0_data = reshape(Float64[0.0],          1,1)
-  v0_data = reshape(Float64[0.0],          1,1)
+  u0_data = reshape(Float64[0.0],    1,1)
+  v0_data = reshape(Float64[0.0],    1,1)
 
   u  = cpa(u_data);  u0 = cpa(u0_data);  v0 = cpa(v0_data)
   c  = GenAlpha1Combination(dt,αf,αm,γ)
@@ -181,7 +182,7 @@ end
   u0_raw  = 0.0
   v0_raw  = 1.0   # non-zero initial velocity to test c/a*v0 term
 
-  u_data  = reshape(u_raw, 1,nt)
+  u_data  = reshape(u_raw,1,nt)
   u0_data = reshape([u0_raw],1,1)
   v0_data = reshape([v0_raw],1,1)
   u  = cpa(u_data);  u0 = cpa(u0_data);  v0 = cpa(v0_data)
@@ -561,7 +562,7 @@ end
 
   proj2_ref = zeros(nl,n,nr)
   proj3_ref = zeros(nl,n,nr)
-  @inbounds for i = 1:nl, k = 1:n, j = 1:nr
+  @inbounds for i = 1:nl,k = 1:n,j = 1:nr
     for shift = eachindex(θv)
       for α = 1:(Nt - shift + 1)
         idx = α + shift - 1
@@ -648,7 +649,7 @@ function _wave_eq_setup(;nparams=3)
   aμt(μ,t) = parameterise(a,μ,t)
   g(μ,t) = x -> x[1] * (1 + t)^2
   gμt(μ,t) = parameterise(g,μ,t)
-  # u(x,t) = x[1]*(1+t)²  ⟹  u(x,0) = x[1],  ∂_t u(x,0) = 2 x[1]
+  # u(x,t) = x[1]*(1+t)²  ⟹  u(x,0) = x[1],∂_t u(x,0) = 2 x[1]
   u0(μ)   = x -> x[1]
   u0μ(μ)  = parameterise(u0,μ)
   v0(μ)   = x -> 2 * x[1]
@@ -682,10 +683,81 @@ function _wave_eq_setup(;nparams=3)
   return feop,r,uh0μ,vh0μ
 end
 
+function _make_transient_cellfield(odeslvr,feop,us,us0,odecache)
+  odeop = get_algebraic_operator(feop)
+  _,odeopcache = odecache
+  ODEs._make_uh_from_us(odeop,us,odeopcache.Us)
+end
+
+function _make_transient_cellfield(odeslvr::ThetaMethod,feop,us,us0,odecache)
+  u, = us 
+  u0, = us0 
+  v = (u - u0) / odeslvr.dt 
+  us = (u,v)
+  odeop = get_algebraic_operator(feop)
+  _,odeopcache = odecache
+  ODEs._make_uh_from_us(odeop,us,odeopcache.Us)
+end
+
+function _compare_with_gridap_heateq(odeslvr,snaps,A,b)
+  domain = (0,1,0,1)
+  partition = (6,6)
+  model = CartesianDiscreteModel(domain,partition)
+
+  order = 1
+  degree = 2*order
+  Ω = Triangulation(model)
+  dΩ = Measure(Ω,degree)
+
+  reffe = ReferenceFE(lagrangian,Float64,order)
+  test  = TestFESpace(Ω,reffe; conformity=:H1,dirichlet_tags="boundary")
+
+  dt = 0.05; t0 = 0.0; tf = 4*dt
+
+  data = get_param_data(snaps)
+  r = get_realisation(snaps)
+  np = num_params(r)
+
+  for (i,(μ,_)) in enumerate(r) 
+    at(t) = x -> μ[1]
+    ft(t) = x -> 1.0
+    gt(t) = x -> x[1] * (1 + t)
+    u0(x) = gt(0.0)(x)
+
+    a = TimeSpaceFunction(at)
+    f = TimeSpaceFunction(ft)
+    g = TimeSpaceFunction(gt)
+
+    stiffness(t,u,v) = ∫(a(t) * ∇(v) ⋅ ∇(u))dΩ
+    mass(_,uₜ,v)     = ∫(v * uₜ)dΩ
+    rhs(t,v)         = ∫(f(t) * v)dΩ
+    res(t,u,v)       = mass(t,∂t(u),v) + stiffness(t,u,v) - rhs(t,v)
+
+    trial = TransientTrialFESpace(test,g)
+    feop  = TransientLinearFEOperator((stiffness,mass),rhs,trial,test)
+    odeop = get_algebraic_operator(feop)
+    uh0 = interpolate_everywhere(u0,trial(t0))
+
+    fesltn = solve(odeslvr,feop,t0,tf,uh0)
+
+    for (n,((t_n,u_n),(_,state_n,state_0,_,odecache))) in enumerate(fesltn.odesltn)
+      ipt = i + (n-1)*np
+      An = assemble_matrix((u,v)->stiffness(t_n,u,v),trial(t_n),test)
+      Mn = assemble_matrix((u,v)->mass(t_n,u,v),trial(t_n),test)
+      uh_nt = _make_transient_cellfield(odeslvr,feop,state_n,state_0,odecache)
+      rn = assemble_vector(v->res(t_n,uh_nt,v),test)
+      @test u_n ≈ param_getindex(data,ipt)
+      @test An ≈ param_getindex(A[1][1],ipt)
+      @test Mn ≈ param_getindex(A[2][1],ipt)
+      @test rn ≈ param_getindex(b[1],ipt)
+    end
+  end
+end
+
 @testset "SpaceTime solution+residual+jacobian — heat equation" begin
   dt = 0.05
   fesolvers = (
-    ThetaMethod(LUSolver(),dt,5*dt), 
+    ThetaMethod(LUSolver(),dt,5*dt),
     GeneralizedAlpha1(LUSolver(),5*dt,0.5)
   )
 
@@ -704,63 +776,8 @@ end
 
     @test isa(b,ArrayContribution)
     @test isa(A,TupOfArrayContribution)
-    b = sum(b.values)
-    A = sum(A[1].values) + sum(A[2].values)
-
-    @test _compare_with_gridap_heateq(fesolver,feop,r,snaps,A,b)
+    _compare_with_gridap_heateq(fesolver,snaps,A,b)
   end
-end
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Helper: compare heat-equation snapshots/residuals/jacobians with plain Gridap
-# ─────────────────────────────────────────────────────────────────────────────
-# Strategy
-#   • residual check : at the discrete solution residual(solver,op,r,snaps) ≈ 0
-#   • jacobian check : after `A = sum(A[1].values)+sum(A[2].values)`, A is a
-#     ConsecutiveParamArray whose p-th column = NZ values of K(μ_p)+M.
-#     We reconstruct the sparse matrix and compare against Gridap assembly.
-
-function _compare_with_gridap_heateq(_, _, r, _, A, b)
-  domain    = (0,1,0,1); partition = (6,6)
-  model     = CartesianDiscreteModel(domain, partition)
-  reffe     = ReferenceFE(lagrangian, Float64, 1)
-  V         = TestFESpace(model, reffe; conformity=:H1, dirichlet_tags="boundary")
-  U0        = TrialFESpace(V, 0.0)   # zero Dirichlet — matrix assembly only
-  Ω         = Triangulation(model)
-  dΩ        = Measure(Ω, 2)
-
-  np = num_params(r)
-  nt = num_times(r)
-
-  # 1 — residual at the discrete solution must be ≈ 0 (consistency check)
-  b_data = get_all_data(b)            # shape: (ndofs_free, np*nt)
-  ok_res = true
-  for ip in 1:np, it in 1:nt
-    ipt    = (it-1)*np + ip
-    ok_res = ok_res && (norm(b_data[:, ipt]) < 1e-8)
-  end
-
-  # 2 — jacobian ≈ K(μ) + M assembled by plain Gridap
-  # For both ThetaMethod and GeneralizedAlpha1 with ws = (1,1), the offline
-  # jacobian is J = K(μ) + M (stiffness + mass), parameter-scaled stiffness.
-  M_ref = assemble_matrix((u,v) -> ∫(v * u)dΩ, U0, V)
-
-  ok_jac = true
-  for (ip, μ_vec) in enumerate(get_params(r))
-    μ     = μ_vec[1]
-    K_ref = assemble_matrix((u,v) -> ∫(μ * ∇(v) ⋅ ∇(u))dΩ, U0, V)
-    A_ref = K_ref + M_ref
-
-    for it in 1:nt
-      ipt      = (it-1)*np + ip
-      # param_getindex on a ConsecutiveParamArray returns a view of the NZ column
-      nz       = collect(param_getindex(A, ipt))
-      A_groms  = SparseMatrixCSC(A_ref.m, A_ref.n, A_ref.colptr, A_ref.rowval, nz)
-      ok_jac   = ok_jac && isapprox(Matrix(A_groms), Matrix(A_ref), atol=1e-8)
-    end
-  end
-
-  return ok_res && ok_jac
 end
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -769,44 +786,35 @@ end
 
 @testset "SpaceTime solution+residual+jacobian — wave equation" begin
   dt = 0.05
-  fesolver = GeneralizedAlpha2(LUSolver(), dt, 0.5)
+  fesolver = GeneralizedAlpha2(LUSolver(),dt,0.5)
 
-  feop, r, uh0μ, vh0μ = _wave_eq_setup(;nparams=2)
+  feop,r,uh0μ,vh0μ = _wave_eq_setup(;nparams=2)
 
-  sol          = solve(fesolver, feop, r, (uh0μ, vh0μ))
-  vals, _      = collect(sol)
+  sol          = solve(fesolver,feop,r,(uh0μ,vh0μ))
+  vals,_      = collect(sol)
   initial_vals = initial_conditions(sol)
   i            = get_dof_map(feop)
-  snaps        = Snapshots(vals, initial_vals, i, r)
+  snaps        = Snapshots(vals,initial_vals,i,r)
 
-  b = Algebra.residual(fesolver, feop, r, snaps)
-  A = Algebra.jacobian(fesolver, feop, r, snaps)
+  b = Algebra.residual(fesolver,feop,r,snaps)
+  A = Algebra.jacobian(fesolver,feop,r,snaps)
 
-  @test isa(b, ArrayContribution)
-  @test isa(A, TupOfArrayContribution)
+  @test isa(b,ArrayContribution)
+  @test isa(A,TupOfArrayContribution)
   b = sum(b.values)
   A = sum(A[1].values) + sum(A[2].values) + sum(A[3].values)
 
-  @test _compare_with_gridap_waveeq(fesolver, feop, r, snaps, A, b)
+  @test _compare_with_gridap_waveeq(fesolver,feop,r,snaps,A,b)
 end
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Helper: compare wave-equation snapshots/residuals/jacobians with plain Gridap
-# ─────────────────────────────────────────────────────────────────────────────
-# Wave equation: ∂²u/∂t² + ∂u/∂t + μ Δu = 0
-#   jacobian order 0  →  K(μ)  = ∫ μ ∇v⋅∇u dΩ
-#   jacobian order 1  →  C     = ∫ v uₜ  dΩ   (bilinear form = mass matrix M)
-#   jacobian order 2  →  M     = ∫ v uₜₜ dΩ   (same bilinear form as C)
-# After A = K + C + M = K + 2*M_ref.
-
-function _compare_with_gridap_waveeq(_, _, r, _, A, b)
+function _compare_with_gridap_waveeq(_,_,r,_,A,b)
   domain    = (0,1,0,1); partition = (6,6)
-  model     = CartesianDiscreteModel(domain, partition)
-  reffe     = ReferenceFE(lagrangian, Float64, 1)
-  V         = TestFESpace(model, reffe; conformity=:H1, dirichlet_tags="boundary")
-  U0        = TrialFESpace(V, 0.0)
+  model     = CartesianDiscreteModel(domain,partition)
+  reffe     = ReferenceFE(lagrangian,Float64,1)
+  V         = TestFESpace(model,reffe; conformity=:H1,dirichlet_tags="boundary")
+  U0        = TrialFESpace(V,0.0)
   Ω         = Triangulation(model)
-  dΩ        = Measure(Ω, 2)
+  dΩ        = Measure(Ω,2)
 
   np = num_params(r)
   nt = num_times(r)
@@ -814,28 +822,109 @@ function _compare_with_gridap_waveeq(_, _, r, _, A, b)
   # 1 — residual ≈ 0 at the discrete solution
   b_data = get_all_data(b)
   ok_res = true
-  for ip in 1:np, it in 1:nt
+  for ip in 1:np,it in 1:nt
     ipt    = (it-1)*np + ip
-    ok_res = ok_res && (norm(b_data[:, ipt]) < 1e-8)
+    ok_res = ok_res && (norm(b_data[:,ipt]) < 1e-8)
   end
 
   # 2 — jacobian ≈ K(μ) + 2*M from Gridap  (damping C = M bilinear form)
-  M_ref = assemble_matrix((u,v) -> ∫(v * u)dΩ, U0, V)
+  M_ref = assemble_matrix((u,v) -> ∫(v * u)dΩ,U0,V)
 
   ok_jac = true
-  for (ip, μ_vec) in enumerate(get_params(r))
+  for (ip,μ_vec) in enumerate(get_params(r))
     μ     = μ_vec[1]
-    K_ref = assemble_matrix((u,v) -> ∫(μ * ∇(v) ⋅ ∇(u))dΩ, U0, V)
+    K_ref = assemble_matrix((u,v) -> ∫(μ * ∇(v) ⋅ ∇(u))dΩ,U0,V)
     A_ref = K_ref + 2 * M_ref
 
     for it in 1:nt
       ipt      = (it-1)*np + ip
-      nz       = collect(param_getindex(A, ipt))
-      A_groms  = SparseMatrixCSC(A_ref.m, A_ref.n, A_ref.colptr, A_ref.rowval, nz)
-      ok_jac   = ok_jac && isapprox(Matrix(A_groms), Matrix(A_ref), atol=1e-8)
+      nz       = collect(param_getindex(A,ipt))
+      A_groms  = SparseMatrixCSC(A_ref.m,A_ref.n,A_ref.colptr,A_ref.rowval,nz)
+      ok_jac   = ok_jac && isapprox(Matrix(A_groms),Matrix(A_ref),atol=1e-8)
     end
   end
 
   return ok_res && ok_jac
 end
 
+
+#
+
+dt = 0.05
+fesolvers = (
+ThetaMethod(LUSolver(),dt,5*dt),
+GeneralizedAlpha1(LUSolver(),5*dt,0.5)
+)
+
+fesolver = fesolvers[1]
+feop,r,uh0μ = _heat_eq_setup(;nparams=3)
+
+# Collect solution snapshots via the standard offline pipeline
+sol    = solve(fesolver,feop,r,uh0μ)
+vals,_  = collect(sol)
+initial_vals = initial_conditions(sol)
+i      = get_dof_map(feop)
+snaps  = Snapshots(vals,initial_vals,i,r)
+
+b = Algebra.residual(fesolver,feop,r,snaps)
+A = Algebra.jacobian(fesolver,feop,r,snaps)
+
+@test isa(b,ArrayContribution)
+@test isa(A,TupOfArrayContribution)
+
+# gridap 
+
+domain = (0,1,0,1)
+partition = (6,6)
+model = CartesianDiscreteModel(domain,partition)
+
+order = 1
+degree = 2*order
+Ω = Triangulation(model)
+dΩ = Measure(Ω,degree)
+
+reffe = ReferenceFE(lagrangian,Float64,order)
+test  = TestFESpace(Ω,reffe; conformity=:H1,dirichlet_tags="boundary")
+
+dt = 0.05; t0 = 0.0; tf = 4*dt
+
+data = get_param_data(snaps)
+r = get_realisation(snaps)
+np = num_params(r)
+
+i = 1
+μ = r.params.params[i]
+
+at(t) = x -> μ[1]
+ft(t) = x -> 1.0
+gt(t) = x -> x[1] * (1 + t)
+u0(x) = gt(0.0)(x)
+
+a = TimeSpaceFunction(at)
+f = TimeSpaceFunction(ft)
+g = TimeSpaceFunction(gt)
+
+stiffness(t,u,v) = ∫(a(t) * ∇(v) ⋅ ∇(u))dΩ
+mass(_,uₜ,v)     = ∫(v * uₜ)dΩ
+rhs(t,v)         = ∫(f(t) * v)dΩ
+res(t,u,v)       = mass(t,∂t(u),v) + stiffness(t,u,v) - rhs(t,v)
+
+trial = TransientTrialFESpace(test,g)
+feop  = TransientLinearFEOperator((stiffness,mass),rhs,trial,test)
+odeop = get_algebraic_operator(feop)
+uh0 = interpolate_everywhere(u0,trial(t0))
+
+fesltn = solve(odeslvr,feop,t0,tf,uh0)
+
+n = 1
+(t_n,u_n),(_,state_n,state_0,_,odecache) = iterate(fesltn.odesltn)
+tθ = t0 + odeslvr.θ*odeslvr.dt
+ipt = i + (n-1)*np
+An = assemble_matrix((u,v)->stiffness(tθ,u,v),trial(tθ),test)
+Mn = assemble_matrix((u,v)->mass(tθ,u,v),trial(tθ),test)
+uh_nt = _make_transient_cellfield(odeslvr,feop,state_n,state_0,odecache)
+rn = assemble_vector(v->res(tθ,uh_nt,v),test)
+@test u_n ≈ param_getindex(data,ipt)
+@test An ≈ param_getindex(A[1][1],ipt)
+@test Mn ≈ param_getindex(A[2][1],ipt)
+@test rn ≈ param_getindex(b[1],ipt)
