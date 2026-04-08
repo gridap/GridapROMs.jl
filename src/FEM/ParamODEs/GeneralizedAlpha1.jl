@@ -25,7 +25,7 @@ function ODEs.ode_march!(
   solver::GeneralizedAlpha1,
   odeop::ODEParamOperator,
   r::TransientRealisation,
-  state::NTuple{2,AbstractVector},
+  state0::NTuple{2,AbstractVector},
   odecache
   )
 
@@ -33,7 +33,7 @@ function ODEs.ode_march!(
   x = statef[2]
 
   (uα,vα),paramcache,syscache = odecache
-  dt,αf,αm,γ = odeslvr.dt,odeslvr.αf,odeslvr.αm,odeslvr.γ
+  dt,αf,αm,γ = solver.dt,solver.αf,solver.αm,solver.γ
   ws = (αf*γ*dt,αm)
 
   mid_shift!(solver,r)
@@ -53,7 +53,7 @@ function ODEs.ode_march!(
   solve!(x,solver.sysslvr,nlop,syscache)
   mid_front_shift!(solver,r)
 
-  statef = ODEs._update_alpha1!(statef,state,dt,x,γ)
+  statef = ODEs._update_alpha1!(statef,state0,dt,x,γ)
   (r,statef)
 end
 
@@ -62,7 +62,7 @@ function ODEs.ode_march!(
   solver::GeneralizedAlpha1,
   odeop::ODEParamOperator{LinearParamODE},
   r::TransientRealisation,
-  state::NTuple{2,AbstractVector},
+  state0::NTuple{2,AbstractVector},
   odecache
   )
 
@@ -70,7 +70,7 @@ function ODEs.ode_march!(
   x = statef[2]
 
   (uα,vα),paramcache,syscache = odecache
-  dt,αf,αm,γ = odeslvr.dt,odeslvr.αf,odeslvr.αm,odeslvr.γ
+  dt,αf,αm,γ = solver.dt,solver.αf,solver.αm,solver.γ
   ws = (αf*γ*dt,αm)
   
   mid_shift!(solver,r)
@@ -84,7 +84,7 @@ function ODEs.ode_march!(
   solve!(x,solver.sysslvr,nlop,syscache)
   mid_front_shift!(solver,r)
 
-  statef = ODEs._update_alpha1!(statef,state,dt,x,γ)
+  statef = ODEs._update_alpha1!(statef,state0,dt,x,γ)
   (r,statef)
 end
 
@@ -95,7 +95,7 @@ function ODEs.ode_march!(
   solver::GeneralizedAlpha1,
   odeop::LinearNonlinearODEParamOperator,
   r::TransientRealisation,
-  state::NTuple{2,AbstractVector},
+  state0::NTuple{2,AbstractVector},
   odecache
   )
 
@@ -105,7 +105,7 @@ function ODEs.ode_march!(
   ((uα_lin,vα_lin),(uα_nlin,vα_nlin),
   paramcache_lin,paramcache_nlin,
   syscache_lin,syscache_nlin) = odecache
-  dt,αf,αm,γ = odeslvr.dt,odeslvr.αf,odeslvr.αm,odeslvr.γ
+  dt,αf,αm,γ = solver.dt,solver.αf,solver.αm,solver.γ
   ws = (αf*γ*dt,αm)
 
   mid_shift!(solver,r)
@@ -140,7 +140,7 @@ function ODEs.ode_march!(
   solve!(x,solver.sysslvr,nlop,syscache_nlin)
   mid_front_shift!(solver,r)
 
-  statef = ODEs._update_alpha1!(statef,state,dt,x,γ)
+  statef = ODEs._update_alpha1!(statef,state0,dt,x,γ)
   (r,statef)
 end
 
