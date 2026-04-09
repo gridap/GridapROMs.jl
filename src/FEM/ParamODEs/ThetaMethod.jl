@@ -21,7 +21,7 @@ function ODEs.ode_march!(
   u0 = state[1]
   x = statef[1]
 
-  uθ,paramcache,syscache = odecache
+  (uθ,vθ),paramcache,syscache = odecache
   dt,θ = solver.dt,solver.θ
   ws = (dt*θ,1)
 
@@ -51,7 +51,7 @@ function ODEs.ode_march!(
   u0 = state[1]
   x = statef[1]
 
-  uθ,paramcache,syscache = odecache
+  (uθ,vθ),paramcache,syscache = odecache
   dt,θ = solver.dt,solver.θ
   ws = (dt*θ,1)
 
@@ -79,7 +79,7 @@ function ODEs.ode_march!(
   u0 = state[1]
   x = statef[1]
 
-  (uθ_lin,uθ_nlin,
+  ((uθ_lin,vθ_lin),(uθ_nlin,vθ_nlin),
   paramcache_lin,paramcache_nlin,
   syscache_lin,syscache_nlin) = odecache
   dt,θ = solver.dt,solver.θ

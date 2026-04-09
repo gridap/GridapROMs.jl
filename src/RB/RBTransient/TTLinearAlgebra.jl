@@ -18,7 +18,7 @@ Base.@propagate_inbounds function RBSteady.contraction(
       for (iC,c) = enumerate(eachcol(C))
         for γ = eachindex(θ)
           for n in axes(factor1,2)
-            n+γ > Nt && break
+            n+γ > Nt+1 && break
             RBSteady._entry!(+,ABC,θ[γ]*a[n+γ-1]*b[n+γ-1]*c[n],iA,iB,iC)
           end
         end

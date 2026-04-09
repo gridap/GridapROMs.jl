@@ -15,14 +15,14 @@ function ShiftedSolver(odesolver::ThetaMethod)
 end
 
 function ShiftedSolver(odesolver::GeneralizedAlpha1)
-  dt,αf = odeslvr.dt,odeslvr.αf
+  dt,αf = odesolver.dt,odesolver.αf
   δ = αf*dt
   sysslvr = odesolver.sysslvr
   ShiftedSolver(sysslvr,δ)
 end
 
 function ShiftedSolver(odesolver::GeneralizedAlpha2)
-  dt,αf = odeslvr.dt,odeslvr.αf
+  dt,αf = odesolver.dt,odesolver.αf
   δ = (1-αf)*dt
   sysslvr = odesolver.sysslvr
   ShiftedSolver(sysslvr,δ)

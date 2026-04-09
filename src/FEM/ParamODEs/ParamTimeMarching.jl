@@ -42,20 +42,18 @@ function ODEs.ode_start(
   r0::TransientRealisation,
   us0::Tuple{Vararg{AbstractVector}})
 
-  op_lin =  get_linear_operator(odeop)
-  op_nlin =  get_nonlinear_operator(odeop)
-  order_lin = get_order(op_lin)
-  order_nlin = get_order(op_nlin)
-  nstates = max(order_lin,order_nlin)+1
+  nstates = get_order(odeop)+1
   state0 = ntuple(i -> copy(us0[i]),Val{nstates}())
 
   # linear caches
+  op_lin =  get_linear_operator(odeop)
   upcache_lin = ntuple(i -> copy(us0[i]),Val{nstates}())
   us0_lin = ntuple(i -> us0[i],Val{nstates}())
   paramcache_lin = allocate_paramcache(op_lin,r0)
   syscache_lin = allocate_systemcache(op_lin,r0,us0_lin,paramcache_lin)
 
   # nonlinear caches
+  op_nlin =  get_nonlinear_operator(odeop)
   upcache_nlin = ntuple(i -> copy(us0[i]),Val{nstates}())
   us0_nlin = ntuple(i -> us0[i],Val{nstates}())
   paramcache_nlin = allocate_paramcache(op_nlin,r0)

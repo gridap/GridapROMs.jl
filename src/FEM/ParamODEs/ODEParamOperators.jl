@@ -405,6 +405,7 @@ const LinearNonlinearODEParamOperator{T<:TriangulationStyle} = ODEParamOperator{
 
 ParamSteady.get_fe_operator(op::LinearNonlinearODEParamOperator) = get_fe_operator(get_nonlinear_operator(op))
 ParamSteady.join_operators(op::LinearNonlinearODEParamOperator) = get_algebraic_operator(join_operators(get_fe_operator(op)))
+get_order(op::LinearNonlinearODEParamOperator) = max(get_order(get_linear_operator(op)),get_order(get_nonlinear_operator(op)))
 
 function ParamAlgebra.allocate_paramcache(op::LinearNonlinearODEParamOperator,r::TransientRealisation)
   op_nlin = get_nonlinear_operator(op)

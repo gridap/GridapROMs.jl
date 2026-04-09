@@ -298,21 +298,22 @@ function CellData.change_domain(a::CellField,strian::Triangulation,::PhysicalDom
   return CellData.similar_cell_field(a,cell_data,ttrian,PhysicalDomain())
 end
 
-# correct bug
-
-function Base.view(trian::Geometry.AppendedTriangulation,ids::AbstractArray)
-  Ti = eltype(ids)
-  ids1 = Ti[]
-  ids2 = Ti[]
-  n1 = num_cells(trian.a)
-  for i in ids
-    if i <= n1
-      push!(ids1,i)
-    else
-      push!(ids2,i-n1)
-    end
+function CellData.change_domain(a::CellField,strian::Geometry.TriangulationView,::ReferenceDomain,ttrian::Geometry.TriangulationView,::ReferenceDomain)
+  if strian === ttrian
+    return a
   end
-  trian1 = view(trian.a,ids1)
-  trian2 = view(trian.b,ids2)
-  isempty(ids1) ? trian2 : (isempty(ids2) ? trian1 : lazy_append(trian1,trian2))
+  @check strian.cell_to_parent_cell == ttrian.cell_to_parent_cell
+  parent = change_domain(a,strian.parent,ReferenceDomain(),ttrian.parent,ReferenceDomain())
+  cell_data = lazy_map(Reindex(get_data(parent)),ttrian.cell_to_parent_cell)
+  return CellData.similar_cell_field(a,cell_data,ttrian,ReferenceDomain())
+end
+
+function CellData.change_domain(a::CellField,strian::Geometry.TriangulationView,::PhysicalDomain,ttrian::Geometry.TriangulationView,::PhysicalDomain)
+  if strian === ttrian
+    return a
+  end
+  @check strian.cell_to_parent_cell == ttrian.cell_to_parent_cell
+  parent = change_domain(a,strian.parent,PhysicalDomain(),ttrian.parent,PhysicalDomain())
+  cell_data = lazy_map(Reindex(get_data(parent)),ttrian.cell_to_parent_cell)
+  return CellData.similar_cell_field(a,cell_data,ttrian,PhysicalDomain())
 end

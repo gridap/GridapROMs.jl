@@ -59,6 +59,21 @@ function get_time_combination(
   return usx
 end
 
+function _combination!(
+  ux::BlockParamVector,
+  c::TimeCombination,
+  u::BlockParamVector,
+  us0::NTuple{N,BlockParamVector}
+  ) where N 
+
+  for i in 1:blocklength(ux)
+    uxi = blocks(ux)[i]
+    ui = blocks(u)[i]
+    us0i = map(d0 -> blocks(d0)[i],us0)
+    _combination!(uxi,c,ui,us0i)
+  end
+end
+
 @doc raw"""
     struct ThetaMethodCombination <: TimeCombination
       dt::Real
@@ -186,10 +201,10 @@ function get_coefficients(c::ThetaMethodStrategy{2},args...)
 end
 
 function _combination!(
-  uθ::AbstractParamVector,
+  uθ::ConsecutiveParamVector,
   c::ThetaMethodStrategy,
-  u::AbstractParamVector,
-  us0::NTuple{2,AbstractParamVector}
+  u::ConsecutiveParamVector,
+  us0::NTuple{2,ConsecutiveParamVector}
   )
   
   u0, = us0 
@@ -244,10 +259,10 @@ function get_coefficients(c::GenAlpha1Strategy{2},N::Int)
 end
 
 function _combination!(
-  uα::AbstractParamVector,
+  uα::ConsecutiveParamVector,
   c::GenAlpha1Strategy{1},
-  u::AbstractParamVector,
-  us0::NTuple{2,AbstractParamVector}
+  u::ConsecutiveParamVector,
+  us0::NTuple{2,ConsecutiveParamVector}
   )
   
   u0, = us0 
@@ -277,10 +292,10 @@ function _combination!(
 end
 
 function _combination!(
-  vα::AbstractParamVector,
+  vα::ConsecutiveParamVector,
   c::GenAlpha1Strategy{2},
-  u::AbstractParamVector,
-  us0::NTuple{2,AbstractParamVector}
+  u::ConsecutiveParamVector,
+  us0::NTuple{2,ConsecutiveParamVector}
   )
   
   u0,v0 = us0 
@@ -397,10 +412,10 @@ function get_coefficients(c::GenAlpha2Strategy{3},N::Int)
 end
 
 function _combination!(
-  uα::AbstractParamVector,
+  uα::ConsecutiveParamVector,
   c::GenAlpha2Strategy{1},
-  u::AbstractParamVector,
-  us0::NTuple{3,AbstractParamVector}
+  u::ConsecutiveParamVector,
+  us0::NTuple{3,ConsecutiveParamVector}
   )
   
   u0, = us0 
@@ -430,10 +445,10 @@ function _combination!(
 end
 
 function _combination!(
-  vα::AbstractParamVector,
+  vα::ConsecutiveParamVector,
   c::GenAlpha2Strategy{2},
-  u::AbstractParamVector,
-  us0::NTuple{3,AbstractParamVector}
+  u::ConsecutiveParamVector,
+  us0::NTuple{3,ConsecutiveParamVector}
   )
   
   u0,v0,a0 = us0 
@@ -503,10 +518,10 @@ function _combination!(
 end
 
 function _combination!(
-  aα::AbstractParamVector,
+  aα::ConsecutiveParamVector,
   c::GenAlpha2Strategy{3},
-  u::AbstractParamVector,
-  us0::NTuple{3,AbstractParamVector}
+  u::ConsecutiveParamVector,
+  us0::NTuple{3,ConsecutiveParamVector}
   )
   
   u0,v0,a0 = us0 
