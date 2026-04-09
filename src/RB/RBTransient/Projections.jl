@@ -129,7 +129,8 @@ end
 
 function RBSteady.galerkin_projection(
   proj_left::KroneckerProjection,
-  a::KroneckerProjection)
+  a::KroneckerProjection
+  )
 
   proj_basis_space = galerkin_projection(get_basis_space(proj_left),get_basis_space(a))
   proj_basis_time = galerkin_projection(get_basis_time(proj_left),get_basis_time(a))
@@ -140,7 +141,8 @@ end
 function RBSteady.galerkin_projection(
   proj_left::KroneckerProjection,
   a::KroneckerProjection,
-  proj_right::KroneckerProjection)
+  proj_right::KroneckerProjection
+  )
 
   @notimplemented "In unsteady problems, we need to provide a combining function"
 end
@@ -149,7 +151,8 @@ function RBSteady.galerkin_projection(
   proj_left::KroneckerProjection,
   a::KroneckerProjection,
   proj_right::KroneckerProjection,
-  combine)
+  combine
+  )
 
   proj_basis_space = galerkin_projection(
     get_basis_space(proj_left),
@@ -248,65 +251,14 @@ function RBSteady.galerkin_projection(
   proj_left::SequentialProjection,
   a::SequentialProjection,
   proj_right::SequentialProjection,
-  combine)
+  combine
+  )
 
   _galerkin_projection(get_dof_map(a),proj_left,a,proj_right,combine)
 end
 
 function RBSteady.projection_eltype(a::SequentialProjection)
   projection_eltype(a.projection)
-end
-
-function _galerkin_projection(
-  ::AbstractDofMap,
-  proj_left::SequentialProjection,
-  a::SequentialProjection,
-  proj_right::SequentialProjection,
-  combine)
-
-  # space
-  pl_space = get_cores_space(proj_left)
-  a_space = get_cores_space(a)
-  pr_space = get_cores_space(proj_right)
-  p_space = unbalanced_contractions(pl_space,a_space,pr_space)
-
-  # time
-  pl_time = get_core_time(proj_left)
-  a_time = get_core_time(a)
-  pr_time = get_core_time(proj_right)
-  p_time = contraction(pl_time,a_time,pr_time,combine)
-
-  p = sequential_product(p_space...,p_time)
-  proj_cores = dropdims(p;dims=(1,2,3))
-
-  return ReducedProjection(proj_cores)
-end
-
-function _galerkin_projection(
-  ::TrivialDofMap,
-  proj_left::SequentialProjection,
-  a::SequentialProjection,
-  proj_right::SequentialProjection,
-  combine)
-
-  get_core_space(a) = RBSteady.basis2core(get_basis_space(a))
-
-  # space
-  pl_space = get_core_space(proj_left)
-  a_space = first(get_cores(a))
-  pr_space = get_core_space(proj_right)
-  p_space = contraction(pl_space,a_space,pr_space)
-
-  # time
-  pl_time = get_core_time(proj_left)
-  a_time = get_core_time(a)
-  pr_time = get_core_time(proj_right)
-  p_time = contraction(pl_time,a_time,pr_time,combine)
-
-  p = sequential_product(p_space,p_time)
-  proj_cores = dropdims(p;dims=(1,2,3))
-
-  return ReducedProjection(proj_cores)
 end
 
 function RBSteady.project!(x̂::AbstractVector{<:Number},a::SequentialProjection,x::AbstractVector{<:Number})
@@ -420,4 +372,60 @@ function time_enrichment(basis_primal,basis_dual;tol=1e-2)
   end
 
   return basis_primal
+end
+
+# utils
+
+function _galerkin_projection(
+  ::AbstractDofMap,
+  proj_left::SequentialProjection,
+  a::SequentialProjection,
+  proj_right::SequentialProjection,
+  combine
+  )
+
+  # space
+  pl_space = get_cores_space(proj_left)
+  a_space = get_cores_space(a)
+  pr_space = get_cores_space(proj_right)
+  p_space = unbalanced_contractions(pl_space,a_space,pr_space)
+
+  # time
+  pl_time = get_core_time(proj_left)
+  a_time = get_core_time(a)
+  pr_time = get_core_time(proj_right)
+  p_time = contraction(pl_time,a_time,pr_time,combine)
+
+  p = sequential_product(p_space...,p_time)
+  proj_cores = dropdims(p;dims=(1,2,3))
+
+  return ReducedProjection(proj_cores)
+end
+
+function _galerkin_projection(
+  ::TrivialDofMap,
+  proj_left::SequentialProjection,
+  a::SequentialProjection,
+  proj_right::SequentialProjection,
+  combine
+  )
+
+  get_core_space(a) = RBSteady.basis2core(get_basis_space(a))
+
+  # space
+  pl_space = get_core_space(proj_left)
+  a_space = first(get_cores(a))
+  pr_space = get_core_space(proj_right)
+  p_space = contraction(pl_space,a_space,pr_space)
+
+  # time
+  pl_time = get_core_time(proj_left)
+  a_time = get_core_time(a)
+  pr_time = get_core_time(proj_right)
+  p_time = contraction(pl_time,a_time,pr_time,combine)
+
+  p = sequential_product(p_space,p_time)
+  proj_cores = dropdims(p;dims=(1,2,3))
+
+  return ReducedProjection(proj_cores)
 end

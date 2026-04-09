@@ -200,7 +200,8 @@ function RBSteady.IntegrationDomain(
   trian::Triangulation,
   test::FESpace,
   rows::AbstractVector,
-  indices_time::AbstractVector)
+  indices_time::AbstractVector
+  )
 
   domain_space = IntegrationDomain(trian,test,rows)
   TransientIntegrationDomain(KroneckerDomain(),domain_space,indices_time)
@@ -213,7 +214,8 @@ function RBSteady.IntegrationDomain(
   test::FESpace,
   rows::AbstractVector,
   cols::AbstractVector,
-  indices_time::AbstractVector)
+  indices_time::AbstractVector
+  )
 
   domain_space = IntegrationDomain(trian,trial,test,rows,cols)
   TransientIntegrationDomain(KroneckerDomain(),domain_space,indices_time)
@@ -224,7 +226,8 @@ function RBSteady.IntegrationDomain(
   trian::Triangulation,
   test::FESpace,
   rows::AbstractVector,
-  indices_time::AbstractVector)
+  indices_time::AbstractVector
+  )
 
   cell_row_ids = get_cell_dof_ids(test,trian)
   cells = RBSteady.get_rows_to_cells(cell_row_ids,rows)

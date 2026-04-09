@@ -3,7 +3,8 @@ function RBSteady.RBSolver(
   reduction::Reduction;
   nparams_res=20,
   nparams_jacs=ntuple(_ -> 20,get_time_order(fesolver)+1),
-  kwargs...)
+  kwargs...
+  )
 
   tcomb = TimeCombination(fesolver)
   residual_reduction = HighDimHyperReduction(tcomb,reduction;nparams=nparams_res,kwargs...)
@@ -22,7 +23,8 @@ function RBSteady.RBSolver(
   reduction::LocalReduction;
   nparams_res=20,
   nparams_jacs=ntuple(_ -> 20,get_time_order(fesolver)+1),
-  kwargs...)
+  kwargs...
+  )
 
   tcomb = TimeCombination(fesolver)
   residual_reduction = LocalHighDimHyperReduction(tcomb,reduction;nparams=nparams_res,kwargs...)
@@ -38,13 +40,13 @@ end
 const TransientRBSolver{A<:ODESolver,B,C,D} = RBSolver{A,B,C,D}
 
 RBSteady.num_jac_params(s::TransientRBSolver) = num_params(first(s.jacobian_reduction))
-get_system_solver(s::TransientRBSolver) = SpaceTimeSolver(s.fesolver)
 
 function RBSteady.solution_snapshots(
   solver::RBSolver,
   feop::ODEParamOperator,
   r::TransientRealisation,
-  args...)
+  args...
+  )
 
   fesolver = get_fe_solver(solver)
   sol = solve(fesolver,feop,r,args...)
@@ -60,7 +62,8 @@ function RBSteady.solution_snapshots(
   fesolver::ODESolver,
   op::ODEParamOperator,
   r::TransientRealisation,
-  args...)
+  args...
+  )
 
   sol = solve(fesolver,op,r,args...)
   values,stats = collect(sol)
@@ -73,12 +76,14 @@ end
 function RBSteady.residual_snapshots(
   solver::RBSolver,
   odeop::ODEParamOperator,
-  s::AbstractSnapshots)
+  s::AbstractSnapshots
+  )
 
   fesolver = get_fe_solver(solver)
+  tcomb = TimeCombination(fesolver)
   sres = select_snapshots(s,RBSteady.res_params(solver))
   rres = get_realisation(sres)
-  b = residual(fesolver,odeop,rres,sres)
+  b = spacetime_residual(tcomb,odeop,sres)
   ib = get_dof_map_at_domains(odeop)
   return Snapshots(b,ib,rres)
 end
@@ -86,7 +91,8 @@ end
 function RBSteady.residual_snapshots(
   solver::RBSolver,
   op::ODEParamOperator{LinearNonlinearParamODE},
-  s::AbstractSnapshots)
+  s::AbstractSnapshots
+  )
 
   res_lin = residual_snapshots(solver,get_linear_operator(op),s)
   res_nlin = residual_snapshots(solver,get_nonlinear_operator(op),s)
@@ -96,12 +102,14 @@ end
 function RBSteady.jacobian_snapshots(
   solver::RBSolver,
   odeop::ODEParamOperator,
-  s::AbstractSnapshots)
+  s::AbstractSnapshots
+  )
 
   fesolver = get_fe_solver(solver)
+  tcomb = TimeCombination(fesolver)
   sjac = select_snapshots(s,RBSteady.jac_params(solver))
   rjac = get_realisation(sjac)
-  A = jacobian(fesolver,odeop,rjac,sjac)
+  A = spacetime_jacobian(tcomb,odeop,sjac)
   iA = get_sparse_dof_map_at_domains(odeop)
   jac_reduction = RBSteady.get_jacobian_reduction(solver)
   sA = ()
@@ -115,16 +123,14 @@ end
 function RBSteady.jacobian_snapshots(
   solver::RBSolver,
   op::ODEParamOperator{LinearNonlinearParamODE},
-  s::AbstractSnapshots)
+  s::AbstractSnapshots
+  )
 
   jac_lin = jacobian_snapshots(solver,get_linear_operator(op),s)
   jac_nlin = jacobian_snapshots(solver,get_nonlinear_operator(op),s)
   return (jac_lin,jac_nlin)
 end
 
-# Note: we do not need to touch the initial condition, as it is already modeled by the 
-# ROM; for more details, check where the function `get_initial_param_data` (called 
-# inside `residual_snapshots` and `jacobian_snapshots`) leads to!
 function Algebra.solve(
   solver::RBSolver,
   op::NonlinearOperator,
@@ -132,14 +138,13 @@ function Algebra.solve(
   us0
   )
 
-  fesolver = get_system_solver(solver)
+  fesolver = SpaceTimeSolver(solver)
   tcomb = TimeCombination(fesolver)
 
   trial = get_trial(op)(r)
-  ẑ = zero_free_values(trial)
-  x̂ = get_zero_reduced_combination(trial,tcomb,ẑ,us0)
+  x̂ = zero_free_values(trial)
 
-  nlop = parameterise(op,r)
+  nlop = SpaceTimeOperator(op,tcomb,r,us0)
   syscache = allocate_systemcache(nlop,x̂)
 
   t = @timed solve!(x̂,fesolver,nlop,syscache)

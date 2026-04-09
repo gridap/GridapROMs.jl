@@ -426,31 +426,6 @@ function galerkin_projection(
   _galerkin_projection(get_dof_map(a),proj_left,a,proj_right)
 end
 
-function _galerkin_projection(
-  ::AbstractDofMap,
-  proj_left::TTSVDProjection,
-  a::TTSVDProjection,
-  proj_right::TTSVDProjection
-  )
-
-  cores_left = get_cores(proj_left)
-  cores = get_cores(a)
-  cores_right = get_cores(proj_right)
-  proj_basis = galerkin_projection(cores_left,cores,cores_right)
-  return ReducedProjection(proj_basis)
-end
-
-function _galerkin_projection(
-  ::TrivialDofMap,
-  proj_left::TTSVDProjection,
-  a::TTSVDProjection,
-  proj_right::TTSVDProjection
-  )
-
-  proj_basis = galerkin_projection(get_basis(proj_left),get_basis(a),get_basis(proj_right))
-  return ReducedProjection(proj_basis)
-end
-
 function projection_eltype(a::TTSVDProjection)
   promote_type(map(eltype,get_cores(a))...)
 end
@@ -789,4 +764,29 @@ function _allocate_norm_matrix(a::BlockProjection)
   @notimplementedif isnothing(i)
   A = typeof(get_norm_matrix(a[i]))
   Array{A,ndims(a)}(undef,size(a))
+end
+
+function _galerkin_projection(
+  ::AbstractDofMap,
+  proj_left::TTSVDProjection,
+  a::TTSVDProjection,
+  proj_right::TTSVDProjection
+  )
+
+  cores_left = get_cores(proj_left)
+  cores = get_cores(a)
+  cores_right = get_cores(proj_right)
+  proj_basis = galerkin_projection(cores_left,cores,cores_right)
+  return ReducedProjection(proj_basis)
+end
+
+function _galerkin_projection(
+  ::TrivialDofMap,
+  proj_left::TTSVDProjection,
+  a::TTSVDProjection,
+  proj_right::TTSVDProjection
+  )
+
+  proj_basis = galerkin_projection(get_basis(proj_left),get_basis(a),get_basis(proj_right))
+  return ReducedProjection(proj_basis)
 end

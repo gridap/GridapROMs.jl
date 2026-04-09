@@ -3,7 +3,8 @@ function RBSteady.reduced_operator(
   odeop::ODEParamOperator{LinearNonlinearParamODE},
   red_trial::RBSpace,
   red_test::RBSpace,
-  s::AbstractSnapshots)
+  s::AbstractSnapshots
+  )
 
   red_op_lin = reduced_operator(solver,get_linear_operator(odeop),red_trial,red_test,s)
   red_op_nlin = reduced_operator(solver,get_nonlinear_operator(odeop),red_trial,red_test,s)
@@ -15,7 +16,8 @@ function RBSteady.RBOperator(
   trial::RBSpace,
   test::RBSpace,
   lhs::TupOfAffineContribution,
-  rhs::AffineContribution)
+  rhs::AffineContribution
+  )
 
   trians_rhs = get_domains(rhs)
   trians_lhs = map(get_domains,lhs)
@@ -43,8 +45,9 @@ const TransientLocalRBOperator{O<:ODEParamOperatorType,T,B} = LocalRBOperator{O,
 function Algebra.allocate_residual(
   op::TransientRBOperator,
   r::TransientRealisation,
-  u::AbstractVector,
-  paramcache)
+  us::Tuple{Vararg{AbstractVector}},
+  paramcache
+  )
 
   allocate_hypred_cache(get_rhs(op),r)
 end
@@ -52,8 +55,9 @@ end
 function Algebra.allocate_jacobian(
   op::TransientRBOperator,
   r::TransientRealisation,
-  u::AbstractVector,
-  paramcache)
+  us::Tuple{Vararg{AbstractVector}},
+  paramcache
+  )
 
   allocate_hypred_cache(get_lhs(op),r)
 end
@@ -62,7 +66,7 @@ function Algebra.residual!(
   b::HRParamArray,
   op::SplitTransientRBOperator,
   r::TransientRealisation,
-  u::AbstractVector,
+  us::Tuple{Vararg{AbstractVector}},
   paramcache
   )
 
@@ -72,7 +76,7 @@ function Algebra.residual!(
   rhs = get_rhs(op)
   hr_time_ids = get_common_time_domain(rhs)
   hr_param_time_ids = range_1d(1:np,hr_time_ids,np)
-  hr_uh = _make_hr_uh_from_us(op,u,paramcache.trial,hr_param_time_ids)
+  hr_uh = _make_hr_uh_from_us(op,us,paramcache.trial,hr_param_time_ids)
 
   test = get_test(op)
   v = get_fe_basis(test)
@@ -97,7 +101,7 @@ function Algebra.jacobian!(
   A::HRParamArray,
   op::SplitTransientRBOperator,
   r::TransientRealisation,
-  u::AbstractVector,
+  us::Tuple{Vararg{AbstractVector}},
   paramcache
   )
 
@@ -107,7 +111,7 @@ function Algebra.jacobian!(
   lhss = get_lhs(op)
   hr_time_ids = get_common_time_domain(lhss)
   hr_param_time_ids = range_1d(1:np,hr_time_ids,np)
-  hr_uh = _make_hr_uh_from_us(op,u,paramcache.trial,hr_param_time_ids)
+  hr_uh = _make_hr_uh_from_us(op,us,paramcache.trial,hr_param_time_ids)
 
   trial = get_trial(op)
   du = get_trial_fe_basis(trial)
@@ -140,8 +144,9 @@ function Algebra.residual!(
   b::HRParamArray,
   op::TransientGenericRBOperator{O,T,<:RBFContribution},
   r::TransientRealisation,
-  u::AbstractVector,
-  paramcache) where {O,T}
+  us::Tuple{Vararg{AbstractVector}},
+  paramcache
+  ) where {O,T}
 
   fill!(b,zero(eltype(b)))
   interpolate!(b,op.rhs,r)
@@ -151,8 +156,9 @@ function Algebra.jacobian!(
   A::HRParamArray,
   op::TransientGenericRBOperator{O,T,<:RBFContribution},
   r::TransientRealisation,
-  u::AbstractVector,
-  paramcache) where {O,T}
+  us::Tuple{Vararg{AbstractVector}},
+  paramcache
+  ) where {O,T}
 
   fill!(A,zero(eltype(A)))
   interpolate!(A,op.lhs,r)
@@ -199,26 +205,27 @@ function _reduce_trial(trial::MultiFieldFESpace,hr_ids::AbstractVector)
 end
 
 function _reduce_arguments(
-  u::AbstractVector,
+  us::Tuple{Vararg{AbstractVector}},
   trial::Tuple{Vararg{FESpace}},
-  hr_ids::AbstractVector)
+  hr_ids::AbstractVector
+  )
 
-  N = length(trial)
-  u′ = _reduce_vector(u,hr_ids)
-  us′ = tfill(u′,Val{N}())
+  us′ = ()
   trial′ = ()
-  for i = eachindex(trial)
-    trial′ = (trial′...,_reduce_trial(trial[i],hr_ids))
+  for (u,trial) in zip(us,trial)
+    us′ = (us′...,_reduce_vector(u,hr_ids))
+    trial′ = (trial′...,_reduce_trial(trial,hr_ids))
   end
   return us′,trial′
 end
 
 function _make_hr_uh_from_us(
   odeop::ODEParamOperator,
-  u::AbstractVector,
+  us::Tuple{Vararg{AbstractVector}},
   trial::Tuple{Vararg{FESpace}},
-  hr_param_time_ids)
+  hr_param_time_ids
+  )
 
-  hr_us,hr_trial = _reduce_arguments(u,trial,hr_param_time_ids)
+  hr_us,hr_trial = _reduce_arguments(us,trial,hr_param_time_ids)
   ODEs._make_uh_from_us(odeop,hr_us,hr_trial)
 end

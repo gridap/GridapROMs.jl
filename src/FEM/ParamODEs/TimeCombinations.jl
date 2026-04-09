@@ -53,13 +53,13 @@ function get_time_combination(
 
   usx = ntuple(_ -> similar(u),Val{N}())
   for i in eachindex(us0)
-    tcomb_i = CombinationOrder{i}(c)
-    _combination!(usx[i],tcomb_i,u,us0)
+    ci = CombinationOrder{i}(c)
+    _combination!(usx[i],ci,u,us0)
   end
   return usx
 end
 
-# this one here is much simpler, and only accounts for the initial 
+# this one here is much simpler, and only accounts for the initial
 # conditions, so that it can be used to compute the initial residual
 function get_zero_time_combination(
   c::TimeCombination,
@@ -71,38 +71,10 @@ function get_zero_time_combination(
   usx = ntuple(_ -> fill!(similar(u),z),Val{N}())
   all(iszero,us0) && return usx
   for i in eachindex(us0)
-    tcomb_i = CombinationOrder{i}(c)
-    _zero_combination!(usx[i],tcomb_i,us0)
+    ci = CombinationOrder{i}(c)
+    _zero_combination!(usx[i],ci,us0)
   end
   return usx
-end
-
-function _combination!(
-  ux::BlockParamVector,
-  c::TimeCombination,
-  u::BlockParamVector,
-  us0::NTuple{N,BlockParamVector}
-  ) where N 
-
-  for i in 1:blocklength(ux)
-    uxi = blocks(ux)[i]
-    ui = blocks(u)[i]
-    us0i = map(d0 -> blocks(d0)[i],us0)
-    _combination!(uxi,c,ui,us0i)
-  end
-end
-
-function _zero_combination!(
-  ux::BlockParamVector,
-  c::TimeCombination,
-  us0::NTuple{N,BlockParamVector}
-  ) where N 
-
-  for i in 1:blocklength(ux)
-    uxi = blocks(ux)[i]
-    us0i = map(d0 -> blocks(d0)[i],us0)
-    _zero_combination!(uxi,c,us0i)
-  end
 end
 
 @doc raw"""
@@ -209,7 +181,7 @@ Convenience aliases:
 - [`GenAlpha2Strategy{N}`](@ref)    = `CombinationOrder{GenAlpha2Combination, N}`
 """
 struct CombinationOrder{A,N} <: TimeCombination
-  combination::A 
+  combination::A
   CombinationOrder{N}(c::A) where {A,N} = new{A,N}(c)
   CombinationOrder{N}(c::CombinationOrder) where N = CombinationOrder{N}(c.combination)
 end
@@ -231,14 +203,144 @@ function get_coefficients(c::ThetaMethodStrategy{2},args...)
   (1/c.combination.dt,-1/c.combination.dt)
 end
 
+"""
+    const GenAlpha1Strategy{N} = CombinationOrder{GenAlpha1Combination, N}
+
+Specialised alias for `CombinationOrder` with a [`GenAlpha1Combination`](@ref).
+Orders 1 and 2 correspond to the stiffness and mass/damping operators of a
+first-order Generalized-α scheme.
+"""
+const GenAlpha1Strategy{N} = CombinationOrder{GenAlpha1Combination,N}
+
+function get_coefficients(c::GenAlpha1Strategy{1},args...)
+  (c.combination.αf,1-c.combination.αf)
+end
+
+function get_coefficients(c::GenAlpha1Strategy{2},N::Int)
+  @unpack dt,αf,αm,γ = c.combination
+  a = 1 / (γ*dt)
+  b = 1 - 1/γ
+  c = a * (1 - αm + b*αm)
+  η = (a*αm,c - a*αm)
+  for j in 3:N
+    η = (η...,c*(b^(j-2) - b^(j-3)))
+  end
+  η
+end
+
+"""
+    const GenAlpha2Strategy{N} = CombinationOrder{GenAlpha2Combination, N}
+
+Specialised alias for `CombinationOrder` with a [`GenAlpha2Combination`](@ref).
+Orders 1, 2, and 3 correspond to the stiffness, damping, and mass operators of a
+second-order Generalized-α (Newmark) scheme.
+"""
+const GenAlpha2Strategy{N} = CombinationOrder{GenAlpha2Combination,N}
+
+function get_coefficients(c::GenAlpha2Strategy{1},args...)
+  (1-c.combination.αf,c.combination.αf)
+end
+
+function get_coefficients(c::GenAlpha2Strategy{2},N::Int)
+  @unpack dt,αf,αm,γ,β = c.combination
+
+  a = γ / (dt * β)
+  b = -a
+  c = 1 - γ / β
+  d = dt * (1 - γ / (2*β))
+
+  e = 1 / (dt^2 * β)
+  f = -e
+  g = - 1 / (dt * β)
+  h = 1 - 1 / (2*β)
+
+  P = [c d
+      g h]
+
+  αnj(n,j) = ([1 0] * P^(n-j) * [a,e])[1]
+  βnj(n,j) = ([1 0] * P^(n-j) * [b,f])[1]
+  κnj(n,j) = αnj(n,j-1) + βnj(n,j)
+  aαn(n) = (1-αf) * αnj(n,n)
+  bαn(n) = (1-αf) * κnj(n,n) + αf * αnj(n-1,n-1)
+  fαnj(n,j) = (1-αf) * κnj(n,j) + αf * κnj(n-1,j)
+
+  η = (aαn(0),bαn(0))
+  for j in 1:N-2
+    η = (η...,fαnj(j+1,1))
+  end
+
+  return η
+end
+
+function get_coefficients(c::GenAlpha2Strategy{3},N::Int)
+  @unpack dt,αf,αm,γ,β = c.combination
+
+  a = γ / (dt * β)
+  b = -a
+  c = 1 - γ / β
+  d = dt * (1 - γ / (2*β))
+
+  e = 1 / (dt^2 * β)
+  f = -e
+  g = - 1 / (dt * β)
+  h = 1 - 1 / (2*β)
+
+  P = [c d
+      g h]
+
+  γnj(n,j) = ([0 1] * P^(n-j) * [a,e])[1]
+  δnj(n,j) = ([0 1] * P^(n-j) * [b,f])[1]
+  ηnj(n,j) = γnj(n,j-1) + δnj(n,j)
+  gαn(n) = (1-αm) * γnj(n,n)
+  hαn(n) = (1-αm) * ηnj(n,n) + αm * γnj(n-1,n-1)
+  lαnj(n,j) = (1-αm) * ηnj(n,j) + αm * ηnj(n-1,j)
+
+  η = (gαn(0),hαn(0))
+  for j in 1:N-2
+    η = (η...,lαnj(j+1,1))
+  end
+
+  return η
+end
+
+# utils
+
+function _combination!(
+  ux::BlockParamVector,
+  c::TimeCombination,
+  u::BlockParamVector,
+  us0::NTuple{N,BlockParamVector}
+  ) where N
+
+  for i in 1:blocklength(ux)
+    uxi = blocks(ux)[i]
+    ui = blocks(u)[i]
+    us0i = map(d0 -> blocks(d0)[i],us0)
+    _combination!(uxi,c,ui,us0i)
+  end
+end
+
+function _zero_combination!(
+  ux::BlockParamVector,
+  c::TimeCombination,
+  us0::NTuple{N,BlockParamVector}
+  ) where N
+
+  for i in 1:blocklength(ux)
+    uxi = blocks(ux)[i]
+    us0i = map(d0 -> blocks(d0)[i],us0)
+    _zero_combination!(uxi,c,us0i)
+  end
+end
+
 function _combination!(
   uθ::ConsecutiveParamVector,
   c::ThetaMethodStrategy,
   u::ConsecutiveParamVector,
   us0::NTuple{2,ConsecutiveParamVector}
   )
-  
-  u0, = us0 
+
+  u0, = us0
 
   np = param_length(u0)
   nt = round(Int,param_length(u) / np)
@@ -269,8 +371,8 @@ function _zero_combination!(
   c::ThetaMethodStrategy,
   us0::NTuple{2,ConsecutiveParamVector}
   )
-  
-  u0, = us0 
+
+  u0, = us0
 
   np = param_length(u0)
   nt = round(Int,param_length(uθ) / np)
@@ -278,36 +380,11 @@ function _zero_combination!(
 
   dataθ = get_all_data(uθ)
   data0 = get_all_data(u0)
-  @inbounds @views for ip in 1:np 
+  @inbounds @views for ip in 1:np
     dataθ[:,ip] = η[2]*data0[:,ip]
   end
 
   return dataθ
-end
-
-"""
-    const GenAlpha1Strategy{N} = CombinationOrder{GenAlpha1Combination, N}
-
-Specialised alias for `CombinationOrder` with a [`GenAlpha1Combination`](@ref).
-Orders 1 and 2 correspond to the stiffness and mass/damping operators of a
-first-order Generalized-α scheme.
-"""
-const GenAlpha1Strategy{N} = CombinationOrder{GenAlpha1Combination,N}
-
-function get_coefficients(c::GenAlpha1Strategy{1},args...)
-  (c.combination.αf,1-c.combination.αf)
-end
-
-function get_coefficients(c::GenAlpha1Strategy{2},N::Int)
-  @unpack dt,αf,αm,γ = c.combination 
-  a = 1 / (γ*dt)
-  b = 1 - 1/γ
-  c = a * (1 - αm + b*αm)
-  η = (a*αm,c - a*αm)
-  for j in 3:N
-    η = (η...,c*(b^(j-2) - b^(j-3)))
-  end
-  η
 end
 
 function _combination!(
@@ -316,8 +393,8 @@ function _combination!(
   u::ConsecutiveParamVector,
   us0::NTuple{2,ConsecutiveParamVector}
   )
-  
-  u0, = us0 
+
+  u0, = us0
 
   np = param_length(u0)
   nt = round(Int,param_length(u) / np)
@@ -349,14 +426,14 @@ function _combination!(
   u::ConsecutiveParamVector,
   us0::NTuple{2,ConsecutiveParamVector}
   )
-  
-  u0,v0 = us0 
+
+  u0,v0 = us0
 
   np = param_length(u0)
   nt = round(Int,param_length(u) / np)
   η = get_coefficients(c,nt)
 
-  @unpack dt,αf,αm,γ = c.combination 
+  @unpack dt,αf,αm,γ = c.combination
   a = 1 / (γ*dt)
   b = 1 - 1/γ
   c = a * (1 - αm + b*αm)
@@ -393,8 +470,8 @@ function _zero_combination!(
   c::GenAlpha1Strategy{1},
   us0::NTuple{2,ConsecutiveParamVector}
   )
-  
-  u0, = us0 
+
+  u0, = us0
 
   np = param_length(u0)
   nt = round(Int,param_length(uα) / np)
@@ -402,7 +479,7 @@ function _zero_combination!(
 
   dataα = get_all_data(uα)
   data0 = get_all_data(u0)
-  @inbounds @views for ip in 1:np 
+  @inbounds @views for ip in 1:np
     dataα[:,ip] = η[2]*data0[:,ip]
   end
 
@@ -414,12 +491,12 @@ function _zero_combination!(
   c::GenAlpha1Strategy{2},
   us0::NTuple{2,ConsecutiveParamVector}
   )
-  
-  u0,v0 = us0 
+
+  u0,v0 = us0
 
   np = param_length(u0)
 
-  @unpack dt,αf,αm,γ = c.combination 
+  @unpack dt,αf,αm,γ = c.combination
   a = 1 / (γ*dt)
   b = 1 - 1/γ
   c = a * (1 - αm + b*αm)
@@ -447,89 +524,14 @@ function _zero_combination!(
   return ddataα
 end
 
-"""
-    const GenAlpha2Strategy{N} = CombinationOrder{GenAlpha2Combination, N}
-
-Specialised alias for `CombinationOrder` with a [`GenAlpha2Combination`](@ref).
-Orders 1, 2, and 3 correspond to the stiffness, damping, and mass operators of a
-second-order Generalized-α (Newmark) scheme.
-"""
-const GenAlpha2Strategy{N} = CombinationOrder{GenAlpha2Combination,N}
-
-function get_coefficients(c::GenAlpha2Strategy{1},args...)
-  (1-c.combination.αf,c.combination.αf)
-end
-
-function get_coefficients(c::GenAlpha2Strategy{2},N::Int)
-  @unpack dt,αf,αm,γ,β = c.combination 
-  
-  a = γ / (dt * β)
-  b = -a 
-  c = 1 - γ / β 
-  d = dt * (1 - γ / (2*β))
-
-  e = 1 / (dt^2 * β)
-  f = -e 
-  g = - 1 / (dt * β)
-  h = 1 - 1 / (2*β)
-
-  P = [c d 
-      g h]
-
-  αnj(n,j) = ([1 0] * P^(n-j) * [a,e])[1]
-  βnj(n,j) = ([1 0] * P^(n-j) * [b,f])[1]
-  κnj(n,j) = αnj(n,j-1) + βnj(n,j)
-  aαn(n) = (1-αf) * αnj(n,n)
-  bαn(n) = (1-αf) * κnj(n,n) + αf * αnj(n-1,n-1)
-  fαnj(n,j) = (1-αf) * κnj(n,j) + αf * κnj(n-1,j)
-
-  η = (aαn(0),bαn(0))
-  for j in 1:N-2
-    η = (η...,fαnj(j+1,1))
-  end
-  
-  return η
-end
-
-function get_coefficients(c::GenAlpha2Strategy{3},N::Int)
-  @unpack dt,αf,αm,γ,β = c.combination 
-  
-  a = γ / (dt * β)
-  b = -a 
-  c = 1 - γ / β 
-  d = dt * (1 - γ / (2*β))
-
-  e = 1 / (dt^2 * β)
-  f = -e 
-  g = - 1 / (dt * β)
-  h = 1 - 1 / (2*β)
-
-  P = [c d 
-      g h]
-
-  γnj(n,j) = ([0 1] * P^(n-j) * [a,e])[1]
-  δnj(n,j) = ([0 1] * P^(n-j) * [b,f])[1]
-  ηnj(n,j) = γnj(n,j-1) + δnj(n,j)
-  gαn(n) = (1-αm) * γnj(n,n)
-  hαn(n) = (1-αm) * ηnj(n,n) + αm * γnj(n-1,n-1)
-  lαnj(n,j) = (1-αm) * ηnj(n,j) + αm * ηnj(n-1,j)
-
-  η = (gαn(0),hαn(0))
-  for j in 1:N-2
-    η = (η...,lαnj(j+1,1))
-  end
-
-  return η
-end
-
 function _combination!(
   uα::ConsecutiveParamVector,
   c::GenAlpha2Strategy{1},
   u::ConsecutiveParamVector,
   us0::NTuple{3,ConsecutiveParamVector}
   )
-  
-  u0, = us0 
+
+  u0, = us0
 
   np = param_length(u0)
   nt = round(Int,param_length(u) / np)
@@ -561,25 +563,25 @@ function _combination!(
   u::ConsecutiveParamVector,
   us0::NTuple{3,ConsecutiveParamVector}
   )
-  
-  u0,v0,a0 = us0 
+
+  u0,v0,a0 = us0
 
   np = param_length(u0)
   nt = round(Int,param_length(u) / np)
   η = get_coefficients(c,nt)
 
-  @unpack dt,αf,αm,γ,β = c.combination 
+  @unpack dt,αf,αm,γ,β = c.combination
   a = γ / (dt * β)
-  b = -a 
-  c = 1 - γ / β 
+  b = -a
+  c = 1 - γ / β
   d = dt * (1 - γ / (2*β))
 
   e = 1 / (dt^2 * β)
-  f = -e 
+  f = -e
   g = - 1 / (dt * β)
   h = 1 - 1 / (2*β)
 
-  P = [c d 
+  P = [c d
       g h]
 
   an(n) = ([1 0] * P^(n) * [1,0])[1]
@@ -634,25 +636,25 @@ function _combination!(
   u::ConsecutiveParamVector,
   us0::NTuple{3,ConsecutiveParamVector}
   )
-  
-  u0,v0,a0 = us0 
+
+  u0,v0,a0 = us0
 
   np = param_length(u0)
   nt = round(Int,param_length(u) / np)
   η = get_coefficients(c,nt)
 
-  @unpack dt,αf,αm,γ,β = c.combination 
+  @unpack dt,αf,αm,γ,β = c.combination
   a = γ / (dt * β)
-  b = -a 
-  c = 1 - γ / β 
+  b = -a
+  c = 1 - γ / β
   d = dt * (1 - γ / (2*β))
 
   e = 1 / (dt^2 * β)
-  f = -e 
+  f = -e
   g = - 1 / (dt * β)
   h = 1 - 1 / (2*β)
 
-  P = [c d 
+  P = [c d
       g h]
 
   cn(n) = ([0 1] * P^(n) * [1,0])[1]
@@ -701,16 +703,13 @@ function _combination!(
   return dddataα
 end
 
-
-#
-
 function _zero_combination!(
   uα::ConsecutiveParamVector,
   c::GenAlpha2Strategy{1},
   us0::NTuple{3,ConsecutiveParamVector}
   )
-  
-  u0, = us0 
+
+  u0, = us0
 
   np = param_length(u0)
   nt = round(Int,param_length(uα) / np)
@@ -718,7 +717,7 @@ function _zero_combination!(
 
   dataα = get_all_data(uα)
   data0 = get_all_data(u0)
-  @inbounds @views for ip in 1:np 
+  @inbounds @views for ip in 1:np
     dataα[:,ip] = η[2]*data0[:,ip]
   end
 
@@ -730,24 +729,24 @@ function _zero_combination!(
   c::GenAlpha2Strategy{2},
   us0::NTuple{3,ConsecutiveParamVector}
   )
-  
-  u0,v0,a0 = us0 
+
+  u0,v0,a0 = us0
 
   np = param_length(u0)
   nt = round(Int,param_length(vα) / np)
 
-  @unpack dt,αf,αm,γ,β = c.combination 
+  @unpack dt,αf,αm,γ,β = c.combination
   a = γ / (dt * β)
-  b = -a 
-  c = 1 - γ / β 
+  b = -a
+  c = 1 - γ / β
   d = dt * (1 - γ / (2*β))
 
   e = 1 / (dt^2 * β)
-  f = -e 
+  f = -e
   g = - 1 / (dt * β)
   h = 1 - 1 / (2*β)
 
-  P = [c d 
+  P = [c d
       g h]
 
   an(n) = ([1 0] * P^(n) * [1,0])[1]
@@ -792,31 +791,29 @@ function _zero_combination!(
   return ddataα
 end
 
-
 function _zero_combination!(
   aα::ConsecutiveParamVector,
   c::GenAlpha2Strategy{3},
-  u::ConsecutiveParamVector,
   us0::NTuple{3,ConsecutiveParamVector}
   )
-  
-  u0,v0,a0 = us0 
+
+  u0,v0,a0 = us0
 
   np = param_length(u0)
   nt = round(Int,param_length(aα) / np)
 
-  @unpack dt,αf,αm,γ,β = c.combination 
+  @unpack dt,αf,αm,γ,β = c.combination
   a = γ / (dt * β)
-  b = -a 
-  c = 1 - γ / β 
+  b = -a
+  c = 1 - γ / β
   d = dt * (1 - γ / (2*β))
 
   e = 1 / (dt^2 * β)
-  f = -e 
+  f = -e
   g = - 1 / (dt * β)
   h = 1 - 1 / (2*β)
 
-  P = [c d 
+  P = [c d
       g h]
 
   cn(n) = ([0 1] * P^(n) * [1,0])[1]

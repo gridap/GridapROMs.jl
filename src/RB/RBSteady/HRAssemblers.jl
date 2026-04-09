@@ -3,7 +3,8 @@ function collect_cell_hr_matrix(
   test::FESpace,
   a::DomainContribution,
   strian::Triangulation,
-  interp::Interpolation)
+  interp::Interpolation
+  )
 
   cell_idofs = get_cell_idofs(interp)
   icells = get_owned_icells(interp,strian)
@@ -20,7 +21,8 @@ function collect_reduced_cell_hr_matrix(
   test::FESpace,
   a::DomainContribution,
   strian::Triangulation,
-  interp::Interpolation)
+  interp::Interpolation
+  )
 
   cell_idofs = get_cell_idofs(interp)
   cells = get_integration_cells(interp)
@@ -37,7 +39,8 @@ function collect_cell_hr_vector(
   test::FESpace,
   a::DomainContribution,
   strian::Triangulation,
-  interp::Interpolation)
+  interp::Interpolation
+  )
 
   cell_idofs = get_cell_idofs(interp)
   icells = get_owned_icells(interp,strian)
@@ -52,7 +55,8 @@ function collect_reduced_cell_hr_vector(
   test::FESpace,
   a::DomainContribution,
   strian::Triangulation,
-  interp::Interpolation)
+  interp::Interpolation
+  )
 
   cell_idofs = get_cell_idofs(interp)
   cells = get_integration_cells(interp)

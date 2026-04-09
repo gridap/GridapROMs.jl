@@ -87,7 +87,7 @@ function Algebra.solve(
   solver::ODESolver,
   odeop::ODEParamOperator,
   r::TransientRealisation,
-  uhs0::Tuple{Vararg{Any}})
+  uhs0::Tuple{Vararg{Function}})
 
   params = get_params(r)
   us0 = ()

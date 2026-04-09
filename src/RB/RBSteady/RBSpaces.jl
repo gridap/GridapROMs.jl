@@ -30,7 +30,8 @@ Computes the basis by compressing the snapshots `s`
 function reduced_basis(
   red::Reduction,
   s::AbstractSnapshots,
-  args...)
+  args...
+  )
 
   projection(red,s,args...)
 end
@@ -38,7 +39,8 @@ end
 function reduced_basis(
   red::Reduction,
   feop::ParamOperator,
-  s::AbstractSnapshots)
+  s::AbstractSnapshots
+  )
 
   reduced_basis(red,s)
 end
@@ -46,7 +48,8 @@ end
 function reduced_basis(
   red::Reduction{<:ReductionStyle,EnergyNorm},
   feop::ParamOperator,
-  s::AbstractSnapshots)
+  s::AbstractSnapshots
+  )
 
   norm_matrix = assemble_matrix(feop,get_norm(red))
   reduced_basis(red,s,norm_matrix)
@@ -55,7 +58,8 @@ end
 function reduced_basis(
   red::SupremizerReduction,
   feop::ParamOperator,
-  s::AbstractSnapshots)
+  s::AbstractSnapshots
+  )
 
   norm_matrix = assemble_matrix(feop,get_norm(red))
   supr_matrix = assemble_matrix(feop,get_supr(red))

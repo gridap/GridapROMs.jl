@@ -30,7 +30,8 @@ function RBSteady.reduced_jacobian(
   red::Tuple{Vararg{Reduction}},
   trial::RBSpace,
   test::RBSpace,
-  contribs::Tuple{Vararg{Any}})
+  contribs::Tuple{Vararg{Any}}
+  )
 
   a = ()
   for i in eachindex(contribs)
@@ -54,7 +55,8 @@ function FESpaces.interpolate!(
   b̂::AbstractParamArray,
   coeff::TupOfArrayContribution,
   a::TupOfAffineContribution,
-  b::TupOfArrayContribution)
+  b::TupOfArrayContribution
+  )
 
   @check length(coeff) == length(a) == length(b)
   fill!(b̂,zero(eltype(b̂)))

@@ -122,14 +122,16 @@ for T in (
     function FESpaces.scatter_free_and_dirichlet_values(
       f::SingleFieldParamFESpace{<:$T},
       fv::RBParamVector,
-      dv::AbstractParamVector)
+      dv::AbstractParamVector
+      )
 
       scatter_free_and_dirichlet_values(f,fv.fe_data,dv)
     end
     function FESpaces.scatter_free_and_dirichlet_values(
       f::SingleFieldParamFESpace{<:OrderedFESpace{<:$T}},
       fv::RBParamVector,
-      dv::AbstractParamVector)
+      dv::AbstractParamVector
+      )
 
       scatter_free_and_dirichlet_values(f,fv.fe_data,dv)
     end
@@ -137,7 +139,8 @@ for T in (
       fv::RBParamVector,
       dv::AbstractParamVector,
       f::SingleFieldParamFESpace{<:$T},
-      cv)
+      cv
+      )
 
       gather_free_and_dirichlet_values!(fv.fe_data,dv,f,cv)
     end
@@ -145,7 +148,8 @@ for T in (
       fv::RBParamVector,
       dv::AbstractParamVector,
       f::SingleFieldParamFESpace{<:OrderedFESpace{<:$T}},
-      cv)
+      cv
+      )
 
       gather_free_and_dirichlet_values!(fv.fe_data,dv,f,cv)
     end

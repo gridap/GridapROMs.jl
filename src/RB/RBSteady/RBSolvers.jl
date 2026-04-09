@@ -43,7 +43,8 @@ function RBSolver(
   reduction::Reduction;
   nparams_res=20,
   nparams_jac=20,
-  kwargs...)
+  kwargs...
+  )
 
   residual_reduction = HyperReduction(reduction;nparams=nparams_res,kwargs...)
   jacobian_reduction = HyperReduction(reduction;nparams=nparams_jac,kwargs...)
@@ -57,7 +58,8 @@ function RBSolver(
   nparams_jac=20,
   ncentroids_res=num_centroids(reduction),
   ncentroids_jac=num_centroids(reduction),
-  kwargs...)
+  kwargs...
+  )
 
   residual_reduction = LocalHyperReduction(reduction;nparams=nparams_res,ncentroids=ncentroids_res,kwargs...)
   jacobian_reduction = LocalHyperReduction(reduction;nparams=nparams_jac,ncentroids=ncentroids_jac,kwargs...)

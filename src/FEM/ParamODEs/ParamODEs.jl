@@ -101,6 +101,8 @@ export GenAlpha2Combination
 export ThetaMethodStrategy
 export GenAlpha1Strategy
 export GenAlpha2Strategy
+export spacetime_residual
+export spacetime_jacobian
 export get_coefficients
 export get_time_combination
 export get_zero_time_combination

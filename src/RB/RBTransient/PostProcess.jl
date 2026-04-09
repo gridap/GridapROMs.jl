@@ -65,7 +65,8 @@ end
 function Utils.compute_relative_error(
   sol::TransientSnapshots{T,N},
   sol_approx::TransientSnapshots{T,N},
-  args...) where {T,N}
+  args...
+  ) where {T,N}
 
   @check size(sol) == size(sol_approx)
   err_norm = zeros(num_times(sol))
@@ -106,6 +107,8 @@ function RBSteady.to_snapshots(rbop::AbstractLocalRBOperator,x̂::AbstractParamV
   s = Snapshots(x,i,r)
   _permutelastdims(s)
 end
+
+# utils
 
 function _permutelastdims(s::Snapshots{T,N}) where {T,N}
   ids = (ntuple(i->i,Val(N-2))...,N,N-1)
