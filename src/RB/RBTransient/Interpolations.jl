@@ -160,14 +160,8 @@ const TransientBlockInterpolation{I,N} = BlockInterpolation{I,N}
 
 get_domain_style(a::TransientBlockInterpolation) = get_domain_style(testitem(a))
 
-function Arrays.return_cache(::typeof(get_indices_time),a::TransientBlockInterpolation)
-  cache = get_indices_time(testitem(a))
-  block_cache = Array{typeof(cache),ndims(a)}(undef,size(a))
-  return block_cache
-end
-
 function get_indices_time(a::TransientBlockInterpolation)
-  cache = return_cache(get_itimes,a)
+  cache = _allocate_indices_time(a)
   for i in eachindex(a)
     if a.touched[i]
       cache[i] = get_itimes(a[i])
@@ -176,22 +170,39 @@ function get_indices_time(a::TransientBlockInterpolation)
   return ArrayBlock(cache,a.touched)
 end
 
-for (f,T) in zip((:get_itimes,:get_param_itimes),(:AbstractVector,:Range2D))
-  @eval begin
-    function Arrays.return_cache(::typeof($f),a::TransientBlockInterpolation,ids::$T)
-      cache = $f(testitem(a),ids)
-      block_cache = Array{typeof(cache),ndims(a)}(undef,size(a))
-      return block_cache
-    end
-
-    function $f(a::TransientBlockInterpolation,ids::$T)
-      cache = return_cache($f,a,ids)
-      for i in eachindex(a)
-        if a.touched[i]
-          cache[i] = $f(a[i],ids)
-        end
-      end
-      return ArrayBlock(cache,a.touched)
+function get_itimes(a::TransientBlockInterpolation,ids::AbstractVector)
+  cache = _allocate_itimes(a,ids)
+  for i in eachindex(a)
+    if a.touched[i]
+      cache[i] = get_itimes(a[i],ids)
     end
   end
+  return ArrayBlock(cache,a.touched)
+end
+
+function get_param_itimes(a::TransientBlockInterpolation,ids::Range2D)
+  cache = _allocate_param_itimes(a,ids)
+  for i in eachindex(a)
+    if a.touched[i]
+      cache[i] = get_param_itimes(a[i],ids)
+    end
+  end
+  return ArrayBlock(cache,a.touched)
+end
+
+# utils
+
+function _allocate_indices_time(a::TransientBlockInterpolation)
+  cache = get_indices_time(testitem(a))
+  Array{typeof(cache),ndims(a)}(undef,size(a))
+end
+
+function _allocate_itimes(a::TransientBlockInterpolation,ids::AbstractVector)
+  cache = get_itimes(testitem(a),ids)
+  Array{typeof(cache),ndims(a)}(undef,size(a))
+end
+
+function _allocate_param_itimes(a::TransientBlockInterpolation,ids::Range2D)
+  cache = get_param_itimes(testitem(a),ids)
+  Array{typeof(cache),ndims(a)}(undef,size(a))
 end

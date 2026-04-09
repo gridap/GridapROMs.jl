@@ -182,7 +182,7 @@ function Snapshots(
 
   array = Array{Snapshots,N}(undef,s)
   touched = Array{Bool,N}(undef,s)
-  for j in 1:length(block_values)
+  for j in eachindex(block_values)
     dataj = block_values[j]
     data0j = map(d0 -> blocks(d0)[j],data0)
     if !iszero(dataj)

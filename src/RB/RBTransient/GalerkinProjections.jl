@@ -1,7 +1,8 @@
 function RBSteady.galerkin_projection(
   basis_left::AbstractMatrix,
   basis::AbstractMatrix,
-  combine::TimeCombination)
+  combine::TimeCombination
+  )
 
   galerkin_projection(basis_left,basis)
 end
@@ -21,10 +22,9 @@ function RBSteady.galerkin_projection(
 
   TS = promote_type(T,S)
   proj_basis = zeros(TS,nleft,n,nright)
-  s = zeros(Nt)
 
   @inbounds for i = 1:nleft, k = 1:n, j = 1:nright
-    s = 0.0 
+    s = zero(TS)
     for γ = eachindex(θ)
       for α = axes(basis,1)
         α+γ > Nt+1 && break 
@@ -44,8 +44,8 @@ function RBSteady.galerkin_projection(
   combine::TimeCombination
   ) where T
 
-  s1,s2,s3 = size(core_left)
-  s4,s5,s6 = size(core_right)
+  _,s2,_ = size(core_left)
+  _,s5,_ = size(core_right)
   @check s2 == s5
   core = reshape(basis,:,s2,size(basis,2))
   contraction(core_left,core,core_right,combine)

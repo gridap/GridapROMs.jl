@@ -2,13 +2,17 @@ function Algebra.solve(
   solver::ODESolver,
   op::JointTransientRBOperator,
   r::TransientRealisation,
-  u0::AbstractVector)
+  us0::Tuple{Vararg{AbstractVector}}
+  )
 
   r0 = get_at_time(r,:initial)
   U0 = get_trial(op)(r0)
-  û0 = project(U0,u0)
-  ûu0 = reduced_vector(û0,u0)
-  ODEParamSolution(solver,op,r,ûu0)
+  ûs0 = ()
+  for u0 in us0
+    û0 = project(U0,u0)
+    ûs0 = (ûs0...,reduced_vector(û0,u0))
+  end
+  ODEParamSolution(solver,op,r,ûs0)
 end
 
 function ODEs.ode_finish!(

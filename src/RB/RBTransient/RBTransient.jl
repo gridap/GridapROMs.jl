@@ -120,10 +120,12 @@ include("HRAssemblers.jl")
 
 include("LocalProjections.jl")
 
-export TransientRBOperator
-include("ReducedOperators.jl")
+include("SpaceTime.jl")
 
 include("ParamTimeMarching.jl")
+
+export TransientRBOperator
+include("ReducedOperators.jl")
 
 include("PostProcess.jl")
 

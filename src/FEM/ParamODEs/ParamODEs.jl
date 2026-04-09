@@ -23,8 +23,6 @@ machinery.  Key components:
 - **ODE solutions** — `ODEParamSolution` iterates over time steps, yielding
   `(realisation, FEFunction)` pairs; `TransientParamFESolution` wraps this
   iterator into a `ParamFEFunction` per time step.
-- **Shifted solvers** — `ShiftedSolver` applies a constant operator shift to a
-  linear solver, enabling efficient generalised-alpha or implicit-explicit schemes.
 
 Modules `RBTransient` and `Extensions` depend on the abstractions defined here.
 """
@@ -105,10 +103,8 @@ export GenAlpha1Strategy
 export GenAlpha2Strategy
 export get_coefficients
 export get_time_combination
+export get_zero_time_combination
 include("SpaceTime.jl")
-
-export ShiftedSolver
-include("ShiftedSolvers.jl")
 
 export ODEParamSolution
 export initial_conditions

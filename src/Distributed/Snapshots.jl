@@ -10,8 +10,8 @@ for T in (:PVector,:PSparseMatrix)
   end
 end
 
-function ParamDataStructures.Snapshots(s::PVector,s0::PVector,i::AbstractArray,r::TransientRealisation)
-  data = map(local_views(s),local_views(s0),local_views(i)) do s,s0,i
+function ParamDataStructures.Snapshots(s::PVector,s0::Tuple{Vararg{PVector}},i::AbstractArray,r::TransientRealisation)
+  data = map(local_views(s),local_views(i),local_views.(s0)...) do s,i,s0...
     Snapshots(s,s0,i,r)
   end
   snaps = GenericPArray(data,s.index_partition)
@@ -99,15 +99,14 @@ function ParamDataStructures.Snapshots(
   ) where {V,T,N}
 
   block_values = blocks(b)
-  block_value0 = blocks(b0)
   s = size(block_values)
   @check s == size(i)
 
   array = Array{DistributedSnapshots,N}(undef,s)
   touched = Array{Bool,N}(undef,s)
-  for j in 1:length(block_values)
+  for j in eachindex(block_values)
     dataj = block_values[j]
-    data0j = block_value0[j]
+    data0j = map(d0 -> blocks(d0)[j],data0)
     if !iszero(dataj)
       array[j] = Snapshots(dataj,data0j,i[j],r)
       touched[j] = true

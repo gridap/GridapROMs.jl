@@ -38,7 +38,7 @@ end
 const TransientRBSolver{A<:ODESolver,B,C,D} = RBSolver{A,B,C,D}
 
 RBSteady.num_jac_params(s::TransientRBSolver) = num_params(first(s.jacobian_reduction))
-get_system_solver(s::TransientRBSolver) = ShiftedSolver(s.fesolver)
+get_system_solver(s::TransientRBSolver) = SpaceTimeSolver(s.fesolver)
 
 function RBSteady.solution_snapshots(
   solver::RBSolver,
@@ -129,15 +129,19 @@ function Algebra.solve(
   solver::RBSolver,
   op::NonlinearOperator,
   r::TransientRealisation,
-  us0)
+  us0
+  )
+
+  fesolver = get_system_solver(solver)
+  tcomb = TimeCombination(fesolver)
 
   trial = get_trial(op)(r)
-  x̂ = zero_free_values(trial)
+  ẑ = zero_free_values(trial)
+  x̂ = get_zero_reduced_combination(trial,tcomb,ẑ,us0)
 
   nlop = parameterise(op,r)
   syscache = allocate_systemcache(nlop,x̂)
 
-  fesolver = get_system_solver(solver)
   t = @timed solve!(x̂,fesolver,nlop,syscache)
   stats = CostTracker(t,nruns=num_params(r),name="RB")
 

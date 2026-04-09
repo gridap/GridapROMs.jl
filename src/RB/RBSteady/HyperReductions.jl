@@ -449,34 +449,26 @@ function Arrays.testitem(a::BlockHRProjection)
   a.array[first(i)]
 end
 
-for f in (:get_basis,:get_interpolation)
-  @eval begin
-    function Arrays.return_cache(::typeof($f),a::BlockHRProjection)
-      cache = $f(testitem(a))
-      block_cache = Array{typeof(cache),ndims(a)}(undef,size(a))
-      return block_cache
-    end
-  end
-end
-
 function get_basis(a::BlockHRProjection)
-  cache = return_cache(get_basis,a)
+  cache = get_basis(testitem(a))
+  block_cache = Array{typeof(cache),ndims(a)}(undef,size(a))
   for i in eachindex(a)
     if a.touched[i]
-      cache[i] = get_basis(a[i])
+      block_cache[i] = get_basis(a[i])
     end
   end
-  return ArrayBlock(cache,a.touched)
+  return ArrayBlock(block_cache,a.touched)
 end
 
 function get_interpolation(a::BlockHRProjection)
-  cache = return_cache(get_interpolation,a)
+  cache = get_interpolation(testitem(a))
+  block_cache = Array{typeof(cache),ndims(a)}(undef,size(a))
   for i in eachindex(a)
     if a.touched[i]
-      cache[i] = get_interpolation(a[i])
+      block_cache[i] = get_interpolation(a[i])
     end
   end
-  return BlockInterpolation(cache,a.touched)
+  return BlockInterpolation(block_cache,a.touched)
 end
 
 function FESpaces.interpolate!(

@@ -74,7 +74,7 @@ function change_domains(a::Contribution,trians::Tuple{Vararg{Triangulation}})
 end
 
 function set_domains(a::Contribution,trians::Tuple{Vararg{Triangulation}})
-  get_contributions(a)
+  Contribution(get_contributions(a),trians)
 end
 
 """
@@ -96,8 +96,8 @@ const MatrixContribution{T} = ArrayContribution{T,2}
 
 Base.eltype(::ArrayContribution{T}) where T = T
 Base.eltype(::Type{<:ArrayContribution{T}}) where T = T
-Base.ndims(::ArrayContribution{T,N}) where {T,N} = N
-Base.ndims(::Type{<:ArrayContribution{T,N}}) where {T,N} = N
+Base.ndims(::ArrayContribution{<:Any,N}) where N = N
+Base.ndims(::Type{<:ArrayContribution{<:Any,N}}) where N = N
 Base.copy(a::ArrayContribution) = Contribution(copy.(a.values),a.trians)
 Base.similar(a::ArrayContribution) = Contribution(similar.(a.values),a.trians)
 Base.copyto!(a::ArrayContribution,b::ArrayContribution) = map(copyto!,a.values,b.values)
@@ -122,39 +122,42 @@ function LinearAlgebra.mul!(
   c::VectorContribution,
   a::MatrixContribution,
   b::AbstractVector,
-  α::Number,β::Number)
+  α::Number,β::Number
+  )
 
-  for c in c.values, a in a.values
-    mul!(c,a,b,α,β)
+  @check length(c) == length(a)
+  for (ci,ai) in zip(c.values,a.values)
+    mul!(ci,ai,b,α,β)
   end
-  a
+  c
 end
 
 function LinearAlgebra.mul!(
   c::VectorContribution,
   a::MatrixContribution,
   b::VectorContribution,
-  α::Number,β::Number)
+  α::Number,β::Number
+  )
 
-  @check length(c) == length(b)
-  for (c,b) in zip(c.values,b.values), a in a.values
-    mul!(c,a,b,α,β)
+  @check length(c) == length(a) == length(b)
+  for (ci,ai,bi) in zip(c.values,a.values,b.values)
+    mul!(ci,ai,bi,α,β)
   end
-  a
+  c
 end
 
 function LinearAlgebra.axpy!(α::Number,a::ArrayContribution,b::ArrayContribution)
   @check length(a) == length(b)
-  for (a,b) in (a.values,b.values)
-    axpy!(α,a,b)
+  for (ai,bi) in zip(a.values,b.values)
+    axpy!(α,ai,bi)
   end
   b
 end
 
 function Algebra.copy_entries!(a::ArrayContribution,b::ArrayContribution)
   @check length(a) == length(b)
-  for (a,b) in zip(a.values,b.values)
-    copy_entries!(a,b)
+  for (ai,bi) in zip(a.values,b.values)
+    copy_entries!(ai,bi)
   end
   a
 end
@@ -232,8 +235,8 @@ end
 
 function Algebra.copy_entries!(a::TupOfArrayContribution,b::TupOfArrayContribution)
   @check length(a) == length(b)
-  for (a,b) in zip(a,b)
-    copy_entries!(a,b)
+  for (ai,bi) in zip(a,b)
+    copy_entries!(ai,bi)
   end
   a
 end

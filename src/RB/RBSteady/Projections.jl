@@ -261,7 +261,7 @@ Subtypes:
 abstract type ReducedProjection{A<:AbstractArray} <: Projection end
 
 const ReducedVecProjection = ReducedProjection{<:AbstractMatrix}
-const ReducedMatProjection = ReducedProjection{<:AbstractArray{T,3} where T}
+const ReducedMatProjection = ReducedProjection{<:AbstractArray{<:Any,3}}
 
 function project!(x̂::AbstractVector,a::ReducedProjection,x::AbstractVector)
   @notimplemented
@@ -349,7 +349,7 @@ end
 
 """
     struct TTSVDProjection <: Projection
-      cores::AbstractVector{<:AbstractArray{T,3} where T}
+      cores::AbstractVector{<:AbstractArray{<:Any,3}}
       dof_map::AbstractDofMap
     end
 
@@ -357,7 +357,7 @@ Projection stemming from a tensor train SVD [`ttsvd`](@ref). For reindexing purp
 a field `dof_map` is provided along with the tensor train cores `cores`
 """
 struct TTSVDProjection <: Projection
-  cores::AbstractVector{<:AbstractArray{T,3} where T}
+  cores::AbstractVector{<:AbstractArray{<:Any,3}}
   dof_map::AbstractDofMap
 end
 
@@ -583,26 +583,8 @@ function Arrays.return_type(::typeof(projection),::LocalReduction,::Snapshots,::
   LocalProjection
 end
 
-function Arrays.return_cache(::typeof(projection),red::Reduction,s::BlockSnapshots)
-  i = findfirst(s.touched)
-  @notimplementedif isnothing(i)
-  A = return_type(projection,red,s[i])
-  block_basis = Array{A,ndims(s)}(undef,size(s))
-  touched = s.touched
-  return BlockProjection(block_basis,touched)
-end
-
-function Arrays.return_cache(::typeof(projection),red::Reduction,s::BlockSnapshots,X::MatrixOrTensor)
-  i = findfirst(s.touched)
-  @notimplementedif isnothing(i)
-  A = return_type(projection,red,s[i],X[Block(i,i)])
-  block_basis = Array{A,ndims(s)}(undef,size(s))
-  touched = s.touched
-  return BlockProjection(block_basis,touched)
-end
-
 function projection(red::Reduction,s::BlockSnapshots)
-  basis = return_cache(projection,red,s)
+  basis = _allocate_projection(red,s)
   for i in eachindex(basis)
     if basis.touched[i]
       basis[i] = projection(red,s[i])
@@ -612,7 +594,7 @@ function projection(red::Reduction,s::BlockSnapshots)
 end
 
 function projection(red::Reduction,s::BlockSnapshots,X::MatrixOrTensor)
-  basis = return_cache(projection,red,s,X)
+  basis = _allocate_projection(red,s,X)
   for i in eachindex(basis)
     if basis.touched[i]
       basis[i] = projection(red,s[i],X[Block(i,i)])
@@ -718,16 +700,8 @@ for f in (:project!,:inv_project!)
   end
 end
 
-function Arrays.return_cache(::typeof(get_norm_matrix),a::BlockProjection)
-  i = findfirst(a.touched)
-  @notimplementedif isnothing(i)
-  A = typeof(get_norm_matrix(a[i]))
-  norm_matrix = Array{A,ndims(a)}(undef,size(a))
-  return norm_matrix
-end
-
 function get_norm_matrix(a::BlockProjection)
-  norm_matrix = return_cache(get_norm_matrix,a)
+  norm_matrix = _allocate_norm_matrix(a)
   for i in eachindex(a)
     if a.touched[i]
       norm_matrix[Block(i,i)] = get_norm_matrix(a[i])
@@ -748,7 +722,7 @@ This function has the purpose of stabilizing the reduced equations stemming from
 a saddle point problem
 """
 function enrich!(
-  red::SupremizerReduction,
+  ::SupremizerReduction,
   a::BlockProjection,
   norm_matrix::BlockMatrix,
   supr_matrix::BlockMatrix)
@@ -768,7 +742,7 @@ function enrich!(
 end
 
 function enrich!(
-  red::SupremizerReduction{A,<:TTSVDReduction},
+  ::SupremizerReduction{A,<:TTSVDReduction},
   a::BlockProjection,
   norm_matrix::BlockRankTensor,
   supr_matrix::BlockRankTensor
@@ -786,4 +760,33 @@ function enrich!(
   end
   a[1] = a_primal
   return
+end
+
+# utils
+
+function _allocate_projection(red::Reduction,s::BlockSnapshots)
+  i = findfirst(s.touched)
+  @notimplementedif isnothing(i)
+  A = return_type(projection,red,s[i])
+  block_basis = Array{A,ndims(s)}(undef,size(s))
+  BlockProjection(block_basis,s.touched)
+end
+
+function _allocate_projection(
+  red::Reduction,
+  s::BlockSnapshots,
+  X::MatrixOrTensor
+  )
+  i = findfirst(s.touched)
+  @notimplementedif isnothing(i)
+  A = return_type(projection,red,s[i],X[Block(i,i)])
+  block_basis = Array{A,ndims(s)}(undef,size(s))
+  BlockProjection(block_basis,s.touched)
+end
+
+function _allocate_norm_matrix(a::BlockProjection)
+  i = findfirst(a.touched)
+  @notimplementedif isnothing(i)
+  A = typeof(get_norm_matrix(a[i]))
+  Array{A,ndims(a)}(undef,size(a))
 end

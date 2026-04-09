@@ -223,13 +223,8 @@ function Arrays.testitem(a::BlockInterpolation)
   a.interp[first(i)]
 end
 
-function Arrays.return_cache(::typeof(get_cell_idofs),a::BlockInterpolation)
-  block_cache = Array{Table,ndims(a)}(undef,size(a))
-  return block_cache
-end
-
 function get_cell_idofs(a::BlockInterpolation)
-  cache = return_cache(get_cell_idofs,a)
+  cache = _allocate_cell_idofs(a)
   for i in eachindex(a)
     if a.touched[i]
       cache[i] = get_cell_idofs(a[i])
@@ -238,20 +233,13 @@ function get_cell_idofs(a::BlockInterpolation)
   return ArrayBlock(cache,a.touched)
 end
 
-function Arrays.return_cache(::typeof(get_integration_cells),a::BlockInterpolation,args...)
-  ntouched = length(findall(a.touched))
-  cache = get_integration_cells(testitem(a),args...)
-  block_cache = Vector{typeof(cache)}(undef,ntouched)
-  return block_cache
-end
-
 function get_integration_cells(a::BlockInterpolation,args...)
   _union(a) = a
   _union(a,b) = union(a,b)
   _union(a::AppendedArray,b::AppendedArray) = lazy_append(union(a.a,b.a),union(a.b,b.b))
   _union(a,b,c...) = _union(_union(a,b),c...)
 
-  cache = return_cache(get_integration_cells,a,args...)
+  cache = _allocate_integration_cells(a,args...)
   count = 0
   for i in eachindex(a)
     if a.touched[i]
@@ -267,14 +255,8 @@ function get_owned_icells(a::BlockInterpolation,args...)
   get_owned_icells(a,cells)
 end
 
-function Arrays.return_cache(::typeof(get_owned_icells),a::BlockInterpolation,cells)
-  cache = get_owned_icells(testitem(a),cells)
-  block_cache = Array{typeof(cache),ndims(a)}(undef,size(a))
-  return block_cache
-end
-
 function get_owned_icells(a::BlockInterpolation,cells::AbstractVector)
-  cache = return_cache(get_owned_icells,a,cells)
+  cache = _allocate_owned_icells(a,cells)
   for i in eachindex(a)
     if a.touched[i]
       cache[i] = get_owned_icells(a[i],cells)
@@ -309,4 +291,21 @@ function reduced_triangulation(trian::Triangulation,a::BlockInterpolation{<:Gree
   red_cells = get_integration_cells(a)
   red_trian = view(trian,red_cells)
   return red_trian
+end
+
+# utils
+
+function _allocate_cell_idofs(a::BlockInterpolation)
+  Array{Table,ndims(a)}(undef,size(a))
+end
+
+function _allocate_integration_cells(a::BlockInterpolation,args...)
+  ntouched = length(findall(a.touched))
+  cache = get_integration_cells(testitem(a),args...)
+  Vector{typeof(cache)}(undef,ntouched)
+end
+
+function _allocate_owned_icells(a::BlockInterpolation,cells)
+  cache = get_owned_icells(testitem(a),cells)
+  Array{typeof(cache),ndims(a)}(undef,size(a))
 end

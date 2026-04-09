@@ -59,6 +59,24 @@ function get_time_combination(
   return usx
 end
 
+# this one here is much simpler, and only accounts for the initial 
+# conditions, so that it can be used to compute the initial residual
+function get_zero_time_combination(
+  c::TimeCombination,
+  u::AbstractParamVector,
+  us0::NTuple{N,AbstractParamVector}
+  ) where N
+
+  z = zero(eltype2(u))
+  usx = ntuple(_ -> fill!(similar(u),z),Val{N}())
+  all(iszero,us0) && return usx
+  for i in eachindex(us0)
+    tcomb_i = CombinationOrder{i}(c)
+    _zero_combination!(usx[i],tcomb_i,us0)
+  end
+  return usx
+end
+
 function _combination!(
   ux::BlockParamVector,
   c::TimeCombination,
@@ -71,6 +89,19 @@ function _combination!(
     ui = blocks(u)[i]
     us0i = map(d0 -> blocks(d0)[i],us0)
     _combination!(uxi,c,ui,us0i)
+  end
+end
+
+function _zero_combination!(
+  ux::BlockParamVector,
+  c::TimeCombination,
+  us0::NTuple{N,BlockParamVector}
+  ) where N 
+
+  for i in 1:blocklength(ux)
+    uxi = blocks(ux)[i]
+    us0i = map(d0 -> blocks(d0)[i],us0)
+    _zero_combination!(uxi,c,us0i)
   end
 end
 
@@ -216,8 +247,8 @@ function _combination!(
   dataθ = get_all_data(uθ)
   data = get_all_data(u)
   data0 = get_all_data(u0)
-  
-  for ipt = param_eachindex(u)
+
+  @inbounds for ipt = param_eachindex(u)
     it = slow_index(ipt,np)
     if it == 1
       for is in axes(data,1)
@@ -228,6 +259,27 @@ function _combination!(
         dataθ[is,ipt] = η[1]*data[is,ipt] + η[2]*data[is,ipt-np]
       end
     end
+  end
+
+  return dataθ
+end
+
+function _zero_combination!(
+  uθ::ConsecutiveParamVector,
+  c::ThetaMethodStrategy,
+  us0::NTuple{2,ConsecutiveParamVector}
+  )
+  
+  u0, = us0 
+
+  np = param_length(u0)
+  nt = round(Int,param_length(uθ) / np)
+  η = get_coefficients(c,nt)
+
+  dataθ = get_all_data(uθ)
+  data0 = get_all_data(u0)
+  @inbounds @views for ip in 1:np 
+    dataθ[:,ip] = η[2]*data0[:,ip]
   end
 
   return dataθ
@@ -274,8 +326,8 @@ function _combination!(
   dataα = get_all_data(uα)
   data = get_all_data(u)
   data0 = get_all_data(u0)
-  
-  for ipt = param_eachindex(u)
+
+  @inbounds for ipt = param_eachindex(u)
     it = slow_index(ipt,np)
     if it == 1
       for is in axes(data,1)
@@ -315,7 +367,7 @@ function _combination!(
   data = get_all_data(u)
   data0 = get_all_data(u0)
   ddata0 = get_all_data(v0)
-  for ipt = param_eachindex(u)
+  @inbounds for ipt = param_eachindex(u)
     ip = fast_index(ipt,np)
     it = slow_index(ipt,np)
     n = it - 1
@@ -329,6 +381,65 @@ function _combination!(
         for (j,ipt_back) in enumerate(ipt-2*np : -np : 1)
           ddataα[is,ipt] += η[2+j]*data[is,ipt_back]
         end
+      end
+    end
+  end
+
+  return ddataα
+end
+
+function _zero_combination!(
+  uα::ConsecutiveParamVector,
+  c::GenAlpha1Strategy{1},
+  us0::NTuple{2,ConsecutiveParamVector}
+  )
+  
+  u0, = us0 
+
+  np = param_length(u0)
+  nt = round(Int,param_length(uα) / np)
+  η = get_coefficients(c,nt)
+
+  dataα = get_all_data(uα)
+  data0 = get_all_data(u0)
+  @inbounds @views for ip in 1:np 
+    dataα[:,ip] = η[2]*data0[:,ip]
+  end
+
+  return dataα
+end
+
+function _zero_combination!(
+  vα::ConsecutiveParamVector,
+  c::GenAlpha1Strategy{2},
+  us0::NTuple{2,ConsecutiveParamVector}
+  )
+  
+  u0,v0 = us0 
+
+  np = param_length(u0)
+
+  @unpack dt,αf,αm,γ = c.combination 
+  a = 1 / (γ*dt)
+  b = 1 - 1/γ
+  c = a * (1 - αm + b*αm)
+
+  np = param_length(u0)
+
+  ddataα = get_all_data(vα)
+  data0 = get_all_data(u0)
+  ddata0 = get_all_data(v0)
+  @inbounds for ipt = param_eachindex(vα)
+    ip = fast_index(ipt,np)
+    it = slow_index(ipt,np)
+    n = it - 1
+    if it == 1
+      for is in axes(ddataα,1)
+        ddataα[is,ipt] = - a*αm*data0[is,ip] + c / a * ddata0[is,ip]
+      end
+    else
+      for is in axes(ddataα,1)
+        ddataα[is,ipt] = (c / a * b^n)*ddata0[is,ip] - c * b^(n-1)*data0[is,ip]
       end
     end
   end
@@ -427,8 +538,8 @@ function _combination!(
   dataα = get_all_data(uα)
   data = get_all_data(u)
   data0 = get_all_data(u0)
-  
-  for ipt = param_eachindex(u)
+
+  @inbounds for ipt = param_eachindex(u)
     it = slow_index(ipt,np)
     if it == 1
       for is in axes(data,1)
@@ -496,7 +607,7 @@ function _combination!(
   data0 = get_all_data(u0)
   ddata0 = get_all_data(v0)
   dddata0 = get_all_data(a0)
-  for ipt = param_eachindex(u)
+  @inbounds for ipt = param_eachindex(u)
     ip = fast_index(ipt,np)
     it = slow_index(ipt,np)
     n = it - 1
@@ -569,7 +680,7 @@ function _combination!(
   data0 = get_all_data(u0)
   ddata0 = get_all_data(v0)
   dddata0 = get_all_data(a0)
-  for ipt = param_eachindex(u)
+  @inbounds for ipt = param_eachindex(u)
     ip = fast_index(ipt,np)
     it = slow_index(ipt,np)
     n = it - 1
@@ -583,6 +694,166 @@ function _combination!(
         for (j,ipt_back) in enumerate(ipt-2*np : -np : 1)
           dddataα[is,ipt] += η[2+j]*data[is,ipt_back]
         end
+      end
+    end
+  end
+
+  return dddataα
+end
+
+
+#
+
+function _zero_combination!(
+  uα::ConsecutiveParamVector,
+  c::GenAlpha2Strategy{1},
+  us0::NTuple{3,ConsecutiveParamVector}
+  )
+  
+  u0, = us0 
+
+  np = param_length(u0)
+  nt = round(Int,param_length(uα) / np)
+  η = get_coefficients(c,nt)
+
+  dataα = get_all_data(uα)
+  data0 = get_all_data(u0)
+  @inbounds @views for ip in 1:np 
+    dataα[:,ip] = η[2]*data0[:,ip]
+  end
+
+  return dataα
+end
+
+function _zero_combination!(
+  vα::ConsecutiveParamVector,
+  c::GenAlpha2Strategy{2},
+  us0::NTuple{3,ConsecutiveParamVector}
+  )
+  
+  u0,v0,a0 = us0 
+
+  np = param_length(u0)
+  nt = round(Int,param_length(vα) / np)
+
+  @unpack dt,αf,αm,γ,β = c.combination 
+  a = γ / (dt * β)
+  b = -a 
+  c = 1 - γ / β 
+  d = dt * (1 - γ / (2*β))
+
+  e = 1 / (dt^2 * β)
+  f = -e 
+  g = - 1 / (dt * β)
+  h = 1 - 1 / (2*β)
+
+  P = [c d 
+      g h]
+
+  an(n) = ([1 0] * P^(n) * [1,0])[1]
+  bn(n) = ([1 0] * P^(n) * [0,1])[1]
+  αnj(n,j) = ([1 0] * P^(n-j) * [a,e])[1]
+  βnj(n,j) = ([1 0] * P^(n-j) * [b,f])[1]
+  cαn(n) = (1-αf) * βnj(n,0) + αf * βnj(n-1,0)
+  dαn(n) = (1-αf) * an(n+1) + αf * an(n)
+  eαn(n) = (1-αf) * bn(n+1) + αf * bn(n)
+
+  βnj00 = βnj(0,0)
+  an1 = an(1)
+  bn1 = bn(1)
+  cvec = zeros(nt-1)
+  dvec = zeros(nt-1)
+  evec = zeros(nt-1)
+  for it in 1:nt-1
+    cvec[it] = cαn(it)
+    dvec[it] = dαn(it)
+    evec[it] = eαn(it)
+  end
+
+  ddataα = get_all_data(vα)
+  data0 = get_all_data(u0)
+  ddata0 = get_all_data(v0)
+  dddata0 = get_all_data(a0)
+  @inbounds for ipt = param_eachindex(vα)
+    ip = fast_index(ipt,np)
+    it = slow_index(ipt,np)
+    n = it - 1
+    if it == 1
+      for is in axes(ddataα,1)
+        ddataα[is,ipt] = (1-αf)*βnj00*data0[is,ip] + ((1-αf)*an1 + αf)*ddata0[is,ip] + (1-αf)*bn1*dddata0[is,ip]
+      end
+    else
+      for is in axes(ddataα,1)
+        ddataα[is,ipt] = cvec[n]*data0[is,ip] + dvec[n]*ddata0[is,ip] + evec[n]*dddata0[is,ip]
+      end
+    end
+  end
+
+  return ddataα
+end
+
+
+function _zero_combination!(
+  aα::ConsecutiveParamVector,
+  c::GenAlpha2Strategy{3},
+  u::ConsecutiveParamVector,
+  us0::NTuple{3,ConsecutiveParamVector}
+  )
+  
+  u0,v0,a0 = us0 
+
+  np = param_length(u0)
+  nt = round(Int,param_length(aα) / np)
+
+  @unpack dt,αf,αm,γ,β = c.combination 
+  a = γ / (dt * β)
+  b = -a 
+  c = 1 - γ / β 
+  d = dt * (1 - γ / (2*β))
+
+  e = 1 / (dt^2 * β)
+  f = -e 
+  g = - 1 / (dt * β)
+  h = 1 - 1 / (2*β)
+
+  P = [c d 
+      g h]
+
+  cn(n) = ([0 1] * P^(n) * [1,0])[1]
+  dn(n) = ([0 1] * P^(n) * [0,1])[1]
+  γnj(n,j) = ([0 1] * P^(n-j) * [a,e])[1]
+  δnj(n,j) = ([0 1] * P^(n-j) * [b,f])[1]
+  iαn(n) = (1-αm) * δnj(n,0) + αm * δnj(n-1,0)
+  jαn(n) = (1-αm) * cn(n+1) + αm * cn(n)
+  kαn(n) = (1-αm) * dn(n+1) + αm * dn(n)
+
+  ivec = zeros(nt-1)
+  jvec = zeros(nt-1)
+  kvec = zeros(nt-1)
+  for it in 1:nt-1
+    ivec[it] = iαn(it)
+    jvec[it] = jαn(it)
+    kvec[it] = kαn(it)
+  end
+  δnj00 = δnj(0,0)
+  cn1 = cn(1)
+  dn1 = dn(1)
+
+  dddataα = get_all_data(aα)
+  data0 = get_all_data(u0)
+  ddata0 = get_all_data(v0)
+  dddata0 = get_all_data(a0)
+  @inbounds for ipt = param_eachindex(aα)
+    ip = fast_index(ipt,np)
+    it = slow_index(ipt,np)
+    n = it - 1
+    if it == 1
+      for is in axes(dddataα,1)
+        dddataα[is,ipt] = (1-αm)*δnj00*data0[is,ip] + (1-αm)*cn1*ddata0[is,ip] + ((1-αm)*dn1 + αm)*dddata0[is,ip]
+      end
+    else
+      for is in axes(dddataα,1)
+        dddataα[is,ipt] = ivec[n]*data0[is,ip] + jvec[n]*ddata0[is,ip] + kvec[n]*dddata0[is,ip]
       end
     end
   end
