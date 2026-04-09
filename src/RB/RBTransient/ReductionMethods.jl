@@ -236,7 +236,7 @@ function HighDimHyperReduction(r::LocalReduction,combination::TimeCombination;nc
   LocalHighDimHyperReduction(combination,get_reduction(r);ncentroids,kwargs...)
 end
 
-ParamODEs.get_time_combination(r::HighDimHyperReduction) = @abstractmethod
+get_time_combination(r::HighDimHyperReduction) = @abstractmethod
 
 _steady_reduction(r::HyperReduction) = SteadyReduction(get_reduction(r))
 _replace_reduction(r::MDEIMHyperReduction) = MDEIMHyperReduction(_steady_reduction(r))
@@ -264,7 +264,7 @@ function HighDimMDEIMHyperReduction(combination::TimeCombination,args...;kwargs.
 end
 
 RBSteady.get_reduction(r::HighDimMDEIMHyperReduction) = r.reduction
-ParamODEs.get_time_combination(r::HighDimMDEIMHyperReduction) = r.combination
+get_time_combination(r::HighDimMDEIMHyperReduction) = r.combination
 
 struct HighDimSOPTHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
   reduction::R
@@ -277,7 +277,7 @@ function HighDimSOPTHyperReduction(combination::TimeCombination,args...;kwargs..
 end
 
 RBSteady.get_reduction(r::HighDimSOPTHyperReduction) = r.reduction
-ParamODEs.get_time_combination(r::HighDimSOPTHyperReduction) = r.combination
+get_time_combination(r::HighDimSOPTHyperReduction) = r.combination
 
 struct HighDimRBFHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
   reduction::R
@@ -292,7 +292,7 @@ end
 
 RBSteady.get_reduction(r::HighDimRBFHyperReduction) = r.reduction
 RBSteady.interp_strategy(r::HighDimRBFHyperReduction) = r.strategy
-ParamODEs.get_time_combination(r::HighDimRBFHyperReduction) = r.combination
+get_time_combination(r::HighDimRBFHyperReduction) = r.combination
 
 function LocalHighDimHyperReduction(args...;ncentroids=10,kwargs...)
   reduction = HighDimHyperReduction(args...;kwargs...)

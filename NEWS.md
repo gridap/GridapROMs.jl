@@ -32,7 +32,7 @@ weights, etc.) and provides two key operations:
 
 - `get_coefficients(c, N)` — returns the tuple of weights applied to snapshots
   at successive time levels for a given derivative order.
-- `get_time_combination(c, u, us0)` — applies the full combination to a
+- `time_combination(c, u, us0)` — applies the full combination to a
   parametric solution vector `u` and initial-condition vectors `us0`, returning
   one combined vector per derivative order of the ODE.
 
@@ -49,7 +49,7 @@ Each subtype is dispatched on via `CombinationOrder{A,N}` (aliased as
 where `N` selects the derivative order (1 = stiffness, 2 = damping/mass for
 first-order, 3 = mass for second-order). This makes the space-time assembly
 path fully generic: the `residual` and `jacobian` methods in `SpaceTime.jl`
-call `TimeCombination(solver)` and `get_time_combination` without any
+call `TimeCombination(solver)` and `time_combination` without any
 solver-specific branching.
 
 The `GenAlpha2` combination has a non-trivial, history-dependent stencil that

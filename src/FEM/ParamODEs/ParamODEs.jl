@@ -104,8 +104,11 @@ export GenAlpha2Strategy
 export spacetime_residual
 export spacetime_jacobian
 export get_coefficients
-export get_time_combination
-export get_zero_time_combination
+export time_combination
+export time_combination!
+export zero_time_combination
+export zero_time_combination!
+export allocate_time_combination
 include("SpaceTime.jl")
 
 export ODEParamSolution

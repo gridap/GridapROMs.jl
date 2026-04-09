@@ -82,8 +82,8 @@ end
   @test length(hrs) == 2
   @test hrs[1] isa HighDimMDEIMHyperReduction
   @test hrs[2] isa HighDimMDEIMHyperReduction
-  @test isa(get_time_combination(hrs[1]),ThetaMethodStrategy{1})
-  @test isa(get_time_combination(hrs[2]),ThetaMethodStrategy{2})
+  @test isa(time_combination(hrs[1]),ThetaMethodStrategy{1})
+  @test isa(time_combination(hrs[2]),ThetaMethodStrategy{2})
 
   solver = Newmark(LUSolver(),0.1,0.5,0.25)
   tcomb = TimeCombination(solver)
@@ -96,9 +96,9 @@ end
   @test hrs[1] isa HighDimSOPTHyperReduction
   @test hrs[2] isa HighDimSOPTHyperReduction
   @test hrs[3] isa HighDimSOPTHyperReduction
-  @test isa(get_time_combination(hrs[1]),GenAlpha2Strategy{1})
-  @test isa(get_time_combination(hrs[2]),GenAlpha2Strategy{2})
-  @test isa(get_time_combination(hrs[3]),GenAlpha2Strategy{3})
+  @test isa(time_combination(hrs[1]),GenAlpha2Strategy{1})
+  @test isa(time_combination(hrs[2]),GenAlpha2Strategy{2})
+  @test isa(time_combination(hrs[3]),GenAlpha2Strategy{3})
 end
 
 # ─── tucker ───────────────────────────────────────────────────────────────────

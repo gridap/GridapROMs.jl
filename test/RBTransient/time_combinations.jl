@@ -16,11 +16,11 @@ using GridapROMs.ParamODEs
 using GridapROMs.RBSteady
 using GridapROMs.RBTransient
 
-const get_time_combination = ParamODEs.get_time_combination
+const time_combination = ParamODEs.time_combination
 
 cpa(data::Matrix) = ConsecutiveParamArray(data)
 
-@testset "get_time_combination ThetaMethod θ=0.5 displacement" begin
+@testset "time_combination ThetaMethod θ=0.5 displacement" begin
   dt = 0.1; θ = 0.5
   u_data  = Float64[1 2 3 4 5 6]
   u0_data = Float64[0 0.5]
@@ -30,7 +30,7 @@ cpa(data::Matrix) = ConsecutiveParamArray(data)
 
   v0  = cpa(similar(u0_data))
   c   = ThetaMethodCombination(dt,θ)
-  usx = get_time_combination(c,u,(u0,v0))
+  usx = time_combination(c,u,(u0,v0))
 
   @test length(usx) == 2
   uθ = get_all_data(usx[1])
@@ -45,14 +45,14 @@ cpa(data::Matrix) = ConsecutiveParamArray(data)
   @test uθ[1,6] ≈ θ*6 + (1-θ)*4
 end
 
-@testset "get_time_combination ThetaMethod θ=1 implicit Euler" begin
+@testset "time_combination ThetaMethod θ=1 implicit Euler" begin
   dt = 0.1; θ = 1.0
   u_data  = Float64[1 2 3 4 5 6]
   u0_data = Float64[0 0.5]
 
   u  = cpa(u_data);  u0 = cpa(u0_data)
   c  = ThetaMethodCombination(dt,θ)
-  uθ = get_all_data(get_time_combination(c,u,(u0,similar(u0)))[1])
+  uθ = get_all_data(time_combination(c,u,(u0,similar(u0)))[1])
 
   @test uθ[1,1] ≈ 1.0
   @test uθ[1,2] ≈ 2.0
@@ -60,14 +60,14 @@ end
   @test uθ[1,5] ≈ 5.0
 end
 
-@testset "get_time_combination ThetaMethod θ=0 explicit Euler" begin
+@testset "time_combination ThetaMethod θ=0 explicit Euler" begin
   dt = 0.1; θ = 0.0
   u_data  = Float64[1 2 3 4 5 6]
   u0_data = Float64[0 0.5]
 
   u  = cpa(u_data);  u0 = cpa(u0_data)
   c  = ThetaMethodCombination(dt,θ)
-  uθ = get_all_data(get_time_combination(c,u,(u0,similar(u0)))[1])
+  uθ = get_all_data(time_combination(c,u,(u0,similar(u0)))[1])
 
   @test uθ[1,1] ≈ 0.0
   @test uθ[1,2] ≈ 0.5
@@ -76,7 +76,7 @@ end
   @test uθ[1,5] ≈ 3.0
 end
 
-@testset "get_time_combination ThetaMethod velocity (CombinationOrder{2})" begin
+@testset "time_combination ThetaMethod velocity (CombinationOrder{2})" begin
   dt = 0.1; θ = 0.5
   np = 1; nt = 3; ndof = 1
   u_data  = reshape(Float64[1.0,3.0,6.0],1,3)
@@ -95,7 +95,7 @@ end
 end
 
 
-@testset "get_time_combination GenAlpha1 (ρ∞=1) displacement" begin
+@testset "time_combination GenAlpha1 (ρ∞=1) displacement" begin
   dt = 0.1
   αf = 0.5; αm = 0.5; γ = 0.5
   u_data  = Float64[1 2 3 4 5 6]
@@ -107,7 +107,7 @@ end
   v0 = cpa(v0_data)
 
   c   = GenAlpha1Combination(dt,αf,αm,γ)
-  usx = get_time_combination(c,u,(u0,v0))
+  usx = time_combination(c,u,(u0,v0))
 
   @test length(usx) == 2
 
@@ -119,7 +119,7 @@ end
   @test uαf[1,5] ≈ 0.5*5 + 0.5*3
 end
 
-@testset "get_time_combination GenAlpha1 (ρ∞=1) velocity (αm=γ=0.5 → FD)" begin
+@testset "time_combination GenAlpha1 (ρ∞=1) velocity (αm=γ=0.5 → FD)" begin
   dt = 0.1
   αf = 0.5; αm = 0.5; γ = 0.5
   np = 1; nt = 3; ndof = 1
@@ -129,14 +129,14 @@ end
 
   u  = cpa(u_data);  u0 = cpa(u0_data);  v0 = cpa(v0_data)
   c  = GenAlpha1Combination(dt,αf,αm,γ)
-  vαm = get_all_data(get_time_combination(c,u,(u0,v0))[2])
+  vαm = get_all_data(time_combination(c,u,(u0,v0))[2])
 
   @test vαm[1,1] ≈ (1.0 - 0.0) / dt
   @test vαm[1,2] ≈ (3.0 - 1.0) / dt
   @test vαm[1,3] ≈ (6.0 - 3.0) / dt
 end
 
-@testset "get_time_combination GenAlpha1 (ρ∞=0.5) velocity — multi-step sum" begin
+@testset "time_combination GenAlpha1 (ρ∞=0.5) velocity — multi-step sum" begin
   fesolver_ref = GeneralizedAlpha1(LUSolver(),0.1,0.5)
   dt = fesolver_ref.dt
   αf = fesolver_ref.αf; αm = fesolver_ref.αm; γ = fesolver_ref.γ
@@ -156,7 +156,7 @@ end
   u  = cpa(u_data);  u0 = cpa(u0_data);  v0 = cpa(v0_data)
 
   c  = GenAlpha1Combination(dt,αf,αm,γ)
-  vαm = get_all_data(get_time_combination(c,u,(u0,v0))[2])
+  vαm = get_all_data(time_combination(c,u,(u0,v0))[2])
 
   expected_t1 = a*αm*u_raw[1] - a*αm*u0_raw + (c_coeff/a)*v0_raw
   @test vαm[1,1] ≈ expected_t1 atol=1e-10
@@ -169,7 +169,7 @@ end
   @test vαm[1,3] ≈ expected_t3 atol=1e-10
 end
 
-@testset "get_time_combination GenAlpha2 (ρ∞=1) displacement" begin
+@testset "time_combination GenAlpha2 (ρ∞=1) displacement" begin
   dt = 0.1
   αf = 0.5; αm = 0.5; γ = 0.5; β = 0.25
   u_data  = Float64[1 2 3 4 5 6]
@@ -183,7 +183,7 @@ end
   a0 = cpa(a0_data)
 
   c = GenAlpha2Combination(dt,αf,αm,γ,β)
-  usx = get_time_combination(c,u,(u0,v0,a0))
+  usx = time_combination(c,u,(u0,v0,a0))
 
   @test length(usx) == 3
 
@@ -195,7 +195,7 @@ end
   @test uαf[1,5] ≈ 0.5*5 + 0.5*3
 end
 
-@testset "get_time_combination GenAlpha2 (ρ∞=1) velocity (zero ICs → FD)" begin
+@testset "time_combination GenAlpha2 (ρ∞=1) velocity (zero ICs → FD)" begin
   dt = 0.1
   αf = 0.5; αm = 0.5; γ = 0.5; β = 0.25
   u_data  = reshape(Float64[1.0,3.0,6.0],1,3)
@@ -208,14 +208,14 @@ end
   v0 = cpa(v0_data)
   a0 = cpa(a0_data)
   c  = GenAlpha2Combination(dt,αf,αm,γ,β)
-  vαf = get_all_data(get_time_combination(c,u,(u0,v0,a0))[2])
+  vαf = get_all_data(time_combination(c,u,(u0,v0,a0))[2])
 
   @test vαf[1,1] ≈ (1.0 - 0.0) / dt
   @test vαf[1,2] ≈ (3.0 - 1.0) / dt
   @test vαf[1,3] ≈ (6.0 - 3.0) / dt
 end
 
-@testset "get_time_combination GenAlpha2 (ρ∞=0.5) velocity and acceleration — multi-step sums" begin
+@testset "time_combination GenAlpha2 (ρ∞=0.5) velocity and acceleration — multi-step sums" begin
   fesolver_ref = GeneralizedAlpha2(LUSolver(),0.1,0.5)
   dt = fesolver_ref.dt
   αf = fesolver_ref.αf
@@ -239,8 +239,8 @@ end
   a0 = cpa(a0_data)
   c  = GenAlpha2Combination(dt,αf,αm,γ,β)
 
-  vαf = get_all_data(get_time_combination(c,u,(u0,v0,a0))[2])
-  aαm = get_all_data(get_time_combination(c,u,(u0,v0,a0))[3])
+  vαf = get_all_data(time_combination(c,u,(u0,v0,a0))[2])
+  aαm = get_all_data(time_combination(c,u,(u0,v0,a0))[3])
 
   a = γ / (dt * β)
   b = -a
@@ -318,14 +318,14 @@ end
   @test aαm[1,3] ≈ expected_a3 atol=1e-10
 end
 
-@testset "get_time_combination consistent with CombinationOrder accessors" begin
+@testset "time_combination consistent with CombinationOrder accessors" begin
   dt = 0.1; θ = 0.5
   u_data  = rand(3,6)
   u0_data = rand(3,2)
 
   u  = cpa(u_data);  u0 = cpa(u0_data)
   c  = ThetaMethodCombination(dt,θ)
-  usx = get_time_combination(c,u,(u0,similar(u0)))
+  usx = time_combination(c,u,(u0,similar(u0)))
 
   c1 = CombinationOrder{1}(c)
   uθ_direct = similar(u)
@@ -638,7 +638,7 @@ function _wave_eq_setup(;nparams=3)
   return feop,r,uh0μ,vh0μ,ah0μ
 end
 
-function _compare_with_gridap_heateq(odeslvr,snaps,A,b)
+function _compare_with_gridap_heateq(odeslvr,snaps,b)
   domain    = (0,1,0,1)
   partition = (6,6)
   model     = CartesianDiscreteModel(domain,partition)
@@ -718,16 +718,16 @@ end
     i      = get_dof_map(feop)
     snaps  = Snapshots(vals,initial_vals,i,r)
 
-    b = Algebra.residual(fesolver,feop,r,snaps)
-    A = Algebra.jacobian(fesolver,feop,r,snaps)
+    b = spacetime_residual(fesolver,feop,r,snaps)
+    A = spacetime_jacobian(fesolver,feop,r,snaps)
 
     @test isa(b,ArrayContribution)
     @test isa(A,TupOfArrayContribution)
-    _compare_with_gridap_heateq(fesolver,snaps,A,b)
+    _compare_with_gridap_heateq(fesolver,snaps,b)
   end
 end
 
-function _compare_with_gridap_waveeq(odeslvr,snaps,_,b)
+function _compare_with_gridap_waveeq(odeslvr,snaps,b)
   domain    = (0,1,0,1)
   partition = (6,6)
   model     = CartesianDiscreteModel(domain,partition)
@@ -797,12 +797,12 @@ end
   i            = get_dof_map(feop)
   snaps        = Snapshots(vals,initial_vals,i,r)
 
-  b = Algebra.residual(fesolver,feop,r,snaps)
-  A = Algebra.jacobian(fesolver,feop,r,snaps)
+  b = spacetime_residual(fesolver,feop,r,snaps)
+  A = spacetime_jacobian(fesolver,feop,r,snaps)
 
   @test isa(b,ArrayContribution)
   @test isa(A,TupOfArrayContribution)
-  _compare_with_gridap_waveeq(fesolver,snaps,A,b)
+  _compare_with_gridap_waveeq(fesolver,snaps,b)
 end
 
 end

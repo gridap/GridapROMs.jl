@@ -1,6 +1,8 @@
 struct SpaceTimeOperator <: NonlinearOperator
   op::NonlinearOperator
+  tcomb::TimeCombination
   usx::Tuple{Vararg{AbstractVector}}
+  us0::Tuple{Vararg{AbstractVector}}
 end
 
 function SpaceTimeOperator(
@@ -12,14 +14,9 @@ function SpaceTimeOperator(
 
   pop = parameterise(op,r)
   trial = get_trial(op)(r)
-  ûs0 = ()
-  for (i,u0i) in enumerate(us0)
-    û0i = zero_free_values(trial)
-    ci = CombinationOrder{i}(c)
-    _insert_initial_condition!(û0i,trial,ci,u0i)
-    ûs0 = (ûs0...,û0i)
-  end
-  SpaceTimeOperator(pop,ûs0)
+  û = zero_free_values(trial)
+  ûs = allocate_time_combination(c,û,us0)
+  SpaceTimeOperator(pop,c,ûs,us0)
 end
 
 function SpaceTimeOperator(
@@ -41,8 +38,7 @@ function Algebra.allocate_residual(
   nlop::SpaceTimeOperator,
   x::AbstractVector)
 
-  usx = nlop.state_update(x)
-  allocate_residual(nlop.op,nlop.r,usx,nlop.paramcache)
+  allocate_residual(nlop.op.op,nlop.op.r,nlop.usx,nlop.op.paramcache)
 end
 
 function Algebra.residual!(
@@ -50,16 +46,15 @@ function Algebra.residual!(
   nlop::SpaceTimeOperator,
   x::AbstractVector)
 
-  usx = nlop.state_update(x)
-  residual!(b,nlop.op,nlop.r,usx,nlop.paramcache)
+  time_combination!(nlop.usx,nlop.tcomb,x,nlop.us0)
+  residual!(b,nlop.op.op,nlop.op.r,usx,nlop.op.paramcache)
 end
 
 function Algebra.allocate_jacobian(
   nlop::SpaceTimeOperator,
   x::AbstractVector)
 
-  usx = nlop.state_update(x)
-  allocate_jacobian(nlop.op,nlop.r,usx,nlop.paramcache)
+  allocate_jacobian(nlop.op.op,nlop.op.r,nlop.usx,nlop.op.paramcache)
 end
 
 function Algebra.jacobian!(
@@ -67,8 +62,8 @@ function Algebra.jacobian!(
   nlop::SpaceTimeOperator,
   x::AbstractVector)
 
-  usx = nlop.state_update(x)
-  jacobian!(A,nlop.op,nlop.r,usx,nlop.ws,nlop.paramcache)
+  time_combination!(nlop.usx,nlop.tcomb,x,nlop.us0)
+  jacobian!(A,nlop.op.op,nlop.op.r,usx,nlop.op.ws,nlop.op.paramcache)
   A
 end
 

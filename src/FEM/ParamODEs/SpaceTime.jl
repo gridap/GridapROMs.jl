@@ -20,10 +20,8 @@ function spacetime_residual(
   us0::Tuple{Vararg{AbstractParamVector}}
   )
 
-  usx = get_time_combination(tcomb,u,us0)
-  _prev_mid_shift!(tcomb,r)
-  b = residual(odeop,r,usx)
-  _cur_shift!(tcomb,r)
+  b,usx,paramcache = allocate_spacetime_residual(tcomb,odeop,r,u,us0)
+  spacetime_residual!(b,tcomb,odeop,r,u,usx,us0,paramcache)
   return b
 end
 
@@ -39,9 +37,8 @@ function allocate_spacetime_residual(
   paramcache = allocate_paramcache(odeop,r;evaluated=true)
   _cur_shift!(tcomb,r)
   usx = allocate_time_combination(tcomb,u,us0)
-  b = residual(odeop,r,usx)
-  
-  return b
+  b = allocate_residual(odeop,r,usx,paramcache)
+  return b,usx,paramcache
 end
 
 function spacetime_residual!(
@@ -50,12 +47,32 @@ function spacetime_residual!(
   odeop::ODEParamOperator,
   r::TransientRealisation,
   u::AbstractParamVector,
-  us0::Tuple{Vararg{AbstractParamVector}}
+  usx::Tuple{Vararg{AbstractParamVector}},
+  us0::Tuple{Vararg{AbstractParamVector}},
+  paramcache
   )
 
-  get_time_combination!(usx,tcomb,u,us0)
+  time_combination!(usx,tcomb,u,us0)
   _prev_mid_shift!(tcomb,r)
-  residual!(b,odeop,r,usx)
+  residual!(b,odeop,r,usx,paramcache)
+  _cur_shift!(tcomb,r)
+  return b
+end
+
+function spacetime_residual!(
+  b::AbstractParamVector,
+  tcomb::TimeCombination,
+  odeop::ODEParamOperator{LinearParamODE},
+  r::TransientRealisation,
+  u::AbstractParamVector,
+  usx::Tuple{Vararg{AbstractParamVector}},
+  us0::Tuple{Vararg{AbstractParamVector}},
+  paramcache
+  )
+
+  zero_time_combination!(usx,tcomb,u,us0)
+  _prev_mid_shift!(tcomb,r)
+  residual!(b,odeop,r,usx,paramcache)
   _cur_shift!(tcomb,r)
   return b
 end
@@ -63,57 +80,80 @@ end
 function spacetime_jacobian(
   tcomb::TimeCombination,
   odeop::ODEParamOperator,
-  r::TransientRealisation,
   s::AbstractSnapshots
   )
 
+  r = get_realisation(s)
   u = get_param_data(s)
   us0 = get_initial_param_data(s)
-  usx = get_time_combination(tcomb,u,us0)
-  ws = ntuple(_ -> 1,Val(length(us0)))
-
-  _prev_mid_shift!(tcomb,r)
-  A = jacobian(odeop,r,usx,ws)
-  _cur_shift!(tcomb,r)
-
-  return A
-end
-
-function spacetime_residual(
-  tcomb::TimeCombination,
-  odeop::ODEParamOperator{LinearParamODE},
-  r::TransientRealisation,
-  s::AbstractSnapshots
-  )
-
-  u = get_param_data(s)
-  us0 = get_initial_param_data(s)
-  usx = get_zero_time_combination(tcomb,u,us0)
-
-  _prev_mid_shift!(tcomb,r)
-  b = residual(odeop,r,usx)
-  _cur_shift!(tcomb,r)
-
-  return b
+  spacetime_jacobian(tcomb,odeop,r,u,us0)
 end
 
 function spacetime_jacobian(
   tcomb::TimeCombination,
-  odeop::ODEParamOperator{LinearParamODE},
+  odeop::ODEParamOperator,
   r::TransientRealisation,
-  s::AbstractSnapshots
+  u::AbstractParamVector,
+  us0::Tuple{Vararg{AbstractParamVector}}
   )
 
-  u = get_param_data(s)
-  us0 = get_initial_param_data(s)
-  usx = get_zero_time_combination(tcomb,u,us0)
-  ws = ntuple(_ -> 1,Val(length(us0)))
+  A,usx,paramcache = allocate_spacetime_jacobian(tcomb,odeop,r,u,us0)
+  spacetime_jacobian!(A,tcomb,odeop,r,u,usx,us0,paramcache)
+  return A
+end
+
+function allocate_spacetime_jacobian(
+  tcomb::TimeCombination,
+  odeop::ODEParamOperator,
+  r::TransientRealisation,
+  u::AbstractParamVector,
+  us0::Tuple{Vararg{AbstractParamVector}}
+  )
 
   _prev_mid_shift!(tcomb,r)
-  A = jacobian(odeop,r,usx,ws)
+  paramcache = allocate_paramcache(odeop,r;evaluated=true)
   _cur_shift!(tcomb,r)
+  usx = allocate_time_combination(tcomb,u,us0)
+  A = allocate_jacobian(odeop,r,usx,paramcache)
+  return A,usx,paramcache
+end
 
-  return A
+function spacetime_jacobian!(
+  A::AbstractParamMatrix,
+  tcomb::TimeCombination,
+  odeop::ODEParamOperator,
+  r::TransientRealisation,
+  u::AbstractParamVector,
+  usx::Tuple{Vararg{AbstractParamVector}},
+  us0::Tuple{Vararg{AbstractParamVector}},
+  paramcache
+  )
+
+  ws = ntuple(_ -> 1,Val(length(us0)))
+  time_combination!(usx,tcomb,u,us0)
+  _prev_mid_shift!(tcomb,r)
+  jacobian!(A,odeop,r,usx,ws,paramcache)
+  _cur_shift!(tcomb,r)
+  return b
+end
+
+function spacetime_jacobian!(
+  A::AbstractParamMatrix,
+  tcomb::TimeCombination,
+  odeop::ODEParamOperator{LinearParamODE},
+  r::TransientRealisation,
+  u::AbstractParamVector,
+  usx::Tuple{Vararg{AbstractParamVector}},
+  us0::Tuple{Vararg{AbstractParamVector}},
+  paramcache
+  )
+
+  ws = ntuple(_ -> 1,Val(length(us0)))
+  zero_time_combination!(usx,tcomb,u,us0)
+  _prev_mid_shift!(tcomb,r)
+  jacobian!(A,odeop,r,usx,ws,paramcache)
+  _cur_shift!(tcomb,r)
+  return b
 end
 
 # utils 

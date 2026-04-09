@@ -27,7 +27,7 @@ ThetaMethodStrategy
 GenAlpha1Strategy
 GenAlpha2Strategy
 get_coefficients
-get_time_combination
+time_combination
 ```
 
 ## Full API

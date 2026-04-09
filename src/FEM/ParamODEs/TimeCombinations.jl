@@ -18,7 +18,7 @@ to obtain the appropriate concrete subtype:
 | `GeneralizedAlpha2`  | [`GenAlpha2Combination`](@ref)   |
 
 The per-order time-level weights are accessed through
-[`get_coefficients`](@ref), while [`get_time_combination`](@ref) applies the
+[`get_coefficients`](@ref), while [`time_combination`](@ref) applies the
 full combination to a parametric solution vector.
 
 See also: [`CombinationOrder`](@ref), [`HighDimHyperReduction`](@ref).
@@ -38,20 +38,31 @@ corresponding [`CombinationOrder`](@ref)).
 get_coefficients(c::TimeCombination,args...) = @abstractmethod
 
 """
-    get_time_combination(c::TimeCombination, u, us0) -> NTuple{N,AbstractParamVector}
+    time_combination(c::TimeCombination, u, us0) -> NTuple{N,AbstractParamVector}
 
 Apply the time combination `c` to the parametric solution vector `u` and the
 `N` initial-condition vectors `us0`.  Returns an `N`-tuple of combined
 vectors, one per derivative order of the ODE (e.g. ``u_{\\theta}`` and
 ``\\dot{u}_{\\theta}`` for a first-order scheme).
 """
-function get_time_combination(
+function time_combination(
   c::TimeCombination,
   u::AbstractParamVector,
   us0::NTuple{N,AbstractParamVector}
   ) where N
 
-  usx = ntuple(_ -> similar(u),Val{N}())
+  usx = allocate_time_combination(c,u,us0)
+  time_combination!(usx,c,u,us0)
+  return usx
+end
+
+function time_combination!(
+  usx::NTuple{N,AbstractParamVector},
+  c::TimeCombination,
+  u::AbstractParamVector,
+  us0::NTuple{N,AbstractParamVector}
+  ) where N
+
   for i in eachindex(us0)
     ci = CombinationOrder{i}(c)
     _combination!(usx[i],ci,u,us0)
@@ -61,20 +72,40 @@ end
 
 # this one here is much simpler, and only accounts for the initial
 # conditions, so that it can be used to compute the initial residual
-function get_zero_time_combination(
+function zero_time_combination(
   c::TimeCombination,
   u::AbstractParamVector,
   us0::NTuple{N,AbstractParamVector}
   ) where N
 
-  z = zero(eltype2(u))
-  usx = ntuple(_ -> fill!(similar(u),z),Val{N}())
+  usx = allocate_time_combination(c,u,us0)
+  zero_time_combination!(usx,c,u,us0)
+  return usx
+end
+
+function zero_time_combination!(
+  usx::NTuple{N,AbstractParamVector},
+  c::TimeCombination,
+  u::AbstractParamVector,
+  us0::NTuple{N,AbstractParamVector}
+  ) where N
+
   all(iszero,us0) && return usx
   for i in eachindex(us0)
     ci = CombinationOrder{i}(c)
     _zero_combination!(usx[i],ci,us0)
   end
   return usx
+end
+
+function allocate_time_combination(
+  c::TimeCombination, 
+  u::AbstractParamVector, 
+  us0::NTuple{N,AbstractParamVector}
+  ) where N
+
+  z = zero(eltype2(u))
+  ntuple(_ -> fill!(similar(u),z),Val{N}())
 end
 
 @doc raw"""
