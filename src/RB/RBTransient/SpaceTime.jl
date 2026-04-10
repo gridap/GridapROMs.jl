@@ -3,11 +3,12 @@ struct SpaceTimeSolver{A<:ODESolver,B<:NonlinearSolver} <: NonlinearSolver
   usx::Tuple{Vararg{AbstractParamVector}}
   us0::Tuple{Vararg{AbstractParamVector}}
   function SpaceTimeSolver(
-    solver::A,
+    solver::ODESolver,
     usx::Tuple{Vararg{AbstractParamVector}},
     us0::Tuple{Vararg{AbstractParamVector}},
-    ) where A 
+    ) 
     
+    A = typeof(solver)
     B = typeof(get_solver(solver))
     new{A,B}(solver,usx,us0)
   end
@@ -22,8 +23,12 @@ function SpaceTimeSolver(
   )
 
   c = TimeCombination(solver)
-  us = time_combination(c,u,us0)
-  SpaceTimeSolver(c,us,us0)
+  us = zero_time_combination(c,u,us0)
+  SpaceTimeSolver(solver,us,us0)
+end
+
+function SpaceTimeSolver(solver::RBSolver,args...)
+  SpaceTimeSolver(get_fe_solver(solver),args...)
 end
 
 get_shift(s::SpaceTimeSolver) = @notimplemented 
@@ -43,10 +48,11 @@ end
 front_shift!(s::SpaceTimeSolver,r::TransientRealisation) = shift!(r,get_shift(s))
 back_shift!(s::SpaceTimeSolver,r::TransientRealisation) = shift!(r,-get_shift(s))
 
-get_solver(s::SpaceTimeSolver) = @notimplemented
-get_solver(s::SpaceTimeSolver{<:ThetaMethod}) = s.solver.sysslvr
-get_solver(s::SpaceTimeSolver{<:GeneralizedAlpha1}) = s.solver.sysslvr
-get_solver(s::SpaceTimeSolver{<:GeneralizedAlpha2}) = s.solver.sysslvr
+get_solver(s::SpaceTimeSolver) = get_solver(s.solver)
+get_solver(s::ODESolver) = @notimplemented
+get_solver(s::ThetaMethod) = s.sysslvr
+get_solver(s::GeneralizedAlpha1) = s.sysslvr
+get_solver(s::GeneralizedAlpha2) = s.sysslvr
 
 function Algebra.solve!(
   x̂::AbstractParamVector,
@@ -60,6 +66,44 @@ function Algebra.solve!(
   _update_paramcache!(nlop,r)
   _st_solve!(x̂,solver,nlop,syscache)
   back_shift!(solver,r)
+end
+
+function ParamODEs.time_combination(
+  c::TimeCombination,
+  u::RBParamVector,
+  us0::NTuple{N,AbstractParamVector}
+  ) where N
+
+  time_combination(c,u.fe_data,us0)
+end
+
+function ParamODEs.time_combination!(
+  usx::NTuple{N,AbstractParamVector},
+  c::TimeCombination,
+  u::RBParamVector,
+  us0::NTuple{N,AbstractParamVector}
+  ) where N
+
+  time_combination!(usx,c,u.fe_data,us0)
+end
+
+function ParamODEs.zero_time_combination(
+  c::TimeCombination,
+  u::RBParamVector,
+  us0::NTuple{N,AbstractParamVector}
+  ) where N
+
+  zero_time_combination(c,u.fe_data,us0)
+end
+
+function ParamODEs.zero_time_combination!(
+  usx::NTuple{N,AbstractParamVector},
+  c::TimeCombination,
+  u::RBParamVector,
+  us0::NTuple{N,AbstractParamVector}
+  ) where N
+
+  zero_time_combination!(usx,c,u.fe_data,us0)
 end
 
 # utils 

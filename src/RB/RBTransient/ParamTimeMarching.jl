@@ -5,14 +5,7 @@ function Algebra.solve(
   us0::Tuple{Vararg{AbstractVector}}
   )
 
-  r0 = get_at_time(r,:initial)
-  U0 = get_trial(op)(r0)
-  ûs0 = ()
-  for u0 in us0
-    û0 = project(U0,u0)
-    ûs0 = (ûs0...,reduced_vector(û0,u0))
-  end
-  ODEParamSolution(solver,op,r,ûs0)
+  ODEParamSolution(solver,op,r,us0)
 end
 
 function ODEs.ode_finish!(
@@ -23,9 +16,8 @@ function ODEs.ode_finish!(
   statef::Tuple{Vararg{AbstractVector}},
   odecache)
 
-  _uf = first(statef)
-  inv_project!(_uf.fe_data,get_trial(op),_uf.data)
-  copy!(uf,_uf)
+  copyto!(uf.fe_data,first(statef))
+  inv_project(get_trial(op),uf)
   uf
 end
 
@@ -119,35 +111,3 @@ function Algebra.jacobian!(
 
   interpolate!(A,lhss)
 end
-
-function ParamODEs.collect_param_solutions(sol::ODEParamSolution{<:RBParamVector{T,<:ConsecutiveParamVector{T}}}) where T
-  ncols = num_params(sol.r)*num_times(sol.r)
-  sols = ParamODEs._allocate_solutions(sol.u0,ncols)
-  for (k,(rk,uk)) in enumerate(sol)
-    ParamODEs._collect_solutions!(sols.data,uk.data,k)
-  end
-  trial = get_trial(sol.odeop)(sol.r)
-  inv_project!(sols.fe_data,trial,sols.data)
-  return sols
-end
-
-function ParamODEs.collect_param_solutions(sol::ODEParamSolution{<:RBParamVector{T,<:BlockParamVector{T}}}) where T
-  u0item = testitem(sol.u0)
-  ncols = num_params(sol.r)*num_times(sol.r)
-  sols = ParamODEs._allocate_solutions(sol.u0,ncols)
-  for (k,(rk,uk)) in enumerate(sol)
-    for i in 1:blocklength(u0item)
-      ParamODEs._collect_solutions!(blocks(sols.data)[i],blocks(uk.data)[i],k)
-    end
-  end
-  trial = get_trial(sol.odeop)(sol.r)
-  inv_project!(sols.fe_data,trial,sols.data)
-  return sols
-end
-
-function ParamODEs._allocate_solutions(u0::RBParamVector,ncols) 
-  data = ParamODEs._allocate_solutions(u0.data,ncols)
-  fe_data = ParamODEs._allocate_solutions(u0.fe_data,ncols)
-  RBParamVector(data,fe_data)
-end
-

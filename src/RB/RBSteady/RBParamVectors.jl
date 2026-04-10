@@ -156,20 +156,6 @@ for T in (
   end
 end
 
-for T in (:AbstractDofMap,:TrivialDofMap)
-  @eval begin
-    function ParamDataStructures.Snapshots(s::RBParamVector,i::$T,r::Realisation)
-      Snapshots(_fe_data(s),i,r)
-    end
-    
-    function ParamDataStructures.Snapshots(s::RBParamVector,s0::Tuple{Vararg{RBParamVector}},i::$T,r::TransientRealisation)
-      fed = _fe_data(s)
-      fed0 = map(_fe_data,s0)
-      Snapshots(fed,fed0,i,r)
-    end
-  end
-end
-
 function ParamDataStructures.parameterise(a::RBVector,plength::Int)
   data = parameterise(a.data,plength)
   fe_data = parameterise(a.fe_data,plength)

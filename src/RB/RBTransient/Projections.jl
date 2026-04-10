@@ -254,7 +254,7 @@ function RBSteady.galerkin_projection(
   combine
   )
 
-  _galerkin_projection(get_dof_map(a),proj_left,a,proj_right,combine)
+  RBSteady._galerkin_projection(get_dof_map(a),proj_left,a,proj_right,combine)
 end
 
 function RBSteady.projection_eltype(a::SequentialProjection)
@@ -376,7 +376,7 @@ end
 
 # utils
 
-function _galerkin_projection(
+function RBSteady._galerkin_projection(
   ::AbstractDofMap,
   proj_left::SequentialProjection,
   a::SequentialProjection,
@@ -402,7 +402,7 @@ function _galerkin_projection(
   return ReducedProjection(proj_cores)
 end
 
-function _galerkin_projection(
+function RBSteady._galerkin_projection(
   ::TrivialDofMap,
   proj_left::SequentialProjection,
   a::SequentialProjection,

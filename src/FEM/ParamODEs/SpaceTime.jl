@@ -42,7 +42,7 @@ function allocate_spacetime_residual(
 end
 
 function spacetime_residual!(
-  b::AbstractParamVector,
+  b,
   tcomb::TimeCombination,
   odeop::ODEParamOperator,
   r::TransientRealisation,
@@ -60,7 +60,7 @@ function spacetime_residual!(
 end
 
 function spacetime_residual!(
-  b::AbstractParamVector,
+  b,
   tcomb::TimeCombination,
   odeop::ODEParamOperator{LinearParamODE},
   r::TransientRealisation,
@@ -119,7 +119,7 @@ function allocate_spacetime_jacobian(
 end
 
 function spacetime_jacobian!(
-  A::AbstractParamMatrix,
+  A,
   tcomb::TimeCombination,
   odeop::ODEParamOperator,
   r::TransientRealisation,
@@ -134,11 +134,11 @@ function spacetime_jacobian!(
   _prev_mid_shift!(tcomb,r)
   jacobian!(A,odeop,r,usx,ws,paramcache)
   _cur_shift!(tcomb,r)
-  return b
+  return A
 end
 
 function spacetime_jacobian!(
-  A::AbstractParamMatrix,
+  A,
   tcomb::TimeCombination,
   odeop::ODEParamOperator{LinearParamODE},
   r::TransientRealisation,
@@ -153,69 +153,45 @@ function spacetime_jacobian!(
   _prev_mid_shift!(tcomb,r)
   jacobian!(A,odeop,r,usx,ws,paramcache)
   _cur_shift!(tcomb,r)
-  return b
+  return A
 end
 
 # utils 
 
-function _prev_mid_shift!(tcomb::TimeCombination,r::TransientRealisation)
-  _prev_mid_shift!(tcomb.solver,r)
+function _prev_mid_shift!(c::CombinationOrder,r::TransientRealisation)
+  _prev_mid_shift!(c.combination,r)
 end
 
-function _cur_shift!(tcomb::TimeCombination,r::TransientRealisation)
-  _cur_shift!(tcomb.solver,r)
+function _cur_shift!(c::CombinationOrder,r::TransientRealisation)
+  _cur_shift!(c.combination,r)
 end
 
-function _prev_mid_shift!(
-  solver::ThetaMethod,
-  r::TransientRealisation
-  ) 
-
-  δ = solver.dt*(1-solver.θ)
+function _prev_mid_shift!(c::ThetaMethodCombination,r::TransientRealisation) 
+  δ = c.dt*(1-c.θ)
   shift!(r,-δ)
 end
 
-function _cur_shift!(
-  solver::ThetaMethod,
-  r::TransientRealisation
-  ) 
-
-  δ = solver.dt*(1-solver.θ)
+function _cur_shift!(c::ThetaMethodCombination,r::TransientRealisation) 
+  δ = c.dt*(1-c.θ)
   shift!(r,δ)
 end
 
-function _prev_mid_shift!(
-  solver::GeneralizedAlpha1,
-  r::TransientRealisation
-  ) 
-
-  δ = solver.dt*(1-solver.αf)
+function _prev_mid_shift!(c::GenAlpha1Combination,r::TransientRealisation) 
+  δ = c.dt*(1-c.αf)
   shift!(r,-δ)
 end
 
-function _cur_shift!(
-  solver::GeneralizedAlpha1,
-  r::TransientRealisation
-  ) 
-
-  δ = solver.dt*(1-solver.αf)
+function _cur_shift!(c::GenAlpha1Combination,r::TransientRealisation)
+  δ = c.dt*(1-c.αf)
   shift!(r,δ)
 end
 
-function _prev_mid_shift!(
-  solver::GeneralizedAlpha2,
-  r::TransientRealisation
-  ) 
-
-  δ = solver.dt*solver.αf
+function _prev_mid_shift!(c::GenAlpha2Combination,r::TransientRealisation)
+  δ = c.dt*c.αf
   shift!(r,-δ)
 end
 
-function _cur_shift!(
-  solver::GeneralizedAlpha2,
-  r::TransientRealisation
-  ) 
-
-  δ = solver.dt*solver.αf
+function _cur_shift!(c::GenAlpha2Combination,r::TransientRealisation)
+  δ = c.dt*c.αf
   shift!(r,δ)
 end
