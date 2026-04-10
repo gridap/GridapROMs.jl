@@ -80,16 +80,6 @@ function Algebra.solve(
   solver::ODESolver,
   odeop::ODEParamOperator,
   r::TransientRealisation,
-  u0::AbstractVector
-  )
-
-  ODEParamSolution(solver,odeop,r,(u0,))
-end
-
-function Algebra.solve(
-  solver::ODESolver,
-  odeop::ODEParamOperator,
-  r::TransientRealisation,
   uhs0::Tuple{Vararg{Function}}
   )
 
@@ -105,7 +95,7 @@ function Algebra.solve(
   solver::ODESolver,
   odeop::ODEParamOperator,
   r::TransientRealisation,
-  uh0::Function
+  uh0::Any
   )
 
   solve(solver,odeop,r,(uh0,))

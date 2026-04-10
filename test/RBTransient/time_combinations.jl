@@ -564,7 +564,7 @@ function _heat_eq_setup(;nparams=3)
   stiffness(μ,t,u,v,dΩ) = ∫(aμt(μ,t) * ∇(v) ⋅ ∇(u))dΩ
   mass(_,_,uₜ,v,dΩ)     = ∫(v * uₜ)dΩ
   rhs(μ,t,v,dΩ)          = ∫(fμt(μ,t) * v)dΩ
-  res(μ,t,u,v,dΩ)       = mass(μ,t,∂ₚt(u),v,dΩ) + stiffness(μ,t,u,v,dΩ) - rhs(μ,t,v,dΩ)
+  res(μ,t,u,v,dΩ)       = mass(μ,t,∂t(u),v,dΩ) + stiffness(μ,t,u,v,dΩ) - rhs(μ,t,v,dΩ)
 
   trian_res       = (Ω,)
   trian_stiffness = (Ω,)
@@ -612,7 +612,7 @@ function _wave_eq_setup(;nparams=3)
   stiffness(μ,t,u,v,dΩ)  = ∫(aμt(μ,t) * ∇(v) ⋅ ∇(u))dΩ
   damping(_,_,uₜ,v,dΩ)   = ∫(v * uₜ)dΩ
   mass(_,_,uₜₜ,v,dΩ)     = ∫(v * uₜₜ)dΩ
-  res(μ,t,u,v,dΩ)        = mass(μ,t,∂ₚtt(u),v,dΩ) + damping(μ,t,∂ₚt(u),v,dΩ) + stiffness(μ,t,u,v,dΩ)
+  res(μ,t,u,v,dΩ)        = mass(μ,t,∂tt(u),v,dΩ) + damping(μ,t,∂t(u),v,dΩ) + stiffness(μ,t,u,v,dΩ)
 
   trian_res       = (Ω,)
   trian_stiffness = (Ω,)
@@ -718,8 +718,9 @@ end
     i      = get_dof_map(feop)
     snaps  = Snapshots(vals,initial_vals,i,r)
 
-    b = spacetime_residual(fesolver,feop,r,snaps)
-    A = spacetime_jacobian(fesolver,feop,r,snaps)
+    tcomb = TimeCombination(fesolver)
+    b = spacetime_residual(tcomb,feop,snaps)
+    A = spacetime_jacobian(tcomb,feop,snaps)
 
     @test isa(b,ArrayContribution)
     @test isa(A,TupOfArrayContribution)
@@ -797,8 +798,9 @@ end
   i            = get_dof_map(feop)
   snaps        = Snapshots(vals,initial_vals,i,r)
 
-  b = spacetime_residual(fesolver,feop,r,snaps)
-  A = spacetime_jacobian(fesolver,feop,r,snaps)
+  tcomb = TimeCombination(fesolver)
+  b = spacetime_residual(tcomb,feop,snaps)
+  A = spacetime_jacobian(tcomb,feop,snaps)
 
   @test isa(b,ArrayContribution)
   @test isa(A,TupOfArrayContribution)
