@@ -177,7 +177,12 @@ function gather_extended_free_values!(bg_fv,f::SingleFieldFESpace,bg_cell_vals)
   bg_fv
 end
 
-function gather_extended_free_and_dirichlet_values!(bg_fv,bg_dv,f::SingleFieldFESpace,bg_cell_vals)
+function gather_extended_free_and_dirichlet_values!(
+  bg_fv,
+  bg_dv,
+  f::SingleFieldFESpace,
+  bg_cell_vals
+  )
   gather_free_and_dirichlet_values!(bg_fv,bg_dv,get_bg_space(f),bg_cell_vals)
 end
 
@@ -212,7 +217,8 @@ function _bg_vals_from_vals!(
   bg_dv::ConsecutiveParamVector,
   f::EmbeddedFESpace,
   fv::ConsecutiveParamVector,
-  dv::ConsecutiveParamVector)
+  dv::ConsecutiveParamVector
+  )
 
   bg_fdata = get_all_data(bg_fv)
   bg_ddata = get_all_data(bg_dv)
@@ -556,7 +562,8 @@ function _get_dof_to_bg_dof!(
   ddof_to_bg_ddof,
   bg_cell_ids::Union{Table,OTable},
   cell_ids::AbstractArray,
-  cell_to_bg_cell::AbstractVector)
+  cell_to_bg_cell::AbstractVector
+  )
 
   bg_cache = array_cache(bg_cell_ids)
   cache = array_cache(cell_ids)
@@ -583,7 +590,8 @@ function _get_dof_to_bg_dof!(
   ddof_to_bg_ddof,
   bg_cell_ids::OTable,
   cell_ids::AbstractArray,
-  cell_to_bg_cell::AbstractVector)
+  cell_to_bg_cell::AbstractVector
+  )
 
   oldof_to_ldof = DofMaps.get_local_ordering(bg_cell_ids)
   bg_cache = array_cache(bg_cell_ids)
@@ -628,7 +636,8 @@ function _bg_vals_from_vals!(
   bg_dv::ConsecutiveParamVector,
   f::EmbeddedTrialFESpace,
   fv::ConsecutiveParamVector,
-  dv::ConsecutiveParamVector)
+  dv::ConsecutiveParamVector
+  )
   _bg_vals_from_vals!(bg_fv,bg_dv,get_emb_space(f),fv,dv)
 end
 

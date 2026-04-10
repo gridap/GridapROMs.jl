@@ -29,7 +29,12 @@ function galerkin_projection(a::LocalProjection,b::LocalProjection)
   LocalProjection(b̂,b.k)
 end
 
-function galerkin_projection(a::LocalProjection,b::LocalProjection,c::LocalProjection,args...)
+function galerkin_projection(
+  a::LocalProjection,
+  b::LocalProjection,
+  c::LocalProjection,
+  args...
+  )
   b̂ = map((pa,pb,pc) -> galerkin_projection(pa,pb,pc,args...),a.projections,b.projections,c.projections)
   LocalProjection(b̂,b.k)
 end
@@ -169,7 +174,12 @@ function reduced_residual(lred::LocalReduction,test::RBSpace,c::ArrayContributio
   LocalProjection(hr,(kc,kr))
 end
 
-function reduced_jacobian(lred::LocalReduction,trial::RBSpace,test::RBSpace,c::ArrayContribution)
+function reduced_jacobian(
+  lred::LocalReduction,
+  trial::RBSpace,
+  test::RBSpace,
+  c::ArrayContribution
+  )
   red = get_reduction(lred)
   kc = compute_clusters(lred,c)
   kr, = get_clusters(test)

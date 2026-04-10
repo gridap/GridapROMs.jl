@@ -83,7 +83,11 @@ function sparsify_indices(fids::AbstractArray)
   sids
 end
 
-function sparsify_split_indices(frows::AbstractArray,fcols::AbstractArray,a::AbstractSparseMatrix)
+function sparsify_split_indices(
+  frows::AbstractArray,
+  fcols::AbstractArray,
+  a::AbstractSparseMatrix
+  )
   @assert length(frows) == length(fcols)
   sids = similar(frows)
   fill!(sids,zero(eltype(sids)))

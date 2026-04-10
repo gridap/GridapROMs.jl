@@ -24,7 +24,8 @@ end
 
 function LinearNonlinearParamFEOperator(
   op_lin::ParamFEOperator,
-  op_nlin::ParamFEOperator)
+  op_nlin::ParamFEOperator
+  )
 
   LinearNonlinearParamFEOperator{LinearNonlinearParamEq}(op_lin,op_nlin)
 end
@@ -58,7 +59,8 @@ end
 
 function join_operators(
   op_lin::ParamFEOperator,
-  op_nlin::ParamFEOperator)
+  op_nlin::ParamFEOperator
+  )
 
   op_lin = set_domains(op_lin)
   op_nlin = set_domains(op_nlin)

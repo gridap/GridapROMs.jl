@@ -7,7 +7,8 @@ Galerkin projection of `A` on the subspaces specified by a (left, test) subspace
 """
 function galerkin_projection(
   basis_left::AbstractMatrix,
-  basis::AbstractMatrix)
+  basis::AbstractMatrix
+  )
 
   proj_basis = basis_left'*basis
   return proj_basis

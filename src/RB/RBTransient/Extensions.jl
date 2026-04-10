@@ -9,7 +9,8 @@ for T in (
       trian::Triangulation,
       test::$T,
       rows::AbstractVector,
-      indices_time::AbstractVector)
+      indices_time::AbstractVector
+      )
 
       cell_row_ids = get_bg_cell_dof_ids(test,trian)
       cells = RBSteady.get_rows_to_cells(cell_row_ids,rows)

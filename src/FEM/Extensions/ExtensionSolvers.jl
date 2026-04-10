@@ -78,7 +78,11 @@ function extend_solution(ext::HarmonicExtension,f::SingleFieldFESpace,u::Abstrac
   get_free_dof_values(uh_bg)
 end
 
-function extend_solution(ext::BlockExtension,f::MultiFieldFESpace,u::Union{BlockVector,BlockParamVector})
+function extend_solution(
+  ext::BlockExtension,
+  f::MultiFieldFESpace,
+  u::Union{BlockVector,BlockParamVector}
+  )
   uh_bg = map(extend_solution,ext.extension,f.spaces,blocks(u))
   mortar(uh_bg)
 end
@@ -129,7 +133,8 @@ function ExtensionODEParamSolution(
   solver::ExtensionODESolver,
   odeop::ODEParamOperator,
   r::TransientRealisation,
-  us0)
+  us0
+  )
 
   odesol = ODEParamSolution(solver.solver,odeop,r,us0)
   ExtensionODEParamSolution(solver.extension,odesol)
@@ -139,7 +144,8 @@ function ParamODEs.ODEParamSolution(
   solver::ExtensionODESolver,
   odeop::ODEParamOperator,
   r::TransientRealisation,
-  us0) 
+  us0
+  ) 
 
   ExtensionODEParamSolution(solver,odeop,r,us0)
 end

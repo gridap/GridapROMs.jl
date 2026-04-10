@@ -146,7 +146,12 @@ function tpod(red_style::ReductionStyle,A::AbstractMatrix)
   end
 end
 
-function tpod(red_style::ReductionStyle,A::AbstractMatrix,L::AbstractSparseMatrix,p::AbstractVector{Int})
+function tpod(
+  red_style::ReductionStyle,
+  A::AbstractMatrix,
+  L::AbstractSparseMatrix,
+  p::AbstractVector{Int}
+  )
   XA = _forward_cholesky(A,L,p)
   Ũr,Sr,Vr = truncated_svd(red_style,XA)
   Ur = _backward_cholesky(Ũr,L,p)
@@ -165,7 +170,12 @@ function massive_tpod(red_style::LRApproxRank,A::AbstractMatrix)
   truncated_svd(red_style,A)
 end
 
-function massive_tpod(red_style::LRApproxRank,A::AbstractMatrix,L::AbstractSparseMatrix,p::AbstractVector)
+function massive_tpod(
+  red_style::LRApproxRank,
+  A::AbstractMatrix,
+  L::AbstractSparseMatrix,
+  p::AbstractVector
+  )
   tpod(red_style,A,L,p)
 end
 
@@ -176,7 +186,12 @@ function massive_rows_tpod(red_style::ReductionStyle,A::AbstractMatrix)
   return Ur,Sr,Vr
 end
 
-function massive_rows_tpod(red_style::ReductionStyle,A::AbstractMatrix,L::AbstractSparseMatrix,p::AbstractVector{Int})
+function massive_rows_tpod(
+  red_style::ReductionStyle,
+  A::AbstractMatrix,
+  L::AbstractSparseMatrix,
+  p::AbstractVector{Int}
+  )
   XA = _forward_cholesky(A,L,p)
   AXA = XA'*XA
   _,Sr,Vr = truncated_svd(red_style,AXA;issquare=true)
@@ -192,7 +207,12 @@ function massive_cols_tpod(red_style::ReductionStyle,A::AbstractMatrix)
   return Ur,Sr,Vr'
 end
 
-function massive_cols_tpod(red_style::ReductionStyle,A::AbstractMatrix,L::AbstractSparseMatrix,p::AbstractVector{Int})
+function massive_cols_tpod(
+  red_style::ReductionStyle,
+  A::AbstractMatrix,
+  L::AbstractSparseMatrix,
+  p::AbstractVector{Int}
+  )
   XA = _forward_cholesky(A,L,p)
   AXA = XA*XA'
   Ũr,Sr,_ = truncated_svd(red_style,AXA;issquare=true)
@@ -209,7 +229,11 @@ function ttsvd_loop(red_style::ReductionStyle,A::AbstractArray{T,3}) where T
   return core,remainder
 end
 
-function ttsvd_loop(red_style::ReductionStyle,A::AbstractArray{T,3},X::AbstractSparseMatrix) where T
+function ttsvd_loop(
+  red_style::ReductionStyle,
+  A::AbstractArray{T,3},
+  X::AbstractSparseMatrix
+  ) where T
   prev_rank = size(A,1)
   cur_size = size(A,2)
   A′ = reshape(A,prev_rank*cur_size,:)
@@ -223,7 +247,11 @@ function ttsvd_loop(red_style::ReductionStyle,A::AbstractArray{T,3},X::AbstractS
   return core,remainder
 end
 
-function matching_ttsvd_loop(red_style::ReductionStyle,A::AbstractArray{T,3},X::AbstractSparseMatrix) where T
+function matching_ttsvd_loop(
+  red_style::ReductionStyle,
+  A::AbstractArray{T,3},
+  X::AbstractSparseMatrix
+  ) where T
   prev_rank = size(A,1)
   cur_size = size(A,2)
   A′ = reshape(A,prev_rank*cur_size,:)
@@ -434,7 +462,8 @@ otherwise it is ℓ²-orthogonal
 """
 function orth_projection(
   v::AbstractVector,
-  basis::AbstractMatrix)
+  basis::AbstractMatrix
+  )
 
   proj = similar(v)
   fill!(proj,zero(eltype(proj)))
@@ -447,7 +476,8 @@ end
 function orth_projection(
   v::AbstractVector,
   basis::AbstractMatrix,
-  X::AbstractMatrix)
+  X::AbstractMatrix
+  )
 
   proj = similar(v)
   fill!(proj,zero(eltype(proj)))
@@ -469,7 +499,8 @@ otherwise it is ℓ²-orthogonal
 function orth_complement!(
   v::AbstractVector,
   basis::AbstractMatrix,
-  args...)
+  args...
+  )
 
   v .-= orth_projection(v,basis,args...)
 end
@@ -529,7 +560,8 @@ end
 # overload to prevent bugs when compressing matrices of zeros
 
 function LowRankApprox.psvdfact(
-  A::AbstractMatOrLinOp{T},opts::LRAOptions=LRAOptions(T);args...) where T<:Number
+  A::AbstractMatOrLinOp{T},opts::LRAOptions=LRAOptions(T);args...
+  ) where T<:Number
   opts = isempty(args) ? opts : copy(opts; args...)
   m,n = size(A)
   if m >= n

@@ -53,7 +53,12 @@ struct LRApproxRank <: ReductionStyle
   opts::LRAOptions
 end
 
-function LRApproxRank(tol::Float64;maxdet_tol=0.,sketch_randn_niter=1,sketch=:sprn,kwargs...)
+function LRApproxRank(
+  tol::Float64;maxdet_tol=0.,
+  sketch_randn_niter=1,
+  sketch=:sprn,
+  kwargs...
+  )
   opts = LRAOptions(;rtol=tol,maxdet_tol,sketch_randn_niter,sketch)
   return LRApproxRank(opts)
 end
@@ -346,7 +351,12 @@ ParamDataStructures.num_params(r::SupremizerReduction) = num_params(get_reductio
 
 # generic constructor
 
-function Reduction(red_style::ReductionStyle,args...;compression=:global,ncentroids=10,kwargs...)
+function Reduction(
+  red_style::ReductionStyle,
+  args...;compression=:global,
+  ncentroids=10,
+  kwargs...
+  )
   if compression==:global
     PODReduction(red_style,args...;kwargs...)
   else
@@ -354,7 +364,12 @@ function Reduction(red_style::ReductionStyle,args...;compression=:global,ncentro
   end
 end
 
-function Reduction(red_style::TTSVDRanks,args...;compression=:global,ncentroids=10,kwargs...)
+function Reduction(
+  red_style::TTSVDRanks,
+  args...;compression=:global,
+  ncentroids=10,
+  kwargs...
+  )
   if compression==:global
     TTSVDReduction(red_style,args...;kwargs...)
   else
@@ -368,7 +383,8 @@ function Reduction(
   compression=:global,
   nparams=50,
   ncentroids=10,
-  kwargs...)
+  kwargs...
+  )
 
   red_style = ReductionStyle(tolrank;kwargs...)
   Reduction(red_style,args...;compression,nparams,ncentroids)
@@ -514,7 +530,8 @@ function AdaptiveReduction(
   args...;
   adaptive_nparams=10,
   adaptive_tol=1e-2,
-  adaptive_maxiter=10)
+  adaptive_maxiter=10
+  )
 
   reduction = Reduction(red_style,args...;kwargs...)
   AdaptiveReduction(reduction,adaptive_nparams,adaptive_tol,adaptive_maxiter)

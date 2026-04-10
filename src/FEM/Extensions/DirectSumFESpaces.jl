@@ -79,7 +79,8 @@ function FESpaces.SparseMatrixAssembler(
   vec,
   trial::DirectSumFESpace,
   test::DirectSumFESpace,
-  strategy::AssemblyStrategy=FESpaces.DefaultAssemblyStrategy())
+  strategy::AssemblyStrategy=FESpaces.DefaultAssemblyStrategy()
+  )
 
   ExtensionAssembler(mat,vec,trial,test,strategy)
 end
@@ -89,7 +90,8 @@ function FESpaces.SparseMatrixAssembler(
   vec,
   trial::DirectSumFESpace{<:SingleFieldParamFESpace,<:SingleFieldParamFESpace},
   test::DirectSumFESpace,
-  strategy::AssemblyStrategy=FESpaces.DefaultAssemblyStrategy())
+  strategy::AssemblyStrategy=FESpaces.DefaultAssemblyStrategy()
+  )
 
   trial′ = DirectSumFESpace(get_fe_space(trial.space.space),get_fe_space(trial.complementary.space))
   assem = SparseMatrixAssembler(mat,vec,trial′,test,strategy)
@@ -153,7 +155,10 @@ function _same_background_space(space::SingleFieldFESpace,complementary::SingleF
   space==complementary
 end
 
-function _same_background_space(space::AbstractTrialFESpace,complementary::AbstractTrialFESpace)
+function _same_background_space(
+  space::AbstractTrialFESpace,
+  complementary::AbstractTrialFESpace
+  )
   _same_background_space(get_fe_space(space),get_fe_space(complementary))
 end
 

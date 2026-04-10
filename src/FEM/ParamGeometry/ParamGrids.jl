@@ -57,7 +57,11 @@ function _mapped_grid(style::GridMapStyle,grid::Grid,phys_map::AbstractVector)
   return VisMappedGrid(grid,node_coords)
 end
 
-function _mapped_grid(style::GridMapStyle,grid::Grid,phys_map::AbstractVector{<:GenericParamBlock})
+function _mapped_grid(
+  style::GridMapStyle,
+  grid::Grid,
+  phys_map::AbstractVector{<:GenericParamBlock}
+  )
   @assert length(phys_map) == num_cells(grid)
   plength = param_length(testitem(phys_map))
 
@@ -100,14 +104,16 @@ function mapped_grid(style::GridMapStyle,grid::Grid,phys_map::Function)
 end
 
 function mapped_grid(
-  style::GridMapStyle,trian::BodyFittedTriangulation,phys_map::AbstractVector)
+  style::GridMapStyle,trian::BodyFittedTriangulation,phys_map::AbstractVector
+  )
   model = get_background_model(trian)
   grid = mapped_grid(style,trian.grid,phys_map)
   BodyFittedTriangulation(model,grid,trian.tface_to_mface)
 end
 
 function mapped_grid(
-  style::GridMapStyle,trian::BoundaryTriangulation,phys_map::AbstractVector)
+  style::GridMapStyle,trian::BoundaryTriangulation,phys_map::AbstractVector
+  )
   ttrian = mapped_grid(style,trian.trian,phys_map)
   BoundaryTriangulation(ttrian,trian.glue)
 end
@@ -206,7 +212,8 @@ struct ParamUnstructuredGrid{Dc,Dp,Tp,O,Tn} <: ParamGrid{Dc,Dp}
     cell_types::Vector,
     orientation_style::OrientationStyle=NonOriented(),
     facet_normal=nothing;
-    has_affine_map=nothing) where {Dc,Dp,Tp,Ti}
+    has_affine_map=nothing
+    ) where {Dc,Dp,Tp,Ti}
 
     if has_affine_map === nothing
       _has_affine_map = Geometry.get_has_affine_map(reffes)
@@ -227,7 +234,10 @@ struct ParamUnstructuredGrid{Dc,Dp,Tp,O,Tn} <: ParamGrid{Dc,Dp}
   end
 end
 
-function Geometry.UnstructuredGrid(node_coordinates::ParamBlock{<:Vector{<:Point}},args...;kwargs...)
+function Geometry.UnstructuredGrid(
+  node_coordinates::ParamBlock{<:Vector{<:Point}},
+  args...;kwargs...
+  )
   ParamUnstructuredGrid(node_coordinates,args...;kwargs...)
 end
 
@@ -400,7 +410,10 @@ function _model_compatibility(a::A,b::A) where {A<:DiscreteModel}
   return a === b
 end
 
-function _model_compatibility(a::A,b::A) where {A<:Union{MappedDiscreteModel,ParamMappedDiscreteModel}}
+function _model_compatibility(
+  a::A,
+  b::A
+  ) where {A<:Union{MappedDiscreteModel,ParamMappedDiscreteModel}}
   return a === b || a.model === b.model
 end
 

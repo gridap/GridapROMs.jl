@@ -16,7 +16,8 @@ function ODEs.ode_march!(
   odeop::ODEParamOperator,
   r::TransientRealisation,
   state::NTuple{2,AbstractVector},
-  odecache)
+  odecache
+  )
 
   u0 = state[1]
   x = statef[1]
@@ -46,7 +47,8 @@ function ODEs.ode_march!(
   odeop::ODEParamOperator{LinearParamODE},
   r::TransientRealisation,
   state::NTuple{2,AbstractVector},
-  odecache)
+  odecache
+  )
 
   u0 = state[1]
   x = statef[1]
@@ -74,7 +76,8 @@ function ODEs.ode_march!(
   odeop::LinearNonlinearODEParamOperator,
   r::TransientRealisation,
   state::NTuple{2,AbstractVector},
-  odecache)
+  odecache
+  )
 
   u0 = state[1]
   x = statef[1]

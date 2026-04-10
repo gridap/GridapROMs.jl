@@ -82,7 +82,12 @@ function Arrays.evaluate!(cache,k::BlockReindex,i...)
   a.array[k.blockid]
 end
 
-function assemble_hr_array_add!(b::ArrayBlock,cellvec,cellidsrows::ArrayBlock,icells::ArrayBlock)
+function assemble_hr_array_add!(
+  b::ArrayBlock,
+  cellvec,
+  cellidsrows::ArrayBlock,
+  icells::ArrayBlock
+  )
   @check cellidsrows.touched == icells.touched
   for i in eachindex(cellidsrows)
     if cellidsrows.touched[i]

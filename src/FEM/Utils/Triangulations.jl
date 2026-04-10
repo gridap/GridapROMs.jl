@@ -5,7 +5,8 @@ Returns true if `child` is a triangulation view of `parent`, false otherwise
 """
 function is_parent(
   parent::BodyFittedTriangulation,
-  child::BodyFittedTriangulation{Dt,Dp,A,<:Geometry.GridView}) where {Dt,Dp,A}
+  child::BodyFittedTriangulation{Dt,Dp,A,<:Geometry.GridView}
+  ) where {Dt,Dp,A}
   parent.grid === child.grid.parent
 end
 
@@ -21,7 +22,8 @@ when the [`objectid`](@ref) comparison fails)
 """
 function isapprox_parent(
   parent::BodyFittedTriangulation,
-  child::BodyFittedTriangulation{Dt,Dp,A,<:Geometry.GridView}) where {Dt,Dp,A}
+  child::BodyFittedTriangulation{Dt,Dp,A,<:Geometry.GridView}
+  ) where {Dt,Dp,A}
   parent.grid ≈ child.grid.parent
 end
 
@@ -33,7 +35,10 @@ for f in (:is_parent,:isapprox_parent)
   @eval begin
     $f(parent::Triangulation,child::Triangulation) = false
 
-    function $f(parent::Geometry.AppendedTriangulation,child::Geometry.AppendedTriangulation)
+    function $f(
+      parent::Geometry.AppendedTriangulation,
+      child::Geometry.AppendedTriangulation
+      )
       $f(parent.a,child.a) && $f(parent.b,child.b)
     end
 
@@ -114,7 +119,10 @@ function to_child(parent::Triangulation,child::Geometry.GridPortion)
   Geometry.GridPortion(trian,child.cell_to_parent_cell)
 end
 
-function to_child(parent::Geometry.AppendedTriangulation,child::Geometry.AppendedTriangulation)
+function to_child(
+  parent::Geometry.AppendedTriangulation,
+  child::Geometry.AppendedTriangulation
+  )
   achild = to_child(parent.a,child.a)
   bchild = to_child(parent.b,child.b)
   Geometry.AppendedTriangulation(achild,bchild)
@@ -264,15 +272,24 @@ function FESpaces.get_cell_fe_data(fun,f,ttrian::Geometry.TriangulationView)
   return lazy_map(Reindex(parent_vals),ttrian.cell_to_parent_cell)
 end
 
-@inline function Geometry.is_change_possible(strian::Geometry.TriangulationView,ttrian::Triangulation)
+@inline function Geometry.is_change_possible(
+  strian::Geometry.TriangulationView,
+  ttrian::Triangulation
+  )
   return false
 end
 
-@inline function Geometry.is_change_possible(strian::Triangulation,ttrian::Geometry.TriangulationView)
+@inline function Geometry.is_change_possible(
+  strian::Triangulation,
+  ttrian::Geometry.TriangulationView
+  )
   return Geometry.is_change_possible(strian,ttrian.parent)
 end
 
-@inline function Geometry.is_change_possible(strian::Geometry.TriangulationView,ttrian::Geometry.TriangulationView)
+@inline function Geometry.is_change_possible(
+  strian::Geometry.TriangulationView,
+  ttrian::Geometry.TriangulationView
+  )
   if strian.cell_to_parent_cell == ttrian.cell_to_parent_cell
     Geometry.is_change_possible(strian.parent,ttrian.parent)
   else
@@ -280,7 +297,13 @@ end
   end
 end
 
-function CellData.change_domain(a::CellField,strian::Triangulation,::ReferenceDomain,ttrian::Geometry.TriangulationView,::ReferenceDomain)
+function CellData.change_domain(
+  a::CellField,
+  strian::Triangulation,
+  ::ReferenceDomain,
+  ttrian::Geometry.TriangulationView,
+  ::ReferenceDomain
+  )
   if strian === ttrian
     return a
   end
@@ -289,7 +312,13 @@ function CellData.change_domain(a::CellField,strian::Triangulation,::ReferenceDo
   return CellData.similar_cell_field(a,cell_data,ttrian,ReferenceDomain())
 end
 
-function CellData.change_domain(a::CellField,strian::Triangulation,::PhysicalDomain,ttrian::Geometry.TriangulationView,::PhysicalDomain)
+function CellData.change_domain(
+  a::CellField,
+  strian::Triangulation,
+  ::PhysicalDomain,
+  ttrian::Geometry.TriangulationView,
+  ::PhysicalDomain
+  )
   if strian === ttrian
     return a
   end
@@ -298,7 +327,13 @@ function CellData.change_domain(a::CellField,strian::Triangulation,::PhysicalDom
   return CellData.similar_cell_field(a,cell_data,ttrian,PhysicalDomain())
 end
 
-function CellData.change_domain(a::CellField,strian::Geometry.TriangulationView,::ReferenceDomain,ttrian::Geometry.TriangulationView,::ReferenceDomain)
+function CellData.change_domain(
+  a::CellField,
+  strian::Geometry.TriangulationView,
+  ::ReferenceDomain,
+  ttrian::Geometry.TriangulationView,
+  ::ReferenceDomain
+  )
   if strian === ttrian
     return a
   end
@@ -308,7 +343,13 @@ function CellData.change_domain(a::CellField,strian::Geometry.TriangulationView,
   return CellData.similar_cell_field(a,cell_data,ttrian,ReferenceDomain())
 end
 
-function CellData.change_domain(a::CellField,strian::Geometry.TriangulationView,::PhysicalDomain,ttrian::Geometry.TriangulationView,::PhysicalDomain)
+function CellData.change_domain(
+  a::CellField,
+  strian::Geometry.TriangulationView,
+  ::PhysicalDomain,
+  ttrian::Geometry.TriangulationView,
+  ::PhysicalDomain
+  )
   if strian === ttrian
     return a
   end

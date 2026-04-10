@@ -16,7 +16,10 @@
   (i,j,v),(col,kstate)
 end
 
-@inline function Base.iterate(a::PartitionedArrays.NZIteratorCSC{<:ConsecutiveParamSparseMatrixCSC},state)
+@inline function Base.iterate(
+  a::PartitionedArrays.NZIteratorCSC{<:ConsecutiveParamSparseMatrixCSC},
+  state
+  )
   col,kstate = state
   ks = nzrange(a.matrix,col)
   knext = iterate(ks,kstate)
@@ -56,7 +59,10 @@ end
   (i,j,v),(row,kstate)
 end
 
-@inline function Base.iterate(a::PartitionedArrays.NZIteratorCSR{<:ConsecutiveParamSparseMatrixCSR},state)
+@inline function Base.iterate(
+  a::PartitionedArrays.NZIteratorCSR{<:ConsecutiveParamSparseMatrixCSR},
+  state
+  )
   row,kstate = state
   ks = nzrange(a.matrix,row)
   knext = iterate(ks,kstate)
@@ -119,7 +125,11 @@ struct ParamSubSparseMatrix{T,A,B,C} <: AbstractParamArray{T,2,PartitionedArrays
   end
 end
 
-function PartitionedArrays.SubSparseMatrix(parent::ParamSparseMatrix,indices::Tuple,inv_indices::Tuple)
+function PartitionedArrays.SubSparseMatrix(
+  parent::ParamSparseMatrix,
+  indices::Tuple,
+  inv_indices::Tuple
+  )
   ParamSubSparseMatrix(parent,indices,inv_indices)
 end
 

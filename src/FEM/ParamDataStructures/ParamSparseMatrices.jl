@@ -10,7 +10,8 @@ function SparseArrays.sparse(
   colptr::Vector{<:Integer},
   rowval::Vector{<:Integer},
   nzval::ConsecutiveParamVector,
-  combine=+)
+  combine=+
+  )
 
   nzdata = get_all_data(nzval)
   ConsecutiveParamSparseMatrixCSC(m,n,colptr,rowval,nzdata)
@@ -23,7 +24,8 @@ function SparseMatricesCSR.sparsecsr(
   rowptr::Vector{<:Integer},
   colval::Vector{<:Integer},
   nzval::ConsecutiveParamVector,
-  combine=+) where Bi
+  combine=+
+  ) where Bi
 
   nzdata = get_all_data(nzval)
   ConsecutiveParamSparseMatrixCSR{Bi}(v,m,n,rowptr,colval,nzdata)

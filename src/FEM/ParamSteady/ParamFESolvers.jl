@@ -1,6 +1,11 @@
 for S in (:NonlinearSolver,:LinearSolver)
   @eval begin
-    function Algebra.solve!(u::AbstractVector,solver::$S,op::JointParamOperator,r::Realisation)
+    function Algebra.solve!(
+      u::AbstractVector,
+      solver::$S,
+      op::JointParamOperator,
+      r::Realisation
+      )
       nlop = parameterise(op,r)
       syscache = allocate_systemcache(nlop,u)
       t = @timed solve!(u,solver,nlop,syscache)
@@ -8,7 +13,12 @@ for S in (:NonlinearSolver,:LinearSolver)
       stats
     end
 
-    function Algebra.solve!(u::AbstractVector,solver::$S,op::SplitParamOperator,r::Realisation)
+    function Algebra.solve!(
+      u::AbstractVector,
+      solver::$S,
+      op::SplitParamOperator,
+      r::Realisation
+      )
       solve!(u,solver,set_domains(op),r)
     end
   end

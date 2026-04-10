@@ -39,7 +39,8 @@ end
 function DofsToODofs(
   b::LagrangianDofBasis,
   node_and_comps_to_odof::AbstractArray,
-  orders::Tuple)
+  orders::Tuple
+  )
 
   odof_to_dof = _local_odof_to_dof(b,orders)
   DofsToODofs(b,odof_to_dof,node_and_comps_to_odof,orders)
@@ -229,7 +230,8 @@ function get_dof_to_bg_dof!(
   fdof_to_bg_fdof,ddof_to_bg_ddof,
   bg_cell_ids::OTable,
   cell_ids::AbstractArray,
-  cell_to_bg_cell::AbstractVector)
+  cell_to_bg_cell::AbstractVector
+  )
 
   oldof_to_ldof = get_local_ordering(bg_cell_ids)
   bg_cache = array_cache(bg_cell_ids)
@@ -273,7 +275,13 @@ end
 
 Adds several ordered entries only for positive input indices. Returns `A`
 """
-@inline function add_ordered_entries!(combine::Function,A,vs::Nothing,is::OIdsToIds,js::OIdsToIds)
+@inline function add_ordered_entries!(
+  combine::Function,
+  A,
+  vs::Nothing,
+  is::OIdsToIds,
+  js::OIdsToIds
+  )
   Algebra._add_entries!(combine,A,vs,is.indices,js.indices)
 end
 
@@ -314,7 +322,10 @@ function _local_odof_to_dof(fe_dof_basis::AbstractVector{<:Dof},args...)
   @notimplemented "This function is only implemented for Lagrangian dof bases"
 end
 
-function _local_odof_to_dof(fe_dof_basis::Fill{<:LagrangianDofBasis},orders::NTuple{D,Int}) where D
+function _local_odof_to_dof(
+  fe_dof_basis::Fill{<:LagrangianDofBasis},
+  orders::NTuple{D,Int}
+  ) where D
   _local_odof_to_dof(testitem(fe_dof_basis),orders)
 end
 

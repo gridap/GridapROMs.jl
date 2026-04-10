@@ -3,7 +3,8 @@
 function Algebra.solve(
   ls::LinearSolver,
   A::AbstractParamMatrix,
-  b::AbstractParamVector)
+  b::AbstractParamVector
+  )
 
   x = allocate_in_domain(A)
   solve!(x,ls,A,b)
@@ -14,7 +15,8 @@ function Algebra.solve!(
   x::AbstractParamVector,
   ls::LinearSolver,
   A::AbstractParamMatrix,
-  b::AbstractParamVector)
+  b::AbstractParamVector
+  )
 
   A_item = testitem(A)
   x_item = testitem(x)
@@ -27,7 +29,8 @@ function Algebra.solve!(
   x::AbstractParamVector,
   ns::NumericalSetup,
   A::AbstractParamMatrix,
-  b::AbstractParamVector)
+  b::AbstractParamVector
+  )
 
   @inbounds for i in param_eachindex(x)
     Ai = param_getindex(A,i)
@@ -45,7 +48,8 @@ function Algebra.solve!(
   x::AbstractParamVector,
   ls::LinearSolver,
   op::NonlinearParamOperator,
-  cache::Nothing)
+  cache::Nothing
+  )
 
   cache = allocate_systemcache(op,x)
   solve!(x,ls,op,cache)
@@ -55,7 +59,8 @@ function Algebra.solve!(
   x::AbstractParamVector,
   ls::LinearSolver,
   op::NonlinearParamOperator,
-  cache::SystemCache)
+  cache::SystemCache
+  )
 
   fill!(x,zero(eltype(x)))
   @unpack A,b = cache
@@ -69,7 +74,8 @@ function Algebra.solve!(
   x::AbstractParamVector,
   ls::LinearSolver,
   op::NonlinearParamOperator,
-  cache::Algebra.LinearSolverCache)
+  cache::Algebra.LinearSolverCache
+  )
 
   fill!(x,zero(eltype(x)))
   @unpack A,b,ns = cache
@@ -85,7 +91,8 @@ function Algebra.solve!(
   x::AbstractParamVector,
   nls::NewtonSolver,
   op::NonlinearParamOperator,
-  cache::Nothing)
+  cache::Nothing
+  )
 
   cache = allocate_systemcache(op,x)
   solve!(x,nls,op,cache)
@@ -95,7 +102,8 @@ function Algebra.solve!(
   x::AbstractParamVector,
   nls::NewtonSolver,
   op::NonlinearParamOperator,
-  cache::SystemCache)
+  cache::SystemCache
+  )
 
   fill!(x,zero(eltype(x)))
   update_systemcache!(op,x)
@@ -119,7 +127,8 @@ function Algebra.solve!(
   x::AbstractParamVector,
   nls::NewtonSolver,
   op::NonlinearParamOperator,
-  cache::NonlinearSolvers.NewtonCache)
+  cache::NonlinearSolvers.NewtonCache
+  )
 
   update_systemcache!(op,x)
 
@@ -135,7 +144,8 @@ function Algebra._solve_nr!(
   x::AbstractParamVector,
   A::AbstractParamMatrix,
   b::AbstractParamVector,
-  dx,ns,nls,op)
+  dx,ns,nls,op
+  )
 
   log = nls.log
 

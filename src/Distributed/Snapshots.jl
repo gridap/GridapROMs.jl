@@ -10,7 +10,12 @@ for T in (:PVector,:PSparseMatrix)
   end
 end
 
-function ParamDataStructures.Snapshots(s::PVector,s0::Tuple{Vararg{PVector}},i::AbstractArray,r::TransientRealisation)
+function ParamDataStructures.Snapshots(
+  s::PVector,
+  s0::Tuple{Vararg{PVector}},
+  i::AbstractArray,
+  r::TransientRealisation
+  )
   data = map(local_views(s),local_views(i),local_views.(s0)...) do s,i,s0...
     Snapshots(s,s0,i,r)
   end

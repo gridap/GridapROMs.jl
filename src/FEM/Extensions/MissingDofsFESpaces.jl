@@ -46,7 +46,11 @@ FESpaces.get_dirichlet_dof_ids(f::MissingDofsFESpace) = Base.OneTo(f.ndirichlet)
 FESpaces.num_dirichlet_tags(f::MissingDofsFESpace) = f.ntags
 FESpaces.get_dirichlet_dof_tag(f::MissingDofsFESpace) = f.dirichlet_dof_tag
 
-function FESpaces.scatter_free_and_dirichlet_values(f::MissingDofsFESpace,free_values,dirichlet_values)
+function FESpaces.scatter_free_and_dirichlet_values(
+  f::MissingDofsFESpace,
+  free_values,
+  dirichlet_values
+  )
   @check eltype(free_values) == eltype(dirichlet_values) """\n
   The entries stored in free_values and dirichlet_values should be of the same type.
 
@@ -58,7 +62,12 @@ function FESpaces.scatter_free_and_dirichlet_values(f::MissingDofsFESpace,free_v
   lazy_map(Broadcasting(PosZeroNegReindex(free_values,dirichlet_values)),cell_dof_ids)
 end
 
-function FESpaces.gather_free_and_dirichlet_values!(free_vals,dirichlet_vals,f::MissingDofsFESpace,cell_vals)
+function FESpaces.gather_free_and_dirichlet_values!(
+  free_vals,
+  dirichlet_vals,
+  f::MissingDofsFESpace,
+  cell_vals
+  )
   cell_dofs = get_cell_dof_ids(f)
   cache_vals = array_cache(cell_vals)
   cache_dofs = array_cache(cell_dofs)
@@ -102,7 +111,8 @@ function _free_and_dirichlet_nonmissing_values_fill!(
   cache_dofs,
   cell_vals,
   cell_dofs,
-  cells)
+  cells
+  )
 
   for cell in cells
     vals = getindex!(cache_vals,cell_vals,cell)
@@ -125,7 +135,8 @@ function _free_and_dirichlet_nonmissing_values_fill!(
   cache_dofs,
   cell_vals,
   cell_dofs,
-  cells)
+  cells
+  )
 
   @check param_length(free_vals) == param_length(dirichlet_vals)
   free_data = get_all_data(free_vals)

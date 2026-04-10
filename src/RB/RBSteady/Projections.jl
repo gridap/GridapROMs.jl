@@ -62,7 +62,12 @@ function project!(x̂::AbstractArray,a::Projection,x::AbstractArray)
   mul!(x̂,basis',x)
 end
 
-function project!(x̂::AbstractArray,a::Projection,x::AbstractArray,norm_matrix::AbstractMatrix)
+function project!(
+  x̂::AbstractArray,
+  a::Projection,
+  x::AbstractArray,
+  norm_matrix::AbstractMatrix
+  )
   project!(x̂,a,norm_matrix*x)
 end
 
@@ -193,11 +198,23 @@ function Base.:*(b::Projection,y::ConsecutiveParamArray{T}) where T
   mul!(x,b,y)
 end
 
-function LinearAlgebra.mul!(x::AbstractArray,b::Projection,y::AbstractArray,α::Number,β::Number)
+function LinearAlgebra.mul!(
+  x::AbstractArray,
+  b::Projection,
+  y::AbstractArray,
+  α::Number,
+  β::Number
+  )
   mul!(x,get_basis(b),y,α,β)
 end
 
-function LinearAlgebra.mul!(x::ConsecutiveParamArray,b::Projection,y::ConsecutiveParamArray,α::Number,β::Number)
+function LinearAlgebra.mul!(
+  x::ConsecutiveParamArray,
+  b::Projection,
+  y::ConsecutiveParamArray,
+  α::Number,
+  β::Number
+  )
   mul!(x.data,get_basis(b),y.data,α,β)
 end
 
@@ -276,7 +293,8 @@ function LinearAlgebra.mul!(
   x::AbstractArray,
   b::ReducedMatProjection,
   y::AbstractArray,
-  α::Number,β::Number)
+  α::Number,β::Number
+  )
 
   contraction!(x,get_basis(b),y,α,β)
 end
@@ -285,7 +303,8 @@ function LinearAlgebra.mul!(
   x::ConsecutiveParamArray,
   b::ReducedMatProjection,
   y::ConsecutiveParamArray,
-  α::Number,β::Number)
+  α::Number,β::Number
+  )
 
   contraction!(x.data,get_basis(b),y.data,α,β)
 end
@@ -384,7 +403,12 @@ num_reduced_dofs(a::TTSVDProjection) = size(last(get_cores(a)),3)
 
 #TODO this needs to be fixed; for now it's ok, since it's only used to generate
 # zero free reduced dof values
-function project!(x̂::AbstractArray,a::TTSVDProjection,x::AbstractArray,norm_matrix::AbstractRankTensor)
+function project!(
+  x̂::AbstractArray,
+  a::TTSVDProjection,
+  x::AbstractArray,
+  norm_matrix::AbstractRankTensor
+  )
   # a′ = rescale(_sparse_rescaling,norm_matrix,a)
   # basis′ = get_basis(a′)
   # mul!(x̂,basis′',x)
@@ -521,7 +545,12 @@ function galerkin_projection(proj_left::NormedProjection,a::Projection)
   galerkin_projection(proj_left.projection,get_projection(a))
 end
 
-function galerkin_projection(proj_left::NormedProjection,a::Projection,proj_right::NormedProjection,args...)
+function galerkin_projection(
+  proj_left::NormedProjection,
+  a::Projection,
+  proj_right::NormedProjection,
+  args...
+  )
   galerkin_projection(get_projection(proj_left),get_projection(a),get_projection(proj_right),args...)
 end
 
@@ -663,7 +692,8 @@ for f in (:project!,:inv_project!)
     function $f(
       y::Union{BlockArray,BlockParamArray},
       a::BlockProjection,
-      x::Union{BlockArray,BlockParamArray})
+      x::Union{BlockArray,BlockParamArray}
+      )
 
       for i in eachindex(a)
         if a.touched[i]
@@ -700,7 +730,8 @@ function enrich!(
   ::SupremizerReduction,
   a::BlockProjection,
   norm_matrix::BlockMatrix,
-  supr_matrix::BlockMatrix)
+  supr_matrix::BlockMatrix
+  )
 
   @check a.touched[1] "Primal field not defined"
   a_primal,a_dual... = a.array

@@ -99,7 +99,8 @@ struct ParamSubFacetTriangulation{Dc,Dp,T,A} <: Triangulation{Dc,Dp}
   bgmodel::A
   subgrid::ParamUnstructuredGrid{Dc,Dp,T,NonOriented,Nothing}
   function ParamSubFacetTriangulation(
-    subfacets::ParamSubFacetData{Dp,T},bgmodel::DiscreteModel) where {Dp,T}
+    subfacets::ParamSubFacetData{Dp,T},bgmodel::DiscreteModel
+    ) where {Dp,T}
     Dc = Dp-1
     subgrid = UnstructuredGrid(subfacets)
     A = typeof(bgmodel)
@@ -132,7 +133,10 @@ function Geometry.get_facet_normal(a::ParamSubFacetTriangulation)
   lazy_map(constant_field,a.subfacets.facet_to_normal)
 end
 
-function Geometry.move_contributions(scell_to_val::AbstractArray,strian::ParamSubFacetTriangulation)
+function Geometry.move_contributions(
+  scell_to_val::AbstractArray,
+  strian::ParamSubFacetTriangulation
+  )
   model = get_background_model(strian)
   ncells = num_cells(model)
   cell_to_touched = fill(false,ncells)
@@ -193,7 +197,10 @@ function Base.isapprox(t::Interfaces.SubFacetData,s::ParamSubFacetData)
   )
 end
 
-function Utils.to_child(parent::ParamSubFacetTriangulation,child::Geometry.TriangulationView)
+function Utils.to_child(
+  parent::ParamSubFacetTriangulation,
+  child::Geometry.TriangulationView
+  )
   @check isa(child.parent,ParamSubFacetTriangulation)
   Geometry.TriangulationView(parent,child.cell_to_parent_cell)
 end

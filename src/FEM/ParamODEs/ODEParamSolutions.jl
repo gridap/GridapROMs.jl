@@ -57,7 +57,8 @@ function Algebra.solve(
   solver::ODESolver,
   odeop::ODEParamOperator,
   r::TransientRealisation,
-  us0::Tuple{Vararg{AbstractVector}})
+  us0::Tuple{Vararg{AbstractVector}}
+  )
 
   if length(us0) < get_order(odeop) + 1
     us0 = add_initial_conditions(solver,odeop,r,us0)
@@ -69,7 +70,8 @@ function Algebra.solve(
   solver::ODESolver,
   odeop::SplitODEParamOperator,
   r::TransientRealisation,
-  us0::Tuple{Vararg{AbstractVector}})
+  us0::Tuple{Vararg{AbstractVector}}
+  )
 
   solve(solver,set_domains(odeop),r,us0)
 end
@@ -78,7 +80,8 @@ function Algebra.solve(
   solver::ODESolver,
   odeop::ODEParamOperator,
   r::TransientRealisation,
-  u0::AbstractVector)
+  u0::AbstractVector
+  )
 
   ODEParamSolution(solver,odeop,r,(u0,))
 end
@@ -87,7 +90,8 @@ function Algebra.solve(
   solver::ODESolver,
   odeop::ODEParamOperator,
   r::TransientRealisation,
-  uhs0::Tuple{Vararg{Function}})
+  uhs0::Tuple{Vararg{Function}}
+  )
 
   params = get_params(r)
   us0 = ()
@@ -101,7 +105,8 @@ function Algebra.solve(
   solver::ODESolver,
   odeop::ODEParamOperator,
   r::TransientRealisation,
-  uh0::Function)
+  uh0::Function
+  )
 
   solve(solver,odeop,r,(uh0,))
 end
@@ -146,14 +151,19 @@ function _allocate_solutions(u0::BlockParamVector,ncols)
   mortar(map(b -> _allocate_solutions(b,ncols),blocks(u0)))
 end
 
-function _collect_solutions!(sols::ConsecutiveParamVector,ui::ConsecutiveParamVector,it::Int)
+function _collect_solutions!(
+  sols::ConsecutiveParamVector,
+  ui::ConsecutiveParamVector,
+  it::Int
+  )
   _collect_solutions!(get_all_data(sols),ui,it)
 end
 
 function _collect_solutions!(
   values::AbstractMatrix,
   ui::ConsecutiveParamVector,
-  it::Int)
+  it::Int
+  )
 
   datai = get_all_data(ui)
   nparams = param_length(ui)

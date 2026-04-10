@@ -41,7 +41,12 @@ function remove_extension(s::RBSolver{<:ExtensionSolver})
   RBSolver(s.solver.solver,s.state_reduction,s.residual_reduction,s.jacobian_reduction)
 end
 
-function Utils.compute_relative_error(extsolver::RBSolver{<:ExtensionSolver},feop,extsol,extsol_approx)
+function Utils.compute_relative_error(
+  extsolver::RBSolver{<:ExtensionSolver},
+  feop,
+  extsol,
+  extsol_approx
+  )
   solver = remove_extension(extsolver)
   trial = get_trial(feop)
   sol,sol_approx = remove_extension(trial,extsol,extsol_approx)

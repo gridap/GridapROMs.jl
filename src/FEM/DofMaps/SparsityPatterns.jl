@@ -135,12 +135,14 @@ function get_d_sparse_dofs_to_full_dofs(Tu,Tv,a::TProductSparsity)
 end
 
 function get_d_sparse_dofs_to_full_dofs(
-  ::Type{<:Real},::Type{<:Real},a::TProductSparsity,I,J,nrows,ncols)
+  ::Type{<:Real},::Type{<:Real},a::TProductSparsity,I,J,nrows,ncols
+  )
   _scalar_d_sparse_dofs_to_full_dofs(a,I,J,nrows,ncols)
 end
 
 function get_d_sparse_dofs_to_full_dofs(
-  ::Type{Tu},::Type{Tv},a::TProductSparsity,I,J,nrows,ncols) where {Tu,Tv}
+  ::Type{Tu},::Type{Tv},a::TProductSparsity,I,J,nrows,ncols
+  ) where {Tu,Tv}
   _multivalue_d_sparse_dofs_to_full_dofs(a,I,J,nrows,ncols,num_components(Tu),num_components(Tv))
 end
 
@@ -166,7 +168,15 @@ function _scalar_d_sparse_dofs_to_full_dofs(a::TProductSparsity,I,J,nrows,ncols)
   return dsd2fd
 end
 
-function _multivalue_d_sparse_dofs_to_full_dofs(a::TProductSparsity,I,J,nrows,ncols,ncomps_col,ncomps_row)
+function _multivalue_d_sparse_dofs_to_full_dofs(
+  a::TProductSparsity,
+  I,
+  J,
+  nrows,
+  ncols,
+  ncomps_col,
+  ncomps_row
+  )
   nnz_sizes = univariate_nnz(a)
   rows_no_comps = univariate_num_rows(a)
   cols_no_comps = univariate_num_cols(a)

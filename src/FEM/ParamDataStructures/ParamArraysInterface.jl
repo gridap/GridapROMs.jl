@@ -142,7 +142,8 @@ function LinearAlgebra.mul!(
   C::AbstractParamArray,
   A::AbstractVecOrMat,
   B::AbstractParamArray,
-  α::Number,β::Number)
+  α::Number,β::Number
+  )
 
   @check param_length(C) == param_length(B)
   @inbounds for i in param_eachindex(C)
@@ -157,7 +158,8 @@ function LinearAlgebra.mul!(
   C::AbstractParamArray,
   A::AbstractParamArray,
   B::AbstractParamArray,
-  α::Number,β::Number)
+  α::Number,β::Number
+  )
 
   @check param_length(C) == param_length(A) == param_length(B)
   @inbounds for i in param_eachindex(C)
@@ -260,7 +262,8 @@ end
 
 function Geometry.pos_neg_data(
   ipos_to_val::AbstractArray{<:AbstractParamArray{<:Number}},
-  i_to_iposneg::PosNegPartition)
+  i_to_iposneg::PosNegPartition
+  )
   nineg = length(i_to_iposneg.ineg_to_i)
   val = testitem(ipos_to_val)
   zs = 0 .* size(val)

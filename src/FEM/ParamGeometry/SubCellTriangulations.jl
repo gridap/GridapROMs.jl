@@ -57,7 +57,8 @@ struct ParamSubCellTriangulation{Dc,Dp,T,A} <: Triangulation{Dc,Dp}
   bgmodel::A
   subgrid::ParamUnstructuredGrid{Dc,Dp,T,NonOriented,Nothing}
   function ParamSubCellTriangulation(
-    subcells::ParamSubCellData{Dc,Dp,T},bgmodel::DiscreteModel) where {Dc,Dp,T}
+    subcells::ParamSubCellData{Dc,Dp,T},bgmodel::DiscreteModel
+    ) where {Dc,Dp,T}
     subgrid = UnstructuredGrid(subcells)
     A = typeof(bgmodel)
     new{Dc,Dp,T,A}(subcells,bgmodel,subgrid)
@@ -93,7 +94,10 @@ function Geometry.get_glue(a::ParamSubCellTriangulation{Dc},::Val{D}) where {Dc,
   FaceToFaceGlue(tface_to_mface,tface_to_mface_map,nothing)
 end
 
-function Geometry.move_contributions(scell_to_val::AbstractArray,strian::ParamSubCellTriangulation)
+function Geometry.move_contributions(
+  scell_to_val::AbstractArray,
+  strian::ParamSubCellTriangulation
+  )
   model = get_background_model(strian)
   ncells = num_cells(model)
   cell_to_touched = fill(false,ncells)

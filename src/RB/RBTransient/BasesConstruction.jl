@@ -55,11 +55,19 @@ function tucker(red::AbstractVector{<:Reduction},A::TransientSnapshots{T,N}) whe
   return bases
 end
 
-function tucker(red::AbstractVector{<:Reduction},A::AbstractArray,X::AbstractSparseMatrix...)
+function tucker(
+  red::AbstractVector{<:Reduction},
+  A::AbstractArray,
+  X::AbstractSparseMatrix...
+  )
   tucker(red,A,X)
 end
 
-function tucker(red::AbstractVector{<:Reduction},A::AbstractArray{T,N},X::NTuple{M}) where {T,N,M}
+function tucker(
+  red::AbstractVector{<:Reduction},
+  A::AbstractArray{T,N},
+  X::NTuple{M}
+  ) where {T,N,M}
   @assert length(red) == N-1
   @assert M ≤ N
   bases = Vector{Matrix{T}}(undef,N-1)
@@ -71,7 +79,11 @@ function tucker(red::AbstractVector{<:Reduction},A::AbstractArray{T,N},X::NTuple
   return bases
 end
 
-function tucker(red::AbstractVector{<:Reduction},A::TransientSnapshots{T,N},X::NTuple{M}) where {T,N,M}
+function tucker(
+  red::AbstractVector{<:Reduction},
+  A::TransientSnapshots{T,N},
+  X::NTuple{M}
+  ) where {T,N,M}
   @assert length(red) == N-1
   @assert M ≤ N
   nparams = num_params(A)

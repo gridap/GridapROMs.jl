@@ -1,4 +1,8 @@
-function PartitionedArrays.allocate_gather_impl(snd,destination,::Type{T}) where T<:AbstractParamVector
+function PartitionedArrays.allocate_gather_impl(
+  snd,
+  destination,
+  ::Type{T}
+  ) where T<:AbstractParamVector
   l = map(innerlength,snd)
   l_dest = gather(l;destination)
   S = eltype2(T)
@@ -26,7 +30,11 @@ function PartitionedArrays.allocate_gather_impl(snd,destination,::Type{T}) where
   rcv
 end
 
-function PartitionedArrays.allocate_scatter_impl(snd,source,::Type{T}) where T<:AbstractParamVector
+function PartitionedArrays.allocate_scatter_impl(
+  snd,
+  source,
+  ::Type{T}
+  ) where T<:AbstractParamVector
   S = eltype2(T)
   counts,plength = map(snd) do snd
     innerlength(snd),param_length(snd)
@@ -42,7 +50,8 @@ function PartitionedArrays.assemble_impl!(
   f,
   vector_partition,
   cache,
-  ::Type{<:ParamVectorAssemblyCache})
+  ::Type{<:ParamVectorAssemblyCache}
+  )
 
   buffer_snd = map(vector_partition,cache) do values,cache
     local_indices_snd = cache.local_indices_snd
@@ -98,7 +107,11 @@ function PartitionedArrays.assemble_impl!(
   assemble!(f,data,vcache)
 end
 
-function PartitionedArrays.allocate_exchange_impl(snd,graph,::Type{T}) where T<:AbstractParamVector
+function PartitionedArrays.allocate_exchange_impl(
+  snd,
+  graph,
+  ::Type{T}
+  ) where T<:AbstractParamVector
   S = eltype2(T)
   n_snd,plength = map(snd) do snd
     innerlength(snd),param_length(snd)
@@ -118,7 +131,11 @@ end
 
 #
 
-function PartitionedArrays.allocate_gather_impl(snd,destination,::Type{T}) where T<:AbstractMatrix
+function PartitionedArrays.allocate_gather_impl(
+  snd,
+  destination,
+  ::Type{T}
+  ) where T<:AbstractMatrix
   l = map(innerlength,snd)
   l_dest = gather(l;destination)
   S = eltype(T)
@@ -144,7 +161,11 @@ function PartitionedArrays.allocate_gather_impl(snd,destination,::Type{T}) where
   rcv
 end
 
-function PartitionedArrays.allocate_scatter_impl(snd,source,::Type{T}) where T<:AbstractMatrix
+function PartitionedArrays.allocate_scatter_impl(
+  snd,
+  source,
+  ::Type{T}
+  ) where T<:AbstractMatrix
   S = eltype(T)
   counts,plength = map(snd) do snd
     size(snd,1),_get_plength(snd)
@@ -155,7 +176,11 @@ function PartitionedArrays.allocate_scatter_impl(snd,source,::Type{T}) where T<:
   end
 end
 
-function PartitionedArrays.allocate_exchange_impl(snd,graph,::Type{T}) where T<:AbstractMatrix
+function PartitionedArrays.allocate_exchange_impl(
+  snd,
+  graph,
+  ::Type{T}
+  ) where T<:AbstractMatrix
   S = eltype(T)
   n_snd,plength = map(snd) do snd
     map(x->size(x,1),snd),_get_plength(snd)

@@ -17,7 +17,10 @@ function BlockMultiFieldExtensionStyle(NB::Integer)
   return BlockMultiFieldExtensionStyle(NB,SB)
 end
 
-function BlockMultiFieldExtensionStyle(::BlockMultiFieldExtensionStyle{NB,SB,P},spaces) where {NB,SB,P}
+function BlockMultiFieldExtensionStyle(
+  ::BlockMultiFieldExtensionStyle{NB,SB,P},
+  spaces
+  ) where {NB,SB,P}
   @check length(spaces) == sum(SB)
   return BlockMultiFieldExtensionStyle(NB,SB,P)
 end
@@ -36,7 +39,10 @@ function BlockArrays.blocks(f::MultiFieldFESpace{<:BlockMultiFieldExtensionStyle
   return block_spaces
 end
 
-function FESpaces.get_free_dof_ids(f::MultiFieldFESpace,::BlockMultiFieldExtensionStyle{NB,SB,P}) where {NB,SB,P}
+function FESpaces.get_free_dof_ids(
+  f::MultiFieldFESpace,
+  ::BlockMultiFieldExtensionStyle{NB,SB,P}
+  ) where {NB,SB,P}
   block_ranges   = MultiField.get_block_ranges(NB,SB,P)
   block_num_dofs = map(range->sum(map(num_free_dofs,f.spaces[range])),block_ranges)
   return BlockArrays.blockedrange(block_num_dofs)
@@ -76,7 +82,10 @@ function MultiField._restrict_to_field(
   return view(block_free_values,pini:pend)
 end
 
-function MultiField.compute_field_offsets(f::MultiFieldFESpace,::BlockMultiFieldExtensionStyle{NB,SB,P}) where {NB,SB,P}
+function MultiField.compute_field_offsets(
+  f::MultiFieldFESpace,
+  ::BlockMultiFieldExtensionStyle{NB,SB,P}
+  ) where {NB,SB,P}
   U = f.spaces
   block_ranges  = MultiField.get_block_ranges(NB,SB,P)
   block_offsets = vcat(map(range-> MultiField._compute_field_offsets(U[range]),block_ranges)...)
@@ -86,7 +95,8 @@ end
 
 function FESpaces.get_cell_dof_ids(f::MultiFieldFESpace,
                                    trian::Triangulation,
-                                   ::Union{<:ConsecutiveMultiFieldStyle,<:BlockMultiFieldExtensionStyle})
+                                   ::Union{<:ConsecutiveMultiFieldStyle,<:BlockMultiFieldExtensionStyle}
+                                   )
   offsets = MultiField.compute_field_offsets(f)
   nfields = length(f.spaces)
   blockmask = [ is_change_possible(get_triangulation(Vi),trian) for Vi in f.spaces ]
@@ -156,7 +166,8 @@ end
 
 function ParamFESpaces.MultiFieldParamFESpace(
   spaces::Vector{<:DirectSumTrialFESpace};
-  style = BlockMultiFieldExtensionStyle())
+  style = BlockMultiFieldExtensionStyle()
+  )
 
   @notimplementedif !isa(style,BlockMultiFieldExtensionStyle)
   style = BlockMultiFieldExtensionStyle(style,spaces)
@@ -169,7 +180,8 @@ function MultiField._restrict_to_field(
   f,
   ::BlockMultiFieldExtensionStyle,
   free_values::AbstractParamVector,
-  field)
+  field
+  )
 
   U = f.spaces
   offsets = MultiField._compute_field_offsets(U)

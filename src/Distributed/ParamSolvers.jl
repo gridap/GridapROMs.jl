@@ -5,7 +5,8 @@ function Algebra.solve!(
   x::AbstractParamPVector,
   ls::LinearSolver,
   A::AbstractParamPSparseMatrix,
-  b::AbstractParamPVector)
+  b::AbstractParamPVector
+  )
 
   A_item = param_getindex(A,1)
   x_item = param_getindex(x,1)
@@ -18,7 +19,8 @@ function Algebra.solve!(
   x::AbstractParamPVector,
   ns::NumericalSetup,
   A::AbstractParamPSparseMatrix,
-  b::AbstractParamPVector)
+  b::AbstractParamPVector
+  )
 
   @inbounds for i in param_eachindex(x)
     Ai = param_getindex(A,i)
@@ -36,7 +38,8 @@ function Algebra._solve_nr!(
   x::AbstractParamPVector,
   A::AbstractParamPSparseMatrix,
   b::AbstractParamPVector,
-  dx,ns,nls,op)
+  dx,ns,nls,op
+  )
 
   log = nls.log
 

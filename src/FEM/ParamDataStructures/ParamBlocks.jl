@@ -828,7 +828,12 @@ function Arrays.return_cache(k::Broadcasting{<:ParamOperation},h::ParamBlock,f::
   GenericParamBlock(g),l
 end
 
-function Arrays.evaluate!(cache,k::Broadcasting{<:ParamOperation},h::ParamBlock,f::ParamBlock)
+function Arrays.evaluate!(
+  cache,
+  k::Broadcasting{<:ParamOperation},
+  h::ParamBlock,
+  f::ParamBlock
+  )
   g,l = cache
   for i in param_eachindex(f)
     g.data[i] = evaluate!(l[i],param_getindex(k,i),param_getindex(h,i),param_getindex(f,i))
@@ -1039,18 +1044,21 @@ function Arrays.evaluate!(cache,k::BroadcastingFieldOpMap,a::ParamBlock...)
 end
 
 function Arrays.return_value(
-  k::BroadcastingFieldOpMap,a::Union{ParamBlock,AbstractArray}...)
+  k::BroadcastingFieldOpMap,a::Union{ParamBlock,AbstractArray}...
+  )
   evaluate(k,a...)
 end
 
 function Arrays.return_cache(
-  k::BroadcastingFieldOpMap,a::Union{ParamBlock,AbstractArray}...)
+  k::BroadcastingFieldOpMap,a::Union{ParamBlock,AbstractArray}...
+  )
 
   return_cache(k,lazy_parameterise(a...)...)
 end
 
 function Arrays.evaluate!(
-  cache,k::BroadcastingFieldOpMap,a::Union{ParamBlock,AbstractArray}...)
+  cache,k::BroadcastingFieldOpMap,a::Union{ParamBlock,AbstractArray}...
+  )
 
   evaluate!(cache,k,lazy_parameterise(a...)...)
 end
@@ -1157,18 +1165,21 @@ function Arrays.evaluate!(cache,k::ParamBroadcastingFieldOpMap,a::ParamBlock...)
 end
 
 function Arrays.return_value(
-  k::ParamBroadcastingFieldOpMap,a::Union{ParamBlock,AbstractArray}...)
+  k::ParamBroadcastingFieldOpMap,a::Union{ParamBlock,AbstractArray}...
+  )
   evaluate(k,a...)
 end
 
 function Arrays.return_cache(
-  k::ParamBroadcastingFieldOpMap,a::Union{ParamBlock,AbstractArray}...)
+  k::ParamBroadcastingFieldOpMap,a::Union{ParamBlock,AbstractArray}...
+  )
 
   return_cache(k,lazy_parameterise(a...;plength=param_length(k))...)
 end
 
 function Arrays.evaluate!(
-  cache,k::ParamBroadcastingFieldOpMap,a::Union{ParamBlock,AbstractArray}...)
+  cache,k::ParamBroadcastingFieldOpMap,a::Union{ParamBlock,AbstractArray}...
+  )
 
   evaluate!(cache,k,lazy_parameterise(a...;plength=param_length(k))...)
 end
@@ -1256,7 +1267,8 @@ function LinearAlgebra.mul!(
   c::ParamBlock,
   a::ParamBlock,
   b::AbstractArray,
-  α::Number,β::Number)
+  α::Number,β::Number
+  )
 
   for i in eachindex(c.data)
     mul!(param_getindex(c,i),param_getindex(a,i),b,α,β)
@@ -1267,7 +1279,8 @@ function LinearAlgebra.mul!(
   c::ParamBlock,
   a::AbstractArray,
   b::ParamBlock,
-  α::Number,β::Number)
+  α::Number,β::Number
+  )
 
   for i in eachindex(c.data)
     mul!(param_getindex(c,i),a,param_getindex(b,i),α,β)
@@ -1278,7 +1291,8 @@ function LinearAlgebra.mul!(
   c::ParamBlock,
   a::ParamBlock,
   b::ParamBlock,
-  α::Number,β::Number)
+  α::Number,β::Number
+  )
 
   for i in eachindex(c.data)
     mul!(param_getindex(c,i),param_getindex(a,i),param_getindex(b,i),α,β)
@@ -1451,7 +1465,12 @@ function Arrays.evaluate!(cache,k::Arrays.DualizeMap,x::GenericParamBlock)
   xdual
 end
 
-function Arrays.return_cache(k::Arrays.AutoDiffMap,ydual::GenericParamBlock,x,cfg::GenericParamBlock)
+function Arrays.return_cache(
+  k::Arrays.AutoDiffMap,
+  ydual::GenericParamBlock,
+  x,
+  cfg::GenericParamBlock
+  )
   yidual = testitem(ydual)
   xi = testitem(x)
   cfgi = testitem(cfg)
@@ -1465,7 +1484,13 @@ function Arrays.return_cache(k::Arrays.AutoDiffMap,ydual::GenericParamBlock,x,cf
   GenericParamBlock(data),c
 end
 
-function Arrays.evaluate!(cache,k::Arrays.AutoDiffMap,ydual::GenericParamBlock,x,cfg::GenericParamBlock)
+function Arrays.evaluate!(
+  cache,
+  k::Arrays.AutoDiffMap,
+  ydual::GenericParamBlock,
+  x,
+  cfg::GenericParamBlock
+  )
   r,c = cache
   for i in eachindex(ydual.data)
     r.data[i] = evaluate!(c[i],k,ydual.data[i],x.data[i],cfg.data[i])
@@ -1573,7 +1598,8 @@ function Geometry._similar_empty(val::GenericParamBlock)
 end
 
 function Geometry.pos_neg_data(
-  ipos_to_val::AbstractArray{<:ParamBlock},i_to_iposneg::PosNegPartition)
+  ipos_to_val::AbstractArray{<:ParamBlock},i_to_iposneg::PosNegPartition
+  )
   nineg = length(i_to_iposneg.ineg_to_i)
   val = testitem(ipos_to_val)
   void = Geometry._similar_empty(val)
@@ -1582,7 +1608,8 @@ function Geometry.pos_neg_data(
 end
 
 function Geometry.pos_neg_data(
-  ipos_to_val::AbstractArray{<:ParamBlock{<:Field}},i_to_iposneg::PosNegPartition)
+  ipos_to_val::AbstractArray{<:ParamBlock{<:Field}},i_to_iposneg::PosNegPartition
+  )
   nineg = length(i_to_iposneg.ineg_to_i)
   ipos_to_v = lazy_map(VoidFieldMap(false),ipos_to_val)
   ineg_to_v = Fill(VoidField(testitem(ipos_to_val),true),nineg)
@@ -1613,7 +1640,11 @@ end
 
 # block map interface
 
-function Arrays.return_value(k::BroadcastingFieldOpMap,f::ArrayBlock{A,N},h::ParamBlock) where {A,N}
+function Arrays.return_value(
+  k::BroadcastingFieldOpMap,
+  f::ArrayBlock{A,N},
+  h::ParamBlock
+  ) where {A,N}
   fi = testitem(f)
   fix = return_value(k,fi,h)
   g = Array{typeof(fix),N}(undef,size(f.array))
@@ -1625,7 +1656,11 @@ function Arrays.return_value(k::BroadcastingFieldOpMap,f::ArrayBlock{A,N},h::Par
   ArrayBlock(g,f.touched)
 end
 
-function Arrays.return_cache(k::BroadcastingFieldOpMap,f::ArrayBlock{A,N},h::ParamBlock) where {A,N}
+function Arrays.return_cache(
+  k::BroadcastingFieldOpMap,
+  f::ArrayBlock{A,N},
+  h::ParamBlock
+  ) where {A,N}
   fi = testitem(f)
   li = return_cache(k,fi,h)
   fix = evaluate!(li,k,fi,h)
@@ -1650,7 +1685,11 @@ function Arrays.evaluate!(cache,k::BroadcastingFieldOpMap,f::ArrayBlock,h::Param
   g
 end
 
-function Arrays.return_value(k::BroadcastingFieldOpMap,h::ParamBlock,f::ArrayBlock{A,N}) where {A,N}
+function Arrays.return_value(
+  k::BroadcastingFieldOpMap,
+  h::ParamBlock,
+  f::ArrayBlock{A,N}
+  ) where {A,N}
   fi = testitem(f)
   fix = return_value(k,fi,h)
   g = Array{typeof(fix),N}(undef,size(f.array))
@@ -1662,7 +1701,11 @@ function Arrays.return_value(k::BroadcastingFieldOpMap,h::ParamBlock,f::ArrayBlo
   ArrayBlock(g,f.touched)
 end
 
-function Arrays.return_cache(k::BroadcastingFieldOpMap,h::ParamBlock,f::ArrayBlock{A,N}) where {A,N}
+function Arrays.return_cache(
+  k::BroadcastingFieldOpMap,
+  h::ParamBlock,
+  f::ArrayBlock{A,N}
+  ) where {A,N}
   fi = testitem(f)
   li = return_cache(k,fi,h)
   fix = evaluate!(li,k,fi,h)
@@ -1835,7 +1878,14 @@ for A in (:ArrayBlock,:ParamBlock)
               return ctup,m,(ca,cb,cc,cd)
             end
 
-            function Arrays.evaluate!(cache,k::BroadcastingFieldOpMap,a::$A,b::$B,c::$C,d::$D)
+            function Arrays.evaluate!(
+              cache,
+              k::BroadcastingFieldOpMap,
+              a::$A,
+              b::$B,
+              c::$C,
+              d::$D
+              )
               ctup,m,(ca,cb,cc,cd) = cache
               ea = evaluate!(ca,m,a)
               eb = evaluate!(cb,m,b)
@@ -1906,7 +1956,8 @@ function Fields.VoidField(field::ParamBlock,isvoid::Bool)
 end
 
 function Arrays.return_value(
-  k::Broadcasting{<:AffineMap},gradients::ParamBlock,origins::ParamBlock,x)
+  k::Broadcasting{<:AffineMap},gradients::ParamBlock,origins::ParamBlock,x
+  )
 
   @check param_length(gradients) == param_length(origins)
   gi = testitem(gradients)
@@ -1920,7 +1971,8 @@ function Arrays.return_value(
 end
 
 function Arrays.return_cache(
-  k::Broadcasting{<:AffineMap},gradients::ParamBlock,origins::ParamBlock,x)
+  k::Broadcasting{<:AffineMap},gradients::ParamBlock,origins::ParamBlock,x
+  )
 
   @check param_length(gradients) == param_length(origins)
   gi = testitem(gradients)
@@ -1936,7 +1988,8 @@ function Arrays.return_cache(
 end
 
 function Arrays.evaluate!(
-  cache,k::Broadcasting{<:AffineMap},gradients::ParamBlock,origins::ParamBlock,x)
+  cache,k::Broadcasting{<:AffineMap},gradients::ParamBlock,origins::ParamBlock,x
+  )
 
   @check param_length(gradients) == param_length(origins)
   g,l = cache
@@ -1947,7 +2000,8 @@ function Arrays.evaluate!(
 end
 
 function Arrays.return_value(
-  k::Broadcasting{<:AffineMap},gradients::ParamBlock,origins::ParamBlock,x::ParamBlock)
+  k::Broadcasting{<:AffineMap},gradients::ParamBlock,origins::ParamBlock,x::ParamBlock
+  )
 
   @check param_length(gradients) == param_length(origins) == param_length(x)
   gi = testitem(gradients)
@@ -1962,7 +2016,8 @@ function Arrays.return_value(
 end
 
 function Arrays.return_cache(
-  k::Broadcasting{<:AffineMap},gradients::ParamBlock,origins::ParamBlock,x::ParamBlock)
+  k::Broadcasting{<:AffineMap},gradients::ParamBlock,origins::ParamBlock,x::ParamBlock
+  )
 
   @check param_length(gradients) == param_length(origins) == param_length(x)
   gi = testitem(gradients)
@@ -1979,7 +2034,8 @@ function Arrays.return_cache(
 end
 
 function Arrays.evaluate!(
-  cache,k::Broadcasting{<:AffineMap},gradients::ParamBlock,origins::ParamBlock,x::ParamBlock)
+  cache,k::Broadcasting{<:AffineMap},gradients::ParamBlock,origins::ParamBlock,x::ParamBlock
+  )
 
   @check param_length(gradients) == param_length(origins) == param_length(x)
   g,l = cache
@@ -2111,11 +2167,17 @@ function lazy_parameterise(a::ParamBlock,plength::Integer=param_length(a))
   a
 end
 
-function lazy_parameterise(a::Union{AbstractArray{<:Number},Nothing,Field,AbstractArray{<:Field}},plength::Integer)
+function lazy_parameterise(
+  a::Union{AbstractArray{<:Number},Nothing,Field,AbstractArray{<:Field}},
+  plength::Integer
+  )
   TrivialParamBlock(a,plength)
 end
 
-function local_parameterise(a::Union{AbstractArray{<:Number},Nothing,Field,AbstractArray{<:Field}},plength::Integer)
+function local_parameterise(
+  a::Union{AbstractArray{<:Number},Nothing,Field,AbstractArray{<:Field}},
+  plength::Integer
+  )
   data = Vector{typeof(a)}(undef,plength)
   @inbounds for i in 1:plength
     data[i] = copy(a)
@@ -2145,7 +2207,8 @@ for T in (:ParamBlock,:(ArrayBlock{<:ParamBlock}))
       a::DomainContribution,
       trian::Triangulation,
       b::AbstractArray{<:$T},
-      op=+)
+      op=+
+      )
 
       if haskey(a.dict,trian)
         a.dict[trian] = lazy_map(Broadcasting(op),a.dict[trian],b)

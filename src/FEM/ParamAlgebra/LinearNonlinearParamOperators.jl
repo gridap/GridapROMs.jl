@@ -58,7 +58,8 @@ end
 function update_paramcache!(
   paramcache::AbstractParamCache,
   op::LinNonlinParamOperator,
-  μ::AbstractRealisation)
+  μ::AbstractRealisation
+  )
 
   op_nlin = get_nonlinear_operator(op)
   update_paramcache!(paramcache,op_nlin,μ)
@@ -72,7 +73,8 @@ end
 
 function Algebra.allocate_residual(
   op::LinNonlinParamOperator,
-  x::AbstractVector)
+  x::AbstractVector
+  )
 
   syscache_lin = get_linear_systemcache(op)
   b_lin = get_vector(syscache_lin)
@@ -81,7 +83,8 @@ end
 
 function Algebra.allocate_jacobian(
   op::LinNonlinParamOperator,
-  x::AbstractVector)
+  x::AbstractVector
+  )
 
   syscache_lin = get_linear_systemcache(op)
   A_lin = get_matrix(syscache_lin)
@@ -91,7 +94,8 @@ end
 function Algebra.residual!(
   b::AbstractVector,
   op::LinNonlinParamOperator,
-  x::AbstractVector)
+  x::AbstractVector
+  )
 
   syscache_lin = get_linear_systemcache(op)
   A_lin = get_matrix(syscache_lin)
@@ -108,7 +112,8 @@ end
 function Algebra.jacobian!(
   A::AbstractMatrix,
   op::LinNonlinParamOperator,
-  x::AbstractVector)
+  x::AbstractVector
+  )
 
   syscache_lin = get_linear_systemcache(op)
   A_lin = get_matrix(syscache_lin)

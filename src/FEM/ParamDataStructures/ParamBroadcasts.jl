@@ -100,14 +100,16 @@ end
 
 function Base.broadcasted(f,
   A::Union{BlockParamArray,BlockParamBroadcast},
-  b::Base.Broadcast.Broadcasted{Base.Broadcast.DefaultArrayStyle{0}})
+  b::Base.Broadcast.Broadcasted{Base.Broadcast.DefaultArrayStyle{0}}
+  )
   Base.broadcasted(f,A,Base.materialize(b))
 end
 
 function Base.broadcasted(
   f,
   a::Base.Broadcast.Broadcasted{Base.Broadcast.DefaultArrayStyle{0}},
-  B::Union{BlockParamArray,BlockParamBroadcast})
+  B::Union{BlockParamArray,BlockParamBroadcast}
+  )
   Base.broadcasted(f,Base.materialize(a),B)
 end
 

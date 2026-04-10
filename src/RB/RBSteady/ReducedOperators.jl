@@ -9,7 +9,8 @@ function reduced_operator(
   solver::RBSolver,
   feop::ParamOperator,
   args...;
-  kwargs...)
+  kwargs...
+  )
 
   fesnaps,festats = solution_snapshots(solver,feop,args...;kwargs...)
   rbop = reduced_operator(solver,feop,fesnaps)
@@ -22,7 +23,8 @@ function reduced_operator(
   solver::RBSolver,
   feop::ParamOperator,
   args...;
-  kwargs...)
+  kwargs...
+  )
 
   fesnaps,festats = solution_snapshots(solver,feop,args...;kwargs...)
   reduced_operator(solver,feop,fesnaps)
@@ -31,7 +33,8 @@ end
 function reduced_operator(
   solver::RBSolver,
   feop::ParamOperator,
-  s::AbstractSnapshots)
+  s::AbstractSnapshots
+  )
 
   red_trial,red_test = reduced_spaces(solver,feop,s)
   reduced_operator(solver,feop,red_trial,red_test,s)
@@ -138,7 +141,8 @@ function Algebra.allocate_residual(
   op::RBOperator,
   r::Realisation,
   u::AbstractVector,
-  paramcache)
+  paramcache
+  )
 
   allocate_hypred_cache(get_rhs(op),r)
 end
@@ -147,7 +151,8 @@ function Algebra.allocate_jacobian(
   op::RBOperator,
   r::Realisation,
   u::AbstractVector,
-  paramcache)
+  paramcache
+  )
 
   allocate_hypred_cache(get_lhs(op),r)
 end
@@ -157,7 +162,8 @@ function Algebra.residual!(
   op::SplitRBOperator,
   r::Realisation,
   u::AbstractVector,
-  paramcache)
+  paramcache
+  )
 
   fill!(b,zero(eltype(b)))
 
@@ -185,7 +191,8 @@ function Algebra.jacobian!(
   op::SplitRBOperator,
   r::Realisation,
   u::AbstractVector,
-  paramcache)
+  paramcache
+  )
 
   fill!(A,zero(eltype(A)))
 
@@ -215,7 +222,8 @@ function Algebra.residual!(
   op::JointRBOperator,
   r::Realisation,
   u::AbstractVector,
-  paramcache)
+  paramcache
+  )
 
   fill!(b,zero(eltype(b)))
 
@@ -242,7 +250,8 @@ function Algebra.jacobian!(
   op::JointRBOperator,
   r::Realisation,
   u::AbstractVector,
-  paramcache)
+  paramcache
+  )
 
   fill!(A,zero(eltype(A)))
 
@@ -310,7 +319,8 @@ function RBOperator(
   trial::RBSpace,
   test::RBSpace,
   lhs::AffineContribution,
-  rhs::AffineContribution)
+  rhs::AffineContribution
+  )
 
   trians_rhs = get_domains(rhs)
   trians_lhs = get_domains(lhs)
@@ -323,7 +333,8 @@ function RBOperator(
   trial::RBSpace,
   test::RBSpace,
   lhs::AffineContribution,
-  rhs::AffineContribution)
+  rhs::AffineContribution
+  )
 
   GenericRBOperator(op,trial,test,lhs,rhs)
 end
@@ -339,7 +350,8 @@ function Algebra.residual!(
   op::GenericRBOperator{O,T,A,<:RBFContribution},
   r::Realisation,
   u::AbstractVector,
-  paramcache) where {O,T,A}
+  paramcache
+  ) where {O,T,A}
 
   fill!(b,zero(eltype(b)))
   interpolate!(b,op.rhs,r)
@@ -350,7 +362,8 @@ function Algebra.jacobian!(
   op::GenericRBOperator{O,T,<:RBFContribution,B},
   r::Realisation,
   u::AbstractVector,
-  paramcache) where {O,T,B}
+  paramcache
+  ) where {O,T,B}
 
   fill!(A,zero(eltype(A)))
   interpolate!(A,op.lhs,r)
@@ -388,7 +401,8 @@ get_lhs(op::LocalRBOperator) = op.lhs
 get_rhs(op::LocalRBOperator) = op.rhs
 
 function RBOperator(
-  op::ParamOperator,trial::RBSpace,test::RBSpace,lhs::LocalProjection,rhs::LocalProjection)
+  op::ParamOperator,trial::RBSpace,test::RBSpace,lhs::LocalProjection,rhs::LocalProjection
+  )
 
   LocalRBOperator(op,trial,test,lhs,rhs)
 end
@@ -414,7 +428,10 @@ splitting of terms in nonlinear applications
 struct LinearNonlinearRBOperator{A<:RBOperator,B<:RBOperator,T} <: RBOperator{LinearNonlinearParamEq,T}
   op_linear::A
   op_nonlinear::B
-  function LinearNonlinearRBOperator(op_linear::RBOperator{OL,T},op_nonlinear::RBOperator{ON,T}) where {OL,ON,T}
+  function LinearNonlinearRBOperator(
+    op_linear::RBOperator{OL,T},
+    op_nonlinear::RBOperator{ON,T}
+    ) where {OL,ON,T}
     A = typeof(op_linear)
     B = typeof(op_nonlinear)
     new{A,B,T}(op_linear,op_nonlinear)
@@ -428,7 +445,10 @@ FESpaces.get_test(op::LinearNonlinearRBOperator) = get_test(get_nonlinear_operat
 
 ParamSteady.get_fe_operator(op::LinearNonlinearRBOperator) = get_fe_operator(get_nonlinear_operator(op))
 
-function ParamAlgebra.allocate_paramcache(op::LinearNonlinearRBOperator,μ::AbstractRealisation)
+function ParamAlgebra.allocate_paramcache(
+  op::LinearNonlinearRBOperator,
+  μ::AbstractRealisation
+  )
   op_nlin = get_nonlinear_operator(op)
   allocate_paramcache(op_nlin,μ)
 end
@@ -441,13 +461,17 @@ end
 function ParamAlgebra.update_paramcache!(
   paramcache::AbstractParamCache,
   op::LinearNonlinearRBOperator,
-  μ::AbstractRealisation)
+  μ::AbstractRealisation
+  )
 
   op_nlin = get_nonlinear_operator(op)
   update_paramcache!(paramcache,op_nlin,μ)
 end
 
-function ParamDataStructures.parameterise(op::LinearNonlinearRBOperator,μ::AbstractRealisation)
+function ParamDataStructures.parameterise(
+  op::LinearNonlinearRBOperator,
+  μ::AbstractRealisation
+  )
   op_lin = parameterise(get_linear_operator(op),μ)
   op_nlin = parameterise(get_nonlinear_operator(op),μ)
   syscache_lin = allocate_systemcache(op_lin)
@@ -477,7 +501,8 @@ end
 function Algebra.solve(
   solver::RBSolver,
   op::AbstractLocalRBOperator,
-  r::Realisation)
+  r::Realisation
+  )
 
   t = @timed x̂vec = map(r) do μ
     opμ = get_local(op,μ)

@@ -52,7 +52,8 @@ ODEs.is_form_constant(odeop::ODEParamOperator,k::Integer) = is_form_constant(get
 function ParamAlgebra.allocate_paramcache(
   odeop::ODEParamOperator,
   r::TransientRealisation;
-  evaluated=false)
+  evaluated=false
+  )
 
   feop = get_fe_operator(odeop)
   order = get_order(odeop)
@@ -71,7 +72,8 @@ end
 function ParamAlgebra.update_paramcache!(
   paramcache::ParamCache,
   odeop::ODEParamOperator,
-  r::TransientRealisation)
+  r::TransientRealisation
+  )
 
   trials = ()
   for k in 1:get_order(odeop)+1
@@ -85,7 +87,8 @@ function ParamAlgebra.allocate_systemcache(
   odeop::ODEParamOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
-  paramcache::ParamCache)
+  paramcache::ParamCache
+  )
 
   A = allocate_jacobian(odeop,r,us,paramcache)
   b = allocate_residual(odeop,r,us,paramcache)
@@ -96,7 +99,8 @@ function Algebra.allocate_residual(
   odeop::JointODEParamOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
-  paramcache)
+  paramcache
+  )
 
   uh = ODEs._make_uh_from_us(odeop,us,paramcache.trial)
   test = get_test(odeop)
@@ -116,7 +120,8 @@ function Algebra.residual!(
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache;
-  add::Bool=false)
+  add::Bool=false
+  )
 
   uh = ODEs._make_uh_from_us(odeop,us,paramcache.trial)
   test = get_test(odeop)
@@ -141,7 +146,8 @@ function Algebra.residual!(
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache;
-  add::Bool=false)
+  add::Bool=false
+  )
 
   uh = ODEs._make_uh_from_us(odeop,us,paramcache.trial)
   test = get_test(odeop)
@@ -166,7 +172,8 @@ function Algebra.allocate_jacobian(
   odeop::JointODEParamOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
-  paramcache)
+  paramcache
+  )
 
   uh = ODEs._make_uh_from_us(odeop,us,paramcache.trial)
   trial = evaluate(get_trial(odeop),nothing)
@@ -193,7 +200,8 @@ function ODEs.jacobian_add!(
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
-  paramcache)
+  paramcache
+  )
 
   uh = ODEs._make_uh_from_us(odeop,us,paramcache.trial)
   trial = evaluate(get_trial(odeop),nothing)
@@ -225,7 +233,8 @@ function Algebra.allocate_residual(
   odeop::SplitODEParamOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
-  paramcache)
+  paramcache
+  )
 
   uh = ODEs._make_uh_from_us(odeop,us,paramcache.trial)
   test = get_test(odeop)
@@ -250,7 +259,8 @@ function Algebra.residual!(
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache;
-  add::Bool=false)
+  add::Bool=false
+  )
 
   uh = ODEs._make_uh_from_us(odeop,us,paramcache.trial)
   test = get_test(odeop)
@@ -276,7 +286,8 @@ function Algebra.residual(
   odeop::SplitODEParamOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
-  paramcache)
+  paramcache
+  )
 
   uh = ODEs._make_uh_from_us(odeop,us,paramcache.trial)
   test = get_test(odeop)
@@ -300,7 +311,8 @@ function Algebra.allocate_jacobian(
   odeop::SplitODEParamOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
-  paramcache)
+  paramcache
+  )
 
   uh = ODEs._make_uh_from_us(odeop,us,paramcache.trial)
   trial = evaluate(get_trial(odeop),nothing)
@@ -333,7 +345,8 @@ function ODEs.jacobian_add!(
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
-  paramcache)
+  paramcache
+  )
 
   uh = ODEs._make_uh_from_us(odeop,us,paramcache.trial)
   trial = evaluate(get_trial(odeop),nothing)
@@ -369,7 +382,8 @@ function Algebra.jacobian(
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
-  paramcache)
+  paramcache
+  )
 
   uh = ODEs._make_uh_from_us(odeop,us,paramcache.trial)
   trial = evaluate(get_trial(odeop),nothing)
@@ -407,12 +421,18 @@ ParamSteady.get_fe_operator(op::LinearNonlinearODEParamOperator) = get_fe_operat
 ParamSteady.join_operators(op::LinearNonlinearODEParamOperator) = get_algebraic_operator(join_operators(get_fe_operator(op)))
 get_order(op::LinearNonlinearODEParamOperator) = max(get_order(get_linear_operator(op)),get_order(get_nonlinear_operator(op)))
 
-function ParamAlgebra.allocate_paramcache(op::LinearNonlinearODEParamOperator,r::TransientRealisation)
+function ParamAlgebra.allocate_paramcache(
+  op::LinearNonlinearODEParamOperator,
+  r::TransientRealisation
+  )
   op_nlin = get_nonlinear_operator(op)
   allocate_paramcache(op_nlin,r)
 end
 
-function ParamAlgebra.allocate_systemcache(op::LinearNonlinearODEParamOperator,u::AbstractVector)
+function ParamAlgebra.allocate_systemcache(
+  op::LinearNonlinearODEParamOperator,
+  u::AbstractVector
+  )
   op_nlin = get_nonlinear_operator(op)
   allocate_systemcache(op_nlin,u)
 end
@@ -420,7 +440,8 @@ end
 function ParamAlgebra.update_paramcache!(
   paramcache::AbstractParamCache,
   op::LinearNonlinearODEParamOperator,
-  r::TransientRealisation)
+  r::TransientRealisation
+  )
 
   op_nlin = get_nonlinear_operator(op)
   update_paramcache!(paramcache,op_nlin,r)
@@ -428,7 +449,8 @@ end
 
 function ParamDataStructures.parameterise(
   op::LinearNonlinearODEParamOperator,
-  r::TransientRealisation)
+  r::TransientRealisation
+  )
 
   op_lin = parameterise(get_linear_operator(op),r)
   op_nlin = parameterise(get_nonlinear_operator(op),r)
@@ -440,7 +462,8 @@ function Algebra.allocate_residual(
   op::LinearNonlinearODEParamOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
-  paramcache)
+  paramcache
+  )
 
   @notimplemented "This is inefficient. Instead, assemble the nonlinear system
   by defining a [`LinearNonlinearParamOperator`](@ref)"
@@ -450,7 +473,8 @@ function Algebra.allocate_jacobian(
   op::LinearNonlinearODEParamOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
-  paramcache)
+  paramcache
+  )
 
   @notimplemented "This is inefficient. Instead, assemble the nonlinear system
   by defining a [`LinearNonlinearParamOperator`](@ref)"
@@ -462,7 +486,8 @@ function Algebra.residual!(
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache;
-  kwargs...)
+  kwargs...
+  )
 
   @notimplemented "This is inefficient. Instead, assemble the nonlinear system
   by defining a [`LinearNonlinearParamOperator`](@ref)"
@@ -474,7 +499,8 @@ function ODEs.jacobian_add!(
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
-  paramcache)
+  paramcache
+  )
 
   @notimplemented "This is inefficient. Instead, assemble the nonlinear system
   by defining a [`LinearNonlinearParamOperator`](@ref)"

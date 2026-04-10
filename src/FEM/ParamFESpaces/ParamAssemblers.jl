@@ -3,7 +3,8 @@ function FESpaces.SparseMatrixAssembler(
   vec,
   trial::SingleFieldParamFESpace,
   test::SingleFieldFESpace,
-  strategy::AssemblyStrategy=FESpaces.DefaultAssemblyStrategy())
+  strategy::AssemblyStrategy=FESpaces.DefaultAssemblyStrategy()
+  )
 
   assem = SparseMatrixAssembler(mat,vec,get_fe_space(trial),test,strategy)
   parameterise(assem,param_length(trial))
@@ -27,7 +28,8 @@ end
 
 function ParamDataStructures.parameterise(
   a::MultiField.BlockSparseMatrixAssembler{R,C},
-  plength::Int) where {R,C}
+  plength::Int
+  ) where {R,C}
 
   matrix_builder = get_matrix_builder(a)
   vector_builder = get_vector_builder(a)
@@ -53,7 +55,8 @@ end
 function FESpaces.assemble_vector_add!(
   b::BlockParamVector,
   a::MultiField.BlockSparseMatrixAssembler,
-  vecdata)
+  vecdata
+  )
   b1 = ArrayBlock(blocks(b),fill(true,blocksize(b)))
   b2 = MultiField.expand_blocks(a,b1)
   FESpaces.assemble_vector_add!(b2,a,vecdata)
@@ -62,7 +65,8 @@ end
 function FESpaces.assemble_matrix_add!(
   mat::BlockParamMatrix,
   a::MultiField.BlockSparseMatrixAssembler,
-  matdata)
+  matdata
+  )
   m1 = ArrayBlock(blocks(mat),fill(true,blocksize(mat)))
   m2 = MultiField.expand_blocks(a,m1)
   FESpaces.assemble_matrix_add!(m2,a,matdata)
@@ -72,7 +76,8 @@ function FESpaces.assemble_matrix_and_vector_add!(
   A::BlockParamMatrix,
   b::BlockParamVector,
   a::MultiField.BlockSparseMatrixAssembler,
-  data)
+  data
+  )
   m1 = ArrayBlock(blocks(A),fill(true,blocksize(A)))
   m2 = MultiField.expand_blocks(a,m1)
   b1 = ArrayBlock(blocks(b),fill(true,blocksize(b)))

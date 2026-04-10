@@ -37,14 +37,18 @@ struct TProductFESpace{S} <: SingleFieldFESpace
   trian::TProductTriangulation
 end
 
-function FESpaces.FESpace(trian::TProductTriangulation,reffe::Tuple{<:ReferenceFEName,Any,Any};kwargs...)
+function FESpaces.FESpace(
+  trian::TProductTriangulation,
+  reffe::Tuple{<:ReferenceFEName,Any,Any};kwargs...
+  )
   TProductFESpace(trian,reffe;kwargs...)
 end
 
 function TProductFESpace(
   trian::TProductTriangulation,
   reffe::Tuple{<:ReferenceFEName,Any,Any};
-  kwargs...)
+  kwargs...
+  )
 
   basis,reffe_args,reffe_kwargs = reffe
   T,order = reffe_args
@@ -61,7 +65,8 @@ function TProductFESpace(
   space::FESpace,
   tptrian::TProductTriangulation,
   reffe::Tuple{<:ReferenceFEName,Any,Any};
-  kwargs...)
+  kwargs...
+  )
 
   basis,reffe_args,reffe_kwargs = reffe
   T,order = reffe_args
@@ -80,7 +85,8 @@ function univariate_spaces(
   dirichlet_masks=nothing,
   conformity=nothing,
   vector_type=nothing,
-  kwargs...)
+  kwargs...
+  )
 
   if !isnothing(dirichlet_masks)
     for mask in dirichlet_masks

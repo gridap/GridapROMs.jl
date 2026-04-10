@@ -13,7 +13,11 @@ ParamDataStructures.num_space_dofs(a::TransientProjection) = num_fe_dofs(get_pro
 ParamDataStructures.num_times(a::TransientProjection) = num_fe_dofs(get_projection_time(a))
 RBSteady.num_fe_dofs(a::TransientProjection) = num_space_dofs(a)*num_times(a)
 
-function RBSteady.project!(x̂::ConsecutiveParamVector,a::TransientProjection,x::ConsecutiveParamVector)
+function RBSteady.project!(
+  x̂::ConsecutiveParamVector,
+  a::TransientProjection,
+  x::ConsecutiveParamVector
+  )
   nt = num_times(a)
   @check Int(param_length(x) / param_length(x̂)) == nt
   np = param_length(x̂)
@@ -25,7 +29,11 @@ function RBSteady.project!(x̂::ConsecutiveParamVector,a::TransientProjection,x:
   end
 end
 
-function RBSteady.inv_project!(x::ConsecutiveParamVector,a::TransientProjection,x̂::ConsecutiveParamVector)
+function RBSteady.inv_project!(
+  x::ConsecutiveParamVector,
+  a::TransientProjection,
+  x̂::ConsecutiveParamVector
+  )
   nt = num_times(a)
   @check Int(param_length(x) / param_length(x̂)) == nt
   np = param_length(x̂)
@@ -37,14 +45,20 @@ function RBSteady.inv_project!(x::ConsecutiveParamVector,a::TransientProjection,
   end
 end
 
-function Algebra.allocate_in_domain(a::TransientProjection,x::V) where V<:AbstractParamVector
+function Algebra.allocate_in_domain(
+  a::TransientProjection,
+  x::V
+  ) where V<:AbstractParamVector
   x̂ = allocate_vector(eltype(V),num_reduced_dofs(a))
   nt = num_times(a)
   np = Int(param_length(x) / nt)
   return parameterise(x̂,np)
 end
 
-function Algebra.allocate_in_range(a::TransientProjection,x̂::V) where V<:AbstractParamVector
+function Algebra.allocate_in_range(
+  a::TransientProjection,
+  x̂::V
+  ) where V<:AbstractParamVector
   x = allocate_vector(eltype(V),num_space_dofs(a))
   nt = num_times(a)
   npt = param_length(x̂) * nt
@@ -88,7 +102,11 @@ function RBSteady.projection(red::KroneckerReduction,s::TransientSnapshots)
   kron_projection(red,s)
 end
 
-function RBSteady.projection(red::KroneckerReduction,s::TransientSnapshots,X::MatrixOrTensor)
+function RBSteady.projection(
+  red::KroneckerReduction,
+  s::TransientSnapshots,
+  X::MatrixOrTensor
+  )
   kron_projection(red,s,X)
 end
 
@@ -99,7 +117,11 @@ RBSteady.get_basis(a::KroneckerProjection) = kron(get_basis_time(a),get_basis_sp
 RBSteady.num_reduced_dofs(a::KroneckerProjection) = num_reduced_dofs(a.projection_space)*num_reduced_dofs(a.projection_time)
 RBSteady.get_norm_matrix(a::KroneckerProjection) = get_norm_matrix(a.projection_space)
 
-function RBSteady.project!(x̂::AbstractVector{<:Number},a::KroneckerProjection,x::AbstractVector{<:Number})
+function RBSteady.project!(
+  x̂::AbstractVector{<:Number},
+  a::KroneckerProjection,
+  x::AbstractVector{<:Number}
+  )
   ns = num_reduced_dofs(a.projection_space)
   nt = num_reduced_dofs(a.projection_time)
   X̂ = reshape(x̂,ns,nt)
@@ -113,7 +135,11 @@ function RBSteady.project!(x̂::AbstractVector{<:Number},a::KroneckerProjection,
   project!(X̂,a.projection_space,X*basis_time)
 end
 
-function RBSteady.inv_project!(x::AbstractVector{<:Number},a::KroneckerProjection,x̂::AbstractVector{<:Number})
+function RBSteady.inv_project!(
+  x::AbstractVector{<:Number},
+  a::KroneckerProjection,
+  x̂::AbstractVector{<:Number}
+  )
   Ns = num_fe_dofs(a.projection_space)
   Nt = num_fe_dofs(a.projection_time)
   X = reshape(x,Ns,Nt)
@@ -211,7 +237,11 @@ function RBSteady.projection(red::SequentialReduction,s::TransientSnapshots)
   SequentialProjection(proj)
 end
 
-function RBSteady.projection(red::SequentialReduction,s::TransientSnapshots,X::MatrixOrTensor)
+function RBSteady.projection(
+  red::SequentialReduction,
+  s::TransientSnapshots,
+  X::MatrixOrTensor
+  )
   proj = projection(get_reduction(red),s,X)
   SequentialProjection(proj)
 end
@@ -239,7 +269,10 @@ function RBSteady.union_bases(a::SequentialProjection,b::AbstractArray,args...)
   SequentialProjection(projection′)
 end
 
-function RBSteady.galerkin_projection(proj_left::SequentialProjection,a::SequentialProjection)
+function RBSteady.galerkin_projection(
+  proj_left::SequentialProjection,
+  a::SequentialProjection
+  )
   galerkin_projection(proj_left.projection,a.projection)
 end
 
@@ -261,11 +294,19 @@ function RBSteady.projection_eltype(a::SequentialProjection)
   projection_eltype(a.projection)
 end
 
-function RBSteady.project!(x̂::AbstractVector{<:Number},a::SequentialProjection,x::AbstractVector{<:Number})
+function RBSteady.project!(
+  x̂::AbstractVector{<:Number},
+  a::SequentialProjection,
+  x::AbstractVector{<:Number}
+  )
   project!(x̂,a.projection,x)
 end
 
-function RBSteady.inv_project!(x::AbstractVector{<:Number},a::SequentialProjection,x̂::AbstractVector{<:Number})
+function RBSteady.inv_project!(
+  x::AbstractVector{<:Number},
+  a::SequentialProjection,
+  x̂::AbstractVector{<:Number}
+  )
   inv_project!(x,a.projection,x̂)
 end
 

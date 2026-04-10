@@ -77,7 +77,11 @@ function PartitionedArrays.ghost_values(values::OwnAndGhostParamVectors,indices)
   values.ghost_values
 end
 
-function PartitionedArrays.allocate_local_values(values::OwnAndGhostParamVectors,::Type{T},indices) where T
+function PartitionedArrays.allocate_local_values(
+  values::OwnAndGhostParamVectors,
+  ::Type{T},
+  indices
+  ) where T
   n_own = own_length(indices)
   n_ghost = ghost_length(indices)
   own_values = similar(values.own_values,T,n_own)
@@ -86,7 +90,11 @@ function PartitionedArrays.allocate_local_values(values::OwnAndGhostParamVectors
   OwnAndGhostVectors(own_values,ghost_values,perm)
 end
 
-function GridapDistributed.change_ghost(::Type{<:OwnAndGhostParamVectors},a::PVector,ids::PRange)
+function GridapDistributed.change_ghost(
+  ::Type{<:OwnAndGhostParamVectors},
+  a::PVector,
+  ids::PRange
+  )
   values = map(own_values(a),partition(ids)) do own_vals,ids
     ghost_vals = fill(zero(eltype(a)),ghost_length(ids))
     perm = PartitionedArrays.local_permutation(ids)

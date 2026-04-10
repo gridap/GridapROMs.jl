@@ -195,7 +195,12 @@ function HighDimHyperReduction end
 
 const TransientHyperReduction = HighDimHyperReduction
 
-function HighDimHyperReduction(combination::TimeCombination,args...;compression=:global,hypred_strategy=:mdeim,kwargs...)
+function HighDimHyperReduction(
+  combination::TimeCombination,
+  args...;compression=:global,
+  hypred_strategy=:mdeim,
+  kwargs...
+  )
   if compression==:global
     reduction = HighDimReduction(args...;kwargs...)
     if hypred_strategy==:mdeim
@@ -210,17 +215,28 @@ function HighDimHyperReduction(combination::TimeCombination,args...;compression=
   end
 end
 
-function HighDimHyperReduction(combination::TimeCombination,reduction::HighDimReduction,args...;kwargs...)
+function HighDimHyperReduction(
+  combination::TimeCombination,
+  reduction::HighDimReduction,
+  args...;kwargs...
+  )
   red_style = ReductionStyle(reduction)
   HighDimHyperReduction(combination,red_style;kwargs...)
 end
 
-function HighDimHyperReduction(reduction::HighDimReduction,combination::TimeCombination;kwargs...)
+function HighDimHyperReduction(
+  reduction::HighDimReduction,
+  combination::TimeCombination;kwargs...
+  )
   red_style = ReductionStyle(reduction)
   HighDimMDEIMHyperReduction(combination,red_style;kwargs...)
 end
 
-function HighDimHyperReduction(combination::TimeCombination,reduction::SupremizerReduction,args...;kwargs...)
+function HighDimHyperReduction(
+  combination::TimeCombination,
+  reduction::SupremizerReduction,
+  args...;kwargs...
+  )
   HighDimHyperReduction(combination,get_reduction(reduction),args...;kwargs...)
 end
 
@@ -243,12 +259,19 @@ _replace_reduction(r::MDEIMHyperReduction) = MDEIMHyperReduction(_steady_reducti
 _replace_reduction(r::SOPTHyperReduction) = SOPTHyperReduction(_steady_reduction(r))
 _replace_reduction(r::RBFHyperReduction) = RBFHyperReduction(_steady_reduction(r),r.strategy)
 
-function HighDimHyperReduction(combination::TimeCombination,reduction::SteadyReduction,args...;kwargs...)
+function HighDimHyperReduction(
+  combination::TimeCombination,
+  reduction::SteadyReduction,
+  args...;kwargs...
+  )
   hr = HyperReduction(reduction,args...;kwargs...)
   _replace_reduction(hr)
 end
 
-function HighDimHyperReduction(reduction::SteadyReduction,combination::TimeCombination;kwargs...)
+function HighDimHyperReduction(
+  reduction::SteadyReduction,
+  combination::TimeCombination;kwargs...
+  )
   hr = SteadyHyperReduction(reduction;kwargs...)
   _replace_reduction(hr)
 end

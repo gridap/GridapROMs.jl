@@ -96,7 +96,8 @@ Returns the list of cells containing the row ids `rows`
 """
 function get_rows_to_cells(
   cell_row_ids::AbstractArray{<:AbstractArray},
-  rows::AbstractVector)
+  rows::AbstractVector
+  )
 
   ncells = length(cell_row_ids)
   cells = fill(false,ncells)
@@ -120,7 +121,8 @@ Returns the list of cells containing the row ids `rows` and the col ids `cols`
 function get_rowcols_to_cells(
   cell_row_ids::AbstractArray{<:AbstractArray},
   cell_col_ids::AbstractArray{<:AbstractArray},
-  rows::AbstractVector,cols::AbstractVector)
+  rows::AbstractVector,cols::AbstractVector
+  )
 
   @assert length(cell_row_ids) == length(cell_col_ids)
   ncells = length(cell_row_ids)
@@ -143,7 +145,8 @@ get_idof_correction(a::AppendedArray) = get_idof_correction(a.a)
 function get_cells_to_irows(
   cell_row_ids::AbstractArray{<:AbstractArray},
   cells::AbstractVector,
-  rows::AbstractVector)
+  rows::AbstractVector
+  )
 
   correct_irow = get_idof_correction(cell_row_ids)
   cache = array_cache(cell_row_ids)
@@ -177,7 +180,8 @@ function get_cells_to_irowcols(
   cell_col_ids::AbstractArray{<:AbstractArray},
   cells::AbstractVector,
   rows::AbstractVector,
-  cols::AbstractVector)
+  cols::AbstractVector
+  )
 
   correct_irow = get_idof_correction(cell_row_ids)
   correct_icol = get_idof_correction(cell_col_ids)

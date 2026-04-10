@@ -95,7 +95,11 @@ function RBSteady.plot_a_solution(dir,Ω,uh,ûh,r::TransientRealisation)
   end
 end
 
-function RBSteady.to_snapshots(rbop::AbstractLocalRBOperator,x̂::AbstractParamVector,r::TransientRealisation)
+function RBSteady.to_snapshots(
+  rbop::AbstractLocalRBOperator,
+  x̂::AbstractParamVector,
+  r::TransientRealisation
+  )
   xvec = map(enumerate(get_params(r))) do (i,μ)
     x̂μ = param_getindex(x̂,i)
     opμ = get_local(rbop,μ)

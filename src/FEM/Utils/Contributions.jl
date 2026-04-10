@@ -10,7 +10,10 @@ the values can be accessed by indexing the corresponding triangulation.
 struct Contribution{V}
   values::Tuple{Vararg{V}}
   trians::Tuple{Vararg{Triangulation}}
-  function Contribution(values::Tuple{Vararg{V}},trians::Tuple{Vararg{Triangulation}}) where V
+  function Contribution(
+    values::Tuple{Vararg{V}},
+    trians::Tuple{Vararg{Triangulation}}
+    ) where V
     @check length(values) == length(trians)
     @check !any([t === first(trians) for t = trians[2:end]])
     new{V}(values,trians)
@@ -245,7 +248,8 @@ for f in (:change_domains,:set_domains)
   @eval begin
     function $f(
       a::TupOfArrayContribution,
-      trians::Tuple{Vararg{Tuple{Vararg{Triangulation}}}})
+      trians::Tuple{Vararg{Tuple{Vararg{Triangulation}}}}
+      )
 
       @check length(a) == length(trians)
       b = ()

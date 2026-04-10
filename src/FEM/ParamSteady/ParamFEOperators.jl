@@ -181,7 +181,14 @@ function LinearParamFEOperator(res::Function,jac::Function,pspace,trial,test)
     res,jac′,pspace,assem,trial,test,domains)
 end
 
-function LinearParamFEOperator(res::Function,jac::Function,pspace,trial,test,domains::FEDomains)
+function LinearParamFEOperator(
+  res::Function,
+  jac::Function,
+  pspace,
+  trial,
+  test,
+  domains::FEDomains
+  )
   jac′(μ,u,du,v,args...) = jac(μ,du,v,args...)
   res′,jac′′ = _set_domains(res,jac′,test,trial,domains)
   assem = SparseMatrixAssembler(trial,test)
@@ -252,7 +259,8 @@ function _set_domains(
   test::FESpace,
   trial::FESpace,
   trian_res::Tuple{Vararg{Triangulation}},
-  trian_jac::Tuple{Vararg{Triangulation}})
+  trian_jac::Tuple{Vararg{Triangulation}}
+  )
 
   polyn_order = get_polynomial_order(test)
   @check polyn_order == get_polynomial_order(trial)
@@ -266,7 +274,8 @@ function _set_domains(
   jac::Function,
   test::FESpace,
   trial::FESpace,
-  domains::FEDomains)
+  domains::FEDomains
+  )
 
   trian_res = get_domains_res(domains)
   trian_jac = get_domains_jac(domains)
@@ -276,7 +285,8 @@ end
 function _set_domain_param_jac(
   jac::Function,
   trian::Tuple{Vararg{Triangulation}},
-  order)
+  order
+  )
 
   degree = 2*order
   meas = Measure.(trian,degree)
@@ -288,7 +298,8 @@ end
 function _set_domain_param_res(
   res::Function,
   trian::Tuple{Vararg{Triangulation}},
-  order)
+  order
+  )
 
   degree = 2*order
   meas = Measure.(trian,degree)

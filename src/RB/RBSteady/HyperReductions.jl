@@ -52,7 +52,8 @@ function FESpaces.interpolate!(
   b̂::AbstractArray,
   coeff::AbstractArray,
   a::HRProjection,
-  x::Any)
+  x::Any
+  )
 
   o = one(eltype2(b̂))
   interpolate!(coeff,get_interpolation(a),x)
@@ -260,7 +261,8 @@ function FESpaces.interpolate!(
   hypred::AbstractArray,
   coeff::ArrayContribution,
   a::AffineContribution,
-  b::ArrayContribution)
+  b::ArrayContribution
+  )
 
   @check length(coeff) == length(a) == length(b)
   fill!(hypred,zero(eltype(hypred)))
@@ -274,7 +276,8 @@ function FESpaces.interpolate!(
   hypred::AbstractArray,
   coeff::ArrayContribution,
   a::AffineContribution,
-  r::AbstractRealisation)
+  r::AbstractRealisation
+  )
 
   @check length(coeff) == length(a)
   fill!(hypred,zero(eltype(hypred)))
@@ -306,7 +309,8 @@ function reduced_residual(
   solver::RBSolver,
   op::ParamOperator,
   red_test::RBSpace,
-  s::AbstractSnapshots)
+  s::AbstractSnapshots
+  )
 
   res = residual_snapshots(solver,op,s)
   res_red = get_residual_reduction(solver)
@@ -352,7 +356,8 @@ function reduced_jacobian(
   op::ParamOperator,
   red_trial::RBSpace,
   red_test::RBSpace,
-  s::AbstractSnapshots)
+  s::AbstractSnapshots
+  )
 
   jac = jacobian_snapshots(solver,op,s)
   jac_red = get_jacobian_reduction(solver)
@@ -390,7 +395,8 @@ function reduced_weak_form(
   op::ParamOperator,
   red_trial::RBSpace,
   red_test::RBSpace,
-  s::AbstractSnapshots)
+  s::AbstractSnapshots
+  )
 
   red_jac = reduced_jacobian(solver,op,red_trial,red_test,s)
   red_res = reduced_residual(solver,op,red_test,s)
@@ -475,7 +481,8 @@ function FESpaces.interpolate!(
   hypred::Union{BlockParamArray,BlockArray},
   coeff::ArrayBlock,
   a::BlockHRProjection,
-  b::ArrayBlock)
+  b::ArrayBlock
+  )
 
   for i in eachindex(a)
     if a.touched[i]
@@ -489,7 +496,8 @@ function FESpaces.interpolate!(
   hypred::Union{BlockParamArray,BlockArray},
   coeff::ArrayBlock,
   a::BlockHRProjection,
-  r::AbstractRealisation)
+  r::AbstractRealisation
+  )
 
   for i in eachindex(a)
     if a.touched[i]
@@ -514,7 +522,8 @@ end
 function Arrays.return_cache(
   ::typeof(allocate_coefficient),
   a::HRProjection,
-  r::AbstractRealisation)
+  r::AbstractRealisation
+  )
 
   T = projection_eltype(a)
   coeffvec = testvalue(Vector{T})
@@ -523,7 +532,8 @@ end
 
 function Arrays.return_cache(
   ::typeof(allocate_coefficient),
-  a::BlockHRProjection)
+  a::BlockHRProjection
+  )
 
   i = findfirst(a.touched)
   @notimplementedif isnothing(i)
@@ -535,7 +545,8 @@ end
 function Arrays.return_cache(
   ::typeof(allocate_coefficient),
   a::BlockHRProjection,
-  r::AbstractRealisation)
+  r::AbstractRealisation
+  )
 
   i = findfirst(a.touched)
   @notimplementedif isnothing(i)
@@ -566,14 +577,16 @@ end
 
 function Arrays.return_cache(
   ::typeof(allocate_hyper_reduction),
-  a::HRVecProjection)
+  a::HRVecProjection
+  )
 
   testvalue(Vector{Float64})
 end
 
 function Arrays.return_cache(
   ::typeof(allocate_hyper_reduction),
-  a::HRMatProjection)
+  a::HRMatProjection
+  )
 
   testvalue(Matrix{Float64})
 end
@@ -581,7 +594,8 @@ end
 function Arrays.return_cache(
   ::typeof(allocate_hyper_reduction),
   a::HRProjection,
-  r::AbstractRealisation)
+  r::AbstractRealisation
+  )
 
   hypvec = return_cache(allocate_hyper_reduction,a)
   parameterise(hypvec,num_params(r))
@@ -590,7 +604,8 @@ end
 function Arrays.return_cache(
   ::typeof(allocate_hyper_reduction),
   a::BlockHRProjection,
-  r::AbstractRealisation)
+  r::AbstractRealisation
+  )
 
   i = findfirst(a.touched)
   @notimplementedif isnothing(i)
@@ -619,7 +634,8 @@ function reduced_form(
   red::Reduction,
   s::BlockSnapshots,
   trian::Triangulation,
-  test::MultiFieldRBSpace)
+  test::MultiFieldRBSpace
+  )
 
   hyper_reds = map(eachindex(s)) do i
     hyper_red, = reduced_form(red,s[i],trian,test[i])
@@ -637,7 +653,8 @@ function reduced_form(
   s::BlockSnapshots,
   trian::Triangulation,
   trial::MultiFieldRBSpace,
-  test::MultiFieldRBSpace)
+  test::MultiFieldRBSpace
+  )
 
   hyper_reds = map(Iterators.product(axes(s)...)) do (i,j)
     hyper_red, = reduced_form(red,s[i,j],trian,trial[j],test[i])

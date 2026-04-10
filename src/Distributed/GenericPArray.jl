@@ -273,7 +273,13 @@ function Base.:*(a::PSparseMatrix,b::GenericPArray)
   c
 end
 
-function LinearAlgebra.mul!(c::GenericPArray,a::PSparseMatrix,b::GenericPArray,α::Number,β::Number)
+function LinearAlgebra.mul!(
+  c::GenericPArray,
+  a::PSparseMatrix,
+  b::GenericPArray,
+  α::Number,
+  β::Number
+  )
   @boundscheck @assert PartitionedArrays.matching_own_indices(axes(c,1),axes(a,1))
   @boundscheck @assert PartitionedArrays.matching_own_indices(axes(a,2),axes(b,1))
   @boundscheck @assert PartitionedArrays.matching_ghost_indices(axes(a,2),axes(b,1))

@@ -50,7 +50,11 @@ function ParamDataStructures.parameterise(a::BlockPArray,plength::Integer)
   BlockPArray(b,a.axes)
 end
 
-function PartitionedArrays.default_local_values(I,V::ConsecutiveParamVector{T},indices) where T
+function PartitionedArrays.default_local_values(
+  I,
+  V::ConsecutiveParamVector{T},
+  indices
+  ) where T
   data = zeros(T,local_length(indices),param_length(V))
   for k in 1:length(I)
     for l in param_eachindex(V)

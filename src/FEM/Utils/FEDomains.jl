@@ -139,7 +139,8 @@ function collect_cell_matrix_for_trian(
   trial::FESpace,
   test::FESpace,
   a::DomainContribution,
-  strian::Triangulation)
+  strian::Triangulation
+  )
 
   scell_mat = get_contribution(a,strian)
   cell_mat,trian = move_contributions(scell_mat,strian)
@@ -164,7 +165,8 @@ input triangulation `strian`
 function collect_cell_vector_for_trian(
   test::FESpace,
   a::DomainContribution,
-  strian::Triangulation)
+  strian::Triangulation
+  )
 
   scell_vec = get_contribution(a,strian)
   cell_vec,trian = move_contributions(scell_vec,strian)

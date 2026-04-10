@@ -2,7 +2,8 @@ function Algebra.allocate_residual(
   nlop::NonlinearParamOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
-  paramcache)
+  paramcache
+  )
 
   @abstractmethod
 end
@@ -13,7 +14,8 @@ function Algebra.residual!(
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache;
-  add::Bool=false)
+  add::Bool=false
+  )
 
   @abstractmethod
 end
@@ -21,7 +23,8 @@ end
 function Algebra.residual(
   nlop::NonlinearParamOperator,
   r::TransientRealisation,
-  us::Tuple{Vararg{AbstractVector}})
+  us::Tuple{Vararg{AbstractVector}}
+  )
 
   paramcache = allocate_paramcache(nlop,r;evaluated=true)
   residual(nlop,r,us,paramcache)
@@ -31,7 +34,8 @@ function Algebra.residual(
   nlop::NonlinearParamOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
-  paramcache)
+  paramcache
+  )
 
   b = allocate_residual(nlop,r,us,paramcache)
   residual!(b,nlop,r,us,paramcache)
@@ -42,7 +46,8 @@ function Algebra.allocate_jacobian(
   nlop::NonlinearParamOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
-  paramcache)
+  paramcache
+  )
 
   @abstractmethod
 end
@@ -53,7 +58,8 @@ function ODEs.jacobian_add!(
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
-  paramcache)
+  paramcache
+  )
 
   @abstractmethod
 end
@@ -64,7 +70,8 @@ function Algebra.jacobian!(
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
-  paramcache)
+  paramcache
+  )
 
   LinearAlgebra.fillstored!(A,zero(eltype(A)))
   jacobian_add!(A,nlop,r,us,ws,paramcache)
@@ -75,7 +82,8 @@ function Algebra.jacobian(
   nlop::NonlinearParamOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
-  ws::Tuple{Vararg{Real}})
+  ws::Tuple{Vararg{Real}}
+  )
 
   paramcache = allocate_paramcache(nlop,r;evaluated=true)
   jacobian(nlop,r,us,ws,paramcache)
@@ -86,7 +94,8 @@ function Algebra.jacobian(
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
-  paramcache)
+  paramcache
+  )
 
   A = allocate_jacobian(nlop,r,us,paramcache)
   jacobian!(A,nlop,r,us,ws,paramcache)

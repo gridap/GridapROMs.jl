@@ -76,7 +76,8 @@ struct DistributedParamCounterCOO{A,B,C,D} <: GridapType
     par_strategy,
     counters::AbstractArray{<:ParamCounter},
     test_dofs_gids_prange::PRange,
-    trial_dofs_gids_prange::PRange)
+    trial_dofs_gids_prange::PRange
+    )
     A = typeof(par_strategy)
     B = typeof(counters)
     C = typeof(test_dofs_gids_prange)
@@ -105,7 +106,8 @@ function GridapDistributed.local_views(a::DistributedParamCounterCOO)
 end
 
 function GridapDistributed.local_views(
-  a::DistributedParamCounterCOO,test_dofs_gids_prange,trial_dofs_gids_prange)
+  a::DistributedParamCounterCOO,test_dofs_gids_prange,trial_dofs_gids_prange
+  )
   @check test_dofs_gids_prange === a.test_dofs_gids_prange
   @check trial_dofs_gids_prange === a.trial_dofs_gids_prange
   a.counters
@@ -130,7 +132,8 @@ struct DistributedParamAllocationCOO{A,B,C,D} <: GridapType
     par_strategy,
     allocs::AbstractArray{<:ParamAlgebra.ParamAllocationCOO},
     test_dofs_gids_prange::PRange,
-    trial_dofs_gids_prange::PRange)
+    trial_dofs_gids_prange::PRange
+    )
     A = typeof(par_strategy)
     B = typeof(allocs)
     C = typeof(test_dofs_gids_prange)
@@ -522,7 +525,8 @@ function Algebra.nz_counter(
 end
 
 function GridapDistributed._setup_touched_and_allocations_arrays(
-  values::AbstractVector{<:AbstractParamVector})
+  values::AbstractVector{<:AbstractParamVector}
+  )
 
   touched = map(values) do values
     fill!(Vector{Bool}(undef,innerlength(values)),false)
@@ -535,14 +539,16 @@ end
 
 function GridapDistributed._rhs_callback(
   partition::GridapDistributed.PVectorAllocationTrackOnlyValues{A,<:AbstractVector{<:AbstractParamVector}},
-  rows) where A
+  rows
+  ) where A
 
   _param_rhs_callback(partition,rows)
 end
 
 function GridapDistributed._rhs_callback(
   partition::GridapDistributed.PVectorAllocationTrackTouchedAndValues{A,<:AbstractVector{<:AbstractParamVector}},
-  rows) where A
+  rows
+  ) where A
 
   _param_rhs_callback(partition,rows)
 end
@@ -631,7 +637,13 @@ end
   nothing
 end
 
-@inline function Arrays.add_entries!(cache,combine::Function,A::ParamAATTV,vs::ParamBlock,is)
+@inline function Arrays.add_entries!(
+  cache,
+  combine::Function,
+  A::ParamAATTV,
+  vs::ParamBlock,
+  is
+  )
   for (li,i) in enumerate(is)
     get_param_entry!(cache,vs,li)
     Arrays.add_entry!(combine,A,cache,i)

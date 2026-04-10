@@ -144,7 +144,11 @@ function FESpaces.interpolate(rbfi::Interpolator,x::AbstractRealisation)
   return cache
 end
 
-function FESpaces.interpolate!(cache::ConsecutiveParamVector,rbfi::Interpolator,x::Realisation)
+function FESpaces.interpolate!(
+  cache::ConsecutiveParamVector,
+  rbfi::Interpolator,
+  x::Realisation
+  )
   k′ = param_length(x)
   l = size(rbfi.rbf_weights,2)
 
@@ -287,7 +291,10 @@ function move_interpolation(a::BlockInterpolation,test::FESpace,args...)
   return BlockInterpolation(cache,a.touched)
 end
 
-function reduced_triangulation(trian::Triangulation,a::BlockInterpolation{<:GreedyInterpolation})
+function reduced_triangulation(
+  trian::Triangulation,
+  a::BlockInterpolation{<:GreedyInterpolation}
+  )
   red_cells = get_integration_cells(a)
   red_trian = view(trian,red_cells)
   return red_trian

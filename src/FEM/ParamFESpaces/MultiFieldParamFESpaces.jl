@@ -5,7 +5,8 @@ const MultiFieldParamFESpace = MultiFieldFESpace
 
 function MultiFieldParamFESpace(
   spaces::Vector{<:SingleFieldParamFESpace};
-  style = BlockMultiFieldStyle())
+  style = BlockMultiFieldStyle()
+  )
 
   @notimplementedif !isa(style,BlockMultiFieldStyle)
   style = BlockMultiFieldStyle(style,spaces)
@@ -18,7 +19,8 @@ function MultiField._restrict_to_field(
   f,
   ::Union{<:ConsecutiveMultiFieldStyle,<:BlockMultiFieldStyle},
   free_values::AbstractParamVector,
-  field)
+  field
+  )
 
   U = f.spaces
   offsets = MultiField._compute_field_offsets(U)
@@ -49,7 +51,11 @@ function MultiField._restrict_to_field(
   return get_param_entry(block_free_values,pini:pend)
 end
 
-function FESpaces.interpolate!(objects,free_values::AbstractParamVector,fe::MultiFieldFESpace)
+function FESpaces.interpolate!(
+  objects,
+  free_values::AbstractParamVector,
+  fe::MultiFieldFESpace
+  )
   blocks = SingleFieldParamFEFunction[]
   for (field,(U,object)) in enumerate(zip(fe.spaces,objects))
     free_values_i = restrict_to_field(fe,free_values,field)
@@ -61,7 +67,8 @@ end
 
 function FESpaces.interpolate_everywhere(
   objects::AbstractVector{<:AbstractParamFunction},
-  fe::MultiFieldFESpace)
+  fe::MultiFieldFESpace
+  )
 
   free_values = zero_free_values(fe)
   blocks = SingleFieldParamFEFunction[]
@@ -78,7 +85,8 @@ function FESpaces.interpolate_everywhere!(
   objects,
   free_values::AbstractParamVector,
   dirichlet_values::AbstractParamVector,
-  fe::MultiFieldFESpace)
+  fe::MultiFieldFESpace
+  )
 
   blocks = SingleFieldParamFEFunction[]
   for (field,(U,object)) in enumerate(zip(fe.spaces,objects))
@@ -92,7 +100,8 @@ end
 
 function FESpaces.interpolate_dirichlet(
   objects::AbstractVector{<:AbstractParamFunction},
-  fe::MultiFieldFESpace)
+  fe::MultiFieldFESpace
+  )
 
   free_values = zero_free_values(fe)
   blocks = SingleFieldParamFEFunction[]

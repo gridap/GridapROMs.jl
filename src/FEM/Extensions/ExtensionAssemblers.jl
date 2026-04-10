@@ -191,7 +191,8 @@ end
 
 function ParamDataStructures.parameterise(
   a::BlockExtensionAssembler{R,C},
-  plength::Int) where {R,C}
+  plength::Int
+  ) where {R,C}
 
   NBr,SBr,Pr = R
   NBc,SBc,Pc = C

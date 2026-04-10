@@ -137,7 +137,8 @@ function _get_cell_odof_info(
   fe_dof_basis::AbstractArray,
   cell_dofs_ids::AbstractArray,
   cell_to_parent_cell::AbstractVector,
-  orders::Tuple)
+  orders::Tuple
+  )
 
   desc = get_cartesian_descriptor(model)
   periodic = desc.isperiodic
@@ -267,7 +268,10 @@ function get_fe_odof_basis(f::SingleFieldFESpace,odof_to_dof)
   CellDof(data,s.trian,s.domain_style)
 end
 
-function _get_fe_odof_basis(cell_dof::AbstractArray{<:Union{Dof,AbstractArray{<:Dof}}},dof_to_odof)
+function _get_fe_odof_basis(
+  cell_dof::AbstractArray{<:Union{Dof,AbstractArray{<:Dof}}},
+  dof_to_odof
+  )
   map(_get_fe_odof_basis,cell_dof,dof_to_odof)
 end
 
@@ -282,7 +286,10 @@ function _get_fe_odof_basis(dof::LagrangianDofBasis,dof_to_odof)
   LagrangianDofBasis(dof.nodes,odof_to_node,odof_to_comp,node_and_comp_to_odof)
 end
 
-function _get_fe_odof_basis(dof::LagrangianDofBasis{P,V},dof_to_odof) where {P,V<:MultiValue}
+function _get_fe_odof_basis(
+  dof::LagrangianDofBasis{P,V},
+  dof_to_odof
+  ) where {P,V<:MultiValue}
   odof_to_node = similar(dof.dof_to_node)
   odof_to_comp = similar(dof.dof_to_comp)
   node_and_comp_to_odof = similar(dof.node_and_comp_to_dof)

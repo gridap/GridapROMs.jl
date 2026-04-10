@@ -14,7 +14,8 @@ end
 function Arrays.evaluate!(
   Upt::TrialParamFESpace,
   U::UnEvalTrialFESpace,
-  μ::Realisation,t)
+  μ::Realisation,t
+  )
 
   dir(f) = f(μ,t)
   dir(f::Vector) = dir.(f)
@@ -25,7 +26,8 @@ end
 function Arrays.evaluate!(
   Upt::TrialParamFESpace,
   U::UnEvalTrialFESpace,
-  r::TransientRealisation)
+  r::TransientRealisation
+  )
 
   evaluate!(Upt,U,get_params(r),get_times(r))
 end
@@ -83,7 +85,8 @@ end
 function Arrays.evaluate!(
   Upt::MultiFieldFESpace,
   U::MultiFieldFESpace,
-  μ,t)
+  μ,t
+  )
 
   if !has_param_transient(U)
     return U

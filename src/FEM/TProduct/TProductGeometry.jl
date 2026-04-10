@@ -40,7 +40,8 @@ get_1d_models(model::TProductDiscreteModel) = model.models_1d
 function _split_cartesian_descriptor(desc::CartesianDescriptor{D}) where D
   origin,sizes,partition,cmap,isperiodic = desc.origin,desc.sizes,desc.partition,desc.map,desc.isperiodic
   function _compute_1d_desc(
-    o=first(origin.data),s=first(sizes),p=first(partition),m=cmap,i=first(isperiodic))
+    o=first(origin.data),s=first(sizes),p=first(partition),m=cmap,i=first(isperiodic)
+    )
     CartesianDescriptor(Point(o),(s,),(p,);map=m,isperiodic=(i,))
   end
   descs = map(_compute_1d_desc,origin.data,sizes,partition,Fill(cmap,D),isperiodic)
@@ -141,7 +142,10 @@ struct TProductTriangulation{Dt,Dp,A<:TProductDiscreteModel,B<:BodyFittedTriangu
   trians_1d::C
 end
 
-function TProductTriangulation(trian::Triangulation,trians_1d::AbstractVector{<:Triangulation})
+function TProductTriangulation(
+  trian::Triangulation,
+  trians_1d::AbstractVector{<:Triangulation}
+  )
   model = get_background_model(trian)
   models_1d = map(get_background_model,trians_1d)
   tpmodel = TProductDiscreteModel(model,models_1d)
@@ -165,7 +169,8 @@ for T in (:(AbstractVector{<:Integer}),:(AbstractVector{Bool}))
     function Geometry.BoundaryTriangulation(
       model::TProductDiscreteModel,
       face_to_bgface::$T,
-      bgface_to_lcell::AbstractVector{<:Integer})
+      bgface_to_lcell::AbstractVector{<:Integer}
+      )
 
       BoundaryTriangulation(model.model,face_to_bgface,bgface_to_lcell)
     end

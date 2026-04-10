@@ -14,7 +14,8 @@ function ODEs.ode_finish!(
   op::RBOperator,
   r::TransientRealisation,
   statef::Tuple{Vararg{AbstractVector}},
-  odecache)
+  odecache
+  )
 
   copyto!(uf.fe_data,first(statef))
   inv_project(get_trial(op),uf)
@@ -25,7 +26,8 @@ function Algebra.allocate_residual(
   op::JointTransientRBOperator, 
   r::TransientRealisationAt,
   us::Tuple{Vararg{AbstractVector}},
-  paramcache)
+  paramcache
+  )
 
   allocate_hypred_cache(get_rhs(op),r)
 end
@@ -34,7 +36,8 @@ function Algebra.allocate_jacobian(
   op::JointTransientRBOperator,
   r::TransientRealisationAt,
   us::Tuple{Vararg{AbstractVector}},
-  paramcache)
+  paramcache
+  )
 
   allocate_hypred_cache(get_lhs(op),r)
 end

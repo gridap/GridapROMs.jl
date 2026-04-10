@@ -121,7 +121,8 @@ end
 function load_contribution(
   dir,
   trian::Tuple{Vararg{Triangulation}};
-  label="")
+  label=""
+  )
 
   contrib_dir = get_filename(dir,"contrib",label)
   vals = deserialize(contrib_dir)
@@ -307,7 +308,8 @@ end
 function Utils.compute_relative_error(
   sol::SteadySnapshots{T,N},
   sol_approx::SteadySnapshots{T,N},
-  args...) where {T,N}
+  args...
+  ) where {T,N}
 
   @check size(sol) == size(sol_approx)
   errors = zeros(num_params(sol))
@@ -324,7 +326,8 @@ end
 function Utils.compute_relative_error(
   sol::BlockSnapshots,
   sol_approx::BlockSnapshots,
-  args...)
+  args...
+  )
 
   @check sol.touched == sol_approx.touched
   T = eltype2(sol)
@@ -340,7 +343,8 @@ end
 function Utils.compute_relative_error(
   sol::BlockSnapshots,
   sol_approx::BlockSnapshots,
-  X::MatrixOrTensor)
+  X::MatrixOrTensor
+  )
 
   @check sol.touched == sol_approx.touched
   error = zeros(size(sol))
@@ -374,7 +378,8 @@ function plot_a_solution(
   sol::Snapshots,
   sol_approx::Snapshots;
   trian=get_triangulation(trial),
-  field=1)
+  field=1
+  )
 
   r = get_realisation(sol)
   Ur = trial(r)
@@ -402,7 +407,8 @@ function plot_a_solution(
   feop::ParamOperator,
   sol::Snapshots,
   sol_approx::Snapshots;
-  kwargs...)
+  kwargs...
+  )
 
   trial = get_trial(feop)
   plot_a_solution(dir,trial,sol,sol_approx;kwargs...)
@@ -413,7 +419,8 @@ function plot_a_solution(
   feop::ParamOperator,
   sol::BlockSnapshots,
   sol_approx::BlockSnapshots;
-  kwargs...)
+  kwargs...
+  )
 
   @check sol.touched == sol_approx.touched
   trials = get_trial(feop)
@@ -431,7 +438,8 @@ function plot_a_solution(
   fesnaps::AbstractSnapshots,
   x̂::AbstractParamVector,
   r::AbstractRealisation;
-  kwargs...)
+  kwargs...
+  )
 
   rbsnaps = to_snapshots(rbop,x̂,r)
   plot_a_solution(dir,feop,fesnaps,rbsnaps;kwargs...)
@@ -443,7 +451,11 @@ function to_snapshots(rbop::RBOperator,x̂::AbstractParamVector,r::AbstractReali
   to_snapshots(get_trial(rbop),x̂,r)
 end
 
-function to_snapshots(rbop::AbstractLocalRBOperator,x̂::AbstractParamVector,r::AbstractRealisation)
+function to_snapshots(
+  rbop::AbstractLocalRBOperator,
+  x̂::AbstractParamVector,
+  r::AbstractRealisation
+  )
   xvec = map(enumerate(r)) do (i,μ)
     x̂μ = param_getindex(x̂,i)
     opμ = get_local(rbop,μ)

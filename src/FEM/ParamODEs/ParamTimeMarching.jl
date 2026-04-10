@@ -2,7 +2,8 @@ function ODEs.ode_start(
   solver::ODESolver,
   odeop::ODEParamOperator,
   r0::TransientRealisation,
-  us0::Tuple{Vararg{AbstractVector}})
+  us0::Tuple{Vararg{AbstractVector}}
+  )
 
   nstates = get_order(odeop)+1
   state0 = ntuple(i -> copy(us0[i]),Val{nstates}())
@@ -18,7 +19,8 @@ function ODEs.ode_finish!(
   odeop::ODEParamOperator,
   r::TransientRealisation,
   statef::Tuple{Vararg{AbstractVector}},
-  odecache)
+  odecache
+  )
 
   copy!(uf,first(statef))
   uf
@@ -40,7 +42,8 @@ function ODEs.ode_start(
   solver::ODESolver,
   odeop::LinearNonlinearODEParamOperator,
   r0::TransientRealisation,
-  us0::Tuple{Vararg{AbstractVector}})
+  us0::Tuple{Vararg{AbstractVector}}
+  )
 
   nstates = get_order(odeop)+1
   state0 = ntuple(i -> copy(us0[i]),Val{nstates}())

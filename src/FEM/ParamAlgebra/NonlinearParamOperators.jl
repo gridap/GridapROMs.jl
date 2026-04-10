@@ -7,7 +7,8 @@ function Algebra.allocate_residual(
   nlop::NonlinearParamOperator,
   μ::Realisation,
   x::AbstractVector,
-  paramcache)
+  paramcache
+  )
 
   @abstractmethod
 end
@@ -17,7 +18,8 @@ function Algebra.residual!(
   nlop::NonlinearParamOperator,
   μ::Realisation,
   x::AbstractVector,
-  paramcache)
+  paramcache
+  )
 
   @abstractmethod
 end
@@ -25,7 +27,8 @@ end
 function Algebra.residual(
   nlop::NonlinearParamOperator,
   μ::Realisation,
-  x::AbstractVector)
+  x::AbstractVector
+  )
 
   paramcache = allocate_paramcache(nlop,μ)
   residual(nlop,μ,x,paramcache)
@@ -35,7 +38,8 @@ function Algebra.residual(
   nlop::NonlinearParamOperator,
   μ::Realisation,
   x::AbstractVector,
-  paramcache)
+  paramcache
+  )
 
   b = allocate_residual(nlop,μ,x,paramcache)
   residual!(b,nlop,μ,x,paramcache)
@@ -46,7 +50,8 @@ function Algebra.allocate_jacobian(
   nlop::NonlinearParamOperator,
   μ::Realisation,
   x::AbstractVector,
-  paramcache)
+  paramcache
+  )
 
   @abstractmethod
 end
@@ -56,7 +61,8 @@ function Algebra.jacobian!(
   nlop::NonlinearParamOperator,
   μ::Realisation,
   x::AbstractVector,
-  paramcache)
+  paramcache
+  )
 
   LinearAlgebra.fillstored!(A,zero(eltype(A)))
   jacobian_add!(A,nlop,μ,x,paramcache)
@@ -66,7 +72,8 @@ end
 function Algebra.jacobian(
   nlop::NonlinearParamOperator,
   μ::Realisation,
-  x::AbstractVector)
+  x::AbstractVector
+  )
 
   paramcache = allocate_paramcache(nlop,μ)
   jacobian(nlop,μ,x,paramcache)
@@ -76,7 +83,8 @@ function Algebra.jacobian(
   nlop::NonlinearParamOperator,
   μ::Realisation,
   x::AbstractVector,
-  paramcache)
+  paramcache
+  )
 
   A = allocate_jacobian(nlop,μ,x,paramcache)
   jacobian!(A,nlop,μ,x,paramcache)
@@ -104,7 +112,11 @@ end
 
 Similar to `update_odecache!` in [`Gridap`](@ref), when dealing with parametric problems
 """
-function update_paramcache!(paramcache::AbstractParamCache,nlop::NonlinearParamOperator,μ::AbstractRealisation)
+function update_paramcache!(
+  paramcache::AbstractParamCache,
+  nlop::NonlinearParamOperator,
+  μ::AbstractRealisation
+  )
   @abstractmethod
 end
 
@@ -119,7 +131,11 @@ mutable struct ParamCache <: AbstractParamCache
   ptrial
 end
 
-function update_paramcache!(c::ParamCache,nlop::NonlinearParamOperator,μ::AbstractRealisation)
+function update_paramcache!(
+  c::ParamCache,
+  nlop::NonlinearParamOperator,
+  μ::AbstractRealisation
+  )
   c.trial = evaluate!(c.trial,c.ptrial,μ)
   c
 end
@@ -185,7 +201,8 @@ end
 
 function Algebra.allocate_residual(
   nlop::GenericParamNonlinearOperator,
-  x::AbstractVector)
+  x::AbstractVector
+  )
 
   allocate_residual(nlop.op,nlop.μ,x,nlop.paramcache)
 end
@@ -193,14 +210,16 @@ end
 function Algebra.residual!(
   b::AbstractVector,
   nlop::GenericParamNonlinearOperator,
-  x::AbstractVector)
+  x::AbstractVector
+  )
 
   residual!(b,nlop.op,nlop.μ,x,nlop.paramcache)
 end
 
 function Algebra.allocate_jacobian(
   nlop::GenericParamNonlinearOperator,
-  x::AbstractVector)
+  x::AbstractVector
+  )
 
   allocate_jacobian(nlop.op,nlop.μ,x,nlop.paramcache)
 end
@@ -208,7 +227,8 @@ end
 function Algebra.jacobian!(
   A::AbstractMatrix,
   nlop::GenericParamNonlinearOperator,
-  x::AbstractVector)
+  x::AbstractVector
+  )
 
   jacobian!(A,nlop.op,nlop.μ,x,nlop.paramcache)
 end

@@ -22,7 +22,8 @@ for T in (:ParamReindex,:PosNegParamReindex)
   @eval begin
     function Arrays.return_value(
       f::Broadcasting{<:$T},
-      x::Union{Number,AbstractArray{<:Number}}...)
+      x::Union{Number,AbstractArray{<:Number}}...
+      )
 
       vi = return_value(Broadcasting(testitem(f.f)),x...)
       local_parameterise(vi,param_length(f.f))
@@ -30,7 +31,8 @@ for T in (:ParamReindex,:PosNegParamReindex)
 
     function Arrays.return_cache(
       f::Broadcasting{<:$T},
-      x::Union{Number,AbstractArray{<:Number}}...)
+      x::Union{Number,AbstractArray{<:Number}}...
+      )
 
       c = return_cache(Broadcasting(testitem(f.f)),x...)
       a = evaluate!(c,Broadcasting(testitem(f.f)),x...)
@@ -45,7 +47,8 @@ for T in (:ParamReindex,:PosNegParamReindex)
     function Arrays.evaluate!(
       cache,
       f::Broadcasting{<:$T},
-      x::Union{Number,AbstractArray{<:Number}}...)
+      x::Union{Number,AbstractArray{<:Number}}...
+      )
 
       c,data = cache
       @inbounds for i = param_eachindex(f.f)
@@ -58,7 +61,8 @@ for T in (:ParamReindex,:PosNegParamReindex)
     function Arrays.evaluate!(
       cache,
       f::Broadcasting{<:$T},
-      x::AbstractArray{<:Number})
+      x::AbstractArray{<:Number}
+      )
 
       c,data = cache
       @inbounds for i = param_eachindex(f.f)
@@ -71,7 +75,8 @@ for T in (:ParamReindex,:PosNegParamReindex)
     function Arrays.evaluate!(
       cache,
       f::Broadcasting{<:$T},
-      x::Number...)
+      x::Number...
+      )
 
       c,data = cache
       @inbounds for i = param_eachindex(f.f)
@@ -108,7 +113,11 @@ for T in (:ParamReindex,:PosNegParamReindex)
   end
 end
 
-function Arrays.return_cache(k::OReindex,indices::AbstractVector,values::Union{ParamBlock,AbstractParamVector})
+function Arrays.return_cache(
+  k::OReindex,
+  indices::AbstractVector,
+  values::Union{ParamBlock,AbstractParamVector}
+  )
   v = testitem(values)
   c = return_cache(k,indices,v)
   a = evaluate!(c,k,indices,v)
@@ -120,7 +129,12 @@ function Arrays.return_cache(k::OReindex,indices::AbstractVector,values::Union{P
   cache,data
 end
 
-function Arrays.evaluate!(cache,k::OReindex,indices::AbstractVector,values::Union{ParamBlock,AbstractParamVector})
+function Arrays.evaluate!(
+  cache,
+  k::OReindex,
+  indices::AbstractVector,
+  values::Union{ParamBlock,AbstractParamVector}
+  )
   c,data = cache
   @inbounds for i = param_eachindex(values)
     vi = evaluate!(c[i],k,indices,param_getindex(values,i))

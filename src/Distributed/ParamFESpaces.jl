@@ -40,7 +40,10 @@ function ParamFESpaces.TrialParamFESpace!(f::DistributedSingleFieldFESpace,fun)
   DistributedSingleFieldFESpace(spaces,f.gids,f.trian,f.vector_type,f.metadata)
 end
 
-function ParamFESpaces.HomogeneousTrialParamFESpace(f::DistributedSingleFieldFESpace,args...)
+function ParamFESpaces.HomogeneousTrialParamFESpace(
+  f::DistributedSingleFieldFESpace,
+  args...
+  )
   spaces = map(f.spaces) do s
     HomogeneousTrialParamFESpace(s,args...)
   end
@@ -83,7 +86,11 @@ for f in (:(Arrays.evaluate),:(ODEs.allocate_space))
   end
 end
 
-function Arrays.evaluate!(spacex::DistributedFESpace,space::DistributedFESpace,x::AbstractRealisation)
+function Arrays.evaluate!(
+  spacex::DistributedFESpace,
+  space::DistributedFESpace,
+  x::AbstractRealisation
+  )
   map(local_views(spacex),local_views(space)) do spacex,space
     Arrays.evaluate!(spacex,space,x)
   end
@@ -120,7 +127,12 @@ for T in (:AbstractRealisation,:Nothing)
   end
 
   @eval begin
-    function Arrays.evaluate!(spacex::DistributedFESpace,space::DistributedFESpace,x::$T,y::$S)
+    function Arrays.evaluate!(
+      spacex::DistributedFESpace,
+      space::DistributedFESpace,
+      x::$T,
+      y::$S
+      )
       map(local_views(spacex),local_views(space)) do spacex,space
         Arrays.evaluate!(spacex,space,x,y)
       end
@@ -167,7 +179,8 @@ function Utils.collect_cell_matrix_for_trian(
   trial::DistributedFESpace,
   test::DistributedFESpace,
   a::GridapDistributed.DistributedDomainContribution,
-  trian::GridapDistributed.DistributedTriangulation)
+  trian::GridapDistributed.DistributedTriangulation
+  )
 
   map(collect_cell_matrix_for_trian,
     local_views(trial),
@@ -189,7 +202,10 @@ function FESpaces.SparseMatrixAssembler(
   SparseMatrixAssembler(Tm,Tv,trial,test,par_strategy)
 end
 
-function ParamDataStructures.parameterise(a::GridapDistributed.DistributedSparseMatrixAssembler,plength::Int)
+function ParamDataStructures.parameterise(
+  a::GridapDistributed.DistributedSparseMatrixAssembler,
+  plength::Int
+  )
   assems = map(local_views(a)) do assem
     parameterise(assem,plength)
   end
@@ -224,7 +240,11 @@ function DofMaps.get_dof_map(f::DistributedMultiFieldFESpace,args...)
   map(f -> get_dof_map(f,args...),f.field_fe_space)
 end
 
-function DofMaps.get_sparse_dof_map(trial::DistributedMultiFieldFESpace,test::DistributedMultiFieldFESpace,args...)
+function DofMaps.get_sparse_dof_map(
+  trial::DistributedMultiFieldFESpace,
+  test::DistributedMultiFieldFESpace,
+  args...
+  )
   ntest = num_fields(test)
   ntrial = num_fields(trial)
   map(Iterators.product(1:ntest,1:ntrial)) do (i,j)
@@ -263,7 +283,8 @@ end
 function ParamODEs._collect_solutions!(
   sols::PVector{<:ConsecutiveParamArray},
   ui::PVector{<:ConsecutiveParamArray},
-  it::Int)
+  it::Int
+  )
 
   map(local_views(sols),local_views(ui)) do sols,ui
     ParamODEs._collect_solutions!(sols.data,ui,it)

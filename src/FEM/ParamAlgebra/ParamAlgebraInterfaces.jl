@@ -54,16 +54,30 @@ end
   Algebra._add_entries!(cache,combine,A,vs,is,js)
 end
 
-@inline function Algebra.add_entries!(cache,combine::Function,A,vs::ParamBlock,is::OIdsToIds)
+@inline function Algebra.add_entries!(
+  cache,
+  combine::Function,
+  A,
+  vs::ParamBlock,
+  is::OIdsToIds
+  )
   add_ordered_entries!(cache,combine,A,vs,is)
 end
 
-@inline function Algebra.add_entries!(cache,combine::Function,A,vs::ParamBlock,is::OIdsToIds,js::OIdsToIds)
+@inline function Algebra.add_entries!(
+  cache,
+  combine::Function,
+  A,
+  vs::ParamBlock,
+  is::OIdsToIds,
+  js::OIdsToIds
+  )
   add_ordered_entries!(cache,combine,A,vs,is,js)
 end
 
 @inline function Algebra._add_entries!(
-  vij,combine::Function,A,vs::ParamBlock,is,js)
+  vij,combine::Function,A,vs::ParamBlock,is,js
+  )
 
   for (lj,j) in enumerate(js)
     if j>0
@@ -79,7 +93,8 @@ end
 end
 
 @inline function add_ordered_entries!(
-  vij,combine::Function,A,vs::ParamBlock,is::OIdsToIds,js::OIdsToIds)
+  vij,combine::Function,A,vs::ParamBlock,is::OIdsToIds,js::OIdsToIds
+  )
 
   for (lj,j) in enumerate(js)
     if j>0
@@ -97,7 +112,8 @@ end
 end
 
 @inline function Algebra._add_entries!(
-  vi,combine::Function,A,vs::ParamBlock,is)
+  vi,combine::Function,A,vs::ParamBlock,is
+  )
 
   for (li,i) in enumerate(is)
     if i>0
@@ -109,7 +125,8 @@ end
 end
 
 @inline function add_ordered_entries!(
-  vi,combine::Function,A,vs::ParamBlock,is::OIdsToIds)
+  vi,combine::Function,A,vs::ParamBlock,is::OIdsToIds
+  )
 
   for (li,i) in enumerate(is)
     if i>0
@@ -129,7 +146,12 @@ end
   A
 end
 
-@inline function Algebra.add_entry!(combine::Function,A::AbstractParamVector,v::AbstractVector,i)
+@inline function Algebra.add_entry!(
+  combine::Function,
+  A::AbstractParamVector,
+  v::AbstractVector,
+  i
+  )
   @inbounds for k = param_eachindex(A)
     aik = A[k][i]
     vk = v[k]
@@ -147,7 +169,12 @@ end
   A
 end
 
-@inline function Algebra.add_entry!(combine::Function,A::ConsecutiveParamVector,v::AbstractVector,i)
+@inline function Algebra.add_entry!(
+  combine::Function,
+  A::ConsecutiveParamVector,
+  v::AbstractVector,
+  i
+  )
   data = get_all_data(A)
   @inbounds for k = param_eachindex(A)
     aik = data[i,k]
@@ -165,7 +192,13 @@ end
   A
 end
 
-@inline function Algebra.add_entry!(combine::Function,A::AbstractParamMatrix,v::AbstractVector,i,j)
+@inline function Algebra.add_entry!(
+  combine::Function,
+  A::AbstractParamMatrix,
+  v::AbstractVector,
+  i,
+  j
+  )
   @inbounds for k = param_eachindex(A)
     aijk = A[k][i,j]
     vk = v[k]
@@ -174,7 +207,13 @@ end
   A
 end
 
-@inline function Algebra.add_entry!(combine::Function,A::ConsecutiveParamMatrix,v::Number,i,j)
+@inline function Algebra.add_entry!(
+  combine::Function,
+  A::ConsecutiveParamMatrix,
+  v::Number,
+  i,
+  j
+  )
   data = get_all_data(A)
   @inbounds for k = param_eachindex(A)
     aijk = data[i,j,k]
@@ -183,7 +222,13 @@ end
   A
 end
 
-@inline function Algebra.add_entry!(combine::Function,A::ConsecutiveParamMatrix,v::AbstractVector,i,j)
+@inline function Algebra.add_entry!(
+  combine::Function,
+  A::ConsecutiveParamMatrix,
+  v::AbstractVector,
+  i,
+  j
+  )
   data = get_all_data(A)
   @inbounds for k = param_eachindex(A)
     aijk = data[i,j,k]
@@ -193,7 +238,13 @@ end
   A
 end
 
-@inline function Algebra.add_entry!(combine::Function,A::ConsecutiveParamSparseMatrix,v::Number,i,j)
+@inline function Algebra.add_entry!(
+  combine::Function,
+  A::ConsecutiveParamSparseMatrix,
+  v::Number,
+  i,
+  j
+  )
   l = nz_index(A,i,j)
   nz = get_all_data(nonzeros(A))
   @inbounds for k = param_eachindex(A)
@@ -203,7 +254,13 @@ end
   A
 end
 
-@inline function Algebra.add_entry!(combine::Function,A::ConsecutiveParamSparseMatrix,v::AbstractVector,i,j)
+@inline function Algebra.add_entry!(
+  combine::Function,
+  A::ConsecutiveParamSparseMatrix,
+  v::AbstractVector,
+  i,
+  j
+  )
   l = nz_index(A,i,j)
   nz = get_all_data(nonzeros(A))
   @inbounds for k = param_eachindex(A)

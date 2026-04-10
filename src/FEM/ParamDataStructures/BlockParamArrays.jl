@@ -51,7 +51,10 @@ const BlockConsecutiveParamVector{T,A<:Vector{<:ConsecutiveParamVector{T}},B} = 
 """
 const BlockConsecutiveParamMatrix{T,A<:Matrix{<:ConsecutiveParamMatrix{T}},B} = BlockParamMatrix{T,A,B}
 
-function BlockArrays._BlockArray(data::AbstractArray{<:AbstractParamArray,N},axes::NTuple{N,AbstractUnitRange{Int}}) where N
+function BlockArrays._BlockArray(
+  data::AbstractArray{<:AbstractParamArray,N},
+  axes::NTuple{N,AbstractUnitRange{Int}}
+  ) where N
   @assert all(param_length(d)==param_length(first(data)) for d in data)
   BlockParamArray(data,axes)
 end
@@ -105,7 +108,10 @@ Base.@propagate_inbounds function Base.getindex(A::BlockParamVector{T},i::BlockI
   BlockArrays._blockindex_getindex(A,i)
 end
 
-@inline function BlockArrays._blockindex_getindex(A::BlockParamArray{T,N},i::BlockIndex{N}) where {T,N}
+@inline function BlockArrays._blockindex_getindex(
+  A::BlockParamArray{T,N},
+  i::BlockIndex{N}
+  ) where {T,N}
   @boundscheck blockcheckbounds(A,Block(i.I))
   @inbounds bl = A.data[i.I...]
   @boundscheck checkbounds(bl,i.α...)
@@ -134,7 +140,11 @@ Base.@propagate_inbounds function Base.setindex!(A::BlockParamVector{T},v,i::Blo
   A
 end
 
-@inline function _blockindex_setindex!(A::BlockParamArray{T,N},v,i::BlockIndex{N}) where {T,N}
+@inline function _blockindex_setindex!(
+  A::BlockParamArray{T,N},
+  v,
+  i::BlockIndex{N}
+  ) where {T,N}
   @boundscheck blockcheckbounds(A,Block(i.I))
   @inbounds bl = A.data[i.I...]
   @boundscheck checkbounds(bl,i.α...)
@@ -166,7 +176,11 @@ function Base.similar(A::BlockParamArray)
   BlockParamArray(map(similar,blocks(A)),A.axes)
 end
 
-function Base.similar(A::BlockParamArray{T,N},::Type{S},axes::Vararg{BlockArrays.AbstractBlockedUnitRange}) where {T,T′,N,S<:AbstractArray{T′,N}}
+function Base.similar(
+  A::BlockParamArray{T,N},
+  ::Type{S},
+  axes::Vararg{BlockArrays.AbstractBlockedUnitRange}
+  ) where {T,T′,N,S<:AbstractArray{T′,N}}
   A′ = map(eachindex(blocks(A))) do i
     ai = blocks(A)[i]
     axi = map(ax -> blocks(ax)[i],axes)

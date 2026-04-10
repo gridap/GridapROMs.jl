@@ -148,7 +148,8 @@ function _st_solve!(
   x::AbstractParamVector,
   s::SpaceTimeSolver,
   op::SpaceTimeParamOperator,
-  cache::Nothing)
+  cache::Nothing
+  )
 
   cache = allocate_systemcache(op,x)
   _st_solve!(x,s,op,cache)
@@ -204,7 +205,8 @@ function _st_solve_nr!(
   x::AbstractParamVector,
   A::AbstractParamMatrix,
   b::AbstractParamVector,
-  dx,ns,s,op)
+  dx,ns,s,op
+  )
 
   tcomb = TimeCombination(s.solver)
   nls = get_solver(s)
@@ -242,7 +244,8 @@ function _st_solve_nr!(
   x::RBParamVector,
   A::AbstractParamMatrix,
   b::AbstractParamVector,
-  dx,ns,s,op)
+  dx,ns,s,op
+  )
 
   tcomb = TimeCombination(s.solver)
   nls = get_solver(s)

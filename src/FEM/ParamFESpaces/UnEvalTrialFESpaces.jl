@@ -17,7 +17,8 @@ struct UnEvalTrialFESpace{A,B} <: SingleFieldFESpace
 
   function UnEvalTrialFESpace(
     space::A,
-    dirichlet::Union{Function,AbstractVector{<:Function}}) where A
+    dirichlet::Union{Function,AbstractVector{<:Function}}
+    ) where A
 
     space0 = HomogeneousTrialFESpace(space)
     B = typeof(space0)
@@ -59,10 +60,19 @@ FESpaces.get_dirichlet_dof_ids(f::UnEvalTrialFESpace) = get_dirichlet_dof_ids(f.
 FESpaces.num_dirichlet_tags(f::UnEvalTrialFESpace) = num_dirichlet_tags(f.space)
 FESpaces.get_dirichlet_dof_tag(f::UnEvalTrialFESpace) = get_dirichlet_dof_tag(f.space)
 FESpaces.get_dof_value_type(f::UnEvalTrialFESpace) = get_dof_value_type(f.space)
-function FESpaces.scatter_free_and_dirichlet_values(f::UnEvalTrialFESpace,free_values,dirichlet_values)
+function FESpaces.scatter_free_and_dirichlet_values(
+  f::UnEvalTrialFESpace,
+  free_values,
+  dirichlet_values
+  )
   scatter_free_and_dirichlet_values(f.space,free_values,dirichlet_values)
 end
-function FESpaces.gather_free_and_dirichlet_values!(free_values,dirichlet_values,f::UnEvalTrialFESpace,cell_vals)
+function FESpaces.gather_free_and_dirichlet_values!(
+  free_values,
+  dirichlet_values,
+  f::UnEvalTrialFESpace,
+  cell_vals
+  )
   gather_free_and_dirichlet_values!(free_values,dirichlet_values,f.space,cell_vals)
 end
 
@@ -118,7 +128,11 @@ function DofMaps.get_dof_map(trial::AbstractTrialFESpace,args...)
   get_dof_map(get_fe_space(trial),args...)
 end
 
-function DofMaps.get_sparse_dof_map(trial::AbstractTrialFESpace,test::SingleFieldFESpace,args...)
+function DofMaps.get_sparse_dof_map(
+  trial::AbstractTrialFESpace,
+  test::SingleFieldFESpace,
+  args...
+  )
   get_sparse_dof_map(get_fe_space(trial),test,args...)
 end
 

@@ -134,7 +134,8 @@ function tproduct_array(
   ::Nothing,
   arrays_1d::Vector{<:AbstractArray},
   gradients_1d::Vector{<:AbstractArray},
-  summation=nothing)
+  summation=nothing
+  )
 
   tproduct_array(arrays_1d)
 end
@@ -143,7 +144,8 @@ function tproduct_array(
   ::typeof(gradient),
   arrays_1d::Vector{<:AbstractArray},
   gradients_1d::Vector{<:AbstractArray},
-  summation=nothing)
+  summation=nothing
+  )
 
   decompositions = _find_decompositions(summation,arrays_1d,gradients_1d)
   GenericRankTensor(decompositions)
@@ -214,7 +216,12 @@ function tproduct_array(arrays_1d::Vector{<:BlockArray})
   BlockRankTensor(arrays)
 end
 
-function tproduct_array(op::ArrayBlock,arrays_1d::Vector{<:BlockArray},gradients_1d::Vector{<:BlockArray},s::ArrayBlock)
+function tproduct_array(
+  op::ArrayBlock,
+  arrays_1d::Vector{<:BlockArray},
+  gradients_1d::Vector{<:BlockArray},
+  s::ArrayBlock
+  )
   s_blocks = blocksize(first(arrays_1d))
   arrays = map(CartesianIndices(s_blocks)) do i
     iblock = Block(Tuple(i))

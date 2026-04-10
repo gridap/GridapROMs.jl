@@ -137,7 +137,11 @@ function Base.similar(A::TrivialParamArray{T,N},::Type{<:AbstractArray{T′}}) w
   TrivialParamArray(data′,param_length(A))
 end
 
-function Base.similar(A::TrivialParamArray{T,N},::Type{<:AbstractArray{T′}},dims::Dims{N}) where {T,T′,N}
+function Base.similar(
+  A::TrivialParamArray{T,N},
+  ::Type{<:AbstractArray{T′}},
+  dims::Dims{N}
+  ) where {T,T′,N}
   data′ = similar(get_all_data(A),T′,dims...)
   TrivialParamArray(data′,param_length(A))
 end
@@ -158,7 +162,11 @@ function Arrays.CachedArray(A::TrivialParamArray)
   TrivialParamArray(data′,param_length(A))
 end
 
-function get_param_entry!(v::AbstractVector{T},A::TrivialParamArray{T,N},i::Vararg{Integer,N}) where {T,N}
+function get_param_entry!(
+  v::AbstractVector{T},
+  A::TrivialParamArray{T,N},
+  i::Vararg{Integer,N}
+  ) where {T,N}
   entry = getindex(get_all_data(A),i...)
   fill!(v,entry)
 end
@@ -246,12 +254,19 @@ function Base.copy(A::ConsecutiveParamArray)
   ConsecutiveParamArray(data′)
 end
 
-function Base.similar(A::ConsecutiveParamArray{T,N},::Type{<:AbstractArray{T′,N}}) where {T,T′,N}
+function Base.similar(
+  A::ConsecutiveParamArray{T,N},
+  ::Type{<:AbstractArray{T′,N}}
+  ) where {T,T′,N}
   data′ = similar(get_all_data(A),T′)
   ConsecutiveParamArray(data′)
 end
 
-function Base.similar(A::ConsecutiveParamArray{T,N},::Type{<:AbstractArray{T′}},dims::Dims{N}) where {T,T′,N}
+function Base.similar(
+  A::ConsecutiveParamArray{T,N},
+  ::Type{<:AbstractArray{T′}},
+  dims::Dims{N}
+  ) where {T,T′,N}
   pdims = (dims...,param_length(A))
   data′ = similar(get_all_data(A),T′,pdims...)
   ConsecutiveParamArray(data′)
@@ -331,7 +346,11 @@ function param_setindex!(A::ConsecutiveParamArray{T,N},v,i::Integer) where {T,N}
   v
 end
 
-function get_param_entry!(v::AbstractVector{T},A::ConsecutiveParamArray{T,N},i::Vararg{Integer,N}) where {T,N}
+function get_param_entry!(
+  v::AbstractVector{T},
+  A::ConsecutiveParamArray{T,N},
+  i::Vararg{Integer,N}
+  ) where {T,N}
   data = get_all_data(A)
   for j in eachindex(v)
     @inbounds v[j] = data[i...,j]
@@ -584,7 +603,10 @@ function Base.copy(A::GenericParamMatrix)
   GenericParamMatrix(data′,ptrs,nrows)
 end
 
-function Base.similar(A::GenericParamMatrix{T,N},::Type{<:AbstractMatrix{T′}}) where {T,T′,N}
+function Base.similar(
+  A::GenericParamMatrix{T,N},
+  ::Type{<:AbstractMatrix{T′}}
+  ) where {T,T′,N}
   data′ = similar(get_all_data(A),T′)
   ptrs = get_ptrs(A)
   nrows = get_nrows(A)
@@ -646,7 +668,12 @@ function Arrays.CachedArray(A::GenericParamMatrix)
   GenericParamMatrix(data′,ptrs,nrows)
 end
 
-function get_param_entry!(v::AbstractVector{T},A::GenericParamMatrix{T},i::Integer,j::Integer) where T
+function get_param_entry!(
+  v::AbstractVector{T},
+  A::GenericParamMatrix{T},
+  i::Integer,
+  j::Integer
+  ) where T
   for k in eachindex(v)
     @inbounds v[k] = A[k][i,j]
   end

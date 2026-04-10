@@ -96,7 +96,8 @@ function Algebra.allocate_residual(
   op::JointParamOperator,
   μ::Realisation,
   u::AbstractVector,
-  paramcache)
+  paramcache
+  )
 
   uh = EvaluationFunction(paramcache.trial,u)
   test = get_test(op)
@@ -117,7 +118,8 @@ function Algebra.residual!(
   μ::Realisation,
   u::AbstractVector,
   paramcache;
-  add::Bool=false)
+  add::Bool=false
+  )
 
   !add && fill!(b,zero(eltype(b)))
 
@@ -138,7 +140,8 @@ function Algebra.allocate_jacobian(
   op::JointParamOperator,
   μ::Realisation,
   u::AbstractVector,
-  paramcache)
+  paramcache
+  )
 
   uh = EvaluationFunction(paramcache.trial,u)
   trial = get_trial(op)
@@ -159,7 +162,8 @@ function ODEs.jacobian_add!(
   op::JointParamOperator,
   μ::Realisation,
   u::AbstractVector,
-  paramcache)
+  paramcache
+  )
 
   uh = EvaluationFunction(paramcache.trial,u)
   trial = get_trial(op)
@@ -180,7 +184,8 @@ function Algebra.allocate_residual(
   op::SplitParamOperator,
   μ::Realisation,
   u::AbstractVector,
-  paramcache)
+  paramcache
+  )
 
   uh = EvaluationFunction(paramcache.trial,u)
   test = get_test(op)
@@ -202,7 +207,8 @@ function Algebra.residual!(
   μ::Realisation,
   u::AbstractVector,
   paramcache;
-  add::Bool=false)
+  add::Bool=false
+  )
 
   !add && fill!(b,zero(eltype(b)))
 
@@ -227,7 +233,8 @@ function Algebra.allocate_jacobian(
   op::SplitParamOperator,
   μ::Realisation,
   u::AbstractVector,
-  paramcache)
+  paramcache
+  )
 
   uh = EvaluationFunction(paramcache.trial,u)
   trial = get_trial(op)
@@ -250,7 +257,8 @@ function ODEs.jacobian_add!(
   op::SplitParamOperator,
   μ::Realisation,
   u::AbstractVector,
-  paramcache)
+  paramcache
+  )
 
   uh = EvaluationFunction(paramcache.trial,u)
   trial = get_trial(op)
@@ -277,12 +285,18 @@ const LinearNonlinearParamOperator{T<:TriangulationStyle} = ParamOperator{Linear
 get_fe_operator(op::LinearNonlinearParamOperator) = get_fe_operator(get_nonlinear_operator(op))
 join_operators(op::LinearNonlinearParamOperator) = get_algebraic_operator(join_operators(get_fe_operator(op)))
 
-function ParamAlgebra.allocate_paramcache(op::LinearNonlinearParamOperator,μ::AbstractRealisation)
+function ParamAlgebra.allocate_paramcache(
+  op::LinearNonlinearParamOperator,
+  μ::AbstractRealisation
+  )
   op_nlin = get_nonlinear_operator(op)
   allocate_paramcache(op_nlin,μ)
 end
 
-function ParamAlgebra.allocate_systemcache(op::LinearNonlinearParamOperator,u::AbstractVector)
+function ParamAlgebra.allocate_systemcache(
+  op::LinearNonlinearParamOperator,
+  u::AbstractVector
+  )
   op_nlin = get_nonlinear_operator(op)
   allocate_systemcache(op_nlin,u)
 end
@@ -290,13 +304,17 @@ end
 function ParamAlgebra.update_paramcache!(
   paramcache::AbstractParamCache,
   op::LinearNonlinearParamOperator,
-  μ::AbstractRealisation)
+  μ::AbstractRealisation
+  )
 
   op_nlin = get_nonlinear_operator(op)
   update_paramcache!(paramcache,op_nlin,μ)
 end
 
-function ParamDataStructures.parameterise(op::LinearNonlinearParamOperator,μ::AbstractRealisation)
+function ParamDataStructures.parameterise(
+  op::LinearNonlinearParamOperator,
+  μ::AbstractRealisation
+  )
   op_lin = parameterise(get_linear_operator(op),μ)
   op_nlin = parameterise(get_nonlinear_operator(op),μ)
   syscache_lin = allocate_systemcache(op_lin)
@@ -307,7 +325,8 @@ function Algebra.allocate_residual(
   op::LinearNonlinearParamOperator,
   μ::Realisation,
   u::AbstractVector,
-  paramcache)
+  paramcache
+  )
 
   @notimplemented "This is inefficient. Instead, assemble the nonlinear system
   by defining a [`LinearNonlinearParamOperator`](@ref)"
@@ -317,7 +336,8 @@ function Algebra.allocate_jacobian(
   op::LinearNonlinearParamOperator,
   μ::Realisation,
   u::AbstractVector,
-  paramcache)
+  paramcache
+  )
 
   @notimplemented "This is inefficient. Instead, assemble the nonlinear system
   by defining a [`LinearNonlinearParamOperator`](@ref)"
@@ -328,7 +348,8 @@ function Algebra.residual!(
   op::LinearNonlinearParamOperator,
   μ::Realisation,
   u::AbstractVector,
-  paramcache)
+  paramcache
+  )
 
   @notimplemented "This is inefficient. Instead, assemble the nonlinear system
   by defining a [`LinearNonlinearParamOperator`](@ref)"
@@ -339,7 +360,8 @@ function ODEs.jacobian_add!(
   op::LinearNonlinearParamOperator,
   μ::Realisation,
   u::AbstractVector,
-  paramcache)
+  paramcache
+  )
 
   @notimplemented "This is inefficient. Instead, assemble the nonlinear system
   by defining a [`LinearNonlinearParamOperator`](@ref)"

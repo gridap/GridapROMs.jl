@@ -30,7 +30,8 @@ function FESpaces.SingleFieldFEFunction(
   cell_dof_values::AbstractArray{<:ParamBlock},
   free_values::AbstractParamVector{<:Number},
   dirichlet_values::AbstractParamVector{<:Number},
-  fs::SingleFieldFESpace) where T
+  fs::SingleFieldFESpace
+  ) where T
 
   SingleFieldParamFEFunction(cell_field,cell_dof_values,free_values,dirichlet_values,fs)
 end
@@ -95,7 +96,8 @@ struct MultiFieldParamFEFunction{T<:MultiFieldCellField} <: ParamFEFunction
   function MultiFieldParamFEFunction(
     free_values::AbstractVector,
     space::MultiFieldFESpace,
-    single_fe_functions::Vector{<:SingleFieldParamFEFunction})
+    single_fe_functions::Vector{<:SingleFieldParamFEFunction}
+    )
 
     multi_cell_field = MultiFieldCellField(map(i->i.cell_field,single_fe_functions))
     T = typeof(multi_cell_field)
@@ -111,7 +113,8 @@ end
 function MultiField.MultiFieldFEFunction(
   free_values::AbstractVector,
   space::MultiFieldFESpace,
-  single_fe_functions::Vector{<:SingleFieldParamFEFunction})
+  single_fe_functions::Vector{<:SingleFieldParamFEFunction}
+  )
 
   MultiFieldParamFEFunction(free_values,space,single_fe_functions)
 end

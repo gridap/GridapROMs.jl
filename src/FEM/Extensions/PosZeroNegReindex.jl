@@ -52,7 +52,8 @@ Arrays.testitem(k::PosZeroNegParamReindex) = param_getindex(k,1)
 
 function Arrays.return_value(
   k::Broadcasting{<:PosZeroNegParamReindex},
-  x::Union{Number,AbstractArray{<:Number}}...)
+  x::Union{Number,AbstractArray{<:Number}}...
+  )
 
   vi = return_value(Broadcasting(testitem(k.f)),x...)
   local_parameterise(vi,param_length(k.f))
@@ -60,7 +61,8 @@ end
 
 function Arrays.return_cache(
   k::Broadcasting{<:PosZeroNegParamReindex},
-  x::Union{Number,AbstractArray{<:Number}}...)
+  x::Union{Number,AbstractArray{<:Number}}...
+  )
 
   fi = testitem(k.f)
   c = return_cache(Broadcasting(fi),x...)
@@ -76,7 +78,8 @@ end
 function Arrays.evaluate!(
   cache,
   k::Broadcasting{<:PosZeroNegParamReindex},
-  x::Union{Number,AbstractArray{<:Number}}...)
+  x::Union{Number,AbstractArray{<:Number}}...
+  )
 
   c,data = cache
   @inbounds for i = param_eachindex(k.f)
@@ -89,7 +92,8 @@ end
 function Arrays.evaluate!(
   cache,
   k::Broadcasting{<:PosZeroNegParamReindex},
-  x::AbstractArray{<:Number})
+  x::AbstractArray{<:Number}
+  )
 
   c,data = cache
   @inbounds for i = param_eachindex(k.f)

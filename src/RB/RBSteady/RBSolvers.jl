@@ -70,7 +70,8 @@ function RBSolver(
   fesolver::GridapType,
   style::ReductionStyle;
   nparams=100,
-  kwargs...)
+  kwargs...
+  )
 
   reduction = Reduction(style;nparams)
   RBSolver(fesolver,reduction;kwargs...)
@@ -109,7 +110,8 @@ function solution_snapshots(
   feop::ParamOperator,
   args...;
   nparams=num_offline_params(solver),
-  r=realisation(feop;nparams))
+  r=realisation(feop;nparams)
+  )
 
   solution_snapshots(solver,feop,r,args...)
 end
@@ -118,7 +120,8 @@ function solution_snapshots(
   solver::RBSolver,
   feop::ParamOperator,
   r::AbstractRealisation,
-  args...)
+  args...
+  )
 
   fesolver = get_fe_solver(solver)
   dof_map = get_dof_map(feop)
@@ -131,7 +134,8 @@ end
 function solution_snapshots(
   fesolver::NonlinearSolver,
   op::ParamOperator,
-  r::Realisation)
+  r::Realisation
+  )
 
   dof_map = get_dof_map(op)
   values,stats = solve(fesolver,op,r)
@@ -149,7 +153,8 @@ quantity `s` denotes the solution snapshots in which we evaluate the residual
 function residual_snapshots(
   solver::RBSolver,
   op::ParamOperator,
-  s::AbstractSnapshots)
+  s::AbstractSnapshots
+  )
 
   sres = select_snapshots(s,res_params(solver))
   us_res = get_param_data(sres)
@@ -162,7 +167,8 @@ end
 function residual_snapshots(
   solver::RBSolver,
   op::ParamOperator{LinearParamEq},
-  s::AbstractSnapshots)
+  s::AbstractSnapshots
+  )
 
   sres = select_snapshots(s,res_params(solver))
   us_res = get_param_data(sres) |> similar
@@ -173,7 +179,11 @@ function residual_snapshots(
   return Snapshots(b,ib,r_res)
 end
 
-function residual_snapshots(solver::RBSolver,op::ParamOperator{LinearNonlinearParamEq},args...)
+function residual_snapshots(
+  solver::RBSolver,
+  op::ParamOperator{LinearNonlinearParamEq},
+  args...
+  )
   res_lin = residual_snapshots(solver,get_linear_operator(op),args...)
   res_nlin = residual_snapshots(solver,get_nonlinear_operator(op),args...)
   return (res_lin,res_nlin)
@@ -191,7 +201,8 @@ relative to the `n`th temporal derivative
 function jacobian_snapshots(
   solver::RBSolver,
   op::ParamOperator,
-  s::AbstractSnapshots)
+  s::AbstractSnapshots
+  )
 
   fesolver = get_fe_solver(solver)
   sjac = select_snapshots(s,jac_params(solver))
@@ -205,7 +216,8 @@ end
 function jacobian_snapshots(
   solver::RBSolver,
   op::ParamOperator{LinearParamEq},
-  s::AbstractSnapshots)
+  s::AbstractSnapshots
+  )
 
   fesolver = get_fe_solver(solver)
   sjac = select_snapshots(s,jac_params(solver))
@@ -220,7 +232,8 @@ end
 function jacobian_snapshots(
   solver::RBSolver,
   op::ParamOperator{LinearNonlinearParamEq},
-  s::AbstractSnapshots)
+  s::AbstractSnapshots
+  )
 
   jac_lin = jacobian_snapshots(solver,get_linear_operator(op),s)
   jac_nlin = jacobian_snapshots(solver,get_nonlinear_operator(op),s)
@@ -238,7 +251,8 @@ _get_trivial_sparse_dof_map(a::BlockParamArray) = map(_get_trivial_sparse_dof_ma
 function Algebra.solve(
   solver::RBSolver,
   op::NonlinearOperator,
-  r::AbstractRealisation)
+  r::AbstractRealisation
+  )
 
   trial = get_trial(op)(r)
   x̂ = zero_free_values(trial)
@@ -257,7 +271,8 @@ function Algebra._solve_nr!(
   x::RBParamVector,
   A::AbstractParamMatrix,
   b::AbstractParamVector,
-  dx,ns,nls,op)
+  dx,ns,nls,op
+  )
 
   log = nls.log
   change_tols!(log)
