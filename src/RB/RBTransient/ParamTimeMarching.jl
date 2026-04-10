@@ -20,7 +20,7 @@ function ODEs.ode_finish!(
   solver::ODESolver,
   op::RBOperator,
   r::TransientRealisation,
-  statef::Tuple{Vararg{RBParamVector}},
+  statef::Tuple{Vararg{AbstractVector}},
   odecache)
 
   _uf = first(statef)

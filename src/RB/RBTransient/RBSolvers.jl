@@ -135,22 +135,45 @@ function Algebra.solve(
   solver::RBSolver,
   op::NonlinearOperator,
   r::TransientRealisation,
-  us0
+  us0::Tuple{Vararg{AbstractVector}}
   )
-
-  fesolver = SpaceTimeSolver(solver)
-  tcomb = TimeCombination(fesolver)
 
   trial = get_trial(op)(r)
   x̂ = zero_free_values(trial)
 
-  nlop = SpaceTimeOperator(op,tcomb,r,us0)
+  fesolver = SpaceTimeSolver(solver,x̂,us0)
+  nlop = parameterise(op,r)
   syscache = allocate_systemcache(nlop,x̂)
 
   t = @timed solve!(x̂,fesolver,nlop,syscache)
   stats = CostTracker(t,nruns=num_params(r),name="RB")
 
   return x̂,stats
+end
+
+function Algebra.solve(
+  solver::RBSolver,
+  op::NonlinearOperator,
+  r::TransientRealisation,
+  uhs0::Tuple{Vararg{Function}}
+  )
+
+  params = get_params(r)
+  us0 = ()
+  for uh0 in uhs0
+    us0 = (us0...,get_free_dof_values(uh0(params)))
+  end
+  solve(solver,op,r,us0)
+end
+
+function Algebra.solve(
+  solver::RBSolver,
+  op::NonlinearOperator,
+  r::TransientRealisation,
+  u0::Any
+  )
+
+  solve(solver,op,r,(u0,))
 end
 
 # local solver

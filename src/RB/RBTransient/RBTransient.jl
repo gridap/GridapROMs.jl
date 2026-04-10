@@ -62,6 +62,11 @@ using Gridap.ODEs
 using Gridap.TensorValues
 using Gridap.Helpers
 
+using GridapSolvers
+using GridapSolvers.LinearSolvers
+using GridapSolvers.NonlinearSolvers
+using GridapSolvers.SolverInterfaces
+
 using GridapROMs.Utils
 using GridapROMs.DofMaps
 using GridapROMs.TProduct
@@ -120,12 +125,13 @@ include("HRAssemblers.jl")
 
 include("LocalProjections.jl")
 
+export TransientRBOperator
+include("ReducedOperators.jl")
+
+export SpaceTimeSolver
 include("SpaceTime.jl")
 
 include("ParamTimeMarching.jl")
-
-export TransientRBOperator
-include("ReducedOperators.jl")
 
 include("PostProcess.jl")
 

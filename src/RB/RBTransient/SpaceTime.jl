@@ -1,78 +1,29 @@
-struct SpaceTimeOperator <: NonlinearOperator
-  op::NonlinearOperator
-  tcomb::TimeCombination
-  usx::Tuple{Vararg{AbstractVector}}
-  us0::Tuple{Vararg{AbstractVector}}
-end
-
-function SpaceTimeOperator(
-  op::ParamOperator, 
-  c::TimeCombination,
-  r::TransientRealisation,
-  us0::Tuple{Vararg{AbstractVector}}
-  )
-
-  pop = parameterise(op,r)
-  trial = get_trial(op)(r)
-  û = zero_free_values(trial)
-  ûs = allocate_time_combination(c,û,us0)
-  SpaceTimeOperator(pop,c,ûs,us0)
-end
-
-function SpaceTimeOperator(
-  op::ParamOperator, 
-  tcomb::TimeCombination,
-  r::TransientRealisation,
-  uhs0::Tuple{Vararg{Function}}
-  )
-
-  params = get_params(r)
-  us0 = ()
-  for uh0 in uhs0
-    us0 = (us0...,get_free_dof_values(uh0(params)))
+struct SpaceTimeSolver{A<:ODESolver,B<:NonlinearSolver} <: NonlinearSolver
+  solver::A
+  usx::Tuple{Vararg{AbstractParamVector}}
+  us0::Tuple{Vararg{AbstractParamVector}}
+  function SpaceTimeSolver(
+    solver::A,
+    usx::Tuple{Vararg{AbstractParamVector}},
+    us0::Tuple{Vararg{AbstractParamVector}},
+    ) where A 
+    
+    B = typeof(get_solver(solver))
+    new{A,B}(solver,usx,us0)
   end
-  SpaceTimeOperator(op,tcomb,r,us0)
 end
 
-function Algebra.allocate_residual(
-  nlop::SpaceTimeOperator,
-  x::AbstractVector)
+const SpaceTimeLinearSolver{A<:ODESolver} = SpaceTimeSolver{A,<:LinearSolver}
 
-  allocate_residual(nlop.op.op,nlop.op.r,nlop.usx,nlop.op.paramcache)
-end
+function SpaceTimeSolver(
+  solver::ODESolver,
+  u::AbstractParamVector,
+  us0::Tuple{Vararg{AbstractParamVector}}
+  )
 
-function Algebra.residual!(
-  b::AbstractVector,
-  nlop::SpaceTimeOperator,
-  x::AbstractVector)
-
-  time_combination!(nlop.usx,nlop.tcomb,x,nlop.us0)
-  residual!(b,nlop.op.op,nlop.op.r,usx,nlop.op.paramcache)
-end
-
-function Algebra.allocate_jacobian(
-  nlop::SpaceTimeOperator,
-  x::AbstractVector)
-
-  allocate_jacobian(nlop.op.op,nlop.op.r,nlop.usx,nlop.op.paramcache)
-end
-
-function Algebra.jacobian!(
-  A::AbstractMatrix,
-  nlop::SpaceTimeOperator,
-  x::AbstractVector)
-
-  time_combination!(nlop.usx,nlop.tcomb,x,nlop.us0)
-  jacobian!(A,nlop.op.op,nlop.op.r,usx,nlop.op.ws,nlop.op.paramcache)
-  A
-end
-
-struct SpaceTimeSolver <: NonlinearSolver
-  sysslvr::ODESolver
-end
-
-function SpaceTimeSolver(rbsolver::RBSolver)
-  SpaceTimeSolver(get_fe_solver(rbsolver))
+  c = TimeCombination(solver)
+  us = time_combination(c,u,us0)
+  SpaceTimeSolver(c,us,us0)
 end
 
 get_shift(s::SpaceTimeSolver) = @notimplemented 
@@ -92,10 +43,13 @@ end
 front_shift!(s::SpaceTimeSolver,r::TransientRealisation) = shift!(r,get_shift(s))
 back_shift!(s::SpaceTimeSolver,r::TransientRealisation) = shift!(r,-get_shift(s))
 
-ParamODEs.TimeCombination(s::SpaceTimeSolver) = TimeCombination(s.sysslvr)
+get_solver(s::SpaceTimeSolver) = @notimplemented
+get_solver(s::SpaceTimeSolver{<:ThetaMethod}) = s.solver.sysslvr
+get_solver(s::SpaceTimeSolver{<:GeneralizedAlpha1}) = s.solver.sysslvr
+get_solver(s::SpaceTimeSolver{<:GeneralizedAlpha2}) = s.solver.sysslvr
 
 function Algebra.solve!(
-  x̂::AbstractVector,
+  x̂::AbstractParamVector,
   solver::SpaceTimeSolver,
   nlop::NonlinearParamOperator,
   syscache
@@ -104,22 +58,156 @@ function Algebra.solve!(
   r = _get_realisation(nlop)
   front_shift!(solver,r)
   _update_paramcache!(nlop,r)
-  solve!(x̂,solver.sysslvr,nlop,syscache)
+  _st_solve!(x̂,solver,nlop,syscache)
   back_shift!(solver,r)
 end
 
 # utils 
 
-function _insert_initial_condition!(
-  u::RBParamVector,
-  U::RBSpace,
-  c::TimeCombination,
-  us0::NTuple{N,AbstractParamVector}
-  ) where N
+function _st_solve!(
+  x::AbstractParamVector,
+  s::SpaceTimeLinearSolver,
+  op::NonlinearParamOperator,
+  cache
+  )
+    
+  solve!(x,get_solver(s),op,cache)
+end
 
-  ParamODEs._zero_combination!(u.fe_data,c,us0)
-  project!(u.data,U,u.fe_data)
-  u
+function _st_solve!(
+  x::AbstractParamVector,
+  s::SpaceTimeSolver,
+  op::NonlinearParamOperator,
+  cache::Nothing)
+
+  cache = allocate_systemcache(op,x)
+  _st_solve!(x,s,op,cache)
+end
+
+const SpaceTimeNewtonSolver{A<:ODESolver} = SpaceTimeSolver{A,<:NewtonSolver}
+
+function _st_solve!(
+  x::AbstractParamVector,
+  s::SpaceTimeNewtonSolver,
+  op::NonlinearParamOperator,
+  cache::SystemCache
+  ) 
+
+  nls = get_solver(s)
+
+  fill!(x,zero(eltype(x)))
+  update_systemcache!(op,x)
+
+  @unpack A,b = cache
+  residual!(b,op,x)
+  jacobian!(A,op,x)
+
+  A_item = testitem(A)
+  x_item = testitem(x)
+  dx = allocate_in_domain(A_item)
+  fill!(dx,zero(eltype(dx)))
+  ss = symbolic_setup(nls.ls,A_item)
+  ns = numerical_setup(ss,A_item,x_item)
+
+  _st_solve_nr!(x,A,b,dx,ns,s,op)
+  return NonlinearSolvers.NewtonCache(A,b,dx,ns)
+end
+
+function _st_solve!(
+  x::AbstractParamVector,
+  s::SpaceTimeNewtonSolver,
+  op::NonlinearParamOperator,
+  cache::NonlinearSolvers.NewtonCache
+  ) 
+
+  update_systemcache!(op,x)
+
+  @unpack A,b,dx,ns = cache
+  residual!(b,op,x)
+  jacobian!(A,op,x)
+
+  _st_solve_nr!(x,A,b,dx,ns,s,op)
+  return cache
+end
+
+function _st_solve_nr!(
+  x::AbstractParamVector,
+  A::AbstractParamMatrix,
+  b::AbstractParamVector,
+  dx,ns,s,op)
+
+  tcomb = TimeCombination(s.solver)
+  nls = get_solver(s)
+  log = nls.log
+
+  res = norm(b)
+  done = LinearSolvers.init!(log,res)
+
+  while !done
+    @inbounds for i in param_eachindex(x)
+      xi = param_getindex(x,i)
+      Ai = param_getindex(A,i)
+      bi = param_getindex(b,i)
+      numerical_setup!(ns,Ai)
+      rmul!(bi,-1)
+      solve!(dx,ns,bi)
+      xi .+= dx
+    end
+
+    time_combination!(s.usx,tcomb,x,s.us0)
+    residual!(b,op,x)
+    res  = norm(b)
+    done = LinearSolvers.update!(log,res)
+
+    if !done
+      jacobian!(A,op,x)
+    end
+  end
+
+  LinearSolvers.finalize!(log,res)
+  return x
+end
+
+function _st_solve_nr!(
+  x::RBParamVector,
+  A::AbstractParamMatrix,
+  b::AbstractParamVector,
+  dx,ns,s,op)
+
+  tcomb = TimeCombination(s.solver)
+  nls = get_solver(s)
+  log = nls.log
+  RBSteady.change_tols!(log)
+
+  trial = RBSteady._get_trial(op)
+
+  res = norm(b)
+  done = LinearSolvers.init!(log,res)
+
+  while !done
+    @inbounds for i in param_eachindex(x)
+      xi = param_getindex(x,i)
+      Ai = param_getindex(A,i)
+      bi = param_getindex(b,i)
+      numerical_setup!(ns,Ai)
+      rmul!(bi,-1)
+      solve!(dx,ns,bi)
+      xi .+= dx
+    end
+
+    inv_project(trial,x)
+    time_combination!(s.usx,tcomb,x,s.us0)
+    residual!(b,op,x)
+    res  = norm(b)
+    done = LinearSolvers.update!(log,res)
+
+    if !done
+      jacobian!(A,op,x)
+    end
+  end
+
+  LinearSolvers.finalize!(log,res)
+  return x
 end
 
 _get_realisation(nlop::NonlinearParamOperator) = @abstractmethod
