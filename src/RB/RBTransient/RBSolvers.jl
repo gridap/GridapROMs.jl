@@ -141,7 +141,7 @@ function Algebra.solve(
   trial = get_trial(op)(r)
   x̂ = zero_free_values(trial)
 
-  fesolver = SpaceTimeSolver(solver,x̂,us0)
+  fesolver = SpaceTimeSolver(solver,us0)
   nlop = parameterise(op,r)
   syscache = allocate_systemcache(nlop,x̂)
 
@@ -163,6 +163,10 @@ function Algebra.solve(
   for uh0 in uhs0
     us0 = (us0...,get_free_dof_values(uh0(params)))
   end
+  if length(us0) < get_order(op) + 1
+    fesolver = get_fe_solver(solver)
+    us0 = add_initial_conditions(fesolver,op,r,us0)
+  end
   solve(solver,op,r,us0)
 end
 
@@ -182,13 +186,24 @@ function Algebra.solve(
   solver::RBSolver,
   op::AbstractLocalRBOperator,
   r::TransientRealisation,
-  us0
+  ush0::Tuple{Vararg{AbstractVector}}
+  )
+
+  @notimplemented "When using local reduced operators, provide the initial condition as functions 
+  of the parameters, so that they can be localised. See the other solve method for an example."
+end
+
+function Algebra.solve(
+  solver::RBSolver,
+  op::AbstractLocalRBOperator,
+  r::TransientRealisation,
+  ush0::Tuple{Vararg{Function}}
   )
 
   t = @timed x̂vec = map(get_params(r)) do μ
     opμt = get_local(op,μ)
     rμt = _to_realisation(r,μ)
-    x̂, = solve(solver,opμt,rμt,us0)
+    x̂, = solve(solver,opμt,rμt,ush0)
     x̂
   end
   x̂ = param_cat(x̂vec)

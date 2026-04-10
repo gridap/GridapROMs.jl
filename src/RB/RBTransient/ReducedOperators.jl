@@ -102,6 +102,7 @@ function Algebra.jacobian!(
   op::SplitTransientRBOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
+  ws::Tuple{Vararg{Real}},
   paramcache
   )
 
@@ -127,7 +128,9 @@ function Algebra.jacobian!(
     Ak = A.fecache[k]
     lhs = lhss[k]
     jac = jacs[k]
-    dc = jac(μ,hr_t,hr_uh,du,v)
+    w = ws[k]
+    iszero(w) && continue
+    dc = w * jac(μ,hr_t,hr_uh,du,v)
     trian_jac = trian_jacs[k]
     for strian in trian_jac
       A_strian = Ak[strian]
@@ -157,6 +160,7 @@ function Algebra.jacobian!(
   op::TransientGenericRBOperator{O,T,<:RBFContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
+  ws::Tuple{Vararg{Real}},
   paramcache
   ) where {O,T}
 

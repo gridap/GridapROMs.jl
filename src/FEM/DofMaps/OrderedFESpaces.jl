@@ -90,7 +90,7 @@ function FESpaces.scatter_free_and_dirichlet_values(f::OrderedFESpace,fv,dv)
   cell_ovalue_to_value(f,cell_values)
 end
 
-# # Gathers free and dirichlet values ordered according to Gridap
+# Gathers free and dirichlet values ordered according to Gridap
 function FESpaces.gather_free_and_dirichlet_values!(fv,dv,f::OrderedFESpace,cv)
   cell_ovals = cv
   cell_dofs = get_cell_dof_ids(f)

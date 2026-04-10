@@ -36,7 +36,7 @@ function allocate_spacetime_residual(
   _prev_mid_shift!(tcomb,r)
   paramcache = allocate_paramcache(odeop,r;evaluated=true)
   _cur_shift!(tcomb,r)
-  usx = allocate_time_combination(tcomb,u,us0)
+  usx = allocate_time_combination(u,us0)
   b = allocate_residual(odeop,r,usx,paramcache)
   return b,usx,paramcache
 end
@@ -70,7 +70,7 @@ function spacetime_residual!(
   paramcache
   )
 
-  zero_time_combination!(usx,tcomb,u,us0)
+  zero_time_combination!(usx,tcomb,us0)
   _prev_mid_shift!(tcomb,r)
   residual!(b,odeop,r,usx,paramcache)
   _cur_shift!(tcomb,r)
@@ -113,7 +113,7 @@ function allocate_spacetime_jacobian(
   _prev_mid_shift!(tcomb,r)
   paramcache = allocate_paramcache(odeop,r;evaluated=true)
   _cur_shift!(tcomb,r)
-  usx = allocate_time_combination(tcomb,u,us0)
+  usx = allocate_time_combination(u,us0)
   A = allocate_jacobian(odeop,r,usx,paramcache)
   return A,usx,paramcache
 end
@@ -149,7 +149,7 @@ function spacetime_jacobian!(
   )
 
   ws = ntuple(_ -> 1,Val(length(us0)))
-  zero_time_combination!(usx,tcomb,u,us0)
+  zero_time_combination!(usx,tcomb,us0)
   _prev_mid_shift!(tcomb,r)
   jacobian!(A,odeop,r,usx,ws,paramcache)
   _cur_shift!(tcomb,r)

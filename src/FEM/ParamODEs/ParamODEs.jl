@@ -91,6 +91,7 @@ export TransientLinearParamFEOperator
 export TransientLinearParamFEOpFromWeakForm
 include("TransientParamFEOperators.jl")
 
+export add_initial_conditions
 include("ParamTimeMarching.jl")
 
 export TimeCombination

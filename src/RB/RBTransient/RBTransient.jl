@@ -128,6 +128,7 @@ include("LocalProjections.jl")
 export TransientRBOperator
 include("ReducedOperators.jl")
 
+export SpaceTimeParamOperator
 export SpaceTimeSolver
 include("SpaceTime.jl")
 

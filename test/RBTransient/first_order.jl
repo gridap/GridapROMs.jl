@@ -1,0 +1,110 @@
+module FirstOrderTransientPDE
+  
+using Gridap
+using Gridap.ODEs
+using GridapROMs
+
+function main(
+  fesolver::ODESolver,
+  method=:pod,compression=:global,hypred_strategy=:mdeim;
+  tol=1e-4,nparams=50,nparams_res=floor(Int,nparams/3),
+  nparams_jac=floor(Int,nparams/4),sketch=:sprn,ncentroids=2
+  )
+
+  method = method ∈ (:pod,:ttsvd) ? method : :pod
+  compression = compression ∈ (:global,:local) ? compression : :global
+  hypred_strategy = hypred_strategy ∈ (:mdeim,:sopt) ? hypred_strategy : :mdeim
+
+  println("Running test with compression $method, $compression compressions, and $hypred_strategy hyper-reduction")
+
+  pdomain = (1,10,1,10,1,10)
+
+  domain = (0,1,0,1)
+  partition = (20,20)
+  if method==:ttsvd
+    model = TProductDiscreteModel(domain,partition)
+  else
+    model = CartesianDiscreteModel(domain,partition)
+  end
+
+  order = 1
+  degree = 2*order
+
+  Ω = Triangulation(model)
+  dΩ = Measure(Ω,degree)
+  Γn = BoundaryTriangulation(model,tags=[8])
+  dΓn = Measure(Γn,degree)
+
+  a(μ,t) = x -> 1+exp(-sin(t)^2*x[1]/sum(μ))
+  aμt(μ,t) = parameterise(a,μ,t)
+
+  f(μ,t) = x -> 1.
+  fμt(μ,t) = parameterise(f,μ,t)
+
+  h(μ,t) = x -> abs(cos(t/μ[3]))
+  hμt(μ,t) = parameterise(h,μ,t)
+
+  g(μ,t) = x -> μ[1]*exp(-x[1]/μ[2])*abs(cos(t/μ[3]))
+  gμt(μ,t) = parameterise(g,μ,t)
+
+  u0(μ) = x -> μ[1]*exp(-x[1]/μ[2])
+  u0μ(μ) = parameterise(u0,μ)
+  v0(μ) = x -> 0.0
+  v0μ(μ) = parameterise(v0,μ)
+
+  stiffness(μ,t,u,v,dΩ) = ∫(aμt(μ,t)*∇(v)⋅∇(u))dΩ
+  mass(μ,t,uₜ,v,dΩ) = ∫(v*uₜ)dΩ
+  rhs(μ,t,v,dΩ,dΓn) = ∫(fμt(μ,t)*v)dΩ + ∫(hμt(μ,t)*v)dΓn
+  res(μ,t,u,v,dΩ,dΓn) = mass(μ,t,∂t(u),v,dΩ) + stiffness(μ,t,u,v,dΩ) - rhs(μ,t,v,dΩ,dΓn)
+
+  trian_res = (Ω,Γn)
+  trian_stiffness = (Ω,)
+  trian_mass = (Ω,)
+  domains = FEDomains(trian_res,(trian_stiffness,trian_mass))
+
+  energy(du,v) = ∫(v*du)dΩ + ∫(∇(v)⋅∇(du))dΩ
+
+  reffe = ReferenceFE(lagrangian,Float64,order)
+  test = TestFESpace(Ω,reffe;conformity=:H1,dirichlet_tags=[1,3,7])
+  trial = TransientTrialParamFESpace(test,gμt)
+
+  uh0μ(μ) = interpolate_everywhere(u0μ(μ),trial(μ,t0))
+  vh0μ(μ) = interpolate_everywhere(v0μ(μ),trial(μ,t0))
+
+  if method == :pod
+    state_reduction = HighDimReduction(tol,energy;nparams,sketch,compression,ncentroids)
+  elseif method == :ttsvd
+    state_reduction = HighDimReduction(fill(tol,3),energy;nparams,sketch,compression,ncentroids)
+  end
+
+  dt = fesolver.dt 
+  t0 = 0.0
+  tf = 10*dt
+  tdomain = t0:dt:tf
+
+  ptspace = TransientParamSpace(pdomain,tdomain)
+
+  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jacs=(nparams_jac,nparams_jac),hypred_strategy)
+
+  feop = TransientLinearParamOperator(res,(stiffness,mass),ptspace,trial,test,domains)
+  fesnaps, = solution_snapshots(rbsolver,feop,(uh0μ,vh0μ))
+  rbop = reduced_operator(rbsolver,feop,fesnaps)
+
+  μon = realisation(feop;nparams=10,sampling=:uniform)
+  x̂,rbstats = solve(rbsolver,rbop,μon,(uh0μ,vh0μ))
+  x,festats = solution_snapshots(rbsolver,feop,μon,(uh0μ,vh0μ))
+  perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
+
+  println(perf)
+end
+
+θ = 0.5
+ρ∞ = 0.5
+dt = 0.01
+fesolvers = (GeneralizedAlpha1(LUSolver(),dt,ρ∞),ThetaMethod(LUSolver(),dt,θ))
+
+for fesolver in fesolvers, method in (:pod,:ttsvd), compression in (:local,:global), hypred_strategy in (:mdeim,:sopt)
+  main(fesolver,method,compression,hypred_strategy)
+end
+
+end

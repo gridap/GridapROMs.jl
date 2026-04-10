@@ -51,7 +51,7 @@ function time_combination(
   us0::NTuple{N,AbstractParamVector}
   ) where N
 
-  usx = allocate_time_combination(c,u,us0)
+  usx = allocate_time_combination(u,us0)
   time_combination!(usx,c,u,us0)
   return usx
 end
@@ -78,15 +78,14 @@ function zero_time_combination(
   us0::NTuple{N,AbstractParamVector}
   ) where N
 
-  usx = allocate_time_combination(c,u,us0)
-  zero_time_combination!(usx,c,u,us0)
+  usx = allocate_time_combination(u,us0)
+  zero_time_combination!(usx,c,us0)
   return usx
 end
 
 function zero_time_combination!(
   usx::NTuple{N,AbstractParamVector},
   c::TimeCombination,
-  u::AbstractParamVector,
   us0::NTuple{N,AbstractParamVector}
   ) where N
 
@@ -99,7 +98,6 @@ function zero_time_combination!(
 end
 
 function allocate_time_combination(
-  c::TimeCombination, 
   u::AbstractParamVector, 
   us0::NTuple{N,AbstractParamVector}
   ) where N
