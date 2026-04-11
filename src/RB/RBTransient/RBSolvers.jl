@@ -6,11 +6,11 @@ function RBSteady.RBSolver(
   kwargs...
   )
 
-  tcomb = TimeCombination(fesolver)
-  residual_reduction = HighDimHyperReduction(tcomb,reduction;nparams=nparams_res,kwargs...)
+  c = TimeCombination(fesolver)
+  residual_reduction = HighDimHyperReduction(c,reduction;nparams=nparams_res,kwargs...)
   jacobian_reduction = ntuple(
     i -> HighDimHyperReduction(
-      CombinationOrder{i}(tcomb),reduction;
+      CombinationOrder{i}(c),reduction;
       nparams=nparams_jacs[i],kwargs...
     ),
     Val(get_time_order(fesolver)+1)
@@ -26,11 +26,11 @@ function RBSteady.RBSolver(
   kwargs...
   )
 
-  tcomb = TimeCombination(fesolver)
-  residual_reduction = LocalHighDimHyperReduction(tcomb,reduction;nparams=nparams_res,kwargs...)
+  c = TimeCombination(fesolver)
+  residual_reduction = LocalHighDimHyperReduction(c,reduction;nparams=nparams_res,kwargs...)
   jacobian_reduction = ntuple(
     i -> LocalHighDimHyperReduction(
-      CombinationOrder{i}(tcomb),reduction;
+      CombinationOrder{i}(c),reduction;
       nparams=nparams_jacs[i],kwargs...),
     Val(get_time_order(fesolver)+1)
   )
@@ -39,7 +39,9 @@ end
 
 const TransientRBSolver{A<:ODESolver,B,C,D} = RBSolver{A,B,C,D}
 
-RBSteady.num_jac_params(s::TransientRBSolver) = num_params(first(s.jacobian_reduction))
+ParamODEs.TimeCombination(s::TransientRBSolver) = TimeCombination(get_fe_solver(s))
+
+RBSteady.num_jac_params(s::TransientRBSolver) = maximum(map(num_params,s.jacobian_reduction))
 
 function RBSteady.solution_snapshots(
   solver::RBSolver,
@@ -79,11 +81,10 @@ function RBSteady.residual_snapshots(
   s::AbstractSnapshots
   )
 
-  fesolver = get_fe_solver(solver)
-  tcomb = TimeCombination(fesolver)
+  c = TimeCombination(solver)
   sres = select_snapshots(s,RBSteady.res_params(solver))
   rres = get_realisation(sres)
-  b = spacetime_residual(tcomb,odeop,sres)
+  b = spacetime_residual(c,odeop,sres)
   ib = get_dof_map_at_domains(odeop)
   return Snapshots(b,ib,rres)
 end
@@ -105,11 +106,10 @@ function RBSteady.jacobian_snapshots(
   s::AbstractSnapshots
   )
 
-  fesolver = get_fe_solver(solver)
-  tcomb = TimeCombination(fesolver)
+  c = TimeCombination(solver)
   sjac = select_snapshots(s,RBSteady.jac_params(solver))
   rjac = get_realisation(sjac)
-  A = spacetime_jacobian(tcomb,odeop,sjac)
+  A = spacetime_jacobian(c,odeop,sjac)
   iA = get_sparse_dof_map_at_domains(odeop)
   jac_reduction = RBSteady.get_jacobian_reduction(solver)
   sA = ()
@@ -158,10 +158,13 @@ function Algebra.solve(
   uhs0::Tuple{Vararg{Function}}
   )
 
+  trial = get_trial(op)
   params = get_params(r)
   us0 = ()
   for uh0 in uhs0
-    us0 = (us0...,get_free_dof_values(uh0(params)))
+    u0 = get_free_dof_values(uh0(params))
+    û0 = space_project(trial,u0)
+    us0 = (us0...,reduced_vector(û0,u0))
   end
   if length(us0) < get_order(op) + 1
     fesolver = get_fe_solver(solver)

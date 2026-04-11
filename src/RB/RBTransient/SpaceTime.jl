@@ -129,21 +129,22 @@ function Algebra.solve!(
 end
 
 function ParamODEs.time_combination!(
-  usx::NTuple{N,AbstractParamVector},
+  usx::NTuple{N,RBParamVector},
   c::TimeCombination,
   u::RBParamVector,
-  us0::NTuple{N,AbstractParamVector}
+  us0::NTuple{N,RBParamVector}
   ) where N
 
-  time_combination!(usx,c,u.fe_data,us0)
+  time_combination!(_fe_data(usx),c,_fe_data(u),map(_fe_data,us0))
 end
 
-function ParamODEs.allocate_time_combination(
-  u::RBParamVector, 
-  us0::NTuple{N,AbstractParamVector}
+function ParamODEs.zero_time_combination!(
+  usx::NTuple{N,RBParamVector},
+  c::TimeCombination,
+  us0::NTuple{N,RBParamVector}
   ) where N
 
-  allocate_time_combination(u.fe_data,us0)
+  zero_time_combination!(map(_fe_data,usx),c,map(_fe_data,us0))
 end
 
 # utils 

@@ -20,12 +20,12 @@ for (f,f!) in zip((:space_project,:space_inv_project),(:space_project!,:inv_spac
   end
 end
 
-function space_project(r::RBSpace,a::AbstractRBVector)
+function space_project(r::RBSpace,a::RBSteady.AbstractRBVector)
   space_project!(a.data,r,a.fe_data)
   return a.data
 end
 
-function space_inv_project(r::RBSpace,a::AbstractRBVector)
+function space_inv_project(r::RBSpace,a::RBSteady.AbstractRBVector)
   inv_space_project!(a.fe_data,r,a.data)
   return a.fe_data
 end
