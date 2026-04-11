@@ -48,15 +48,14 @@ function _cholesky_decomp(X::AbstractSparseMatrix)
 end
 
 function _forward_cholesky(A::AbstractMatrix,L::AbstractSparseMatrix,p::AbstractVector)
-  Base.permuterows!(A,p)
-  Ã = L'*A
-  Base.invpermuterows!(A,p)
+  Ã = L'*A[p,:]
   return Ã
 end
 
 function _backward_cholesky(Ã::AbstractMatrix,L::AbstractSparseMatrix,p::AbstractVector)
-  A = L'\Ã
-  Base.invpermuterows!(A,p)
+  Ap = L'\Ã
+  A = similar(Ap)
+  A[p,:] = Ap
   return A
 end
 
