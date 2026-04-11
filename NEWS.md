@@ -1,6 +1,6 @@
 # GridapROMs.jl Release Notes
 
-## Unreleased (since v0.1.1)
+## Release: v0.1.2
 
 ### New features
 
@@ -51,7 +51,3 @@ first-order, 3 = mass for second-order). This makes the space-time assembly
 path fully generic: the `residual` and `jacobian` methods in `SpaceTime.jl`
 call `TimeCombination(solver)` and `time_combination` without any
 solver-specific branching.
-
-The `GenAlpha2` combination has a non-trivial, history-dependent stencil that
-grows with the number of time steps, and its coefficient formulas are derived
-from repeated application of the Newmark update map.

@@ -17,6 +17,7 @@ using Test
 @testset "time combinations" begin include("RBTransient/time_combinations.jl") end
 @testset "save operator" begin include("RBTransient/save_operator.jl") end
 @testset "first order" begin include("RBTransient/first_order.jl") end
+@testset "second order" begin include("RBTransient/second_order.jl") end
 @testset "heat equation" begin include("RBTransient/heat_equation.jl") end
 @testset "unsteady elasticity" begin include("RBTransient/elasticity.jl") end
 @testset "unsteady stokes" begin include("RBTransient/stokes.jl") end
