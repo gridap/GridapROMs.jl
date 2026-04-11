@@ -369,6 +369,13 @@ end
 
 # constructors
 
+"""
+    LinearParamOperator(args...; kwargs...)
+
+Convenience constructor that builds a linear parametric algebraic operator.
+Internally creates a `LinearParamFEOperator` from the given arguments and
+returns its algebraic counterpart via `get_algebraic_operator`.
+"""
 function LinearParamOperator(args...;kwargs...)
   feop = LinearParamFEOperator(args...;kwargs...)
   get_algebraic_operator(feop)

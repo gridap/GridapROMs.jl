@@ -3,6 +3,19 @@
 # abstract type HighDimProjection <: Projection end
 # abstract type TransientProjection <: HighDimProjection end
 
+"""
+    abstract type TransientProjection <: Projection end
+
+Abstract type for projection operators in transient reduced-basis problems.
+A `TransientProjection` wraps a spatial projection and a temporal projection
+and provides methods to project and reconstruct space–time snapshot vectors.
+
+# Interface
+- `get_projection_space(a)`: return the spatial `Projection`.
+- `get_projection_time(a)`: return the temporal `Projection`.
+- `get_basis_space(a)` / `get_basis_time(a)`: retrieve the spatial / temporal
+  basis matrices.
+"""
 abstract type TransientProjection <: Projection end
 
 get_projection_space(a::TransientProjection) = @abstractmethod

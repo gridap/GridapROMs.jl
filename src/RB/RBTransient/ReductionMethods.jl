@@ -276,6 +276,17 @@ function HighDimHyperReduction(
   _replace_reduction(hr)
 end
 
+"""
+    struct HighDimMDEIMHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
+
+Transient hyper-reduction based on the Matrix Discrete Empirical Interpolation
+Method (MDEIM). Combines a spatial [`HighDimReduction`](@ref) with a
+[`TimeCombination`](@ref) encoding the ODE time-marching coefficients.
+
+# Fields
+- `reduction::R`: the underlying spatial reduction.
+- `combination::TimeCombination`: time-marching combination.
+"""
 struct HighDimMDEIMHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
   reduction::R
   combination::TimeCombination
@@ -289,6 +300,17 @@ end
 RBSteady.get_reduction(r::HighDimMDEIMHyperReduction) = r.reduction
 get_time_combination(r::HighDimMDEIMHyperReduction) = r.combination
 
+"""
+    struct HighDimSOPTHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
+
+Transient hyper-reduction based on the SOPT (Second-Order Proper
+Transformation) strategy. Stores a spatial [`HighDimReduction`](@ref) and a
+[`TimeCombination`](@ref).
+
+# Fields
+- `reduction::R`: the underlying spatial reduction.
+- `combination::TimeCombination`: time-marching combination.
+"""
 struct HighDimSOPTHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
   reduction::R
   combination::TimeCombination
@@ -302,6 +324,19 @@ end
 RBSteady.get_reduction(r::HighDimSOPTHyperReduction) = r.reduction
 get_time_combination(r::HighDimSOPTHyperReduction) = r.combination
 
+"""
+    struct HighDimRBFHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
+
+Transient hyper-reduction based on radial basis function (RBF) interpolation.
+In addition to the spatial [`HighDimReduction`](@ref) and
+[`TimeCombination`](@ref), it stores an `AbstractRadialBasis` strategy that
+governs the RBF kernel.
+
+# Fields
+- `reduction::R`: the underlying spatial reduction.
+- `combination::TimeCombination`: time-marching combination.
+- `strategy::AbstractRadialBasis`: radial basis function kernel (default `PHS()`).
+"""
 struct HighDimRBFHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
   reduction::R
   combination::TimeCombination

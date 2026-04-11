@@ -31,6 +31,18 @@ function tucker_loop(red::Reduction,A::AbstractMatrix,args...)
   return Ur,remainder
 end
 
+"""
+    tucker(red, A)
+    tucker(red, A, X...)
+
+Compute a Tucker decomposition of the multi-dimensional array `A` by sequentially
+applying a truncated POD (via `tucker_loop`) along each unfolding mode. The
+vector `red` provides a [`Reduction`](@ref) strategy for every mode (its length
+must equal `ndims(A) - 1`). When sparse matrices `X` are supplied they are used
+as inner-product weights for the corresponding modes.
+
+Returns a `Vector{Matrix{T}}` of orthonormal basis matrices, one per mode.
+"""
 function tucker(red::AbstractVector{<:Reduction},A::AbstractArray{T,N}) where {T,N}
   @assert length(red) == N-1
   bases = Vector{Matrix{T}}(undef,N-1)
