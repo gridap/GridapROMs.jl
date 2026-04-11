@@ -25,6 +25,7 @@ See also: [`CombinationOrder`](@ref), [`HighDimHyperReduction`](@ref).
 """
 abstract type TimeCombination end
 
+TimeCombination(solver::NonlinearSolver) = @notimplemented
 TimeCombination(odesolver::ODESolver) = @abstractmethod
 
 """

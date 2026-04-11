@@ -1,7 +1,7 @@
 include("TimeCombinations.jl")
 
 function spacetime_residual(
-  tcomb::TimeCombination,
+  c::TimeCombination,
   odeop::ODEParamOperator,
   s::AbstractSnapshots
   )
@@ -9,33 +9,33 @@ function spacetime_residual(
   r = get_realisation(s)
   u = get_param_data(s)
   us0 = get_initial_param_data(s)
-  spacetime_residual(tcomb,odeop,r,u,us0)
+  spacetime_residual(c,odeop,r,u,us0)
 end
 
 function spacetime_residual(
-  tcomb::TimeCombination,
+  c::TimeCombination,
   odeop::ODEParamOperator,
   r::TransientRealisation,
   u::AbstractParamVector,
   us0::Tuple{Vararg{AbstractParamVector}}
   )
 
-  b,usx,paramcache = allocate_spacetime_residual(tcomb,odeop,r,u,us0)
-  spacetime_residual!(b,tcomb,odeop,r,u,usx,us0,paramcache)
+  b,usx,paramcache = allocate_spacetime_residual(c,odeop,r,u,us0)
+  spacetime_residual!(b,c,odeop,r,u,usx,us0,paramcache)
   return b
 end
 
 function allocate_spacetime_residual(
-  tcomb::TimeCombination,
+  c::TimeCombination,
   odeop::ODEParamOperator,
   r::TransientRealisation,
   u::AbstractParamVector,
   us0::Tuple{Vararg{AbstractParamVector}}
   )
 
-  _prev_mid_shift!(tcomb,r)
+  to_stencil!(r,c)
   paramcache = allocate_paramcache(odeop,r;evaluated=true)
-  _cur_shift!(tcomb,r)
+  from_stencil!(r,c)
   usx = allocate_time_combination(u,us0)
   b = allocate_residual(odeop,r,usx,paramcache)
   return b,usx,paramcache
@@ -43,7 +43,7 @@ end
 
 function spacetime_residual!(
   b,
-  tcomb::TimeCombination,
+  c::TimeCombination,
   odeop::ODEParamOperator,
   r::TransientRealisation,
   u::AbstractParamVector,
@@ -52,16 +52,16 @@ function spacetime_residual!(
   paramcache
   )
 
-  time_combination!(usx,tcomb,u,us0)
-  _prev_mid_shift!(tcomb,r)
+  time_combination!(usx,c,u,us0)
+  to_stencil!(r,c)
   residual!(b,odeop,r,usx,paramcache)
-  _cur_shift!(tcomb,r)
+  from_stencil!(r,c)
   return b
 end
 
 function spacetime_residual!(
   b,
-  tcomb::TimeCombination,
+  c::TimeCombination,
   odeop::ODEParamOperator{LinearParamODE},
   r::TransientRealisation,
   u::AbstractParamVector,
@@ -70,15 +70,15 @@ function spacetime_residual!(
   paramcache
   )
 
-  zero_time_combination!(usx,tcomb,us0)
-  _prev_mid_shift!(tcomb,r)
+  zero_time_combination!(usx,c,us0)
+  to_stencil!(r,c)
   residual!(b,odeop,r,usx,paramcache)
-  _cur_shift!(tcomb,r)
+  from_stencil!(r,c)
   return b
 end
 
 function spacetime_jacobian(
-  tcomb::TimeCombination,
+  c::TimeCombination,
   odeop::ODEParamOperator,
   s::AbstractSnapshots
   )
@@ -86,33 +86,33 @@ function spacetime_jacobian(
   r = get_realisation(s)
   u = get_param_data(s)
   us0 = get_initial_param_data(s)
-  spacetime_jacobian(tcomb,odeop,r,u,us0)
+  spacetime_jacobian(c,odeop,r,u,us0)
 end
 
 function spacetime_jacobian(
-  tcomb::TimeCombination,
+  c::TimeCombination,
   odeop::ODEParamOperator,
   r::TransientRealisation,
   u::AbstractParamVector,
   us0::Tuple{Vararg{AbstractParamVector}}
   )
 
-  A,usx,paramcache = allocate_spacetime_jacobian(tcomb,odeop,r,u,us0)
-  spacetime_jacobian!(A,tcomb,odeop,r,u,usx,us0,paramcache)
+  A,usx,paramcache = allocate_spacetime_jacobian(c,odeop,r,u,us0)
+  spacetime_jacobian!(A,c,odeop,r,u,usx,us0,paramcache)
   return A
 end
 
 function allocate_spacetime_jacobian(
-  tcomb::TimeCombination,
+  c::TimeCombination,
   odeop::ODEParamOperator,
   r::TransientRealisation,
   u::AbstractParamVector,
   us0::Tuple{Vararg{AbstractParamVector}}
   )
 
-  _prev_mid_shift!(tcomb,r)
+  to_stencil!(r,c)
   paramcache = allocate_paramcache(odeop,r;evaluated=true)
-  _cur_shift!(tcomb,r)
+  from_stencil!(r,c)
   usx = allocate_time_combination(u,us0)
   A = allocate_jacobian(odeop,r,usx,paramcache)
   return A,usx,paramcache
@@ -120,7 +120,7 @@ end
 
 function spacetime_jacobian!(
   A,
-  tcomb::TimeCombination,
+  c::TimeCombination,
   odeop::ODEParamOperator,
   r::TransientRealisation,
   u::AbstractParamVector,
@@ -130,16 +130,16 @@ function spacetime_jacobian!(
   )
 
   ws = ntuple(_ -> 1,Val(length(us0)))
-  time_combination!(usx,tcomb,u,us0)
-  _prev_mid_shift!(tcomb,r)
+  time_combination!(usx,c,u,us0)
+  to_stencil!(r,c)
   jacobian!(A,odeop,r,usx,ws,paramcache)
-  _cur_shift!(tcomb,r)
+  from_stencil!(r,c)
   return A
 end
 
 function spacetime_jacobian!(
   A,
-  tcomb::TimeCombination,
+  c::TimeCombination,
   odeop::ODEParamOperator{LinearParamODE},
   r::TransientRealisation,
   u::AbstractParamVector,
@@ -149,49 +149,26 @@ function spacetime_jacobian!(
   )
 
   ws = ntuple(_ -> 1,Val(length(us0)))
-  zero_time_combination!(usx,tcomb,us0)
-  _prev_mid_shift!(tcomb,r)
+  zero_time_combination!(usx,c,us0)
+  to_stencil!(r,c)
   jacobian!(A,odeop,r,usx,ws,paramcache)
-  _cur_shift!(tcomb,r)
+  from_stencil!(r,c)
   return A
 end
 
-# utils 
+get_stencil_shift(s::GridapType) = get_stencil_shift(TimeCombination(s))
+get_stencil_shift(c::TimeCombination) = @abstractmethod
+get_stencil_shift(c::CombinationOrder) = get_stencil_shift(c.combination)
+get_stencil_shift(c::ThetaMethodCombination) = c.dt*(1-c.θ)
+get_stencil_shift(c::GenAlpha1Combination) = c.dt*(1-c.αf)
+get_stencil_shift(c::GenAlpha2Combination) = c.dt*c.αf
 
-function _prev_mid_shift!(c::CombinationOrder,r::TransientRealisation)
-  _prev_mid_shift!(c.combination,r)
-end
-
-function _cur_shift!(c::CombinationOrder,r::TransientRealisation)
-  _cur_shift!(c.combination,r)
-end
-
-function _prev_mid_shift!(c::ThetaMethodCombination,r::TransientRealisation) 
-  δ = c.dt*(1-c.θ)
+function to_stencil!(r::TransientRealisation,s_or_c)
+  δ = get_stencil_shift(s_or_c)
   shift!(r,-δ)
 end
 
-function _cur_shift!(c::ThetaMethodCombination,r::TransientRealisation) 
-  δ = c.dt*(1-c.θ)
-  shift!(r,δ)
-end
-
-function _prev_mid_shift!(c::GenAlpha1Combination,r::TransientRealisation) 
-  δ = c.dt*(1-c.αf)
-  shift!(r,-δ)
-end
-
-function _cur_shift!(c::GenAlpha1Combination,r::TransientRealisation)
-  δ = c.dt*(1-c.αf)
-  shift!(r,δ)
-end
-
-function _prev_mid_shift!(c::GenAlpha2Combination,r::TransientRealisation)
-  δ = c.dt*c.αf
-  shift!(r,-δ)
-end
-
-function _cur_shift!(c::GenAlpha2Combination,r::TransientRealisation)
-  δ = c.dt*c.αf
+function from_stencil!(r::TransientRealisation,s_or_c)
+  δ = get_stencil_shift(s_or_c)
   shift!(r,δ)
 end

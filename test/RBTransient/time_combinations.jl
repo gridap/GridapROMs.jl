@@ -16,7 +16,7 @@ using GridapROMs.ParamODEs
 using GridapROMs.RBSteady
 using GridapROMs.RBTransient
 
-const time_combination = ParamODEs.time_combination
+import GridapROMs.ParamODEs: from_stencil!, to_stencil!, allocate_spacetime_residual
 
 cpa(data::Matrix) = ConsecutiveParamArray(data)
 
@@ -699,6 +699,23 @@ function _compare_with_gridap_heateq(odeslvr,snaps,b)
   end
 end
 
+function _spacetime_residual(
+  c::TimeCombination,
+  odeop::ODEParamOperator,
+  s::AbstractSnapshots
+  )
+
+  r = get_realisation(s)
+  u = get_param_data(s)
+  us0 = get_initial_param_data(s)
+  b,usx,paramcache = allocate_spacetime_residual(c,odeop,r,u,us0)
+  time_combination!(usx,c,u,us0)
+  to_stencil!(r,c)
+  residual!(b,odeop,r,usx,paramcache)
+  from_stencil!(r,c)
+  return b
+end
+
 @testset "SpaceTime solution+residual+jacobian — heat equation" begin
   feop,r,uh0μ,vh0μ = _heat_eq_setup(;nparams=3)
   dt = 0.05
@@ -719,7 +736,7 @@ end
     snaps  = Snapshots(vals,initial_vals,i,r)
 
     tcomb = TimeCombination(fesolver)
-    b = spacetime_residual(tcomb,feop,snaps)
+    b = _spacetime_residual(tcomb,feop,snaps)
     A = spacetime_jacobian(tcomb,feop,snaps)
 
     @test isa(b,ArrayContribution)
@@ -799,7 +816,7 @@ end
   snaps        = Snapshots(vals,initial_vals,i,r)
 
   tcomb = TimeCombination(fesolver)
-  b = spacetime_residual(tcomb,feop,snaps)
+  b = _spacetime_residual(tcomb,feop,snaps)
   A = spacetime_jacobian(tcomb,feop,snaps)
 
   @test isa(b,ArrayContribution)

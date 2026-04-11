@@ -74,22 +74,7 @@ function SpaceTimeSolver(solver::RBSolver,args...)
   SpaceTimeSolver(get_fe_solver(solver),args...)
 end
 
-get_shift(s::SpaceTimeSolver) = @notimplemented 
-
-function get_shift(s::SpaceTimeSolver{<:ThetaMethod})
-  s.solver.dt*(1-s.solver.θ)
-end
-
-function get_shift(s::SpaceTimeSolver{<:GeneralizedAlpha1})
-  s.solver.dt*(1-s.solver.αf)
-end
-
-function get_shift(s::SpaceTimeSolver{<:GeneralizedAlpha2})
-  s.solver.dt*s.solver.αf
-end
-
-back_shift!(s::SpaceTimeSolver,r::TransientRealisation) = shift!(r,-get_shift(s))
-front_shift!(s::SpaceTimeSolver,r::TransientRealisation) = shift!(r,get_shift(s))
+ParamODEs.TimeCombination(s::SpaceTimeSolver) = TimeCombination(s.solver)
 
 get_solver(s::NonlinearSolver) = s
 get_solver(s::SpaceTimeSolver) = get_solver(s.solver)
@@ -105,11 +90,12 @@ function Algebra.solve!(
   syscache
   )
 
-  back_shift!(solver,nlop.r)
+  c = TimeCombination(solver)
+  ParamODEs.to_stencil!(nlop.r,c)
   update_paramcache!(nlop.paramcache,nlop.op,nlop.r)
   _set_initial_condition!(nlop,solver)
   _st_solve!(x̂,solver,nlop,syscache)
-  front_shift!(solver,nlop.r)
+  ParamODEs.from_stencil!(nlop.r,c)
 end
 
 function ParamODEs.time_combination!(
@@ -208,7 +194,7 @@ function _st_solve_nr!(
   dx,ns,s,op
   )
 
-  tcomb = TimeCombination(s.solver)
+  tcomb = TimeCombination(s)
   nls = get_solver(s)
   log = nls.log
 
@@ -247,7 +233,7 @@ function _st_solve_nr!(
   dx,ns,s,op
   )
 
-  tcomb = TimeCombination(s.solver)
+  tcomb = TimeCombination(s)
   nls = get_solver(s)
   log = nls.log
   RBSteady.change_tols!(log)
@@ -283,7 +269,7 @@ function _st_solve_nr!(
   return x
 end
 
-function _set_initial_condition!(nlop::SpaceTimeParamOperator,solver::SpaceTimeSolver)
-  c = TimeCombination(solver.solver)
-  zero_time_combination!(nlop.usx,c,solver.us0)
+function _set_initial_condition!(nlop::SpaceTimeParamOperator,s::SpaceTimeSolver)
+  c = TimeCombination(s)
+  zero_time_combination!(nlop.usx,c,s.us0)
 end
