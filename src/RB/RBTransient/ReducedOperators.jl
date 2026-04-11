@@ -180,6 +180,21 @@ function RBSteady.get_local(op::TransientLocalRBOperator,μ::AbstractVector)
   RBOperator(op.op,trialμ,testμ,lhsμ,rhsμ)
 end
 
+const TransientLinearNonlinearRBOperator{A<:TransientRBOperator,B<:TransientRBOperator} = LinearNonlinearRBOperator{A,B}
+
+function get_order(op::TransientLinearNonlinearRBOperator)
+  max(get_order(get_linear_operator(op)),get_order(get_nonlinear_operator(op)))
+end
+
+function ParamODEs.add_initial_conditions(
+  solver::ODESolver,
+  op::TransientLinearNonlinearRBOperator,
+  args...
+  )
+  
+  add_initial_conditions(solver,get_nonlinear_operator(op),args...)
+end
+
 # utils
 
 function _reduce_vector(u::ConsecutiveParamVector,hr_ids::AbstractVector)

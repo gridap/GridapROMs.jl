@@ -17,19 +17,6 @@ semi-discrete ODE (stiffness, damping, mass) is assigned a
 [`CombinationOrder`](@ref), which selects the appropriate set of
 coefficients.
 
-```@docs
-TimeCombination
-CombinationOrder
-ThetaMethodCombination
-GenAlpha1Combination
-GenAlpha2Combination
-ThetaMethodStrategy
-GenAlpha1Strategy
-GenAlpha2Strategy
-get_coefficients
-time_combination
-```
-
 ## Full API
 
 ```@autodocs

@@ -50,7 +50,7 @@ using GridapROMs.Utils
 using GridapROMs.DofMaps
 
 import ArraysOfArrays: front_tuple,innersize,_ncolons
-import Base:+,-,*,/,\
+import Base:+,-,*,/,\,^
 import Distributions: Uniform,Normal
 import FillArrays: Fill
 import HaltonSequences: HaltonPoint

@@ -483,3 +483,78 @@ function RBSteady._galerkin_projection(
 
   return ReducedProjection(proj_cores)
 end
+
+# space-only projections
+
+num_fe_dofs_space(a::Projection) = size(get_basis_space(a),1)
+num_reduced_dofs_space(a::Projection) = size(get_basis_space(a),2)
+
+function space_project(a::Projection,x::AbstractArray,args...)
+  x̂ = allocate_in_space_domain(a,x)
+  space_project!(x̂,a,x,args...)
+  return x̂
+end
+
+function inv_space_project(a::Projection,x̂::AbstractArray)
+  x = allocate_in_space_range(a,x̂)
+  inv_space_project!(x,a,x̂)
+  return x
+end
+
+function space_project!(x̂::AbstractArray,a::Projection,x::AbstractArray)
+  basis = get_basis_space(a)
+  mul!(x̂,basis',x)
+end
+
+function inv_space_project!(x::AbstractArray,a::Projection,x̂::AbstractArray)
+  basis = get_basis_space(a)
+  mul!(x,basis,x̂)
+end
+
+function allocate_in_space_domain(a::Projection,x::V) where V<:AbstractVector
+  x̂ = allocate_vector(V,num_reduced_dofs_space(a))
+  return x̂
+end
+
+function allocate_in_space_range(a::Projection,x̂::V) where V<:AbstractVector
+  x = allocate_vector(V,num_fe_dofs_space(a))
+  return x
+end
+
+function allocate_in_space_domain(a::Projection,X::M) where M<:AbstractMatrix
+  X̂ = zeros(eltype(M),num_reduced_dofs_space(a),size(X,2))
+  return X̂
+end
+
+function allocate_in_space_range(a::Projection,X̂::M) where M<:AbstractMatrix
+  X = Matrix{eltype(M)}(undef,num_fe_dofs_space(a),size(X̂,2))
+  return X
+end
+
+function allocate_in_space_domain(a::Projection,x::V) where V<:AbstractParamVector
+  x̂ = allocate_vector(eltype(V),num_reduced_dofs_space(a))
+  return parameterise(x̂,param_length(x))
+end
+
+function allocate_in_space_range(a::Projection,x̂::V) where V<:AbstractParamVector
+  x = allocate_vector(eltype(V),num_fe_dofs_space(a))
+  return parameterise(x,param_length(x̂))
+end
+
+for f in (:space_project!,:inv_space_project!)
+  @eval begin
+    function $f(
+      y::Union{BlockArray,BlockParamArray},
+      a::BlockProjection,
+      x::Union{BlockArray,BlockParamArray}
+      )
+
+      for i in eachindex(a)
+        if a.touched[i]
+          yi = blocks(y)[i]
+          $f(yi,a[i],x[Block(i)])
+        end
+      end
+    end
+  end
+end

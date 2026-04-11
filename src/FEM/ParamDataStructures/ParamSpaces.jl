@@ -362,6 +362,8 @@ function Arrays.return_cache(f::AbstractParamFunction,x)
   return cache
 end
 
+(-)(f::AbstractParamFunction) = (-1) * f
+
 """
     struct ParamFunction{F,P} <: AbstractParamFunction{P}
       fun::F
@@ -405,12 +407,19 @@ num_params(f::ParamFunction) = length(_get_params(f))
 Base.length(f::ParamFunction) = num_params(f)
 Base.getindex(f::ParamFunction,i::Integer) = f.fun(_get_params(f)[i])
 
-function Base.:*(f::ParamFunction,α::Number)
-  _fun(μ) = x -> α*f.fun(μ)(x)
-  ParamFunction(_fun,f.params)
-end
+for op in (:+,:-,:*,:/,:^)
+  @eval begin
+    function ($op)(f::ParamFunction,α::Number)
+      _fun(μ) = x -> $op(f.fun(μ)(x),α)
+      ParamFunction(_fun,f.params)
+    end
 
-Base.:*(α::Number,f::ParamFunction) = f*α
+    function ($op)(α::Number,f::ParamFunction)
+      _fun(μ) = x -> $op(α,f.fun(μ)(x))
+      ParamFunction(_fun,f.params)
+    end
+  end
+end
 
 for op in (:(Fields.gradient),:(Fields.symmetric_gradient),:(Fields.divergence),
   :(Fields.curl),:(Fields.laplacian))
@@ -487,12 +496,19 @@ function Base.getindex(f::TransientParamFunction,i::Integer)
   f.fun(p,t)
 end
 
-function Base.:*(f::TransientParamFunction,α::Number)
-  _fun(μ,t) = x -> α*f.fun(μ,t)(x)
-  TransientParamFunction(_fun,f.params,f.times)
-end
+for op in (:+,:-,:*,:/,:^)
+  @eval begin
+    function ($op)(f::TransientParamFunction,α::Number)
+      _fun(μ,t) = x -> $op(f.fun(μ,t)(x),α)
+      TransientParamFunction(_fun,f.params,f.times)
+    end
 
-Base.:*(α::Number,f::TransientParamFunction) = f*α
+    function ($op)(α::Number,f::TransientParamFunction)
+      _fun(μ,t) = x -> $op(α,f.fun(μ,t)(x))
+      TransientParamFunction(_fun,f.params,f.times)
+    end
+  end
+end
 
 for op in (:(Fields.gradient),:(Fields.symmetric_gradient),:(Fields.divergence),
   :(Fields.curl),:(Fields.laplacian))

@@ -282,7 +282,12 @@ end
 
 const LinearNonlinearParamOperator{T<:TriangulationStyle} = ParamOperator{LinearNonlinearParamEq,T}
 
-get_fe_operator(op::LinearNonlinearParamOperator) = get_fe_operator(get_nonlinear_operator(op))
+function get_fe_operator(op::LinearNonlinearParamOperator)
+  feop_lin = get_fe_operator(get_linear_operator(op))
+  feop_nlin = get_fe_operator(get_nonlinear_operator(op))
+  LinearNonlinearParamFEOperator(feop_lin,feop_nlin)
+end 
+
 join_operators(op::LinearNonlinearParamOperator) = get_algebraic_operator(join_operators(get_fe_operator(op)))
 
 function ParamAlgebra.allocate_paramcache(

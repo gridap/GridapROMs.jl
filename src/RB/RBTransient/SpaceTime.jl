@@ -60,6 +60,36 @@ function Algebra.jacobian!(
   A
 end
 
+function ParamAlgebra.allocate_paramcache(
+  nlop::SpaceTimeParamOperator,
+  μ::AbstractRealisation
+  )
+  
+  allocate_paramcache(nlop.op,μ)
+end
+
+function ParamAlgebra.update_paramcache!(
+  paramcache::AbstractParamCache,
+  nlop::SpaceTimeParamOperator,
+  μ::AbstractRealisation
+  )
+  
+  update_paramcache!(paramcache,nlop.op,μ)
+end
+
+function ParamAlgebra.allocate_systemcache(nlop::SpaceTimeParamOperator)
+  allocate_systemcache(nlop.op)
+end
+
+function ParamAlgebra.update_systemcache!(
+  c::SystemCache,
+  nlop::SpaceTimeParamOperator,
+  x::AbstractVector
+  )
+
+  update_systemcache!(c,nlop.op,x)
+end
+
 struct SpaceTimeSolver{A<:ODESolver,B<:NonlinearSolver} <: NonlinearSolver
   solver::A
   us0::Tuple{Vararg{AbstractParamVector}}

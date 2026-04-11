@@ -417,7 +417,12 @@ end
 
 const LinearNonlinearODEParamOperator{T<:TriangulationStyle} = ODEParamOperator{LinearNonlinearParamODE,T}
 
-ParamSteady.get_fe_operator(op::LinearNonlinearODEParamOperator) = get_fe_operator(get_nonlinear_operator(op))
+function ParamSteady.get_fe_operator(op::LinearNonlinearODEParamOperator)
+  feop_lin = get_fe_operator(get_linear_operator(op))
+  feop_nlin = get_fe_operator(get_nonlinear_operator(op))
+  LinearNonlinearParamFEOperator(feop_lin,feop_nlin)
+end 
+
 ParamSteady.join_operators(op::LinearNonlinearODEParamOperator) = get_algebraic_operator(join_operators(get_fe_operator(op)))
 get_order(op::LinearNonlinearODEParamOperator) = max(get_order(get_linear_operator(op)),get_order(get_nonlinear_operator(op)))
 
