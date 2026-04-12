@@ -455,7 +455,10 @@ function ParamAlgebra.allocate_paramcache(
   allocate_paramcache(op_nlin,μ)
 end
 
-function ParamAlgebra.allocate_systemcache(op::LinearNonlinearRBOperator,u::AbstractVector)
+function ParamAlgebra.allocate_systemcache(
+  op::LinearNonlinearRBOperator,
+  u::AbstractVector
+  )
   op_nlin = get_nonlinear_operator(op)
   allocate_systemcache(op_nlin,u)
 end

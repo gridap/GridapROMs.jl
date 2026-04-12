@@ -541,6 +541,16 @@ function allocate_in_space_range(a::Projection,x̂::V) where V<:AbstractParamVec
   return parameterise(x,param_length(x̂))
 end
 
+for f in (:allocate_in_space_domain,:allocate_in_space_range)
+  @eval begin
+    function $f(a::BlockProjection,x::Union{BlockVector,BlockParamVector})
+      @check length(a) == blocklength(x)
+      @notimplementedif !all(a.touched)
+      mortar(map(i -> $f(a[Block(i)],x[Block(i)]),eachindex(a)))
+    end
+  end
+end
+
 for f in (:space_project!,:inv_space_project!)
   @eval begin
     function $f(

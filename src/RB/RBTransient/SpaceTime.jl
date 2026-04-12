@@ -18,7 +18,7 @@ function SpaceTimeParamOperator(op::ODEParamOperator,r::TransientRealisation)
   SpaceTimeParamOperator(op,r,us,ws,paramcache)
 end
 
-function ParamDataStructures.parameterise(op::ODEParamOperator,r::TransientRealisation)
+function ParamDataStructures.parameterise(op::TransientRBOperator,r::TransientRealisation)
   SpaceTimeParamOperator(op,r)
 end
 
@@ -60,34 +60,53 @@ function Algebra.jacobian!(
   A
 end
 
-function ParamAlgebra.allocate_paramcache(
-  nlop::SpaceTimeParamOperator,
-  μ::AbstractRealisation
-  )
+# function ParamAlgebra.allocate_paramcache(
+#   nlop::SpaceTimeParamOperator,
+#   μ::AbstractRealisation
+#   )
   
-  allocate_paramcache(nlop.op,μ)
-end
+#   allocate_paramcache(nlop.op,μ)
+# end
 
-function ParamAlgebra.update_paramcache!(
-  paramcache::AbstractParamCache,
-  nlop::SpaceTimeParamOperator,
-  μ::AbstractRealisation
-  )
+# function ParamAlgebra.update_paramcache!(
+#   paramcache::AbstractParamCache,
+#   nlop::SpaceTimeParamOperator,
+#   μ::AbstractRealisation
+#   )
   
-  update_paramcache!(paramcache,nlop.op,μ)
+#   update_paramcache!(paramcache,nlop.op,μ)
+# end
+
+# function ParamAlgebra.allocate_systemcache(
+#   nlop::SpaceTimeParamOperator,
+#   u::AbstractVector
+#   )
+
+#   allocate_systemcache(nlop.op,u)
+# end
+
+# function allocate_systemcache(nlop::SpaceTimeParamOperator)
+#   xh = zero(nlop.paramcache.trial)
+#   x = get_free_dof_values(xh)
+#   allocate_systemcache(nlop,x)
+# end
+
+# function ParamAlgebra.update_systemcache!(
+#   c::SystemCache,
+#   nlop::SpaceTimeParamOperator,
+#   x::AbstractVector
+#   )
+
+#   update_systemcache!(c,nlop.op,x)
+# end
+function Algebra.zero_initial_guess(nlop::SpaceTimeParamOperator)
+  zero_initial_guess(nlop.op,nlop.μ)
 end
 
 function ParamAlgebra.allocate_systemcache(nlop::SpaceTimeParamOperator)
-  allocate_systemcache(nlop.op)
-end
-
-function ParamAlgebra.update_systemcache!(
-  c::SystemCache,
-  nlop::SpaceTimeParamOperator,
-  x::AbstractVector
-  )
-
-  update_systemcache!(c,nlop.op,x)
+  xh = zero(nlop.paramcache.trial)
+  x = get_free_dof_values(xh)
+  allocate_systemcache(nlop,x)
 end
 
 struct SpaceTimeSolver{A<:ODESolver,B<:NonlinearSolver} <: NonlinearSolver

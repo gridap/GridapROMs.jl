@@ -45,6 +45,7 @@ end
 const AbstractRBVector{T} = Union{<:RBVector{T},<:RBParamVector{T}}
 
 Base.size(a::RBParamVector) = size(a.data)
+Base.axes(a::RBParamVector) = axes(a.data)
 Base.getindex(a::RBParamVector,i::Integer) = getindex(a.data,i)
 Base.setindex!(a::RBParamVector,v,i::Integer) = setindex!(a.data,v,i)
 ParamDataStructures.param_length(a::RBParamVector) = param_length(a.data)

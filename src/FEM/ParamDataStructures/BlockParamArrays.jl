@@ -178,10 +178,21 @@ end
 
 function Base.similar(
   A::BlockParamArray{T,N},
+  ::Type{S}
+  ) where {T,T′,N,S<:AbstractArray{T′,N}}
+  A′ = map(1:blocklength(A)) do i
+    ai = blocks(A)[i]
+    similar(ai,S)
+  end
+  BlockParamArray(A′,A.axes)
+end
+
+function Base.similar(
+  A::BlockParamArray{T,N},
   ::Type{S},
   axes::Vararg{BlockArrays.AbstractBlockedUnitRange}
   ) where {T,T′,N,S<:AbstractArray{T′,N}}
-  A′ = map(eachindex(blocks(A))) do i
+  A′ = map(1:blocklength(A)) do i
     ai = blocks(A)[i]
     axi = map(ax -> blocks(ax)[i],axes)
     si = length.(axi)
