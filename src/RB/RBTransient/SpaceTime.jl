@@ -6,8 +6,12 @@ struct SpaceTimeParamOperator <: NonlinearParamOperator
   paramcache::AbstractParamCache
 end
 
-function SpaceTimeParamOperator(op::ODEParamOperator,r::TransientRealisation)
-  nstates = get_order(op)+1
+function SpaceTimeParamOperator(
+  op::ODEParamOperator,
+  r::TransientRealisation;
+  nstates=get_order(op)+1
+  )
+
   trial = get_trial(op)(r)
   u = zero_free_values(trial)
   us0 = ntuple(_ -> u,Val{nstates}())
@@ -20,6 +24,14 @@ end
 
 function ParamDataStructures.parameterise(op::TransientRBOperator,r::TransientRealisation)
   SpaceTimeParamOperator(op,r)
+end
+
+function ParamDataStructures.parameterise(op::TransientLinearNonlinearRBOperator,r::TransientRealisation)
+  nstates = get_order(op)+1
+  op_lin = SpaceTimeParamOperator(get_linear_operator(op),r;nstates)
+  op_nlin = SpaceTimeParamOperator(get_nonlinear_operator(op),r;nstates)
+  syscache_lin = allocate_systemcache(op_lin)
+  LinNonlinParamOperator(op_lin,op_nlin,syscache_lin)
 end
 
 function Algebra.allocate_residual(
@@ -60,51 +72,12 @@ function Algebra.jacobian!(
   A
 end
 
-# function ParamAlgebra.allocate_paramcache(
-#   nlop::SpaceTimeParamOperator,
-#   μ::AbstractRealisation
-#   )
-  
-#   allocate_paramcache(nlop.op,μ)
-# end
-
-# function ParamAlgebra.update_paramcache!(
-#   paramcache::AbstractParamCache,
-#   nlop::SpaceTimeParamOperator,
-#   μ::AbstractRealisation
-#   )
-  
-#   update_paramcache!(paramcache,nlop.op,μ)
-# end
-
-# function ParamAlgebra.allocate_systemcache(
-#   nlop::SpaceTimeParamOperator,
-#   u::AbstractVector
-#   )
-
-#   allocate_systemcache(nlop.op,u)
-# end
-
-# function allocate_systemcache(nlop::SpaceTimeParamOperator)
-#   xh = zero(nlop.paramcache.trial)
-#   x = get_free_dof_values(xh)
-#   allocate_systemcache(nlop,x)
-# end
-
-# function ParamAlgebra.update_systemcache!(
-#   c::SystemCache,
-#   nlop::SpaceTimeParamOperator,
-#   x::AbstractVector
-#   )
-
-#   update_systemcache!(c,nlop.op,x)
-# end
 function Algebra.zero_initial_guess(nlop::SpaceTimeParamOperator)
   zero_initial_guess(nlop.op,nlop.μ)
 end
 
 function ParamAlgebra.allocate_systemcache(nlop::SpaceTimeParamOperator)
-  xh = zero(nlop.paramcache.trial)
+  xh = zero(first(nlop.paramcache.trial))
   x = get_free_dof_values(xh)
   allocate_systemcache(nlop,x)
 end
@@ -135,16 +108,17 @@ get_solver(s::GeneralizedAlpha2) = s.sysslvr
 function Algebra.solve!(
   x̂::AbstractParamVector,
   solver::SpaceTimeSolver,
-  nlop::SpaceTimeParamOperator,
+  nlop::NonlinearParamOperator,
   syscache
   )
 
   c = TimeCombination(solver)
-  ParamODEs.to_stencil!(nlop.r,c)
-  update_paramcache!(nlop.paramcache,nlop.op,nlop.r)
+  r = _get_realisation(nlop)
+  ParamODEs.to_stencil!(r,c)
+  _update_paramcache!(nlop,r)
   _set_initial_condition!(nlop,solver)
   _st_solve!(x̂,solver,nlop,syscache)
-  ParamODEs.from_stencil!(nlop.r,c)
+  ParamODEs.from_stencil!(r,c)
 end
 
 function ParamODEs.time_combination!(
@@ -154,7 +128,7 @@ function ParamODEs.time_combination!(
   us0::NTuple{N,RBParamVector}
   ) where N
 
-  time_combination!(_fe_data(usx),c,_fe_data(u),map(_fe_data,us0))
+  time_combination!(map(_fe_data,usx),c,_fe_data(u),map(_fe_data,us0))
 end
 
 function ParamODEs.zero_time_combination!(
@@ -173,7 +147,7 @@ const SpaceTimeLinearSolver{A<:ODESolver} = SpaceTimeSolver{A,<:LinearSolver}
 function _st_solve!(
   x::AbstractParamVector,
   s::SpaceTimeLinearSolver,
-  op::SpaceTimeParamOperator,
+  op::NonlinearParamOperator,
   cache
   )
     
@@ -183,7 +157,7 @@ end
 function _st_solve!(
   x::AbstractParamVector,
   s::SpaceTimeSolver,
-  op::SpaceTimeParamOperator,
+  op::NonlinearParamOperator,
   cache::Nothing
   )
 
@@ -196,7 +170,7 @@ const SpaceTimeNewtonSolver{A<:ODESolver} = SpaceTimeSolver{A,<:NewtonSolver}
 function _st_solve!(
   x::AbstractParamVector,
   s::SpaceTimeNewtonSolver,
-  op::SpaceTimeParamOperator,
+  op::NonlinearParamOperator,
   cache::SystemCache
   ) 
 
@@ -223,7 +197,7 @@ end
 function _st_solve!(
   x::AbstractParamVector,
   s::SpaceTimeNewtonSolver,
-  op::SpaceTimeParamOperator,
+  op::NonlinearParamOperator,
   cache::NonlinearSolvers.NewtonCache
   ) 
 
@@ -288,7 +262,8 @@ function _st_solve_nr!(
   log = nls.log
   RBSteady.change_tols!(log)
 
-  trial = RBSteady._get_trial(op)
+  nlop = get_nonlinear_operator(op)
+  trial = _get_trial(op)
 
   res = norm(b)
   done = LinearSolvers.init!(log,res)
@@ -305,7 +280,7 @@ function _st_solve_nr!(
     end
 
     inv_project(trial,x)
-    time_combination!(op.usx,tcomb,x,s.us0)
+    time_combination!(nlop.usx,tcomb,x,s.us0)
     residual!(b,op,x)
     res  = norm(b)
     done = LinearSolvers.update!(log,res)
@@ -322,4 +297,30 @@ end
 function _set_initial_condition!(nlop::SpaceTimeParamOperator,s::SpaceTimeSolver)
   c = TimeCombination(s)
   zero_time_combination!(nlop.usx,c,s.us0)
+end
+
+function _set_initial_condition!(nlop::LinNonlinParamOperator,s::SpaceTimeSolver)
+  _set_initial_condition!(nlop.op_nonlinear,s)
+end
+
+_get_realisation(nlop::NonlinearParamOperator) = @abstractmethod
+_get_realisation(nlop::SpaceTimeParamOperator) = nlop.r
+_get_realisation(nlop::LinNonlinParamOperator) = _get_realisation(nlop.op_nonlinear)
+
+function _update_paramcache!(nlop::NonlinearParamOperator,r::TransientRealisation)
+  @abstractmethod
+end
+
+function _update_paramcache!(nlop::SpaceTimeParamOperator,r::TransientRealisation)
+  update_paramcache!(nlop.paramcache,nlop.op,r)
+end
+
+function _update_paramcache!(nlop::LinNonlinParamOperator,r::TransientRealisation)
+  _update_paramcache!(nlop.op_linear,r)
+  _update_paramcache!(nlop.op_nonlinear,r)
+end
+
+function _get_trial(op::LinNonlinParamOperator)
+  r = op.op_nonlinear.r
+  evaluate(get_trial(op.op_nonlinear.op),r)
 end

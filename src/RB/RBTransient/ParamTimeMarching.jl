@@ -107,41 +107,6 @@ for T in (:JointTransientRBOperator,:SplitTransientRBOperator)
   end 
 end
 
-# a bit hacky, but there is no need to update the state when running the RB 
-# code, as this is already taken care of during the solve! step.
-function ODEs._udate_theta!(
-  statef::NTuple{2,RBParamVector}, 
-  state0::NTuple{2,RBParamVector},
-  dt::Real, 
-  x::RBParamVector
-  )
-  
-  statef
-end
-
-function ODEs._update_alpha1!(
-  statef::NTuple{2,RBParamVector}, 
-  state0::NTuple{2,RBParamVector},
-  dt::Real, 
-  x::RBParamVector, 
-  γ::Real
-  )
-  
-  statef
-end
-
-function ODEs._update_alpha2!(
-  statef::NTuple{2,RBParamVector}, 
-  state0::NTuple{2,RBParamVector},
-  dt::Real, 
-  x::RBParamVector, 
-  γ::Real,
-  β::Real
-  )
-  
-  statef
-end
-
 function ParamODEs.collect_param_solutions(sol::ODEParamSolution{<:RBParamVector{T,<:ConsecutiveParamVector{T}}}) where T
   u0 = first(sol.us0)
   ncols = num_params(sol.r)*num_times(sol.r)

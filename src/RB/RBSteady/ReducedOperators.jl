@@ -444,7 +444,9 @@ FESpaces.get_trial(op::LinearNonlinearRBOperator) = get_trial(get_nonlinear_oper
 FESpaces.get_test(op::LinearNonlinearRBOperator) = get_test(get_nonlinear_operator(op))
 
 function ParamSteady.get_fe_operator(op::LinearNonlinearRBOperator)
-  LinearNonlinearParamFEOperator(get_linear_operator(op),get_nonlinear_operator(op))
+  feop_lin = get_fe_operator(get_linear_operator(op))
+  feop_nlin = get_fe_operator(get_nonlinear_operator(op))
+  LinearNonlinearParamOperator(feop_lin,feop_nlin)
 end 
 
 function ParamAlgebra.allocate_paramcache(

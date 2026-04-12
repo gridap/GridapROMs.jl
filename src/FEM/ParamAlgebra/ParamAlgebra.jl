@@ -53,6 +53,7 @@ export SystemCache
 export allocate_paramcache
 export update_paramcache!
 export allocate_systemcache
+export update_systemcache!
 include("NonlinearParamOperators.jl")
 
 export LinearNonlinearParamOperator
