@@ -264,3 +264,99 @@ end
 function change_triangulation(old::AbstractArray{<:Tuple},new::AbstractArray{<:Tuple})
   map(change_triangulation,old,new)
 end
+
+
+# bugfix 
+
+function FESpaces.get_cell_fe_data(fun,f,ttrian::Geometry.TriangulationView)
+  parent_vals = FESpaces.get_cell_fe_data(fun,f,ttrian.parent)
+  return lazy_map(Reindex(parent_vals),ttrian.cell_to_parent_cell)
+end
+
+@inline function Geometry.is_change_possible(strian::Geometry.TriangulationView,ttrian::Triangulation)
+  return false
+end
+
+@inline function Geometry.is_change_possible(strian::Triangulation,ttrian::Geometry.TriangulationView)
+  return Geometry.is_change_possible(strian,ttrian.parent)
+end
+
+function Geometry.is_change_possible(strian::Geometry.TriangulationView,ttrian::Geometry.TriangulationView)
+  if strian === ttrian
+    return true
+  end
+  @check get_background_model(strian) === get_background_model(ttrian) "Triangulations do not point to the same background discrete model!"
+  D = num_cell_dims(strian)
+  sglue = get_glue(strian,Val(D))
+  tglue = get_glue(ttrian,Val(D))
+  is_change_possible(sglue,tglue)
+end
+
+function CellData.change_domain(a::CellField,strian::Triangulation,::ReferenceDomain,ttrian::Geometry.TriangulationView,::ReferenceDomain)
+  if strian === ttrian
+    return a
+  end
+  parent = change_domain(a,strian,ReferenceDomain(),ttrian.parent,ReferenceDomain())
+  cell_data = lazy_map(Reindex(get_data(parent)),ttrian.cell_to_parent_cell)
+  return CellData.similar_cell_field(a,cell_data,ttrian,ReferenceDomain())
+end
+
+function CellData.change_domain(a::CellField,strian::Triangulation,::PhysicalDomain,ttrian::Geometry.TriangulationView,::PhysicalDomain)
+  if strian === ttrian
+    return a
+  end
+  parent = change_domain(a,strian,PhysicalDomain(),ttrian.parent,PhysicalDomain())
+  cell_data = lazy_map(Reindex(get_data(parent)),ttrian.cell_to_parent_cell)
+  return CellData.similar_cell_field(a,cell_data,ttrian,PhysicalDomain())
+end
+
+function CellData.change_domain(a::CellField,strian::Geometry.TriangulationView,::ReferenceDomain,ttrian::Geometry.TriangulationView,::ReferenceDomain)
+  msg = """\n
+  We cannot move the given CellField to the reference domain of the requested triangulation.
+  Make sure that the given triangulation is either the same as the triangulation on which the
+  CellField is defined, or that the latter triangulation is the background of the former.
+  """
+  if strian === ttrian
+    return a
+  end
+  @check is_change_possible(strian,ttrian) msg
+  D = num_cell_dims(strian)
+  sglue = get_glue(strian,Val(D))
+  tglue = get_glue(ttrian,Val(D))
+  CellData.change_domain_ref_ref(a,ttrian,sglue,tglue)
+end
+
+function CellData.change_domain(a::CellField,strian::Geometry.TriangulationView,::PhysicalDomain,ttrian::Geometry.TriangulationView,::PhysicalDomain)
+  msg = """\n
+  We cannot move the given CellField to the physical domain of the requested triangulation.
+  Make sure that the given triangulation is either the same as the triangulation on which the
+  CellField is defined, or that the latter triangulation is the background of the former.
+  """
+  if strian === ttrian
+    return a
+  end
+  @check is_change_possible(strian,ttrian) msg
+  D = num_cell_dims(strian)
+  sglue = get_glue(strian,Val(D))
+  tglue = get_glue(ttrian,Val(D))
+  CellData.change_domain_phys_phys(a,ttrian,sglue,tglue)
+end
+
+function Base.view(trian::Geometry.AppendedTriangulation,ids::AbstractArray)
+  na = num_cells(trian.a)
+  nb = num_cells(trian.b)
+  k = findfirst(c -> c > na,ids)
+
+  isnothing(k) && return view(trian.a,ids) # All cells are in a
+  isone(k) && return view(trian.b,ids .- na) # All cells are in b
+
+  a_cells = ids[1:k-1]
+  b_cells = ids[k:end] .- na
+
+  is_split = all(c -> 1 <= c <= na,a_cells) && all(c -> 1 <= c <= nb,b_cells)
+  @notimplementedif !is_split "Cells cannot be cleanly split between grids"
+
+  a = view(trian.a,a_cells)
+  b = view(trian.b,b_cells)
+  return lazy_append(a,b)
+end
