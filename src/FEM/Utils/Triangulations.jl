@@ -36,8 +36,8 @@ for f in (:is_parent,:isapprox_parent)
     $f(parent::Triangulation,child::Triangulation) = false
 
     function $f(
-      parent::Geometry.AppendedTriangulation,
-      child::Geometry.AppendedTriangulation
+      parent::AppendedTriangulation,
+      child::AppendedTriangulation
       )
       $f(parent.a,child.a) && $f(parent.b,child.b)
     end
@@ -49,7 +49,7 @@ for f in (:is_parent,:isapprox_parent)
 
   for T in (:Triangulation,:(BodyFittedTriangulation{Dt,Dp,A,<:Geometry.GridView} where {Dt,Dp,A}),:(Geometry.TriangulationView))
     @eval begin
-      function $f(parent::Geometry.AppendedTriangulation,child::$T)
+      function $f(parent::AppendedTriangulation,child::$T)
         $f(parent.a,child) || $f(parent.b,child)
       end
     end
@@ -83,7 +83,7 @@ function get_parent(t::BodyFittedTriangulation)
   BodyFittedTriangulation(model,grid,tface_to_mface)
 end
 
-function get_parent(t::Geometry.AppendedTriangulation)
+function get_parent(t::AppendedTriangulation)
   a = get_parent(t.a)
   b = get_parent(t.b)
   lazy_append(a,b)
@@ -120,15 +120,15 @@ function to_child(parent::Triangulation,child::Geometry.GridPortion)
 end
 
 function to_child(
-  parent::Geometry.AppendedTriangulation,
-  child::Geometry.AppendedTriangulation
+  parent::AppendedTriangulation,
+  child::AppendedTriangulation
   )
   achild = to_child(parent.a,child.a)
   bchild = to_child(parent.b,child.b)
-  Geometry.AppendedTriangulation(achild,bchild)
+  AppendedTriangulation(achild,bchild)
 end
 
-function to_child(parent::Geometry.AppendedTriangulation,child::Triangulation)
+function to_child(parent::AppendedTriangulation,child::Triangulation)
   if isapprox_parent(parent.a,child)
     to_child(parent.a,child)
   else
@@ -342,21 +342,42 @@ function CellData.change_domain(a::CellField,strian::Geometry.TriangulationView,
   CellData.change_domain_phys_phys(a,ttrian,sglue,tglue)
 end
 
-function Base.view(trian::Geometry.AppendedTriangulation,ids::AbstractArray)
-  na = num_cells(trian.a)
-  nb = num_cells(trian.b)
-  k = findfirst(c -> c > na,ids)
+function Base.view(trian::AppendedTriangulation,ids::AbstractArray)
+  Ti = eltype(ids)
+  n1 = num_cells(trian.a)
 
-  isnothing(k) && return view(trian.a,ids) # All cells are in a
-  isone(k) && return view(trian.b,ids .- na) # All cells are in b
+  c1 = 0
+  c2 = 0
+  @inbounds for i in ids
+    if i <= n1
+      c1 += 1
+    else
+      c2 += 1
+    end
+  end
 
-  a_cells = ids[1:k-1]
-  b_cells = ids[k:end] .- na
+  if c1 == 0
+    return view(trian.b,ids .- n1)
+  elseif c2 == 0
+    return view(trian.a,ids)
+  end
 
-  is_split = all(c -> 1 <= c <= na,a_cells) && all(c -> 1 <= c <= nb,b_cells)
-  @notimplementedif !is_split "Cells cannot be cleanly split between grids"
+  ids1 = zeros(Ti,c1)
+  ids2 = zeros(Ti,c2)
 
-  a = view(trian.a,a_cells)
-  b = view(trian.b,b_cells)
-  return lazy_append(a,b)
+  k1 = 1
+  k2 = 1
+  @inbounds for i in ids
+    if i <= n1
+      ids1[k1] = i
+      k1 += 1
+    else
+      ids2[k2] = i-n1
+      k2 += 1
+    end
+  end
+
+  trian1 = view(trian.a,ids1)
+  trian2 = view(trian.b,ids2)
+  lazy_append(trian1,trian2)
 end
