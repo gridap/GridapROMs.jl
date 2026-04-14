@@ -127,7 +127,7 @@ function RadialBasisFunctions.Interpolator(
   z = zero(data_type)
   for j in 1:l
     for i in 1:n
-      b[i,j] = i < k ? y.data[j,i] : z
+      b[i,j] = i ≤ k ? y.data[j,i] : z
     end
   end
   w = A \ b
