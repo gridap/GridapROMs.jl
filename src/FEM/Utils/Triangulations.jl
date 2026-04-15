@@ -1,3 +1,7 @@
+const _background_model_err_msg = """\n
+Triangulations do not point to the same background discrete model!
+"""
+
 """
     is_parent(parent::Triangulation,child::Triangulation) -> Bool
 
@@ -7,10 +11,12 @@ function is_parent(
   parent::BodyFittedTriangulation,
   child::BodyFittedTriangulation{Dt,Dp,A,<:Geometry.GridView}
   ) where {Dt,Dp,A}
+  @check get_background_model(parent) === get_background_model(child) _background_model_err_msg
   parent.grid === child.grid.parent
 end
 
 function is_parent(parent::Triangulation,child::Geometry.TriangulationView)
+  @check get_background_model(parent) === get_background_model(child) _background_model_err_msg
   parent === child.parent
 end
 
@@ -24,16 +30,21 @@ function isapprox_parent(
   parent::BodyFittedTriangulation,
   child::BodyFittedTriangulation{Dt,Dp,A,<:Geometry.GridView}
   ) where {Dt,Dp,A}
+  @check get_background_model(parent) === get_background_model(child) _background_model_err_msg
   parent.grid ≈ child.grid.parent
 end
 
 function isapprox_parent(parent::Triangulation,child::Geometry.TriangulationView)
+  @check get_background_model(parent) === get_background_model(child) _background_model_err_msg
   parent ≈ child.parent
 end
 
 for f in (:is_parent,:isapprox_parent)
   @eval begin
-    $f(parent::Triangulation,child::Triangulation) = false
+    function $f(parent::Triangulation,child::Triangulation)
+      @check get_background_model(parent) === get_background_model(child) _background_model_err_msg
+      return false
+    end
 
     function $f(
       parent::AppendedTriangulation,
@@ -216,7 +227,7 @@ function find_trian_permutation(a,b,cmp::Function)
 end
 
 function find_trian_permutation(a,b)
-  cmp(a,b) = is_parent(a,b) || a == b || isapprox_parent(a,b)
+  cmp(a,b) = a === b || is_parent(a,b) || isapprox_parent(a,b)
   find_trian_permutation(a,b,cmp)
 end
 
@@ -235,7 +246,7 @@ function order_domains(parents,children)
 end
 
 function change_triangulation(old::Triangulation,new::Triangulation)
-  if is_parent(old,new) || old == new
+  if old === new || is_parent(old,new) 
     new
   else
     @assert isapprox_parent(old,new)
@@ -265,7 +276,6 @@ function change_triangulation(old::AbstractArray{<:Tuple},new::AbstractArray{<:T
   map(change_triangulation,old,new)
 end
 
-
 # bugfix 
 
 function FESpaces.get_cell_fe_data(fun,f,ttrian::Geometry.TriangulationView)
@@ -273,73 +283,89 @@ function FESpaces.get_cell_fe_data(fun,f,ttrian::Geometry.TriangulationView)
   return lazy_map(Reindex(parent_vals),ttrian.cell_to_parent_cell)
 end
 
+# strian is a view, ttrian is a plain triangulation: check via background-model glues
 @inline function Geometry.is_change_possible(strian::Geometry.TriangulationView,ttrian::Triangulation)
-  return false
+  _default_change_possible(strian,ttrian)
 end
 
 @inline function Geometry.is_change_possible(strian::Triangulation,ttrian::Geometry.TriangulationView)
-  return Geometry.is_change_possible(strian,ttrian.parent)
+  is_change_possible(strian,ttrian.parent)
 end
 
 function Geometry.is_change_possible(strian::Geometry.TriangulationView,ttrian::Geometry.TriangulationView)
-  if strian === ttrian
-    return true
-  end
-  @check get_background_model(strian) === get_background_model(ttrian) "Triangulations do not point to the same background discrete model!"
-  D = num_cell_dims(strian)
-  sglue = get_glue(strian,Val(D))
-  tglue = get_glue(ttrian,Val(D))
-  is_change_possible(sglue,tglue)
+  strian === ttrian.parent && return true
+  _default_change_possible(strian,ttrian)
 end
 
+const _change_domain_err_msg = """\n
+We cannot move the given CellField to the domain of the requested triangulation.
+Make sure that the given triangulation is either the same as the triangulation on which the
+CellField is defined, or that the latter triangulation is the background of the former.
+"""
+
+# strian is a plain (non-view) triangulation, ttrian is a view:
+# preferred path is change to ttrian.parent then reindex; fall back to direct glues.
 function CellData.change_domain(a::CellField,strian::Triangulation,::ReferenceDomain,ttrian::Geometry.TriangulationView,::ReferenceDomain)
-  if strian === ttrian
-    return a
+  strian === ttrian && return a
+  if is_parent(strian,ttrian) || isapprox_parent(strian,ttrian) || is_change_possible(strian,ttrian.parent)
+    parent = change_domain(a,strian,ReferenceDomain(),ttrian.parent,ReferenceDomain())
+    cell_data = lazy_map(Reindex(get_data(parent)),ttrian.cell_to_parent_cell)
+    return CellData.similar_cell_field(a,cell_data,ttrian,ReferenceDomain())
   end
-  parent = change_domain(a,strian,ReferenceDomain(),ttrian.parent,ReferenceDomain())
-  cell_data = lazy_map(Reindex(get_data(parent)),ttrian.cell_to_parent_cell)
-  return CellData.similar_cell_field(a,cell_data,ttrian,ReferenceDomain())
+  # fallback: use background-model glues directly
+  _default_change_domain(a,strian,ReferenceDomain(),ttrian,ReferenceDomain())
 end
 
 function CellData.change_domain(a::CellField,strian::Triangulation,::PhysicalDomain,ttrian::Geometry.TriangulationView,::PhysicalDomain)
-  if strian === ttrian
-    return a
+  strian === ttrian && return a
+  if is_parent(strian,ttrian) || isapprox_parent(strian,ttrian) || is_change_possible(strian,ttrian.parent)
+    parent = change_domain(a,strian,PhysicalDomain(),ttrian.parent,PhysicalDomain())
+    cell_data = lazy_map(Reindex(get_data(parent)),ttrian.cell_to_parent_cell)
+    return CellData.similar_cell_field(a,cell_data,ttrian,PhysicalDomain())
   end
-  parent = change_domain(a,strian,PhysicalDomain(),ttrian.parent,PhysicalDomain())
-  cell_data = lazy_map(Reindex(get_data(parent)),ttrian.cell_to_parent_cell)
-  return CellData.similar_cell_field(a,cell_data,ttrian,PhysicalDomain())
+  _default_change_domain(a,strian,PhysicalDomain(),ttrian,PhysicalDomain())
 end
 
+# strian is a view, ttrian is a plain (non-view) triangulation
+function CellData.change_domain(a::CellField,strian::Geometry.TriangulationView,::ReferenceDomain,ttrian::Triangulation,::ReferenceDomain)
+  _default_change_domain(a,strian,ReferenceDomain(),ttrian,ReferenceDomain())
+end
+
+function CellData.change_domain(a::CellField,strian::Geometry.TriangulationView,::PhysicalDomain,ttrian::Triangulation,::PhysicalDomain)
+  _default_change_domain(a,strian,PhysicalDomain(),ttrian,PhysicalDomain())
+end
+
+# both are views: direct-parent reindex first, then parent-path, then generic glues
 function CellData.change_domain(a::CellField,strian::Geometry.TriangulationView,::ReferenceDomain,ttrian::Geometry.TriangulationView,::ReferenceDomain)
-  msg = """\n
-  We cannot move the given CellField to the reference domain of the requested triangulation.
-  Make sure that the given triangulation is either the same as the triangulation on which the
-  CellField is defined, or that the latter triangulation is the background of the former.
-  """
-  if strian === ttrian
-    return a
+  strian === ttrian && return a
+  # strian IS ttrian's direct parent: plain reindex, works even when mface_to_tface=nothing
+  if strian === ttrian.parent
+    cell_data = lazy_map(Reindex(get_data(a)),ttrian.cell_to_parent_cell)
+    return CellData.similar_cell_field(a,cell_data,ttrian,ReferenceDomain())
   end
-  @check is_change_possible(strian,ttrian) msg
-  D = num_cell_dims(strian)
-  sglue = get_glue(strian,Val(D))
-  tglue = get_glue(ttrian,Val(D))
-  CellData.change_domain_ref_ref(a,ttrian,sglue,tglue)
+  # strian is a (possibly approximate) parent of ttrian, or can reach ttrian.parent:
+  # change to ttrian.parent first, then reindex
+  if is_parent(strian,ttrian) || isapprox_parent(strian,ttrian) || is_change_possible(strian,ttrian.parent)
+    parent = change_domain(a,strian,ReferenceDomain(),ttrian.parent,ReferenceDomain())
+    cell_data = lazy_map(Reindex(get_data(parent)),ttrian.cell_to_parent_cell)
+    return CellData.similar_cell_field(a,cell_data,ttrian,ReferenceDomain())
+  end
+  # general case: use background-model glues
+  _default_change_domain(a,strian,ReferenceDomain(),ttrian,ReferenceDomain())
 end
 
 function CellData.change_domain(a::CellField,strian::Geometry.TriangulationView,::PhysicalDomain,ttrian::Geometry.TriangulationView,::PhysicalDomain)
-  msg = """\n
-  We cannot move the given CellField to the physical domain of the requested triangulation.
-  Make sure that the given triangulation is either the same as the triangulation on which the
-  CellField is defined, or that the latter triangulation is the background of the former.
-  """
-  if strian === ttrian
-    return a
+  strian === ttrian && return a
+  if strian === ttrian.parent
+    cell_data = lazy_map(Reindex(get_data(a)),ttrian.cell_to_parent_cell)
+    return CellData.similar_cell_field(a,cell_data,ttrian,PhysicalDomain())
   end
-  @check is_change_possible(strian,ttrian) msg
-  D = num_cell_dims(strian)
-  sglue = get_glue(strian,Val(D))
-  tglue = get_glue(ttrian,Val(D))
-  CellData.change_domain_phys_phys(a,ttrian,sglue,tglue)
+  if is_parent(strian,ttrian) || isapprox_parent(strian,ttrian) || is_change_possible(strian,ttrian.parent)
+    parent = change_domain(a,strian,PhysicalDomain(),ttrian.parent,PhysicalDomain())
+    cell_data = lazy_map(Reindex(get_data(parent)),ttrian.cell_to_parent_cell)
+    return CellData.similar_cell_field(a,cell_data,ttrian,PhysicalDomain())
+  end
+  _default_change_domain(a,strian,PhysicalDomain(),ttrian,PhysicalDomain())
 end
 
 function Base.view(trian::AppendedTriangulation,ids::AbstractArray)
@@ -380,4 +406,33 @@ function Base.view(trian::AppendedTriangulation,ids::AbstractArray)
   trian1 = view(trian.a,ids1)
   trian2 = view(trian.b,ids2)
   lazy_append(trian1,trian2)
+end
+
+# utils 
+
+function _default_change_possible(strian,ttrian)
+  strian === ttrian && return true
+  @check get_background_model(strian) === get_background_model(ttrian) _background_model_err_msg
+  D = num_cell_dims(strian)
+  sglue = get_glue(strian,Val(D))
+  tglue = get_glue(ttrian,Val(D))
+  is_change_possible(sglue,tglue)
+end
+
+function _default_change_domain(a::CellField,strian::Triangulation,::ReferenceDomain,ttrian::Triangulation,::ReferenceDomain)
+  strian === ttrian && return a
+  @check is_change_possible(strian,ttrian) _change_domain_err_msg
+  D = num_cell_dims(strian)
+  sglue = get_glue(strian,Val(D))
+  tglue = get_glue(ttrian,Val(D))
+  CellData.change_domain_ref_ref(a,ttrian,sglue,tglue)
+end
+
+function _default_change_domain(a::CellField,strian::Triangulation,::PhysicalDomain,ttrian::Triangulation,::PhysicalDomain)
+  strian === ttrian && return a
+  @check is_change_possible(strian,ttrian) _change_domain_err_msg
+  D = num_cell_dims(strian)
+  sglue = get_glue(strian,Val(D))
+  tglue = get_glue(ttrian,Val(D))
+  CellData.change_domain_phys_phys(a,ttrian,sglue,tglue)
 end
