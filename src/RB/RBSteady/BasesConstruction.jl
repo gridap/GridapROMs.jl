@@ -21,66 +21,6 @@ function reduction(red::TTSVDReduction,A::AbstractArray,args...)
   return cores
 end
 
-# somewhat arbitrary
-function _size_cond(A::StridedMatrix)
-  length(A) > 1e5 && (size(A,1) > 1e1*size(A,2) || size(A,2) > 1e1*size(A,1))
-end
-
-function _size_cond(A::AbstractMatrix)
-  length(A) > 1e5 && (size(A,1) > 1e2*size(A,2) || size(A,2) > 1e2*size(A,1))
-end
-
-function symcholesky(X::AbstractSparseMatrix;check::Bool=false)
-  if check
-    @assert X ≈ X'
-  end
-  cholesky((X+X')/2)
-end
-
-symcholesky(X::Rank1Tensor) = symcholesky.(get_factors(X))
-symcholesky(X::GenericRankTensor) = symcholesky(get_crossnorm(X))
-
-function _cholesky_decomp(X::AbstractSparseMatrix)
-  C = symcholesky(X;check=true)
-  L = sparse(C.L)
-  p = C.p
-  return L,p
-end
-
-function _forward_cholesky(A::AbstractMatrix,L::AbstractSparseMatrix,p::AbstractVector)
-  Base.permuterows!(A,p)
-  Ã = L'*A
-  Base.invpermuterows!(A,p)
-  return Ã
-end
-
-function _backward_cholesky(Ã::AbstractMatrix,L::AbstractSparseMatrix,p::AbstractVector)
-  A = L'\Ã
-  Base.invpermuterows!(A,p)
-  return A
-end
-
-function _truncate!(A::AbstractMatrix,rank)
-  nrows = size(A,1)
-  inds = nrows*rank+1:length(A)
-  v = vec(A)
-  Base.deleteat!(v,inds)
-  reshape(v,nrows,:)
-end
-
-function _truncate!(v::AbstractVector,rank)
-  Base.deleteat!(v,rank+1:length(v))
-  v
-end
-
-function _truncate_row!(A::AbstractMatrix,rank)
-  nrows = size(A,1)
-  inds = range_1d(rank+1:nrows,axes(A,2),nrows)
-  v = vec(A)
-  Base.deleteat!(v,inds)
-  reshape(v,rank,:)
-end
-
 function select_rank(red_style::ReductionStyle,args...)
   @abstractmethod
 end
@@ -128,7 +68,7 @@ to the euclidean norm
 function tpod(red_style::ReductionStyle,A::AbstractMatrix,X::AbstractSparseMatrix)
   L,p = _cholesky_decomp(X)
   if _size_cond(A)
-    massive_tpod(red_style,A,L,p)
+    method_of_snapshots(red_style,A,L,p)
   else
     tpod(red_style,A,L,p)
   end
@@ -140,7 +80,7 @@ end
 
 function tpod(red_style::ReductionStyle,A::AbstractMatrix)
   if _size_cond(A)
-    massive_tpod(red_style,A)
+    method_of_snapshots(red_style,A)
   else
     truncated_svd(red_style,A)
   end
@@ -158,19 +98,19 @@ function tpod(
   return Ur,Sr,Vr
 end
 
-function massive_tpod(red_style::ReductionStyle,A::AbstractMatrix,args...)
+function method_of_snapshots(red_style::ReductionStyle,A::AbstractMatrix,args...)
   if size(A,1) > size(A,2)
-    massive_rows_tpod(red_style,A,args...)
+    method_of_snapshots_row(red_style,A,args...)
   else
-    massive_cols_tpod(red_style,A,args...)
+    method_of_snapshots_col(red_style,A,args...)
   end
 end
 
-function massive_tpod(red_style::LRApproxRank,A::AbstractMatrix)
+function method_of_snapshots(red_style::LRApproxRank,A::AbstractMatrix)
   truncated_svd(red_style,A)
 end
 
-function massive_tpod(
+function method_of_snapshots(
   red_style::LRApproxRank,
   A::AbstractMatrix,
   L::AbstractSparseMatrix,
@@ -179,14 +119,14 @@ function massive_tpod(
   tpod(red_style,A,L,p)
 end
 
-function massive_rows_tpod(red_style::ReductionStyle,A::AbstractMatrix)
+function method_of_snapshots_row(red_style::ReductionStyle,A::AbstractMatrix)
   AA = A'*A
   _,Sr,Vr = truncated_svd(red_style,AA;issquare=true)
   Ur = (A*Vr)/Diagonal(Sr)
   return Ur,Sr,Vr
 end
 
-function massive_rows_tpod(
+function method_of_snapshots_row(
   red_style::ReductionStyle,
   A::AbstractMatrix,
   L::AbstractSparseMatrix,
@@ -200,14 +140,14 @@ function massive_rows_tpod(
   return Ur,Sr,Vr
 end
 
-function massive_cols_tpod(red_style::ReductionStyle,A::AbstractMatrix)
+function method_of_snapshots_col(red_style::ReductionStyle,A::AbstractMatrix)
   AA = A*A'
   Ur,Sr,_ = truncated_svd(red_style,AA;issquare=true)
   Vr = Diagonal(Sr.+eps())\(Ur'A)
   return Ur,Sr,Vr'
 end
 
-function massive_cols_tpod(
+function method_of_snapshots_col(
   red_style::ReductionStyle,
   A::AbstractMatrix,
   L::AbstractSparseMatrix,
@@ -600,6 +540,106 @@ function LowRankApprox.psvdfact(
     end
   end
   PartialSVD(U,S,Vt)
+end
+
+# utils 
+
+function _size_cond(A::StridedMatrix)
+  length(A) > 1e5 && (size(A,1) > 1e1*size(A,2) || size(A,2) > 1e1*size(A,1))
+end
+
+function _size_cond(A::AbstractMatrix)
+  length(A) > 1e5 && (size(A,1) > 1e2*size(A,2) || size(A,2) > 1e2*size(A,1))
+end
+
+function symcholesky(X::AbstractSparseMatrix;check::Bool=false)
+  if check
+    @assert X ≈ X'
+  end
+  cholesky((X+X')/2)
+end
+
+symcholesky(X::Rank1Tensor) = symcholesky.(get_factors(X))
+symcholesky(X::GenericRankTensor) = symcholesky(get_crossnorm(X))
+
+function _cholesky_decomp(X::AbstractSparseMatrix)
+  C = symcholesky(X;check=true)
+  L = sparse(C.L)
+  p = C.p
+  return L,p
+end
+
+function _forward_cholesky(A::AbstractMatrix,L::AbstractSparseMatrix,p::AbstractVector)
+  permuterows!(A,p)
+  Ã = L'*A
+  invpermuterows!(A,p)
+  return Ã
+end
+
+function _backward_cholesky(Ã::AbstractMatrix,L::AbstractSparseMatrix,p::AbstractVector)
+  A = L'\Ã
+  invpermuterows!(A,p)
+  return A
+end
+
+function _truncate!(A::AbstractMatrix,rank)
+  nrows = size(A,1)
+  inds = nrows*rank+1:length(A)
+  v = vec(A)
+  Base.deleteat!(v,inds)
+  reshape(v,nrows,:)
+end
+
+function _truncate!(v::AbstractVector,rank)
+  Base.deleteat!(v,rank+1:length(v))
+  v
+end
+
+function _truncate_row!(A::AbstractMatrix,rank)
+  nrows = size(A,1)
+  inds = range_1d(rank+1:nrows,axes(A,2),nrows)
+  v = vec(A)
+  Base.deleteat!(v,inds)
+  reshape(v,rank,:)
+end
+
+permutecols!(a::AbstractMatrix,p::AbstractVector{<:Integer}) =
+    _permute!(a,p,Base.swapcols!)
+permuterows!(a::AbstractMatrix,p::AbstractVector{<:Integer}) =
+    _permute!(a,p,Base.swaprows!)
+@inline function _permute!(a::AbstractMatrix,p::AbstractVector{<:Integer},swapfun!::F) where {F}
+  Base.require_one_based_indexing(a,p)
+  p .= .-p
+  for i in 1:length(p)
+    p[i] > 0 && continue
+    j = i
+    in = p[j] = -p[j]
+    while p[in] < 0
+      swapfun!(a,in,j)
+      j = in
+      in = p[in] = -p[in]
+    end
+  end
+  a
+end
+
+invpermutecols!(a::AbstractMatrix,p::AbstractVector{<:Integer}) =
+    _invpermute!(a,p,Base.swapcols!)
+invpermuterows!(a::AbstractMatrix,p::AbstractVector{<:Integer}) =
+    _invpermute!(a,p,Base.swaprows!)
+
+@inline function _invpermute!(a::AbstractMatrix,p::AbstractVector{<:Integer},swapfun!::F) where {F}
+  Base.require_one_based_indexing(a,p)
+  p .= .-p
+  for i in 1:length(p)
+    p[i] > 0 && continue
+    j = p[i] = -p[i]
+    while j != i
+      swapfun!(a,j,i)
+      j = p[j] = -p[j]
+    end
+  end
+  a
 end
 
 function _empty_decomposition(A::AbstractMatOrLinOp{T}) where T

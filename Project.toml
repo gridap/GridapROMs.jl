@@ -1,6 +1,6 @@
 name = "GridapROMs"
 uuid = "9ec1d169-1b02-4ed6-9618-ff21f43ad569"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Nicholas Mueller <nicho.mueller@gmail.com>"]
 
 [deps]
