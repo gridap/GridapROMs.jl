@@ -156,7 +156,7 @@ end
 
 # multi field
 
-const TransientBlockInterpolation{I,N} = BlockInterpolation{I,N}
+const TransientBlockInterpolation{N} = BlockInterpolation{N}
 
 get_domain_style(a::TransientBlockInterpolation) = get_domain_style(testitem(a))
 

@@ -658,8 +658,8 @@ function Arrays.testitem(a::BlockProjection)
 end
 
 function get_basis(a::BlockProjection{N}) where N
-  cache = get_basis(testitem(a))
-  block_cache = Array{typeof(cache),N}(undef,size(a))
+  A = eltype(a.array)
+  block_cache = Array{A,N}(undef,size(a))
   for i in eachindex(a)
     if a.touched[i]
       block_cache[i] = get_basis(a[i])

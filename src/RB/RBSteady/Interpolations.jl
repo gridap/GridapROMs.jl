@@ -24,7 +24,9 @@ function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,r::Abstract
 end
 
 function reduced_triangulation(trian::Triangulation,a::Interpolation)
-  return trian
+  red_cells = get_integration_cells(a)
+  red_trian = view(trian,red_cells)
+  return red_trian
 end
 
 # Empty interpolation
@@ -34,6 +36,9 @@ struct EmptyInterpolation <: Interpolation end
 function Interpolation(red::HyperReduction)
   EmptyInterpolation()
 end
+
+get_integration_cells(a::EmptyInterpolation,args...) = Int32[]
+get_integration_cells(a::EmptyInterpolation,trian::AppendedTriangulation) = lazy_append(Int32[],Int32[])
 
 # EIM interpolation
 
@@ -76,12 +81,6 @@ end
 get_interpolation(a::GreedyInterpolation) = a.interpolation
 get_integration_domain(a::GreedyInterpolation) = a.domain
 
-function reduced_triangulation(trian::Triangulation,a::GreedyInterpolation)
-  red_cells = get_integration_cells(a)
-  red_trian = view(trian,red_cells)
-  return red_trian
-end
-
 function move_interpolation(a::GreedyInterpolation,args...)
   interpolation = get_interpolation(a)
   domain = move_integration_domain(get_integration_domain(a),args...)
@@ -107,6 +106,8 @@ function Interpolation(red::RBFHyperReduction,a::Projection,s::Snapshots)
 end
 
 get_interpolation(a::RBFInterpolation) = a.interpolation
+get_integration_cells(a::RBFInterpolation,args...) = Int32[]
+get_integration_cells(a::RBFInterpolation,trian::AppendedTriangulation) = lazy_append(Int32[],Int32[])
 
 function RadialBasisFunctions.Interpolator(
   x::Realisation,
@@ -179,8 +180,6 @@ function get_at_domain(s::Snapshots,rows::AbstractVector{<:Integer})
 end
 
 function get_at_domain(s::SparseSnapshots,rowscols::Tuple)
-  _all_data(s::Snapshots) = get_all_data(s)
-  _all_data(s::ReshapedSnapshots) = get_all_data(get_param_data(s))
   rows,cols = rowscols
   sparsity = get_sparsity(get_dof_map(s))
   inds = sparsify_split_indices(rows,cols,sparsity)
@@ -195,8 +194,8 @@ end
 
 # multi field
 
-struct BlockInterpolation{I<:Interpolation,N} <: Interpolation
-  interp::Array{I,N}
+struct BlockInterpolation{N} <: Interpolation
+  interp::Array{<:Interpolation,N}
   touched::Array{Bool,N}
 end
 
@@ -240,18 +239,11 @@ end
 function get_integration_cells(a::BlockInterpolation,args...)
   _union(a) = a
   _union(a,b) = union(a,b)
-  _union(a::AppendedArray,b::AppendedArray) = lazy_append(union(a.a,b.a),union(a.b,b.b))
+  _union(a::AppendedArray,b::AppendedArray)= lazy_append(union(a.a,b.a),union(a.b,b.b))
   _union(a,b,c...) = _union(_union(a,b),c...)
 
-  cache = _allocate_integration_cells(a,args...)
-  count = 0
-  for i in eachindex(a)
-    if a.touched[i]
-      count += 1
-      cache[count] = get_integration_cells(a[i],args...)
-    end
-  end
-  return _union(cache...)
+  cells = map(x -> get_integration_cells(x,args...),a.interp)
+  return _union(cells...)
 end
 
 function get_owned_icells(a::BlockInterpolation,args...)
@@ -269,9 +261,9 @@ function get_owned_icells(a::BlockInterpolation,cells::AbstractVector)
   return ArrayBlock(cache,a.touched)
 end
 
-function move_interpolation(a::BlockInterpolation,trial::FESpace,test::FESpace,args...)
-  I = typeof(testitem(a))
-  cache = Array{I,ndims(a)}(undef,size(a))
+function move_interpolation(a::BlockInterpolation{N},trial::FESpace,test::FESpace,args...) where N
+  I = eltype(a.interp)
+  cache = Array{I,N}(undef,size(a))
   for (i,j) in Iterators.product(axes(a)...)
     if a.touched[i,j]
       cache[i,j] = move_interpolation(a[i,j],trial[j],test[i],args...)
@@ -280,9 +272,9 @@ function move_interpolation(a::BlockInterpolation,trial::FESpace,test::FESpace,a
   return BlockInterpolation(cache,a.touched)
 end
 
-function move_interpolation(a::BlockInterpolation,test::FESpace,args...)
-  I = typeof(testitem(a))
-  cache = Array{I,ndims(a)}(undef,size(a))
+function move_interpolation(a::BlockInterpolation{N},test::FESpace,args...) where N
+  I = eltype(a.interp)
+  cache = Array{I,N}(undef,size(a))
   for i in eachindex(a)
     if a.touched[i]
       cache[i] = move_interpolation(a[i],test[i],args...)
@@ -291,28 +283,22 @@ function move_interpolation(a::BlockInterpolation,test::FESpace,args...)
   return BlockInterpolation(cache,a.touched)
 end
 
-function reduced_triangulation(
-  trian::Triangulation,
-  a::BlockInterpolation{<:GreedyInterpolation}
-  )
-  red_cells = get_integration_cells(a)
-  red_trian = view(trian,red_cells)
-  return red_trian
-end
-
 # utils
 
-function _allocate_cell_idofs(a::BlockInterpolation)
-  Array{Table,ndims(a)}(undef,size(a))
+_all_data(s::Snapshots) = get_all_data(s)
+_all_data(s::ReshapedSnapshots) = get_all_data(get_param_data(s))
+
+function _allocate_cell_idofs(a::BlockInterpolation{N}) where N
+  Array{Table,N}(undef,size(a))
 end
 
 function _allocate_integration_cells(a::BlockInterpolation,args...)
-  ntouched = length(findall(a.touched))
-  cache = get_integration_cells(testitem(a),args...)
-  Vector{typeof(cache)}(undef,ntouched)
+  l = length(a)
+  A = typeof(get_integration_cells(first(a.interp),args...))
+  Vector{A}(undef,l)
 end
 
-function _allocate_owned_icells(a::BlockInterpolation,cells)
-  cache = get_owned_icells(testitem(a),cells)
-  Array{typeof(cache),ndims(a)}(undef,size(a))
+function _allocate_owned_icells(a::BlockInterpolation{N},cells) where N
+  A = typeof(get_owned_icells(first(a.interp),cells))
+  Array{A,N}(undef,size(a))
 end

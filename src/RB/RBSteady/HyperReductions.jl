@@ -456,8 +456,8 @@ function Arrays.testitem(a::BlockHRProjection)
 end
 
 function get_basis(a::BlockHRProjection{N}) where N
-  cache = get_basis(testitem(a))
-  block_cache = Array{typeof(cache),N}(undef,size(a))
+  A = eltype(a.array)
+  block_cache = Array{A,N}(undef,size(a))
   for i in eachindex(a)
     if a.touched[i]
       block_cache[i] = get_basis(a[i])
@@ -467,8 +467,8 @@ function get_basis(a::BlockHRProjection{N}) where N
 end
 
 function get_interpolation(a::BlockHRProjection{N}) where N
-  cache = get_interpolation(testitem(a))
-  block_cache = Array{typeof(cache),N}(undef,size(a))
+  A = typeof(get_interpolation(first(a.array)))
+  block_cache = Array{A,N}(undef,size(a))
   for i in eachindex(a)
     if a.touched[i]
       block_cache[i] = get_interpolation(a[i])
@@ -520,8 +520,8 @@ for T in (:AffineContribution,:BlockHRProjection)
 end
 
 function allocate_coefficient(a::BlockHRProjection{N}) where N
-  cache = allocate_coefficient(testitem(a))
-  block_cache = Array{typeof(cache),N}(undef,size(a))
+  A = typeof(allocate_coefficient(first(a.array)))
+  block_cache = Array{A,N}(undef,size(a))
   for i in eachindex(a)
     if a.touched[i]
       block_cache[i] = allocate_coefficient(a[i])
@@ -531,8 +531,8 @@ function allocate_coefficient(a::BlockHRProjection{N}) where N
 end
 
 function allocate_hyper_reduction(a::BlockHRProjection{N}) where N
-  cache = allocate_hyper_reduction(testitem(a))
-  block_cache = Array{typeof(cache),N}(undef,size(a))
+  A = typeof(allocate_hyper_reduction(first(a.array)))
+  block_cache = Array{A,N}(undef,size(a))
   for i in eachindex(a)
     block_cache[i] = allocate_hyper_reduction(a.array[i])
   end
