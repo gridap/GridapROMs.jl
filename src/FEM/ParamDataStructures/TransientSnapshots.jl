@@ -198,33 +198,25 @@ function Snapshots(
   s = size(block_values)
   @check s == size(i)
 
-  array = Array{Snapshots,N}(undef,s)
-  touched = Array{Bool,N}(undef,s)
+  array = Array{Any,N}(undef,s)
   for j in eachindex(block_values)
     dataj = block_values[j]
     data0j = map(d0 -> blocks(d0)[j],data0)
-    if !iszero(dataj)
-      array[j] = Snapshots(dataj,data0j,i[j],r)
-      touched[j] = true
-    else
-      touched[j] = false
-    end
+    array[j] = Snapshots(dataj,data0j,i[j],r)
   end
 
-  BlockSnapshots(array,touched)
+  BlockSnapshots(array)
 end
 
 for f in (:get_initial_data,:get_initial_param_data)
   @eval begin
-    function $f(s::BlockSnapshots{S,N}) where {S,N}
+    function $f(s::BlockSnapshots{N}) where N
       t = $f(testitem(s))
       a = ()
       for (j,tj) in enumerate(t) 
         vj = Array{typeof(tj),N}(undef,size(s))
-        for i in eachindex(s.touched)
-          if s.touched[i]
-            vj[i] = $f(s[i])[j]
-          end
+        for i in eachindex(s)
+          vj[i] = $f(s[i])[j]
         end
         a = (a...,mortar(vj))
       end

@@ -348,7 +348,6 @@ function RBSteady.enrich!(
   supr_matrix::BlockMatrix
   ) where A
 
-  @check a.touched[1] "Primal field not defined"
   tol = RBSteady.get_supr_tol(red)
   a_primal,a_dual... = a.array
   a_primal_space = a_primal.projection_space
@@ -356,15 +355,13 @@ function RBSteady.enrich!(
   X_primal = norm_matrix[Block(1,1)]
   H_primal = symcholesky(X_primal)
   for i = eachindex(a_dual)
-    if a.touched[i]
-      dual_i_space = get_basis_space(a_dual[i])
-      C_primal_dual_i = supr_matrix[Block(1,i+1)]
-      supr_space_i = H_primal \ C_primal_dual_i * dual_i_space
-      a_primal_space = union_bases(a_primal_space,supr_space_i,H_primal)
+    dual_i_space = get_basis_space(a_dual[i])
+    C_primal_dual_i = supr_matrix[Block(1,i+1)]
+    supr_space_i = H_primal \ C_primal_dual_i * dual_i_space
+    a_primal_space = union_bases(a_primal_space,supr_space_i,H_primal)
 
-      dual_i_time = get_basis_time(a_dual[i])
-      a_primal_time = time_enrichment(a_primal_time,dual_i_time;tol)
-    end
+    dual_i_time = get_basis_time(a_dual[i])
+    a_primal_time = time_enrichment(a_primal_time,dual_i_time;tol)
   end
   a[1] = KroneckerProjection(a_primal_space,a_primal_time)
   return
@@ -545,7 +542,6 @@ for f in (:allocate_in_space_domain,:allocate_in_space_range)
   @eval begin
     function $f(a::BlockProjection,x::Union{BlockVector,BlockParamVector})
       @check length(a) == blocklength(x)
-      @notimplementedif !all(a.touched)
       mortar(map(i -> $f(a[Block(i)],x[Block(i)]),eachindex(a)))
     end
   end
@@ -560,10 +556,8 @@ for f in (:space_project!,:inv_space_project!)
       )
 
       for i in eachindex(a)
-        if a.touched[i]
-          yi = blocks(y)[i]
-          $f(yi,a[i],x[Block(i)])
-        end
+        yi = blocks(y)[i]
+        $f(yi,a[i],x[Block(i)])
       end
     end
   end

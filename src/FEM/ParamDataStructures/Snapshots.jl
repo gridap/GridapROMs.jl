@@ -247,26 +247,14 @@ end
 # multi field interface
 
 """
-    struct BlockSnapshots{S<:Snapshots,N} <: AbstractSnapshots{S,N}
-      array::Array{S,N}
-      touched::Array{Bool,N}
+    struct BlockSnapshots{N} <: AbstractSnapshots{Snapshots,N}
+      array::AbstractArray{<:Any,N}
     end
 
-Block container for Snapshots of type `S` in a `MultiField` setting. This
-type is conceived similarly to `ArrayBlock` in Gridap
+Block container for Snapshots in a `MultiField` setting. 
 """
-struct BlockSnapshots{S<:Snapshots,N} <: AbstractSnapshots{S,N}
-  array::Array{S,N}
-  touched::Array{Bool,N}
-
-  function BlockSnapshots(
-    array::Array{S,N},
-    touched::Array{Bool,N}
-    ) where {S<:Snapshots,N}
-
-    @check size(array) == size(touched)
-    new{S,N}(array,touched)
-  end
+struct BlockSnapshots{N} <: AbstractSnapshots{Snapshots,N}
+  array::AbstractArray{<:Any,N}
 end
 
 function Snapshots(
@@ -279,74 +267,39 @@ function Snapshots(
   s = size(block_values)
   @check s == size(i)
 
-  array = Array{Snapshots,N}(undef,s)
-  touched = Array{Bool,N}(undef,s)
+  array = Array{Any,N}(undef,s)
   for (j,dataj) in enumerate(block_values)
-    if !iszero(dataj)
-      array[j] = Snapshots(dataj,i[j],r)
-      touched[j] = true
-    else
-      touched[j] = false
-    end
+    array[j] = Snapshots(dataj,i[j],r)
   end
 
-  BlockSnapshots(array,touched)
+  BlockSnapshots(array)
 end
 
 BlockArrays.blocks(s::BlockSnapshots) = s.array
-
 Base.size(s::BlockSnapshots) = size(s.array)
-
-function Base.getindex(s::BlockSnapshots,i...)
-  if !s.touched[i...]
-    return nothing
-  end
-  s.array[i...]
-end
-
-function Base.setindex!(s::BlockSnapshots,v,i...)
-  @check s.touched[i...] "Only touched entries can be set"
-  s.array[i...] = v
-end
-
-function Arrays.testitem(s::BlockSnapshots)
-  i = findall(s.touched)
-  if length(i) != 0
-    s.array[i[1]]
-  else
-    error("This block snapshots structure is empty")
-  end
-end
-
+Base.getindex(s::BlockSnapshots,i...) = s.array[i...]
+Base.setindex!(s::BlockSnapshots,v,i...) = (s.array[i...] = v)
+Arrays.testitem(s::BlockSnapshots) = s.array[1]
 DofMaps.get_dof_map(s::BlockSnapshots) = map(get_dof_map,s.array)
 get_realisation(s::BlockSnapshots) = get_realisation(testitem(s))
+get_param_data(s::BlockSnapshots) = map(get_param_data,s.array) |> mortar
 
-function get_param_data(s::BlockSnapshots)
-  map(get_param_data,s.array) |> mortar
-end
-
-function select_snapshots(s::BlockSnapshots,pindex)
-  array = Array{Snapshots,ndims(s)}(undef,size(s))
-  touched = s.touched
-  for i in eachindex(touched)
-    if touched[i]
-      array[i] = select_snapshots(s[i],pindex)
-    end
+function select_snapshots(s::BlockSnapshots{N},pindex) where N
+  array = Array{Any,N}(undef,size(s))
+  for i in eachindex(s)
+    array[i] = select_snapshots(s[i],pindex)
   end
-  return BlockSnapshots(array,touched)
+  return BlockSnapshots(array)
 end
 
-function param_cat(v::AbstractVector{BlockSnapshots{S,N}}) where {S,N}
+function param_cat(v::AbstractVector{<:BlockSnapshots{N}}) where N
   s = first(v)
-  touched = s.touched
-  @check all(size(si)==size(s) && si.touched==touched for si in v)
-  array = Array{Snapshots,N}(undef,size(s))
-  for i in eachindex(touched)
-    if touched[i]
-      array[i] = param_cat(map(s -> getindex(s,i),v))
-    end
+  @check all(size(si)==size(s) for si in v)
+  array = Array{Any,N}(undef,size(s))
+  for i in eachindex(array)
+    array[i] = param_cat(map(s -> getindex(s,i),v))
   end
-  return BlockSnapshots(array,touched)
+  return BlockSnapshots(array)
 end
 
 # utils
