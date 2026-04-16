@@ -31,6 +31,7 @@ function RBSteady.enrich!(
   supr_matrix::BlockMatrix
   ) where {A,B,C}
 
+  @check a.touched[1] "Primal field not defined"
   tol = RBSteady.get_supr_tol(red)
   a_primal,a_dual... = a.array
   X_primal = norm_matrix[Block(1,1)]

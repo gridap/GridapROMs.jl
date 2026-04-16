@@ -53,7 +53,7 @@ function local_vals(a::BlockProjection)
   litems = map(local_vals,a.array)
   nlitems = length(first(litems))
   map(1:nlitems) do i
-    BlockProjection(getindex.(litems,i))
+    BlockProjection(getindex.(litems,i),a.touched)
   end
 end
 
@@ -91,7 +91,7 @@ function get_local(a::MatLocalProjection,μ::AbstractVector)
 end
 
 function get_local(a::BlockProjection,μ::AbstractVector)
-  BlockProjection(map(p -> get_local(p,μ),a.array))
+  BlockProjection(map(p -> get_local(p,μ),a.array),a.touched)
 end
 
 function get_local(a::RBSpace,μ::AbstractVector)
@@ -109,6 +109,7 @@ function enrich!(
   supr_matrix::BlockMatrix
   ) where A
 
+  @check a.touched[1] "Primal field not defined"
   a_primal,a_dual... = a.array
   X_primal = norm_matrix[Block(1,1)]
   H_primal = symcholesky(X_primal)
@@ -135,6 +136,7 @@ function enrich!(
   supr_matrix::BlockRankTensor
   ) where A
 
+  @check a.touched[1] "Primal field not defined"
   a_primal,a_dual... = a.array
   X_primal = norm_matrix[Block(1,1)]
   H_primal = symcholesky(X_primal)
@@ -368,9 +370,11 @@ end
 function _cluster(s::BlockSnapshots{N},inds::AbstractVector) where N
   array = Array{Any,N}(undef,size(s))
   for i in eachindex(s)
-    array[i] = _cluster(s[i],inds)
+    if s.touched[i]
+      array[i] = _cluster(s[i],inds)
+    end
   end
-  return BlockSnapshots(array)
+  return BlockSnapshots(array,s.touched)
 end
 
 function _cluster(a::ConsecutiveParamArray{T,N},inds::AbstractVector) where {T,N}

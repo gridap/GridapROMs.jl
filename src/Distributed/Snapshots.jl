@@ -74,6 +74,16 @@ PartitionedArrays.ghost_values(s::DistributedSnapshots) = own_values(s.snaps)
 
 struct DistributedBlockSnapshots{N} <: AbstractSnapshots{DistributedSnapshots,N}
   array::AbstractArray{<:Any,N}
+  touched::Array{Bool,N}
+
+  function DistributedBlockSnapshots(
+    array::AbstractArray{<:Any,N},
+    touched::Array{Bool,N}
+    ) where N
+
+    @check size(array) == size(touched)
+    new{N}(array,touched)
+  end
 end
 
 function ParamDataStructures.Snapshots(
@@ -84,14 +94,17 @@ function ParamDataStructures.Snapshots(
 
   block_values = blocks(data)
   s = size(block_values)
-  @check s == size(i)
-
   array = Array{Any,N}(undef,s)
+  touched = Array{Bool,N}(undef,s)
   for (j,dataj) in enumerate(block_values)
-    array[j] = Snapshots(dataj,i[j],r)
+    if !iszero(dataj)
+      array[j] = Snapshots(dataj,i[j],r)
+      touched[j] = true
+    else
+      touched[j] = false
+    end
   end
-
-  DistributedBlockSnapshots(array)
+  DistributedBlockSnapshots(array,touched)
 end
 
 function ParamDataStructures.Snapshots(
@@ -106,13 +119,19 @@ function ParamDataStructures.Snapshots(
   @check s == size(i)
 
   array = Array{Any,N}(undef,s)
+  touched = Array{Bool,N}(undef,s)
   for j in eachindex(block_values)
     dataj = block_values[j]
     data0j = map(d0 -> blocks(d0)[j],data0)
-    array[j] = Snapshots(dataj,data0j,i[j],r)
+    if !iszero(dataj)
+      array[j] = Snapshots(dataj,data0j,i[j],r)
+      touched[j] = true
+    else
+      touched[j] = false
+    end
   end
 
-  DistributedBlockSnapshots(array)
+  DistributedBlockSnapshots(array,touched)
 end
 
 function Base.show(io::IO,k::MIME"text/plain",s::DistributedBlockSnapshots)
@@ -125,30 +144,30 @@ end
 
 function GridapDistributed.local_views(s::DistributedBlockSnapshots)
   a = map(local_values,blocks(s))
-  to_parray_of_blocksnaps(a)
+  to_parray_of_blocksnaps(a,s.touched)
 end
 
 function PartitionedArrays.partition(s::DistributedBlockSnapshots)
   a = map(partition,blocks(s))
-  to_parray_of_blocksnaps(a)
+  to_parray_of_blocksnaps(a,s.touched)
 end
 
-function to_parray_of_blocksnaps(a::AbstractArray{<:MPIArray{<:Snapshots}})
+function to_parray_of_blocksnaps(a::AbstractArray{<:MPIArray{<:Snapshots}},touched)
   indices = linear_indices(first(a))
   map(indices) do i
     array = map(a) do aj
       getany(aj)
     end
-    BlockSnapshots(array)
+    BlockSnapshots(array,touched)
   end
 end
 
-function to_parray_of_blocksnaps(a::AbstractArray{<:DebugArray{<:Snapshots}})
+function to_parray_of_blocksnaps(a::AbstractArray{<:DebugArray{<:Snapshots}},touched)
   indices = linear_indices(first(a))
   map(indices) do i
     array = map(a) do aj
       aj.items[i]
     end
-    BlockSnapshots(array)
+    BlockSnapshots(array,touched)
   end
 end

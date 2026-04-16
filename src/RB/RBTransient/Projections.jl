@@ -348,6 +348,7 @@ function RBSteady.enrich!(
   supr_matrix::BlockMatrix
   ) where A
 
+  @check a.touched[1] "Primal field not defined"
   tol = RBSteady.get_supr_tol(red)
   a_primal,a_dual... = a.array
   a_primal_space = a_primal.projection_space
@@ -375,6 +376,7 @@ function RBSteady.enrich!(
   kwargs...
   ) where A
 
+  @check a.touched[1] "Primal field not defined"
   red′ = SupremizerReduction(red.reduction.reduction,red.supr_op,red.supr_tol)
   enrich!(red′,a,norm_matrix,supr_matrix;kwargs...)
 end
@@ -556,8 +558,10 @@ for f in (:space_project!,:inv_space_project!)
       )
 
       for i in eachindex(a)
-        yi = blocks(y)[i]
-        $f(yi,a[i],x[Block(i)])
+        if a.touched[i]
+          yi = blocks(y)[i]
+          $f(yi,a[i],x[Block(i)])
+        end
       end
     end
   end

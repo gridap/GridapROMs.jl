@@ -318,15 +318,18 @@ function Utils.compute_relative_error(
 end
 
 function Utils.compute_relative_error(
-  sol::BlockSnapshots,
-  sol_approx::BlockSnapshots,
+  sol::BlockSnapshots{N},
+  sol_approx::BlockSnapshots{N},
   args...
-  )
+  ) where N
 
+  @check sol.touched == sol_approx.touched
   T = eltype2(sol)
-  error = Array{T,ndims(sol)}(undef,size(sol))
+  error = Array{T,N}(undef,size(sol))
   for i in eachindex(sol)
-    error[i] = compute_relative_error(sol[i],sol_approx[i])
+    if sol.touched[i]
+      error[i] = compute_relative_error(sol[i],sol_approx[i])
+    end
   end
   error
 end
@@ -337,9 +340,12 @@ function Utils.compute_relative_error(
   X::MatrixOrTensor
   )
 
+  @check sol.touched == sol_approx.touched
   error = zeros(size(sol))
   for i in eachindex(sol)
-    error[i] = compute_relative_error(sol[i],sol_approx[i],X[Block(i,i)])
+    if sol.touched[i]
+      error[i] = compute_relative_error(sol[i],sol_approx[i],X[Block(i,i)])
+    end
   end
   error
 end
@@ -412,7 +418,9 @@ function plot_a_solution(
 
   trials = get_trial(feop)
   for i in eachindex(sol)
-    plot_a_solution(dir,trials[i],sol[i],sol_approx[i];field=i,kwargs...)
+    if sol.touched[i]
+      plot_a_solution(dir,trials[i],sol[i],sol_approx[i];field=i,kwargs...)
+    end
   end
 end
 

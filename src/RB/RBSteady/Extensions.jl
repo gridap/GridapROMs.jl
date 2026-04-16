@@ -85,9 +85,11 @@ function remove_extension(f::MultiFieldFESpace,exts::BlockSnapshots,aexts::Block
   cache = Vector{Snapshots}(undef,size(exts))
   acache = Vector{Snapshots}(undef,size(aexts))
   for i in eachindex(cache)
-    fdofs = get_fdof_to_bg_fdof(f[i])
-    cache[i] = _remove_extension(exts[i],fdofs)
-    acache[i] = _remove_extension(aexts[i],fdofs)
+    if exts.touched[i]
+      fdofs = get_fdof_to_bg_fdof(f[i])
+      cache[i] = _remove_extension(exts[i],fdofs)
+      acache[i] = _remove_extension(aexts[i],fdofs)
+    end
   end
-  BlockSnapshots(cache),BlockSnapshots(acache)
+  BlockSnapshots(cache,exts.touched),BlockSnapshots(acache,aexts.touched)
 end
