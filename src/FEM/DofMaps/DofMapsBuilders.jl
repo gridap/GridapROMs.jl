@@ -36,9 +36,8 @@ function get_sparse_dof_map(a::TProductSparsity,U::FESpace,V::FESpace,args...)
     sparse_ids = sparsify_indices(full_ids)
     SparseMatrixDofMap(sparse_ids,full_ids,a)
   catch
-    msg = "Could not build sparse tensor-product dof mapping. Must represent the
+    @warn "Could not build sparse tensor-product dof mapping. Must represent the
     jacobian using a linear dof map"
-    println(msg)
     get_sparse_dof_map(a.sparsity,U,V,args...)
   end
 end

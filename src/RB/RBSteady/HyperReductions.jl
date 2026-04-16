@@ -466,15 +466,8 @@ function get_basis(a::BlockHRProjection{N}) where N
   return ArrayBlock(block_cache,a.touched)
 end
 
-function get_interpolation(a::BlockHRProjection{N}) where N
-  A = typeof(get_interpolation(first(a.array)))
-  block_cache = Array{A,N}(undef,size(a))
-  for i in eachindex(a)
-    if a.touched[i]
-      block_cache[i] = get_interpolation(a[i])
-    end
-  end
-  return BlockInterpolation(block_cache,a.touched)
+function get_interpolation(a::BlockHRProjection)
+  return BlockInterpolation(map(get_interpolation,a.array))
 end
 
 function FESpaces.interpolate!(

@@ -196,50 +196,30 @@ end
 
 struct BlockInterpolation{N} <: Interpolation
   interp::Array{<:Interpolation,N}
-  touched::Array{Bool,N}
 end
 
-Base.ndims(a::BlockInterpolation) = ndims(a.touched)
-Base.size(a::BlockInterpolation,args...) = size(a.touched,args...)
-Base.axes(a::BlockInterpolation,args...) = axes(a.touched,args...)
-Base.length(a::BlockInterpolation) = length(a.touched)
-Base.eachindex(a::BlockInterpolation) = eachindex(a.touched)
+Base.ndims(a::BlockInterpolation) = ndims(a.interp)
+Base.size(a::BlockInterpolation,args...) = size(a.interp,args...)
+Base.axes(a::BlockInterpolation,args...) = axes(a.interp,args...)
+Base.length(a::BlockInterpolation) = length(a.interp)
+Base.eachindex(a::BlockInterpolation) = eachindex(a.interp)
 
-function Base.getindex(a::BlockInterpolation,i...)
-  if !a.touched[i...]
-    return nothing
-  end
-  a.interp[i...]
-end
-
-function Base.setindex!(a::BlockInterpolation,v,i...)
-  @check a.touched[i...] "Only touched entries can be set"
-  a.interp[i...] = v
-end
-
+Base.getindex(a::BlockInterpolation,i...) = a.interp[i...]
+Base.setindex!(a::BlockInterpolation,v,i...) = (a.interp[i...] = v)
 Base.getindex(a::BlockInterpolation,i::Block) = getindex(a,i.n...)
 Base.setindex!(a::BlockInterpolation,v,i::Block) = setindex!(a,v,i.n...)
-
-function Arrays.testitem(a::BlockInterpolation)
-  i = findall(a.touched)
-  @notimplementedif length(i) == 0
-  a.interp[first(i)]
-end
+Arrays.testitem(a::BlockInterpolation) = first(a.interp)
 
 function get_cell_idofs(a::BlockInterpolation)
-  cache = _allocate_cell_idofs(a)
-  for i in eachindex(a)
-    if a.touched[i]
-      cache[i] = get_cell_idofs(a[i])
-    end
-  end
-  return ArrayBlock(cache,a.touched)
+  array = map(get_cell_idofs,a.interp)
+  touched = fill(true,size(a))
+  return ArrayBlock(array,touched)
 end
 
 function get_integration_cells(a::BlockInterpolation,args...)
   _union(a) = a
-  _union(a,b) = union(a,b)
-  _union(a::AppendedArray,b::AppendedArray)= lazy_append(union(a.a,b.a),union(a.b,b.b))
+  _union(a::T,b::T) where T<:AbstractVector = union(a,b)
+  _union(a::T,b::T) where T<:AppendedArray = lazy_append(union(a.a,b.a),union(a.b,b.b))
   _union(a,b,c...) = _union(_union(a,b),c...)
 
   cells = map(x -> get_integration_cells(x,args...),a.interp)
@@ -252,53 +232,30 @@ function get_owned_icells(a::BlockInterpolation,args...)
 end
 
 function get_owned_icells(a::BlockInterpolation,cells::AbstractVector)
-  cache = _allocate_owned_icells(a,cells)
-  for i in eachindex(a)
-    if a.touched[i]
-      cache[i] = get_owned_icells(a[i],cells)
-    end
-  end
-  return ArrayBlock(cache,a.touched)
+  array = map(x -> get_owned_icells(x,cells),a.interp)
+  touched = fill(true,size(a))
+  return ArrayBlock(array,touched)
 end
 
 function move_interpolation(a::BlockInterpolation{N},trial::FESpace,test::FESpace,args...) where N
   I = eltype(a.interp)
   cache = Array{I,N}(undef,size(a))
   for (i,j) in Iterators.product(axes(a)...)
-    if a.touched[i,j]
-      cache[i,j] = move_interpolation(a[i,j],trial[j],test[i],args...)
-    end
+    cache[i,j] = move_interpolation(a[i,j],trial[j],test[i],args...)
   end
-  return BlockInterpolation(cache,a.touched)
+  return BlockInterpolation(cache)
 end
 
 function move_interpolation(a::BlockInterpolation{N},test::FESpace,args...) where N
   I = eltype(a.interp)
   cache = Array{I,N}(undef,size(a))
   for i in eachindex(a)
-    if a.touched[i]
-      cache[i] = move_interpolation(a[i],test[i],args...)
-    end
+    cache[i] = move_interpolation(a[i],test[i],args...)
   end
-  return BlockInterpolation(cache,a.touched)
+  return BlockInterpolation(cache)
 end
 
 # utils
 
 _all_data(s::Snapshots) = get_all_data(s)
 _all_data(s::ReshapedSnapshots) = get_all_data(get_param_data(s))
-
-function _allocate_cell_idofs(a::BlockInterpolation{N}) where N
-  Array{Table,N}(undef,size(a))
-end
-
-function _allocate_integration_cells(a::BlockInterpolation,args...)
-  l = length(a)
-  A = typeof(get_integration_cells(first(a.interp),args...))
-  Vector{A}(undef,l)
-end
-
-function _allocate_owned_icells(a::BlockInterpolation{N},cells) where N
-  A = typeof(get_owned_icells(first(a.interp),cells))
-  Array{A,N}(undef,size(a))
-end

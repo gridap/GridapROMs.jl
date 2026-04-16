@@ -93,7 +93,7 @@ function get_at_kron_domain(
   for (j,itime) in enumerate(indices_time)
     for (i,row) in enumerate(rows)
       for k in 1:num_params(s)
-        datav[(j-1)*length(indices_time)+i,k] = data[row,k,itime]
+        datav[(j-1)*length(rows)+i,k] = data[row,k,itime]
       end
     end
   end
@@ -114,7 +114,7 @@ function get_at_kron_domain(
   for (j,itime) in enumerate(indices_time)
     for (i,ind) in enumerate(inds)
       for k in 1:num_params(s)
-        datav[(j-1)*length(indices_time)+i,k] = data[ind,k,itime]
+        datav[(j-1)*length(inds)+i,k] = data[ind,k,itime]
       end
     end
   end
