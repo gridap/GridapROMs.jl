@@ -1,7 +1,3 @@
-const _background_model_err_msg = """\n
-Triangulations do not point to the same background discrete model!
-"""
-
 """
     is_parent(parent::Triangulation,child::Triangulation) -> Bool
 
@@ -11,12 +7,10 @@ function is_parent(
   parent::BodyFittedTriangulation,
   child::BodyFittedTriangulation{Dt,Dp,A,<:Geometry.GridView}
   ) where {Dt,Dp,A}
-  @check get_background_model(parent) === get_background_model(child) _background_model_err_msg
   parent.grid === child.grid.parent
 end
 
 function is_parent(parent::Triangulation,child::Geometry.TriangulationView)
-  @check get_background_model(parent) === get_background_model(child) _background_model_err_msg
   parent === child.parent
 end
 
@@ -30,25 +24,22 @@ function isapprox_parent(
   parent::BodyFittedTriangulation,
   child::BodyFittedTriangulation{Dt,Dp,A,<:Geometry.GridView}
   ) where {Dt,Dp,A}
-  @check get_background_model(parent) === get_background_model(child) _background_model_err_msg
   parent.grid ≈ child.grid.parent
 end
 
 function isapprox_parent(parent::Triangulation,child::Geometry.TriangulationView)
-  @check get_background_model(parent) === get_background_model(child) _background_model_err_msg
   parent ≈ child.parent
 end
 
 for f in (:is_parent,:isapprox_parent)
   @eval begin
     function $f(parent::Triangulation,child::Triangulation)
-      @check get_background_model(parent) === get_background_model(child) _background_model_err_msg
       return false
     end
 
     function $f(
-      parent::AppendedTriangulation,
-      child::AppendedTriangulation
+      parent::Geometry.AppendedTriangulation,
+      child::Geometry.AppendedTriangulation
       )
       $f(parent.a,child.a) && $f(parent.b,child.b)
     end
@@ -60,7 +51,7 @@ for f in (:is_parent,:isapprox_parent)
 
   for T in (:Triangulation,:(BodyFittedTriangulation{Dt,Dp,A,<:Geometry.GridView} where {Dt,Dp,A}),:(Geometry.TriangulationView))
     @eval begin
-      function $f(parent::AppendedTriangulation,child::$T)
+      function $f(parent::Geometry.AppendedTriangulation,child::$T)
         $f(parent.a,child) || $f(parent.b,child)
       end
     end
@@ -94,7 +85,7 @@ function get_parent(t::BodyFittedTriangulation)
   BodyFittedTriangulation(model,grid,tface_to_mface)
 end
 
-function get_parent(t::AppendedTriangulation)
+function get_parent(t::Geometry.AppendedTriangulation)
   a = get_parent(t.a)
   b = get_parent(t.b)
   lazy_append(a,b)
@@ -131,15 +122,15 @@ function to_child(parent::Triangulation,child::Geometry.GridPortion)
 end
 
 function to_child(
-  parent::AppendedTriangulation,
-  child::AppendedTriangulation
+  parent::Geometry.AppendedTriangulation,
+  child::Geometry.AppendedTriangulation
   )
   achild = to_child(parent.a,child.a)
   bchild = to_child(parent.b,child.b)
   AppendedTriangulation(achild,bchild)
 end
 
-function to_child(parent::AppendedTriangulation,child::Triangulation)
+function to_child(parent::Geometry.AppendedTriangulation,child::Triangulation)
   if isapprox_parent(parent.a,child)
     to_child(parent.a,child)
   else
@@ -169,7 +160,8 @@ function Base.:(==)(a::T,b::T) where T<:Geometry.CartesianCoordinates
   (
     a.data.origin == b.data.origin &&
     a.data.sizes == b.data.sizes &&
-    a.data.partition == b.data.partition
+    a.data.partition == b.data.partition &&
+    a.data.isperiodic == b.data.isperiodic
   )
 end
 
@@ -210,7 +202,11 @@ function Base.isapprox(t::UnstructuredGrid,s::UnstructuredGrid)
   (
     t.cell_node_ids == s.cell_node_ids &&
     t.cell_types == s.cell_types &&
-    t.node_coordinates == s.node_coordinates
+    t.node_coordinates == s.node_coordinates && 
+    typeof(t.reffes) == typeof(s.reffes) && 
+    typeof(t.orientation_style) == typeof(s.orientation_style) && 
+    typeof(t.facet_normal) == typeof(s.facet_normal)
+    # && typeof(t.cell_map) == typeof(s.cell_map) this poses problems, it could be a function
   )
 end
 
@@ -218,8 +214,28 @@ function Base.isapprox(t::Geometry.AppendedGrid,s::Geometry.AppendedGrid)
   t.a ≈ s.a && t.b ≈ s.b
 end
 
+function Base.isapprox(t::FaceToFaceGlue,s::FaceToFaceGlue)
+  t.tface_to_mface ≈ s.tface_to_mface
+end
+
+Base.isapprox(::Nothing,::Nothing) = true
+Base.isapprox(::FaceToFaceGlue,::Nothing) = false
+Base.isapprox(::Nothing,::FaceToFaceGlue) = false
+
 function Base.isapprox(t::Triangulation,s::Triangulation)
-  get_grid(t) ≈ get_grid(s)
+  get_grid(t) ≈ get_grid(s) || return false
+  D = num_cell_dims(t)
+  num_cell_dims(s) == D || return false
+  get_glue(t,Val(D)) ≈ get_glue(s,Val(D))
+end
+
+function Base.isapprox(t::Geometry.TriangulationView,s::Geometry.TriangulationView)
+  t.cell_to_parent_cell == s.cell_to_parent_cell || return false
+  t.parent ≈ s.parent
+end
+
+function Base.isapprox(t::Geometry.AppendedTriangulation,s::Geometry.AppendedTriangulation)
+  t.a ≈ s.a && t.b ≈ s.b
 end
 
 function find_trian_permutation(a,b,cmp::Function)
@@ -368,7 +384,7 @@ function CellData.change_domain(a::CellField,strian::Geometry.TriangulationView,
   _default_change_domain(a,strian,PhysicalDomain(),ttrian,PhysicalDomain())
 end
 
-function Base.view(trian::AppendedTriangulation,ids::AbstractArray)
+function Base.view(trian::Geometry.AppendedTriangulation,ids::AbstractArray)
   Ti = eltype(ids)
   n1 = num_cells(trian.a)
 
@@ -409,6 +425,10 @@ function Base.view(trian::AppendedTriangulation,ids::AbstractArray)
 end
 
 # utils 
+
+const _background_model_err_msg = """\n
+Triangulations do not point to the same background discrete model!
+"""
 
 function _default_change_possible(strian,ttrian)
   strian === ttrian && return true

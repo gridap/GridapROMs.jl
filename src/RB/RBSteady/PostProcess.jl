@@ -19,15 +19,9 @@ end
 _get_label(name::String,label) = @abstractmethod
 _get_label(name::String,label::Union{Number,Symbol}) = _get_label(name,string(label))
 function _get_label(name::String,label::String)
-  if label==""
-    name
-  else
-    if name==""
-      label
-    else
-      name * "_" * label
-    end
-  end
+  label == "" && return name
+  name == "" && return label
+  return name * "_" * label
 end
 
 function _get_label(name,labels...)
