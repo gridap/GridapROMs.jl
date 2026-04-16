@@ -127,12 +127,9 @@ function _permutelastdims(s::TransientSnapshotsWithIC)
 end
 
 function _permutelastdims(s::BlockSnapshots{N}) where N
-  array = Array{Snapshots,N}(undef,size(s))
-  touched = s.touched
-  for i in eachindex(touched)
-    if touched[i]
-      array[i] = _permutelastdims(s[i])
-    end
+  array = Array{Any,N}(undef,size(s))
+  for i in eachindex(s)
+    array[i] = _permutelastdims(s[i])
   end
-  return BlockSnapshots(array,touched)
+  return BlockSnapshots(array)
 end

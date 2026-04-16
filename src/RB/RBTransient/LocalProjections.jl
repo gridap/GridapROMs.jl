@@ -31,7 +31,6 @@ function RBSteady.enrich!(
   supr_matrix::BlockMatrix
   ) where {A,B,C}
 
-  @check a.touched[1] "Primal field not defined"
   tol = RBSteady.get_supr_tol(red)
   a_primal,a_dual... = a.array
   X_primal = norm_matrix[Block(1,1)]
@@ -41,16 +40,14 @@ function RBSteady.enrich!(
     pj_space = a_primal_loc[j].projection_space
     pj_time = a_primal_loc[j].projection_time
     for i = eachindex(a_dual)
-      if a.touched[i]
-        a_dual_i = local_vals(a_dual[i])
-        dij_space = get_basis_space(a_dual_i[j])
-        C_primal_dual_i = supr_matrix[Block(1,i+1)]
-        supr_space_i = H_primal \ C_primal_dual_i * dij_space
-        pj_space = union_bases(pj_space,supr_space_i,H_primal)
+      a_dual_i = local_vals(a_dual[i])
+      dij_space = get_basis_space(a_dual_i[j])
+      C_primal_dual_i = supr_matrix[Block(1,i+1)]
+      supr_space_i = H_primal \ C_primal_dual_i * dij_space
+      pj_space = union_bases(pj_space,supr_space_i,H_primal)
 
-        dij_time = get_basis_time(a_dual_i[j])
-        pj_time = time_enrichment(pj_time,dij_time;tol)
-      end
+      dij_time = get_basis_time(a_dual_i[j])
+      pj_time = time_enrichment(pj_time,dij_time;tol)
     end
     a_primal_loc[j] = KroneckerProjection(pj_space,pj_time)
   end

@@ -318,3 +318,15 @@ function Geometry._addto_compress!(a::AbstractParamArray,b::AbstractParamArray)
   end
   a
 end
+
+function parameterise(a::ArrayBlock{A,N},plength::Integer) where {A,N}
+  ai = testvalue(testitem(a))
+  pai = parameterise(ai,plength)
+  array = Array{typeof(pai),N}(undef,size(a))
+  for i in eachindex(a)
+    if a.touched[i]
+      array[i] = parameterise(a[i],plength)
+    end
+  end
+  ArrayBlock(array,a.touched)
+end
