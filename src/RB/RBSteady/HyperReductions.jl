@@ -42,8 +42,6 @@ For a [`HRProjection`](@ref) `a` represented by the couple `(Φrb,i)`, returns `
 """
 get_interpolation(a::HRProjection) = @abstractmethod
 
-get_integration_domain(a::HRProjection) = get_integration_domain(get_interpolation(a))
-
 num_reduced_dofs(a::HRProjection) = num_reduced_dofs(get_basis(a))
 num_reduced_dofs_left_projector(a::HRProjection) = num_reduced_dofs_left_projector(get_basis(a))
 num_reduced_dofs_right_projector(a::HRProjection) = num_reduced_dofs_right_projector(get_basis(a))

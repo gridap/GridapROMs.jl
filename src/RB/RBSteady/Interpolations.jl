@@ -1,25 +1,13 @@
 abstract type Interpolation end
 
-get_interpolation(a::Interpolation) = @abstractmethod
-get_integration_domain(a::Interpolation) = @abstractmethod
-get_integration_cells(a::Interpolation,args...) = get_integration_cells(get_integration_domain(a),args...)
-get_cell_idofs(a::Interpolation) = get_cell_idofs(get_integration_domain(a))
-get_owned_icells(a::Interpolation,args...) = get_owned_icells(a,get_integration_cells(a,args...))
-get_owned_icells(a::Interpolation,cells::AbstractVector) = get_owned_icells(get_integration_domain(a),cells)
-
 Interpolation(args...) = @abstractmethod
 
+get_integration_cells(a::Interpolation,args...) = Int32[]
+get_cell_idofs(a::Interpolation) = empty_table(Int,Int32,0)
+get_owned_icells(a::Interpolation,args...) = Int[]
+move_interpolation(a::Interpolation,args...) = a
+
 function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,x::Any)
-  @abstractmethod
-end
-
-function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,b::AbstractArray)
-  ldiv!(cache,get_interpolation(a),b)
-  cache
-end
-
-function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,r::AbstractRealisation)
-  interpolate!(cache,get_interpolation(a),r)
   cache
 end
 
@@ -37,7 +25,6 @@ function Interpolation(red::HyperReduction)
   EmptyInterpolation()
 end
 
-get_integration_cells(a::EmptyInterpolation,args...) = Int32[]
 get_integration_cells(a::EmptyInterpolation,trian::AppendedTriangulation) = lazy_append(Int32[],Int32[])
 
 # EIM interpolation
@@ -78,13 +65,24 @@ for (T,f) in zip((:MDEIMHyperReduction,:SOPTHyperReduction),(:empirical_interpol
   end
 end
 
-get_interpolation(a::GreedyInterpolation) = a.interpolation
-get_integration_domain(a::GreedyInterpolation) = a.domain
+get_integration_cells(a::GreedyInterpolation,args...) = get_integration_cells(a.domain,args...)
+get_cell_idofs(a::GreedyInterpolation) = get_cell_idofs(a.domain)
+get_owned_icells(a::GreedyInterpolation,args...) = get_owned_icells(a,get_integration_cells(a,args...))
+get_owned_icells(a::GreedyInterpolation,cells::AbstractVector) = get_owned_icells(a.domain,cells)
+
+function FESpaces.interpolate!(cache::AbstractArray,a::GreedyInterpolation,b::AbstractArray)
+  ldiv!(cache,a.interpolation,b)
+  cache
+end
+
+function FESpaces.interpolate!(cache::AbstractArray,a::GreedyInterpolation,r::AbstractRealisation)
+  interpolate!(cache,a.interpolation,r)
+  cache
+end
 
 function move_interpolation(a::GreedyInterpolation,args...)
-  interpolation = get_interpolation(a)
-  domain = move_integration_domain(get_integration_domain(a),args...)
-  GreedyInterpolation(interpolation,domain)
+  domain = move_integration_domain(a.domain,args...)
+  GreedyInterpolation(a.interpolation,domain)
 end
 
 # RBF interpolation
@@ -98,22 +96,30 @@ function Interpolation(red::RBFHyperReduction,a::Projection,s::Snapshots)
   inds,interp = empirical_interpolation(a)
   factor = lu(interp)
   r = get_realisation(s)
-  red_data = get_at_domain(s,inds)
+  red_data = _get_at_domain(s,inds)
   coeff = allocate_coefficient(a,r)
   ldiv!(coeff,factor,red_data)
   interp = Interpolator(r,coeff,strategy)
   RBFInterpolation(interp)
 end
 
-get_interpolation(a::RBFInterpolation) = a.interpolation
-get_integration_cells(a::RBFInterpolation,args...) = Int32[]
-get_integration_cells(a::RBFInterpolation,trian::AppendedTriangulation) = lazy_append(Int32[],Int32[])
+get_integration_cells(a::RBFHyperReduction,trian::AppendedTriangulation) = lazy_append(Int32[],Int32[])
+
+function FESpaces.interpolate!(cache::AbstractArray,a::RBFInterpolation,b::AbstractArray)
+  interpolate!(cache,a.interpolation,b)
+  cache
+end
+
+function FESpaces.interpolate!(cache::AbstractArray,a::RBFInterpolation,r::AbstractRealisation)
+  interpolate!(cache,a.interpolation,r)
+  cache
+end
 
 function RadialBasisFunctions.Interpolator(
   x::Realisation,
   y::ConsecutiveParamArray,
-  basis::B=PHS()
-  ) where B<:AbstractRadialBasis
+  basis::AbstractRadialBasis=PHS()
+  ) 
 
   dim = length(first(x))
   k = param_length(x)
@@ -170,26 +176,6 @@ function FESpaces.interpolate!(
       cache.data[j,i] = rbfji
     end
   end
-end
-
-# interpolation utils
-
-function get_at_domain(s::Snapshots,rows::AbstractVector{<:Integer})
-  data = reshape(get_all_data(s),:,num_params(s))
-  get_at_domain(data,rows)
-end
-
-function get_at_domain(s::SparseSnapshots,rowscols::Tuple)
-  rows,cols = rowscols
-  sparsity = get_sparsity(get_dof_map(s))
-  inds = sparsify_split_indices(rows,cols,sparsity)
-  data = reshape(_all_data(s),:,num_params(s))
-  get_at_domain(data,inds)
-end
-
-function get_at_domain(data::AbstractArray,rows::AbstractVector{<:Integer})
-  datav = view(data,rows,:)
-  ConsecutiveParamArray(datav)
 end
 
 # multi field
@@ -256,6 +242,24 @@ function move_interpolation(a::BlockInterpolation{N},test::FESpace,args...) wher
 end
 
 # utils
+
+function _get_at_domain(s::Snapshots,rows::AbstractVector{<:Integer})
+  data = reshape(get_all_data(s),:,num_params(s))
+  _get_at_domain(data,rows)
+end
+
+function _get_at_domain(s::SparseSnapshots,rowscols::Tuple)
+  rows,cols = rowscols
+  sparsity = get_sparsity(get_dof_map(s))
+  inds = sparsify_split_indices(rows,cols,sparsity)
+  data = reshape(_all_data(s),:,num_params(s))
+  _get_at_domain(data,inds)
+end
+
+function _get_at_domain(data::AbstractArray,rows::AbstractVector{<:Integer})
+  datav = view(data,rows,:)
+  ConsecutiveParamArray(datav)
+end
 
 _all_data(s::Snapshots) = get_all_data(s)
 _all_data(s::ReshapedSnapshots) = get_all_data(get_param_data(s))
