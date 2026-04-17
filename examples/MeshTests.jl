@@ -13,7 +13,6 @@ using GridapROMs.RBTransient
 import Gridap.Helpers: @abstractmethod
 import GridapROMs.Utils: Contribution,TupOfArrayContribution,get_domains_res,get_domains_jac
 import GridapROMs.ParamDataStructures: ReshapedSnapshots,TransientSnapshotsWithIC,GenericTransientRealisation,_get_params
-import GridapROMs.ParamSteady: get_dof_map_at_domains,get_sparse_dof_map_at_domains
 import GridapROMs.RBSteady: load_stats
 
 include("ExamplesInterface.jl")
@@ -591,8 +590,8 @@ function try_loading_reduced_operator(dir_tol,rbsolver,feop,fesnaps,method=:pod)
     res = get_offline_snapshots(joinpath(dir,"res"),feop)
     jac = get_offline_snapshots(joinpath(dir,"jac"),feop)
     if method != :pod
-      res = change_dof_map(res,get_dof_map_at_domains(feop))
-      jac = change_dof_map(jac,get_sparse_dof_map_at_domains(feop))
+      res = change_dof_map(res,get_dof_map(feop))
+      jac = change_dof_map(jac,get_sparse_dof_map(feop))
     end
     rbop = reduced_operator(rbsolver,feop,fesnaps,jac,res)
     save(dir_tol,rbop)

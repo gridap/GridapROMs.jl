@@ -1,22 +1,47 @@
 """
-    get_dof_map(space::FESpace) -> VectorDofMap
+    get_dof_map(space::FESpace,args...) -> VectorDofMap
 
 Returns the free dofs sorted by coordinate order, for every dimension. If `space` is a
 D-dimensional, scalar `FESpace`, the output index map will be a subtype of
 `AbstractDofMap{<:Integer,D}`. If `space` is a D-dimensional, vector-valued `FESpace`,
 the output index map will be a subtype of `AbstractDofMap{D+1}`.
 """
-function get_dof_map(f::SingleFieldFESpace,args...)
+function get_dof_map(f::SingleFieldFESpace)
   n = num_free_dofs(f)
   VectorDofMap(n)
 end
 
-function get_dof_map(f::MultiFieldFESpace,args...)
-  map(f -> get_dof_map(f,args...),f.spaces)
+function get_dof_map(f::SingleFieldFESpace,b::AbstractVector)
+  len(a::AbstractVector{<:Number}) = length(a)
+  len(a::AbstractVector{<:AbstractVector}) = len(testitem(a))
+  @check num_free_dofs(f) == length(b)
+  get_dof_map(f)
+end
+
+function get_dof_map(f::MultiFieldFESpace)
+  array = map(get_dof_map,f.spaces)
+  touched = fill(true,num_fields(f))
+  ArrayBlock(array,touched)
+end
+
+function get_dof_map(f::MultiFieldFESpace,b::AbstractVector)
+  array,touched = map(1:num_fields(f)) do i
+    bi = restrict_to_field(f,b,i) 
+    t = !iszero(bi)
+    v = get_dof_map(f[i],bi)
+    v,t
+  end |> tuple_of_arrays
+  ArrayBlock(array,touched)
+end
+
+function get_dof_map(f::FESpace,b::Contribution)
+  contribution(b.trians) do trian 
+    get_dof_map(f,b[trian])
+  end
 end
 
 """
-    get_dof_map_with_diri(space::FESpace) -> VectorDofMap
+    get_dof_map_with_diri(space::FESpace,args...) -> VectorDofMap
 
 Same as [`get_dof_map`](@ref), but includes also Dirichlet dofs
 """
@@ -24,11 +49,11 @@ function get_dof_map_with_diri(f::FESpace,args...)
   @abstractmethod
 end
 
-function get_sparse_dof_map(a::SparsityPattern,U::FESpace,V::FESpace,args...)
+function get_sparse_dof_map(a::SparsityPattern,U::FESpace,V::FESpace)
   TrivialSparseMatrixDofMap(a)
 end
 
-function get_sparse_dof_map(a::TProductSparsity,U::FESpace,V::FESpace,args...)
+function get_sparse_dof_map(a::TProductSparsity,U::FESpace,V::FESpace)
   Tu = get_dof_eltype(U)
   Tv = get_dof_eltype(V)
   try
@@ -38,7 +63,7 @@ function get_sparse_dof_map(a::TProductSparsity,U::FESpace,V::FESpace,args...)
   catch
     @warn "Could not build sparse tensor-product dof mapping. Must represent the
     jacobian using a linear dof map"
-    get_sparse_dof_map(a.sparsity,U,V,args...)
+    get_sparse_dof_map(a.sparsity,U,V)
   end
 end
 
@@ -51,14 +76,43 @@ is a `TrivialSparseMatrixDofMap`; when the trial and test spaces are of type
 """
 function get_sparse_dof_map(trial::SingleFieldFESpace,test::SingleFieldFESpace,args...)
   sparsity = get_sparsity(trial,test,args...)
-  get_sparse_dof_map(sparsity,trial,test,args...)
+  get_sparse_dof_map(sparsity,trial,test)
 end
 
-function get_sparse_dof_map(trial::MultiFieldFESpace,test::MultiFieldFESpace,args...)
+function get_sparse_dof_map(trial::MultiFieldFESpace,test::MultiFieldFESpace)
   ntest = num_fields(test)
   ntrial = num_fields(trial)
-  map(Iterators.product(1:ntest,1:ntrial)) do (i,j)
-    get_sparse_dof_map(trial[j],test[i],args...)
+  array = map(Iterators.product(1:ntest,1:ntrial)) do (i,j)
+    get_sparse_dof_map(trial[j],test[i])
+  end
+  touched = fill(true,ntest,ntrial)
+  ArrayBlock(array,touched)
+end
+
+function get_sparse_dof_map(
+  trial::MultiFieldFESpace,
+  test::MultiFieldFESpace,
+  A::AbstractMatrix
+  )
+
+  restr_to_fields(A::AbstractMatrix{<:Number},i,j) = @notimplemented
+  restr_to_fields(A::BlockMatrix{<:Number},i,j) = A.blocks[i,j]
+  restr_to_fields(A::AbstractMatrix{<:AbstractMatrix},i,j) = restr_to_fields(testitem(A),i,j)
+
+  ntest = num_fields(test)
+  ntrial = num_fields(trial)
+  array,touched = map(Iterators.product(1:ntest,1:ntrial)) do (i,j)
+    Aij = restr_to_fields(A,i,j)
+    t = !iszero(Aij)
+    v = get_sparse_dof_map(trial[j],test[i],Aij)
+    v,t
+  end |> tuple_of_arrays
+  ArrayBlock(array,touched)
+end
+
+function get_sparse_dof_map(trial::FESpace,test::FESpace,A::Contribution)
+  contribution(A.trians) do trian 
+    get_sparse_dof_map(trial,test,A[trian])
   end
 end
 

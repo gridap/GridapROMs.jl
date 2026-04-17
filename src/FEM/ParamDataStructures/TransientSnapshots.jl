@@ -190,7 +190,7 @@ const TransientSparseSnapshots{T,N,I<:AbstractSparseDofMap,R<:TransientRealisati
 function Snapshots(
   data::BlockParamArray{T,N},
   data0::Tuple{Vararg{BlockParamArray}},
-  i::AbstractArray{<:AbstractDofMap},
+  i::ArrayBlock{<:AbstractDofMap},
   r::TransientRealisation
   ) where {T,N}
 
@@ -199,19 +199,15 @@ function Snapshots(
   @check s == size(i)
 
   array = Array{Any,N}(undef,s)
-  touched = Array{Bool,N}(undef,s)
   for j in eachindex(block_values)
     dataj = block_values[j]
     data0j = map(d0 -> blocks(d0)[j],data0)
-    if !iszero(dataj)
+    if i.touched[j]
       array[j] = Snapshots(dataj,data0j,i[j],r)
-      touched[j] = true
-    else
-      touched[j] = false
     end
   end
 
-  BlockSnapshots(array,touched)
+  BlockSnapshots(array,i.touched)
 end
 
 for f in (:get_initial_data,:get_initial_param_data)

@@ -77,6 +77,7 @@ export recast_indices
 export recast_split_indices
 export sparsify_indices
 export sparsify_split_indices
+export change_matrix_sparsity
 export slow_index
 export fast_index
 export recast

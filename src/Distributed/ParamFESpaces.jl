@@ -230,26 +230,77 @@ function DofMaps.get_dof_map(f::DistributedFESpace)
   end
 end
 
-function DofMaps.get_sparse_dof_map(f::DistributedFESpace,g::DistributedFESpace)
-  map(local_views(f),local_views(g)) do f,g
-    get_sparse_dof_map(f,g)
+function DofMaps.get_dof_map(f::DistributedFESpace,b::PVector)
+  map(local_views(f),local_views(b)) do f,b
+    get_dof_map(f,b)
   end
 end
 
-function DofMaps.get_dof_map(f::DistributedMultiFieldFESpace,args...)
-  map(f -> get_dof_map(f,args...),f.field_fe_space)
+function DofMaps.get_sparse_dof_map(trial::DistributedFESpace,test::DistributedFESpace)
+  map(local_views(trial),local_views(test)) do trial,test
+    get_sparse_dof_map(trial,test)
+  end
+end
+
+function DofMaps.get_sparse_dof_map(
+  trial::DistributedFESpace,
+  test::DistributedFESpace,
+  A::PSparseMatrix
+  )
+  map(local_views(trial),local_views(test),local_views(A)) do trial,test,A
+    get_sparse_dof_map(trial,test,A)
+  end
+end
+
+function DofMaps.get_dof_map(f::DistributedMultiFieldFESpace)
+  array = map(get_dof_map,f.field_fe_space)
+  touched = fill(true,num_fields(f))
+  ArrayBlock(array,touched)
+end
+
+function DofMaps.get_dof_map(f::DistributedMultiFieldFESpace,b::BlockPArray)
+  nfields = num_fields(f)
+  array,touched = map(1:nfields) do i
+    bi = blocks(b)[i]
+    t = getany(map(x -> !iszero(x),local_views(bi)))
+    v = get_dof_map(f.field_fe_space[i],bi)
+    v,t
+  end |> tuple_of_arrays
+  ArrayBlock(array,touched)
+end
+
+function DofMaps.get_sparse_dof_map(
+  trial::DistributedMultiFieldFESpace,
+  test::DistributedMultiFieldFESpace
+  )
+  ntest = num_fields(test)
+  ntrial = num_fields(trial)
+  array = map(Iterators.product(1:ntest,1:ntrial)) do (i,j)
+    get_sparse_dof_map(trial[j],test[i])
+  end
+  touched = fill(true,ntest,ntrial)
+  ArrayBlock(array,touched)
 end
 
 function DofMaps.get_sparse_dof_map(
   trial::DistributedMultiFieldFESpace,
   test::DistributedMultiFieldFESpace,
-  args...
+  A::AbstractMatrix
   )
+
+  restr_to_fields(A::AbstractMatrix,i,j) = @notimplemented
+  restr_to_fields(A::BlockMatrix,i,j) = A.blocks[i,j]
+  restr_to_fields(A::ConsecutiveParamSparseMatrix,i,j) = restr_to_fields(testitem(A),i,j)
+
   ntest = num_fields(test)
   ntrial = num_fields(trial)
-  map(Iterators.product(1:ntest,1:ntrial)) do (i,j)
-    get_sparse_dof_map(trial[j],test[i],args...)
-  end
+  array,touched = map(Iterators.product(1:ntest,1:ntrial)) do (i,j)
+    Aij = restr_to_fields(A,i,j)
+    t = getany(map(x -> !iszero(x),local_views(Aij)))
+    v = get_sparse_dof_map(trial[j],test[i],Aij)
+    v,t
+  end |> tuple_of_arrays
+  ArrayBlock(array,touched)
 end
 
 function ParamODEs.collect_param_solutions(sol::ODEParamSolution{<:PVector{T}}) where T

@@ -12,20 +12,23 @@ Subtypes:
 abstract type SparsityPattern end
 
 """
-    get_sparsity(U::FESpace,V::FESpace,trian=_get_common_domain(U,V)) -> SparsityPattern
+    get_sparsity(U::FESpace,V::FESpace,args...) -> SparsityPattern
 
-Builds a [`SparsityPattern`](@ref) from two `FESpace`s `U` and `V`, via integration
-on a triangulation `trian`
+Builds a [`SparsityPattern`](@ref) from two `FESpace`s `U` and `V`
 """
-function get_sparsity(U::FESpace,V::FESpace,trian=_get_common_domain(U,V))
-  SparsityPattern(U,V,trian)
+function get_sparsity(U::FESpace,V::FESpace)
+  SparsityPattern(U,V)
 end
 
-function SparsityPattern(U::FESpace,V::FESpace,trian=_get_common_domain(U,V))
+function get_sparsity(U::FESpace,V::FESpace,A::AbstractSparseMatrix)
+  SparsityPattern(A)
+end
+
+function SparsityPattern(U::FESpace,V::FESpace)
   a = SparseMatrixAssembler(U,V)
   m1 = nz_counter(get_matrix_builder(a),(get_rows(a),get_cols(a)))
-  cellidsrows = get_cell_dof_ids(V,trian)
-  cellidscols = get_cell_dof_ids(U,trian)
+  cellidsrows = get_cell_dof_ids(V)
+  cellidscols = get_cell_dof_ids(U)
   trivial_symbolic_loop_matrix!(m1,cellidsrows,cellidscols)
   m2 = nz_allocation(m1)
   trivial_symbolic_loop_matrix!(m2,cellidsrows,cellidscols)
@@ -245,27 +248,6 @@ function trivial_symbolic_loop_matrix!(A,cellidsrows,cellidscols)
   end
 
   return A
-end
-
-function _get_common_domain(U::FESpace,V::FESpace)
-  msg = """\n
-  Cannot define a sparsity pattern object between the `FESpace`s given as input,
-  as they are defined on incompatible triangulations
-  """
-
-  trian_U = get_triangulation(U)
-  trian_V = get_triangulation(V)
-  sa_tV = is_change_possible(trian_U,trian_V)
-  sb_tU = is_change_possible(trian_V,trian_U)
-  if sa_tV && sb_tU
-    target_trian = best_target(trian_U,trian_V)
-  elseif !sa_tV && sb_tU
-    target_trian = trian_U
-  elseif sa_tV && !sb_tU
-    target_trian = trian_V
-  else
-    @notimplemented msg
-  end
 end
 
 function _row_col_pair_to_nz_index!(

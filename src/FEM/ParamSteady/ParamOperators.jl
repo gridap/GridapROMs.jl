@@ -55,10 +55,8 @@ FESpaces.get_trial(op::ParamOperator) = get_trial(get_fe_operator(op))
 ODEs.get_res(op::ParamOperator) = ODEs.get_res(get_fe_operator(op))
 get_jac(op::ParamOperator) = get_jac(get_fe_operator(op))
 
-DofMaps.get_dof_map(op::ParamOperator) = get_dof_map(get_fe_operator(op))
-DofMaps.get_sparse_dof_map(op::ParamOperator) = get_sparse_dof_map(get_fe_operator(op))
-get_dof_map_at_domains(op::ParamOperator) = get_dof_map_at_domains(get_fe_operator(op))
-get_sparse_dof_map_at_domains(op::ParamOperator) = get_sparse_dof_map_at_domains(get_fe_operator(op))
+DofMaps.get_dof_map(op::ParamOperator,args...) = get_dof_map(get_fe_operator(op),args...)
+DofMaps.get_sparse_dof_map(op::ParamOperator,args...) = get_sparse_dof_map(get_fe_operator(op),args...)
 CellData.get_domains(op::ParamOperator) = get_domains(get_fe_operator(op))
 
 set_domains(op::ParamOperator,args...) = get_algebraic_operator(set_domains(get_fe_operator(op),args...))

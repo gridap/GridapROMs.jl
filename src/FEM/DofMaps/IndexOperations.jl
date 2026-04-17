@@ -6,7 +6,7 @@ Input:
   - an array of indices `sids` with values `∈ {1,...,Nnz}` (sparse indices)
 Output:
   - an array of indices `fids` with values `∈ {1,...,MN}` (full indices), whose
-  entries are associated to those of `sids`. Zero entries are preserved
+    entries are associated to those of `sids`. Zero entries are preserved
 """
 function recast_indices(sids::AbstractArray,a::AbstractSparseMatrix)
   fids = similar(sids)
@@ -31,7 +31,7 @@ Output:
   - an array rows of indices `frows` with values `∈ {1,...,M}` (full rows), whose
   entries are associated to those of `sids`. Zero entries are preserved
   - an array rows of indices `fcols` with values `∈ {1,...,N}` (full cols), whose
-  entries are associated to those of `sids`. Zero entries are preserved
+    entries are associated to those of `sids`. Zero entries are preserved
 """
 function recast_split_indices(sids::AbstractArray,a::AbstractSparseMatrix)
   frows = similar(sids)
@@ -57,7 +57,7 @@ Input:
   - an array of indices `fids` with values `∈ {1,...,MN}` (full indices)
 Output:
   - an array of indices `sids` with values `∈ {1,...,Nnz}` (sparse indices), whose
-  entries are associated to those of `fids`. Zero entries are preserved
+    entries are associated to those of `fids`. Zero entries are preserved
 """
 function sparsify_indices(fids::AbstractArray,a::AbstractSparseMatrix)
   sids = similar(fids)
@@ -97,6 +97,27 @@ function sparsify_split_indices(
     sids[j] = nz_index(a,jrow,jcol)
   end
   return sids
+end
+
+function change_matrix_sparsity(
+  A::AbstractSparseMatrix,
+  old_rows_to_rows::AbstractVector,
+  old_cols_to_cols::AbstractVector,
+  )
+  
+  @abstractmethod
+end
+
+function change_matrix_sparsity(
+  A::SparseMatrixCSC,
+  old_rows_to_rows::AbstractVector,
+  old_cols_to_cols::AbstractVector,
+  )
+
+  nz_to_old_rows,nz_to_old_cols,nz_to_values = findnz(A)
+  nz_to_rows = compose_index(nz_to_old_rows,old_rows_to_rows)
+  nz_to_cols = compose_index(nz_to_old_cols,old_cols_to_cols)
+  sparse(nz_to_rows,nz_to_cols,nz_to_values,A.m,A.n)
 end
 
 """

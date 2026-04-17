@@ -57,41 +57,8 @@ CellData.get_domains(op::ParamFEOperator) = @abstractmethod
 Utils.get_domains_res(op::ParamFEOperator) = get_domains_res(get_domains(op))
 Utils.get_domains_jac(op::ParamFEOperator) = get_domains_jac(get_domains(op))
 
-DofMaps.get_dof_map(op::ParamFEOperator) = get_dof_map(get_trial(op))
-DofMaps.get_sparse_dof_map(op::ParamFEOperator) = get_sparse_dof_map(get_trial(op),get_test(op))
-
-"""
-    get_dof_map_at_domains(op::ParamFEOperator) -> Contribution
-
-Returns the residual dof map restricted to every residual triangulation
-"""
-function get_dof_map_at_domains(op::ParamFEOperator)
-  test = get_test(op)
-  dof_map = get_dof_map(test)
-  domains_res = get_domains_res(op)
-  dof_map_at_domains = tfill(dof_map,Val(length(domains_res)))
-  Contribution(dof_map_at_domains,domains_res)
-end
-
-"""
-    get_sparse_dof_map_at_domains(op::ParamFEOperator) -> Contribution
-
-Returns the Jacobian dof map restricted to every Jacobian triangulation
-"""
-function get_sparse_dof_map_at_domains(op::ParamFEOperator)
-  trial = get_trial(op)
-  test = get_test(op)
-  domains_jac = get_domains_jac(op)
-
-  sparse_dof_map_at_domains = ()
-  for trian in domains_jac
-    # sparse_dof_map = get_sparse_dof_map(trial,test,trian)
-    sparse_dof_map = get_sparse_dof_map(trial,test)
-    sparse_dof_map_at_domains = (sparse_dof_map_at_domains...,sparse_dof_map)
-  end
-
-  Contribution(sparse_dof_map_at_domains,domains_jac)
-end
+DofMaps.get_dof_map(op::ParamFEOperator,args...) = get_dof_map(get_trial(op),args...)
+DofMaps.get_sparse_dof_map(op::ParamFEOperator,args...) = get_sparse_dof_map(get_trial(op),get_test(op),args...)
 
 # used to build a (norm) matrix directly from the FE operator, instead of
 # unpacking the trial and test spaces

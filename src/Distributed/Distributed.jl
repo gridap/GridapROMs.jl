@@ -66,7 +66,7 @@ using GridapROMs.RBSteady
 
 import ArraysOfArrays: innersize
 import BlockArrays: BlockVector, BlockMatrix, BlockArray, mortar, blocks
-import Gridap.Helpers: @abstractmethod, @check
+import Gridap.Helpers: @abstractmethod, @check, @notimplemented
 import GridapDistributed: BlockPMatrix, BlockPVector, BlockPArray, DistributedFESpace, DistributedSingleFieldFESpace, DistributedMultiFieldFESpace, to_parray_of_arrays
 import GridapROMs.DofMaps: range_2d, range_1d
 import GridapROMs.ParamAlgebra: ParamBuilder, ParamCounter

@@ -73,16 +73,6 @@ end
 # small hack
 Base.iszero(A::ParamSparseMatrix) = (nnz(A) == 0)
 
-function DofMaps.recast(a::AbstractMatrix,A::AbstractSparseMatrix)
-  @check size(a,1) == nnz(A)
-  B = map(v -> recast(v,A),map(collect,eachcol(a)))
-  return ParamArray(B)
-end
-
-function DofMaps.recast(a::AbstractArray,A::ParamSparseMatrix)
-  recast(a,param_getindex(A,1))
-end
-
 """
     abstract type ParamSparseMatrixCSC{Tv,Ti} <: ParamSparseMatrix{Tv,Ti,SparseMatrixCSC{Tv,Ti}} end
 
@@ -201,6 +191,16 @@ function Base.copyto!(A::ConsecutiveParamSparseMatrixCSC,B::ConsecutiveParamSpar
   copyto!(A.colptr,B.colptr)
   copyto!(A.rowval,B.rowval)
   copyto!(A.data,B.data)
+end
+
+function DofMaps.recast(a::AbstractMatrix,A::SparseMatrixCSC)
+  @check size(a,1) == nnz(A)
+  ConsecutiveParamSparseMatrixCSC(A.m,A.n,A.colptr,A.rowval,a)
+end
+
+function DofMaps.recast(a::AbstractMatrix,A::ConsecutiveParamSparseMatrixCSC)
+  @check size(a,1) == nnz(A)
+  ConsecutiveParamSparseMatrixCSC(A.m,A.n,A.colptr,A.rowval,a)
 end
 
 """
@@ -444,6 +444,16 @@ function Base.copyto!(A::ConsecutiveParamSparseMatrixCSR,B::ConsecutiveParamSpar
   copyto!(A.rowptr,B.rowptr)
   copyto!(A.colval,B.colval)
   copyto!(A.data,B.data)
+end
+
+function DofMaps.recast(a::AbstractMatrix,A::SparseMatrixCSR{Bi}) where Bi
+  @check size(a,1) == nnz(A)
+  ConsecutiveParamSparseMatrixCSR{Bi}(A.m,A.n,A.rowptr,A.colval,a)
+end
+
+function DofMaps.recast(a::AbstractMatrix,A::ConsecutiveParamSparseMatrixCSR{Bi}) where Bi
+  @check size(a,1) == nnz(A)
+  ConsecutiveParamSparseMatrixCSR{Bi}(A.m,A.n,A.rowptr,A.colval,a)
 end
 
 """

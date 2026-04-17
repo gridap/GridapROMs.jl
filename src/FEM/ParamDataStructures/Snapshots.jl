@@ -271,7 +271,7 @@ end
 
 function Snapshots(
   data::BlockParamArray{T,N},
-  i::AbstractArray{<:AbstractDofMap},
+  i::ArrayBlock{<:AbstractDofMap},
   r::AbstractRealisation
   ) where {T,N}
 
@@ -280,17 +280,13 @@ function Snapshots(
   @check s == size(i)
 
   array = Array{Any,N}(undef,s)
-  touched = Array{Bool,N}(undef,s)
   for (j,dataj) in enumerate(block_values)
-    if !iszero(dataj)
+    if i.touched[j]
       array[j] = Snapshots(dataj,i[j],r)
-      touched[j] = true
-    else
-      touched[j] = false
     end
   end
 
-  BlockSnapshots(array,touched)
+  BlockSnapshots(array,i.touched)
 end
 
 BlockArrays.blocks(s::BlockSnapshots) = s.array

@@ -136,9 +136,18 @@ function FESpaces.gather_free_and_dirichlet_values!(fv,dv,f::TProductFESpace,cv)
   gather_free_and_dirichlet_values!(fv,dv,f.space,cv)
 end
 
-function DofMaps.get_sparsity(U::TProductFESpace,V::TProductFESpace,args...)
+function DofMaps.get_sparsity(U::TProductFESpace,V::TProductFESpace)
   @check length(U.spaces_1d) == length(V.spaces_1d)
-  sparsity = get_sparsity(U.space,V.space,args...)
+  sparsity = get_sparsity(U.space,V.space)
+  sparsities_1d = map(1:length(U.spaces_1d)) do d
+    get_sparsity(U.spaces_1d[d],V.spaces_1d[d])
+  end
+  return TProductSparsity(sparsity,sparsities_1d)
+end
+
+function DofMaps.get_sparsity(U::TProductFESpace,V::TProductFESpace,A::AbstractSparseMatrix)
+  @check length(U.spaces_1d) == length(V.spaces_1d)
+  sparsity = get_sparsity(U.space,V.space,A)
   sparsities_1d = map(1:length(U.spaces_1d)) do d
     get_sparsity(U.spaces_1d[d],V.spaces_1d[d])
   end

@@ -201,28 +201,19 @@ Base.length(a::BlockInterpolation) = length(a.touched)
 Base.eachindex(a::BlockInterpolation) = eachindex(a.touched)
 
 function Base.getindex(a::BlockInterpolation,i...)
-  if !a.touched[i...]
-    return nothing
-  end
-  a.interp[i...]
+  a.touched[i...] ? a.interp[i...] : nothing
 end
 
 function Base.setindex!(a::BlockInterpolation,v,i...)
-  @check a.touched[i...] "Only touched entries can be set"
-  a.interp[i...] = v
+  a.touched[i...] && (a.interp[i...] = v)
 end
 
 Base.getindex(a::BlockInterpolation,i::Block) = getindex(a,i.n...)
 Base.setindex!(a::BlockInterpolation,v,i::Block) = setindex!(a,v,i.n...)
 
-function Arrays.testitem(a::BlockInterpolation)
-  i = findfirst(a.touched)
-  @notimplementedif isnothing(i) 
-  a.interp[i]
-end
-
 function get_cell_idofs(a::BlockInterpolation{N}) where N
-  array = Array{Table,N}(undef,size(a))
+  T = typeof(empty_table(Int,Int32,0))
+  array = Array{T,N}(undef,size(a))
   for i in eachindex(a)
     if a.touched[i]
       array[i] = get_cell_idofs(a.interp[i])

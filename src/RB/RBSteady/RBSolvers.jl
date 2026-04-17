@@ -160,7 +160,7 @@ function residual_snapshots(
   us_res = get_param_data(sres)
   r_res = get_realisation(sres)
   b = residual(op,r_res,us_res)
-  ib = _get_dof_map(op,b)
+  ib = get_dof_map(op,b)
   return Snapshots(b,ib,r_res)
 end
 
@@ -175,7 +175,7 @@ function residual_snapshots(
   fill!(us_res,zero(eltype2(us_res)))
   r_res = get_realisation(sres)
   b = residual(op,r_res,us_res)
-  ib = _get_dof_map(op,b)
+  ib = get_dof_map(op,b)
   return Snapshots(b,ib,r_res)
 end
 
@@ -204,12 +204,11 @@ function jacobian_snapshots(
   s::AbstractSnapshots
   )
 
-  fesolver = get_fe_solver(solver)
   sjac = select_snapshots(s,jac_params(solver))
   us_jac = get_param_data(sjac)
   r_jac = get_realisation(sjac)
   A = jacobian(op,r_jac,us_jac)
-  iA = _get_sparse_dof_map(op,A)
+  iA = get_sparse_dof_map(op,A)
   return Snapshots(A,iA,r_jac)
 end
 
@@ -219,13 +218,12 @@ function jacobian_snapshots(
   s::AbstractSnapshots
   )
 
-  fesolver = get_fe_solver(solver)
   sjac = select_snapshots(s,jac_params(solver))
   us_jac = get_param_data(sjac) |> similar
   fill!(us_jac,zero(eltype2(us_jac)))
   r_jac = get_realisation(sjac)
   A = jacobian(op,r_jac,us_jac)
-  iA = _get_sparse_dof_map(op,A)
+  iA = get_sparse_dof_map(op,A)
   return Snapshots(A,iA,r_jac)
 end
 
@@ -239,14 +237,6 @@ function jacobian_snapshots(
   jac_nlin = jacobian_snapshots(solver,get_nonlinear_operator(op),s)
   return (jac_lin,jac_nlin)
 end
-
-_get_dof_map(op::ParamOperator,a::ArrayContribution) = get_dof_map_at_domains(op)
-_get_sparse_dof_map(op::ParamOperator,a::ArrayContribution) = get_sparse_dof_map_at_domains(op)
-_get_dof_map(op::ParamOperator,a::AbstractParamArray) = get_dof_map(op)
-_get_sparse_dof_map(op::ParamOperator,a::AbstractParamArray) = _get_trivial_sparse_dof_map(a)
-
-_get_trivial_sparse_dof_map(a::ParamSparseMatrix) = TrivialSparseMatrixDofMap(a)
-_get_trivial_sparse_dof_map(a::BlockParamArray) = map(_get_trivial_sparse_dof_map,a.data)
 
 function Algebra.solve(
   solver::RBSolver,

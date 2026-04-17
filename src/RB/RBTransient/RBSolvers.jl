@@ -85,7 +85,7 @@ function RBSteady.residual_snapshots(
   sres = select_snapshots(s,RBSteady.res_params(solver))
   rres = get_realisation(sres)
   b = spacetime_residual(c,odeop,sres)
-  ib = get_dof_map_at_domains(odeop)
+  ib = get_dof_map(odeop,b)
   return Snapshots(b,ib,rres)
 end
 
@@ -110,10 +110,10 @@ function RBSteady.jacobian_snapshots(
   sjac = select_snapshots(s,RBSteady.jac_params(solver))
   rjac = get_realisation(sjac)
   A = spacetime_jacobian(c,odeop,sjac)
-  iA = get_sparse_dof_map_at_domains(odeop)
   jac_reduction = RBSteady.get_jacobian_reduction(solver)
   sA = ()
-  for (reda,a,ia) in zip(jac_reduction,A,iA)
+  for (reda,a) in zip(jac_reduction,A)
+    ia = get_sparse_dof_map(odeop,a)
     sa = Snapshots(a,ia,rjac)
     sA = (sA...,select_snapshots(sa,1:num_params(reda)))
   end

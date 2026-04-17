@@ -77,8 +77,6 @@ export LinearParamFEOperator
 export FEDomains
 export get_param_space
 export get_param_assembler
-export get_dof_map_at_domains
-export get_sparse_dof_map_at_domains
 include("ParamFEOperators.jl")
 
 export LinearNonlinearParamFEOperator

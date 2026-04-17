@@ -203,21 +203,22 @@ function DofMaps.get_sparsity(
   return TProductSparsity(sparsity,sparsities_1d)
 end
 
-function DofMaps.SparsityPattern(
-  U::DirectSumFESpace,
-  V::DirectSumFESpace,
-  trian=DofMaps._get_common_domain(U,V)
-  )
-
+function DofMaps.SparsityPattern(U::DirectSumFESpace,V::DirectSumFESpace)
   a = ExtensionAssembler(U,V)
   m1 = nz_counter(FESpaces.get_matrix_builder(a),(FESpaces.get_rows(a),FESpaces.get_cols(a)))
-  cellidsrows = get_bg_cell_dof_ids(V,trian)
-  cellidscols = get_bg_cell_dof_ids(U,trian)
+  cellidsrows = get_bg_cell_dof_ids(V)
+  cellidscols = get_bg_cell_dof_ids(U)
   DofMaps.trivial_symbolic_loop_matrix!(m1,cellidsrows,cellidscols)
   m2 = Algebra.nz_allocation(m1)
   DofMaps.trivial_symbolic_loop_matrix!(m2,cellidsrows,cellidscols)
   m3 = Algebra.create_from_nz(m2)
   SparsityPattern(m3)
+end
+
+function DofMaps.SparsityPattern(U::DirectSumFESpace,V::DirectSumFESpace,A::AbstractSparseMatrix)
+  bg_rows = V.space.fdof_to_bg_fdofs
+  bg_cols = U.space.fdof_to_bg_fdofs
+  change_matrix_sparsity(A,bg_rows,bg_cols)
 end
 
 # evaluations
