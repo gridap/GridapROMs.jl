@@ -1,8 +1,6 @@
-get_domain_style(a::Interpolation) = get_domain_style(get_integration_domain(a))
-
-get_indices_time(a::Interpolation) = get_indices_time(get_integration_domain(a))
-get_itimes(a::Interpolation,args...) = get_itimes(get_integration_domain(a),args...)
-get_param_itimes(a::Interpolation,args...) = get_param_itimes(get_integration_domain(a),args...)
+get_indices_time(a::Interpolation) = Int[]
+get_itimes(a::Interpolation,ids::AbstractVector) = Int[]
+get_param_itimes(a::Interpolation,ids::Range2D) = range_2d(ids.axis1,Int[])
 
 get_itimes(a::Interpolation,common_ids::Range1D) = error("should not be here")
 get_param_itimes(a::Interpolation,common_ids::Range1D) = get_param_itimes(a,common_ids.parent)
@@ -48,10 +46,14 @@ for (T,f) in zip((:HighDimMDEIMHyperReduction,:HighDimSOPTHyperReduction),
   end
 end
 
+get_domain_style(a::TransientGreedyInterpolation) = get_domain_style(a.domain)
+get_indices_time(a::TransientGreedyInterpolation) = get_indices_time(a.domain)
+get_itimes(a::TransientGreedyInterpolation,args...) = get_itimes(a.domain,args...)
+get_param_itimes(a::TransientGreedyInterpolation,args...) = get_param_itimes(a.domain,args...)
+
 function get_param_itimes(a::TransientGreedyInterpolation,common_ids::Range2D)
   common_param_ids = common_ids.axis1
   common_time_ids = common_ids.axis2
-  local_time_ids = get_indices_time(a)
   local_itime_ids = get_itimes(a,common_time_ids)
   locations = range_2d(common_param_ids,local_itime_ids,length(common_param_ids))
   return locations
@@ -81,6 +83,44 @@ for (T,f) in zip((:KroneckerProjection,:SequentialProjection),
     end
   end
 end
+
+# multi field
+
+const TransientBlockInterpolation{N} = BlockInterpolation{N}
+
+get_domain_style(a::TransientBlockInterpolation) = get_domain_style(testitem(a))
+
+function get_indices_time(a::TransientBlockInterpolation{N}) where N
+  array = Array{Any,N}(undef,size(a))
+  for i in eachindex(a)
+    if a.touched[i]
+      array[i] = get_indices_time(a.interp[i])
+    end
+  end
+  ArrayBlock(array,a.touched)
+end
+
+function get_itimes(a::TransientBlockInterpolation{N},ids::AbstractVector) where N
+  array = Array{Any,N}(undef,size(a))
+  for i in eachindex(a)
+    if a.touched[i]
+      array[i] = get_itimes(a.interp[i],ids)
+    end
+  end
+  ArrayBlock(array,a.touched)
+end
+
+function get_param_itimes(a::TransientBlockInterpolation{N},ids::Range2D) where N
+  array = Array{Any,N}(undef,size(a))
+  for i in eachindex(a)
+    if a.touched[i]
+      array[i] = get_param_itimes(a.interp[i],ids)
+    end
+  end
+  ArrayBlock(array,a.touched)
+end
+
+# API
 
 function get_at_kron_domain(
   s::TransientSnapshots,
@@ -142,8 +182,8 @@ function get_at_seq_domain(
   indices_time::AbstractVector{<:Integer}
   )
 
-  @check length(rowscols) == length(indices_time)
   rows,cols = rowscols
+  @check length(rows) == length(indices_time)
   sparsity = get_sparsity(get_dof_map(s))
   inds = sparsify_split_indices(rows,cols,sparsity)
   data = get_all_data(s)
@@ -152,57 +192,4 @@ function get_at_seq_domain(
     datav[i] = data[inds[i.I[1]],i.I[2],indices_time[i.I[1]]]
   end
   ConsecutiveParamArray(datav)
-end
-
-# multi field
-
-const TransientBlockInterpolation{N} = BlockInterpolation{N}
-
-get_domain_style(a::TransientBlockInterpolation) = get_domain_style(testitem(a))
-
-function get_indices_time(a::TransientBlockInterpolation)
-  cache = _allocate_indices_time(a)
-  for i in eachindex(a)
-    if a.touched[i]
-      cache[i] = get_itimes(a[i])
-    end
-  end
-  return ArrayBlock(cache,a.touched)
-end
-
-function get_itimes(a::TransientBlockInterpolation,ids::AbstractVector)
-  cache = _allocate_itimes(a,ids)
-  for i in eachindex(a)
-    if a.touched[i]
-      cache[i] = get_itimes(a[i],ids)
-    end
-  end
-  return ArrayBlock(cache,a.touched)
-end
-
-function get_param_itimes(a::TransientBlockInterpolation,ids::Range2D)
-  cache = _allocate_param_itimes(a,ids)
-  for i in eachindex(a)
-    if a.touched[i]
-      cache[i] = get_param_itimes(a[i],ids)
-    end
-  end
-  return ArrayBlock(cache,a.touched)
-end
-
-# utils
-
-function _allocate_indices_time(a::TransientBlockInterpolation)
-  cache = get_indices_time(testitem(a))
-  Array{typeof(cache),ndims(a)}(undef,size(a))
-end
-
-function _allocate_itimes(a::TransientBlockInterpolation,ids::AbstractVector)
-  cache = get_itimes(testitem(a),ids)
-  Array{typeof(cache),ndims(a)}(undef,size(a))
-end
-
-function _allocate_param_itimes(a::TransientBlockInterpolation,ids::Range2D)
-  cache = get_param_itimes(testitem(a),ids)
-  Array{typeof(cache),ndims(a)}(undef,size(a))
 end

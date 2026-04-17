@@ -182,34 +182,69 @@ end
 
 struct BlockInterpolation{N} <: Interpolation
   interp::Array{<:Interpolation,N}
+  touched::Array{Bool,N}
+
+  function BlockInterpolation(
+    interp::Array{<:Interpolation,N},
+    touched::Array{Bool,N}
+    ) where N
+
+    @check size(interp) == size(touched)
+    new{N}(interp,touched)
+  end
 end
 
-Base.ndims(a::BlockInterpolation) = ndims(a.interp)
-Base.size(a::BlockInterpolation,args...) = size(a.interp,args...)
-Base.axes(a::BlockInterpolation,args...) = axes(a.interp,args...)
-Base.length(a::BlockInterpolation) = length(a.interp)
-Base.eachindex(a::BlockInterpolation) = eachindex(a.interp)
+Base.ndims(a::BlockInterpolation) = ndims(a.touched)
+Base.size(a::BlockInterpolation,args...) = size(a.touched,args...)
+Base.axes(a::BlockInterpolation,args...) = axes(a.touched,args...)
+Base.length(a::BlockInterpolation) = length(a.touched)
+Base.eachindex(a::BlockInterpolation) = eachindex(a.touched)
 
-Base.getindex(a::BlockInterpolation,i...) = a.interp[i...]
-Base.setindex!(a::BlockInterpolation,v,i...) = (a.interp[i...] = v)
+function Base.getindex(a::BlockInterpolation,i...)
+  if !a.touched[i...]
+    return nothing
+  end
+  a.interp[i...]
+end
+
+function Base.setindex!(a::BlockInterpolation,v,i...)
+  @check a.touched[i...] "Only touched entries can be set"
+  a.interp[i...] = v
+end
+
 Base.getindex(a::BlockInterpolation,i::Block) = getindex(a,i.n...)
 Base.setindex!(a::BlockInterpolation,v,i::Block) = setindex!(a,v,i.n...)
-Arrays.testitem(a::BlockInterpolation) = first(a.interp)
 
-function get_cell_idofs(a::BlockInterpolation)
-  array = map(get_cell_idofs,a.interp)
-  touched = fill(true,size(a))
-  return ArrayBlock(array,touched)
+function Arrays.testitem(a::BlockInterpolation)
+  i = findfirst(a.touched)
+  @notimplementedif isnothing(i) 
+  a.interp[i]
+end
+
+function get_cell_idofs(a::BlockInterpolation{N}) where N
+  array = Array{Table,N}(undef,size(a))
+  for i in eachindex(a)
+    if a.touched[i]
+      array[i] = get_cell_idofs(a.interp[i])
+    end
+  end
+  return ArrayBlock(array,a.touched)
 end
 
 function get_integration_cells(a::BlockInterpolation,args...)
-  _union(a) = a
+  _union(args...) = @notimplemented
   _union(a::T,b::T) where T<:AbstractVector = union(a,b)
   _union(a::T,b::T) where T<:AppendedArray = lazy_append(union(a.a,b.a),union(a.b,b.b))
-  _union(a,b,c...) = _union(_union(a,b),c...)
 
-  cells = map(x -> get_integration_cells(x,args...),a.interp)
-  return _union(cells...)
+  i = findfirst(a.touched)
+  isnothing(i) && return Int32[]
+  cells = get_integration_cells(a.interp[i],args...)
+  for i in 2:length(a)
+    if a.touched[i]
+      cells = _union(cells,get_integration_cells(a.interp[i],args...))
+    end
+  end
+  return cells
 end
 
 function get_owned_icells(a::BlockInterpolation,args...)
@@ -217,28 +252,36 @@ function get_owned_icells(a::BlockInterpolation,args...)
   get_owned_icells(a,cells)
 end
 
-function get_owned_icells(a::BlockInterpolation,cells::AbstractVector)
-  array = map(x -> get_owned_icells(x,cells),a.interp)
-  touched = fill(true,size(a))
-  return ArrayBlock(array,touched)
+function get_owned_icells(a::BlockInterpolation{N},cells::AbstractVector) where N
+  array = Array{Vector{Int},N}(undef,size(a))
+  for i in eachindex(a)
+    if a.touched[i]
+      array[i] = get_owned_icells(a.interp[i],cells)
+    end
+  end
+  return ArrayBlock(array,a.touched)
 end
 
 function move_interpolation(a::BlockInterpolation{N},trial::FESpace,test::FESpace,args...) where N
   I = eltype(a.interp)
   cache = Array{I,N}(undef,size(a))
   for (i,j) in Iterators.product(axes(a)...)
-    cache[i,j] = move_interpolation(a[i,j],trial[j],test[i],args...)
+    if a.touched[i,j]
+      cache[i,j] = move_interpolation(a.interp[i,j],trial[j],test[i],args...)
+    end
   end
-  return BlockInterpolation(cache)
+  return BlockInterpolation(cache,a.touched)
 end
 
 function move_interpolation(a::BlockInterpolation{N},test::FESpace,args...) where N
   I = eltype(a.interp)
   cache = Array{I,N}(undef,size(a))
   for i in eachindex(a)
-    cache[i] = move_interpolation(a[i],test[i],args...)
+    if a.touched[i]
+      cache[i] = move_interpolation(a.interp[i],test[i],args...)
+    end
   end
-  return BlockInterpolation(cache)
+  return BlockInterpolation(cache,a.touched)
 end
 
 # utils

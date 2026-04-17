@@ -652,9 +652,9 @@ Base.getindex(a::BlockProjection,i::Block) = getindex(a,i.n...)
 Base.setindex!(a::BlockProjection,v,i::Block) = setindex!(a,v,i.n...)
 
 function Arrays.testitem(a::BlockProjection)
-  i = findall(a.touched)
-  @notimplementedif length(i) == 0
-  a.array[first(i)]
+  i = findfirst(a.touched)
+  @notimplementedif isnothing(i)
+  a.array[i]
 end
 
 function get_basis(a::BlockProjection{N}) where N

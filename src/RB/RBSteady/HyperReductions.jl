@@ -448,9 +448,9 @@ Base.getindex(a::BlockHRProjection,i::Block) = getindex(a,i.n...)
 Base.setindex!(a::BlockHRProjection,v,i::Block) = setindex!(a,v,i.n...)
 
 function Arrays.testitem(a::BlockHRProjection)
-  i = findall(a.touched)
-  @notimplementedif length(i) == 0
-  a.array[first(i)]
+  i = findfirst(a.touched)
+  @notimplementedif isnothing(i)
+  a.array[i]
 end
 
 function get_basis(a::BlockHRProjection{N}) where N
@@ -465,7 +465,13 @@ function get_basis(a::BlockHRProjection{N}) where N
 end
 
 function get_interpolation(a::BlockHRProjection)
-  return BlockInterpolation(map(get_interpolation,a.array))
+  array = Array{Interpolation,ndims(a)}(undef,size(a))
+  for i in eachindex(a)
+    if a.touched[i]
+      array[i] = get_interpolation(a.array[i])
+    end
+  end
+  return BlockInterpolation(array,a.touched)
 end
 
 function FESpaces.interpolate!(
