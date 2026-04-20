@@ -76,102 +76,90 @@ function get_max_offset(a::Table)
   get_max_offset(a.ptrs)
 end
 
-function get_spacetime_irows(
-  cell_row_ids::AbstractArray{<:AbstractArray},
-  cells::AbstractVector,
-  rows::AbstractVector
-  )
+struct CellsToSpacetimeIrowsMap{N,A,B,C,D} <: CellsToIdsMap
+  cell_row_ids::A
+  cells::B
+  rows::C
+  iurow_to_irow::D
 
-  correct_irow = RBSteady.get_idof_correction(cell_row_ids)
-  cache = array_cache(cell_row_ids)
+  function CellsToSpacetimeIrowsMap{N}(
+    a::A,b::B,c::C,d::D
+    ) where {N,A,B,C,D}
 
-  ncells = length(cells)
-  ptrs = Vector{Int32}(undef,ncells+1)
-  @inbounds for (icell,cell) in enumerate(cells)
-    cellrows = getindex!(cache,cell_row_ids,cell)
-    ptrs[icell+1] = length(cellrows)
+    new{N,A,B,C,D}(a,b,c,d)
   end
-  length_to_ptrs!(ptrs)
-
-  # count number of occurrences
-  iurow_to_irow = get_iurow_to_irow(rows)
-  ucache = array_cache(iurow_to_irow)
-  N = get_max_offset(iurow_to_irow)
-
-  z = zeros(Int32,N)
-  data = map(_ -> copy(z),1:ptrs[end]-1)
-  for (icell,cell) in enumerate(cells)
-    cellrows = getindex!(cache,cell_row_ids,cell)
-    for iurow in eachindex(iurow_to_irow)
-      irows = getindex!(ucache,iurow_to_irow,iurow)
-      for (iuirow,irow) in enumerate(irows)
-        row = rows[irow]
-        for (_icellrow,cellrow) in enumerate(cellrows)
-          if row == cellrow
-            icellrow = correct_irow(_icellrow,cellrows)
-            data[ptrs[icell]-1+icellrow][iuirow] = irow
-          end
-        end
-      end
-    end
-  end
-
-  Table(map(VectorValue,data),ptrs)
 end
 
-function get_spacetime_irowcols(
-  cell_row_ids::AbstractArray{<:AbstractArray},
-  cell_col_ids::AbstractArray{<:AbstractArray},
-  cells::AbstractVector,
-  rows::AbstractVector,
-  cols::AbstractVector
-  )
+function Arrays.return_cache(k::CellsToSpacetimeIrowsMap{N},icell::Int) where N
+  row_cache = array_cache(k.cell_row_ids)
+  rows_s = getindex!(row_cache,k.cell_row_ids,icell)
+  irow_cache = _st_cache(rows_s,Val{N}())
+  unwrap_cache = return_cache(unwrap_and_setsize!,irow_cache,rows_s)
+  ucache = array_cache(k.iurow_to_irow)
+  correct_irow = RBSteady.get_idof_correction(k.cell_row_ids)
+  return row_cache,irow_cache,unwrap_cache,ucache,correct_irow
+end
 
-  correct_irow = RBSteady.get_idof_correction(cell_row_ids)
-  correct_icol = RBSteady.get_idof_correction(cell_col_ids)
-  rowcache = array_cache(cell_row_ids)
-  colcache = array_cache(cell_col_ids)
+function Arrays.evaluate!(cache,k::CellsToSpacetimeIrowsMap{N},icell::Int) where N
+  row_cache,irow_cache,unwrap_cache,ucache,correct_irow = cache
+  cell = k.cells[icell]
+  cellrows = getindex!(row_cache,k.cell_row_ids,cell)
+  a = evaluate!(unwrap_cache,unwrap_and_setsize!,irow_cache,cellrows)
+  Arrays.fill_entries!(a,zero(VectorValue{N,Int32}))
+  _st_evaluate!(a,cellrows,k.rows,k.iurow_to_irow,ucache,correct_irow)
+end
 
-  ncells = length(cells)
-  ptrs = Vector{Int32}(undef,ncells+1)
-  @inbounds for (icell,cell) in enumerate(cells)
-    cellrows = getindex!(rowcache,cell_row_ids,cell)
-    cellcols = getindex!(colcache,cell_col_ids,cell)
-    ptrs[icell+1] = length(cellrows)*length(cellcols)
+function get_spacetime_irows(cell_row_ids,cells,rows)
+  iurow_to_irow = get_iurow_to_irow(rows)
+  N = get_max_offset(iurow_to_irow)
+  k = CellsToSpacetimeIrowsMap{N}(cell_row_ids,cells,rows,iurow_to_irow)
+  lazy_map(k,1:length(cells))
+end
+
+struct CellsToSpacetimeIrowcolsMap{N,A,B,C,D,E,F} <: CellsToIdsMap
+  cell_row_ids::A
+  cell_col_ids::B
+  cells::C
+  rows::D
+  cols::E
+  iurowcol_to_irowcol::F
+
+  function CellsToSpacetimeIrowcolsMap{N}(
+    a::A,b::B,c::C,d::D,e::E,f::F
+    ) where {N,A,B,C,D,E,F}
+
+    new{N,A,B,C,D,E,F}(a,b,c,d,e,f)
   end
-  length_to_ptrs!(ptrs)
+end
 
-  # count number of occurrences
-  nrows = length(rows)
+function Arrays.return_cache(k::CellsToSpacetimeIrowcolsMap{N},icell::Int) where N
+  row_cache = array_cache(k.cell_row_ids)
+  col_cache = array_cache(k.cell_col_ids)
+  rowcols_s = getindex!(row_cache,k.cell_row_ids,icell)
+  colcols_s = getindex!(col_cache,k.cell_col_ids,icell)
+  irowcol_cache = _st_cache(rowcols_s,Val{N}())
+  unwrap_cache = return_cache(unwrap_and_setsize!,irowcol_cache,rowcols_s,colcols_s)
+  ucache = array_cache(k.iurowcol_to_irowcol)
+  correct_irow = RBSteady.get_idof_correction(k.cell_row_ids)
+  correct_icol = RBSteady.get_idof_correction(k.cell_col_ids)
+  return row_cache,col_cache,irowcol_cache,unwrap_cache,ucache,correct_irow,correct_icol
+end
+
+function Arrays.evaluate!(cache,k::CellsToSpacetimeIrowcolsMap{N},icell::Int) where N
+  row_cache,col_cache,irowcol_cache,unwrap_cache,ucache,correct_irow,correct_icol = cache
+  cell = k.cells[icell]
+  cellrows = getindex!(row_cache,k.cell_row_ids,cell)
+  cellcols = getindex!(col_cache,k.cell_col_ids,cell)
+  a = evaluate!(unwrap_cache,unwrap_and_setsize!,irowcol_cache,cellrows,cellcols)
+  Arrays.fill_entries!(a,zero(VectorValue{N,Int32}))
+  _st_evaluate!(a,cellrows,cellcols,k.rows,k.cols,k.iurowcol_to_irowcol,ucache,correct_irow,correct_icol)
+end
+
+function get_spacetime_irowcols(cell_row_ids,cell_col_ids,cells,rows,cols)
   iurowcol_to_irowcol = get_iurowcol_to_irowcol(rows,cols)
-  ucache = array_cache(iurowcol_to_irowcol)
   N = get_max_offset(iurowcol_to_irowcol)
-
-  z = zeros(Int32,N)
-  data = map(_ -> copy(z),1:ptrs[end]-1)
-  for (icell,cell) in enumerate(cells)
-    cellrows = getindex!(rowcache,cell_row_ids,cell)
-    cellcols = getindex!(colcache,cell_col_ids,cell)
-    ncellrows = length(cellrows)
-    for iurowcol in eachindex(iurowcol_to_irowcol)
-      irowcols = getindex!(ucache,iurowcol_to_irowcol,iurowcol)
-      for (iuirowcol,irowcol) in enumerate(irowcols)
-        row,col = rows[irowcol],cols[irowcol]
-        for (_icellrow,cellrow) in enumerate(cellrows)
-          for (_icellcol,cellcol) in enumerate(cellcols)
-            if row == cellrow && col == cellcol
-              icellrow = correct_irow(_icellrow,cellrows)
-              icellcol = correct_icol(_icellcol,cellcols)
-              icellrowcol = icellrow + (icellcol-1)*ncellrows
-              data[ptrs[icell]-1+icellrowcol][iuirowcol] = irowcol
-            end
-          end
-        end
-      end
-    end
-  end
-
-  Table(map(VectorValue,data),ptrs)
+  k = CellsToSpacetimeIrowcolsMap{N}(cell_row_ids,cell_col_ids,cells,rows,cols,iurowcol_to_irowcol)
+  lazy_map(k,1:length(cells))
 end
 
 abstract type TransientIntegrationDomainStyle end
@@ -262,4 +250,78 @@ get_indices_time(i::TransientIntegrationDomain) = i.indices_time
 function get_itimes(i::TransientIntegrationDomain,ids::AbstractVector)::Vector{Int}
   idsi = get_indices_time(i)
   filter(!isnothing,indexin(idsi,ids))
+end
+
+# utils 
+
+function _st_cache(rows::AbstractArray,::Val{N}) where N
+  CachedArray(similar(rows,VectorValue{N,Int32}))
+end
+
+function _st_cache(rows::ArrayBlock,::Val{N}) where N
+  ai = CachedArray(similar(testitem(rows),VectorValue{N,Int32}))
+  array = Array{typeof(ai),ndims(rows)}(undef,size(rows))
+  for i in eachindex(rows.array)
+    if rows.touched[i]
+      array[i] = CachedArray(similar(rows.array[i],VectorValue{N,Int32}))
+    end
+  end
+  ArrayBlock(array,rows.touched)
+end
+
+function _st_evaluate!(a,cellrows,rows,iurow_to_irow,ucache,correct_irow)
+  for iurow in eachindex(iurow_to_irow)
+    irows = getindex!(ucache,iurow_to_irow,iurow)
+    for (iuirow,irow) in enumerate(irows)
+      row = rows[irow]
+      for (_icellrow,cellrow) in enumerate(cellrows)
+        if row == cellrow
+          icellrow = correct_irow(_icellrow,cellrows)
+          a[icellrow][iuirow] = irow
+        end
+      end
+    end
+  end
+  a
+end
+
+function _st_evaluate!(a::VectorBlock,cellrows::VectorBlock,rows,iurow_to_irow,ucache,correct_irow)
+  @check a.touched == cellrows.touched
+  for i in eachindex(a)
+    if a.touched[i]
+      _st_evaluate!(a.array[i],cellrows.array[i],rows,iurow_to_irow,ucache,correct_irow)
+    end
+  end
+  a
+end
+
+function _st_evaluate!(a,cellrows,cellcols,rows,cols,iurowcol_to_irowcol,ucache,correct_irow,correct_icol)
+  ncellrows = length(cellrows)
+  for iurowcol in eachindex(iurowcol_to_irowcol)
+    irowcols = getindex!(ucache,iurowcol_to_irowcol,iurowcol)
+    for (iuirowcol,irowcol) in enumerate(irowcols)
+      row,col = rows[irowcol],cols[irowcol]
+      for (_icellrow,cellrow) in enumerate(cellrows)
+        for (_icellcol,cellcol) in enumerate(cellcols)
+          if row == cellrow && col == cellcol
+            icellrow = correct_irow(_icellrow,cellrows)
+            icellcol = correct_icol(_icellcol,cellcols)
+            icellrowcol = icellrow + (icellcol-1)*ncellrows
+            a[icellrowcol][iuirowcol] = irowcol
+          end
+        end
+      end
+    end
+  end
+  a
+end
+
+function _st_evaluate!(a::VectorBlock,cellrows::VectorBlock,cellcols::VectorBlock,rows,cols,iurowcol_to_irowcol,ucache,correct_irow,correct_icol)
+  @check a.touched == cellrows.touched == cellcols.touched
+  for i in eachindex(a)
+    if a.touched[i]
+      _st_evaluate!(a.array[i],cellrows.array[i],cellcols.array[i],rows,cols,iurowcol_to_irowcol,ucache,correct_irow,correct_icol)
+    end
+  end
+  a
 end

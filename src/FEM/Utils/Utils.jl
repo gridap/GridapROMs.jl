@@ -49,6 +49,9 @@ export induced_norm
 export sqrtreal
 include("PerformanceTrackers.jl")
 
+export unwrap_and_setsize!
+include("Unwrap.jl")
+
 export PartialDerivative
 export ∂₁, ∂₂, ∂₃
 include("PartialDerivatives.jl")

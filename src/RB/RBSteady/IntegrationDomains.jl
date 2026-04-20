@@ -88,14 +88,14 @@ end
 
 """
     get_rows_to_cells(
-      cell_row_ids::AbstractArray{<:AbstractArray},
+      cell_row_ids::AbstractArray,
       rows::AbstractVector
       ) -> AbstractVector
 
 Returns the list of cells containing the row ids `rows`
 """
 function get_rows_to_cells(
-  cell_row_ids::AbstractArray{<:AbstractArray},
+  cell_row_ids::AbstractArray,
   rows::AbstractVector
   )
 
@@ -112,16 +112,18 @@ end
 
 """
     get_rowcols_to_cells(
-      cell_row_ids::AbstractArray{<:AbstractArray},
-      cell_col_ids::AbstractArray{<:AbstractArray},
-      rows::AbstractVector,cols::AbstractVector) -> AbstractVector
+      cell_row_ids::AbstractArray,
+      cell_col_ids::AbstractArray,
+      rows::AbstractVector,
+      cols::AbstractVector) -> AbstractVector
 
 Returns the list of cells containing the row ids `rows` and the col ids `cols`
 """
 function get_rowcols_to_cells(
-  cell_row_ids::AbstractArray{<:AbstractArray},
-  cell_col_ids::AbstractArray{<:AbstractArray},
-  rows::AbstractVector,cols::AbstractVector
+  cell_row_ids::AbstractArray,
+  cell_col_ids::AbstractArray,
+  rows::AbstractVector,
+  cols::AbstractVector
   )
 
   @assert length(cell_row_ids) == length(cell_col_ids)
@@ -142,82 +144,68 @@ get_idof_correction(a::OTable) = (idof,celldofs) -> celldofs.terms[idof]
 get_idof_correction(a::LazyArray{<:Fill{<:Reindex}}) = get_idof_correction(a.maps[1].values)
 get_idof_correction(a::AppendedArray) = get_idof_correction(a.a)
 
-function get_cells_to_irows(
-  cell_row_ids::AbstractArray{<:AbstractArray},
-  cells::AbstractVector,
-  rows::AbstractVector
-  )
+abstract type CellsToIdsMap <: Map end
 
-  correct_irow = get_idof_correction(cell_row_ids)
-  cache = array_cache(cell_row_ids)
-
-  ncells = length(cells)
-  ptrs = Vector{Int32}(undef,ncells+1)
-  @inbounds for (icell,cell) in enumerate(cells)
-    cellrows = getindex!(cache,cell_row_ids,cell)
-    ptrs[icell+1] = length(cellrows)
-  end
-  length_to_ptrs!(ptrs)
-
-  data = fill(zero(Int32),ptrs[end]-1)
-  for (icell,cell) in enumerate(cells)
-    cellrows = getindex!(cache,cell_row_ids,cell)
-    for (irow,row) in enumerate(rows)
-      for (_icellrow,cellrow) in enumerate(cellrows)
-        if row == cellrow
-          icellrow = correct_irow(_icellrow,cellrows)
-          data[ptrs[icell]-1+icellrow] = irow
-        end
-      end
-    end
-  end
-
-  Table(data,ptrs)
+struct CellsToIrowsMap{A,B,C} <: CellsToIdsMap
+  cell_row_ids::A
+  cells::B
+  rows::C
 end
 
-function get_cells_to_irowcols(
-  cell_row_ids::AbstractArray{<:AbstractArray},
-  cell_col_ids::AbstractArray{<:AbstractArray},
-  cells::AbstractVector,
-  rows::AbstractVector,
-  cols::AbstractVector
-  )
+function Arrays.return_cache(k::CellsToIrowsMap,icell::Int)
+  row_cache = array_cache(k.cell_row_ids)
+  rows = getindex!(row_cache,k.cell_row_ids,icell)
+  irow_cache = CachedArray(rows)
+  unwrap_cache = return_cache(unwrap_and_setsize!,irow_cache,rows)
+  correct_irow = get_idof_correction(k.cell_row_ids)
+  return row_cache,irow_cache,unwrap_cache,correct_irow
+end
 
-  correct_irow = get_idof_correction(cell_row_ids)
-  correct_icol = get_idof_correction(cell_col_ids)
-  rowcache = array_cache(cell_row_ids)
-  colcache = array_cache(cell_col_ids)
+function Arrays.evaluate!(cache,k::CellsToIrowsMap,icell::Int)
+  row_cache,irow_cache,unwrap_cache,correct_irow = cache
+  cell = k.cells[icell]
+  cellrows = getindex!(row_cache,k.cell_row_ids,cell)
+  a = evaluate!(unwrap_cache,unwrap_and_setsize!,irow_cache,cellrows)
+  _evaluate!(a,cellrows,k.rows,correct_irow)
+end
 
-  ncells = length(cells)
-  ptrs = Vector{Int32}(undef,ncells+1)
-  @inbounds for (icell,cell) in enumerate(cells)
-    cellrows = getindex!(rowcache,cell_row_ids,cell)
-    cellcols = getindex!(colcache,cell_col_ids,cell)
-    ptrs[icell+1] = length(cellrows)*length(cellcols)
-  end
-  length_to_ptrs!(ptrs)
+function get_cells_to_irows(cell_row_ids,cells,rows)
+  k = CellsToIrowsMap(cell_row_ids,cells,rows)
+  lazy_map(k,1:length(cells))
+end
 
-  data = fill(zero(Int32),ptrs[end]-1)
-  for (icell,cell) in enumerate(cells)
-    cellrows = getindex!(rowcache,cell_row_ids,cell)
-    cellcols = getindex!(colcache,cell_col_ids,cell)
-    ncellrows = length(cellrows)
-    for (irowcol,rowcol) in enumerate(zip(rows,cols))
-      row,col = rowcol
-      for (_icellrow,cellrow) in enumerate(cellrows)
-        for (_icellcol,cellcol) in enumerate(cellcols)
-          if row == cellrow && col == cellcol
-            icellrow = correct_irow(_icellrow,cellrows)
-            icellcol = correct_icol(_icellcol,cellcols)
-            icellrowcol = icellrow + (icellcol-1)*ncellrows
-            data[ptrs[icell]-1+icellrowcol] = irowcol
-          end
-        end
-      end
-    end
-  end
+struct CellsToIrowcolsMap{A,B,C,D,E} <: CellsToIdsMap
+  cell_row_ids::A
+  cell_col_ids::B
+  cells::C
+  rows::D
+  cols::E
+end
 
-  Table(data,ptrs)
+function Arrays.return_cache(k::CellsToIrowcolsMap,icell::Int)
+  row_cache = array_cache(k.cell_row_ids)
+  col_cache = array_cache(k.cell_col_ids)
+  rowcols = getindex!(row_cache,k.cell_row_ids,icell)
+  colcols = getindex!(col_cache,k.cell_col_ids,icell)
+  irowcol_cache = CachedArray(rowcols)
+  unwrap_cache = return_cache(unwrap_and_setsize!,irowcol_cache,rowcols,colcols)
+  correct_irow = get_idof_correction(k.cell_row_ids)
+  correct_icol = get_idof_correction(k.cell_col_ids)
+  return row_cache,col_cache,irowcol_cache,unwrap_cache,correct_irow,correct_icol
+end
+
+function Arrays.evaluate!(cache,k::CellsToIrowcolsMap,icell::Int)
+  row_cache,col_cache,irowcol_cache,unwrap_cache,correct_irow,correct_icol = cache
+  cell = k.cells[icell]
+  cellrows = getindex!(row_cache,k.cell_row_ids,cell)
+  cellcols = getindex!(col_cache,k.cell_col_ids,cell)
+  a = evaluate!(unwrap_cache,unwrap_and_setsize!,irowcol_cache,cellrows,cellcols)
+  _evaluate!(a,cellrows,cellcols,k.rows,k.cols,correct_irow,correct_icol)
+end
+
+function get_cells_to_irowcols(cell_row_ids,cell_col_ids,cells,rows,cols)
+  k = CellsToIrowcolsMap(cell_row_ids,cell_col_ids,cells,rows,cols)
+  lazy_map(k,1:length(cells))
 end
 
 """
@@ -269,18 +257,18 @@ function get_integration_cells(i::IntegrationDomain,trian::AppendedTriangulation
 end
 
 """
-    struct GenericDomain{T,A} <: IntegrationDomain
+    struct GenericDomain{A,B} <: IntegrationDomain
       cells::Vector{Int32}
-      cell_idofs::Table{T,Vector{T},Vector{Int32}}
-      metadata::A
+      cell_idofs::A
+      metadata::B
     end
 
 Integration domain for a projection operator in a steady problem
 """
-struct GenericDomain{T,A} <: IntegrationDomain
+struct GenericDomain{A,B} <: IntegrationDomain
   cells::Vector{Int32}
-  cell_idofs::Table{T,Vector{T},Vector{Int32}}
-  metadata::A
+  cell_idofs::A
+  metadata::B
 end
 
 get_integration_cells(i::GenericDomain) = i.cells
@@ -351,6 +339,17 @@ function _isrow(cellrows,rows)
   return false
 end
 
+function _isrow(cellrows::VectorBlock,rows)
+  for i in eachindex(cellrows)
+    if cellrows.touched[i]
+      if _isrow(cellrows.array[i],rows)
+        return true
+      end
+    end 
+  end
+  return false
+end
+
 function _isrowcol(cellrows,cellcols,rows,cols)
   for col in cellcols
     for row in cellrows
@@ -364,4 +363,69 @@ function _isrowcol(cellrows,cellcols,rows,cols)
     end
   end
   return false
+end
+
+function _isrowcol(cellrows::VectorBlock,cellcols::VectorBlock,rows,cols)
+  for j in eachindex(cellcols)
+    if cellcols.touched[j]
+      for i in eachindex(cellrows)
+        if cellrows.touched[i]
+          if _isrowcol(cellrows.array[i],cellcols.array[j],rows,cols)
+            return true
+          end
+        end 
+      end
+    end 
+  end
+  return false
+end
+
+function _evaluate!(a,cellrows,rows,correct_irow)
+  for (irow,row) in enumerate(rows)
+    for (_icellrow,cellrow) in enumerate(cellrows)
+      if row == cellrow
+        icellrow = correct_irow(_icellrow,cellrows)
+        a[icellrow] = irow
+      end
+    end
+  end
+  a 
+end
+
+function _evaluate!(a::VectorBlock,cellrows::VectorBlock,rows,correct_irow)
+  @check a.touched == cellrows.touched 
+  for i in eachindex(a)
+    if a.touched[i]
+      _evaluate!(a.array[i],cellrows.array[i],rows,correct_irow)
+    end
+  end
+  a
+end
+
+function _evaluate!(a,cellrows,cellcols,rows,cols,correct_irow,correct_icol)
+  ncellrows = length(cellrows)
+  for (irowcol,rowcol) in enumerate(zip(rows,cols))
+    row,col = rowcol
+    for (_icellrow,cellrow) in enumerate(cellrows)
+      for (_icellcol,cellcol) in enumerate(cellcols)
+        if row == cellrow && col == cellcol
+          icellrow = correct_irow(_icellrow,cellrows)
+          icellcol = correct_icol(_icellcol,cellcols)
+          icellrowcol = icellrow + (icellcol-1)*ncellrows
+          a[icellrowcol] = irowcol
+        end
+      end
+    end
+  end
+  a 
+end
+
+function _evaluate!(a::VectorBlock,cellrows::VectorBlock,cellcols::VectorBlock,rows,cols,correct_irow,correct_icol)
+  @check a.touched == cellrows.touched == cellcols.touched 
+  for i in eachindex(a)
+    if a.touched[i]
+      _evaluate!(a.array[i],cellrows.array[i],cellcols.array[i],rows,cols,correct_irow,correct_icol)
+    end
+  end
+  a
 end
