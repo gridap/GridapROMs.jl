@@ -193,6 +193,7 @@ export reduced_basis
 export get_reduced_subspace
 include("RBSpaces.jl")
 
+export CellsToIdsMap
 export IntegrationDomain
 export GenericDomain
 export empirical_interpolation

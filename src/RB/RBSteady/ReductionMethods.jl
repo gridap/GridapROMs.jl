@@ -89,8 +89,15 @@ struct TTSVDRanks <: ReductionStyle
   style::Vector{<:ReductionStyle}
 end
 
-function TTSVDRanks(tolranks::Vector{<:Union{Float64,Int}},args...;kwargs...)
-  style = map(tolrank -> ReductionStyle(tolrank,args...;kwargs...),tolranks)
+function TTSVDRanks(tols::AbstractVector{T},args...;kwargs...) where T<:AbstractFloat
+  d = length(tols)
+  dtols = map(ε -> ε*d^(1/d),tols)
+  style = map(tol -> ReductionStyle(tol,args...;kwargs...),dtols)
+  TTSVDRanks(style)
+end
+
+function TTSVDRanks(tolrank::AbstractVector{<:Real},args...;kwargs...) 
+  style = map(rank -> ReductionStyle(rank,args...;kwargs...),tolrank)
   TTSVDRanks(style)
 end
 
@@ -99,7 +106,7 @@ function TTSVDRanks(tolrank::Union{Float64,Int},D=3,args...;kwargs...)
 end
 
 ReductionStyle(tolrank::Union{Float64,Int};kwargs...) = TTSVDRanks(tolrank;kwargs...)
-ReductionStyle(tolrank::Vector{<:Union{Float64,Int}};kwargs...) = TTSVDRanks(tolrank;kwargs...)
+ReductionStyle(tolrank::AbstractVector;kwargs...) = TTSVDRanks(tolrank;kwargs...)
 
 Base.size(r::TTSVDRanks) = (length(r.style),)
 Base.getindex(r::TTSVDRanks,i::Integer) = r.style[i]
