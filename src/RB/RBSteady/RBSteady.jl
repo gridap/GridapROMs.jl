@@ -227,7 +227,7 @@ export reduced_weak_form
 export allocate_hypred_cache
 include("HyperReductions.jl")
 
-export BlockReindex
+export FetchBlockMap
 export collect_cell_hr_matrix
 export collect_cell_hr_vector
 export assemble_hr_array_add!

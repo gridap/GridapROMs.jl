@@ -201,6 +201,26 @@ end
 end
 
 function RBSteady.assemble_hr_array_add!(
+  b,
+  cellvec,
+  cellidsrows::ArrayBlock,
+  icells::ArrayBlock,
+  locations::ArrayBlock,
+  style::TransientIntegrationDomainStyle
+  )
+
+  @check cellidsrows.touched == icells.touched == locations.touched
+  for i in eachindex(cellidsrows)
+    if cellidsrows.touched[i]
+      cellveci = lazy_map(FetchBlockMap(cellvec,i),icells.array[i])
+      assemble_hr_array_add!(
+        b,cellveci,cellidsrows.array[i],icells.array[i],locations.array[i],style
+      )
+    end
+  end
+end
+
+function RBSteady.assemble_hr_array_add!(
   b::ArrayBlock,
   cellvec,
   cellidsrows::ArrayBlock,
@@ -212,7 +232,7 @@ function RBSteady.assemble_hr_array_add!(
   @check cellidsrows.touched == icells.touched == locations.touched
   for i in eachindex(cellidsrows)
     if cellidsrows.touched[i]
-      cellveci = lazy_map(BlockReindex(cellvec,i),icells.array[i])
+      cellveci = lazy_map(FetchBlockMap(cellvec,i),icells.array[i])
       assemble_hr_array_add!(
         b.array[i],cellveci,cellidsrows.array[i],icells.array[i],locations.array[i],style)
     end

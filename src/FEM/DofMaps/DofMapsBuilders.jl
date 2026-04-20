@@ -1,3 +1,21 @@
+function get_dof_map_from_space(f::SingleFieldFESpace)
+  n = num_free_dofs(f)
+  VectorDofMap(n)
+end
+
+function get_dof_map_from_space(f::SingleFieldFESpace,b::AbstractVector)
+  len(a::AbstractVector{<:Number}) = length(a)
+  len(a::AbstractVector{<:AbstractVector}) = len(testitem(a))
+  @check num_free_dofs(f) == len(b)
+  get_dof_map_from_space(f)
+end
+
+function get_dof_map_from_space(f::SingleFieldFESpace,b::Contribution)
+  contribution(b.trians) do trian 
+    get_dof_map_from_space(f,b[trian])
+  end
+end
+
 """
     get_dof_map(space::FESpace,args...) -> VectorDofMap
 
@@ -6,16 +24,8 @@ D-dimensional, scalar `FESpace`, the output index map will be a subtype of
 `AbstractDofMap{<:Integer,D}`. If `space` is a D-dimensional, vector-valued `FESpace`,
 the output index map will be a subtype of `AbstractDofMap{D+1}`.
 """
-function get_dof_map(f::SingleFieldFESpace)
-  n = num_free_dofs(f)
-  VectorDofMap(n)
-end
-
-function get_dof_map(f::SingleFieldFESpace,b::AbstractVector)
-  len(a::AbstractVector{<:Number}) = length(a)
-  len(a::AbstractVector{<:AbstractVector}) = len(testitem(a))
-  @check num_free_dofs(f) == length(b)
-  get_dof_map(f)
+function get_dof_map(f::SingleFieldFESpace,args...)
+  get_dof_map_from_space(f,args...)
 end
 
 function get_dof_map(f::MultiFieldFESpace)
@@ -34,7 +44,7 @@ function get_dof_map(f::MultiFieldFESpace,b::AbstractVector)
   ArrayBlock(array,touched)
 end
 
-function get_dof_map(f::FESpace,b::Contribution)
+function get_dof_map(f::MultiFieldFESpace,b::Contribution)
   contribution(b.trians) do trian 
     get_dof_map(f,b[trian])
   end

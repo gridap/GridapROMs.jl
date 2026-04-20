@@ -212,8 +212,7 @@ Base.getindex(a::BlockInterpolation,i::Block) = getindex(a,i.n...)
 Base.setindex!(a::BlockInterpolation,v,i::Block) = setindex!(a,v,i.n...)
 
 function get_cell_idofs(a::BlockInterpolation{N}) where N
-  T = typeof(empty_table(Int,Int32,0))
-  array = Array{T,N}(undef,size(a))
+  array = Array{Any,N}(undef,size(a))
   for i in eachindex(a)
     if a.touched[i]
       array[i] = get_cell_idofs(a.interp[i])
@@ -244,7 +243,7 @@ function get_owned_icells(a::BlockInterpolation,args...)
 end
 
 function get_owned_icells(a::BlockInterpolation{N},cells::AbstractVector) where N
-  array = Array{Vector{Int},N}(undef,size(a))
+  array = Array{Any,N}(undef,size(a))
   for i in eachindex(a)
     if a.touched[i]
       array[i] = get_owned_icells(a.interp[i],cells)

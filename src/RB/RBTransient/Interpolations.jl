@@ -48,7 +48,7 @@ end
 
 get_domain_style(a::TransientGreedyInterpolation) = get_domain_style(a.domain)
 get_indices_time(a::TransientGreedyInterpolation) = get_indices_time(a.domain)
-get_itimes(a::TransientGreedyInterpolation,args...) = get_itimes(a.domain,args...)
+get_itimes(a::TransientGreedyInterpolation,ids::Union{Vector,Range2D}) = get_itimes(a.domain,ids)
 get_param_itimes(a::TransientGreedyInterpolation,args...) = get_param_itimes(a.domain,args...)
 
 function get_param_itimes(a::TransientGreedyInterpolation,common_ids::Range2D)
@@ -88,7 +88,7 @@ end
 
 const TransientBlockInterpolation{N} = BlockInterpolation{N}
 
-get_domain_style(a::TransientBlockInterpolation) = get_domain_style(testitem(a))
+get_domain_style(a::TransientBlockInterpolation) = get_domain_style(first(a.interp))
 
 function get_indices_time(a::TransientBlockInterpolation{N}) where N
   array = Array{Any,N}(undef,size(a))
@@ -100,7 +100,7 @@ function get_indices_time(a::TransientBlockInterpolation{N}) where N
   ArrayBlock(array,a.touched)
 end
 
-function get_itimes(a::TransientBlockInterpolation{N},ids::AbstractVector) where N
+function get_itimes(a::TransientBlockInterpolation{N},ids::Union{Vector,Range2D}) where N
   array = Array{Any,N}(undef,size(a))
   for i in eachindex(a)
     if a.touched[i]

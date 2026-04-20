@@ -68,18 +68,33 @@ function collect_reduced_cell_hr_vector(
   (cell_vec_r,cell_idofs,icells)
 end
 
-struct BlockReindex{A} <: Map
+struct FetchBlockMap{A} <: Map
   values::A
   blockid::Int
 end
 
-function Arrays.return_cache(k::BlockReindex,i...)
+function Arrays.return_cache(k::FetchBlockMap,i...)
   array_cache(k.values)
 end
 
-function Arrays.evaluate!(cache,k::BlockReindex,i...)
+function Arrays.evaluate!(cache,k::FetchBlockMap,i...)
   a = getindex!(cache,k.values,i...)
   a.array[k.blockid]
+end
+
+function assemble_hr_array_add!(
+  b,
+  cellvec,
+  cellidsrows::ArrayBlock,
+  icells::ArrayBlock
+  )
+  @check cellidsrows.touched == icells.touched
+  for i in eachindex(cellidsrows)
+    if cellidsrows.touched[i]
+      cellveci = lazy_map(FetchBlockMap(cellvec,i),icells.array[i])
+      assemble_hr_array_add!(b,cellveci,cellidsrows.array[i],icells.array[i])
+    end
+  end
 end
 
 function assemble_hr_array_add!(
@@ -91,7 +106,7 @@ function assemble_hr_array_add!(
   @check cellidsrows.touched == icells.touched
   for i in eachindex(cellidsrows)
     if cellidsrows.touched[i]
-      cellveci = lazy_map(BlockReindex(cellvec,i),icells.array[i])
+      cellveci = lazy_map(FetchBlockMap(cellvec,i),icells.array[i])
       assemble_hr_array_add!(b.array[i],cellveci,cellidsrows.array[i],icells.array[i])
     end
   end
