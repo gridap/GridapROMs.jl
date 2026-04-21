@@ -7,7 +7,8 @@ function RBSteady.collect_cell_hr_matrix(
   common_indices::AbstractVector
   )
 
-  cell_idofs = get_cell_idofs(interp)
+  cell_irows = get_cell_irows(interp)
+  cell_icols = get_cell_icols(interp)
   icells = get_owned_icells(interp,strian)
   locations = get_param_itimes(interp,common_indices)
   style = get_domain_style(interp)
@@ -17,7 +18,7 @@ function RBSteady.collect_cell_hr_matrix(
   @assert ndims(eltype(cell_mat)) == 2
   cell_mat_c = attach_constraints_cols(trial,cell_mat,trian)
   cell_mat_rc = attach_constraints_rows(test,cell_mat_c,trian)
-  (cell_mat_rc,cell_idofs,icells,locations,style)
+  (cell_mat_rc,cell_irows,cell_icols,icells,locations,style)
 end
 
 function RBSteady.collect_cell_hr_vector(
@@ -28,7 +29,7 @@ function RBSteady.collect_cell_hr_vector(
   common_indices::AbstractVector
   )
 
-  cell_idofs = get_cell_idofs(interp)
+  cell_irows = get_cell_irows(interp)
   icells = get_owned_icells(interp,strian)
   locations = get_param_itimes(interp,common_indices)
   style = get_domain_style(interp)
@@ -37,7 +38,7 @@ function RBSteady.collect_cell_hr_vector(
   cell_vec,trian = move_contributions(scell_vec,strian)
   @assert ndims(eltype(cell_vec)) == 1
   cell_vec_r = attach_constraints_rows(test,cell_vec,trian)
-  (cell_vec_r,cell_idofs,icells,locations,style)
+  (cell_vec_r,cell_irows,icells,locations,style)
 end
 
 function get_hr_param_entry!(v::AbstractVector,b::GenericParamBlock,hr_indices,i...)
@@ -200,27 +201,7 @@ end
   A
 end
 
-function RBSteady.assemble_hr_array_add!(
-  b,
-  cellvec,
-  cellidsrows::ArrayBlock,
-  icells::ArrayBlock,
-  locations::ArrayBlock,
-  style::TransientIntegrationDomainStyle
-  )
-
-  @check cellidsrows.touched == icells.touched == locations.touched
-  for i in eachindex(cellidsrows)
-    if cellidsrows.touched[i]
-      cellveci = lazy_map(FetchBlockMap(cellvec,i),icells.array[i])
-      assemble_hr_array_add!(
-        b,cellveci,cellidsrows.array[i],icells.array[i],locations.array[i],style
-      )
-    end
-  end
-end
-
-function RBSteady.assemble_hr_array_add!(
+function RBSteady.assemble_hr_vector_add!(
   b::ArrayBlock,
   cellvec,
   cellidsrows::ArrayBlock,
@@ -233,13 +214,13 @@ function RBSteady.assemble_hr_array_add!(
   for i in eachindex(cellidsrows)
     if cellidsrows.touched[i]
       cellveci = lazy_map(FetchBlockMap(cellvec,i),icells.array[i])
-      assemble_hr_array_add!(
+      assemble_hr_vector_add!(
         b.array[i],cellveci,cellidsrows.array[i],icells.array[i],locations.array[i],style)
     end
   end
 end
 
-function RBSteady.assemble_hr_array_add!(b,cellvec,cellidsrows,icells,locations,style)
+function RBSteady.assemble_hr_vector_add!(b,cellvec,cellidsrows,icells,locations,style)
   if length(cellvec) > 0
     rows_cache = array_cache(cellidsrows)
     vals_cache = array_cache(cellvec)
@@ -248,9 +229,46 @@ function RBSteady.assemble_hr_array_add!(b,cellvec,cellidsrows,icells,locations,
     add! = AddTransientHREntriesMap(style,locations)
     add_cache = return_cache(add!,b,vals1,rows1)
     caches = add!,add_cache,vals_cache,rows_cache
-    RBSteady._numeric_loop_hr_array!(b,caches,cellvec,cellidsrows)
+    RBSteady._numeric_loop_hr_vector!(b,caches,cellvec,cellidsrows)
   end
   b
+end
+
+function RBSteady.assemble_hr_matrix_add!(
+  A::ArrayBlock,
+  cellmat,
+  cellidsrows::ArrayBlock,
+  cellidscols::ArrayBlock,
+  icells::ArrayBlock,
+  locations::ArrayBlock,
+  style::TransientIntegrationDomainStyle
+  )
+
+  @check cellidsrows.touched == cellidscols.touched == icells.touched == locations.touched
+  for i in eachindex(cellidsrows)
+    if cellidsrows.touched[i]
+      cellmati = lazy_map(FetchBlockMap(cellmat,i),icells.array[i])
+      assemble_hr_matrix_add!(
+        A.array[i],cellmati,cellidsrows.array[i],cellidscols.array[i],
+        icells.array[i],locations.array[i],style)
+    end
+  end
+end
+
+function RBSteady.assemble_hr_matrix_add!(A,cellmat,cellidsrows,cellidscols,icells,locations,style)
+  if length(cellmat) > 0
+    rows_cache = array_cache(cellidsrows)
+    cols_cache = array_cache(cellidscols)
+    vals_cache = array_cache(cellmat)
+    vals1 = getindex!(vals_cache,cellmat,1)
+    rows1 = getindex!(rows_cache,cellidsrows,1)
+    cols1 = getindex!(cols_cache,cellidscols,1)
+    add! = AddTransientHREntriesMap(style,locations)
+    add_cache = return_cache(add!,A,vals1,rows1,cols1)
+    caches = add!,add_cache,vals_cache,rows_cache,cols_cache
+    RBSteady._numeric_loop_hr_matrix!(A,caches,cellmat,cellidsrows,cellidscols)
+  end
+  A
 end
 
 # utils

@@ -3,7 +3,8 @@ abstract type Interpolation end
 Interpolation(args...) = @abstractmethod
 
 get_integration_cells(a::Interpolation,args...) = Int32[]
-get_cell_idofs(a::Interpolation) = empty_table(Int,Int32,0)
+get_cell_irows(a::Interpolation) = empty_table(Int,Int32,0)
+get_cell_icols(a::Interpolation) = empty_table(Int,Int32,0)
 get_owned_icells(a::Interpolation,args...) = Int[]
 move_interpolation(a::Interpolation,args...) = a
 
@@ -66,7 +67,8 @@ for (T,f) in zip((:MDEIMHyperReduction,:SOPTHyperReduction),(:empirical_interpol
 end
 
 get_integration_cells(a::GreedyInterpolation,args...) = get_integration_cells(a.domain,args...)
-get_cell_idofs(a::GreedyInterpolation) = get_cell_idofs(a.domain)
+get_cell_irows(a::GreedyInterpolation) = get_cell_irows(a.domain)
+get_cell_icols(a::GreedyInterpolation) = get_cell_icols(a.domain)
 get_owned_icells(a::GreedyInterpolation,args...) = get_owned_icells(a,get_integration_cells(a,args...))
 get_owned_icells(a::GreedyInterpolation,cells::AbstractVector) = get_owned_icells(a.domain,cells)
 
@@ -211,14 +213,18 @@ end
 Base.getindex(a::BlockInterpolation,i::Block) = getindex(a,i.n...)
 Base.setindex!(a::BlockInterpolation,v,i::Block) = setindex!(a,v,i.n...)
 
-function get_cell_idofs(a::BlockInterpolation{N}) where N
-  array = Array{Any,N}(undef,size(a))
-  for i in eachindex(a)
-    if a.touched[i]
-      array[i] = get_cell_idofs(a.interp[i])
+for f in (:get_cell_irows,:get_cell_icols)
+  @eval begin
+    function $f(a::BlockInterpolation{N}) where N
+      array = Array{Any,N}(undef,size(a))
+      for i in eachindex(a)
+        if a.touched[i]
+          array[i] = $f(a.interp[i])
+        end
+      end
+      return ArrayBlock(array,a.touched)
     end
   end
-  return ArrayBlock(array,a.touched)
 end
 
 function get_integration_cells(a::BlockInterpolation,args...)

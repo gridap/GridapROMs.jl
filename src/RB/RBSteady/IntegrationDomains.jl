@@ -139,64 +139,30 @@ function get_rowcols_to_cells(
   Int32.(findall(cells))
 end
 
-abstract type CellsToIdsMap <: Map end
-
-struct CellsToIrowsMap{A,B,C} <: CellsToIdsMap
-  cell_row_ids::A
+struct CellsToIDofsMap{A,B,C} <: Map
+  cell_dof_ids::A
   cells::B
   rows::C
 end
 
-function Arrays.return_cache(k::CellsToIrowsMap,icell::Int)
-  row_cache = array_cache(k.cell_row_ids)
-  rows = getindex!(row_cache,k.cell_row_ids,icell)
-  irow_cache = _cache(rows)
-  unwrap_cache = return_cache(unwrap_and_setsize!,irow_cache,rows)
-  return row_cache,irow_cache,unwrap_cache
+function Arrays.return_cache(k::CellsToIDofsMap,icell::Int)
+  dof_cache = array_cache(k.cell_dof_ids)
+  rows = getindex!(dof_cache,k.cell_dof_ids,icell)
+  idof_cache = _cache(rows)
+  unwrap_cache = return_cache(unwrap_and_setsize!,idof_cache,rows)
+  return dof_cache,idof_cache,unwrap_cache
 end
 
-function Arrays.evaluate!(cache,k::CellsToIrowsMap,icell::Int)
-  row_cache,irow_cache,unwrap_cache = cache
+function Arrays.evaluate!(cache,k::CellsToIDofsMap,icell::Int)
+  dof_cache,idof_cache,unwrap_cache = cache
   cell = k.cells[icell]
-  cellrows = getindex!(row_cache,k.cell_row_ids,cell)
-  a = evaluate!(unwrap_cache,unwrap_and_setsize!,irow_cache,cellrows)
-  _evaluate!(a,cellrows,k.rows)
+  celldofs = getindex!(dof_cache,k.cell_dof_ids,cell)
+  a = evaluate!(unwrap_cache,unwrap_and_setsize!,idof_cache,celldofs)
+  _evaluate!(a,celldofs,k.rows)
 end
 
-function get_cells_to_irows(cell_row_ids,cells,rows)
-  k = CellsToIrowsMap(cell_row_ids,cells,rows)
-  lazy_map(k,1:length(cells))
-end
-
-struct CellsToIrowcolsMap{A,B,C,D,E} <: CellsToIdsMap
-  cell_row_ids::A
-  cell_col_ids::B
-  cells::C
-  rows::D
-  cols::E
-end
-
-function Arrays.return_cache(k::CellsToIrowcolsMap,icell::Int)
-  row_cache = array_cache(k.cell_row_ids)
-  col_cache = array_cache(k.cell_col_ids)
-  rowcols = getindex!(row_cache,k.cell_row_ids,icell)
-  colcols = getindex!(col_cache,k.cell_col_ids,icell)
-  irowcol_cache = _cache(rowcols)
-  unwrap_cache = return_cache(unwrap_and_setsize!,irowcol_cache,rowcols,colcols)
-  return row_cache,col_cache,irowcol_cache,unwrap_cache
-end
-
-function Arrays.evaluate!(cache,k::CellsToIrowcolsMap,icell::Int)
-  row_cache,col_cache,irowcol_cache,unwrap_cache = cache
-  cell = k.cells[icell]
-  cellrows = getindex!(row_cache,k.cell_row_ids,cell)
-  cellcols = getindex!(col_cache,k.cell_col_ids,cell)
-  a = evaluate!(unwrap_cache,unwrap_and_setsize!,irowcol_cache,cellrows,cellcols)
-  _evaluate!(a,cellrows,cellcols,k.rows,k.cols)
-end
-
-function get_cells_to_irowcols(cell_row_ids,cell_col_ids,cells,rows,cols)
-  k = CellsToIrowcolsMap(cell_row_ids,cell_col_ids,cells,rows,cols)
+function get_cells_to_idofs(cell_dof_ids,cells,rows)
+  k = CellsToIDofsMap(cell_dof_ids,cells,rows)
   lazy_map(k,1:length(cells))
 end
 
@@ -206,13 +172,15 @@ end
 Type representing the set of interpolation rows of a `Projection` subjected
 to a EIM approximation.
 Subtypes:
-- [`GenericDomain`](@ref)
+- [`VectorDomain`](@ref)
+- [`MatrixDomain`](@ref)
 - [`TransientIntegrationDomain`](@ref)
 """
 abstract type IntegrationDomain end
 
 get_integration_cells(i::IntegrationDomain,args...) = @abstractmethod
-get_cell_idofs(i::IntegrationDomain) = @abstractmethod
+get_cell_irows(i::IntegrationDomain) = @abstractmethod
+get_cell_icols(i::IntegrationDomain) = @notimplemented
 
 function get_owned_icells(i::IntegrationDomain,cells::AbstractVector)::Vector{Int}
   cellsi = get_integration_cells(i)
@@ -248,26 +216,23 @@ function get_integration_cells(i::IntegrationDomain,trian::AppendedTriangulation
   lazy_append(a,b)
 end
 
+function IntegrationDomain(args...)
+  @abstractmethod
+end
+
 """
-    struct GenericDomain{A,B} <: IntegrationDomain
+    struct VectorDomain{A,B} <: IntegrationDomain
       cells::Vector{Int32}
-      cell_idofs::A
-      metadata::B
+      cell_irows::A
+      rows::B
     end
 
 Integration domain for a projection operator in a steady problem
 """
-struct GenericDomain{A,B} <: IntegrationDomain
+struct VectorDomain{A,B} <: IntegrationDomain
   cells::Vector{Int32}
-  cell_idofs::A
-  metadata::B
-end
-
-get_integration_cells(i::GenericDomain) = i.cells
-get_cell_idofs(i::GenericDomain) = i.cell_idofs
-
-function IntegrationDomain(args...)
-  @abstractmethod
+  cell_irows::A
+  rows::B
 end
 
 function IntegrationDomain(
@@ -278,8 +243,40 @@ function IntegrationDomain(
 
   cell_row_ids = get_cell_dof_ids(test,trian)
   cells = get_rows_to_cells(cell_row_ids,rows)
-  irows = get_cells_to_irows(cell_row_ids,cells,rows)
-  GenericDomain(cells,irows,rows)
+  irows = get_cells_to_idofs(cell_row_ids,cells,rows)
+  VectorDomain(cells,irows,rows)
+end
+
+get_integration_cells(i::VectorDomain) = i.cells
+get_cell_irows(i::VectorDomain) = i.cell_irows
+
+function move_integration_domain(
+  i::VectorDomain,
+  test::FESpace,
+  ttrian::Triangulation,
+  )
+
+  rows = i.rows
+  IntegrationDomain(ttrian,test,rows)
+end
+
+"""
+    struct MatrixDomain{A,B,C,D} <: IntegrationDomain
+      cells::Vector{Int32}
+      cell_irows::A
+      cell_icols::B
+      rows::C
+      cols::D
+    end
+
+Integration domain for a projection operator in a steady problem
+"""
+struct MatrixDomain{A,B,C,D} <: IntegrationDomain
+  cells::Vector{Int32}
+  cell_irows::A
+  cell_icols::B
+  rows::C
+  cols::D
 end
 
 function IntegrationDomain(
@@ -293,28 +290,24 @@ function IntegrationDomain(
   cell_row_ids = get_cell_dof_ids(test,trian)
   cell_col_ids = get_cell_dof_ids(trial,trian)
   cells = get_rowcols_to_cells(cell_row_ids,cell_col_ids,rows,cols)
-  irowcols = get_cells_to_irowcols(cell_row_ids,cell_col_ids,cells,rows,cols)
-  GenericDomain(cells,irowcols,(rows,cols))
+  irows = get_cells_to_idofs(cell_row_ids,cells,rows)
+  icols = get_cells_to_idofs(cell_col_ids,cells,cols)
+  MatrixDomain(cells,irows,icols,rows,cols)
 end
 
-function move_integration_domain(
-  i::GenericDomain,
-  test::FESpace,
-  ttrian::Triangulation,
-  )
-
-  rows = i.metadata
-  IntegrationDomain(ttrian,test,rows)
-end
+get_integration_cells(i::MatrixDomain) = i.cells
+get_cell_irows(i::MatrixDomain) = i.cell_irows
+get_cell_icols(i::MatrixDomain) = i.cell_icols
 
 function move_integration_domain(
-  i::GenericDomain,
+  i::MatrixDomain,
   trial::FESpace,
   test::FESpace,
   ttrian::Triangulation,
   )
 
-  rows,cols = i.metadata
+  rows = i.rows
+  cols = i.cols
   IntegrationDomain(ttrian,trial,test,rows,cols)
 end
 

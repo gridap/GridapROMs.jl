@@ -16,8 +16,8 @@ function IntegrationDomain(
 
   cell_row_ids = get_bg_cell_dof_ids(test,trian)
   cells = get_rows_to_cells(cell_row_ids,rows)
-  irows = get_cells_to_irows(cell_row_ids,cells,rows)
-  GenericDomain(cells,irows,rows)
+  irows = get_cells_to_idofs(cell_row_ids,cells,rows)
+  VectorDomain(cells,irows,rows)
 end
 
 function IntegrationDomain(
@@ -31,8 +31,9 @@ function IntegrationDomain(
   cell_row_ids = get_bg_cell_dof_ids(test,trian)
   cell_col_ids = get_bg_cell_dof_ids(trial,trian)
   cells = get_rowcols_to_cells(cell_row_ids,cell_col_ids,rows,cols)
-  irowcols = get_cells_to_irowcols(cell_row_ids,cell_col_ids,cells,rows,cols)
-  GenericDomain(cells,irowcols,(rows,cols))
+  irows = get_cells_to_idofs(cell_row_ids,cells,rows)
+  icols = get_cells_to_idofs(cell_col_ids,cells,cols)
+  MatrixDomain(cells,irows,icols,rows,cols)
 end
 
 # post process
