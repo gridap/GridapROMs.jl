@@ -110,10 +110,6 @@ function FESpaces.gather_free_and_dirichlet_values!(fv,dv,f::OrderedFESpace,cv)
   (fv,dv)
 end
 
-function get_dof_map(f::OrderedFESpace,args...)
-  return VectorDofMap(num_free_dofs(f))
-end
-
 # dof reordering
 
 function get_cell_odof_ids(space::SingleFieldFESpace)

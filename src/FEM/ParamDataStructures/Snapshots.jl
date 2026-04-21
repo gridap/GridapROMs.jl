@@ -314,22 +314,31 @@ function Arrays.testitem(s::BlockSnapshots)
   end
 end
 
-DofMaps.get_dof_map(s::BlockSnapshots) = map(get_dof_map,s.array)
+function DofMaps.get_dof_map(s::BlockSnapshots{N}) where N
+  I = eltype(map(get_dof_map,blocks(s)))
+  array = Array{I,N}(undef,size(s))
+  for i in eachindex(s.touched)
+    if s.touched[i]
+      array[i] = get_dof_map(s[i])
+    end
+  end
+  return ArrayBlock(array,s.touched)
+end
+
 get_realisation(s::BlockSnapshots) = get_realisation(testitem(s))
 
 function get_param_data(s::BlockSnapshots)
   map(get_param_data,s.array) |> mortar
 end
 
-function select_snapshots(s::BlockSnapshots,pindex)
-  array = Array{Any,ndims(s)}(undef,size(s))
-  touched = s.touched
-  for i in eachindex(touched)
-    if touched[i]
+function select_snapshots(s::BlockSnapshots{N},pindex) where N
+  array = Array{Any,N}(undef,size(s))
+  for i in eachindex(s.touched)
+    if s.touched[i]
       array[i] = select_snapshots(s[i],pindex)
     end
   end
-  return BlockSnapshots(array,touched)
+  return BlockSnapshots(array,s.touched)
 end
 
 function param_cat(v::AbstractVector{<:BlockSnapshots{N}}) where N

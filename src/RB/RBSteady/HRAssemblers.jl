@@ -210,7 +210,7 @@ end
       for (li,i) in enumerate(is)
         if i>0
           if i == j
-            get_param_entry!(vij,vs,li,lj)
+            vij = vs[li,lj]
             add_entry!(combine,A,vij,i)
           end
         end

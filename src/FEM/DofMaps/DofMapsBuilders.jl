@@ -3,16 +3,38 @@ function get_dof_map_from_space(f::SingleFieldFESpace)
   VectorDofMap(n)
 end
 
-function get_dof_map_from_space(f::SingleFieldFESpace,b::AbstractVector)
-  len(a::AbstractVector{<:Number}) = length(a)
-  len(a::AbstractVector{<:AbstractVector}) = len(testitem(a))
-  @check num_free_dofs(f) == len(b)
+function get_dof_map_from_space(f::SingleFieldFESpace,b::AbstractVector{<:Number})
+  @check num_free_dofs(f) == length(b)
   get_dof_map_from_space(f)
+end
+
+function get_dof_map_from_space(f::SingleFieldFESpace,b::AbstractVector{<:AbstractVector})
+  get_dof_map_from_space(f,testitem(b))
 end
 
 function get_dof_map_from_space(f::SingleFieldFESpace,b::Contribution)
   contribution(b.trians) do trian 
     get_dof_map_from_space(f,b[trian])
+  end
+end
+
+function get_sparse_dof_map_from_spaces(f::SingleFieldFESpace,g::SingleFieldFESpace)
+  sparsity = get_sparsity(f,g)
+  get_sparse_dof_map(sparsity,f,g)
+end
+
+function get_sparse_dof_map_from_spaces(f::SingleFieldFESpace,g::SingleFieldFESpace,A::AbstractMatrix{<:Number})
+  sparsity = get_sparsity(f,g,A)
+  get_sparse_dof_map(sparsity,f,g)
+end
+
+function get_sparse_dof_map_from_spaces(f::SingleFieldFESpace,g::SingleFieldFESpace,A::AbstractMatrix{<:AbstractMatrix})
+  get_sparse_dof_map_from_spaces(f,g,testitem(A))
+end
+
+function get_sparse_dof_map_from_spaces(f::SingleFieldFESpace,g::SingleFieldFESpace,A::Contribution)
+  contribution(A.trians) do trian 
+    get_sparse_dof_map_from_spaces(f,g,A[trian])
   end
 end
 
@@ -85,8 +107,7 @@ is a `TrivialSparseMatrixDofMap`; when the trial and test spaces are of type
 `TProductFESpace`, a `SparseMatrixDofMap` is returned.
 """
 function get_sparse_dof_map(trial::SingleFieldFESpace,test::SingleFieldFESpace,args...)
-  sparsity = get_sparsity(trial,test,args...)
-  get_sparse_dof_map(sparsity,trial,test)
+  get_sparse_dof_map_from_spaces(trial,test,args...)
 end
 
 function get_sparse_dof_map(trial::MultiFieldFESpace,test::MultiFieldFESpace)
@@ -120,7 +141,12 @@ function get_sparse_dof_map(
   ArrayBlock(array,touched)
 end
 
-function get_sparse_dof_map(trial::FESpace,test::FESpace,A::Contribution)
+function get_sparse_dof_map(
+  trial::MultiFieldFESpace,
+  test::MultiFieldFESpace,
+  A::Contribution
+  )
+  
   contribution(A.trians) do trian 
     get_sparse_dof_map(trial,test,A[trian])
   end

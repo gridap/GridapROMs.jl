@@ -21,6 +21,8 @@ function get_sparsity(U::FESpace,V::FESpace)
 end
 
 function get_sparsity(U::FESpace,V::FESpace,A::AbstractSparseMatrix)
+  @check num_free_dofs(V) == size(A,1)
+  @check num_free_dofs(U) == size(A,2)
   SparsityPattern(A)
 end
 
