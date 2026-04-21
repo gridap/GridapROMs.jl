@@ -154,6 +154,12 @@ function DofMaps.get_sparsity(U::TProductFESpace,V::TProductFESpace,A::AbstractS
   return TProductSparsity(sparsity,sparsities_1d)
 end
 
+function DofMaps.get_dof_map(V::TProductFESpace)
+  T = get_dof_eltype(V)
+  dof_map = get_dof_map(V.space)
+  get_tp_dof_map(T,V.spaces_1d,dof_map)
+end
+
 function DofMaps.get_dof_map(V::TProductFESpace,args...)
   T = get_dof_eltype(V)
   dof_map = get_dof_map(V.space,args...)

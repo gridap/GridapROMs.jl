@@ -171,20 +171,12 @@ FESpaces.get_dirichlet_dof_values(uh::SingleFieldParamFEFunction) = uh.dirichlet
 
 # dof map utils
 
-function DofMaps.get_dof_map(f::DirectSumFESpace,args...)
-  get_dof_map(get_bg_space(f),args...)
+function DofMaps.get_dof_map(f::DirectSumFESpace)
+  get_dof_map(get_bg_space(f))
 end
 
-function DofMaps.get_dof_map_with_diri(f::DirectSumFESpace,args...)
-  get_dof_map_with_diri(get_bg_space(f),args...)
-end
-
-function ParamSteady._assemble_matrix(f,V::DirectSumFESpace)
-  ParamSteady._assemble_matrix(f,get_bg_space(V))
-end
-
-function ParamSteady._assemble_matrix(f,spaces::Vector{<:DirectSumFESpace})
-  ParamSteady._assemble_matrix(f,get_bg_space.(spaces))
+function DofMaps.get_dof_map_with_diri(f::DirectSumFESpace)
+  get_dof_map_with_diri(get_bg_space(f))
 end
 
 function DofMaps.get_sparsity(
@@ -234,3 +226,12 @@ end
 (f::DirectSumTrialFESpace)(μ) = evaluate(f,μ)
 (f::DirectSumTrialFESpace)(μ,t) = evaluate(f,μ,t)
 
+# utils 
+
+function ParamSteady._assemble_matrix(f,V::DirectSumFESpace)
+  ParamSteady._assemble_matrix(f,get_bg_space(V))
+end
+
+function ParamSteady._assemble_matrix(f,spaces::Vector{<:DirectSumFESpace})
+  ParamSteady._assemble_matrix(f,get_bg_space.(spaces))
+end

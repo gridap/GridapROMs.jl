@@ -16,14 +16,8 @@ abstract type SparsityPattern end
 
 Builds a [`SparsityPattern`](@ref) from two `FESpace`s `U` and `V`
 """
-function get_sparsity(U::FESpace,V::FESpace)
-  SparsityPattern(U,V)
-end
-
-function get_sparsity(U::FESpace,V::FESpace,A::AbstractSparseMatrix)
-  @check num_free_dofs(V) == size(A,1)
-  @check num_free_dofs(U) == size(A,2)
-  SparsityPattern(A)
+function get_sparsity(U::FESpace,V::FESpace,args...)
+  SparsityPattern(U,V,args...)
 end
 
 function SparsityPattern(U::FESpace,V::FESpace)
@@ -36,6 +30,12 @@ function SparsityPattern(U::FESpace,V::FESpace)
   trivial_symbolic_loop_matrix!(m2,cellidsrows,cellidscols)
   m3 = create_from_nz(m2)
   SparsityPattern(m3)
+end
+
+function SparsityPattern(U::FESpace,V::FESpace,A::AbstractSparseMatrix)
+  @check num_free_dofs(V) == size(A,1)
+  @check num_free_dofs(U) == size(A,2)
+  SparsityPattern(A)
 end
 
 function SparsityPattern(a::AbstractSparseMatrix)

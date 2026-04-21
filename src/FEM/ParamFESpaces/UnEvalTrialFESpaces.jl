@@ -124,16 +124,12 @@ const AbstractTrialFESpace{S} = Union{
 
 FESpaces.get_fe_space(f::AbstractTrialFESpace) = f.space
 
-function DofMaps.get_dof_map(trial::AbstractTrialFESpace,args...)
-  get_dof_map(get_fe_space(trial),args...)
+function DofMaps.get_dof_map(trial::AbstractTrialFESpace)
+  get_dof_map(get_fe_space(trial))
 end
 
-function DofMaps.get_sparse_dof_map(
-  trial::AbstractTrialFESpace,
-  test::SingleFieldFESpace,
-  args...
-  )
-  get_sparse_dof_map(get_fe_space(trial),test,args...)
+function DofMaps.get_sparsity(trial::AbstractTrialFESpace,test::SingleFieldFESpace)
+  get_sparsity(get_fe_space(trial),test)
 end
 
 function DofMaps.get_dof_to_bg_dof(bg_f::AbstractTrialFESpace,f::AbstractTrialFESpace)

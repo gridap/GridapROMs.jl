@@ -1,43 +1,3 @@
-function get_dof_map_from_space(f::SingleFieldFESpace)
-  n = num_free_dofs(f)
-  VectorDofMap(n)
-end
-
-function get_dof_map_from_space(f::SingleFieldFESpace,b::AbstractVector{<:Number})
-  @check num_free_dofs(f) == length(b)
-  get_dof_map_from_space(f)
-end
-
-function get_dof_map_from_space(f::SingleFieldFESpace,b::AbstractVector{<:AbstractVector})
-  get_dof_map_from_space(f,testitem(b))
-end
-
-function get_dof_map_from_space(f::SingleFieldFESpace,b::Contribution)
-  contribution(b.trians) do trian 
-    get_dof_map_from_space(f,b[trian])
-  end
-end
-
-function get_sparse_dof_map_from_spaces(f::SingleFieldFESpace,g::SingleFieldFESpace)
-  sparsity = get_sparsity(f,g)
-  get_sparse_dof_map(sparsity,f,g)
-end
-
-function get_sparse_dof_map_from_spaces(f::SingleFieldFESpace,g::SingleFieldFESpace,A::AbstractMatrix{<:Number})
-  sparsity = get_sparsity(f,g,A)
-  get_sparse_dof_map(sparsity,f,g)
-end
-
-function get_sparse_dof_map_from_spaces(f::SingleFieldFESpace,g::SingleFieldFESpace,A::AbstractMatrix{<:AbstractMatrix})
-  get_sparse_dof_map_from_spaces(f,g,testitem(A))
-end
-
-function get_sparse_dof_map_from_spaces(f::SingleFieldFESpace,g::SingleFieldFESpace,A::Contribution)
-  contribution(A.trians) do trian 
-    get_sparse_dof_map_from_spaces(f,g,A[trian])
-  end
-end
-
 """
     get_dof_map(space::FESpace,args...) -> VectorDofMap
 
@@ -46,30 +6,19 @@ D-dimensional, scalar `FESpace`, the output index map will be a subtype of
 `AbstractDofMap{<:Integer,D}`. If `space` is a D-dimensional, vector-valued `FESpace`,
 the output index map will be a subtype of `AbstractDofMap{D+1}`.
 """
-function get_dof_map(f::SingleFieldFESpace,args...)
-  get_dof_map_from_space(f,args...)
+function get_dof_map(f::FESpace,args...)
+  _get_dof_map(f,args...)
+end
+
+function get_dof_map(f::SingleFieldFESpace)
+  n = num_free_dofs(f)
+  VectorDofMap(n)
 end
 
 function get_dof_map(f::MultiFieldFESpace)
   array = map(get_dof_map,f.spaces)
   touched = fill(true,num_fields(f))
   ArrayBlock(array,touched)
-end
-
-function get_dof_map(f::MultiFieldFESpace,b::AbstractVector)
-  array,touched = map(1:num_fields(f)) do i
-    bi = restrict_to_field(f,b,i) 
-    t = !iszero(bi)
-    v = get_dof_map(f[i],bi)
-    v,t
-  end |> tuple_of_arrays
-  ArrayBlock(array,touched)
-end
-
-function get_dof_map(f::MultiFieldFESpace,b::Contribution)
-  contribution(b.trians) do trian 
-    get_dof_map(f,b[trian])
-  end
 end
 
 """
@@ -80,6 +29,7 @@ Same as [`get_dof_map`](@ref), but includes also Dirichlet dofs
 function get_dof_map_with_diri(f::FESpace,args...)
   @abstractmethod
 end
+
 
 function get_sparse_dof_map(a::SparsityPattern,U::FESpace,V::FESpace)
   TrivialSparseMatrixDofMap(a)
@@ -102,12 +52,17 @@ end
 """
     get_sparse_dof_map(trial::FESpace,test::FESpace,args...) -> AbstractDofMap
 
-Returns the index maps related to Jacobiansin a FE problem. The default output
+Returns the index maps related to Jacobians in a FE problem. The default output
 is a `TrivialSparseMatrixDofMap`; when the trial and test spaces are of type
 `TProductFESpace`, a `SparseMatrixDofMap` is returned.
 """
-function get_sparse_dof_map(trial::SingleFieldFESpace,test::SingleFieldFESpace,args...)
-  get_sparse_dof_map_from_spaces(trial,test,args...)
+function get_sparse_dof_map(trial::FESpace,test::FESpace,args...)
+  _get_sparse_dof_map(trial,test,args...)
+end
+
+function get_sparse_dof_map(trial::SingleFieldFESpace,test::SingleFieldFESpace)
+  sparsity = get_sparsity(trial,test)
+  get_sparse_dof_map(sparsity,trial,test)
 end
 
 function get_sparse_dof_map(trial::MultiFieldFESpace,test::MultiFieldFESpace)
@@ -118,38 +73,6 @@ function get_sparse_dof_map(trial::MultiFieldFESpace,test::MultiFieldFESpace)
   end
   touched = fill(true,ntest,ntrial)
   ArrayBlock(array,touched)
-end
-
-function get_sparse_dof_map(
-  trial::MultiFieldFESpace,
-  test::MultiFieldFESpace,
-  A::AbstractMatrix
-  )
-
-  restr_to_fields(A::AbstractMatrix{<:Number},i,j) = @notimplemented
-  restr_to_fields(A::BlockMatrix{<:Number},i,j) = A.blocks[i,j]
-  restr_to_fields(A::AbstractMatrix{<:AbstractMatrix},i,j) = restr_to_fields(testitem(A),i,j)
-
-  ntest = num_fields(test)
-  ntrial = num_fields(trial)
-  array,touched = map(Iterators.product(1:ntest,1:ntrial)) do (i,j)
-    Aij = restr_to_fields(A,i,j)
-    t = !iszero(Aij)
-    v = get_sparse_dof_map(trial[j],test[i],Aij)
-    v,t
-  end |> tuple_of_arrays
-  ArrayBlock(array,touched)
-end
-
-function get_sparse_dof_map(
-  trial::MultiFieldFESpace,
-  test::MultiFieldFESpace,
-  A::Contribution
-  )
-  
-  contribution(A.trians) do trian 
-    get_sparse_dof_map(trial,test,A[trian])
-  end
 end
 
 # utils
@@ -409,3 +332,66 @@ end
 num_unconstrained_free_dofs(f::SingleFieldFESpace) = num_free_dofs(f)
 num_unconstrained_free_dofs(f::ZeroMeanFESpace) = num_unconstrained_free_dofs(f.space)
 num_unconstrained_free_dofs(f::FESpaceWithConstantFixed) = num_unconstrained_free_dofs(f.space)
+
+# utils 
+
+function _get_dof_map(f::SingleFieldFESpace,b::AbstractVector{<:Number})
+  @check num_free_dofs(f) == length(b)
+  get_dof_map(f)
+end
+
+function _get_dof_map(f::SingleFieldFESpace,b::AbstractVector{<:AbstractVector})
+  _get_dof_map(f,testitem(b))
+end
+
+function _get_dof_map(f::MultiFieldFESpace,b::AbstractVector)
+  array,touched = map(1:num_fields(f)) do i
+    bi = restrict_to_field(f,b,i) 
+    t = !iszero(bi)
+    v = _get_dof_map(f[i],bi)
+    v,t
+  end |> tuple_of_arrays
+  ArrayBlock(array,touched)
+end
+
+function _get_dof_map(f::FESpace,b::Contribution)
+  contribution(b.trians) do trian 
+    _get_dof_map(f,b[trian])
+  end
+end
+
+function _get_sparse_dof_map(f::SingleFieldFESpace,g::SingleFieldFESpace,A::AbstractMatrix{<:Number})
+  sparsity = get_sparsity(f,g,A)
+  _get_sparse_dof_map(sparsity,f,g)
+end
+
+function _get_sparse_dof_map(f::SingleFieldFESpace,g::SingleFieldFESpace,A::AbstractMatrix{<:AbstractMatrix})
+  _get_sparse_dof_map(f,g,testitem(A))
+end
+
+function _get_sparse_dof_map(
+  trial::MultiFieldFESpace,
+  test::MultiFieldFESpace,
+  A::AbstractMatrix
+  )
+
+  restr_to_fields(A::AbstractMatrix{<:Number},i,j) = @notimplemented
+  restr_to_fields(A::BlockMatrix{<:Number},i,j) = A.blocks[i,j]
+  restr_to_fields(A::AbstractMatrix{<:AbstractMatrix},i,j) = restr_to_fields(testitem(A),i,j)
+
+  ntest = num_fields(test)
+  ntrial = num_fields(trial)
+  array,touched = map(Iterators.product(1:ntest,1:ntrial)) do (i,j)
+    Aij = restr_to_fields(A,i,j)
+    t = !iszero(Aij)
+    v = _get_sparse_dof_map(trial[j],test[i],Aij)
+    v,t
+  end |> tuple_of_arrays
+  ArrayBlock(array,touched)
+end
+
+function _get_sparse_dof_map(f::FESpace,g::FESpace,A::Contribution)
+  contribution(A.trians) do trian
+    _get_sparse_dof_map(f,g,A[trian])
+  end
+end
