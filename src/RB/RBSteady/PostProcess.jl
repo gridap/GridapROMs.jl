@@ -281,7 +281,7 @@ end
 """
 function load_results(dir;label="")
   results_dir = get_filename(dir,"results",label)
-  deserialize(results_dir,perf)
+  deserialize(results_dir)
 end
 
 function Utils.compute_relative_error(solver::RBSolver,feop,sol,sol_approx)
