@@ -362,7 +362,7 @@ end
 
 function _get_sparse_dof_map(f::SingleFieldFESpace,g::SingleFieldFESpace,A::AbstractMatrix{<:Number})
   sparsity = get_sparsity(f,g,A)
-  _get_sparse_dof_map(sparsity,f,g)
+  get_sparse_dof_map(sparsity,f,g)
 end
 
 function _get_sparse_dof_map(f::SingleFieldFESpace,g::SingleFieldFESpace,A::AbstractMatrix{<:AbstractMatrix})
