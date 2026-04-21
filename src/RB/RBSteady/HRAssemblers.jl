@@ -211,7 +211,7 @@ end
         if i>0
           if i == j
             get_param_entry!(vij,vs,li,lj)
-            add_entry!(combine,A,vij,i,j)
+            add_entry!(combine,A,vij,i)
           end
         end
       end
@@ -227,7 +227,7 @@ end
         if i>0
           if i == j
             get_param_entry!(vij,vs,li,lj)
-            add_entry!(combine,A,vij,i,j)
+            add_entry!(combine,A,vij,i)
           end
         end
       end
@@ -271,7 +271,7 @@ function assemble_hr_vector_add!(b,cellvec,cellidsrows,icells)
     vals_cache = array_cache(cellvec)
     vals1 = getindex!(vals_cache,cellvec,1)
     rows1 = getindex!(rows_cache,cellidsrows,1)
-    add! = Arrays.AddEntriesMap(+)
+    add! = AddHREntriesMap(+)
     add_cache = return_cache(add!,b,vals1,rows1)
     caches = add!,add_cache,vals_cache,rows_cache
     _numeric_loop_hr_vector!(b,caches,cellvec,cellidsrows)
@@ -314,7 +314,7 @@ function assemble_hr_matrix_add!(A,cellmat,cellidsrows,cellidscols,icells)
     vals1 = getindex!(vals_cache,cellmat,1)
     rows1 = getindex!(rows_cache,cellidsrows,1)
     cols1 = getindex!(cols_cache,cellidscols,1)
-    add! = AddEntriesMap(+)
+    add! = AddHREntriesMap(+)
     add_cache = return_cache(add!,A,vals1,rows1,cols1)
     caches = add!,add_cache,vals_cache,rows_cache,cols_cache
     _numeric_loop_hr_matrix!(A,caches,cellmat,cellidsrows,cellidscols)

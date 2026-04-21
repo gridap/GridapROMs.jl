@@ -208,18 +208,11 @@ end
 
 # utils 
 
-_st_eltype(::Val{1}) = Int32
-_st_eltype(::Val{N}) where N = VectorValue{N,Int32}
-
-_zero(::Type{Int32}) = zero(Int32)
 _zero(::Type{<:VectorValue{D,T}}) where {D,T} = VectorValue(tfill(zero(T),Val{D}()))
+_setindex!(a,i,v,j) = (a[i] = Base.setindex(a[i].data,v,j))
 
-_setindex!(a::AbstractArray{Int32},i,v,_) = (a[i] = Int32(v))
-_setindex!(a,i,v,j) = (a[i] = VectorValue(Base.setindex(a[i].data,Int32(v),j)))
-
-function _st_cache(ids::AbstractArray,::Val{N}) where N
-  T = _st_eltype(Val(N))
-  array = fill(zero(T),size(ids))
+function _st_cache(ids::AbstractArray{T},::Val{N}) where {T,N}
+  array = fill(_zero(VectorValue{N,T}),size(ids))
   CachedArray(array)
 end
 

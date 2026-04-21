@@ -227,7 +227,14 @@ end
       rows::B
     end
 
-Integration domain for a projection operator in a steady problem
+Integration domain for the hyper-reduction of a residual (vector-valued form).
+
+- `cells`: sorted list of cell indices (local to the triangulation) that contain
+  at least one interpolation row.
+- `cell_irows`: lazy map over `cells`; `cell_irows[ic][j]` is the 1-based index
+  into `rows` of the `j`-th DOF of cell `cells[ic]`, or `0` if that DOF is not
+  an interpolation row.
+- `rows`: vector of global DOF indices selected as interpolation rows by EIM/DEIM.
 """
 struct VectorDomain{A,B} <: IntegrationDomain
   cells::Vector{Int32}
@@ -269,7 +276,22 @@ end
       cols::D
     end
 
-Integration domain for a projection operator in a steady problem
+Integration domain for the hyper-reduction of a Jacobian (matrix-valued form).
+
+- `cells`: sorted list of cell indices (local to the triangulation) that contain
+  at least one interpolation (row, col) pair.
+- `cell_irows`: lazy map over `cells`; `cell_irows[ic][jr]` is the 1-based index
+  into `rows` of the `jr`-th test DOF of cell `cells[ic]`, or `0` if that DOF
+  is not an interpolation row.
+- `cell_icols`: lazy map over `cells`; `cell_icols[ic][jc]` is the 1-based index
+  into `cols` of the `jc`-th trial DOF of cell `cells[ic]`, or `0` if that DOF
+  is not an interpolation column.
+- `rows`: global test DOF indices selected as interpolation rows by EIM/DEIM.
+- `cols`: global trial DOF indices selected as interpolation columns by EIM/DEIM.
+
+Row and column indices are stored independently (not as flattened pairs), so the
+assembly loop iterates over all `(jr, jc)` pairs with `cell_irows[ic][jr] > 0`
+and `cell_icols[ic][jc] > 0`.
 """
 struct MatrixDomain{A,B,C,D} <: IntegrationDomain
   cells::Vector{Int32}

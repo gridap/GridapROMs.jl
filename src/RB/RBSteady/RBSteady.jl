@@ -194,7 +194,8 @@ export get_reduced_subspace
 include("RBSpaces.jl")
 
 export IntegrationDomain
-export GenericDomain
+export VectorDomain
+export MatrixDomain
 export empirical_interpolation
 export s_opt
 export get_integration_cells

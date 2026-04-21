@@ -143,8 +143,12 @@ end
 
 for (T,f) in zip((:KroneckerDomain,:SequentialDomain),(:add_hr_kron_entries!,:add_hr_lin_entries!))
   @eval begin
-    function Arrays.evaluate!(cache,k::AddTransientHREntriesMap{$T},A,vs,is)
-      $f(cache,k.combine,A,vs,is,k.locations)
+    function Arrays.evaluate!(cache,k::AddTransientHREntriesMap{$T},b,vs,is)
+      $f(cache,k.combine,b,vs,is,k.locations)
+    end
+
+    function Arrays.evaluate!(cache,k::AddTransientHREntriesMap{$T},A,vs,is,js)
+      $f(cache,k.combine,A,vs,is,js,k.locations)
     end
   end
 end
@@ -175,6 +179,44 @@ end
   A
 end
 
+@inline function add_hr_kron_entries!(
+  vij,combine::Function,A::AbstractParamVector,vs,is,js,loc
+  )
+
+  for (lj,j) in enumerate(js)
+    if _ipos(j)
+      for (li,i) in enumerate(is)
+        if _ipos(i)
+          if i == j
+            vij = vs[li,lj]
+            add_hr_entry!(combine,A,vij,loc,i)
+          end
+        end
+      end
+    end
+  end
+  A
+end
+
+@inline function add_hr_kron_entries!(
+  vij,combine::Function,A::AbstractParamVector,vs::ParamBlock,is,js,loc
+  )
+
+  for (lj,j) in enumerate(js)
+    if _ipos(j)
+      for (li,i) in enumerate(is)
+        if _ipos(i)
+          if i == j
+            get_hr_param_entry!(vij,vs,loc,li,lj)
+            add_hr_entry!(combine,A,vij,loc,i)
+          end
+        end
+      end
+    end
+  end
+  A
+end
+
 @inline function add_hr_lin_entries!(
   vi,combine::Function,A::AbstractParamVector,vs,is,loc
   )
@@ -196,6 +238,46 @@ end
     if _ipos(i)
       get_hr_param_entry!(vi,vs,loc,li)
       add_hr_entry!(combine,A,vi,_get_ids(i))
+    end
+  end
+  A
+end
+
+@inline function add_hr_lin_entries!(
+  vij,combine::Function,A::AbstractParamVector,vs,is,js,loc
+  )
+
+  for (lj,j) in enumerate(js)
+    if _ipos(j)
+      for (li,i) in enumerate(is)
+        if _ipos(i)
+          ids = _get_ids(i,j)
+          if !isempty(ids)
+            vij = vs[li,lj]
+            add_hr_entry!(combine,A,vij,ids)
+          end
+        end
+      end
+    end
+  end
+  A
+end
+
+@inline function add_hr_lin_entries!(
+  vij,combine::Function,A::AbstractParamVector,vs::ParamBlock,is,js,loc
+  )
+
+  for (lj,j) in enumerate(js)
+    if _ipos(j)
+      for (li,i) in enumerate(is)
+        if _ipos(i)
+          ids = _get_ids(i,j)
+          if !isempty(ids)
+            get_hr_param_entry!(vij,vs,loc,li,lj)
+            add_hr_entry!(combine,A,vij,ids)
+          end
+        end
+      end
     end
   end
   A

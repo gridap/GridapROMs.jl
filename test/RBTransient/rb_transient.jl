@@ -198,14 +198,13 @@ end
 # ─── TransientIntegrationDomain ───────────────────────────────────────────────
 
 @testset "TransientIntegrationDomain — struct construction and accessors" begin
-  # Build a minimal GenericDomain as the space-only sub-domain.
-  # GenericDomain requires cells::Vector{Int32}, cell_idofs::Table, metadata.
+  # Build a minimal VectorDomain as the space-only sub-domain.
   # Table(data, ptrs): ptrs[i]:ptrs[i+1]-1 gives row i entries.
   cells        = Int32[1, 2, 3]
   # 3 cells, 1 dof each: data=[1,2,3], ptrs=[1,2,3,4]
-  cell_idofs   = Table(Int32[1, 2, 3], Int32[1, 2, 3, 4])
+  cell_irows   = Table(Int32[1, 2, 3], Int32[1, 2, 3, 4])
   rows         = Int32[1, 2, 3]
-  domain_space = GenericDomain(cells, cell_idofs, rows)
+  domain_space = VectorDomain(cells, cell_irows, rows)
 
   indices_time = Int32[2, 4, 6]
   tid = TransientIntegrationDomain(KroneckerDomain(), domain_space, indices_time)
@@ -218,9 +217,9 @@ end
 
 @testset "TransientIntegrationDomain — SequentialDomain variant" begin
   cells        = Int32[5, 7]
-  cell_idofs   = Table(Int32[10, 11, 12], Int32[1, 3, 4])
+  cell_irows   = Table(Int32[10, 11, 12], Int32[1, 3, 4])
   rows         = Int32[10, 11, 12]
-  domain_space = GenericDomain(cells, cell_idofs, rows)
+  domain_space = VectorDomain(cells, cell_irows, rows)
 
   indices_time = Int32[1, 3]
   tid = TransientIntegrationDomain(SequentialDomain(), domain_space, indices_time)
