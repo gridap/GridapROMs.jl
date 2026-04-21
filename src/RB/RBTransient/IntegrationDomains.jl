@@ -157,104 +157,6 @@ function get_spacetime_irowcols(cell_row_ids,cell_col_ids,cells,rows,cols)
   lazy_map(k,1:length(cells))
 end
 
-# function get_spacetime_irows(
-#   cell_row_ids::AbstractArray{<:AbstractArray},
-#   cells::AbstractVector,
-#   rows::AbstractVector
-#   )
-
-#   correct_irow = RBSteady.get_idof_correction(cell_row_ids)
-#   cache = array_cache(cell_row_ids)
-
-#   ncells = length(cells)
-#   ptrs = Vector{Int32}(undef,ncells+1)
-#   @inbounds for (icell,cell) in enumerate(cells)
-#     cellrows = getindex!(cache,cell_row_ids,cell)
-#     ptrs[icell+1] = length(cellrows)
-#   end
-#   length_to_ptrs!(ptrs)
-
-#   # count number of occurrences
-#   iurow_to_irow = get_iurow_to_irow(rows)
-#   ucache = array_cache(iurow_to_irow)
-#   N = get_max_offset(iurow_to_irow)
-
-#   z = zeros(Int32,N)
-#   data = map(_ -> copy(z),1:ptrs[end]-1)
-#   for (icell,cell) in enumerate(cells)
-#     cellrows = getindex!(cache,cell_row_ids,cell)
-#     for iurow in eachindex(iurow_to_irow)
-#       irows = getindex!(ucache,iurow_to_irow,iurow)
-#       for (iuirow,irow) in enumerate(irows)
-#         row = rows[irow]
-#         for (_icellrow,cellrow) in enumerate(cellrows)
-#           if row == cellrow
-#             icellrow = correct_irow(_icellrow,cellrows)
-#             data[ptrs[icell]-1+icellrow][iuirow] = irow
-#           end
-#         end
-#       end
-#     end
-#   end
-
-#   Table(map(VectorValue,data),ptrs)
-# end
-
-# function get_spacetime_irowcols(
-#   cell_row_ids::AbstractArray{<:AbstractArray},
-#   cell_col_ids::AbstractArray{<:AbstractArray},
-#   cells::AbstractVector,
-#   rows::AbstractVector,
-#   cols::AbstractVector
-#   )
-
-#   correct_irow = RBSteady.get_idof_correction(cell_row_ids)
-#   correct_icol = RBSteady.get_idof_correction(cell_col_ids)
-#   rowcache = array_cache(cell_row_ids)
-#   colcache = array_cache(cell_col_ids)
-
-#   ncells = length(cells)
-#   ptrs = Vector{Int32}(undef,ncells+1)
-#   @inbounds for (icell,cell) in enumerate(cells)
-#     cellrows = getindex!(rowcache,cell_row_ids,cell)
-#     cellcols = getindex!(colcache,cell_col_ids,cell)
-#     ptrs[icell+1] = length(cellrows)*length(cellcols)
-#   end
-#   length_to_ptrs!(ptrs)
-
-#   # count number of occurrences
-#   nrows = length(rows)
-#   iurowcol_to_irowcol = get_iurowcol_to_irowcol(rows,cols)
-#   ucache = array_cache(iurowcol_to_irowcol)
-#   N = get_max_offset(iurowcol_to_irowcol)
-
-#   z = zeros(Int32,N)
-#   data = map(_ -> copy(z),1:ptrs[end]-1)
-#   for (icell,cell) in enumerate(cells)
-#     cellrows = getindex!(rowcache,cell_row_ids,cell)
-#     cellcols = getindex!(colcache,cell_col_ids,cell)
-#     ncellrows = length(cellrows)
-#     for iurowcol in eachindex(iurowcol_to_irowcol)
-#       irowcols = getindex!(ucache,iurowcol_to_irowcol,iurowcol)
-#       for (iuirowcol,irowcol) in enumerate(irowcols)
-#         row,col = rows[irowcol],cols[irowcol]
-#         for (_icellrow,cellrow) in enumerate(cellrows)
-#           for (_icellcol,cellcol) in enumerate(cellcols)
-#             if row == cellrow && col == cellcol
-#               icellrow = correct_irow(_icellrow,cellrows)
-#               icellcol = correct_icol(_icellcol,cellcols)
-#               icellrowcol = icellrow + (icellcol-1)*ncellrows
-#               data[ptrs[icell]-1+icellrowcol][iuirowcol] = irowcol
-#             end
-#           end
-#         end
-#       end
-#     end
-#   end
-
-#   Table(map(VectorValue,data),ptrs)
-# end
-
 abstract type TransientIntegrationDomainStyle end
 struct KroneckerDomain <: TransientIntegrationDomainStyle end
 struct SequentialDomain <: TransientIntegrationDomainStyle end
@@ -347,10 +249,12 @@ end
 
 # utils 
 
-function _st_cache(ids::AbstractArray,::Val{N}) where N
-  _getids(a) = a 
-  _getids(a::OIdsToIds) = a.indices
-  CachedArray(similar(_getids(ids),VectorValue{N,Int32}))
+_zero(::Type{<:VectorValue{D,T}}) where {D,T} = VectorValue(tfill(zero(T),Val{D}()))
+_setindex!(a,i,v,j) = (a[i] = Base.setindex(a[i].data,v,j))
+
+function _st_cache(ids::AbstractArray{T},::Val{N}) where {T,N}
+  array = fill(_zero(VectorValue{N,T}),size(ids))
+  CachedArray(array)
 end
 
 function _st_cache(ids::ArrayBlock,::Val{N}) where N
@@ -365,14 +269,14 @@ function _st_cache(ids::ArrayBlock,::Val{N}) where N
 end
 
 function _st_evaluate!(a,cellrows,rows,iurow_to_irow,ucache)
-  fill!(a,zero(eltype(a)))
+  fill!(a,_zero(eltype(a)))
   for iurow in eachindex(iurow_to_irow)
     irows = getindex!(ucache,iurow_to_irow,iurow)
     for (iuirow,irow) in enumerate(irows)
       row = rows[irow]
       for (icellrow,cellrow) in enumerate(cellrows)
         if row == cellrow
-          a[icellrow][iuirow] = irow
+          _setindex!(a,icellrow,irow,iuirow)
         end
       end
     end
@@ -381,7 +285,7 @@ function _st_evaluate!(a,cellrows,rows,iurow_to_irow,ucache)
 end
 
 function _st_evaluate!(a,cellrows::OIdsToIds,rows,iurow_to_irow,ucache)
-  fill!(a,zero(eltype(a)))
+  fill!(a,_zero(eltype(a)))
   for iurow in eachindex(iurow_to_irow)
     irows = getindex!(ucache,iurow_to_irow,iurow)
     for (iuirow,irow) in enumerate(irows)
@@ -389,7 +293,7 @@ function _st_evaluate!(a,cellrows::OIdsToIds,rows,iurow_to_irow,ucache)
       for (_icellrow,cellrow) in enumerate(cellrows)
         if row == cellrow
           icellrow = cellrows.terms[_icellrow]
-          a[icellrow][iuirow] = irow
+          _setindex!(a,icellrow,irow,iuirow)
         end
       end
     end
@@ -408,7 +312,7 @@ function _st_evaluate!(a::VectorBlock,cellrows::VectorBlock,rows,iurow_to_irow,u
 end
 
 function _st_evaluate!(a,cellrows,cellcols,rows,cols,iurowcol_to_irowcol,ucache)
-  fill!(a,zero(eltype(a)))
+  fill!(a,_zero(eltype(a)))
   ncellrows = length(cellrows)
   for iurowcol in eachindex(iurowcol_to_irowcol)
     irowcols = getindex!(ucache,iurowcol_to_irowcol,iurowcol)
@@ -418,7 +322,7 @@ function _st_evaluate!(a,cellrows,cellcols,rows,cols,iurowcol_to_irowcol,ucache)
         for (icellcol,cellcol) in enumerate(cellcols)
           if row == cellrow && col == cellcol
             icellrowcol = icellrow + (icellcol-1)*ncellrows
-            a[icellrowcol][iuirowcol] = irowcol
+            _setindex!(a,icellrowcol,irowcol,iuirowcol)
           end
         end
       end
@@ -428,7 +332,7 @@ function _st_evaluate!(a,cellrows,cellcols,rows,cols,iurowcol_to_irowcol,ucache)
 end
 
 function _st_evaluate!(a,cellrows::OIdsToIds,cellcols::OIdsToIds,rows,cols,iurowcol_to_irowcol,ucache)
-  fill!(a,zero(eltype(a)))
+  fill!(a,_zero(eltype(a)))
   ncellrows = length(cellrows)
   for iurowcol in eachindex(iurowcol_to_irowcol)
     irowcols = getindex!(ucache,iurowcol_to_irowcol,iurowcol)
@@ -440,7 +344,7 @@ function _st_evaluate!(a,cellrows::OIdsToIds,cellcols::OIdsToIds,rows,cols,iurow
             icellrow = cellrows.terms[_icellrow] 
             icellcol = cellcols.terms[_icellcol]
             icellrowcol = icellrow + (icellcol-1)*ncellrows
-            a[icellrowcol][iuirowcol] = irowcol
+            _setindex!(a,icellrowcol,irowcol,iuirowcol)
           end
         end
       end

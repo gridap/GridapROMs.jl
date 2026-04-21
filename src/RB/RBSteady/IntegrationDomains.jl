@@ -139,11 +139,6 @@ function get_rowcols_to_cells(
   Int32.(findall(cells))
 end
 
-# get_idof_correction(a) = (idof,celldofs) -> idof
-# get_idof_correction(a::OTable) = (idof,celldofs) -> celldofs.terms[idof]
-# get_idof_correction(a::LazyArray{<:Fill{<:Reindex}}) = get_idof_correction(a.maps[1].values)
-# get_idof_correction(a::AppendedArray) = get_idof_correction(a.a)
-
 abstract type CellsToIdsMap <: Map end
 
 struct CellsToIrowsMap{A,B,C} <: CellsToIdsMap
@@ -204,84 +199,6 @@ function get_cells_to_irowcols(cell_row_ids,cell_col_ids,cells,rows,cols)
   k = CellsToIrowcolsMap(cell_row_ids,cell_col_ids,cells,rows,cols)
   lazy_map(k,1:length(cells))
 end
-
-# function get_cells_to_irows(
-#   cell_row_ids::AbstractArray{<:AbstractArray},
-#   cells::AbstractVector,
-#   rows::AbstractVector
-#   )
-
-#   correct_irow = get_idof_correction(cell_row_ids)
-#   cache = array_cache(cell_row_ids)
-
-#   ncells = length(cells)
-#   ptrs = Vector{Int32}(undef,ncells+1)
-#   @inbounds for (icell,cell) in enumerate(cells)
-#     cellrows = getindex!(cache,cell_row_ids,cell)
-#     ptrs[icell+1] = length(cellrows)
-#   end
-#   length_to_ptrs!(ptrs)
-
-#   data = fill(zero(Int32),ptrs[end]-1)
-#   for (icell,cell) in enumerate(cells)
-#     cellrows = getindex!(cache,cell_row_ids,cell)
-#     for (irow,row) in enumerate(rows)
-#       for (_icellrow,cellrow) in enumerate(cellrows)
-#         if row == cellrow
-#           icellrow = correct_irow(_icellrow,cellrows)
-#           data[ptrs[icell]-1+icellrow] = irow
-#         end
-#       end
-#     end
-#   end
-
-#   Table(data,ptrs)
-# end
-
-# function get_cells_to_irowcols(
-#   cell_row_ids::AbstractArray{<:AbstractArray},
-#   cell_col_ids::AbstractArray{<:AbstractArray},
-#   cells::AbstractVector,
-#   rows::AbstractVector,
-#   cols::AbstractVector
-#   )
-
-#   correct_irow = get_idof_correction(cell_row_ids)
-#   correct_icol = get_idof_correction(cell_col_ids)
-#   rowcache = array_cache(cell_row_ids)
-#   colcache = array_cache(cell_col_ids)
-
-#   ncells = length(cells)
-#   ptrs = Vector{Int32}(undef,ncells+1)
-#   @inbounds for (icell,cell) in enumerate(cells)
-#     cellrows = getindex!(rowcache,cell_row_ids,cell)
-#     cellcols = getindex!(colcache,cell_col_ids,cell)
-#     ptrs[icell+1] = length(cellrows)*length(cellcols)
-#   end
-#   length_to_ptrs!(ptrs)
-
-#   data = fill(zero(Int32),ptrs[end]-1)
-#   for (icell,cell) in enumerate(cells)
-#     cellrows = getindex!(rowcache,cell_row_ids,cell)
-#     cellcols = getindex!(colcache,cell_col_ids,cell)
-#     ncellrows = length(cellrows)
-#     for (irowcol,rowcol) in enumerate(zip(rows,cols))
-#       row,col = rowcol
-#       for (_icellrow,cellrow) in enumerate(cellrows)
-#         for (_icellcol,cellcol) in enumerate(cellcols)
-#           if row == cellrow && col == cellcol
-#             icellrow = correct_irow(_icellrow,cellrows)
-#             icellcol = correct_icol(_icellcol,cellcols)
-#             icellrowcol = icellrow + (icellcol-1)*ncellrows
-#             data[ptrs[icell]-1+icellrowcol] = irowcol
-#           end
-#         end
-#       end
-#     end
-#   end
-
-#   Table(data,ptrs)
-# end
 
 """
     abstract type IntegrationDomain end

@@ -187,7 +187,7 @@ end
 function Base.setindex!(b::TrivialParamBlock{A},v,i...) where A
   iblock = first(i)
   if all(i.==iblock)
-    b.data = v
+    copyto!(b.data,v)
   end
 end
 
@@ -926,14 +926,14 @@ function Arrays.return_value(k::Broadcasting{typeof(*)},f::Number,g::TrivialPara
 end
 
 function Arrays.return_cache(k::Broadcasting{typeof(*)},f::Number,g::TrivialParamBlock)
-  c = return_cache(k,f,g)
-  h = evaluate!(c,k,f,g)
+  c = return_cache(k,f,g.data)
+  h = evaluate!(c,k,f,g.data)
   TrivialParamBlock(h,g.plength),c
 end
 
 function Arrays.evaluate!(cache,k::Broadcasting{typeof(*)},f::Number,g::TrivialParamBlock)
   r,c = cache
-  v = evaluate!(c,k,f,g.data[i])
+  v = evaluate!(c,k,f,g.data)
   copyto!(r.data,v)
   r
 end
@@ -1046,7 +1046,14 @@ end
 function Arrays.return_value(
   k::BroadcastingFieldOpMap,a::Union{ParamBlock,AbstractArray}...
   )
-  evaluate(k,a...)
+
+  pa = lazy_parameterise(a...)
+  p1 = first(pa)
+  ais = map(testitem,pa)
+  hi = return_value(k,ais...)
+  data = Vector{typeof(hi)}(undef,param_length(p1))
+  fill!(data,hi)
+  GenericParamBlock(data)
 end
 
 function Arrays.return_cache(
@@ -1104,7 +1111,7 @@ function Arrays.evaluate!(cache,k::ParamBroadcastingFieldOpMap,f::ParamBlock)
 end
 
 function Arrays.return_value(k::ParamBroadcastingFieldOpMap,f::ParamBlock,g::ParamBlock)
-  @notimplementedif param_length(k) != param_length(f) != param_length(g)
+  @notimplementedif !(param_length(k) == param_length(f) == param_length(g))
   ki = testitem(k)
   fi = testitem(f)
   gi = testitem(g)
@@ -1115,7 +1122,7 @@ function Arrays.return_value(k::ParamBroadcastingFieldOpMap,f::ParamBlock,g::Par
 end
 
 function Arrays.return_cache(k::ParamBroadcastingFieldOpMap,f::ParamBlock,g::ParamBlock)
-  @notimplementedif param_length(k) != param_length(f) != param_length(g)
+  @notimplementedif !(param_length(k) == param_length(f) == param_length(g))
   ki = testitem(k)
   fi = testitem(f)
   gi = testitem(g)
@@ -1130,7 +1137,7 @@ function Arrays.return_cache(k::ParamBroadcastingFieldOpMap,f::ParamBlock,g::Par
 end
 
 function Arrays.evaluate!(cache,k::ParamBroadcastingFieldOpMap,f::ParamBlock,g::ParamBlock)
-  @notimplementedif param_length(k) != param_length(f) != param_length(g)
+  @notimplementedif !(param_length(k) == param_length(f) == param_length(g))
   a,b = cache
   for i in param_eachindex(f)
     v = evaluate!(b[i],param_getindex(k,i),param_getindex(f,i),param_getindex(g,i))
@@ -1167,7 +1174,11 @@ end
 function Arrays.return_value(
   k::ParamBroadcastingFieldOpMap,a::Union{ParamBlock,AbstractArray}...
   )
-  evaluate(k,a...)
+  pa = lazy_parameterise(a...;plength=param_length(k))
+  ais = map(testitem,pa)
+  hi = return_value(k,ais...)
+  data = Vector{typeof(hi)}(undef,param_length(k))
+  GenericParamBlock(data)
 end
 
 function Arrays.return_cache(
