@@ -1649,7 +1649,7 @@ function Arrays.evaluate!(cache,b::LagrangianDofBasis,f::GenericParamBlock)
   r
 end
 
-# block map interface
+# array block interface
 
 function Arrays.return_value(
   k::BroadcastingFieldOpMap,
@@ -1739,6 +1739,22 @@ function Arrays.evaluate!(cache,k::BroadcastingFieldOpMap,h::ParamBlock,f::Array
     end
   end
   g
+end
+
+#TODO this fix should go in Gridap 
+for S in (:ParamBlock,:AbstractArray)
+  for T in (:ParamBlock,:AbstractArray)
+    @eval begin
+      function Arrays.return_value(
+        k::BroadcastingFieldOpMap,
+        a::ArrayBlock{<:$S,N},
+        b::ArrayBlock{<:$T,N}
+        ) where N
+        
+        evaluate(k,a,b)
+      end
+    end
+  end
 end
 
 for S in (:ParamBlock,:AbstractArray)
@@ -2236,6 +2252,8 @@ for T in (:ParamBlock,:(ArrayBlock{<:ParamBlock}))
 end
 
 # utils
+
+_test_values(_h,_f) = @abstractmethod
 
 function _test_values(h::ParamBlock,f::ParamBlock)
   @check param_length(h) == param_length(f)

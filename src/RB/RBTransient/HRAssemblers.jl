@@ -184,9 +184,9 @@ end
   )
 
   for (lj,j) in enumerate(js)
-    if _ipos(j)
+    if j>0
       for (li,i) in enumerate(is)
-        if _ipos(i)
+        if i>0
           if i == j
             vij = vs[li,lj]
             add_hr_entry!(combine,A,vij,loc,i)
@@ -203,9 +203,9 @@ end
   )
 
   for (lj,j) in enumerate(js)
-    if _ipos(j)
+    if j>0
       for (li,i) in enumerate(is)
-        if _ipos(i)
+        if i>0
           if i == j
             get_hr_param_entry!(vij,vs,loc,li,lj)
             add_hr_entry!(combine,A,vij,loc,i)

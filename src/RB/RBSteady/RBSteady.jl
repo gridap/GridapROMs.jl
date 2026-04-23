@@ -255,12 +255,13 @@ include("ReducedOperators.jl")
 
 export ROMPerformance
 export eval_performance
-export create_dir
+export rom_diagnostics
 export load_snapshots
 export load_contribution
 export load_operator
 export load_results
 export load_stats
+export create_dir
 export plot_a_solution
 include("PostProcess.jl")
 

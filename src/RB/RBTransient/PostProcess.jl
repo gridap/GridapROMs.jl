@@ -135,3 +135,5 @@ function _permutelastdims(s::BlockSnapshots{N}) where N
   end
   return BlockSnapshots(array,s.touched)
 end
+
+include("Diagnostics.jl")

@@ -13,14 +13,12 @@ using GridapSolvers
 using GridapSolvers.LinearSolvers
 using GridapSolvers.NonlinearSolvers
 
-import Gridap.CellData: get_domains
 import Gridap.Helpers: @abstractmethod
 import Gridap.MultiField: BlockMultiFieldStyle
 import GridapROMs.ParamAlgebra: get_linear_operator,get_nonlinear_operator
-import GridapROMs.ParamDataStructures: AbstractSnapshots,ReshapedSnapshots,TransientSnapshotsWithIC,GenericTransientRealisation,get_realisation
-import GridapROMs.ParamSteady: ParamOperator
-import GridapROMs.RBSteady: get_state_reduction,get_residual_reduction,get_jacobian_reduction,load_stats,get_filename,_get_label
-import GridapROMs.Utils: Contribution,TupOfArrayContribution,change_domains
+import GridapROMs.ParamDataStructures: ReshapedSnapshots,TransientSnapshotsWithIC,get_realisation
+import GridapROMs.RBSteady: get_state_reduction,get_residual_reduction,get_jacobian_reduction,_get_label
+import GridapROMs.Utils: Contribution,TupOfArrayContribution
 
 function change_dof_map(s::GenericSnapshots,dof_map)
   pdata = get_param_data(s)
@@ -54,22 +52,22 @@ function change_dof_map(jac::TupOfArrayContribution,dof_map::TupOfArrayContribut
   return jac′
 end
 
-function save_residuals(dir,res,feop::ParamOperator;label="")
+function save_residuals(dir,res;label="")
   save(dir,res;label=_get_label(label,"res"))
 end
 
-function save_jacobians(dir,jac,feop::ParamOperator;label="")
+function save_jacobians(dir,jac;label="")
   save(dir,jac;label=_get_label(label,"jac"))
 end
 
 for f in (:save_residuals,:save_jacobians)
   @eval begin
-    function $f(dir,resjac,feop::LinearNonlinearParamOperator;label="")
+    function $f(dir,resjac::Tuple;label="")
       @assert length(resjac) == 2
       resjac_lin,resjac_nlin = resjac
-      res_lin = $f(dir,resjac_lin,get_linear_operator(feop);label=_get_label(label,"lin"))
-      res_nlin = $f(dir,resjac_nlin,get_nonlinear_operator(feop);label=_get_label(label,"nlin"))
-      return (res_lin,res_nlin)
+      $f(dir,resjac_lin;label=_get_label(label,"lin"))
+      $f(dir,resjac_nlin;label=_get_label(label,"nlin"))
+      return 
     end
   end
 end
@@ -85,9 +83,9 @@ end
 for f in (:load_residuals,:load_jacobians)
   @eval begin
     function $f(dir,feop::LinearNonlinearParamOperator;label="")
-      res_lin = $f(dir,get_linear_operator(feop);label=_get_label(label,"lin"))
-      res_nlin = $f(dir,get_nonlinear_operator(feop);label=_get_label(label,"nlin"))
-      return (res_lin,res_nlin)
+      resjac_lin = $f(dir,get_linear_operator(feop);label=_get_label(label,"lin"))
+      resjac_nlin = $f(dir,get_nonlinear_operator(feop);label=_get_label(label,"nlin"))
+      return (resjac_lin,resjac_nlin)
     end
   end
 end
@@ -133,8 +131,8 @@ function try_loading_fe_jac_res(dir,rbsolver,feop,fesnaps)
     println("Load res/jac at $dir failed, must compute them")
     jac = jacobian_snapshots(rbsolver,feop,fesnaps)
     res = residual_snapshots(rbsolver,feop,fesnaps)
-    save_jacobians(dir,jac,feop)
-    save_residuals(dir,res,feop)
+    save_jacobians(dir,jac)
+    save_residuals(dir,res)
     return jac,res
   end
 end
@@ -154,7 +152,7 @@ end
 
 get_error(perf::ROMPerformance) = perf.error
 
-function plot_errors(dir,tols,perfs::Vector{ROMPerformance})
+function plot_errors(dir,tols,perfs::AbstractVector{<:ROMPerformance})
   errs = map(get_error,perfs)
   n = length(first(errs))
   errvec = map(i -> getindex.(errs,i),1:n)
@@ -264,14 +262,4 @@ function run_test(
   serialize(joinpath(results_dir,"performance.jld"),(tol => perf for (tol,perf) in zip(tols,perfs)))
 
   return perfs
-end
-
-function run_cost(
-  dir::String,rbsolver::RBSolver,feop::ParamOperator,
-  tols=[1e-1,1e-2,1e-3,1e-4,1e-5],args...)
-
-  fesnaps, = try_loading_fe_snapshots(dir,rbsolver,feop,args...)
-  for tol in tols
-    reduced_spaces(rbsolver,feop,fesnaps)
-  end
 end

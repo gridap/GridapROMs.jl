@@ -459,3 +459,5 @@ function to_snapshots(
   i = get_dof_map(rbop)
   Snapshots(x,i,r)
 end
+
+include("Diagnostics.jl")

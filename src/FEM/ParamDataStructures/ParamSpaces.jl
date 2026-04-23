@@ -57,7 +57,7 @@ function Base.iterate(r::Realisation,state=1)
     return nothing
   end
   rstate = _get_params(r)[state]
-  return rstate, state+1
+  return rstatestate+1
 end
 
 function Base.zero(r::Realisation)

@@ -131,13 +131,14 @@ using GridapROMs.Extensions: ⊕; export ⊕
 @publish RBSteady change_operator
 
 @publish RBSteady ROMPerformance
-@publish RBSteady create_dir
 @publish RBSteady eval_performance
-@publish RBSteady plot_a_solution
+@publish RBSteady rom_diagnostics
 @publish RBSteady load_snapshots
 @publish RBSteady load_operator
 @publish RBSteady load_results
 @publish RBSteady load_stats
+@publish RBSteady create_dir
+@publish RBSteady plot_a_solution
 
 @publish RBTransient HighDimReduction
 @publish RBTransient SteadyReduction
