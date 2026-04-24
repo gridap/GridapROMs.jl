@@ -133,6 +133,10 @@ using GridapROMs.Extensions: ⊕; export ⊕
 @publish RBSteady ROMPerformance
 @publish RBSteady eval_performance
 @publish RBSteady rom_diagnostics
+@publish RBSteady save_residuals
+@publish RBSteady save_jacobians
+@publish RBSteady load_residuals
+@publish RBSteady load_jacobians
 @publish RBSteady load_snapshots
 @publish RBSteady load_operator
 @publish RBSteady load_results

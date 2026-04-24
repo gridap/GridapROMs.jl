@@ -256,6 +256,7 @@ end
 
 get_integration_cells(i::VectorDomain) = i.cells
 get_cell_irows(i::VectorDomain) = i.cell_irows
+get_interpolation_rows(i::VectorDomain) = i.rows
 
 function move_integration_domain(
   i::VectorDomain,
@@ -320,6 +321,8 @@ end
 get_integration_cells(i::MatrixDomain) = i.cells
 get_cell_irows(i::MatrixDomain) = i.cell_irows
 get_cell_icols(i::MatrixDomain) = i.cell_icols
+get_interpolation_rows(i::MatrixDomain) = i.rows
+get_interpolation_cols(i::MatrixDomain) = i.cols
 
 function move_integration_domain(
   i::MatrixDomain,

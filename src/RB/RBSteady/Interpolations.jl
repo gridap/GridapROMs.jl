@@ -7,6 +7,8 @@ get_cell_irows(a::Interpolation) = empty_table(Int,Int32,0)
 get_cell_icols(a::Interpolation) = empty_table(Int,Int32,0)
 get_owned_icells(a::Interpolation,args...) = Int[]
 move_interpolation(a::Interpolation,args...) = a
+get_interpolation_rows(a::Interpolation) = @abstractmethod
+get_interpolation_cols(a::Interpolation) = @notimplemented
 
 function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,x::Any)
   cache
@@ -71,6 +73,8 @@ get_cell_irows(a::GreedyInterpolation) = get_cell_irows(a.domain)
 get_cell_icols(a::GreedyInterpolation) = get_cell_icols(a.domain)
 get_owned_icells(a::GreedyInterpolation,args...) = get_owned_icells(a,get_integration_cells(a,args...))
 get_owned_icells(a::GreedyInterpolation,cells::AbstractVector) = get_owned_icells(a.domain,cells)
+get_interpolation_rows(a::GreedyInterpolation) = get_interpolation_rows(a.domain)
+get_interpolation_cols(a::GreedyInterpolation) = get_interpolation_cols(a.domain)
 
 function FESpaces.interpolate!(cache::AbstractArray,a::GreedyInterpolation,b::AbstractArray)
   ldiv!(cache,a.interpolation,b)

@@ -132,6 +132,7 @@ include("RBParamVectors.jl")
 
 export HRArray
 export HRParamArray
+export HRParamArrayTrian
 export hr_array
 include("HRParamArrays.jl")
 
@@ -202,6 +203,8 @@ export get_integration_cells
 export get_cell_irows
 export get_cell_icols
 export get_owned_icells
+export get_interpolation_rows
+export get_interpolation_cols
 export move_integration_domain
 include("IntegrationDomains.jl")
 
@@ -227,6 +230,7 @@ export reduced_jacobian
 export reduced_residual
 export reduced_weak_form
 export allocate_hypred_cache
+export allocate_hrtrian_cache
 include("HyperReductions.jl")
 
 export FetchBlockMap
@@ -256,13 +260,26 @@ include("ReducedOperators.jl")
 export ROMPerformance
 export eval_performance
 export rom_diagnostics
+export RBDiagnostics
+export projection_error
+export projection_diagnostics
+export hr_diagnostics
+export hr_error
+export save_residuals
+export save_jacobians
+export load_residuals
+export load_jacobians
 export load_snapshots
 export load_contribution
 export load_operator
 export load_results
 export load_stats
+export load_problem_snapshots
+export try_loading_reduced_operator
 export create_dir
 export plot_a_solution
+export plot_solutions
+export plot_errors
 include("PostProcess.jl")
 
 include("Extensions.jl")
