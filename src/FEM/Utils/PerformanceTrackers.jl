@@ -124,6 +124,8 @@ induced_norm(v::AbstractVector,norm_matrix::AbstractMatrix) = sqrtreal(v'*(norm_
 induced_norm(A::AbstractMatrix) = sqrt(sum(diag(A'*A)))
 induced_norm(A::AbstractMatrix,norm_matrix::AbstractMatrix) = sqrtreal(sum(diag(A'*(norm_matrix*A))))
 
+induced_norm(A::AbstractArray) = induced_norm(reshape(A,size(A,1),size(A,2),:))
+
 """
     compute_error(
       sol::AbstractArray{T,N},
@@ -166,6 +168,7 @@ as an argument.
 function compute_relative_error(sol::AbstractArray,sol_approx::AbstractArray,args...)
   err_norm = induced_norm(sol-sol_approx,args...)
   sol_norm = induced_norm(sol,args...)
-  rel_norm = err_norm / sol_norm
+  ε = eps(eltype(sol_norm))
+  rel_norm = err_norm / max(sol_norm,ε)
   return rel_norm
 end

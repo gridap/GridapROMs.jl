@@ -255,6 +255,108 @@ function allocate_hypred_cache(a,args...)
   return hr_array(fecache,coeffs,hypred)
 end
 
+"""
+    allocate_hrtrian_cache(rhs, test, r) -> HRParamArrayTrian
+    allocate_hrtrian_cache(lhs, trial, test, r) -> HRParamArrayTrian
+
+Allocates an [`HRParamArrayTrian`](@ref) for diagnostic use.
+
+For residuals (`HRVecProjection`), each `hypred[trian]` is a full-FE-space
+`ConsecutiveParamVector` of size `(num_fe_dofs(test), num_params(r))`.
+
+For Jacobians (`HRMatProjection`), each `hypred[trian]` lives in the reduced
+space `(n_rb_test × n_rb_trial, num_params(r))` because expanding to the full
+`N_test × N_trial` dense tensor is prohibitive; the Frobenius norm error in RB
+space equals the one in FE space when the bases are orthonormal.
+"""
+function allocate_hrtrian_cache(
+  a::AffineContribution{<:HRVecProjection},
+  test::RBSpace,
+  r::AbstractRealisation
+  )
+
+  fecache = allocate_coefficient(a,r)
+  coeff = allocate_coefficient(a,r)
+  N = num_fe_dofs(test)
+  T = projection_eltype(get_reduced_subspace(test))
+  np = num_params(r)
+  hypred = contribution(get_domains(a)) do _
+    parameterise(zeros(T,N),np)
+  end
+  HRParamArrayTrian(fecache,coeff,hypred)
+end
+
+function allocate_hrtrian_cache(
+  a::AffineContribution{<:HRMatProjection},
+  trial::RBSpace,
+  test::RBSpace,
+  r::AbstractRealisation
+  )
+
+  fecache = allocate_coefficient(a,r)
+  coeff = allocate_coefficient(a,r)
+  hrp0 = first(get_contributions(a))
+  nl = num_reduced_dofs_left_projector(hrp0)
+  nr = num_reduced_dofs_right_projector(hrp0)
+  T = projection_eltype(hrp0)
+  np = num_params(r)
+  hypred = contribution(get_domains(a)) do _
+    parameterise(zeros(T,nl,nr),np)
+  end
+  HRParamArrayTrian(fecache,coeff,hypred)
+end
+
+# interpolate! for residuals: compute coeff per trian and expand to FE space via Ψ
+function FESpaces.interpolate!(
+  cache::HRParamArrayTrian,
+  a::AffineContribution{<:HRVecProjection},
+  test::RBSpace
+  )
+
+  Ψ = get_basis(get_reduced_subspace(test))
+  n_rb = size(Ψ,2)
+  T = eltype(Ψ)
+  np = param_length(first(get_contributions(cache.coeff)))
+  b̂ = parameterise(zeros(T,n_rb),np)
+
+  for (hrproj,fc_t,c_t,h_t) in zip(
+        get_contributions(a),
+        get_contributions(cache.fecache),
+        get_contributions(cache.coeff),
+        get_contributions(cache.hypred))
+
+    fill!(h_t,zero(T))
+    fill!(b̂,zero(T))
+    interpolate!(c_t,get_interpolation(hrproj),fc_t)   # coeff = Φi⁻¹ · fecache
+    mul!(b̂,hrproj,c_t,one(T),one(T))                  # b̂ = Φrb · coeff
+    mul!(get_all_data(h_t),Ψ,get_all_data(b̂))         # h = Ψ · b̂  (FE space)
+  end
+  return cache
+end
+
+# interpolate! for Jacobians: compute coeff per trian and keep in RB space
+function FESpaces.interpolate!(
+  cache::HRParamArrayTrian,
+  a::AffineContribution{<:HRMatProjection},
+  ::RBSpace,
+  ::RBSpace
+  )
+
+  T = projection_eltype(first(get_contributions(a)))
+
+  for (hrproj,fc_t,c_t,h_t) in zip(
+        get_contributions(a),
+        get_contributions(cache.fecache),
+        get_contributions(cache.coeff),
+        get_contributions(cache.hypred))
+
+    fill!(h_t,zero(T))
+    interpolate!(c_t,get_interpolation(hrproj),fc_t)   # coeff = Φi⁻¹ · fecache
+    mul!(h_t,hrproj,c_t,one(T),one(T))                 # Â = Φrb · coeff  (RB space)
+  end
+  return cache
+end
+
 function FESpaces.interpolate!(
   hypred::AbstractArray,
   coeff::ArrayContribution,
