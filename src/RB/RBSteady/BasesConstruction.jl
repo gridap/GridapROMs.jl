@@ -122,7 +122,7 @@ end
 function method_of_snapshots_row(red_style::ReductionStyle,A::AbstractMatrix)
   AA = A'*A
   _,Sr,Vr = truncated_svd(red_style,AA;issquare=true)
-  Ur = (A*Vr)/Diagonal(Sr)
+  Ur = (A*Vr)/Diagonal(Sr.+eps())
   return Ur,Sr,Vr
 end
 
@@ -135,7 +135,7 @@ function method_of_snapshots_row(
   XA = _forward_cholesky(A,L,p)
   AXA = XA'*XA
   _,Sr,Vr = truncated_svd(red_style,AXA;issquare=true)
-  Ũr = (XA*Vr)/Diagonal(Sr)
+  Ũr = (XA*Vr)/Diagonal(Sr.+eps())
   Ur = _backward_cholesky(Ũr,L,p)
   return Ur,Sr,Vr
 end

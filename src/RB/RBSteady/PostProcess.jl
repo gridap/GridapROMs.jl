@@ -438,6 +438,93 @@ function plot_a_solution(
   plot_a_solution(dir,feop,fesnaps,rbsnaps;kwargs...)
 end
 
+"""
+    plot_solutions(dir,feop,sol,sol_approx;kwargs...) -> Nothing
+
+Like [`plot_a_solution`](@ref), but writes all parametric solutions into a
+single VTK file. Each parameter index `i` produces fields
+`"uh_param_i"`, `"ûh_param_i"` and `"eh_param_i"` (or their `abs²` for
+complex-valued problems).
+"""
+function plot_solutions(
+  dir::String,
+  trial::UnEvalTrialFESpace,
+  sol::Snapshots,
+  sol_approx::Snapshots;
+  trian=get_triangulation(trial),
+  field=1
+  )
+
+  r = get_realisation(sol)
+  Ur = trial(r)
+  uh = FEFunction(Ur,get_param_data(sol))
+  ûh = FEFunction(Ur,get_param_data(sol_approx))
+  dirfield = joinpath(dir,"var$field")
+  _plot_solutions(dirfield,trian,uh,ûh,r)
+end
+
+function plot_solutions(
+  dir::String,
+  feop::ParamOperator,
+  sol::Snapshots,
+  sol_approx::Snapshots;
+  kwargs...
+  )
+
+  trial = get_trial(feop)
+  plot_solutions(dir,trial,sol,sol_approx;kwargs...)
+end
+
+function plot_solutions(
+  dir::String,
+  feop::ParamOperator,
+  sol::BlockSnapshots,
+  sol_approx::BlockSnapshots;
+  kwargs...
+  )
+
+  trials = get_trial(feop)
+  for i in eachindex(sol)
+    if sol.touched[i]
+      plot_solutions(dir,trials[i],sol[i],sol_approx[i];field=i,kwargs...)
+    end
+  end
+end
+
+function plot_solutions(
+  dir::String,
+  feop::ParamOperator,
+  rbop::RBOperator,
+  fesnaps::AbstractSnapshots,
+  x̂::AbstractParamVector,
+  r::AbstractRealisation;
+  kwargs...
+  )
+
+  rbsnaps = to_snapshots(rbop,x̂,r)
+  plot_solutions(dir,feop,fesnaps,rbsnaps;kwargs...)
+end
+
+function _plot_solutions(dir,trian,uh,ûh,r::Realisation)
+  T = eltype2(get_free_dof_values(uh))
+  fields = Pair{String}[]
+  for ip in 1:num_params(r)
+    uhip  = param_getindex(uh,ip)
+    ûhip  = param_getindex(ûh,ip)
+    ehip  = uhip - ûhip
+    if T <: Complex
+      push!(fields,"uh_param_$ip"  => abs2(uhip))
+      push!(fields,"ûh_param_$ip" => abs2(ûhip))
+      push!(fields,"eh_param_$ip"  => abs2(ehip))
+    else
+      push!(fields,"uh_param_$ip"  => uhip)
+      push!(fields,"ûh_param_$ip" => ûhip)
+      push!(fields,"eh_param_$ip"  => ehip)
+    end
+  end
+  writevtk(trian,dir*".vtu",cellfields=fields)
+end
+
 # utils
 
 function to_snapshots(rbop::RBOperator,x̂::AbstractParamVector,r::AbstractRealisation)
