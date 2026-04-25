@@ -1,4 +1,188 @@
 """
+    struct DiagnosticsContribution{A,B,C}
+      fecache::A
+      coeff::B
+      hypred::C
+    end
+
+Diagnostic counterpart of [`HRParamArray`](@ref). Unlike `HRParamArray`, which
+accumulates hyper-reduced contributions across triangulations into a single
+reduced-dimension array, `DiagnosticsContribution` keeps one per-triangulation entry
+in `hypred::C`, where `C` is either an `ArrayContribution` (steady) or a
+`TupOfArrayContribution` (transient Jacobians). Each entry stores the
+reconstruction of the HR operator contribution from that triangulation,
+expanded back to a high-dimensional (FE or RB) space so that it can be
+directly compared with full-order snapshots.
+"""
+struct DiagnosticsContribution{A,B,C}
+  fecache::A
+  coeff::B
+  hypred::C
+end
+
+function allocate_diagnostic_residual(
+  a::AffineContribution,
+  test::RBSpace,
+  r::AbstractRealisation
+  )
+
+  N = num_fe_dofs(test)
+  np = num_params(r)
+  fecache = allocate_coefficient(a,r)
+  coeff = allocate_coefficient(a,r)
+  b = zeros(N)
+  hypred = contribution(get_domains(a)) do _
+    parameterise(similar(b),np)
+  end
+  DiagnosticsContribution(fecache,coeff,hypred)
+end
+
+function allocate_diagnostic_residual(nlop::NonlinearOperator,u)
+  op = get_fe_operator(nlop)
+  rhs = get_rhs(op)
+  test = get_test(op)
+  r = get_realisation(nlop)
+  allocate_diagnostic_residual(rhs,test,r)
+end
+
+function allocate_diagnostic_jacobian(
+  a::AffineContribution,
+  trial::RBSpace,
+  test::RBSpace,
+  r::AbstractRealisation
+  )
+
+  np = num_params(r)
+  fecache = allocate_coefficient(a,r)
+  coeff = allocate_coefficient(a,r)
+  A = get_background_matrix(get_sparsity(trial,test))
+  hypred = contribution(get_domains(a)) do _
+    parameterise(similar(A),np)
+  end
+  DiagnosticsContribution(fecache,coeff,hypred)
+end
+
+function allocate_diagnostic_jacobian(nlop::NonlinearOperator,u)
+  op = get_fe_operator(nlop)
+  lhs = get_lhs(op)
+  trial = get_trial(op)
+  test = get_test(op)
+  r = get_realisation(nlop)
+  allocate_diagnostic_jacobian(lhs,trial,test,r)
+end
+
+function diagnostic_residual!(
+  b::DiagnosticsContribution,
+  op::SplitRBOperator,
+  r::Realisation,
+  u::AbstractVector,
+  paramcache
+  )
+
+  uh = EvaluationFunction(paramcache.trial,u)
+  test = get_test(op)
+  v = get_fe_basis(test)
+
+  trian_res = get_domains_res(op)
+  rhs = get_rhs(op)
+  res = get_res(op)
+  dc = res(r,uh,v)
+
+  for strian in trian_res
+    b_strian = b.fecache[strian]
+    rhs_strian = get_interpolation(rhs[strian])
+    vecdata = collect_cell_hr_vector(test,dc,strian,rhs_strian)
+    assemble_hr_vector_add!(b_strian,vecdata...)
+  end
+
+  diagnostic_interpolate!(b,test,rhs)
+end
+
+function diagnostic_residual!(b,nlop::NonlinearOperator,u)
+  diagnostic_residual!(b,nlop.op,nlop.r,u,nlop.paramcache)
+end
+
+function diagnostic_residual(nlop::NonlinearOperator,u)
+  b = allocate_diagnostic_residual(nlop,u)
+  diagnostic_residual!(b,nlop,u)
+end
+
+function diagnostic_jacobian!(
+  A::DiagnosticsContribution,
+  op::SplitRBOperator,
+  r::Realisation,
+  u::AbstractVector,
+  paramcache
+  )
+
+  uh = EvaluationFunction(paramcache.trial,u)
+  trial = get_trial(op)
+  du = get_trial_fe_basis(trial)
+  test = get_test(op)
+  v = get_fe_basis(test)
+
+  trian_jac = get_domains_jac(op)
+  lhs = get_lhs(op)
+  jac = get_jac(op)
+  dc = jac(r,uh,du,v)
+
+  for strian in trian_jac
+    A_strian = A.fecache[strian]
+    lhs_strian = get_interpolation(lhs[strian])
+    matdata = collect_cell_hr_matrix(trial,test,dc,strian,lhs_strian)
+    assemble_hr_matrix_add!(A_strian,matdata...)
+  end
+
+  diagnostic_interpolate!(A,trial,test,lhs)
+end
+
+function diagnostic_jacobian!(A,nlop::NonlinearOperator,u)
+  diagnostic_jacobian!(A,nlop.op,nlop.r,u,nlop.paramcache)
+end
+
+function diagnostic_jacobian(nlop::NonlinearOperator,u)
+  A = allocate_diagnostic_jacobian(nlop,u)
+  diagnostic_jacobian!(A,nlop,u)
+end
+
+function diagnostic_interpolate!(
+  b::DiagnosticsContribution,
+  test::RBSpace,
+  a::AffineContribution
+  )
+  
+  for (ât,ft,ct,ht) in zip(
+    get_contributions(a),
+    get_contributions(b.fecache),
+    get_contributions(b.coeff),
+    get_contributions(b.hypred)
+    ) 
+    
+    at = inv_galerkin_projection(test,ât)   
+    interpolate!(ht,ct,at,ft)
+  end
+end
+
+function diagnostic_interpolate!(
+  A::DiagnosticsContribution,
+  trial::RBSpace,
+  test::RBSpace,
+  a::AffineContribution
+  )
+
+  for (ât,ft,ct,ht) in zip(
+    get_contributions(a),
+    get_contributions(A.fecache),
+    get_contributions(A.coeff),
+    get_contributions(A.hypred)
+    ) 
+    
+    at = inv_galerkin_projection(test,ât,trial)   
+    interpolate!(ht,ct,at,ft)
+  end
+end
+
+"""
     struct RBDiagnostics
       offline
       online
@@ -173,25 +357,13 @@ For each triangulation in the HR contributions:
 Returns `(hr_error_res,hr_error_jac)` where each is a `Tuple` with one
 `Float64` per triangulation (mean relative error over parameters).
 """
-function hr_error(
-  op::RBOperator,
-  res::AbstractSnapshots,
-  jac::AbstractSnapshots,
-  μ::AbstractRealisation
-  )
-
+function hr_error(op::RBOperator,res,jac,μ)
   err_res = hr_error_res(op,res,μ)
   err_jac = hr_error_jac(op,jac,μ)
   return err_res,err_jac
 end
 
-function hr_error(
-  op::LinearNonlinearRBOperator,
-  res::Tuple,
-  jac::Tuple,
-  μ::AbstractRealisation
-  )
-
+function hr_error(op::LinearNonlinearRBOperator,res,jac,μ)
   res_lin,res_nlin = res
   jac_lin,jac_nlin = jac
   op_lin = get_linear_operator(op)
@@ -203,86 +375,30 @@ end
 
 function hr_error_res(
   op::RBOperator,
-  res::AbstractSnapshots,
-  μ::AbstractRealisation
+  res::ArrayContribution,
+  μ::AbstractRealisation,
+  u
   )
 
-  b_trian = residual(op,res,μ)
-  data = get_all_data(res)
-  map(get_contributions(b_trian.hypred)) do h_t
-    hr_data = get_all_data(h_t)
-    compute_relative_error(data,hr_data)
+  nlop = parameterise(op,μ)
+  red_res = diagnostic_residual(nlop,u)
+  map(get_contributions(res),get_contributions(red_res.hypred)) do b,b̂
+    compute_relative_error(get_data(b),get_data(b̂))
   end |> Tuple
-end
-
-function Algebra.residual(
-  op::RBOperator,
-  res::AbstractSnapshots,
-  μ::AbstractRealisation
-  )
-
-  rhs = get_rhs(op)
-  test = get_test(op)
-
-  fecache = contribution(get_domains(rhs)) do trian
-    interp = get_interpolation(rhs[trian])
-    rows = get_interpolation_rows(interp)
-    isnothing(rows) ? get_param_data(res) : _get_at_domain(res,rows)
-  end
-
-  cache = allocate_hrtrian_cache(rhs,test,μ)
-  b = HRParamArrayTrian(fecache,cache.coeff,cache.hypred)
-  interpolate!(b,rhs,test)
-  return b
 end
 
 function hr_error_jac(
   op::RBOperator,
   jac::AbstractSnapshots,
-  μ::AbstractRealisation
+  μ::AbstractRealisation,
+  u
   )
 
-  A_trian = jacobian(op,jac,μ)
-  test = get_test(op)
-  trial = get_trial(op)
-  Ψ_test = get_basis(get_reduced_subspace(test))
-  Ψ_trial = get_basis(get_reduced_subspace(trial))
-  np = num_params(μ)
-
-  # Project FOM Jacobian to RB space: (n_rb_test,n_params,n_rb_trial)
-  Â_fom = galerkin_projection(Ψ_test,get_param_data(jac),Ψ_trial)
-  # Permute to (n_rb_test,n_rb_trial,n_params) to match hypred layout
-  Â_fom_p = permutedims(Â_fom,(1,3,2))
-
-  map(get_contributions(A_trian.hypred)) do h_t
-    hr_data = get_all_data(h_t)
-    mean(1:np) do i
-      compute_relative_error(vec(view(Â_fom_p,:,:,i)),vec(view(hr_data,:,:,i)))
-    end
+  nlop = parameterise(op,μ)
+  red_jac = diagnostic_jacobian(nlop,u)
+  map(get_contributions(jac),get_contributions(red_jac.hypred)) do A,Â
+    compute_relative_error(get_data(A),get_data(Â))
   end |> Tuple
-end
-
-function Algebra.jacobian(
-  op::RBOperator,
-  jac::AbstractSnapshots,
-  μ::AbstractRealisation
-  )
-
-  lhs = get_lhs(op)
-  test = get_test(op)
-  trial = get_trial(op)
-
-  fecache = contribution(get_domains(lhs)) do trian
-    interp = get_interpolation(lhs[trian])
-    rows = get_interpolation_rows(interp)
-    isnothing(rows) ? get_param_data(jac) :
-      _get_at_domain(jac,(rows,get_interpolation_cols(interp)))
-  end
-
-  cache = allocate_hrtrian_cache(lhs,trial,test,μ)
-  A = HRParamArrayTrian(fecache,cache.coeff,cache.hypred)
-  interpolate!(A,lhs,trial,test)
-  return A
 end
 
 function load_snapshots(dir,rbsolver,feop,args...;label="",kwargs...)
@@ -359,111 +475,4 @@ function load_problem_snapshots(dir,rbsolver,feop,args...;label="online",kwargs.
   jac = load_jacobians(dir,rbsolver,feop,s)
   res = load_residuals(dir,rbsolver,feop,s)
   return s,jac,res
-end
-
-function plot_errors(dir,tols,perfs::AbstractVector{<:ROMPerformance})
-  errs = map(get_error,perfs)
-  n = length(first(errs))
-  errvec = map(i -> getindex.(errs,i),1:n)
-  labvec = n==1 ? "Error" : ["Error $i" for i in 1:n]
-
-  file = joinpath(dir,"convergence.png")
-  p = plot(tols,tols,lw=3,label="Tol.")
-  scatter!(tols,errvec,lw=3,label=labvec)
-  plot!(xscale=:log10,yscale=:log10)
-  xlabel!("Tolerance")
-  ylabel!("Error")
-  title!("Average relative error")
-  savefig(p,file)
-end
-
-"""
-    results_table(dir,feop) -> Vector{NamedTuple}
-
-Scans every immediate sub-directory of `dir` whose name parses as a `Float64`
-(i.e. a tolerance value produced by [`run_test`](@ref)).  For each such
-sub-directory that contains a saved RB operator the function:
-
-1. loads the operator with `load_operator`,
-2. calls `rom_diagnostics` to extract basis dimension and compression factors
-   for the state space and for every hyper-reduced contribution,
-3. collects everything into a named tuple.
-
-The returned vector is sorted in decreasing order of tolerance (coarsest first).
-"""
-function results_table(dir::String,feop::ParamOperator)
-  entries = NamedTuple[]
-
-  for name in sort(readdir(dir))
-    subdir = joinpath(dir,name)
-    isdir(subdir) || continue
-    tol = tryparse(Float64,name)
-    isnothing(tol) && continue
-
-    # check that at least the test-basis file exists before trying to deserialize
-    isfile(joinpath(subdir,"basis_test.jld")) || continue
-
-    rbop = try
-      load_operator(subdir,feop)
-    catch e
-      @warn "Could not load operator from $subdir: $e"
-      continue
-    end
-
-    diag = rom_diagnostics(rbop)
-    push!(entries,(tol=tol,diagnostics=diag))
-  end
-
-  sort!(entries,by=e->e.tol,rev=true)
-  return entries
-end
-
-"""
-    rom_diagnostics(rbop::RBOperator) -> NamedTuple
-
-Returns structural measures of the RB operator:
-- `state`: `(dim = n, factor = Nₕ / n)` for the trial/test reduction
-- `res`: tuple of `(dim,factor)` per residual triangulation
-- `jac`: tuple of `(dim,factor)` per jacobian triangulation
-"""
-function rom_diagnostics(rbop::RBOperator)
-  trial = get_trial(rbop)
-  state = projection_diagnostics(trial)
-  res = Tuple(_hr_measures(v) for v in get_contributions(get_rhs(rbop)))
-  jac = Tuple(_hr_measures(v) for v in get_contributions(get_lhs(rbop)))
-  (state=state,res=res,jac=jac)
-end
-
-function rom_diagnostics(rbop::LinearNonlinearRBOperator)
-  state = _space_measures(get_test(rbop))
-  op_lin = get_linear_operator(rbop)
-  op_nlin = get_nonlinear_operator(rbop)
-  res_lin = Tuple(_hr_measures(v) for v in get_contributions(get_rhs(op_lin)))
-  res_nlin = Tuple(_hr_measures(v) for v in get_contributions(get_rhs(op_nlin)))
-  jac_lin = Tuple(_hr_measures(v) for v in get_contributions(get_lhs(op_lin)))
-  jac_nlin = Tuple(_hr_measures(v) for v in get_contributions(get_lhs(op_nlin)))
-  (state=state,
-   res=(linear=res_lin,nonlinear=res_nlin),
-   jac=(linear=jac_lin,nonlinear=jac_nlin))
-end
-
-function _space_measures(r::RBSpace)
-  N = num_fe_dofs(r)
-  n = num_reduced_dofs(r)
-  (dim=n,factor=N/n)
-end
-
-function _hr_measures(c::AffineContribution)
-  Tuple(_hr_measures(v) for v in get_contributions(c))
-end
-
-function _hr_measures(hrproj::HRProjection)
-  n_modes = num_reduced_dofs(hrproj)
-  n_left  = num_reduced_dofs_left_projector(hrproj)
-  (dim=n_modes,factor=n_left/n_modes)
-end
-
-function _hr_measures(hrproj::BlockHRProjection{N}) where N
-  Tuple(hrproj.touched[i] ? _hr_measures(hrproj.array[i]) : nothing
-        for i in eachindex(hrproj.touched))
 end

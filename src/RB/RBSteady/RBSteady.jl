@@ -132,7 +132,7 @@ include("RBParamVectors.jl")
 
 export HRArray
 export HRParamArray
-export HRParamArrayTrian
+export DiagnosticsContribution
 export hr_array
 include("HRParamArrays.jl")
 
@@ -279,7 +279,6 @@ export try_loading_reduced_operator
 export create_dir
 export plot_a_solution
 export plot_solutions
-export plot_errors
 include("PostProcess.jl")
 
 include("Extensions.jl")

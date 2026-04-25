@@ -17,7 +17,7 @@ import Gridap.Helpers: @abstractmethod
 import Gridap.MultiField: BlockMultiFieldStyle
 import GridapROMs.ParamAlgebra: get_linear_operator,get_nonlinear_operator
 import GridapROMs.ParamDataStructures: ReshapedSnapshots,TransientSnapshotsWithIC,get_realisation
-import GridapROMs.RBSteady: get_state_reduction,get_residual_reduction,get_jacobian_reduction,_get_label
+import GridapROMs.RBSteady: get_state_reduction,get_residual_reduction,get_jacobian_reduction,get_error,_get_label
 import GridapROMs.Utils: Contribution,TupOfArrayContribution
 
 function change_dof_map(s::GenericSnapshots,dof_map)
@@ -164,6 +164,22 @@ function update_solver(rbsolver::RBSolver,tol)
   residual_reduction = update_reduction(get_residual_reduction(rbsolver),tol)
   jacobian_reduction = update_reduction(get_jacobian_reduction(rbsolver),tol)
   RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
+end
+
+function plot_errors(dir,tols,perfs::AbstractVector{<:ROMPerformance})
+  errs = map(get_error,perfs)
+  n = length(first(errs))
+  errvec = map(i -> getindex.(errs,i),1:n)
+  labvec = n==1 ? "Error" : ["Error $i" for i in 1:n]
+
+  file = joinpath(dir,"convergence.png")
+  p = plot(tols,tols,lw=3,label="Tol.")
+  scatter!(tols,errvec,lw=3,label=labvec)
+  plot!(xscale=:log10,yscale=:log10)
+  xlabel!("Tolerance")
+  ylabel!("Error")
+  title!("Average relative error")
+  savefig(p,file)
 end
 
 function run_test(

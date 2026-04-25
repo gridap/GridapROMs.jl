@@ -124,31 +124,3 @@ function ParamAlgebra.compatible_cache(a::AbstractHRArray,b::AbstractHRArray)
   hypred′ = compatible_cache(a.hypred,b.hypred)
   hr_array(a.fecache,a.coeff,hypred′)
 end
-
-"""
-    struct HRParamArrayTrian{A,B,C}
-      fecache::A
-      coeff::B
-      hypred::C
-    end
-
-Diagnostic counterpart of [`HRParamArray`](@ref). Unlike `HRParamArray`, which
-accumulates hyper-reduced contributions across triangulations into a single
-reduced-dimension array, `HRParamArrayTrian` keeps one per-triangulation entry
-in `hypred::C`, where `C` is either an `ArrayContribution` (steady) or a
-`TupOfArrayContribution` (transient Jacobians). Each entry stores the
-reconstruction of the HR operator contribution from that triangulation,
-expanded back to a high-dimensional (FE or RB) space so that it can be
-directly compared with full-order snapshots.
-"""
-struct HRParamArrayTrian{A,B,C}
-  fecache::A
-  coeff::B
-  hypred::C
-end
-
-function Base.fill!(cache::HRParamArrayTrian,v::Number)
-  fill!(cache.fecache,v)
-  fill!(cache.coeff,v)
-  fill!(cache.hypred,v)
-end

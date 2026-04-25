@@ -39,7 +39,7 @@ function RBSteady.hr_error_jac(
     end
 
     cache_k = allocate_hrtrian_cache(lhs_k,trial,test,μ)
-    A_k = HRParamArrayTrian(fecache_k,cache_k.coeff,cache_k.hypred)
+    A_k = DiagnosticsContribution(fecache_k,cache_k.coeff,cache_k.hypred)
     interpolate!(A_k,lhs_k,trial,test)
 
     map(get_contributions(A_k.hypred)) do h_t
