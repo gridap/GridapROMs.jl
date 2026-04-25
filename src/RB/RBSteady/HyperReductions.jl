@@ -74,15 +74,15 @@ end
 
 """
 """
-const MDEIMProjection{A<:ReducedProjection} = HRProjection{A,<:MDEIMHyperReduction}
+const MDEIMProjection{A<:Projection} = HRProjection{A,<:MDEIMHyperReduction}
 
 """
 """
-const SOPTProjection{A<:ReducedProjection} = HRProjection{A,<:SOPTHyperReduction}
+const SOPTProjection{A<:Projection} = HRProjection{A,<:SOPTHyperReduction}
 
 """
 """
-const RBFProjection{A<:ReducedProjection} = HRProjection{A,<:RBFHyperReduction}
+const RBFProjection{A<:Projection} = HRProjection{A,<:RBFHyperReduction}
 
 """
     struct GenericHRProjection{A,B} <: HRProjection{A,B}

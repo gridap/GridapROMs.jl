@@ -1,3 +1,74 @@
+
+"""
+    inv_galerkin_projection(test, â) -> HRProjection
+    inv_galerkin_projection(test, â, trial) -> HRProjection
+
+Builds a new [`HRProjection`](@ref) whose basis expands the RB-space DEIM/MDEIM
+basis back to the original high-dimensional (FE) space, so that `interpolate!`
+yields FE-space reconstructions rather than RB-space ones.
+
+For **residuals**: the stored basis becomes `Φ_test * Φ_rb ∈ ℝ^{Nₕ × n_modes}`,
+where `Φ_test` is the RB test basis and `Φ_rb` is the DEIM basis in RB space.
+
+For **Jacobians**: the sparsity of the original FE Jacobian (fetched from the
+FE spaces of `test` and `trial`) is used.  For each DEIM mode `k` the dense
+matrix `Φ_test * Φ_rb[:,k,:] * Φ_trial'` is evaluated and only its entries at
+the sparse non-zero positions are retained, producing a `(nnz × n_modes)` basis.
+`mul!` on a `ConsecutiveParamSparseMatrix` then fills the non-zero values
+directly through the standard dispatch on `.data`.
+"""
+function inv_galerkin_projection(test::SingleFieldRBSpace,â::HRVecProjection)
+  proj_left = get_reduced_subspace(test)
+  Φ_left = get_basis(proj_left)
+  Φ̂  = get_underlying_basis(â)         
+  Φ = Φ_left * Φ̂
+  GenericHRProjection(PODProjection(Φ),â.style,â.interpolation)
+end
+
+function inv_galerkin_projection(test::SingleFieldRBSpace,â::HRMatProjection,trial::SingleFieldRBSpace)
+  proj_left = get_reduced_subspace(test)
+  Φ_left = get_basis(proj_left)
+  Φ̂  = get_underlying_basis(â)  
+  proj_right = get_reduced_subspace(trial)
+  Φ_right = get_basis(proj_right)
+
+  sparsity = get_sparsity(trial,test)
+  I,J,_ = findnz(sparsity)
+  
+  n = num_reduced_dofs(Φ̂ )
+  Nz = nnz(sparsity)
+  Φz = zeros(Nz,n)
+
+  @inbounds @views for k in 1:n
+    Φk = Φ_left * Φ[:,k,:] * Φ_right'
+    for l in 1:Nz
+      Φz[l,k] = Φk[I[l],J[l]]
+    end
+  end
+
+  GenericHRProjection(PODProjection(Φz),â.style,â.interpolation)
+end
+
+function inv_galerkin_projection(test::MultiFieldRBSpace,â::BlockHRProjection{N}) where N
+  array = Array{HRProjection,N}(undef,size(â))
+  for i in eachindex(â)
+    if â.touched[i]
+      array[i] = inv_galerkin_projection(test[i],â.array[i])
+    end
+  end
+  BlockHRProjection(array,â.touched)
+end
+
+function inv_galerkin_projection(test::MultiFieldRBSpace,â::BlockHRProjection{N},trial::MultiFieldRBSpace) where N
+  array = Array{HRProjection,N}(undef,size(â))
+  for (i,j) in Iterators.product(1:size(â,1),1:size(â,2))
+    if â.touched[i,j]
+      array[i,j] = inv_galerkin_projection(test[i],â.array[i,j],trial[j])
+    end
+  end
+  BlockHRProjection(array,â.touched)
+end
+
 """
     struct DiagnosticsContribution{A,B,C}
       fecache::A
@@ -37,12 +108,10 @@ function allocate_diagnostic_residual(
   DiagnosticsContribution(fecache,coeff,hypred)
 end
 
-function allocate_diagnostic_residual(nlop::NonlinearOperator,u)
-  op = get_fe_operator(nlop)
-  rhs = get_rhs(op)
-  test = get_test(op)
-  r = get_realisation(nlop)
-  allocate_diagnostic_residual(rhs,test,r)
+function allocate_diagnostic_residual(nlop::GenericParamNonlinearOperator,u)
+  rhs = get_rhs(nlop.op) 
+  test = get_test(nlop.op)
+  allocate_diagnostic_residual(rhs,test,nlop.μ)
 end
 
 function allocate_diagnostic_jacobian(
@@ -55,20 +124,18 @@ function allocate_diagnostic_jacobian(
   np = num_params(r)
   fecache = allocate_coefficient(a,r)
   coeff = allocate_coefficient(a,r)
-  A = get_background_matrix(get_sparsity(trial,test))
+  A = DofMaps.get_background_matrix(get_sparsity(trial,test))
   hypred = contribution(get_domains(a)) do _
     parameterise(similar(A),np)
   end
   DiagnosticsContribution(fecache,coeff,hypred)
 end
 
-function allocate_diagnostic_jacobian(nlop::NonlinearOperator,u)
-  op = get_fe_operator(nlop)
-  lhs = get_lhs(op)
-  trial = get_trial(op)
-  test = get_test(op)
-  r = get_realisation(nlop)
-  allocate_diagnostic_jacobian(lhs,trial,test,r)
+function allocate_diagnostic_jacobian(nlop::GenericParamNonlinearOperator,u)
+  lhs = get_lhs(nlop.op)
+  trial = get_trial(nlop.op)
+  test = get_test(nlop.op)
+  allocate_diagnostic_jacobian(lhs,trial,test,nlop.μ)
 end
 
 function diagnostic_residual!(
@@ -98,13 +165,14 @@ function diagnostic_residual!(
   diagnostic_interpolate!(b,test,rhs)
 end
 
-function diagnostic_residual!(b,nlop::NonlinearOperator,u)
-  diagnostic_residual!(b,nlop.op,nlop.r,u,nlop.paramcache)
+function diagnostic_residual!(b,nlop::GenericParamNonlinearOperator,u)
+  diagnostic_residual!(b,nlop.op,nlop.μ,u,nlop.paramcache)
 end
 
-function diagnostic_residual(nlop::NonlinearOperator,u)
+function diagnostic_residual(nlop::NonlinearParamOperator,u)
   b = allocate_diagnostic_residual(nlop,u)
   diagnostic_residual!(b,nlop,u)
+  b
 end
 
 function diagnostic_jacobian!(
@@ -136,13 +204,14 @@ function diagnostic_jacobian!(
   diagnostic_interpolate!(A,trial,test,lhs)
 end
 
-function diagnostic_jacobian!(A,nlop::NonlinearOperator,u)
-  diagnostic_jacobian!(A,nlop.op,nlop.r,u,nlop.paramcache)
+function diagnostic_jacobian!(A,nlop::GenericParamNonlinearOperator,u)
+  diagnostic_jacobian!(A,nlop.op,nlop.μ,u,nlop.paramcache)
 end
 
-function diagnostic_jacobian(nlop::NonlinearOperator,u)
+function diagnostic_jacobian(nlop::NonlinearParamOperator,u)
   A = allocate_diagnostic_jacobian(nlop,u)
   diagnostic_jacobian!(A,nlop,u)
+  A
 end
 
 function diagnostic_interpolate!(
@@ -229,7 +298,6 @@ function rom_diagnostics(
   )
 
   s,jac,res = load_problem_snapshots(dir,rbsolver,feop,args...;label,kwargs...)
-  μ = get_realisation(s)
 
   offline_entries = NamedTuple[]
   online_entries = NamedTuple[]
@@ -250,7 +318,7 @@ function rom_diagnostics(
     push!(offline_entries,(tol=tol,diagnostics=offline_diagnostics(rbop)))
 
     proj_err = projection_error(rbsolver,rbop,s)
-    err_res,err_jac = hr_error(rbop,res,jac,μ)
+    err_res,err_jac = hr_error(rbop,res,jac,s)
     push!(online_entries,(tol=tol,diagnostics=(
       projection_error=proj_err,
       hr_error_res=err_res,
@@ -357,20 +425,31 @@ For each triangulation in the HR contributions:
 Returns `(hr_error_res,hr_error_jac)` where each is a `Tuple` with one
 `Float64` per triangulation (mean relative error over parameters).
 """
-function hr_error(op::RBOperator,res,jac,μ)
-  err_res = hr_error_res(op,res,μ)
-  err_jac = hr_error_jac(op,jac,μ)
+function hr_error(op::RBOperator,res,jac,s)
+  μ = get_realisation(s)
+  u = get_param_data(s)
+  err_res = hr_error_res(op,res,μ,u)
+  err_jac = hr_error_jac(op,jac,μ,u)
   return err_res,err_jac
 end
 
-function hr_error(op::LinearNonlinearRBOperator,res,jac,μ)
+function hr_error(op::RBOperator{<:LinearParamEq},res,jac,s)
+  μ = get_realisation(s)
+  u = get_param_data(s)|> similar
+  fill!(u,zero(eltype2(u)))
+  err_res = hr_error_res(op,res,μ,u)
+  err_jac = hr_error_jac(op,jac,μ,u)
+  return err_res,err_jac
+end
+
+function hr_error(op::LinearNonlinearRBOperator,res,jac,s)
   res_lin,res_nlin = res
   jac_lin,jac_nlin = jac
   op_lin = get_linear_operator(op)
   op_nlin = get_nonlinear_operator(op)
-  err_res = (hr_error_res(op_lin,res_lin,μ),hr_error_res(op_nlin,res_nlin,μ))
-  err_jac = (hr_error_jac(op_lin,jac_lin,μ),hr_error_jac(op_nlin,jac_nlin,μ))
-  return err_res,err_jac
+  (err_res_lin,err_jac_lin) = hr_error(op_lin,res_lin,jac_lin,s)
+  (err_res_nlin,err_jac_nlin) = hr_error(op_nlin,res_nlin,jac_nlin,s)
+  return (err_res_lin,err_res_nlin),(err_jac_lin,err_jac_nlin)
 end
 
 function hr_error_res(
@@ -383,21 +462,21 @@ function hr_error_res(
   nlop = parameterise(op,μ)
   red_res = diagnostic_residual(nlop,u)
   map(get_contributions(res),get_contributions(red_res.hypred)) do b,b̂
-    compute_relative_error(get_data(b),get_data(b̂))
+    compute_relative_error(get_all_data(b),get_all_data(b̂))
   end |> Tuple
 end
 
 function hr_error_jac(
   op::RBOperator,
-  jac::AbstractSnapshots,
+  jac::ArrayContribution,
   μ::AbstractRealisation,
   u
-  )
+  ) 
 
   nlop = parameterise(op,μ)
   red_jac = diagnostic_jacobian(nlop,u)
   map(get_contributions(jac),get_contributions(red_jac.hypred)) do A,Â
-    compute_relative_error(get_data(A),get_data(Â))
+    compute_relative_error(get_all_data(A),get_all_data(Â))
   end |> Tuple
 end
 
@@ -476,3 +555,9 @@ function load_problem_snapshots(dir,rbsolver,feop,args...;label="online",kwargs.
   res = load_residuals(dir,rbsolver,feop,s)
   return s,jac,res
 end
+
+# utils 
+
+get_underlying_basis(a::AbstractArray) = a 
+get_underlying_basis(a::Projection) = get_basis(a) 
+get_underlying_basis(a::HRProjection) = get_underlying_basis(get_basis(a))
