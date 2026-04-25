@@ -17,20 +17,35 @@ the sparse non-zero positions are retained, producing a `(nnz × n_modes)` basis
 `mul!` on a `ConsecutiveParamSparseMatrix` then fills the non-zero values
 directly through the standard dispatch on `.data`.
 """
+function inv_galerkin_projection(proj_left::Projection,proj::Projection)
+  basis_left = get_basis(proj_left)
+  basis = get_basis(proj) 
+  PODProjection(basis_left * basis)  
+end
+
+function inv_galerkin_projection(proj_left::Projection,proj::Projection,proj_right::Projection)
+  basis_left = get_basis(proj_left)
+  basis = get_basis(proj) 
+  basis_right = get_basis(proj_right)
+  tmp1 = basis_left * reshape(basis,size(basis,1),:)
+  tmp2 = reshape(tmp1,:,size(basis,3)) * basis_right'
+  s = size(basis_left,1),size(basis,2),size(basis_right,1)
+  ReducedAlgebraicProjection(reshape(tmp2,s))  
+end
+
 function inv_galerkin_projection(test::SingleFieldRBSpace,â::HRVecProjection)
   proj_left = get_reduced_subspace(test)
-  Φ_left = get_basis(proj_left)
-  Φ̂  = get_underlying_basis(â)         
-  Φ = Φ_left * Φ̂
-  GenericHRProjection(PODProjection(Φ),â.style,â.interpolation)
+  Φ̂  = get_basis(â)         
+  Φ = inv_galerkin_projection(proj_left,Φ̂ )
+  GenericHRProjection(Φ,â.style,â.interpolation)
 end
 
 function inv_galerkin_projection(test::SingleFieldRBSpace,â::HRMatProjection,trial::SingleFieldRBSpace)
   proj_left = get_reduced_subspace(test)
-  Φ_left = get_basis(proj_left)
-  Φ̂  = get_underlying_basis(â)  
+  Φ̂  = get_basis(â)  
   proj_right = get_reduced_subspace(trial)
-  Φ_right = get_basis(proj_right)
+  proj = inv_galerkin_projection(proj_left,Φ̂ ,proj_right)
+  Φ3d = get_basis(proj)
 
   sparsity = get_sparsity(trial,test)
   I,J,_ = findnz(sparsity)
@@ -39,14 +54,27 @@ function inv_galerkin_projection(test::SingleFieldRBSpace,â::HRMatProjection,tr
   Nz = nnz(sparsity)
   Φz = zeros(Nz,n)
 
-  @inbounds @views for k in 1:n
-    Φk = Φ_left * Φ[:,k,:] * Φ_right'
+  @inbounds for k in 1:n
     for l in 1:Nz
-      Φz[l,k] = Φk[I[l],J[l]]
+      Φz[l,k] = Φ3d[I[l],k,J[l]]
     end
   end
 
-  GenericHRProjection(PODProjection(Φz),â.style,â.interpolation)
+  Φ = recast(Φz,sparsity)
+
+  GenericHRProjection(PODProjection(Φ),â.style,â.interpolation)
+end
+
+function inv_galerkin_projection(test::SingleFieldRBSpace,â::HRMatProjection,trial::SingleFieldRBSpace)
+  proj_left = get_reduced_subspace(test)
+  Φ̂  = get_basis(â)  
+  proj_right = get_reduced_subspace(trial)
+  proj = inv_galerkin_projection(proj_left,Φ̂ ,proj_right)
+  Φz = get_basis(proj)
+
+  i = get_sparse_dof_map(trial,test)
+  Φ = recast(Φz,i)
+  GenericHRProjection(PODProjection(Φ),â.style,â.interpolation)
 end
 
 function inv_galerkin_projection(test::MultiFieldRBSpace,â::BlockHRProjection{N}) where N
@@ -555,9 +583,3 @@ function load_problem_snapshots(dir,rbsolver,feop,args...;label="online",kwargs.
   res = load_residuals(dir,rbsolver,feop,s)
   return s,jac,res
 end
-
-# utils 
-
-get_underlying_basis(a::AbstractArray) = a 
-get_underlying_basis(a::Projection) = get_basis(a) 
-get_underlying_basis(a::HRProjection) = get_underlying_basis(get_basis(a))
