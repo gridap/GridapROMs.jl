@@ -60,21 +60,7 @@ function inv_galerkin_projection(test::SingleFieldRBSpace,â::HRMatProjection,tr
     end
   end
 
-  Φ = recast(Φz,sparsity)
-
-  GenericHRProjection(PODProjection(Φ),â.style,â.interpolation)
-end
-
-function inv_galerkin_projection(test::SingleFieldRBSpace,â::HRMatProjection,trial::SingleFieldRBSpace)
-  proj_left = get_reduced_subspace(test)
-  Φ̂  = get_basis(â)  
-  proj_right = get_reduced_subspace(trial)
-  proj = inv_galerkin_projection(proj_left,Φ̂ ,proj_right)
-  Φz = get_basis(proj)
-
-  i = get_sparse_dof_map(trial,test)
-  Φ = recast(Φz,i)
-  GenericHRProjection(PODProjection(Φ),â.style,â.interpolation)
+  GenericHRProjection(PODProjection(Φz),â.style,â.interpolation)
 end
 
 function inv_galerkin_projection(test::MultiFieldRBSpace,â::BlockHRProjection{N}) where N
@@ -152,7 +138,8 @@ function allocate_diagnostic_jacobian(
   np = num_params(r)
   fecache = allocate_coefficient(a,r)
   coeff = allocate_coefficient(a,r)
-  A = DofMaps.get_background_matrix(get_sparsity(trial,test))
+  sparsity = get_sparsity(trial,test)
+  A = zeros(nnz(sparsity))
   hypred = contribution(get_domains(a)) do _
     parameterise(similar(A),np)
   end
