@@ -36,3 +36,6 @@ LocalPreferences.toml
 
 # Folder with deprecated source code
 /src/deprecated
+
+# Claude folder 
+/.claude

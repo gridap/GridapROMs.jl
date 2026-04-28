@@ -1,88 +1,3 @@
-
-"""
-    inv_galerkin_projection(test, â) -> HRProjection
-    inv_galerkin_projection(test, â, trial) -> HRProjection
-
-Builds a new [`HRProjection`](@ref) whose basis expands the RB-space DEIM/MDEIM
-basis back to the original high-dimensional (FE) space, so that `interpolate!`
-yields FE-space reconstructions rather than RB-space ones.
-
-For **residuals**: the stored basis becomes `Φ_test * Φ_rb ∈ ℝ^{Nₕ × n_modes}`,
-where `Φ_test` is the RB test basis and `Φ_rb` is the DEIM basis in RB space.
-
-For **Jacobians**: the sparsity of the original FE Jacobian (fetched from the
-FE spaces of `test` and `trial`) is used.  For each DEIM mode `k` the dense
-matrix `Φ_test * Φ_rb[:,k,:] * Φ_trial'` is evaluated and only its entries at
-the sparse non-zero positions are retained, producing a `(nnz × n_modes)` basis.
-`mul!` on a `ConsecutiveParamSparseMatrix` then fills the non-zero values
-directly through the standard dispatch on `.data`.
-"""
-function inv_galerkin_projection(proj_left::Projection,proj::Projection)
-  basis_left = get_basis(proj_left)
-  basis = get_basis(proj) 
-  PODProjection(basis_left * basis)  
-end
-
-function inv_galerkin_projection(proj_left::Projection,proj::Projection,proj_right::Projection)
-  basis_left = get_basis(proj_left)
-  basis = get_basis(proj) 
-  basis_right = get_basis(proj_right)
-  tmp1 = basis_left * reshape(basis,size(basis,1),:)
-  tmp2 = reshape(tmp1,:,size(basis,3)) * basis_right'
-  s = size(basis_left,1),size(basis,2),size(basis_right,1)
-  ReducedAlgebraicProjection(reshape(tmp2,s))  
-end
-
-function inv_galerkin_projection(test::SingleFieldRBSpace,â::HRVecProjection)
-  proj_left = get_reduced_subspace(test)
-  Φ̂  = get_basis(â)         
-  Φ = inv_galerkin_projection(proj_left,Φ̂ )
-  GenericHRProjection(Φ,â.style,â.interpolation)
-end
-
-function inv_galerkin_projection(test::SingleFieldRBSpace,â::HRMatProjection,trial::SingleFieldRBSpace)
-  proj_left = get_reduced_subspace(test)
-  Φ̂  = get_basis(â)  
-  proj_right = get_reduced_subspace(trial)
-  proj = inv_galerkin_projection(proj_left,Φ̂ ,proj_right)
-  Φ3d = get_basis(proj)
-
-  sparsity = get_sparsity(trial,test)
-  I,J,_ = findnz(sparsity)
-  
-  n = num_reduced_dofs(Φ̂ )
-  Nz = nnz(sparsity)
-  Φz = zeros(Nz,n)
-
-  @inbounds for k in 1:n
-    for l in 1:Nz
-      Φz[l,k] = Φ3d[I[l],k,J[l]]
-    end
-  end
-
-  GenericHRProjection(PODProjection(Φz),â.style,â.interpolation)
-end
-
-function inv_galerkin_projection(test::MultiFieldRBSpace,â::BlockHRProjection{N}) where N
-  array = Array{HRProjection,N}(undef,size(â))
-  for i in eachindex(â)
-    if â.touched[i]
-      array[i] = inv_galerkin_projection(test[i],â.array[i])
-    end
-  end
-  BlockHRProjection(array,â.touched)
-end
-
-function inv_galerkin_projection(test::MultiFieldRBSpace,â::BlockHRProjection{N},trial::MultiFieldRBSpace) where N
-  array = Array{HRProjection,N}(undef,size(â))
-  for (i,j) in Iterators.product(1:size(â,1),1:size(â,2))
-    if â.touched[i,j]
-      array[i,j] = inv_galerkin_projection(test[i],â.array[i,j],trial[j])
-    end
-  end
-  BlockHRProjection(array,â.touched)
-end
-
 """
     struct DiagnosticsContribution{A,B,C}
       fecache::A
@@ -111,13 +26,12 @@ function allocate_diagnostic_residual(
   r::AbstractRealisation
   )
 
-  N = num_fe_dofs(test)
+  n = num_reduced_dofs(test)
   np = num_params(r)
   fecache = allocate_coefficient(a,r)
   coeff = allocate_coefficient(a,r)
-  b = zeros(N)
   hypred = contribution(get_domains(a)) do _
-    parameterise(similar(b),np)
+    parameterise(zeros(n),np)
   end
   DiagnosticsContribution(fecache,coeff,hypred)
 end
@@ -135,13 +49,13 @@ function allocate_diagnostic_jacobian(
   r::AbstractRealisation
   )
 
+  n_test  = num_reduced_dofs(test)
+  n_trial = num_reduced_dofs(trial)
   np = num_params(r)
   fecache = allocate_coefficient(a,r)
   coeff = allocate_coefficient(a,r)
-  sparsity = get_sparsity(trial,test)
-  A = zeros(nnz(sparsity))
   hypred = contribution(get_domains(a)) do _
-    parameterise(similar(A),np)
+    parameterise(zeros(n_test,n_trial),np)
   end
   DiagnosticsContribution(fecache,coeff,hypred)
 end
@@ -177,7 +91,7 @@ function diagnostic_residual!(
     assemble_hr_vector_add!(b_strian,vecdata...)
   end
 
-  diagnostic_interpolate!(b,test,rhs)
+  diagnostic_interpolate!(b,rhs)
 end
 
 function diagnostic_residual!(b,nlop::GenericParamNonlinearOperator,u)
@@ -216,7 +130,7 @@ function diagnostic_jacobian!(
     assemble_hr_matrix_add!(A_strian,matdata...)
   end
 
-  diagnostic_interpolate!(A,trial,test,lhs)
+  diagnostic_interpolate!(A,lhs)
 end
 
 function diagnostic_jacobian!(A,nlop::GenericParamNonlinearOperator,u)
@@ -231,38 +145,17 @@ end
 
 function diagnostic_interpolate!(
   b::DiagnosticsContribution,
-  test::RBSpace,
   a::AffineContribution
   )
-  
-  for (ât,ft,ct,ht) in zip(
+
+  for (ât,ft,ct,ht) in zip(
     get_contributions(a),
     get_contributions(b.fecache),
     get_contributions(b.coeff),
     get_contributions(b.hypred)
-    ) 
-    
-    at = inv_galerkin_projection(test,ât)   
-    interpolate!(ht,ct,at,ft)
-  end
-end
+    )
 
-function diagnostic_interpolate!(
-  A::DiagnosticsContribution,
-  trial::RBSpace,
-  test::RBSpace,
-  a::AffineContribution
-  )
-
-  for (ât,ft,ct,ht) in zip(
-    get_contributions(a),
-    get_contributions(A.fecache),
-    get_contributions(A.coeff),
-    get_contributions(A.hypred)
-    ) 
-    
-    at = inv_galerkin_projection(test,ât,trial)   
-    interpolate!(ht,ct,at,ft)
+    interpolate!(ht,ct,ât,ft)
   end
 end
 
@@ -380,12 +273,11 @@ end
 """
     hr_diagnostics(hrproj::HRProjection) -> NamedTuple
 
-Returns `(dim=n_modes,factor=n_left/n_modes)` for a single HR projection.
+Returns `(dim=n,)` for a single HR projection.
 """
 function hr_diagnostics(hrproj::HRProjection)
-  n_modes = num_reduced_dofs(hrproj)
-  n_left = num_reduced_dofs_left_projector(hrproj)
-  (dim=n_modes,factor=n_left/n_modes)
+  n = num_reduced_dofs(hrproj)
+  (dim=n,)
 end
 
 function hr_diagnostics(hrproj::BlockHRProjection{N}) where N
@@ -474,11 +366,30 @@ function hr_error_res(
   u
   )
 
+  test = get_test(op)
+  Φ_test = get_basis(get_reduced_subspace(test))  
+  rhs = get_rhs(op)
   nlop = parameterise(op,μ)
-  red_res = diagnostic_residual(nlop,u)
-  map(get_contributions(res),get_contributions(red_res.hypred)) do b,b̂
-    compute_relative_error(get_all_data(b),get_all_data(b̂))
-  end |> Tuple
+  red_res = diagnostic_residual(nlop,u)  
+
+  err = ()
+  for (res_t,a_t,fecache_t,hypred_t) in zip(
+    get_contributions(res),
+    get_contributions(rhs),
+    get_contributions(red_res.fecache),
+    get_contributions(red_res.hypred)
+    )
+
+    rows = get_interpolation_rows(get_interpolation(a_t))
+    @check isapprox(fecache_t.data,res_t.data[rows,:];rtol=1e-8) "fecache mismatch at DEIM interpolation rows"
+    b̂ = galerkin_projection(Φ_test,res_t.data)
+    i = VectorDofMap(size(b̂,1))
+    b̂snaps = Snapshots(b̂,i,μ)
+    hrb̂snaps = Snapshots(get_all_data(hypred_t),i,μ)
+    err = (err...,compute_relative_error(b̂snaps,hrb̂snaps))
+  end 
+  
+  return err
 end
 
 function hr_error_jac(
@@ -486,13 +397,44 @@ function hr_error_jac(
   jac::ArrayContribution,
   μ::AbstractRealisation,
   u
-  ) 
+  )
 
+  test  = get_test(op)
+  trial = get_trial(op)
+  Φ_test = get_basis(get_reduced_subspace(test))   
+  Φ_trial = get_basis(get_reduced_subspace(trial)) 
+  lhs = get_lhs(op)
   nlop = parameterise(op,μ)
   red_jac = diagnostic_jacobian(nlop,u)
-  map(get_contributions(jac),get_contributions(red_jac.hypred)) do A,Â
-    compute_relative_error(get_all_data(A),get_all_data(Â))
-  end |> Tuple
+
+  err = ()
+  for (jac_t,a_t,fecache_t,hypred_t) in zip(
+    get_contributions(jac),
+    get_contributions(lhs),
+    get_contributions(red_jac.fecache),
+    get_contributions(red_jac.hypred)
+    )
+
+    jac_nz_data = get_all_data(jac_t) 
+    jac_param = recast(jac_t)          
+
+    interp = get_interpolation(a_t)
+    rows = get_interpolation_rows(interp)
+    cols = get_interpolation_cols(interp)
+    sparsity = get_sparsity(get_dof_map(jac_t))
+    inds = sparsify_split_indices(rows,cols,sparsity)
+    @check isapprox(fecache_t.data,jac_nz_data[inds,:];rtol=1e-8) "fecache mismatch at DEIM (row,col) pairs"
+    Â = galerkin_projection(Φ_test,jac_param,Φ_trial)
+    Â = reshape(permutedims(Â,(1,3,2)),:,num_params(μ))
+    hrÂ = reshape(get_all_data(hypred_t),:,num_params(μ))
+
+    i = VectorDofMap(size(Â,1))
+    Âsnaps = Snapshots(Â,i,μ)
+    hrÂsnaps = Snapshots(hrÂ,i,μ)
+    err = (err...,compute_relative_error(Âsnaps,hrÂsnaps))
+  end 
+  
+  return err
 end
 
 function load_snapshots(dir,rbsolver,feop,args...;label="",kwargs...)
