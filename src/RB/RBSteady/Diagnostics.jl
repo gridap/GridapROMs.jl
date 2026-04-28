@@ -253,7 +253,7 @@ Returns `(dim=n,factor=Nₕ/n)` for the trial/test reduction.
 function projection_diagnostics(r::RBSpace)
   N = num_fe_dofs(r)
   n = num_reduced_dofs(r)
-  (dim=n,factor=N/n)
+  (dim=n,factor=N./n)
 end
 
 """

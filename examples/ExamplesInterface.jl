@@ -201,7 +201,7 @@ end
 function plot_errors(dir,tolranks,perfs::AbstractVector{<:ROMPerformance})
   errs = map(get_error,perfs)
   n = length(first(errs))
-  errvec = map(i -> getindex.(errs,i),1:n)
+  errvec = hcat(map(i -> getindex.(errs,i),1:n)...)
   labvec = n==1 ? "Error" : ["Error $i" for i in 1:n]
 
   file = joinpath(dir,"convergence.png")
