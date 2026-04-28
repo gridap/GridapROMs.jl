@@ -131,19 +131,27 @@ function update_reduction(red::TTSVDReduction,tolrank)
   TTSVDReduction(update_redstyle(red.red_style,tolrank),red.norm_style,red.nparams)
 end
 
+function update_reduction(red::LocalReduction,tolrank)
+  LocalReduction(update_reduction(red.reduction,tolrank),red.ncentroids)
+end
+
 function update_reduction(red::SupremizerReduction,tolrank)
-  SupremizerReduction(update_reduction(red.reduction,tolrank),red.supr_op,red.supr_tolrank)
+  SupremizerReduction(update_reduction(red.reduction,tolrank),red.supr_op,red.supr_tol)
 end
 
 function update_reduction(red::MDEIMHyperReduction,tolrank)
   MDEIMHyperReduction(update_reduction(red.reduction,tolrank))
 end
 
+function update_reduction(red::SteadyReduction,tolrank)
+  SteadyReduction(update_reduction(red.reduction,tolrank))
+end
+
 function update_reduction(red::KroneckerReduction,tolrank)
   KroneckerReduction(
     update_reduction(red.reduction_space,tolrank),
     update_reduction(red.reduction_time,tolrank)
-    )
+  )
 end
 
 function update_reduction(red::SequentialReduction,tolrank)
@@ -155,6 +163,22 @@ function update_reduction(red::HighDimMDEIMHyperReduction,tolrank)
 end
 
 function update_reduction(red::NTuple{N,HighDimMDEIMHyperReduction},tolrank) where N
+  map(r->update_reduction(r,tolrank),red)
+end
+
+function update_reduction(red::HighDimSOPTHyperReduction,tolrank)
+  HighDimSOPTHyperReduction(update_reduction(red.reduction,tolrank),red.combination)
+end
+
+function update_reduction(red::NTuple{N,HighDimSOPTHyperReduction},tolrank) where N
+  map(r->update_reduction(r,tolrank),red)
+end
+
+function update_reduction(red::HighDimRBFHyperReduction,tolrank)
+  HighDimRBFHyperReduction(update_reduction(red.reduction,tolrank),red.combination,red.strategy)
+end
+
+function update_reduction(red::NTuple{N,HighDimRBFHyperReduction},tolrank) where N
   map(r->update_reduction(r,tolrank),red)
 end
 
