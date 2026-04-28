@@ -1,5 +1,3 @@
-
-
 """
     struct DiagnosticsContribution{A,B,C}
       fecache::A
@@ -22,51 +20,28 @@ struct DiagnosticsContribution{A,B,C}
   hypred::C
 end
 
-function allocate_diagnostic_residual(
+function allocate_dcontribution(
   a::AffineContribution,
-  test::RBSpace,
   r::AbstractRealisation
   )
 
-  n = num_reduced_dofs(test)
-  np = num_params(r)
+
   fecache = allocate_coefficient(a,r)
   coeff = allocate_coefficient(a,r)
-  hypred = contribution(get_domains(a)) do _
-    parameterise(zeros(n),np)
+  hypred = contribution(get_domains(a)) do trian
+    allocate_hyper_reduction(a[trian],r)
   end
   DiagnosticsContribution(fecache,coeff,hypred)
 end
 
 function allocate_diagnostic_residual(nlop::GenericParamNonlinearOperator,u)
   rhs = get_rhs(nlop.op) 
-  test = get_test(nlop.op)
-  allocate_diagnostic_residual(rhs,test,nlop.μ)
-end
-
-function allocate_diagnostic_jacobian(
-  a::AffineContribution,
-  trial::RBSpace,
-  test::RBSpace,
-  r::AbstractRealisation
-  )
-
-  n_test  = num_reduced_dofs(test)
-  n_trial = num_reduced_dofs(trial)
-  np = num_params(r)
-  fecache = allocate_coefficient(a,r)
-  coeff = allocate_coefficient(a,r)
-  hypred = contribution(get_domains(a)) do _
-    parameterise(zeros(n_test,n_trial),np)
-  end
-  DiagnosticsContribution(fecache,coeff,hypred)
+  allocate_dcontribution(rhs,nlop.μ)
 end
 
 function allocate_diagnostic_jacobian(nlop::GenericParamNonlinearOperator,u)
   lhs = get_lhs(nlop.op)
-  trial = get_trial(nlop.op)
-  test = get_test(nlop.op)
-  allocate_diagnostic_jacobian(lhs,trial,test,nlop.μ)
+  allocate_dcontribution(lhs,nlop.μ)
 end
 
 function diagnostic_residual!(
@@ -163,27 +138,32 @@ end
 
 """
     struct RBDiagnostics
-      offline
-      online
+      offline::Dict{String,Any}
+      online::Dict{String,Any}
     end
 
-Container for ROM diagnostics split into two phases.
+Container for ROM diagnostics, each phase stored as a `Dict{String,Any}`.
 
-- `offline`: vector of `(tol, diagnostics)` named tuples, one per
-  tolerance sub-directory.  Each `diagnostics` entry is a named tuple
-  with the structural properties of the RB operator: basis dimension,
-  compression factors for every hyper-reduced triangulation contribution.
+Every dict always contains a `"tols"` key mapping to a `Vector{Float64}` of
+tolerances sorted in decreasing order.  All other keys map to a `Vector` of
+the same length, with one entry per tolerance.
 
-- `online`: vector of `(tol, diagnostics)` named tuples.  Each
-  `diagnostics` entry is a named tuple with
-  - `projection_error`: average relative error of the RB projection of
-    the solution snapshots
-  - `hr_error_res`: tuple of per-triangulation HR errors for the residual
-  - `hr_error_jac`: tuple of per-triangulation HR errors for the Jacobian
+**Offline** (structural) keys are derived by flattening the `offline_diagnostics`
+named tuple:
+- `"state dim"`, `"state factor"` — basis size and compression factor
+- `"rhs dim"` — `Vector{Tuple}`, one `K`-tuple per tolerance (one integer per
+  triangulation)
+- `"lhs dim"` — same for the Jacobian contributions
+- For `LinearNonlinearRBOperator`: `"lin_rhs dim"`, `"nlin_lhs dim"`, etc.
+
+**Online** keys:
+- `"projection_error"` — `Vector{Float64}`
+- `"hr_error_res"` — `Vector{Tuple}`, one `K`-tuple per tolerance
+- `"hr_error_jac"` — `Vector{Tuple}`, one `K`-tuple per tolerance
 """
 struct RBDiagnostics
-  offline
-  online
+  offline::Dict{String,Any}
+  online::Dict{String,Any}
 end
 
 """
@@ -196,7 +176,8 @@ tolerance, loads the corresponding RB operator, and computes both offline
 `dir` under `label`.
 
 Returns an [`RBDiagnostics`](@ref) object whose `offline` and `online` fields
-are vectors sorted by decreasing tolerance (coarsest model first).
+are `Dict{String,Any}` sorted by decreasing tolerance (coarsest model first),
+with all scalar fields flattened into named `Vector` entries.
 """
 function rom_diagnostics(
   dir::String,
@@ -238,7 +219,10 @@ function rom_diagnostics(
 
   sort!(offline_entries,by=e->e.tol,rev=true)
   sort!(online_entries,by=e->e.tol,rev=true)
-  RBDiagnostics(offline_entries,online_entries)
+  RBDiagnostics(
+    _entries_to_dict(offline_entries),
+    _entries_to_dict(online_entries),
+  )
 end
 
 function offline_diagnostics(op::RBOperator)
@@ -269,29 +253,28 @@ Returns `(dim=n,factor=Nₕ/n)` for the trial/test reduction.
 function projection_diagnostics(r::RBSpace)
   N = num_fe_dofs(r)
   n = num_reduced_dofs(r)
-  (dim=n,factor=N/n)
+  (dim=n,factor=N./n)
 end
 
 """
     hr_diagnostics(hrproj::HRProjection) -> NamedTuple
 
-Returns `(dim=n_modes,factor=n_left/n_modes)` for a single HR projection.
+Returns `(dim=n,)` for a single HR projection.
 """
 function hr_diagnostics(hrproj::HRProjection)
-  n_modes = num_reduced_dofs(hrproj)
-  n_left = num_reduced_dofs_left_projector(hrproj)
-  (dim=n_modes,factor=n_left/n_modes)
+  n = num_reduced_dofs(hrproj)
+  (dim=n,)
 end
 
 function hr_diagnostics(hrproj::BlockHRProjection{N}) where N
-  s = size(hproj)
+  s = size(hrproj)
   array = Array{NamedTuple,N}(undef,s)
-  for i in eachindex(hproj)
+  for i in eachindex(hrproj)
     if hrproj.touched[i]
-      array[i] = hr_diagnostics(hproj.array[i])
+      array[i] = hr_diagnostics(hrproj.array[i])
     end
   end
-  ArrayBlock(array,hproj.touched)
+  ArrayBlock(array,hrproj.touched)
 end
 
 function hr_diagnostics(c::AffineContribution)
@@ -370,27 +353,22 @@ function hr_error_res(
   )
 
   test = get_test(op)
-  rhs  = get_rhs(op)
+  rhs = get_rhs(op)
   nlop = parameterise(op,μ)
-  red_res = diagnostic_residual(nlop,u)
+  red_res = diagnostic_residual(nlop,u)  
 
-  res_data = get_all_data(get_param_data(res))  # (N_h, np)
+  err = ()
+  for (res_t,a_t,fecache_t,hypred_t) in zip(
+    get_contributions(res),
+    get_contributions(rhs),
+    get_contributions(red_res.fecache),
+    get_contributions(red_res.hypred)
+    )
 
-  # 1. @check: fecache must equal residual snapshots at the DEIM rows
-  for (rhs_t,fecache_t) in zip(get_contributions(rhs),get_contributions(red_res.fecache))
-    rows = get_interpolation_rows(get_interpolation(rhs_t))
-    @check isapprox(fecache_t.data,res_data[rows,:];rtol=1e-8) "fecache mismatch at DEIM interpolation rows"
-  end
-
-  # 2. Accuracy in reduced space: compare hypred with Φ_test′ × res
-  Φ_test = get_basis(get_reduced_subspace(test))            # (N_h, n_test)
-  b_gp    = galerkin_projection(Φ_test,res_data)             # (n_test, np)
-  hypred_total = reduce(
-    .+,
-    (get_all_data(h) for h in get_contributions(red_res.hypred));
-    init = zeros(size(b_gp))
-  )
-  compute_relative_error(b_gp,hypred_total)
+    err = (err...,hr_error_res(test,res_t,a_t,fecache_t,hypred_t))
+  end 
+  
+  return err
 end
 
 function hr_error_jac(
@@ -402,34 +380,113 @@ function hr_error_jac(
 
   test  = get_test(op)
   trial = get_trial(op)
-  lhs   = get_lhs(op)
-  nlop  = parameterise(op,μ)
+  lhs = get_lhs(op)
+  nlop = parameterise(op,μ)
   red_jac = diagnostic_jacobian(nlop,u)
 
-  jac_param    = get_param_data(jac)          # ConsecutiveParamSparseMatrix
-  jac_nz_data  = get_all_data(jac_param)      # (nnz, np)
-  jac_sparsity = get_sparsity(get_dof_map(jac))
+  err = ()
+  for (jac_t,a_t,fecache_t,hypred_t) in zip(
+    get_contributions(jac),
+    get_contributions(lhs),
+    get_contributions(red_jac.fecache),
+    get_contributions(red_jac.hypred)
+    )
 
-  # 1. @check: fecache must equal jac snapshots at the DEIM (row,col) pairs
-  for (lhs_t,fecache_t) in zip(get_contributions(lhs),get_contributions(red_jac.fecache))
-    interp = get_interpolation(lhs_t)
-    rows   = get_interpolation_rows(interp)
-    cols   = get_interpolation_cols(interp)
-    inds   = sparsify_split_indices(rows,cols,jac_sparsity)
-    @check isapprox(fecache_t.data,jac_nz_data[inds,:];rtol=1e-8) "fecache mismatch at DEIM (row,col) pairs"
-  end
+    err = (err...,hr_error_jac(trial,test,jac_t,a_t,fecache_t,hypred_t))
+  end 
+  
+  return err
+end
 
-  # 2. Accuracy in reduced space: compare hypred with Φ_test′ × A × Φ_trial
-  Φ_test  = get_basis(get_reduced_subspace(test))    # (N_h, n_test)
-  Φ_trial = get_basis(get_reduced_subspace(trial))   # (N_h, n_trial)
-  A_gp      = galerkin_projection(Φ_test,jac_param,Φ_trial)  # (n_test, np, n_trial)
-  A_gp_perm = permutedims(A_gp,(1,3,2))                  # (n_test, n_trial, np)
-  hypred_total = reduce(
-    .+,
-    (get_all_data(h) for h in get_contributions(red_jac.hypred));
-    init = zeros(size(A_gp_perm))
+function hr_error_res(
+  test::SingleFieldRBSpace,
+  res::Snapshots,
+  a::HRProjection,
+  fecache::AbstractParamVector,
+  hypred::AbstractParamVector
   )
-  compute_relative_error(A_gp_perm,hypred_total)
+  
+  msg = "fecache mismatch at DEIM interpolation rows"
+  Φ_test = get_basis(get_reduced_subspace(test))  
+  rows = get_interpolation_rows(get_interpolation(a))
+  @check isapprox(get_all_data(fecache),get_all_data(res)[rows,:];rtol=1e-8) msg
+
+  b̂ = galerkin_projection(Φ_test,get_all_data(res))
+
+  μ = get_realisation(res)
+  i = VectorDofMap(size(b̂,1))
+  b̂snaps = Snapshots(b̂,i,μ)
+  hrb̂snaps = Snapshots(get_all_data(hypred),i,μ)
+
+  compute_relative_error(b̂snaps,hrb̂snaps)
+end
+
+function hr_error_jac(
+  trial::SingleFieldRBSpace,
+  test::SingleFieldRBSpace,
+  jac::Snapshots,
+  a::HRProjection,
+  fecache::AbstractParamVector,
+  hypred::AbstractParamMatrix
+  )
+  
+  msg = "fecache mismatch at DEIM (row,col) pairs"
+  Φ_trial = get_basis(get_reduced_subspace(trial))  
+  Φ_test = get_basis(get_reduced_subspace(test))  
+
+  rows = get_interpolation_rows(get_interpolation(a))
+  cols = get_interpolation_cols(get_interpolation(a))
+  sparsity = get_sparsity(get_dof_map(jac))
+  inds = sparsify_split_indices(rows,cols,sparsity)
+  @check isapprox(get_all_data(fecache),get_all_data(jac)[inds,:];rtol=1e-8) msg
+
+  μ = get_realisation(jac)
+  Â = galerkin_projection(Φ_test,recast(jac),Φ_trial)
+  Â = reshape(permutedims(Â,(1,3,2)),:,num_params(μ))
+  hrÂ = reshape(get_all_data(hypred),:,num_params(μ))
+
+  i = VectorDofMap(size(Â,1))
+  Âsnaps = Snapshots(Â,i,μ)
+  hrÂsnaps = Snapshots(hrÂ,i,μ)
+
+  compute_relative_error(Âsnaps,hrÂsnaps)
+end
+
+function hr_error_res(
+  test::MultiFieldRBSpace,
+  res::BlockSnapshots,
+  a::BlockHRProjection,
+  fecache::VectorBlock,
+  hypred::BlockParamVector
+  )
+  
+  @check res.touched == fecache.touched
+  error = zeros(size(res))
+  for i in eachindex(res)
+    if res.touched[i]
+      error[i] = hr_error_res(test[i],res[i],a[i],fecache.array[i],hypred.data[i])
+    end
+  end
+  error
+end
+
+function hr_error_jac(
+  trial::MultiFieldRBSpace,
+  test::MultiFieldRBSpace,
+  jac::BlockSnapshots,
+  a::BlockHRProjection,
+  fecache::MatrixBlock,
+  hypred::BlockParamMatrix
+  )
+  
+  @check jac.touched == fecache.touched
+  error = zeros(size(jac))
+  for i in axes(jac,1), j in axes(jac,2)
+    if jac.touched[i,j]
+      error[i,j] = hr_error_jac(trial[j],test[i],jac[i,j],a[i,j],fecache.array[i,j],hypred.data[i,j])
+    end
+  end
+  error
 end
 
 function load_snapshots(dir,rbsolver,feop,args...;label="",kwargs...)
@@ -481,20 +538,22 @@ for f in (:load_residuals,:load_jacobians)
   end
 end
 
-function load_residuals(dir,rbsolver,feop,fesnaps)
+function load_residuals(dir,_rbsolver,feop,fesnaps)
   try
     load_snapshots(dir;label="res")
   catch
+    rbsolver = set_params(_rbsolver,nparams=num_params(fesnaps))
     res = residual_snapshots(rbsolver,feop,fesnaps)
     save_residuals(dir,res)
     res
   end
 end
 
-function load_jacobians(dir,rbsolver,feop,fesnaps)
+function load_jacobians(dir,_rbsolver,feop,fesnaps)
   try
     load_snapshots(dir;label="jac")
   catch
+    rbsolver = set_params(_rbsolver;nparams=num_params(fesnaps))
     jac = jacobian_snapshots(rbsolver,feop,fesnaps)
     save_jacobians(dir,jac)
     jac
@@ -507,3 +566,74 @@ function load_problem_snapshots(dir,rbsolver,feop,args...;label="online",kwargs.
   res = load_residuals(dir,rbsolver,feop,s)
   return s,jac,res
 end
+
+# utils 
+
+function set_params(red::AffineReduction;kwargs...)
+  red
+end
+
+function set_params(red::PODReduction;nparams::Int)
+  PODReduction(red.red_style,red.norm_style,nparams)
+end
+
+function set_params(red::TTSVDReduction;nparams::Int)
+  TTSVDReduction(red.red_style,red.norm_style,nparams)
+end
+
+function set_params(red::LocalReduction;kwargs...)
+  LocalReduction(set_params(red.reduction;kwargs...),red.ncentroids)
+end
+
+function set_params(red::SupremizerReduction;kwargs...)
+  SupremizerReduction(set_params(red.reduction;kwargs...),red.supr_op,red.supr_tol)
+end
+
+function set_params(red::MDEIMHyperReduction;kwargs...)
+  MDEIMHyperReduction(set_params(red.reduction;kwargs...))
+end
+
+function set_params(red::SOPTHyperReduction;kwargs...)
+  SOPTHyperReduction(set_params(red.reduction;kwargs...))
+end
+
+function set_params(red::RBFHyperReduction;kwargs...)
+  RBFHyperReduction(set_params(red.reduction;kwargs...),red.strategy)
+end
+
+function set_params(rbsolver;kwargs...)
+  fesolver = get_fe_solver(rbsolver)
+  state_reduction = set_params(get_state_reduction(rbsolver);kwargs...)
+  residual_reduction = set_params(get_residual_reduction(rbsolver);kwargs...)
+  jacobian_reduction = set_params(get_jacobian_reduction(rbsolver);kwargs...)
+  RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
+end
+
+function _entries_to_dict(entries::Vector{<:NamedTuple})
+  d = Dict{String,Any}()
+  isempty(entries) && return d
+  d["tols"] = [e.tol for e in entries]
+  _unpack_into_dict!(d,"",map(e -> e.diagnostics,entries))
+  return d
+end
+
+function _unpack_into_dict!(d::Dict,prefix::String,vals::Vector)
+  isempty(vals) && return
+  v1 = first(vals)
+  if v1 isa NamedTuple
+    for k in keys(v1)
+      _unpack_into_dict!(d,_diagkey(prefix,string(k)),map(v -> v[k],vals))
+    end
+  elseif v1 isa Tuple && !isempty(v1) && first(v1) isa NamedTuple
+    for k in keys(first(v1))
+      _unpack_into_dict!(
+        d,_diagkey(prefix,string(k)),
+        map(v -> Tuple(vt[k] for vt in v),vals),
+      )
+    end
+  else
+    d[prefix] = vals
+  end
+end
+
+_diagkey(prefix,key) = isempty(prefix) ? key : "$prefix $key"

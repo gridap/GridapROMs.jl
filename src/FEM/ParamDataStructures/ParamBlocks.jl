@@ -1702,7 +1702,7 @@ function Arrays.return_value(
   f::ArrayBlock{A,N}
   ) where {A,N}
   fi = testitem(f)
-  fix = return_value(k,fi,h)
+  fix = return_value(k,h,fi)
   g = Array{typeof(fix),N}(undef,size(f.array))
   for i in eachindex(f.array)
     if f.touched[i]
@@ -1718,8 +1718,8 @@ function Arrays.return_cache(
   f::ArrayBlock{A,N}
   ) where {A,N}
   fi = testitem(f)
-  li = return_cache(k,fi,h)
-  fix = evaluate!(li,k,fi,h)
+  li = return_cache(k,h,fi)
+  fix = evaluate!(li,k,h,fi)
   l = Array{typeof(li),N}(undef,size(f.array))
   g = Array{typeof(fix),N}(undef,size(f.array))
   for i in eachindex(f.array)

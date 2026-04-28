@@ -567,26 +567,6 @@ end
 
 # multi field interface
 
-function Arrays.return_type(::typeof(projection),::PODReduction,::Snapshots)
-  PODProjection
-end
-
-function Arrays.return_type(::typeof(projection),::TTSVDReduction,::Snapshots)
-  TTSVDProjection
-end
-
-function Arrays.return_type(::typeof(projection),::Reduction,::Snapshots,::MatrixOrTensor)
-  NormedProjection
-end
-
-function Arrays.return_type(::typeof(projection),::LocalReduction,::Snapshots)
-  LocalProjection
-end
-
-function Arrays.return_type(::typeof(projection),::LocalReduction,::Snapshots,::MatrixOrTensor)
-  LocalProjection
-end
-
 function projection(red::Reduction,s::BlockSnapshots)
   basis = _allocate_projection(red,s)
   for i in eachindex(basis)
@@ -657,9 +637,8 @@ function Arrays.testitem(a::BlockProjection)
   a.array[i]
 end
 
-function get_basis(a::BlockProjection{N}) where N
-  A = eltype(a.array)
-  block_cache = Array{A,N}(undef,size(a))
+function get_basis(a::BlockProjection{A,N}) where {A,N}
+  block_cache = Array{Any,N}(undef,size(a))
   for i in eachindex(a)
     if a.touched[i]
       block_cache[i] = get_basis(a[i])
@@ -782,10 +761,8 @@ end
 # utils
 
 function _allocate_projection(red::Reduction,s::BlockSnapshots{N}) where N
-  i = findfirst(s.touched)
-  @notimplementedif isnothing(i)
-  A = return_type(projection,red,s[i])
-  block_basis = Array{A,N}(undef,size(s))
+  T = _proj_type(red)
+  block_basis = Array{T,N}(undef,size(s))
   BlockProjection(block_basis,s.touched)
 end
 
@@ -794,18 +771,18 @@ function _allocate_projection(
   s::BlockSnapshots{N},
   X::MatrixOrTensor
   ) where N
+
   i = findfirst(s.touched)
   @notimplementedif isnothing(i)
-  A = return_type(projection,red,s[i],X[Block(i,i)])
-  block_basis = Array{A,N}(undef,size(s))
+  T = _proj_type(red,X[Block(i,i)])
+  block_basis = Array{T,N}(undef,size(s))
   BlockProjection(block_basis,s.touched)
 end
 
-function _allocate_norm_matrix(a::BlockProjection{N}) where N
-  i = findfirst(a.touched)
-  @notimplementedif isnothing(i)
-  A = typeof(get_norm_matrix(a[i]))
-  Array{A,N}(undef,size(a))
+function _allocate_norm_matrix(a::BlockProjection{A,N}) where {A,N}
+  ai = testitem(a)
+  T = typeof(get_norm_matrix(ai))
+  Array{T,N}(undef,size(a))
 end
 
 function _galerkin_projection(
@@ -832,3 +809,9 @@ function _galerkin_projection(
   proj_basis = galerkin_projection(get_basis(proj_left),get_basis(a),get_basis(proj_right))
   return ReducedProjection(proj_basis)
 end
+
+_proj_type(::PODReduction) = PODProjection
+_proj_type(::TTSVDReduction) = TTSVDProjection
+_proj_type(::PODReduction,::MatrixOrTensor) = NormedProjection
+_proj_type(::LocalReduction) = LocalProjection
+_proj_type(::LocalReduction,::MatrixOrTensor) = LocalProjection

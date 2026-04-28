@@ -325,22 +325,6 @@ end
 
 # multfield interface
 
-function Arrays.return_type(::typeof(projection),::KroneckerReduction,::TransientSnapshots)
-  KroneckerProjection
-end
-
-function Arrays.return_type(::typeof(projection),::KroneckerReduction,::TransientSnapshots,::AbstractMatrix)
-  KroneckerProjection
-end
-
-function Arrays.return_type(::typeof(projection),::SequentialReduction,::TransientSnapshots)
-  SequentialProjection
-end
-
-function Arrays.return_type(::typeof(projection),::SequentialReduction,::TransientSnapshots,::AbstractRankTensor)
-  SequentialProjection
-end
-
 function RBSteady.enrich!(
   red::SupremizerReduction{A,<:KroneckerReduction},
   a::BlockProjection,
@@ -566,3 +550,8 @@ for f in (:space_project!,:inv_space_project!)
     end
   end
 end
+
+# utils 
+
+RBSteady._proj_type(::KroneckerReduction,args...) = KroneckerProjection
+RBSteady._proj_type(::SequentialReduction,args...) = SequentialProjection
