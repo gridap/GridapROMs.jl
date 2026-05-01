@@ -147,45 +147,6 @@ function Algebra.allocate_residual(
   allocate_hypred_cache(get_rhs(op),r)
 end
 
-function Algebra.allocate_jacobian(
-  op::RBOperator,
-  r::Realisation,
-  u::AbstractVector,
-  paramcache
-  )
-
-  allocate_hypred_cache(get_lhs(op),r)
-end
-
-function Algebra.residual!(
-  b::HRParamArray,
-  op::SplitRBOperator,
-  r::Realisation,
-  u::AbstractVector,
-  paramcache
-  )
-
-  fill!(b,zero(eltype(b)))
-
-  uh = EvaluationFunction(paramcache.trial,u)
-  test = get_test(op)
-  v = get_fe_basis(test)
-
-  trian_res = get_domains_res(op)
-  rhs = get_rhs(op)
-  res = get_res(op)
-  dc = res(r,uh,v)
-
-  for strian in trian_res
-    b_strian = b.fecache[strian]
-    rhs_strian = get_interpolation(rhs[strian])
-    vecdata = collect_cell_hr_vector(test,dc,strian,rhs_strian)
-    assemble_hr_vector_add!(b_strian,vecdata...)
-  end
-
-  interpolate!(b,rhs)
-end
-
 function Algebra.jacobian!(
   A::HRParamArray,
   op::SplitRBOperator,
@@ -345,8 +306,32 @@ FESpaces.get_test(op::GenericRBOperator) = op.test
 get_lhs(op::GenericRBOperator) = op.lhs
 get_rhs(op::GenericRBOperator) = op.rhs
 
+function Algebra.allocate_residual(
+  op::GenericRBOperator{O,T,<:NoHRContribution,B},
+  r::Realisation,
+  u::AbstractVector,
+  paramcache
+  ) where {O,T,B}
+
+  b = allocate_residual(op.op,r,u,paramcache)
+  b̂ = allocate_hypred_cache(get_rhs(op),r)
+  nohr_array(b,b̂)
+end
+
+function Algebra.allocate_jacobian(
+  op::GenericRBOperator{O,T,A,<:NoHRContribution},
+  r::Realisation,
+  u::AbstractVector,
+  paramcache
+  ) where {O,T,A}
+
+  A = allocate_jacobian(op.op,r,u,paramcache)
+  Â = allocate_hypred_cache(get_rhs(op),r)
+  nohr_array(A,Â)
+end
+
 function Algebra.residual!(
-  b::HRParamArray,
+  b::NoHRParamArray,
   op::GenericRBOperator{O,SplitDomains,A,<:NoHRContribution},
   r::Realisation,
   u::AbstractVector,
@@ -362,17 +347,22 @@ function Algebra.residual!(
   rhs = get_rhs(op)
   res = get_res(op)
   dc = res(r,uh,v)
+  assem = get_param_assembler(get_fe_operator(op),r)
 
-  for strian in get_domains(dc)
-    vecdata = collect_cell_vector_for_trian(test,dc,strian)
-    assemble_hr_vector_add!(b.fecache[strian],vecdata...)
+  for strian in get_domains(rhs)
+    vecdata = collect_cell_vector_for_trian(get_fe_space(test),dc,strian)
+    b_fe = allocate_vector(assem,vecdata)
+    fill!(b_fe,zero(eltype(b_fe)))
+    assemble_vector_add!(b_fe,assem,vecdata)
+    copyto!(b.fecache[strian],b_fe)
+    project!(b.rbfecache[strian],test,b.fecache[strian])
   end
 
   interpolate!(b,rhs)
 end
 
 function Algebra.jacobian!(
-  A::HRParamArray,
+  A::NoHRParamArray,
   op::GenericRBOperator{O,SplitDomains,<:NoHRContribution,B},
   r::Realisation,
   u::AbstractVector,
@@ -390,17 +380,22 @@ function Algebra.jacobian!(
   lhs = get_lhs(op)
   jac = get_jac(op)
   dc = jac(r,uh,du,v)
+  assem = get_param_assembler(get_fe_operator(op),r)
 
-  for strian in get_domains(dc)
-    matdata = collect_cell_matrix_for_trian(trial,test,dc,strian)
-    assemble_hr_matrix_add!(A.fecache[strian],matdata...)
+  for strian in get_domains(lhs)
+    matdata = collect_cell_matrix_for_trian(get_fe_space(trial),get_fe_space(test),dc,strian)
+    A_fe = allocate_matrix(assem,matdata)
+    fill!(A_fe,zero(eltype(A_fe)))
+    assemble_matrix_add!(A_fe,assem,matdata)
+    copyto!(A.fecache[strian],A_fe)
+    project!(A.rbfecache[strian],trial,test,A.fecache[strian])
   end
 
   interpolate!(A,lhs)
 end
 
 function Algebra.residual!(
-  b::HRParamArray,
+  b::NoHRParamArray,
   op::GenericRBOperator{O,JointDomains,A,<:NoHRContribution},
   r::Realisation,
   u::AbstractVector,
@@ -412,15 +407,19 @@ function Algebra.residual!(
   uh = EvaluationFunction(paramcache.trial,u)
   test = get_test(op)
   v = get_fe_basis(test)
-  assem = SparseMatrixAssembler(test,test)
 
   rhs = get_rhs(op)
   bg_trian = first(get_domains(rhs))
   res = get_res(op)
   dc = res(r,uh,v)
+  assem = get_param_assembler(get_fe_operator(op),r)
 
-  vecdata = collect_cell_vector(test,dc)
-  assemble_vector_add!(b.fecache[bg_trian],assem,vecdata)
+  vecdata = collect_cell_vector(get_fe_space(test),dc)
+  b_fe = allocate_vector(assem,vecdata)
+  fill!(b_fe,zero(eltype(b_fe)))
+  assemble_vector_add!(b_fe,assem,vecdata)
+  copyto!(b.fecache[bg_trian],b_fe)
+  project!(b.rbfecache[bg_trian],test,b.fecache[bg_trian])
 
   interpolate!(b,rhs)
 end
@@ -440,15 +439,24 @@ function Algebra.jacobian!(
   du = get_trial_fe_basis(trial)
   test = get_test(op)
   v = get_fe_basis(test)
-  assem = SparseMatrixAssembler(trial,test)
 
   lhs = get_lhs(op)
   bg_trian = first(get_domains(lhs))
   jac = get_jac(op)
   dc = jac(r,uh,du,v)
+  assem = get_param_assembler(get_fe_operator(op),r)
+  Φ_test = get_basis(test)
+  Φ_trial = get_basis(trial)
 
-  matdata = collect_cell_matrix(trial,test,dc)
-  assemble_matrix_add!(A.fecache[bg_trian],assem,matdata)
+  matdata = collect_cell_matrix(get_fe_space(trial),get_fe_space(test),dc)
+  A_fe = allocate_matrix(assem,matdata)
+  fill!(A_fe,zero(eltype(A_fe)))
+  assemble_matrix_add!(A_fe,assem,matdata)
+  for i in 1:param_length(r)
+    Ai = param_getindex(A_fe,i)
+    Ci = param_getindex(A.fecache[bg_trian],i)
+    Ci .= Φ_test' * Ai * Φ_trial
+  end
 
   interpolate!(A,lhs)
 end

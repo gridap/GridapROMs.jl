@@ -201,14 +201,20 @@ function HighDimHyperReduction(
   hypred_strategy=:mdeim,
   kwargs...
   )
-  if compression==:global
+  if hypred_strategy in (:no,:none,:nohr)
+    return NoHyperReduction()
+  elseif hypred_strategy == :affine
+    return AffineHyperReduction()
+  elseif compression==:global
     reduction = HighDimReduction(args...;kwargs...)
     if hypred_strategy==:mdeim
-      HighDimMDEIMHyperReduction(reduction,combination)
+      return HighDimMDEIMHyperReduction(reduction,combination)
     elseif hypred_strategy==:sopt
-      HighDimSOPTHyperReduction(reduction,combination)
+      return HighDimSOPTHyperReduction(reduction,combination)
     elseif hypred_strategy==:rbf
-      HighDimRBFHyperReduction(reduction,combination)
+      return HighDimRBFHyperReduction(reduction,combination)
+    else
+      error("Unknown high-dimensional hyper-reduction strategy: $hypred_strategy")
     end
   else
     LocalHighDimHyperReduction(combination,args...;hypred_strategy,kwargs...)
@@ -357,6 +363,8 @@ end
 # utils
 
 _steady_reduction(r::HyperReduction) = SteadyReduction(get_reduction(r))
+_replace_reduction(r::NoHyperReduction) = r
+_replace_reduction(r::AffineHyperReduction) = r
 _replace_reduction(r::MDEIMHyperReduction) = MDEIMHyperReduction(_steady_reduction(r))
 _replace_reduction(r::SOPTHyperReduction) = SOPTHyperReduction(_steady_reduction(r))
 _replace_reduction(r::RBFHyperReduction) = RBFHyperReduction(_steady_reduction(r),r.strategy)

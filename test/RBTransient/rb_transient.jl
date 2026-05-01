@@ -86,6 +86,11 @@ end
   @test isa(get_time_combination(hrs[1]),ThetaMethodStrategy{1})
   @test isa(get_time_combination(hrs[2]),ThetaMethodStrategy{2})
 
+  hr_no = HighDimHyperReduction(CombinationOrder{1}(tcomb),red;hypred_strategy=:no)
+  hr_aff = HighDimHyperReduction(CombinationOrder{1}(tcomb),red;hypred_strategy=:affine)
+  @test hr_no isa RBSteady.NoHyperReduction
+  @test hr_aff isa RBSteady.AffineHyperReduction
+
   solver = Newmark(LUSolver(),0.1,0.5,0.25)
   tcomb = TimeCombination(solver)
   
@@ -242,6 +247,14 @@ end
   @test solver.residual_reduction isa HighDimMDEIMHyperReduction
   @test length(solver.jacobian_reduction) == 2
   @test all(r -> r isa HighDimMDEIMHyperReduction, solver.jacobian_reduction)
+
+  solver_no = RBSolver(fesolver, red; nparams_res=5, nparams_jacs=(5,5), hypred_strategy=:no)
+  @test solver_no.residual_reduction isa RBSteady.NoHyperReduction
+  @test all(r -> r isa RBSteady.NoHyperReduction, solver_no.jacobian_reduction)
+
+  solver_aff = RBSolver(fesolver, red; nparams_res=5, nparams_jacs=(5,5), hypred_strategy=:affine)
+  @test solver_aff.residual_reduction isa RBSteady.AffineHyperReduction
+  @test all(r -> r isa RBSteady.AffineHyperReduction, solver_aff.jacobian_reduction)
 end
 
 # ─── _to_realisation ──────────────────────────────────────────────────────────

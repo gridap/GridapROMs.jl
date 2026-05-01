@@ -109,10 +109,12 @@ export Reduction
 export DirectReduction
 export GreedyReduction
 export PODReduction
-export TTSVDReduction
+export TTSVDReduction 
 export LocalReduction
 export SupremizerReduction
 export HyperReduction
+export NoHyperReduction
+export AffineHyperReduction
 export MDEIMHyperReduction
 export SOPTHyperReduction
 export RBFHyperReduction
@@ -216,10 +218,14 @@ include("Interpolations.jl")
 
 export HRProjection
 export GenericHRProjection
+export NoHRrojection
+export AffineHRrojection
 export MDEIMProjection
 export SOPTProjection
 export RBFProjection
 export AffineContribution
+export NoHRContribution
+export AffineHRContribution
 export MDEIMContribution
 export SOPTContribution
 export RBFContribution

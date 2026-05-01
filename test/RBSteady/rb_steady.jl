@@ -3,6 +3,7 @@ module RBSteadyTests
 using Test
 using LinearAlgebra
 using SparseArrays
+using Gridap
 using GridapROMs
 using GridapROMs.RBSteady
 
@@ -89,6 +90,20 @@ end
   proj = galerkin_projection(Phi_l,Phi_r)
   @test size(proj) == (r1,r2)
   @test proj ≈ Phi_l'*Phi_r
+end
+
+@testset "HyperReduction strategy constructors" begin
+  @test HyperReduction(SearchSVDRank(1e-3); hypred_strategy=:no) isa RBSteady.NoHyperReduction
+  @test HyperReduction(SearchSVDRank(1e-3); hypred_strategy=:none) isa RBSteady.NoHyperReduction
+  @test HyperReduction(SearchSVDRank(1e-3); hypred_strategy=:affine) isa RBSteady.AffineHyperReduction
+end
+
+@testset "NoHR keeps full triangulation" begin
+  model = CartesianDiscreteModel((0,1,0,1),(2,2))
+  trian = Triangulation(model)
+  basis = ReducedProjection(zeros(2,1))
+  nohr = HRProjection(basis,RBSteady.NoHyperReduction(),Interpolation(RBSteady.NoHyperReduction()))
+  @test reduced_triangulation(trian,nohr) === trian
 end
 
 end # module

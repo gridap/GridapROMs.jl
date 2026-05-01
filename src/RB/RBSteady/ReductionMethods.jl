@@ -391,17 +391,23 @@ Subtypes:
 abstract type HyperReduction{A<:ReductionStyle} <: Reduction{A,EuclideanNorm} end
 
 function HyperReduction(args...;compression=:global,hypred_strategy=:mdeim,kwargs...)
-  if compression==:global
+  if hypred_strategy in (:no,:none,:nohr)
+    return NoHyperReduction()
+  elseif hypred_strategy == :affine
+    return AffineHyperReduction()
+  elseif compression == :global
     reduction = Reduction(args...;kwargs...)
     if hypred_strategy==:mdeim
-      MDEIMHyperReduction(reduction)
+      return MDEIMHyperReduction(reduction)
     elseif hypred_strategy==:sopt
-      SOPTHyperReduction(reduction)
-    else hypred_strategy==:rbf
-      RBFHyperReduction(reduction)
+      return SOPTHyperReduction(reduction)
+    elseif hypred_strategy==:rbf
+      return RBFHyperReduction(reduction)
+    else
+      error("Unknown hyper-reduction strategy: $hypred_strategy")
     end
   else
-    LocalHyperReduction(args...;hypred_strategy,kwargs...)
+    return LocalHyperReduction(args...;hypred_strategy,kwargs...)
   end
 end
 
@@ -423,9 +429,12 @@ ReductionStyle(r::HyperReduction) = ReductionStyle(get_reduction(r))
 NormStyle(r::HyperReduction) = NormStyle(get_reduction(r))
 ParamDataStructures.num_params(r::HyperReduction) = num_params(get_reduction(r))
 
-abstract type TrivialHyperReduction <: HyperReduction{NoReduction} end
+abstract type TrivialHyperReduction <: HyperReduction{NoReductionStyle} end
 
-get_reduction(r::TrivialHyperReduction) = NoReduction()
+get_reduction(r::TrivialHyperReduction) = r
+ReductionStyle(r::TrivialHyperReduction) = NoReductionStyle()
+NormStyle(r::TrivialHyperReduction) = EuclideanNorm()
+ParamDataStructures.num_params(r::TrivialHyperReduction) = 1
 
 """
     struct NoHyperReduction <: TrivialHyperReduction end
