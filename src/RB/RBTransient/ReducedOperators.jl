@@ -42,109 +42,105 @@ const SplitTransientRBOperator{O<:ODEParamOperatorType} = TransientRBOperator{O,
 const TransientGenericRBOperator{O<:ODEParamOperatorType,T,B} = GenericRBOperator{O,<:TupOfAffineContribution,T,B}
 const TransientLocalRBOperator{O<:ODEParamOperatorType,T,B} = LocalRBOperator{O,<:Tuple{Vararg{LocalProjection}},T,B}
 
-for T in (:JointTransientRBOperator,:SplitTransientRBOperator)
-  @eval begin
-    function Algebra.allocate_residual(
-      op::$T,
-      r::TransientRealisation,
-      us::Tuple{Vararg{AbstractVector}},
-      paramcache
-      )
+function Algebra.allocate_residual(
+  op::TransientRBOperator,
+  r::TransientRealisation,
+  us::Tuple{Vararg{AbstractVector}},
+  paramcache
+  )
 
-      allocate_hypred_cache(get_rhs(op),r)
-    end
+  allocate_hypred_cache(get_rhs(op),r)
+end
 
-    function Algebra.allocate_jacobian(
-      op::$T,
-      r::TransientRealisation,
-      us::Tuple{Vararg{AbstractVector}},
-      paramcache
-      )
+function Algebra.allocate_jacobian(
+  op::TransientRBOperator,
+  r::TransientRealisation,
+  us::Tuple{Vararg{AbstractVector}},
+  paramcache
+  )
 
-      allocate_hypred_cache(get_lhs(op),r)
-    end
+  allocate_hypred_cache(get_lhs(op),r)
+end
 
-    function Algebra.residual!(
-      b::HRParamArray,
-      op::$T,
-      r::TransientRealisation,
-      us::Tuple{Vararg{AbstractVector}},
-      paramcache
-      )
+function Algebra.residual!(
+  b::HRParamArray,
+  op::TransientRBOperator,
+  r::TransientRealisation,
+  us::Tuple{Vararg{AbstractVector}},
+  paramcache
+  )
 
-      fill!(b,zero(eltype(b)))
+  fill!(b,zero(eltype(b)))
 
-      np = num_params(r)
-      rhs = get_rhs(op)
-      hr_time_ids = get_common_time_domain(rhs)
-      hr_param_time_ids = range_1d(1:np,hr_time_ids,np)
-      hr_uh = _make_hr_uh_from_us(op,us,paramcache.trial,hr_param_time_ids)
+  np = num_params(r)
+  rhs = get_rhs(op)
+  hr_time_ids = get_common_time_domain(rhs)
+  hr_param_time_ids = range_1d(1:np,hr_time_ids,np)
+  hr_uh = _make_hr_uh_from_us(op,us,paramcache.trial,hr_param_time_ids)
 
-      test = get_test(op)
-      v = get_fe_basis(test)
+  test = get_test(op)
+  v = get_fe_basis(test)
 
-      trian_res = get_domains_res(op)
-      μ = get_params(r)
-      hr_t = view(get_times(r),hr_time_ids)
-      res = get_res(op)
-      dc = res(μ,hr_t,hr_uh,v)
+  trian_res = get_domains_res(op)
+  μ = get_params(r)
+  hr_t = view(get_times(r),hr_time_ids)
+  res = get_res(op)
+  dc = res(μ,hr_t,hr_uh,v)
 
-      for strian in trian_res
-        b_strian = b.fecache[strian]
-        rhs_strian = get_interpolation(rhs[strian])
-        vecdata = collect_cell_hr_vector(test,dc,strian,rhs_strian,hr_param_time_ids)
-        assemble_hr_vector_add!(b_strian,vecdata...)
-      end
+  for strian in trian_res
+    b_strian = b.fecache[strian]
+    rhs_strian = get_interpolation(rhs[strian])
+    vecdata = collect_cell_hr_vector(test,dc,strian,rhs_strian,hr_param_time_ids)
+    assemble_hr_vector_add!(b_strian,vecdata...)
+  end
 
-      interpolate!(b,rhs)
-    end
+  interpolate!(b,rhs)
+end
 
-    function Algebra.jacobian!(
-      A::HRParamArray,
-      op::$T,
-      r::TransientRealisation,
-      us::Tuple{Vararg{AbstractVector}},
-      ws::Tuple{Vararg{Real}},
-      paramcache
-      )
+function Algebra.jacobian!(
+  A::HRParamArray,
+  op::TransientRBOperator,
+  r::TransientRealisation,
+  us::Tuple{Vararg{AbstractVector}},
+  ws::Tuple{Vararg{Real}},
+  paramcache
+  )
 
-      fill!(A,zero(eltype(A)))
+  fill!(A,zero(eltype(A)))
 
-      np = num_params(r)
-      lhss = get_lhs(op)
-      hr_time_ids = get_common_time_domain(lhss)
-      hr_param_time_ids = range_1d(1:np,hr_time_ids,np)
-      hr_uh = _make_hr_uh_from_us(op,us,paramcache.trial,hr_param_time_ids)
+  np = num_params(r)
+  lhss = get_lhs(op)
+  hr_time_ids = get_common_time_domain(lhss)
+  hr_param_time_ids = range_1d(1:np,hr_time_ids,np)
+  hr_uh = _make_hr_uh_from_us(op,us,paramcache.trial,hr_param_time_ids)
 
-      trial = get_trial(op)
-      du = get_trial_fe_basis(trial)
-      test = get_test(op)
-      v = get_fe_basis(test)
+  trial = get_trial(op)
+  du = get_trial_fe_basis(trial)
+  test = get_test(op)
+  v = get_fe_basis(test)
 
-      trian_jacs = get_domains_jac(op)
-      μ = get_params(r)
-      hr_t = view(get_times(r),hr_time_ids)
-      jacs = get_jacs(op)
+  trian_jacs = get_domains_jac(op)
+  μ = get_params(r)
+  hr_t = view(get_times(r),hr_time_ids)
+  jacs = get_jacs(op)
 
-      for k in 1:get_order(op)+1
-        Ak = A.fecache[k]
-        lhs = lhss[k]
-        jac = jacs[k]
-        w = ws[k]
-        iszero(w) && continue
-        dc = w * jac(μ,hr_t,hr_uh,du,v)
-        trian_jac = trian_jacs[k]
-        for strian in trian_jac
-          A_strian = Ak[strian]
-          lhs_strian = get_interpolation(lhs[strian])
-          matdata = collect_cell_hr_matrix(trial,test,dc,strian,lhs_strian,hr_param_time_ids)
-          assemble_hr_matrix_add!(A_strian,matdata...)
-        end
-      end
-
-      interpolate!(A,lhss)
+  for k in 1:get_order(op)+1
+    Ak = A.fecache[k]
+    lhs = lhss[k]
+    jac = jacs[k]
+    w = ws[k]
+    iszero(w) && continue
+    dc = w * jac(μ,hr_t,hr_uh,du,v)
+    trian_jac = trian_jacs[k]
+    for strian in trian_jac
+      A_strian = Ak[strian]
+      lhs_strian = get_interpolation(lhs[strian])
+      matdata = collect_cell_hr_matrix(trial,test,dc,strian,lhs_strian,hr_param_time_ids)
+      assemble_hr_matrix_add!(A_strian,matdata...)
     end
   end
+
+  interpolate!(A,lhss)
 end
 
 function Algebra.allocate_residual(
@@ -195,11 +191,8 @@ function Algebra.residual!(
   assem = get_param_assembler(get_fe_operator(op),r)
 
   for strian in get_domains(rhs)
-    vecdata = collect_cell_vector_for_trian(get_fe_space(test),dc,strian)
-    b_fe = allocate_vector(assem,vecdata)
-    fill!(b_fe,zero(eltype(b_fe)))
-    assemble_vector_add!(b_fe,assem,vecdata)
-    copyto!(b.fecache[strian],b_fe)
+    vecdata = collect_cell_vector_for_trian(test,dc,strian)
+    assemble_vector_add!(b.fecache[strian],assem,vecdata)
     project!(b.rbfecache[strian],test,b.fecache[strian])
   end
 
@@ -229,8 +222,6 @@ function Algebra.jacobian!(
   jacs = get_jacs(op)
   trian_jacs = get_domains_jac(op)
   assem = get_param_assembler(get_fe_operator(op),r)
-  Φ_test = get_basis(test)
-  Φ_trial = get_basis(trial)
 
   for k in 1:get_order(op)+1
     jac = jacs[k]
@@ -238,15 +229,9 @@ function Algebra.jacobian!(
     iszero(w) && continue
     dc = w * jac(μ,t,uh,du,v)
     for strian in trian_jacs[k]
-      matdata = collect_cell_matrix_for_trian(get_fe_space(trial),get_fe_space(test),dc,strian)
-      A_fe = allocate_matrix(assem,matdata)
-      fill!(A_fe,zero(eltype(A_fe)))
-      assemble_matrix_add!(A_fe,assem,matdata)
-      for i in 1:param_length(r)
-        Ai = param_getindex(A_fe,i)
-        Ci = param_getindex(A.fecache[k][strian],i)
-        Ci .= Φ_test' * Ai * Φ_trial
-      end
+      matdata = collect_cell_matrix_for_trian(trial,test,dc,strian)
+      assemble_matrix_add!(A.fecache[strian],assem,matdata)
+      project!(A.rbfecache[strian],trial,test,A.fecache[strian])
     end
   end
 
@@ -272,7 +257,7 @@ function Algebra.jacobian!(
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
   paramcache
-  ) where {O,T,B<:RBSteady.AffineHRContribution}
+  ) where {O,T}
 
   fill!(A,zero(eltype(A)))
   interpolate!(A,op.lhs)
@@ -356,46 +341,4 @@ function _reduce_trial(trial::MultiFieldFESpace,hr_ids::AbstractVector)
   vec_trial′ = map(f -> _reduce_trial(f,hr_ids),trial.spaces)
   trial′ = MultiFieldFESpace(trial.vector_type,vec_trial′,trial.multi_field_style)
   return trial′
-end
-
-function Algebra.jacobian!(
-  A::NoHRParamArray,
-  op::TransientGenericRBOperator{O,T,<:NoHRContribution},
-  r::TransientRealisation,
-  us::Tuple{Vararg{AbstractVector}},
-  ws::Tuple{Vararg{Real}},
-  paramcache
-  ) where {O,T}
-
-  fill!(A,zero(eltype(A)))
-
-  uh = ODEs._make_uh_from_us(op,us,paramcache.trial)
-  trial = get_trial(op)
-  du = get_trial_fe_basis(trial)
-  test = get_test(op)
-  v = get_fe_basis(test)
-
-  lhss = get_lhs(op)
-  μ = get_params(r)
-  t = get_times(r)
-  jacs = get_jacs(op)
-  trian_jacs = get_domains_jac(op)
-  assem = get_param_assembler(get_fe_operator(op),r)
-
-  for k in 1:get_order(op)+1
-    jac = jacs[k]
-    w = ws[k]
-    iszero(w) && continue
-    dc = w * jac(μ,t,uh,du,v)
-    for strian in trian_jacs[k]
-      matdata = collect_cell_matrix_for_trian(get_fe_space(trial),get_fe_space(test),dc,strian)
-      A_fe = allocate_matrix(assem,matdata)
-      fill!(A_fe,zero(eltype(A_fe)))
-      assemble_matrix_add!(A_fe,assem,matdata)
-      copyto!(A.fecache[k][strian],A_fe)
-      project!(A.rbfecache[k][strian],trial,test,A.fecache[k][strian])
-    end
-  end
-
-  interpolate!(A,lhss)
 end

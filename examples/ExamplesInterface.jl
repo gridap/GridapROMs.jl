@@ -17,7 +17,7 @@ import Gridap.Helpers: @abstractmethod
 import Gridap.MultiField: BlockMultiFieldStyle
 import GridapROMs.ParamAlgebra: get_linear_operator,get_nonlinear_operator
 import GridapROMs.ParamDataStructures: ReshapedSnapshots,TransientSnapshotsWithIC,get_realisation
-import GridapROMs.RBSteady: get_state_reduction,get_residual_reduction,get_jacobian_reduction,get_error,_get_label
+import GridapROMs.RBSteady: TrivialHyperReduction,get_state_reduction,get_residual_reduction,get_jacobian_reduction,get_error,_get_label
 import GridapROMs.Utils: Contribution,TupOfArrayContribution
 
 function change_dof_map(s::GenericSnapshots,dof_map)
@@ -119,10 +119,6 @@ function update_reduction(red::Reduction,tolrank)
   @abstractmethod
 end
 
-function update_reduction(red::AffineReduction,tolrank)
-  AffineReduction(update_redstyle(red.red_style,tolrank),red.norm_style)
-end
-
 function update_reduction(red::PODReduction,tolrank)
   PODReduction(update_redstyle(red.red_style,tolrank),red.norm_style,red.nparams)
 end
@@ -159,6 +155,10 @@ function update_reduction(red::KroneckerReduction,tolrank)
   KroneckerReduction(
     map(r->update_reduction(r,tolrank),red.reductions)
   )
+end
+
+function update_reduction(red::TrivialHyperReduction,tolrank)
+  red
 end
 
 function update_reduction(red::SequentialReduction,tolrank)

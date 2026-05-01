@@ -131,7 +131,7 @@ export reduced_vector
 include("RBParamVectors.jl")
 
 export HRParamArray
-export DiagnosticsContribution
+export NoHRParamArray 
 export hr_array
 include("HRParamArrays.jl")
 
@@ -266,6 +266,7 @@ export ROMPerformance
 export eval_performance
 export rom_diagnostics
 export RBDiagnostics
+export DiagnosticsContribution
 export projection_error
 export projection_diagnostics
 export hr_diagnostics

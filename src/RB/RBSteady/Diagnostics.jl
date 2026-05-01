@@ -650,6 +650,10 @@ function set_params(red::SupremizerReduction;kwargs...)
   SupremizerReduction(set_params(red.reduction;kwargs...),red.supr_op,red.supr_tol)
 end
 
+function set_params(red::TrivialHyperReduction;kwargs...)
+  red
+end
+
 function set_params(red::MDEIMHyperReduction;kwargs...)
   MDEIMHyperReduction(set_params(red.reduction;kwargs...))
 end
