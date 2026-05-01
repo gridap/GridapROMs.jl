@@ -9,9 +9,9 @@ and constructs hyper-reduced operators; the online stage solves the resulting
 small system for new parameter values.  Main building blocks:
 
 - **Reduction methods** (`ReductionMethods.jl`) — `PODReduction` (SVD-based),
-  `TTSVDReduction` (tensor-train SVD), `GreedyReduction`, `AffineReduction`,
-  `SupremizerReduction`, `MDEIMHyperReduction`, `SOPTHyperReduction`,
-  `RBFHyperReduction`, and composites.  Rank/tolerance criteria are expressed via
+  `TTSVDReduction` (tensor-train SVD), `GreedyReduction`, `SupremizerReduction`,
+  `MDEIMHyperReduction`, `SOPTHyperReduction`, `RBFHyperReduction`, 
+  and composites.  Rank/tolerance criteria are expressed via
   `SearchSVDRank`, `FixedSVDRank`, `LRApproxRank`, `TTSVDRanks`.
 
 - **Bases construction** (`BasesConstruction.jl`) — `tpod` (truncated POD),
@@ -108,7 +108,6 @@ export EnergyNorm
 export Reduction
 export DirectReduction
 export GreedyReduction
-export AffineReduction
 export PODReduction
 export TTSVDReduction
 export LocalReduction
@@ -218,9 +217,11 @@ include("Interpolations.jl")
 export HRProjection
 export GenericHRProjection
 export MDEIMProjection
+export SOPTProjection
 export RBFProjection
 export AffineContribution
 export MDEIMContribution
+export SOPTContribution
 export RBFContribution
 export BlockHRProjection
 export get_interpolation

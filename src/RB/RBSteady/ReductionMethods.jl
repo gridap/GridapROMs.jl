@@ -14,6 +14,8 @@ abstract type ReductionStyle end
 
 ReductionStyle(args...;kwargs...) = @abstractmethod
 
+struct NoReductionStyle <: ReductionStyle end
+
 """
     struct SearchSVDRank <: ReductionStyle
       tol::Float64
@@ -157,6 +159,7 @@ the norm with respect to which the reduction should occur.
 
 Subtypes:
 
+- [`NoReduction`](@ref)
 - [`DirectReduction`](@ref)
 - [`GreedyReduction`](@ref)
 - [`SupremizerReduction`](@ref)
@@ -165,6 +168,8 @@ Subtypes:
 """
 abstract type Reduction{A<:ReductionStyle,B<:NormStyle} end
 
+struct NoReduction{A,B} <: Reduction{NoReductionStyle,EuclideanNorm} end
+
 """
     abstract type DirectReduction{A,B} <: Reduction{A,B} end
 
@@ -172,7 +177,6 @@ Type representing direct reduction methods, e.g. truncated POD, TTSVD, etc.
 
 Subtypes:
 
-- [`AffineReduction`](@ref)
 - [`PODReduction`](@ref)
 - [`TTSVDReduction`](@ref)
 """
@@ -184,40 +188,6 @@ ReductionStyle(r::Reduction) = @abstractmethod
 NormStyle(r::Reduction) = @abstractmethod
 ParamDataStructures.num_params(r::Reduction) = @abstractmethod
 get_norm(r::Reduction) = get_norm(NormStyle(r))
-
-"""
-    struct AffineReduction{A,B} <: DirectReduction{A,B}
-      red_style::A
-      norm_style::B
-    end
-
-Reduction employed when the input data is independent with respect to the
-considered realisation. Therefore, simply considering a number of parameters
-equal to 1 suffices for this type of reduction
-"""
-struct AffineReduction{A,B} <: DirectReduction{A,B}
-  red_style::A
-  norm_style::B
-end
-
-function AffineReduction(red_style::ReductionStyle,norm_op::Function)
-  norm_style = EnergyNorm(norm_op)
-  AffineReduction(red_style,norm_style)
-end
-
-function AffineReduction(tol::Float64,norm_style=EuclideanNorm())
-  red_style = SearchSVDRank(tol)
-  AffineReduction(red_style,norm_style)
-end
-
-function AffineReduction(rank::Int,norm_style=EuclideanNorm())
-  red_style = FixedSVDRank(rank)
-  AffineReduction(red_style,norm_style)
-end
-
-ReductionStyle(r::AffineReduction) = r.red_style
-NormStyle(r::AffineReduction) = r.norm_style
-ParamDataStructures.num_params(r::AffineReduction) = 1
 
 """
     struct PODReduction{A,B} <: DirectReduction{A,B}
@@ -236,7 +206,7 @@ struct PODReduction{A,B} <: DirectReduction{A,B}
 end
 
 function PODReduction(red_style::ReductionStyle,norm_style::NormStyle=EuclideanNorm();nparams=50)
-  iszero(nparams) && return AffineReduction(red_style,norm_style)
+  nparams = max(1,nparams)
   PODReduction(red_style,norm_style,nparams)
 end
 
@@ -452,6 +422,28 @@ end
 ReductionStyle(r::HyperReduction) = ReductionStyle(get_reduction(r))
 NormStyle(r::HyperReduction) = NormStyle(get_reduction(r))
 ParamDataStructures.num_params(r::HyperReduction) = num_params(get_reduction(r))
+
+abstract type TrivialHyperReduction <: HyperReduction{NoReduction} end
+
+get_reduction(r::TrivialHyperReduction) = NoReduction()
+
+"""
+    struct NoHyperReduction <: TrivialHyperReduction end
+
+Reduction employed when the input data is independent with respect to the
+considered realisation. Therefore, simply considering a number of parameters
+equal to 1 suffices for this type of reduction
+"""
+struct NoHyperReduction <: TrivialHyperReduction end
+
+"""
+    struct AffineHyperReduction <: TrivialHyperReduction end
+
+Reduction employed when the input data is independent with respect to the
+considered realisation. Therefore, simply considering a number of parameters
+equal to 1 suffices for this type of reduction
+"""
+struct AffineHyperReduction <: TrivialHyperReduction end
 
 """
     struct MDEIMHyperReduction{A} <: HyperReduction{A}

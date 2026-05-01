@@ -10,6 +10,7 @@ using Test
 
 @testset "rb steady algorithms" begin include("RBSteady/rb_steady.jl") end
 @testset "diagnostics" begin include("RBSteady/diagnostics.jl") end
+@testset "hr assembly" begin include("RBSteady/hrassembly.jl") end
 @testset "poisson" begin include("RBSteady/poisson.jl") end
 @testset "steady stokes" begin include("RBSteady/stokes.jl") end
 @testset "steady navier-stokes" begin include("RBSteady/navier_stokes.jl") end

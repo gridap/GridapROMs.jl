@@ -74,6 +74,40 @@ end
 
 """
 """
+const NoHRProjection{A<:Projection} = HRProjection{A,<:NoHyperReduction}
+
+function FESpaces.interpolate!(
+  b̂::AbstractArray,
+  coeff::AbstractArray,
+  a::NoHRProjection,
+  x::AbstractArray
+  )
+
+  o = one(eltype2(b̂))
+  axpy!(o,x,b̂)
+  return b̂
+end
+
+"""
+"""
+const AffineHRProjection{A<:Projection} = HRProjection{A,<:AffineHyperReduction}
+
+function FESpaces.interpolate!(
+  b̂::AbstractArray,
+  coeff::AbstractArray,
+  a::AffineHRProjection,
+  x::Any
+  )
+
+  o = one(eltype2(b̂))
+  L = param_length(b̂)
+  ϕ = parameterise(get_basis(a),L)
+  axpy!(o,ϕ,b̂)
+  return b̂
+end
+
+"""
+"""
 const MDEIMProjection{A<:Projection} = HRProjection{A,<:MDEIMHyperReduction}
 
 """
@@ -165,6 +199,63 @@ function HRProjection(
 end
 
 function HRProjection(
+  red::NoHyperReduction,
+  s,
+  trian::Triangulation,
+  test::RBSpace
+  )
+
+  T = get_dof_value_type(test)
+  nrows = num_reduced_dofs(test)
+  basis = ReducedProjection(zeros(T,nrows,1))
+  interp = Interpolation(red)
+  return HRProjection(basis,red,interp)
+end
+
+function HRProjection(
+  red::NoHyperReduction,
+  s,
+  trian::Triangulation,
+  trial::RBSpace,
+  test::RBSpace
+  )
+
+  T = get_dof_value_type(trial)
+  nrows = num_reduced_dofs(test)
+  ncols = num_reduced_dofs(trial)
+  basis = ReducedProjection(zeros(T,nrows,1,ncols))
+  interp = Interpolation(red)
+  return HRProjection(basis,red,interp)
+end
+
+function HRProjection(
+  red::AffineHyperReduction,
+  s::Snapshots,
+  trian::Triangulation,
+  test::RBSpace
+  )
+
+  basis = projection(get_reduction(red),s)
+  proj_basis = project(test,basis)
+  interp = Interpolation(red)
+  return HRProjection(proj_basis,red,interp)
+end
+
+function HRProjection(
+  red::AffineHyperReduction,
+  s::Snapshots,
+  trian::Triangulation,
+  trial::RBSpace,
+  test::RBSpace
+  )
+
+  basis = projection(get_reduction(red),s)
+  proj_basis = project(test,basis,trial)
+  interp = Interpolation(red)
+  return HRProjection(proj_basis,red,interp)
+end
+
+function HRProjection(
   red::RBFHyperReduction,
   s::Snapshots,
   trian::Triangulation,
@@ -223,6 +314,14 @@ end
 [`Contribution`](@ref) whose field `values` are Projections
 """
 const AffineContribution{V<:Projection} = Contribution{V}
+
+"""
+"""
+const NoHRContribution = AffineContribution{<:NoHRProjection}
+
+"""
+"""
+const AffineHRContribution = AffineContribution{<:AffineHRProjection}
 
 """
 """

@@ -254,16 +254,12 @@ end
 
 get_time_combination(r::HighDimHyperReduction) = @abstractmethod
 
-_steady_reduction(r::HyperReduction) = SteadyReduction(get_reduction(r))
-_replace_reduction(r::MDEIMHyperReduction) = MDEIMHyperReduction(_steady_reduction(r))
-_replace_reduction(r::SOPTHyperReduction) = SOPTHyperReduction(_steady_reduction(r))
-_replace_reduction(r::RBFHyperReduction) = RBFHyperReduction(_steady_reduction(r),r.strategy)
-
 function HighDimHyperReduction(
   combination::TimeCombination,
   reduction::SteadyReduction,
   args...;kwargs...
   )
+
   hr = HyperReduction(reduction,args...;kwargs...)
   _replace_reduction(hr)
 end
@@ -272,6 +268,7 @@ function HighDimHyperReduction(
   reduction::SteadyReduction,
   combination::TimeCombination;kwargs...
   )
+
   hr = SteadyHyperReduction(reduction;kwargs...)
   _replace_reduction(hr)
 end
@@ -356,3 +353,10 @@ function LocalHighDimHyperReduction(args...;ncentroids=10,kwargs...)
   reduction = HighDimHyperReduction(args...;kwargs...)
   LocalReduction(reduction,ncentroids)
 end
+
+# utils
+
+_steady_reduction(r::HyperReduction) = SteadyReduction(get_reduction(r))
+_replace_reduction(r::MDEIMHyperReduction) = MDEIMHyperReduction(_steady_reduction(r))
+_replace_reduction(r::SOPTHyperReduction) = SOPTHyperReduction(_steady_reduction(r))
+_replace_reduction(r::RBFHyperReduction) = RBFHyperReduction(_steady_reduction(r),r.strategy)

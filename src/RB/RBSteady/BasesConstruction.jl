@@ -9,6 +9,10 @@ function reduction(red::Reduction,A::AbstractArray,args...)
   @abstractmethod
 end
 
+function reduction(red::NoReduction,A::AbstractArray,args...)
+  A
+end
+
 function reduction(red::PODReduction,A::AbstractArray,args...)
   red_style = ReductionStyle(red)
   U,S,V = tpod(red_style,A,args...)
@@ -497,7 +501,7 @@ for f in (:gram_schmidt,:gram_schmidt!)
   end
 end
 
-# overload to prevent bugs when compressing matrices of zeros
+# overload to prevent bugs when compressing empty or zero matrices
 
 function LowRankApprox.psvdfact(
   A::AbstractMatOrLinOp{T},opts::LRAOptions=LRAOptions(T);args...
@@ -644,11 +648,14 @@ end
 
 function _empty_decomposition(A::AbstractMatOrLinOp{T}) where T
   m,n = size(A)
-  U = zeros(T,m,1)
-  U[1] = one(T)
-  S = zeros(real(T),1)
-  Vt = zeros(T,1,n)
-  Vt[1] = one(T)
+  k = min(1,n)
+  U = zeros(T,m,k)
+  S = zeros(real(T),k)
+  Vt = zeros(T,k,n)
+  if k == 1
+    U[1] = one(T)
+    Vt[1] = one(T)
+  end
   return PartialSVD(U,S,Vt)
 end
 

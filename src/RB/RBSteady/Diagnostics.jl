@@ -634,10 +634,6 @@ end
 
 # utils 
 
-function set_params(red::AffineReduction;kwargs...)
-  red
-end
-
 function set_params(red::PODReduction;nparams::Int)
   PODReduction(red.red_style,red.norm_style,nparams)
 end
