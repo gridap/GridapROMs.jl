@@ -251,9 +251,31 @@ end
 Returns `(dim=n,factor=Nₕ/n)` for the trial/test reduction.
 """
 function projection_diagnostics(r::RBSpace)
-  N = num_fe_dofs(r)
-  n = num_reduced_dofs(r)
+  N,n = _projection_dims(get_reduced_subspace(r))
   (dim=n,factor=N./n)
+end
+
+function _projection_dims(a::Projection)
+  (num_fe_dofs(a),num_reduced_dofs(a))
+end
+
+function _projection_dims(a::LocalProjection)
+  nloc = map(p -> last(_projection_dims(p)),a.projections)
+  inloc = argmax(nloc)
+  _projection_dims(a.projections[inloc])
+end
+
+function _projection_dims(a::BlockProjection)
+  N = zeros(Int,size(a))
+  n = zeros(Int,size(a))
+  for i in eachindex(a)
+    if a.touched[i]
+      Ni,ni = _projection_dims(a[i])
+      N[i] = Ni
+      n[i] = ni
+    end
+  end
+  (N,n)
 end
 
 """
@@ -264,6 +286,10 @@ Returns `(dim=n,)` for a single HR projection.
 function hr_diagnostics(hrproj::HRProjection)
   n = num_reduced_dofs(hrproj)
   (dim=n,)
+end
+
+function hr_diagnostics(hrproj::LocalProjection)
+  map(hr_diagnostics,hrproj.projections)
 end
 
 function hr_diagnostics(hrproj::BlockHRProjection{N}) where N
@@ -302,6 +328,27 @@ function projection_error(
   compute_relative_error(solver,feop,s,ŝ)
 end
 
+function projection_error(
+  solver::RBSolver,
+  op::AbstractLocalRBOperator,
+  s::AbstractSnapshots
+  )
+
+  μ = get_realisation(s)
+  feop = get_fe_operator(op)
+  trial = get_trial(op)
+  x = get_param_data(s)
+
+  x̂vec = map(enumerate(μ)) do (i,μi)
+    trialμi = get_local(trial,μi)
+    xi = param_getindex(x,i)
+    project(trialμi,xi)
+  end
+  x̂ = ParamArray(x̂vec)
+  ŝ = to_snapshots(op,x̂,μ)
+  compute_relative_error(solver,feop,s,ŝ)
+end
+
 """
     hr_error(op,res,jac,μ) -> (Tuple,Tuple)
 
@@ -318,6 +365,24 @@ For each triangulation in the HR contributions:
 Returns `(hr_error_res,hr_error_jac)` where each is a `Tuple` with one
 `Float64` per triangulation (mean relative error over parameters).
 """
+function hr_error(op::LocalRBOperator,res,jac,s)
+  μ = get_realisation(s)
+  err_res = Any[]
+  err_jac = Any[]
+
+  for (i,μi) in enumerate(μ)
+    opi = get_local(op,μi)
+    si = select_snapshots(s,[i])
+    resi = select_snapshots(res,[i])
+    jaci = select_snapshots(jac,[i])
+    err_res_i,err_jac_i = hr_error(opi,resi,jaci,si)
+    push!(err_res,err_res_i)
+    push!(err_jac,err_jac_i)
+  end
+
+  return _diag_mean(err_res),_diag_mean(err_jac)
+end
+
 function hr_error(op::RBOperator,res,jac,s)
   μ = get_realisation(s)
   u = get_param_data(s)
@@ -615,6 +680,56 @@ function _entries_to_dict(entries::Vector{<:NamedTuple})
   d["tols"] = [e.tol for e in entries]
   _unpack_into_dict!(d,"",map(e -> e.diagnostics,entries))
   return d
+end
+
+_diag_mean(vals::AbstractVector{<:Number}) = mean(vals)
+
+function _diag_mean(vals::AbstractVector{<:Tuple})
+  n = length(first(vals))
+  ntuple(i -> _diag_mean(map(v -> v[i],vals)),n)
+end
+
+function _diag_mean(vals::AbstractVector{<:AbstractArray})
+  v0 = first(vals)
+  if eltype(v0) <: Number
+    out = similar(v0,Float64)
+    for i in eachindex(v0)
+      out[i] = _diag_mean(map(v -> v[i],vals))
+    end
+    return out
+  end
+
+  out = Array{Any}(undef,size(v0))
+  for i in eachindex(v0)
+    out[i] = _diag_mean(map(v -> v[i],vals))
+  end
+  out
+end
+
+function _diag_mean(vals::AbstractVector)
+  v0 = first(vals)
+  if v0 isa Number
+    return mean(vals)
+  elseif v0 isa Tuple
+    n = length(v0)
+    return ntuple(i -> _diag_mean([v[i] for v in vals]),n)
+  elseif v0 isa AbstractArray
+    if eltype(v0) <: Number
+      out = similar(v0,Float64)
+      for i in eachindex(v0)
+        out[i] = _diag_mean([v[i] for v in vals])
+      end
+      return out
+    end
+
+    out = Array{Any}(undef,size(v0))
+    for i in eachindex(v0)
+      out[i] = _diag_mean([v[i] for v in vals])
+    end
+    return out
+  end
+
+  @notimplemented
 end
 
 function _unpack_into_dict!(d::Dict,prefix::String,vals::Vector)

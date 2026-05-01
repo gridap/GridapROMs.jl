@@ -143,6 +143,14 @@ function update_reduction(red::MDEIMHyperReduction,tolrank)
   MDEIMHyperReduction(update_reduction(red.reduction,tolrank))
 end
 
+function update_reduction(red::SOPTHyperReduction,tolrank)
+  SOPTHyperReduction(update_reduction(red.reduction,tolrank))
+end
+
+function update_reduction(red::RBFHyperReduction,tolrank)
+  RBFHyperReduction(update_reduction(red.reduction,tolrank),red.strategy)
+end
+
 function update_reduction(red::SteadyReduction,tolrank)
   SteadyReduction(update_reduction(red.reduction,tolrank))
 end
