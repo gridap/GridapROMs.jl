@@ -126,12 +126,10 @@ include("ReductionMethods.jl")
 export galerkin_projection
 include("GalerkinProjections.jl")
 
-export RBVector
 export RBParamVector
 export reduced_vector
 include("RBParamVectors.jl")
 
-export HRArray
 export HRParamArray
 export DiagnosticsContribution
 export hr_array

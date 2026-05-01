@@ -1,30 +1,4 @@
 """
-    struct RBVector{T,A<:AbstractVector{T},B} <: AbstractVector{T}
-      data::A
-      fe_data::B
-    end
-
-Vector obtained by applying a [`Projection`](@ref) on a high-dimensional FE vector
-`fe_data`, which is stored (but mostly unused) for conveniency
-"""
-struct RBVector{T,A<:AbstractVector{T},B} <: AbstractVector{T}
-  data::A
-  fe_data::B
-end
-
-function reduced_vector(data::AbstractVector,fe_data::AbstractVector)
-  RBVector(data,fe_data)
-end
-
-Base.size(a::RBVector) = size(a.data)
-Base.getindex(a::RBVector,i::Integer) = getindex(a.data,i)
-Base.setindex!(a::RBVector,v,i::Integer) = setindex!(a.data,v,i)
-
-function Algebra.allocate_vector(::Type{V},n::Int) where V<:RBVector
-  allocate_vector(Vector{eltype(V)},n)
-end
-
-"""
     struct RBParamVector{T,A<:ParamVector{T},B} <: ParamArray{T,1}
       data::A
       fe_data::B
@@ -42,8 +16,6 @@ function reduced_vector(data::AbstractParamVector,fe_data::AbstractParamVector)
   RBParamVector(data,fe_data)
 end
 
-const AbstractRBVector{T} = Union{<:RBVector{T},<:RBParamVector{T}}
-
 Base.size(a::RBParamVector) = size(a.data)
 Base.axes(a::RBParamVector) = axes(a.data)
 Base.getindex(a::RBParamVector,i::Integer) = getindex(a.data,i)
@@ -58,57 +30,50 @@ function ParamDataStructures.param_cat(a::Vector{<:RBParamVector})
   RBParamVector(data,fe_data)
 end
 
-for T in (:RBParamVector,:RBVector)
-  @eval begin
-    function Base.copy(a::$T)
-      data′ = copy(a.data)
-      fe_data′ = copy(a.fe_data)
-      RBParamVector(data′,fe_data′)
-    end
-
-    function Base.similar(a::$T{R},::Type{S}) where {R,S<:AbstractVector}
-      data′ = similar(a.data,S)
-      fe_data′ = copy(a.fe_data)
-      $T(data′,fe_data′)
-    end
-
-    function Base.similar(a::$T{R},::Type{S},dims::Dims{1}) where {R,S<:AbstractVector}
-      data′ = similar(a.data,S,dims)
-      fe_data′ = similar(a.fe_data,S,dims)
-      $T(data′,fe_data′)
-    end
-
-    function Base.copyto!(a::$T,b::$T)
-      copyto!(a.data,b.data)
-      copyto!(a.fe_data,b.fe_data)
-      a
-    end
-
-    function Base.fill!(a::$T,b::Number)
-      fill!(a.data,b)
-      return a
-    end
-
-    # multi field
-
-    function MultiField.restrict_to_field(f::MultiFieldFESpace,fv::$T,i::Integer)
-      data_i = blocks(fv.data)[i]
-      fe_data_i = MultiField.restrict_to_field(f,fv.fe_data,i)
-      $T(data_i,fe_data_i)
-    end
-  end
+function Base.copy(a::RBParamVector)
+  data′ = copy(a.data)
+  fe_data′ = copy(a.fe_data)
+  RBParamVector(data′,fe_data′)
 end
 
-for (F,S,T) in zip(
-  (:SingleFieldParamFESpace,:SingleFieldFESpace),
-  (:RBParamVector,:RBVector),
-  (:AbstractParamVector,:AbstractVector))
+function Base.similar(a::RBParamVector{R},::Type{S}) where {R,S<:AbstractVector}
+  data′ = similar(a.data,S)
+  fe_data′ = copy(a.fe_data)
+  RBParamVector(data′,fe_data′)
+end
+
+function Base.similar(a::RBParamVector{R},::Type{S},dims::Dims{1}) where {R,S<:AbstractVector}
+  data′ = similar(a.data,S,dims)
+  fe_data′ = similar(a.fe_data,S,dims)
+  RBParamVector(data′,fe_data′)
+end
+
+function Base.copyto!(a::RBParamVector,b::RBParamVector)
+  copyto!(a.data,b.data)
+  copyto!(a.fe_data,b.fe_data)
+  a
+end
+
+function Base.fill!(a::RBParamVector,b::Number)
+  fill!(a.data,b)
+  return a
+end
+
+# multi field
+
+function MultiField.restrict_to_field(f::MultiFieldFESpace,fv::RBParamVector,i::Integer)
+  data_i = blocks(fv.data)[i]
+  fe_data_i = MultiField.restrict_to_field(f,fv.fe_data,i)
+  RBParamVector(data_i,fe_data_i)
+end
+
+for F in (:SingleFieldParamFESpace,:SingleFieldFESpace)
   @eval begin
-    function FESpaces.scatter_free_and_dirichlet_values(f::$F,fv::$S,dv::$T)
+    function FESpaces.scatter_free_and_dirichlet_values(f::$F,fv::RBParamVector,dv::AbstractParamVector)
       scatter_free_and_dirichlet_values(f,fv.fe_data,dv)
     end
 
-    function FESpaces.gather_free_and_dirichlet_values!(fv::$S,dv::$T,f::$F,cv)
+    function FESpaces.gather_free_and_dirichlet_values!(fv::RBParamVector,dv::AbstractParamVector,f::$F,cv)
       gather_free_and_dirichlet_values!(fv.fe_data,dv,f,cv)
     end
   end
@@ -157,18 +122,6 @@ for T in (
   end
 end
 
-function ParamDataStructures.parameterise(a::RBVector,plength::Int)
-  data = parameterise(a.data,plength)
-  fe_data = parameterise(a.fe_data,plength)
-  RBParamVector(data,fe_data)
-end
-
-function unfold(a::BlockVector{T,<:AbstractVector{<:RBVector{T}}}) where T
-  data = mortar(map(_data,blocks(a)))
-  fe_data = mortar(map(_fe_data,blocks(a)))
-  RBVector(data,fe_data)
-end
-
 function unfold(a::BlockParamVector{T,<:AbstractVector{<:RBParamVector{T}}}) where T
   data = mortar(map(_data,blocks(a)))
   fe_data = mortar(map(_fe_data,blocks(a)))
@@ -176,9 +129,6 @@ function unfold(a::BlockParamVector{T,<:AbstractVector{<:RBParamVector{T}}}) whe
 end
 
 # utils
-
-_data(a::RBVector) = a.data
-_fe_data(a::RBVector) = a.fe_data
 
 _data(a::RBParamVector) = a.data
 _fe_data(a::RBParamVector) = a.fe_data

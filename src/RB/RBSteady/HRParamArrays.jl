@@ -1,17 +1,3 @@
-struct HRArray{T,N,A,B,C<:AbstractArray{T,N}} <: AbstractArray{T,N}
-  fecache::A
-  coeff::B
-  hypred::C
-end
-
-function hr_array(fecache,coeff,hypred::AbstractArray)
-  HRArray(fecache,coeff,hypred)
-end
-
-Base.size(a::HRArray) = size(a.hypred)
-Base.getindex(a::HRArray{T,N},i::Vararg{Integer,N}) where {T,N} = getindex(a.hypred,i...)
-Base.setindex!(a::HRArray{T,N},v,i::Vararg{Integer,N}) where {T,N} = setindex!(a.hypred,v,i...)
-
 struct HRParamArray{T,N,A,B,C<:ParamArray{T,N}} <: ParamArray{T,N}
   fecache::A
   coeff::B
@@ -51,7 +37,7 @@ ParamDataStructures.param_length(a::NoHRParamArray) = param_length(a.hypred)
 ParamDataStructures.get_all_data(a::NoHRParamArray) = get_all_data(a.hypred)
 ParamDataStructures.param_getindex(a::NoHRParamArray,i::Integer) = param_getindex(a.hypred,i)
 
-const AbstractHRArray{T,N} = Union{HRArray{T,N},HRParamArray{T,N},NoHRParamArray{T,N}}
+const AbstractHRParamArray{T,N} = Union{HRParamArray{T,N},NoHRParamArray{T,N}}
 
 for f in (:(Base.copy),:(Base.similar))
   @eval begin
@@ -63,12 +49,6 @@ for f in (:(Base.copy),:(Base.similar))
       nohr_array(fe_quantity′,rb_quantity′,coeff′,hypred′)
     end
     function $f(a::HRParamArray)
-      fe_quantity′ = $f(a.fecache)
-      coeff′ = $f(a.coeff)
-      hypred′ = $f(a.hypred)
-      hr_array(fe_quantity′,coeff′,hypred′)
-    end
-    function $f(a::HRArray)
       fe_quantity′ = $f(a.fecache)
       coeff′ = $f(a.coeff)
       hypred′ = $f(a.hypred)
@@ -92,20 +72,20 @@ function Base.fill!(a::NoHRParamArray,b::Number)
   fill!(a.hypred,b)
 end
 
-function Base.copyto!(a::AbstractHRArray,b::AbstractHRArray)
+function Base.copyto!(a::HRParamArray,b::HRParamArray)
   copyto!(a.fecache,b.fecache)
   copyto!(a.coeff,b.coeff)
   copyto!(a.hypred,b.hypred)
   a
 end
 
-function Base.fill!(a::AbstractHRArray,b::Number)
+function Base.fill!(a::HRParamArray,b::Number)
   fill!(a.fecache,b)
   fill!(a.coeff,b)
   fill!(a.hypred,b)
 end
 
-function LinearAlgebra.fillstored!(a::AbstractHRArray,b::Number)
+function LinearAlgebra.fillstored!(a::AbstractHRParamArray,b::Number)
   fill!(a,b)
 end
 
@@ -117,30 +97,30 @@ function Base.fill!(a::ArrayBlock,b::Number)
   end
 end
 
-function LinearAlgebra.rmul!(a::AbstractHRArray,b::Number)
+function LinearAlgebra.rmul!(a::AbstractHRParamArray,b::Number)
   rmul!(a.hypred,b)
 end
 
-function LinearAlgebra.axpy!(α::Number,a::AbstractHRArray,b::AbstractHRArray)
+function LinearAlgebra.axpy!(α::Number,a::AbstractHRParamArray,b::AbstractHRParamArray)
   axpy!(α,a.hypred,b.hypred)
 end
 
-function LinearAlgebra.axpy!(α::Number,a::AbstractHRArray,b::ParamArray)
+function LinearAlgebra.axpy!(α::Number,a::AbstractHRParamArray,b::ParamArray)
   axpy!(α,a.hypred,b)
 end
 
-function LinearAlgebra.norm(a::AbstractHRArray)
+function LinearAlgebra.norm(a::AbstractHRParamArray)
   norm(a.hypred)
 end
 
-function Utils.change_domains(a::AbstractHRArray,trians)
+function Utils.change_domains(a::AbstractHRParamArray,trians)
   fecache = change_domains(a.fecache,trians)
   coeff = change_domains(a.coeff,trians)
   hypred = a.hypred
   hr_array(fecache,coeff,hypred)
 end
 
-function ParamAlgebra.compatible_cache(a::AbstractHRArray,b::AbstractHRArray)
+function ParamAlgebra.compatible_cache(a::AbstractHRParamArray,b::AbstractHRParamArray)
   hypred′ = compatible_cache(a.hypred,b.hypred)
   hr_array(a.fecache,a.coeff,hypred′)
 end
@@ -156,31 +136,4 @@ end
 function ParamAlgebra.compatible_cache(a::NoHRParamArray,b::NoHRParamArray)
   hypred′ = compatible_cache(a.hypred,b.hypred)
   nohr_array(a.fecache,a.rbfecache,a.coeff,hypred′)
-end
-
-function FESpaces.project!(
-  x̂::AbstractArray,
-  trial::RBSpace,
-  test::RBSpace,
-  x::AbstractArray
-  )
-  Φ_test = get_basis(RBSteady.get_reduced_subspace(test))
-  Φ_trial = get_basis(RBSteady.get_reduced_subspace(trial))
-  mul!(x̂,Φ_test',x,1,0)
-  mul!(x̂,x̂,Φ_trial,1,0)
-end
-
-function FESpaces.project!(
-  x̂::ConsecutiveParamArray,
-  trial::RBSpace,
-  test::RBSpace,
-  x::ConsecutiveParamArray
-  )
-  Φ_test = get_basis(RBSteady.get_reduced_subspace(test))
-  Φ_trial = get_basis(RBSteady.get_reduced_subspace(trial))
-  for i in 1:param_length(x)
-    xi = param_getindex(x,i)
-    x̂i = param_getindex(x̂,i)
-    x̂i .= Φ_test' * xi * Φ_trial
-  end
 end

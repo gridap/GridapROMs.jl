@@ -71,6 +71,18 @@ function project!(
   project!(x̂,a,norm_matrix*x)
 end
 
+function project!(
+  x̂::AbstractArray,
+  a::Projection,
+  b::Projection,
+  x::AbstractArray
+  )
+
+  ba = get_basis(a)
+  bb = get_basis(b)
+  mul!(x̂,ba',x*bb)
+end
+
 """
     inv_project(a::Projection,x::AbstractArray) -> AbstractArray
 
@@ -92,6 +104,18 @@ in which `a` is immersed
 function inv_project!(x::AbstractArray,a::Projection,x̂::AbstractArray)
   basis = get_basis(a)
   mul!(x,basis,x̂)
+end
+
+function inv_project!(
+  x::AbstractArray,
+  a::Projection,
+  b::Projection,
+  x̂::AbstractArray
+  )
+
+  ba = get_basis(a)
+  bb = get_basis(b)
+  mul!(x,ba,x̂*bb')
 end
 
 """

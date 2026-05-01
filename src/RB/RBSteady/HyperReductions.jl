@@ -607,11 +607,11 @@ end
 
 for T in (:AffineContribution,:BlockHRProjection)
   @eval begin
-    function FESpaces.interpolate!(cache::AbstractHRArray,a::$T)
+    function FESpaces.interpolate!(cache::AbstractHRParamArray,a::$T)
       interpolate!(cache.hypred,cache.coeff,a,cache.fecache)
     end
 
-    function FESpaces.interpolate!(cache::AbstractHRArray,a::$T,r::AbstractRealisation)
+    function FESpaces.interpolate!(cache::AbstractHRParamArray,a::$T,r::AbstractRealisation)
       interpolate!(cache.hypred,cache.coeff,a,r)
     end
   end

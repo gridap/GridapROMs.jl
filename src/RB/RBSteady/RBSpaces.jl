@@ -159,15 +159,23 @@ for (f,f!) in zip((:project,:inv_project),(:project!,:inv_project!))
     function $f!(y,r::RBSpace,x::AbstractVector)
       $f!(y,get_reduced_subspace(r),x)
     end
+
+    function $f(r1::RBSpace,x::AbstractMatrix,r2::RBSpace)
+      $f(get_reduced_subspace(r1),x,get_reduced_subspace(r2))
+    end
+
+    function $f!(y,r1::RBSpace,x::AbstractMatrix,r2::RBSpace)
+      $f!(y,get_reduced_subspace(r1),x,get_reduced_subspace(r2))
+    end
   end
 end
 
-function project(r::RBSpace,a::AbstractRBVector)
+function project(r::RBSpace,a::RBParamVector)
   project!(a.data,r,a.fe_data)
   return a.data
 end
 
-function inv_project(r::RBSpace,a::AbstractRBVector)
+function inv_project(r::RBSpace,a::RBParamVector)
   inv_project!(a.fe_data,r,a.data)
   return a.fe_data
 end

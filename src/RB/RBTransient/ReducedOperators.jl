@@ -147,13 +147,6 @@ for T in (:JointTransientRBOperator,:SplitTransientRBOperator)
   end
 end
 
-function Algebra.residual!(
-  b::NoHRParamArray,
-  op::TransientGenericRBOperator{O,T,<:NoHRContribution},
-  r::TransientRealisation,
-  us::Tuple{Vararg{AbstractVector}},
-  paramcache
-  ) where {O,T}
 function Algebra.allocate_residual(
   op::TransientGenericRBOperator{O,T,<:NoHRContribution},
   r::TransientRealisation,
