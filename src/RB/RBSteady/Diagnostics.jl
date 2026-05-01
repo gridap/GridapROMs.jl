@@ -347,7 +347,7 @@ end
 
 function hr_error_res(
   op::RBOperator,
-  res::AbstractSnapshots,
+  res::ArrayContribution,
   μ::AbstractRealisation,
   u
   )
@@ -373,7 +373,7 @@ end
 
 function hr_error_jac(
   op::RBOperator,
-  jac::AbstractSnapshots,
+  jac::ArrayContribution,
   μ::AbstractRealisation,
   u
   )
@@ -500,39 +500,39 @@ function load_snapshots(dir,rbsolver,feop,args...;label="",kwargs...)
   end
 end
 
-function save_residuals(dir,res;label="")
-  save(dir,res;label=_get_label(label,"res"))
+function save_residuals(dir,feop,res;label="")
+  save(dir,res;label=_get_label(label,residuals_label))
 end
 
-function save_jacobians(dir,jac;label="")
-  save(dir,jac;label=_get_label(label,"jac"))
+function save_jacobians(dir,feop,jac;label="")
+  save(dir,jac;label=_get_label(label,jacobians_label))
 end
 
 for f in (:save_residuals,:save_jacobians)
   @eval begin
-    function $f(dir,resjac::Tuple;label="")
+    function $f(dir,feop::LinearNonlinearParamOperator,resjac::Tuple;label="")
       @assert length(resjac) == 2
-      $f(dir,resjac[1];label=_get_label(label,"lin"))
-      $f(dir,resjac[2];label=_get_label(label,"nlin"))
+      $f(dir,get_linear_operator(feop),resjac[1];label=_get_label(label,linear_label))
+      $f(dir,get_nonlinear_operator(feop),resjac[2];label=_get_label(label,nonlinear_label))
       return
     end
   end
 end
 
 function load_residuals(dir,feop::ParamOperator;label="")
-  load_contribution(dir,get_domains_res(feop);label=_get_label(label,"res"))
+  load_contribution(dir,get_domains_res(feop);label=_get_label(label,residuals_label))
 end
 
 function load_jacobians(dir,feop::ParamOperator;label="")
-  load_contribution(dir,get_domains_jac(feop);label=_get_label(label,"jac"))
+  load_contribution(dir,get_domains_jac(feop);label=_get_label(label,jacobians_label))
 end
 
 for f in (:load_residuals,:load_jacobians)
   @eval begin
     function $f(dir,feop::LinearNonlinearParamOperator;label="")
       (
-        $f(dir,get_linear_operator(feop);label=_get_label(label,"lin")),
-        $f(dir,get_nonlinear_operator(feop);label=_get_label(label,"nlin")),
+        $f(dir,get_linear_operator(feop);label=_get_label(label,linear_label)),
+        $f(dir,get_nonlinear_operator(feop);label=_get_label(label,nonlinear_label)),
       )
     end
   end
@@ -540,22 +540,22 @@ end
 
 function load_residuals(dir,_rbsolver,feop,fesnaps)
   try
-    load_snapshots(dir;label="res")
+    load_residuals(dir,feop;label=residuals_label)
   catch
     rbsolver = set_params(_rbsolver,nparams=num_params(fesnaps))
     res = residual_snapshots(rbsolver,feop,fesnaps)
-    save_residuals(dir,res)
+    save_residuals(dir,feop,res)
     res
   end
 end
 
 function load_jacobians(dir,_rbsolver,feop,fesnaps)
   try
-    load_snapshots(dir;label="jac")
+    load_jacobians(dir,feop;label=jacobians_label)
   catch
     rbsolver = set_params(_rbsolver;nparams=num_params(fesnaps))
     jac = jacobian_snapshots(rbsolver,feop,fesnaps)
-    save_jacobians(dir,jac)
+    save_jacobians(dir,feop,jac)
     jac
   end
 end

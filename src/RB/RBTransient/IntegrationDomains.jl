@@ -198,6 +198,8 @@ end
 RBSteady.get_integration_cells(i::TransientIntegrationDomain) = get_integration_cells(i.domain_space)
 RBSteady.get_cell_irows(i::TransientIntegrationDomain) = get_cell_irows(i.domain_space)
 RBSteady.get_cell_icols(i::TransientIntegrationDomain) = get_cell_icols(i.domain_space)
+RBSteady.get_interpolation_rows(a::TransientIntegrationDomain) = get_interpolation_rows(a.domain_space)
+RBSteady.get_interpolation_cols(a::TransientIntegrationDomain) = get_interpolation_cols(a.domain_space)
 get_integration_domain_space(i::TransientIntegrationDomain) = i.domain_space
 get_indices_time(i::TransientIntegrationDomain) = i.indices_time
 

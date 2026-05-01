@@ -277,6 +277,19 @@ export load_stats
 export load_problem_snapshots
 export try_loading_reduced_operator
 export create_dir
+export snapshots_label
+export residuals_label
+export jacobians_label
+export rhs_label
+export lhs_label
+export test_label
+export trial_label
+export statistics_label
+export results_label
+export projection_label
+export contributions_label
+export linear_label
+export nonlinear_label
 export plot_a_solution
 export plot_solutions
 include("PostProcess.jl")

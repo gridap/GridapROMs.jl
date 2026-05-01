@@ -96,6 +96,7 @@ export SteadyHyperReduction
 export TransientHyperReduction
 export HighDimMDEIMHyperReduction
 export HighDimSOPTHyperReduction
+export HighDimRBFHyperReduction
 include("ReductionMethods.jl")
 
 include("RBSolvers.jl")

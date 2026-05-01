@@ -306,9 +306,9 @@ function Base.setindex!(s::BlockSnapshots,v,i...)
 end
 
 function Arrays.testitem(s::BlockSnapshots)
-  i = findall(s.touched)
-  if length(i) != 0
-    s.array[i[1]]
+  i = findfirst(s.touched)
+  if !isnothing(i)
+    @inbounds s.array[i[1]]
   else
     error("This block snapshots structure is empty")
   end

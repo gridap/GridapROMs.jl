@@ -214,6 +214,15 @@ function Base.setindex!(a::BlockInterpolation,v,i...)
   a.touched[i...] && (a.interp[i...] = v)
 end
 
+function Arrays.testitem(a::BlockInterpolation)
+  i = findfirst(a.touched)
+  if !isnothing(i)
+    @inbounds a.interp[i[1]]
+  else
+    testvalue(eltype(a.interp))
+  end
+end
+
 Base.getindex(a::BlockInterpolation,i::Block) = getindex(a,i.n...)
 Base.setindex!(a::BlockInterpolation,v,i::Block) = setindex!(a,v,i.n...)
 

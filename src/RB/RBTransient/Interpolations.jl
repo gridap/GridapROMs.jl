@@ -2,8 +2,8 @@ get_indices_time(a::Interpolation) = Int[]
 get_itimes(a::Interpolation,ids::AbstractVector) = Int[]
 get_param_itimes(a::Interpolation,ids::Range2D) = range_2d(ids.axis1,Int[])
 
-get_itimes(a::Interpolation,common_ids::Range1D) = error("should not be here")
-get_param_itimes(a::Interpolation,common_ids::Range1D) = get_param_itimes(a,common_ids.parent)
+get_itimes(a::Interpolation,ids::Range1D) = error("should not be here")
+get_param_itimes(a::Interpolation,ids::Range1D) = get_param_itimes(a,ids.parent)
 
 function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,b::AbstractMatrix)
   ldiv!(cache,a,vec(b))
@@ -49,11 +49,11 @@ end
 get_domain_style(a::TransientGreedyInterpolation) = get_domain_style(a.domain)
 get_indices_time(a::TransientGreedyInterpolation) = get_indices_time(a.domain)
 get_itimes(a::TransientGreedyInterpolation,ids::Union{Vector,Range2D}) = get_itimes(a.domain,ids)
-get_param_itimes(a::TransientGreedyInterpolation,args...) = get_param_itimes(a.domain,args...)
+get_param_itimes(a::TransientGreedyInterpolation,ids::Vector) = get_param_itimes(a.domain,ids)
 
-function get_param_itimes(a::TransientGreedyInterpolation,common_ids::Range2D)
-  common_param_ids = common_ids.axis1
-  common_time_ids = common_ids.axis2
+function get_param_itimes(a::TransientGreedyInterpolation,ids::Range2D)
+  common_param_ids = ids.axis1
+  common_time_ids = ids.axis2
   local_itime_ids = get_itimes(a,common_time_ids)
   locations = range_2d(common_param_ids,local_itime_ids,length(common_param_ids))
   return locations
@@ -88,7 +88,14 @@ end
 
 const TransientBlockInterpolation{N} = BlockInterpolation{N}
 
-get_domain_style(a::TransientBlockInterpolation) = get_domain_style(first(a.interp))
+function get_domain_style(a::TransientBlockInterpolation)
+  i = findfirst(a.touched)
+  if !isnothing(i)
+    get_domain_style(a.interp[i])
+  else
+    KroneckerDomain()
+  end
+end
 
 function get_indices_time(a::TransientBlockInterpolation{N}) where N
   array = Array{Any,N}(undef,size(a))

@@ -92,8 +92,8 @@ function try_loading_fe_jac_res(dir,rbsolver,feop,fesnaps)
     println("Load res/jac at $dir failed, must compute them")
     jac = jacobian_snapshots(rbsolver,feop,fesnaps)
     res = residual_snapshots(rbsolver,feop,fesnaps)
-    save_jacobians(dir,jac)
-    save_residuals(dir,res)
+    save_jacobians(dir,feop,jac)
+    save_residuals(dir,feop,res)
     return jac,res
   end
 end
@@ -149,8 +149,7 @@ end
 
 function update_reduction(red::KroneckerReduction,tolrank)
   KroneckerReduction(
-    update_reduction(red.reduction_space,tolrank),
-    update_reduction(red.reduction_time,tolrank)
+    map(r->update_reduction(r,tolrank),red.reductions)
   )
 end
 
@@ -202,7 +201,7 @@ function plot_errors(dir,tolranks,perfs::AbstractVector{<:ROMPerformance})
   errs = map(get_error,perfs)
   n = length(first(errs))
   errvec = hcat(map(i -> getindex.(errs,i),1:n)...)
-  labvec = n==1 ? "Error" : ["Error $i" for i in 1:n]
+  labvec = n==1 ? "Error" : hcat(["Error $i" for i in 1:n])
 
   file = joinpath(dir,"convergence.png")
   p = plot(tolranks,tolranks,lw=3,label="Tol.")

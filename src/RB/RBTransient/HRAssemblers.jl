@@ -153,6 +153,120 @@ for (T,f) in zip((:KroneckerDomain,:SequentialDomain),(:add_hr_kron_entries!,:ad
   end
 end
 
+for T in (:KroneckerDomain,:SequentialDomain)
+  @eval begin
+    function Arrays.return_cache(k::AddTransientHREntriesMap{$T},A,v::MatrixBlock,I::VectorBlock,J::VectorBlock)
+      qs = findall(v.touched)
+      i,j = Tuple(first(qs))
+      cij = return_cache(k,A,v.array[i,j],I.array[i],J.array[j])
+      ni,nj = size(v.touched)
+      cache = Matrix{typeof(cij)}(undef,ni,nj)
+      for j in 1:nj
+        for i in 1:ni
+          if v.touched[i,j]
+            cache[i,j] = return_cache(k,A,v.array[i,j],I.array[i],J.array[j])
+          end
+        end
+      end
+      cache
+    end
+
+    function Arrays.evaluate!(cache,k::AddTransientHREntriesMap{$T},A,v::MatrixBlock,I::VectorBlock,J::VectorBlock)
+      ni,nj = size(v.touched)
+      for j in 1:nj
+        for i in 1:ni
+          if v.touched[i,j]
+            evaluate!(cache[i,j],k,A,v.array[i,j],I.array[i],J.array[j])
+          end
+        end
+      end
+    end
+
+    function Arrays.return_cache(k::AddTransientHREntriesMap{$T},A,v::VectorBlock,I::VectorBlock)
+      qs = findall(v.touched)
+      i = first(qs)
+      ci = return_cache(k,A,v.array[i],I.array[i])
+      ni = length(v.touched)
+      cache = Vector{typeof(ci)}(undef,ni)
+      for i in 1:ni
+        if v.touched[i]
+          cache[i] = return_cache(k,A,v.array[i],I.array[i])
+        end
+      end
+      cache
+    end
+
+    function Arrays.evaluate!(cache,k::AddTransientHREntriesMap{$T},A,v::VectorBlock,I::VectorBlock)
+      ni = length(v.touched)
+      for i in 1:ni
+        if v.touched[i]
+          evaluate!(cache[i],k,A,v.array[i],I.array[i])
+        end
+      end
+    end
+  end
+
+  for MT in (:MatrixBlock,:MatrixBlockView)
+    Aij = (MT == :MatrixBlock) ? :(A.array[i,j]) : :(A[i,j])
+    @eval begin
+      function Arrays.return_cache(k::AddTransientHREntriesMap{$T},A::$MT,v::MatrixBlock,I::VectorBlock,J::VectorBlock)
+        qs = findall(v.touched)
+        i,j = Tuple(first(qs))
+        cij = return_cache(k,$Aij,v.array[i,j],I.array[i],J.array[j])
+        ni,nj = size(v.touched)
+        cache = Matrix{typeof(cij)}(undef,ni,nj)
+        for j in 1:nj
+          for i in 1:ni
+            if v.touched[i,j]
+              cache[i,j] = return_cache(k,$Aij,v.array[i,j],I.array[i],J.array[j])
+            end
+          end
+        end
+        cache
+      end
+
+      function Arrays.evaluate!(cache,k::AddTransientHREntriesMap{$T},A::$MT,v::MatrixBlock,I::VectorBlock,J::VectorBlock)
+        ni,nj = size(v.touched)
+        for j in 1:nj
+          for i in 1:ni
+            if v.touched[i,j]
+              evaluate!(cache[i,j],k,$Aij,v.array[i,j],I.array[i],J.array[j])
+            end
+          end
+        end
+      end
+    end 
+  end 
+
+  for VT in (:VectorBlock,:VectorBlockView)
+    Ai = (VT == :VectorBlock) ? :(A.array[i]) : :(A[i])
+    @eval begin
+      function Arrays.return_cache(k::AddTransientHREntriesMap{$T},A::$VT,v::VectorBlock,I::VectorBlock)
+        qs = findall(v.touched)
+        i = first(qs)
+        ci = return_cache(k,$Ai,v.array[i],I.array[i])
+        ni = length(v.touched)
+        cache = Vector{typeof(ci)}(undef,ni)
+        for i in 1:ni
+          if v.touched[i]
+            cache[i] = return_cache(k,$Ai,v.array[i],I.array[i])
+          end
+        end
+        cache
+      end
+
+      function Arrays.evaluate!(cache,k::AddTransientHREntriesMap{$T},A::$VT,v::VectorBlock,I::VectorBlock)
+        ni = length(v.touched)
+        for i in 1:ni
+          if v.touched[i]
+            evaluate!(cache[i],k,$Ai,v.array[i],I.array[i])
+          end
+        end
+      end
+    end 
+  end
+end
+
 @inline function add_hr_kron_entries!(
   vi,combine::Function,A::AbstractParamVector,vs,is,loc
   )

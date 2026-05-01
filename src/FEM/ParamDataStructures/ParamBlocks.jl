@@ -1742,8 +1742,8 @@ function Arrays.evaluate!(cache,k::BroadcastingFieldOpMap,h::ParamBlock,f::Array
 end
 
 #TODO this fix should go in Gridap 
-for S in (:ParamBlock,:AbstractArray)
-  for T in (:ParamBlock,:AbstractArray)
+for S in (:ParamBlock,:AbstractArray,:ArrayBlock)
+  for T in (:ParamBlock,:AbstractArray,:ArrayBlock)
     @eval begin
       function Arrays.return_value(
         k::BroadcastingFieldOpMap,

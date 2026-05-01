@@ -109,8 +109,8 @@ function ODEs.ode_march!(
   odecache
   )
 
-  u0,v0 = state0
-  x = statef[2]
+  u0,v0,a0 = state0
+  x = statef[3]
 
   ((uα_lin,vα_lin,aα_lin),(uα_nlin,vα_nlin,aα_nlin),
   paramcache_lin,paramcache_nlin,

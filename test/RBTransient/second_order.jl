@@ -53,18 +53,18 @@ function main(
   f(μ,t) = x -> 1.
   fμt(μ,t) = parameterise(f,μ,t)
 
-  g(μ,t) = x -> μ[1]*exp(-x[1]/μ[2])*abs(sin(t/μ[3]))
+  g(μ,t) = x -> μ[1]*exp(-x[1]/μ[2])*sin(t/μ[3])
   gμt(μ,t) = parameterise(g,μ,t)
 
   u0(μ) = x -> 0.0
   u0μ(μ) = parameterise(u0,μ)
-  v0(μ) = x -> 0.0#μ[1]/μ[3]*exp(-x[1]/μ[2])
+  v0(μ) = x -> μ[1]/μ[3]*exp(-x[1]/μ[2])
   v0μ(μ) = parameterise(v0,μ)
   a0(μ) = x -> 0.0
   a0μ(μ) = parameterise(a0,μ)
 
   stiffness(μ,t,u,v,dΩ) = ∫(aμt(μ,t)*∇(v)⋅∇(u))dΩ
-  damping(μ,t,uₜ,v,dΩ) = ∫(v⋅uₜ)dΩ #dμt(μ,t)*
+  damping(μ,t,uₜ,v,dΩ) = ∫(dμt(μ,t)*v⋅uₜ)dΩ 
   mass(μ,t,uₜₜ,v,dΩ) = ∫(v*uₜₜ)dΩ
   rhs(μ,t,v,dΩ) = ∫(fμt(μ,t)*v)dΩ 
   res(μ,t,u,v,dΩ) = mass(μ,t,∂tt(u),v,dΩ) + damping(μ,t,∂t(u),v,dΩ) + stiffness(μ,t,u,v,dΩ) - rhs(μ,t,v,dΩ)

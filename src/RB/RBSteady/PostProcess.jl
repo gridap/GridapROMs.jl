@@ -12,6 +12,20 @@ function create_dir(dir::String)
   return
 end
 
+const snapshots_label = "snaps"
+const residuals_label = "res"
+const jacobians_label = "jac"
+const rhs_label = "rhs"
+const lhs_label = "lhs"
+const test_label = "test"
+const trial_label = "trial"
+const statistics_label = "stats"
+const results_label = "results"
+const projection_label = "basis"
+const contributions_label = "contrib"
+const linear_label = "lin"
+const nonlinear_label = "nlin"
+
 function DrWatson.save(dir,args::Tuple)
   map(a->save(dir,a),args)
 end
@@ -34,7 +48,7 @@ function get_filename(dir::String,name::String,labels...;extension=".jld")
 end
 
 function DrWatson.save(dir,s::AbstractSnapshots;label="")
-  snaps_dir = get_filename(dir,"snaps",label)
+  snaps_dir = get_filename(dir,snapshots_label,label)
   serialize(snaps_dir,s)
 end
 
@@ -45,27 +59,27 @@ Load the snapshots at the directory `dir`. Throws an error if the snapshots
 have not been previously saved to file
 """
 function load_snapshots(dir;label="")
-  snaps_dir = get_filename(dir,"snaps",label)
+  snaps_dir = get_filename(dir,snapshots_label,label)
   deserialize(snaps_dir)
 end
 
 function DrWatson.save(dir,stats::PerformanceTracker;label="")
-  stats_dir = get_filename(dir,"stats",label)
+  stats_dir = get_filename(dir,statistics_label,label)
   serialize(stats_dir,stats)
 end
 
 function load_stats(dir;label="")
-  stats_dir = get_filename(dir,"stats",label)
+  stats_dir = get_filename(dir,statistics_label,label)
   deserialize(stats_dir)
 end
 
 function DrWatson.save(dir,b::Projection;label="")
-  proj_dir = get_filename(dir,"basis",label)
+  proj_dir = get_filename(dir,projection_label,label)
   serialize(proj_dir,b)
 end
 
 function load_projection(dir;label="")
-  proj_dir = get_filename(dir,"basis",label)
+  proj_dir = get_filename(dir,projection_label,label)
   deserialize(proj_dir)
 end
 
@@ -81,13 +95,13 @@ function load_reduced_subspace(dir,f::FESpace;label="")
 end
 
 function DrWatson.save(dir,contrib::Contribution;label="")
-  contrib_dir = get_filename(dir,"contrib",label)
+  contrib_dir = get_filename(dir,contributions_label,label)
   serialize(contrib_dir,get_contributions(contrib))
 end
 
 function DrWatson.save(dir,lproj::LocalProjection{<:Contribution};label="")
   _lproj = LocalProjection(map(get_contributions,lproj.projections),lproj.k)
-  contrib_dir = get_filename(dir,"contrib",label)
+  contrib_dir = get_filename(dir,contributions_label,label)
   serialize(contrib_dir,_lproj)
 end
 
@@ -118,19 +132,19 @@ function load_contribution(
   label=""
   )
 
-  contrib_dir = get_filename(dir,"contrib",label)
+  contrib_dir = get_filename(dir,contributions_label,label)
   vals = deserialize(contrib_dir)
   _setup_contribution(vals,trian)
 end
 
 function _save_fixed_operator_parts(dir,op;label="")
-  save(dir,get_test(op);label=_get_label(label,"test"))
-  save(dir,get_trial(op);label=_get_label(label,"trial"))
+  save(dir,get_test(op);label=_get_label(label,test_label))
+  save(dir,get_trial(op);label=_get_label(label,trial_label))
 end
 
 function _save_trian_operator_parts(dir,op::RBOperator;label="")
-  save(dir,get_rhs(op);label=_get_label(label,"rhs"))
-  save(dir,get_lhs(op);label=_get_label(label,"lhs"))
+  save(dir,get_rhs(op);label=_get_label(label,rhs_label))
+  save(dir,get_lhs(op);label=_get_label(label,lhs_label))
 end
 
 function DrWatson.save(dir,op::RBOperator;kwargs...)
@@ -139,16 +153,16 @@ function DrWatson.save(dir,op::RBOperator;kwargs...)
 end
 
 function _load_fixed_operator_parts(dir,feop;label="")
-  test = load_reduced_subspace(dir,get_test(feop);label=_get_label(label,"test"))
-  trial = load_reduced_subspace(dir,get_trial(feop);label=_get_label(label,"trial"))
+  test = load_reduced_subspace(dir,get_test(feop);label=_get_label(label,test_label))
+  trial = load_reduced_subspace(dir,get_trial(feop);label=_get_label(label,trial_label))
   return trial,test
 end
 
 function _load_trian_operator_parts(dir,feop::ParamOperator;label="")
   trian_res = get_domains_res(feop)
   trian_jac = get_domains_jac(feop)
-  red_rhs = load_contribution(dir,trian_res;label=_get_label(label,"rhs"))
-  red_lhs = load_contribution(dir,trian_jac;label=_get_label(label,"lhs"))
+  red_rhs = load_contribution(dir,trian_res;label=_get_label(label,rhs_label))
+  red_lhs = load_contribution(dir,trian_jac;label=_get_label(label,lhs_label))
   return red_lhs,red_rhs
 end
 
@@ -169,8 +183,8 @@ function DrWatson.save(dir,feop::LinearNonlinearRBOperator;label="")
   feop_lin = get_linear_operator(feop)
   feop_nlin = get_nonlinear_operator(feop)
   _save_fixed_operator_parts(dir,feop_lin;label)
-  _save_trian_operator_parts(dir,feop_lin;label=_get_label(label,"lin"))
-  _save_trian_operator_parts(dir,feop_nlin;label=_get_label(label,"nlin"))
+  _save_trian_operator_parts(dir,feop_lin;label=_get_label(label,linear_label))
+  _save_trian_operator_parts(dir,feop_nlin;label=_get_label(label,nonlinear_label))
 end
 
 function load_operator(dir,feop::LinearNonlinearParamOperator;label="")
@@ -178,9 +192,9 @@ function load_operator(dir,feop::LinearNonlinearParamOperator;label="")
   feop_nlin = get_nonlinear_operator(feop)
   trial,test = _load_fixed_operator_parts(dir,feop_lin;label)
   red_lhs_lin,red_rhs_lin = _load_trian_operator_parts(
-    dir,feop_lin;label=_get_label("lin",label))
+    dir,feop_lin;label=_get_label(linear_label,label))
   red_lhs_nlin,red_rhs_nlin = _load_trian_operator_parts(
-    dir,feop_nlin;label=_get_label("nlin",label))
+    dir,feop_nlin;label=_get_label(nonlinear_label,label))
   op_lin = RBOperator(feop_lin,trial,test,red_lhs_lin,red_rhs_lin)
   op_nlin = RBOperator(feop_nlin,trial,test,red_lhs_nlin,red_rhs_nlin)
   return LinearNonlinearRBOperator(op_lin,op_nlin)
@@ -273,14 +287,14 @@ function eval_performance(
 end
 
 function DrWatson.save(dir,perf::ROMPerformance;label="")
-  results_dir = get_filename(dir,"results",label)
+  results_dir = get_filename(dir,results_label,label)
   serialize(results_dir,perf)
 end
 
 """
 """
 function load_results(dir;label="")
-  results_dir = get_filename(dir,"results",label)
+  results_dir = get_filename(dir,results_label,label)
   deserialize(results_dir)
 end
 
