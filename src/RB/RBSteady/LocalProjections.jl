@@ -35,8 +35,24 @@ function galerkin_projection(
   c::LocalProjection,
   args...
   )
+
   b̂ = map((pa,pb,pc) -> galerkin_projection(pa,pb,pc,args...),a.projections,b.projections,c.projections)
   LocalProjection(b̂,b.k)
+end
+
+function galerkin_projection!(b̂,a::LocalProjection,b::LocalProjection)
+  @notimplemented
+end
+
+function galerkin_projection!(
+  b̂,
+  a::LocalProjection,
+  b::LocalProjection,
+  c::LocalProjection,
+  args...
+  )
+  
+  @notimplemented
 end
 
 CellData.get_domains(a::LocalProjection) = map(get_domains,a.projections)

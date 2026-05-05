@@ -72,18 +72,6 @@ function project!(
   project!(x̂,a,norm_matrix*x)
 end
 
-function project!(
-  x̂::AbstractArray,
-  a::Projection,
-  x::AbstractArray,
-  b::Projection
-  )
-
-  ba = get_basis(a)
-  bb = get_basis(b)
-  _sparse_to_full_mul(x̂,ba,x,bb)
-end
-
 """
     inv_project(a::Projection,x::AbstractArray) -> AbstractArray
 
@@ -105,16 +93,6 @@ in which `a` is immersed
 function inv_project!(x::AbstractArray,a::Projection,x̂::AbstractArray)
   basis = get_basis(a)
   mul!(x,basis,x̂)
-end
-
-function inv_project!(
-  x::AbstractArray,
-  a::Projection,
-  x̂::AbstractArray,
-  b::Projection
-  )
-
-  @notimplemented "Need to provide a sparsity pattern"
 end
 
 """
@@ -166,9 +144,19 @@ function galerkin_projection(a::Projection,b::Projection)
   return ReducedProjection(b̂)
 end
 
+function galerkin_projection!(b̂,a::Projection,b::Projection)
+  galerkin_projection!(b̂,get_basis(a),get_basis(b))
+  return b̂
+end
+
 function galerkin_projection(a::Projection,b::Projection,c::Projection,args...)
   b̂ = galerkin_projection(get_basis(a),get_basis(b),get_basis(c),args...)
   return ReducedProjection(b̂)
+end
+
+function galerkin_projection!(b̂,a::Projection,b::Projection,c::Projection,args...)
+  galerkin_projection!(b̂,get_basis(a),get_basis(b),get_basis(c),args...)
+  return b̂
 end
 
 """
@@ -473,6 +461,23 @@ function galerkin_projection(
   _galerkin_projection(get_dof_map(a),proj_left,a,proj_right)
 end
 
+function galerkin_projection!(proj_basis,proj_left::TTSVDProjection,a::TTSVDProjection)
+  cores_left = get_cores(proj_left)
+  cores = get_cores(a)
+  galerkin_projection!(proj_basis,cores_left,cores)
+  return ReducedProjection(proj_basis)
+end
+
+function galerkin_projection!(
+  proj_basis,
+  proj_left::TTSVDProjection,
+  a::TTSVDProjection,
+  proj_right::TTSVDProjection
+  )
+
+  _galerkin_projection!(get_dof_map(a),proj_basis,proj_left,a,proj_right)
+end
+
 function projection_eltype(a::TTSVDProjection)
   promote_type(map(eltype,get_cores(a))...)
 end
@@ -574,7 +579,23 @@ function galerkin_projection(
   proj_right::NormedProjection,
   args...
   )
+
   galerkin_projection(get_projection(proj_left),get_projection(a),get_projection(proj_right),args...)
+end
+
+function galerkin_projection!(proj_basis,proj_left::NormedProjection,a::Projection)
+  galerkin_projection!(proj_basis,proj_left.projection,get_projection(a))
+end
+
+function galerkin_projection!(
+  proj_basis,
+  proj_left::NormedProjection,
+  a::Projection,
+  proj_right::NormedProjection,
+  args...
+  )
+
+  galerkin_projection!(proj_basis,get_projection(proj_left),get_projection(a),get_projection(proj_right),args...)
 end
 
 for f in (:empirical_interpolation,:s_opt)
@@ -833,24 +854,31 @@ function _galerkin_projection(
   return ReducedProjection(proj_basis)
 end
 
-function _sparse_to_full_mul(x̂::AbstractMatrix,ba,x::AbstractMatrix,bb)
-  cache = zeros(size(x,1),size(bb,2))
-  _sparse_to_full_mul!(x̂,ba,x,bb,cache)
+function _galerkin_projection!(
+  ::AbstractDofMap,
+  proj_basis,
+  proj_left::TTSVDProjection,
+  a::TTSVDProjection,
+  proj_right::TTSVDProjection
+  )
+
+  cores_left = get_cores(proj_left)
+  cores = get_cores(a)
+  cores_right = get_cores(proj_right)
+  galerkin_projection!(proj_basis,cores_left,cores,cores_right)
+  return ReducedProjection(proj_basis)
 end
 
-function _sparse_to_full_mul(x̂::AbstractParamMatrix,ba,x::AbstractParamMatrix,bb)
-  @check param_length(x̂) == param_length(x)
-  x1 = testitem(x)
-  cache = zeros(size(x1,1),size(bb,2))
-  @inbounds for i in param_eachindex(x)
-    _sparse_to_full_mul!(param_getindex(x̂,i),ba,param_getindex(x,i),bb,cache)
-  end
-end
+function _galerkin_projection!(
+  ::TrivialDofMap,
+  proj_basis,
+  proj_left::TTSVDProjection,
+  a::TTSVDProjection,
+  proj_right::TTSVDProjection
+  )
 
-function _sparse_to_full_mul!(x̂,ba,x,bb,cache)
-  mul!(cache,x,bb)
-  mul!(x̂,ba',cache)
-  x̂
+  galerkin_projection!(proj_basis,get_basis(proj_left),get_basis(a),get_basis(proj_right))
+  return ReducedProjection(proj_basis)
 end
 
 _proj_type(::PODReduction) = PODProjection

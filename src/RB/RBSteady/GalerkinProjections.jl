@@ -14,19 +14,43 @@ function galerkin_projection(
   return proj_basis
 end
 
+function galerkin_projection!(
+  proj_basis::AbstractMatrix,
+  basis_left::AbstractMatrix,
+  basis::AbstractMatrix
+  )
+
+  mul!(proj_basis,basis_left',basis)
+  return proj_basis
+end
+
 function galerkin_projection(
   basis_left::AbstractMatrix{S},
   basis::ParamSparseMatrix{T},
   basis_right::AbstractMatrix{S}
   ) where {T,S}
 
+  TS = promote_type(T,S)
+  nleft = size(basis_left,2)
+  n = size(basis,1)
+  nright = size(basis_right,2)
+  proj_basis = zeros(TS,nleft,n,nright)
+  galerkin_projection!(proj_basis,basis_left,basis,basis_right)
+end
+
+function galerkin_projection!(
+  proj_basis::AbstractArray,
+  basis_left::AbstractMatrix,
+  basis::ParamSparseMatrix,
+  basis_right::AbstractMatrix
+  ) 
+
   @check size(basis,1) == size(basis,2)
   nleft = size(basis_left,2)
   n = size(basis,1)
   nright = size(basis_right,2)
+  @check size(proj_basis) == (nleft,n,nright)
 
-  TS = promote_type(T,S)
-  proj_basis = zeros(TS,nleft,n,nright)
   @inbounds for i = 1:n
     @views proj_basis[:,i,:] = basis_left'*param_getindex(basis,i)*basis_right
   end

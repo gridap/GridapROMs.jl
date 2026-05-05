@@ -159,14 +159,6 @@ for (f,f!) in zip((:project,:inv_project),(:project!,:inv_project!))
     function $f!(y,r::RBSpace,x::AbstractVector)
       $f!(y,get_reduced_subspace(r),x)
     end
-
-    function $f(r1::RBSpace,x::AbstractMatrix,r2::RBSpace)
-      $f(get_reduced_subspace(r1),x,get_reduced_subspace(r2))
-    end
-
-    function $f!(y,r1::RBSpace,x::AbstractMatrix,r2::RBSpace)
-      $f!(y,get_reduced_subspace(r1),x,get_reduced_subspace(r2))
-    end
   end
 end
 
@@ -186,6 +178,14 @@ end
 
 function project(r1::RBSpace,x::Projection,r2::RBSpace)
   galerkin_projection(get_reduced_subspace(r1),x,get_reduced_subspace(r2))
+end
+
+function project!(cache,r::RBSpace,x::Projection)
+  galerkin_projection!(cache,get_reduced_subspace(r),x)
+end
+
+function project!(cache,r1::RBSpace,x::Projection,r2::RBSpace)
+  galerkin_projection!(cache,get_reduced_subspace(r1),x,get_reduced_subspace(r2))
 end
 
 function FESpaces.FEFunction(r::RBSpace,x̂::AbstractVector)

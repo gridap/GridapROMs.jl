@@ -154,6 +154,10 @@ function sequential_product(::AbstractArray...)
   @abstractmethod
 end
 
+function sequential_product!(::AbstractArray...)
+  @abstractmethod
+end
+
 Base.@propagate_inbounds function sequential_product(
   factor1::AbstractArray{T,3},
   factor2::AbstractArray{S,3}
@@ -165,6 +169,23 @@ Base.@propagate_inbounds function sequential_product(
   AB = A*B
   s1,s2,s3,s4 = size(factor1,1),size(factor1,2),size(factor2,2),size(factor2,3)
   reshape(AB,s1,s2*s3,s4)
+end
+
+Base.@propagate_inbounds function sequential_product!(
+  cache::AbstractArray{U,3},
+  factor1::AbstractArray{T,3},
+  factor2::AbstractArray{S,3}
+  ) where {U,T,S}
+
+  @check size(factor1,3) == size(factor2,1)
+  s1,s2,s3,s4 = size(factor1,1),size(factor1,2),size(factor2,2),size(factor2,3)
+  @check size(cache) == (s1,s2*s3,s4)
+
+  A = reshape(factor1,:,size(factor1,3))
+  B = reshape(factor2,size(factor2,1),:)
+  AB = reshape(cache,s1*s2,s3*s4)
+  mul!(AB,A,B)
+  cache
 end
 
 Base.@propagate_inbounds function sequential_product(
@@ -181,6 +202,41 @@ Base.@propagate_inbounds function sequential_product(
   aB = (a'*B).parent
   s1,s2,s3,s4 = 1,1,size(factor2,3),size(factor2,4)
   reshape(aB,s1,s2,s3,s4)
+end
+
+Base.@propagate_inbounds function sequential_product!(
+  cache::AbstractArray{U,4},
+  factor1::AbstractArray{T,4},
+  factor2::AbstractArray{S,4}
+  ) where {U,T,S}
+
+  @check size(factor1,1) == size(factor1,2) == 1
+  @check size(factor1,3) == size(factor2,1)
+  @check size(factor1,4) == size(factor2,2)
+  @check size(cache) == (1,1,size(factor2,3),size(factor2,4))
+
+  a = vec(factor1)
+  B = reshape(factor2,length(a),:)
+  aB = reshape(cache,1,:)
+  mul!(aB,a',B)
+  cache
+end
+
+Base.@propagate_inbounds function sequential_product!(
+  cache::AbstractMatrix,
+  factor1::AbstractArray{T,4},
+  factor2::AbstractArray{S,4}
+  ) where {T,S}
+
+  @check size(factor1,1) == size(factor1,2) == 1
+  @check size(factor1,3) == size(factor2,1)
+  @check size(factor1,4) == size(factor2,2)
+  @check size(cache) == (size(factor2,3),size(factor2,4))
+
+  a = vec(factor1)
+  B = reshape(factor2,length(a),:)
+  mul!(reshape(cache,1,:),a',B)
+  cache
 end
 
 Base.@propagate_inbounds function sequential_product(
@@ -200,6 +256,25 @@ Base.@propagate_inbounds function sequential_product(
   reshape(aB,s1,s2,s3,s4,s5,s6)
 end
 
+Base.@propagate_inbounds function sequential_product!(
+  cache::AbstractArray{U,6},
+  factor1::AbstractArray{T,6},
+  factor2::AbstractArray{S,6}
+  ) where {U,T,S}
+
+  @check size(factor1,1) == size(factor1,2) == size(factor1,3) == 1
+  @check size(factor1,4) == size(factor2,1)
+  @check size(factor1,5) == size(factor2,2)
+  @check size(factor1,6) == size(factor2,3)
+  @check size(cache) == (1,1,1,size(factor2,4),size(factor2,5),size(factor2,6))
+
+  a = vec(factor1)
+  B = reshape(factor2,length(a),:)
+  aB = reshape(cache,1,:)
+  mul!(aB,a',B)
+  cache
+end
+
 function sequential_product(
   factor1::AbstractArray{T,6},
   factor2::AbstractArray{S,4}
@@ -213,9 +288,42 @@ function sequential_product(
   end
 end
 
+function sequential_product!(
+  cache::AbstractArray{U,6},
+  factor1::AbstractArray{T,6},
+  factor2::AbstractArray{S,4}
+  ) where {U,T,S}
+
+  @check size(factor1,1) == size(factor1,2) == size(factor1,3) == 1
+  if size(factor1,4) == size(factor2,1) && size(factor1,5) == size(factor2,2)
+    factor12 = _seq_prod_missing_trial(factor1,factor2)
+    @check size(cache) == size(factor12)
+    copyto!(cache,factor12)
+  else size(factor1,5) == size(factor2,1) && size(factor1,6) == size(factor2,2)
+    @check size(cache) == (1,1,1,size(factor1,4),size(factor2,3),size(factor2,4))
+    n = size(factor1,5)*size(factor1,6)
+    A = reshape(factor1,:,n)
+    B = reshape(factor2,n,:)
+    AB = reshape(cache,size(A,1),size(B,2))
+    mul!(AB,A,B)
+  end
+  cache
+end
+
 function sequential_product(factor1::AbstractArray,factors::AbstractArray...)
   factor2,last_factors... = factors
   sequential_product(sequential_product(factor1,factor2),last_factors...)
+end
+
+function sequential_product!(cache::AbstractArray,factor1::AbstractArray,factors::AbstractArray...)
+  factor2,last_factors... = factors
+  if isempty(last_factors)
+    sequential_product!(cache,factor1,factor2)
+  else
+    factor12 = sequential_product(factor1,factor2)
+    sequential_product!(cache,factor12,last_factors...)
+  end
+  cache
 end
 
 """
@@ -281,6 +389,34 @@ function galerkin_projection(
 
   rcore = sequential_product(rcores...)
   dropdims(rcore;dims=(1,2,3))
+end
+
+function galerkin_projection(
+  cache::AbstractMatrix,
+  cores_test::Vector{<:AbstractArray{T,3}},
+  cores::Vector{<:AbstractArray{T,3}}
+  ) where T
+
+  rcores = map(contraction,cores_test,cores)
+  sequential_product!(cache,rcores...)
+  cache
+end
+
+function galerkin_projection!(
+  cache::AbstractMatrix,
+  cores_test::Vector{<:AbstractArray{T,3}},
+  cores::Vector{<:AbstractArray{T,3}},
+  cores_trial::Vector{<:AbstractArray{T,3}}
+  ) where T
+
+  if length(cores_test) == length(cores) == length(cores_trial)
+    rcores = map(contraction,cores_test,cores,cores_trial)
+  else
+    rcores = unbalanced_contractions(cores_test,cores,cores_trial)
+  end
+
+  sequential_product!(cache,rcores...)
+  cache
 end
 
 # supremizer computation for tensor train decompositions

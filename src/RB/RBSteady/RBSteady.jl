@@ -124,6 +124,7 @@ export get_reduction
 include("ReductionMethods.jl")
 
 export galerkin_projection
+export galerkin_projection!
 include("GalerkinProjections.jl")
 
 export RBParamVector
