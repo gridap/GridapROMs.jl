@@ -22,26 +22,6 @@ function galerkin_projection(
   galerkin_projection(basis_left,get_all_data(basis))
 end
 
-function galerkin_projection!(
-  proj_basis::AbstractMatrix,
-  basis_left::AbstractMatrix,
-  basis::AbstractMatrix
-  )
-
-  @check size(proj_basis) == (size(basis_left,2),size(basis,2))
-  mul!(proj_basis,basis_left',basis)
-  return proj_basis
-end
-
-function galerkin_projection!(
-  proj_basis::AbstractParamVector,
-  basis_left::AbstractMatrix,
-  basis::AbstractParamVector
-  )
-
-  galerkin_projection!(get_all_data(proj_basis),basis_left,get_all_data(basis))
-end
-
 function galerkin_projection(
   basis_left::AbstractMatrix{S},
   basis::ParamSparseMatrix{T},
@@ -53,21 +33,6 @@ function galerkin_projection(
   n = size(basis,1)
   nright = size(basis_right,2)
   proj_basis = zeros(TS,nleft,n,nright)
-  galerkin_projection!(proj_basis,basis_left,basis,basis_right)
-end
-
-function galerkin_projection!(
-  proj_basis::AbstractArray,
-  basis_left::AbstractMatrix,
-  basis::ParamSparseMatrix,
-  basis_right::AbstractMatrix
-  ) 
-
-  @check size(basis,1) == size(basis,2)
-  nleft = size(basis_left,2)
-  n = size(basis,1)
-  nright = size(basis_right,2)
-  @check size(proj_basis) == (nleft,n,nright)
 
   @inbounds for i = 1:n
     @views proj_basis[:,i,:] = basis_left'*param_getindex(basis,i)*basis_right
@@ -76,24 +41,40 @@ function galerkin_projection!(
   return proj_basis
 end
 
-function galerkin_projection!(
-  proj_basis::AbstractParamMatrix,
-  basis_left::AbstractMatrix,
-  basis::ParamSparseMatrix,
-  basis_right::AbstractMatrix
-  ) 
+# not really in-place 
 
-  nleft = size(basis_left,2)
-  n = size(basis,1)
-  nright = size(basis_right,2)
-  cache = get_all_data(proj_basis)
-  if size(cache) == (nleft,n,nright)
-    galerkin_projection!(cache,basis_left,basis,basis_right)
-  else
-    @check size(cache) == (nleft,nright,n)
-    @inbounds for i = 1:n
-      @views cache[:,:,i] = basis_left'*param_getindex(basis,i)*basis_right
-    end
+function galerkin_projection!(
+  cache::AbstractMatrix{<:Number},
+  basis_left,
+  basis,
+  args...
+  )
+
+  proj_basis = galerkin_projection(basis_left,basis,args...)
+  @check size(cache) == size(proj_basis)
+  copyto!(cache,proj_basis)
+  return cache
+end
+
+function galerkin_projection!(
+  cache::AbstractArray{<:Number,3},
+  basis_left,
+  basis,
+  basis_right,
+  args...
+  )
+
+  proj_basis = galerkin_projection(basis_left,basis,basis_right,args...)
+  @check ndims(proj_basis) == 3
+  @check size(cache,1) == size(proj_basis,1)
+  @check size(cache,2) == size(proj_basis,3)
+  @check size(cache,3) == size(proj_basis,2)
+  @inbounds for i in eachindex(cache)
+    cache[:,:,i] = proj_basis[:,i,:]
   end
-  return proj_basis
+  return cache
+end
+
+function galerkin_projection!(cache::AbstractParamArray,args...)
+  galerkin_projection!(get_all_data(cache),args...)
 end

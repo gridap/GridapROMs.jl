@@ -128,12 +128,9 @@ export galerkin_projection!
 include("GalerkinProjections.jl")
 
 export RBParamVector
-export reduced_vector
 include("RBParamVectors.jl")
 
 export HRParamArray
-export NoHRParamArray 
-export hr_array
 include("HRParamArrays.jl")
 
 export AbstractTTCore

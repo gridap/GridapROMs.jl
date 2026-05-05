@@ -164,7 +164,7 @@ function Algebra.solve(
   for uh0 in uhs0
     u0 = get_free_dof_values(uh0(params))
     û0 = space_project(trial,u0)
-    us0 = (us0...,reduced_vector(û0,u0))
+    us0 = (us0...,RBParamVector(û0,u0))
   end
   if length(us0) < get_order(op) + 1
     fesolver = get_fe_solver(solver)

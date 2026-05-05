@@ -4,10 +4,6 @@ struct HRParamArray{T,N,A,B,C<:ParamArray{T,N}} <: ParamArray{T,N}
   hypred::C
 end
 
-function hr_array(fecache,coeff,hypred::ParamArray)
-  HRParamArray(fecache,coeff,hypred)
-end
-
 Base.size(a::HRParamArray) = size(a.hypred)
 Base.getindex(a::HRParamArray{T,N},i::Vararg{Integer,N}) where {T,N} = getindex(a.hypred,i...)
 Base.setindex!(a::HRParamArray{T,N},v,i::Vararg{Integer,N}) where {T,N} = setindex!(a.hypred,v,i...)
@@ -15,61 +11,15 @@ ParamDataStructures.param_length(a::HRParamArray) = param_length(a.hypred)
 ParamDataStructures.get_all_data(a::HRParamArray) = get_all_data(a.hypred)
 ParamDataStructures.param_getindex(a::HRParamArray,i::Integer) = param_getindex(a.hypred,i)
 
-struct NoHRParamArray{T,N,A,B,C,D<:ParamArray{T,N}} <: ParamArray{T,N}
-  fecache::A
-  rbfecache::B
-  coeff::C
-  hypred::D
-end
-
-function nohr_array(fecache,rbfecache,coeff,hypred::ParamArray)
-  NoHRParamArray(fecache,rbfecache,coeff,hypred)
-end
-
-function nohr_array(fecache,â::HRParamArray)
-  NoHRParamArray(fecache,â.fecache,â.coeff,â.hypred)
-end
-
-Base.size(a::NoHRParamArray) = size(a.hypred)
-Base.getindex(a::NoHRParamArray{T,N},i::Vararg{Integer,N}) where {T,N} = getindex(a.hypred,i...)
-Base.setindex!(a::NoHRParamArray{T,N},v,i::Vararg{Integer,N}) where {T,N} = setindex!(a.hypred,v,i...)
-ParamDataStructures.param_length(a::NoHRParamArray) = param_length(a.hypred)
-ParamDataStructures.get_all_data(a::NoHRParamArray) = get_all_data(a.hypred)
-ParamDataStructures.param_getindex(a::NoHRParamArray,i::Integer) = param_getindex(a.hypred,i)
-
-const AbstractHRParamArray{T,N} = Union{HRParamArray{T,N},NoHRParamArray{T,N}}
-
 for f in (:(Base.copy),:(Base.similar))
   @eval begin
-    function $f(a::NoHRParamArray)
-      fe_quantity′ = $f(a.fecache)
-      rb_quantity′ = $f(a.rbfecache)
-      coeff′ = $f(a.coeff)
-      hypred′ = $f(a.hypred)
-      nohr_array(fe_quantity′,rb_quantity′,coeff′,hypred′)
-    end
     function $f(a::HRParamArray)
       fe_quantity′ = $f(a.fecache)
       coeff′ = $f(a.coeff)
       hypred′ = $f(a.hypred)
-      hr_array(fe_quantity′,coeff′,hypred′)
+      HRParamArray(fe_quantity′,coeff′,hypred′)
     end
   end
-end
-
-function Base.copyto!(a::NoHRParamArray,b::NoHRParamArray)
-  copyto!(a.fecache,b.fecache)
-  copyto!(a.rbfecache,b.rbfecache)
-  copyto!(a.coeff,b.coeff)
-  copyto!(a.hypred,b.hypred)
-  a
-end
-
-function Base.fill!(a::NoHRParamArray,b::Number)
-  fill!(a.fecache,b)
-  fill!(a.rbfecache,b)
-  fill!(a.coeff,b)
-  fill!(a.hypred,b)
 end
 
 function Base.copyto!(a::HRParamArray,b::HRParamArray)
@@ -85,7 +35,7 @@ function Base.fill!(a::HRParamArray,b::Number)
   fill!(a.hypred,b)
 end
 
-function LinearAlgebra.fillstored!(a::AbstractHRParamArray,b::Number)
+function LinearAlgebra.fillstored!(a::HRParamArray,b::Number)
   fill!(a,b)
 end
 
@@ -97,43 +47,30 @@ function Base.fill!(a::ArrayBlock,b::Number)
   end
 end
 
-function LinearAlgebra.rmul!(a::AbstractHRParamArray,b::Number)
+function LinearAlgebra.rmul!(a::HRParamArray,b::Number)
   rmul!(a.hypred,b)
 end
 
-function LinearAlgebra.axpy!(α::Number,a::AbstractHRParamArray,b::AbstractHRParamArray)
+function LinearAlgebra.axpy!(α::Number,a::HRParamArray,b::HRParamArray)
   axpy!(α,a.hypred,b.hypred)
 end
 
-function LinearAlgebra.axpy!(α::Number,a::AbstractHRParamArray,b::ParamArray)
+function LinearAlgebra.axpy!(α::Number,a::HRParamArray,b::ParamArray)
   axpy!(α,a.hypred,b)
 end
 
-function LinearAlgebra.norm(a::AbstractHRParamArray)
+function LinearAlgebra.norm(a::HRParamArray)
   norm(a.hypred)
 end
 
-function Utils.change_domains(a::AbstractHRParamArray,trians)
+function Utils.change_domains(a::HRParamArray,trians)
   fecache = change_domains(a.fecache,trians)
   coeff = change_domains(a.coeff,trians)
   hypred = a.hypred
-  hr_array(fecache,coeff,hypred)
+  HRParamArray(fecache,coeff,hypred)
 end
 
-function ParamAlgebra.compatible_cache(a::AbstractHRParamArray,b::AbstractHRParamArray)
+function ParamAlgebra.compatible_cache(a::HRParamArray,b::HRParamArray)
   hypred′ = compatible_cache(a.hypred,b.hypred)
-  hr_array(a.fecache,a.coeff,hypred′)
-end
-
-function Utils.change_domains(a::NoHRParamArray,trians)
-  fecache = change_domains(a.fecache,trians)
-  rbfecache = change_domains(a.rbfecache,trians)
-  coeff = change_domains(a.coeff,trians)
-  hypred = a.hypred
-  nohr_array(fecache,rbfecache,coeff,hypred)
-end
-
-function ParamAlgebra.compatible_cache(a::NoHRParamArray,b::NoHRParamArray)
-  hypred′ = compatible_cache(a.hypred,b.hypred)
-  nohr_array(a.fecache,a.rbfecache,a.coeff,hypred′)
+  HRParamArray(a.fecache,a.coeff,hypred′)
 end

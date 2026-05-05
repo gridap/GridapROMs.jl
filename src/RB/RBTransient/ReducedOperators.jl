@@ -150,10 +150,9 @@ function Algebra.allocate_residual(
   paramcache
   ) where {O,T}
 
-  b_fe = allocate_residual(op.op,r,us,paramcache)
-  b_rb = allocate_hypred_cache(get_rhs(op),r)
-  coeff = allocate_hypred_cache(get_rhs(op),r)
-  nohr_array(b_fe,b_rb,coeff,b_rb)
+  b = allocate_residual(op.op,r,us,paramcache)
+  b̂ = allocate_hypred_cache(get_rhs(op),r)
+  HRParamArray(b,b̂.coeff,b̂.hypred)
 end
 
 function Algebra.allocate_jacobian(
@@ -163,14 +162,13 @@ function Algebra.allocate_jacobian(
   paramcache
   ) where {O,T}
 
-  A_fe = allocate_jacobian(op.op,r,us,paramcache)
-  A_rb = allocate_hypred_cache(get_lhs(op),r)
-  coeff = allocate_hypred_cache(get_lhs(op),r)
-  nohr_array(A_fe,A_rb,coeff,A_rb)
+  A = allocate_jacobian(op.op,r,us,paramcache)
+  Â = allocate_hypred_cache(get_lhs(op),r)
+  HRParamArray(A,Â.coeff,Â.hypred)
 end
 
 function Algebra.residual!(
-  b::NoHRParamArray,
+  b::HRParamArray,
   op::TransientGenericRBOperator{O,T,<:NoHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
@@ -194,14 +192,14 @@ function Algebra.residual!(
   for strian in get_domains(rhs)
     vecdata = collect_cell_vector_for_trian(test,dc,strian)
     assemble_vector_add!(b.fecache[strian],assem,vecdata)
-    galerkin_projection!(b.rbfecache[strian],proj_test,b.fecache[strian])
+    galerkin_projection!(b.coeff[strian],proj_test,b.fecache[strian])
   end
 
   interpolate!(b,rhs)
 end
 
 function Algebra.jacobian!(
-  A::NoHRParamArray,
+  A::HRParamArray,
   op::TransientGenericRBOperator{O,T,<:NoHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
@@ -228,7 +226,7 @@ function Algebra.jacobian!(
 
   for k in 1:get_order(op)+1
     Ak = A.fecache[k]
-    Ark = A.rbfecache[k]
+    Ark = A.coeff[k]
     jac = jacs[k]
     w = ws[k]
     iszero(w) && continue
@@ -236,7 +234,7 @@ function Algebra.jacobian!(
     for strian in trian_jacs[k]
       matdata = collect_cell_matrix_for_trian(trial,test,dc,strian)
       assemble_matrix_add!(Ak[strian],assem,matdata)
-      galerkin_projection!(Ark[strian],proj_test,Ak[strian],proj_trial)
+      galerkin_projection!(Ak.coeff[strian],proj_test,Ak.fecache[strian],proj_trial)
     end
   end
 

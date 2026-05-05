@@ -355,18 +355,6 @@ function galerkin_projection(
   dropdims(rcore;dims=(1,2))
 end
 
-function galerkin_projection!(
-  cache::AbstractMatrix,
-  cores_left::Vector{<:AbstractArray{T,3}},
-  cores::Vector{<:AbstractArray{T,3}}
-  ) where T
-
-  @check size(cache) == (size(last(cores_left),3),size(last(cores),3))
-  rcores = map(contraction,cores_left,cores)
-  sequential_product!(cache,rcores...)
-  cache
-end
-
 function unbalanced_contractions(
   cores_left::Vector{<:AbstractArray{T,3}},
   cores::Vector{<:AbstractArray{T,3}},
@@ -401,24 +389,6 @@ function galerkin_projection(
 
   rcore = sequential_product(rcores...)
   dropdims(rcore;dims=(1,2,3))
-end
-
-function galerkin_projection!(
-  cache::AbstractMatrix,
-  cores_left::Vector{<:AbstractArray{T,3}},
-  cores::Vector{<:AbstractArray{T,3}},
-  cores_right::Vector{<:AbstractArray{T,3}}
-  ) where T
-
-  @check size(cache) == (size(last(cores_left),3),size(last(cores_right),3))
-  if length(cores_left) == length(cores) == length(cores_right)
-    rcores = map(contraction,cores_left,cores,cores_right)
-  else
-    rcores = unbalanced_contractions(cores_left,cores,cores_right)
-  end
-
-  sequential_product!(cache,rcores...)
-  cache
 end
 
 # supremizer computation for tensor train decompositions

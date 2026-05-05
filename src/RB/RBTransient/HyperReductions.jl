@@ -76,7 +76,7 @@ function RBSteady.allocate_hypred_cache(a::TupOfAffineContribution,args...)
   fecache = map(ai -> RBSteady.allocate_coefficient(ai,args...),a)
   coeffs = map(ai -> RBSteady.allocate_coefficient(ai,args...),a)
   hypred = RBSteady.allocate_hyper_reduction(first(a),args...)
-  return hr_array(fecache,coeffs,hypred)
+  return HRParamArray(fecache,coeffs,hypred)
 end
 
 function get_common_time_domain(a::HRProjection...)

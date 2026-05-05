@@ -222,64 +222,12 @@ function RBSteady.galerkin_projection(
   return ReducedProjection(proj_basis)
 end
 
-function RBSteady.galerkin_projection!(
-  proj_basis,
-  proj_left::KroneckerProjection,
-  a::KroneckerProjection
-  )
 
-  @check size(proj_basis) == (num_reduced_dofs(proj_left),num_reduced_dofs(a))
-  proj_basis_space = galerkin_projection(get_basis_space(proj_left),get_basis_space(a))
-  proj_basis_time = galerkin_projection(get_basis_time(proj_left),get_basis_time(a))
-  kron!(proj_basis,proj_basis_time,proj_basis_space)
-  return ReducedProjection(proj_basis)
-end
 
-function RBSteady.galerkin_projection!(
-  proj_basis,
-  proj_left::KroneckerProjection,
-  a::KroneckerProjection,
-  proj_right::KroneckerProjection
-  )
 
-  @notimplemented "In unsteady problems, we need to provide a combining function"
-end
 
-function RBSteady.galerkin_projection!(
-  proj_basis,
-  proj_left::KroneckerProjection,
-  a::KroneckerProjection,
-  proj_right::KroneckerProjection,
-  combine
-  )
 
-  @check size(proj_basis) == (
-    num_reduced_dofs(proj_left),
-    num_reduced_dofs(a),
-    num_reduced_dofs(proj_right)
-  )
 
-  proj_basis_space = galerkin_projection(
-    get_basis_space(proj_left),
-    get_basis_space(a),
-    get_basis_space(proj_right))
-
-  proj_basis_time = galerkin_projection(
-    get_basis_time(proj_left),
-    get_basis_time(a),
-    get_basis_time(proj_right),
-    combine)
-
-  ns = num_reduced_dofs(a.projection_space)
-  nt = num_reduced_dofs(a.projection_time)
-
-  @inbounds for is = 1:ns, it = 1:nt
-    ist = (it-1)*ns+is
-    @views proj_basis[:,ist,:] = kron(proj_basis_time[:,it,:],proj_basis_space[:,is,:])
-  end
-
-  return ReducedProjection(proj_basis)
-end
 
 function RBSteady.projection_eltype(a::KroneckerProjection)
   T = projection_eltype(a.projection_space)
@@ -358,25 +306,9 @@ function RBSteady.galerkin_projection(
   RBSteady._galerkin_projection(get_dof_map(a),proj_left,a,proj_right,combine)
 end
 
-function RBSteady.galerkin_projection!(
-  proj_basis,
-  proj_left::SequentialProjection,
-  a::SequentialProjection
-  )
 
-  galerkin_projection!(proj_basis,proj_left.projection,a.projection)
-end
 
-function RBSteady.galerkin_projection!(
-  proj_basis,
-  proj_left::SequentialProjection,
-  a::SequentialProjection,
-  proj_right::SequentialProjection,
-  combine
-  )
 
-  RBSteady._galerkin_projection!(get_dof_map(a),proj_basis,proj_left,a,proj_right,combine)
-end
 
 function RBSteady.projection_eltype(a::SequentialProjection)
   projection_eltype(a.projection)
@@ -409,34 +341,6 @@ function RBSteady.enrich!(
   a::BlockProjection,
   norm_matrix::BlockMatrix,
   supr_matrix::BlockMatrix
-  ) where A
-
-  @check a.touched[1] "Primal field not defined"
-  tol = RBSteady.get_supr_tol(red)
-  a_primal,a_dual... = a.array
-  a_primal_space = a_primal.projection_space
-  a_primal_time = a_primal.projection_time
-  X_primal = norm_matrix[Block(1,1)]
-  H_primal = symcholesky(X_primal)
-  for i = eachindex(a_dual)
-    dual_i_space = get_basis_space(a_dual[i])
-    C_primal_dual_i = supr_matrix[Block(1,i+1)]
-    supr_space_i = H_primal \ C_primal_dual_i * dual_i_space
-    a_primal_space = union_bases(a_primal_space,supr_space_i,H_primal)
-
-    dual_i_time = get_basis_time(a_dual[i])
-    a_primal_time = time_enrichment(a_primal_time,dual_i_time;tol)
-  end
-  a[1] = KroneckerProjection(a_primal_space,a_primal_time)
-  return
-end
-
-function RBSteady.enrich!(
-  red::SupremizerReduction{A,<:SequentialReduction},
-  a::BlockProjection,
-  norm_matrix::BlockRankTensor,
-  supr_matrix::BlockRankTensor;
-  kwargs...
   ) where A
 
   @check a.touched[1] "Primal field not defined"

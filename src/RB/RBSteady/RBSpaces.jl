@@ -137,7 +137,7 @@ ParamDataStructures.param_length(r::RBSpace) = param_length(get_fe_space(r))
 function FESpaces.zero_free_values(r::RBSpace)
   x = zero_free_values(get_fe_space(r))
   x̂ = project(r,x)
-  reduced_vector(x̂,x)
+  RBParamVector(x̂,x)
 end
 
 FESpaces.zero_dirichlet_values(r::RBSpace) = zero_dirichlet_values(get_fe_space(r))
@@ -181,11 +181,11 @@ function project(r1::RBSpace,x::Projection,r2::RBSpace)
 end
 
 function project!(cache,r::RBSpace,x::Projection)
-  galerkin_projection!(cache,get_reduced_subspace(r),x)
+  copyto!(cache,galerkin_projection(get_reduced_subspace(r),x))
 end
 
 function project!(cache,r1::RBSpace,x::Projection,r2::RBSpace)
-  galerkin_projection!(cache,get_reduced_subspace(r1),x,get_reduced_subspace(r2))
+  copyto!(cache,galerkin_projection(get_reduced_subspace(r1),x,get_reduced_subspace(r2)))
 end
 
 function FESpaces.FEFunction(r::RBSpace,x̂::AbstractVector)

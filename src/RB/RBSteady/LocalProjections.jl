@@ -40,21 +40,6 @@ function galerkin_projection(
   LocalProjection(b̂,b.k)
 end
 
-function galerkin_projection!(b̂,a::LocalProjection,b::LocalProjection)
-  @notimplemented
-end
-
-function galerkin_projection!(
-  b̂,
-  a::LocalProjection,
-  b::LocalProjection,
-  c::LocalProjection,
-  args...
-  )
-  
-  @notimplemented
-end
-
 CellData.get_domains(a::LocalProjection) = map(get_domains,a.projections)
 
 function Utils.change_domains(a::LocalProjection,trians)

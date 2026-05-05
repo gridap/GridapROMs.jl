@@ -144,19 +144,9 @@ function galerkin_projection(a::Projection,b::Projection)
   return ReducedProjection(b̂)
 end
 
-function galerkin_projection!(b̂,a::Projection,b::Projection)
-  galerkin_projection!(b̂,get_basis(a),get_basis(b))
-  return b̂
-end
-
 function galerkin_projection(a::Projection,b::Projection,c::Projection,args...)
   b̂ = galerkin_projection(get_basis(a),get_basis(b),get_basis(c),args...)
   return ReducedProjection(b̂)
-end
-
-function galerkin_projection!(b̂,a::Projection,b::Projection,c::Projection,args...)
-  galerkin_projection!(b̂,get_basis(a),get_basis(b),get_basis(c),args...)
-  return b̂
 end
 
 """
@@ -461,23 +451,6 @@ function galerkin_projection(
   _galerkin_projection(get_dof_map(a),proj_left,a,proj_right)
 end
 
-function galerkin_projection!(proj_basis,proj_left::TTSVDProjection,a::TTSVDProjection)
-  cores_left = get_cores(proj_left)
-  cores = get_cores(a)
-  galerkin_projection!(proj_basis,cores_left,cores)
-  return ReducedProjection(proj_basis)
-end
-
-function galerkin_projection!(
-  proj_basis,
-  proj_left::TTSVDProjection,
-  a::TTSVDProjection,
-  proj_right::TTSVDProjection
-  )
-
-  _galerkin_projection!(get_dof_map(a),proj_basis,proj_left,a,proj_right)
-end
-
 function projection_eltype(a::TTSVDProjection)
   promote_type(map(eltype,get_cores(a))...)
 end
@@ -581,21 +554,6 @@ function galerkin_projection(
   )
 
   galerkin_projection(get_projection(proj_left),get_projection(a),get_projection(proj_right),args...)
-end
-
-function galerkin_projection!(proj_basis,proj_left::NormedProjection,a::Projection)
-  galerkin_projection!(proj_basis,proj_left.projection,get_projection(a))
-end
-
-function galerkin_projection!(
-  proj_basis,
-  proj_left::NormedProjection,
-  a::Projection,
-  proj_right::NormedProjection,
-  args...
-  )
-
-  galerkin_projection!(proj_basis,get_projection(proj_left),get_projection(a),get_projection(proj_right),args...)
 end
 
 for f in (:empirical_interpolation,:s_opt)
@@ -851,35 +809,6 @@ function _galerkin_projection(
   )
 
   proj_basis = galerkin_projection(get_basis(proj_left),get_basis(a),get_basis(proj_right))
-  return ReducedProjection(proj_basis)
-end
-
-function _galerkin_projection!(
-  ::AbstractDofMap,
-  proj_basis,
-  proj_left::TTSVDProjection,
-  a::TTSVDProjection,
-  proj_right::TTSVDProjection,
-  args...
-  )
-
-  cores_left = get_cores(proj_left)
-  cores = get_cores(a)
-  cores_right = get_cores(proj_right)
-  galerkin_projection!(proj_basis,cores_left,cores,cores_right,args...)
-  return ReducedProjection(proj_basis)
-end
-
-function _galerkin_projection!(
-  ::TrivialDofMap,
-  proj_basis,
-  proj_left::TTSVDProjection,
-  a::TTSVDProjection,
-  proj_right::TTSVDProjection,
-  args...
-  )
-
-  galerkin_projection!(proj_basis,get_basis(proj_left),get_basis(a),get_basis(proj_right),args...)
   return ReducedProjection(proj_basis)
 end
 

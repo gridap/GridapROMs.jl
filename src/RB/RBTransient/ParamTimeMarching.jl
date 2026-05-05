@@ -11,7 +11,7 @@ function Algebra.solve(
   for uh0 in uhs0
     u0 = get_free_dof_values(uh0(params))
     û0 = project(trial,u0)
-    us0 = (us0...,reduced_vector(û0,u0))
+    us0 = (us0...,RBParamVector(û0,u0))
   end
   solve(solver,op,r,us0)
 end

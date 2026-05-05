@@ -12,10 +12,6 @@ struct RBParamVector{T,A<:ParamVector{T},B} <: ParamArray{T,1}
   fe_data::B
 end
 
-function reduced_vector(data::AbstractParamVector,fe_data::AbstractParamVector)
-  RBParamVector(data,fe_data)
-end
-
 Base.size(a::RBParamVector) = size(a.data)
 Base.axes(a::RBParamVector) = axes(a.data)
 Base.getindex(a::RBParamVector,i::Integer) = getindex(a.data,i)

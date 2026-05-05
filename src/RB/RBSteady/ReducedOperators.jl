@@ -296,7 +296,7 @@ function Algebra.allocate_residual(
 
   b = allocate_residual(op.op,r,u,paramcache)
   b̂ = allocate_hypred_cache(get_rhs(op),r)
-  nohr_array(b,b̂)
+  HRParamArray(b,b̂.coeff,b̂.hypred)
 end
 
 function Algebra.allocate_jacobian(
@@ -308,11 +308,11 @@ function Algebra.allocate_jacobian(
 
   A = allocate_jacobian(op.op,r,u,paramcache)
   Â = allocate_hypred_cache(get_lhs(op),r)
-  nohr_array(A,Â)
+  HRParamArray(A,Â.coeff,Â.hypred)
 end
 
 function Algebra.residual!(
-  b::NoHRParamArray,
+  b::HRParamArray,
   op::GenericRBOperator{O,SplitDomains,A,<:NoHRContribution},
   r::Realisation,
   u::AbstractVector,
@@ -335,14 +335,14 @@ function Algebra.residual!(
   for strian in get_domains(rhs)
     vecdata = collect_cell_vector_for_trian(test,dc,strian)
     assemble_vector_add!(b.fecache[strian],assem,vecdata)
-    galerkin_projection!(b.rbfecache[strian],proj_test,b.fecache[strian])
+    galerkin_projection!(b.coeff[strian],proj_test,b.fecache[strian])
   end
 
   interpolate!(b,rhs)
 end
 
 function Algebra.jacobian!(
-  A::NoHRParamArray,
+  A::HRParamArray,
   op::GenericRBOperator{O,SplitDomains,<:NoHRContribution,B},
   r::Realisation,
   u::AbstractVector,
@@ -368,7 +368,7 @@ function Algebra.jacobian!(
   for strian in get_domains(lhs)
     matdata = collect_cell_matrix_for_trian(trial,test,dc,strian)
     assemble_matrix_add!(A.fecache[strian],assem,matdata)
-    galerkin_projection!(A.rbfecache[strian],proj_test,A.fecache[strian],proj_trial)
+    galerkin_projection!(A.coeff[strian],proj_test,A.fecache[strian],proj_trial)
   end
 
   interpolate!(A,lhs)
