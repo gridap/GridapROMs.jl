@@ -84,7 +84,7 @@ function FESpaces.interpolate!(
   )
 
   o = one(eltype2(b̂))
-  axpy!(o,x,b̂)
+  hr_axpy!(o,x,b̂)
   return b̂
 end
 
@@ -680,4 +680,14 @@ function reduced_form(
   red_trian = reduced_triangulation(trian,hyper_red)
 
   return hyper_red,red_trian
+end
+
+# utils 
+
+hr_axpy!(α,a,b) = axpy!(α,a,b)
+
+function hr_axpy!(α,a::AbstractParamMatrix,b::AbstractParamMatrix)
+  dataa = get_all_data(a)
+  datab = get_all_data(b)
+  axpy!(α,permutedims(dataa,(1,3,2)),datab)
 end

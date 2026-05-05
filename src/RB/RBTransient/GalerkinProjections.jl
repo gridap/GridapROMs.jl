@@ -107,7 +107,31 @@ function galerkin_projection!(
   combine::TimeCombination
   ) 
 
-  galerkin_projection!(get_all_data(proj_basis),basis_left,basis,basis_right,combine)
+  nleft = size(basis_left,2)
+  n = size(basis,1)
+  nright = size(basis_right,2)
+  cache = get_all_data(proj_basis)
+  if size(cache) == (nleft,n,nright)
+    galerkin_projection!(cache,basis_left,basis,basis_right,combine)
+  else
+    @check size(cache) == (nleft,nright,n)
+    @check size(basis_left,1) == Nt
+    @check size(basis_right,1) == Nt
+
+    θ = get_coefficients(combine,Nt)
+
+    @inbounds for i = 1:nleft, j = 1:nright, k = 1:n
+      s = zero(T)
+      for γ = eachindex(θ)
+        for α = axes(basis,1)
+          α+γ > Nt+1 && break 
+          s += θ[γ]*basis_left[α+γ-1,i]*basis[α+γ-1,k]*basis_right[α,j]
+        end
+      end
+      cache[i,j,k] = s
+    end
+  end
+  return proj_basis
 end
 
 function RBSteady.galerkin_projection!(

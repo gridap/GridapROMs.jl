@@ -83,5 +83,17 @@ function galerkin_projection!(
   basis_right::AbstractMatrix
   ) 
 
-  galerkin_projection!(get_all_data(proj_basis),basis_left,basis,basis_right)
+  nleft = size(basis_left,2)
+  n = size(basis,1)
+  nright = size(basis_right,2)
+  cache = get_all_data(proj_basis)
+  if size(cache) == (nleft,n,nright)
+    galerkin_projection!(cache,basis_left,basis,basis_right)
+  else
+    @check size(cache) == (nleft,nright,n)
+    @inbounds for i = 1:n
+      @views cache[:,:,i] = basis_left'*param_getindex(basis,i)*basis_right
+    end
+  end
+  return proj_basis
 end

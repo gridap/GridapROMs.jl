@@ -317,7 +317,7 @@ function LinearAlgebra.mul!(
   α::Number,β::Number
   )
 
-  contraction!(x.data,get_basis(b),y.data,α,β)
+  contraction!(get_all_data(x),get_basis(b),get_all_data(y),α,β)
 end
 
 """

@@ -81,11 +81,6 @@ function FESpaces.interpolate!(cache::AbstractArray,a::GreedyInterpolation,b::Ab
   cache
 end
 
-function FESpaces.interpolate!(cache::AbstractArray,a::GreedyInterpolation,r::AbstractRealisation)
-  interpolate!(cache,a.interpolation,r)
-  cache
-end
-
 function move_interpolation(a::GreedyInterpolation,args...)
   domain = move_integration_domain(a.domain,args...)
   GreedyInterpolation(a.interpolation,domain)
@@ -110,11 +105,6 @@ function Interpolation(red::RBFHyperReduction,a::Projection,s::Snapshots)
 end
 
 get_integration_cells(a::RBFHyperReduction,trian::AppendedTriangulation) = lazy_append(Int32[],Int32[])
-
-function FESpaces.interpolate!(cache::AbstractArray,a::RBFInterpolation,b::AbstractArray)
-  interpolate!(cache,a.interpolation,b)
-  cache
-end
 
 function FESpaces.interpolate!(cache::AbstractArray,a::RBFInterpolation,r::AbstractRealisation)
   interpolate!(cache,a.interpolation,r)

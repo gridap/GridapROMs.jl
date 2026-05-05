@@ -189,18 +189,19 @@ function Algebra.residual!(
   res = get_res(op)
   dc = res(μ,t,uh,v)
   assem = get_param_assembler(op,r)
+  proj_test = get_basis(test)
 
   for strian in get_domains(rhs)
     vecdata = collect_cell_vector_for_trian(test,dc,strian)
     assemble_vector_add!(b.fecache[strian],assem,vecdata)
-    project!(b.rbfecache[strian],test,b.fecache[strian])
+    galerkin_projection!(b.rbfecache[strian],proj_test,b.fecache[strian])
   end
 
   interpolate!(b,rhs)
 end
 
 function Algebra.jacobian!(
-  A::HRParamArray,
+  A::NoHRParamArray,
   op::TransientGenericRBOperator{O,T,<:NoHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
@@ -222,16 +223,20 @@ function Algebra.jacobian!(
   jacs = get_jacs(op)
   trian_jacs = get_domains_jac(op)
   assem = get_param_assembler(op,r)
+  proj_trial = get_basis(trial)
+  proj_test = get_basis(test)
 
   for k in 1:get_order(op)+1
+    Ak = A.fecache[k]
+    Ark = A.rbfecache[k]
     jac = jacs[k]
     w = ws[k]
     iszero(w) && continue
     dc = w * jac(μ,t,uh,du,v)
     for strian in trian_jacs[k]
       matdata = collect_cell_matrix_for_trian(trial,test,dc,strian)
-      assemble_matrix_add!(A.fecache[strian],assem,matdata)
-      project!(A.rbfecache[strian],trial,test,A.fecache[strian])
+      assemble_matrix_add!(Ak[strian],assem,matdata)
+      galerkin_projection!(Ark[strian],proj_test,Ak[strian],proj_trial)
     end
   end
 
