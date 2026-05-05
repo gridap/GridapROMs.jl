@@ -307,7 +307,7 @@ function Algebra.allocate_jacobian(
   ) where {O,T,B}
 
   A = allocate_jacobian(op.op,r,u,paramcache)
-  Â = allocate_hypred_cache(get_rhs(op),r)
+  Â = allocate_hypred_cache(get_lhs(op),r)
   nohr_array(A,Â)
 end
 
@@ -363,7 +363,7 @@ function Algebra.jacobian!(
   for strian in get_domains(lhs)
     matdata = collect_cell_matrix_for_trian(trial,test,dc,strian)
     assemble_matrix_add!(A.fecache[strian],assem,matdata)
-    project!(A.rbfecache[strian],trial,test,A.fecache[strian])
+    project!(A.rbfecache[strian],test,A.fecache[strian],trial)
   end
 
   interpolate!(A,lhs)

@@ -68,19 +68,20 @@ function project!(
   x::AbstractArray,
   norm_matrix::AbstractMatrix
   )
+
   project!(x̂,a,norm_matrix*x)
 end
 
 function project!(
   x̂::AbstractArray,
   a::Projection,
-  b::Projection,
-  x::AbstractArray
+  x::AbstractArray,
+  b::Projection
   )
 
   ba = get_basis(a)
   bb = get_basis(b)
-  mul!(x̂,ba',x*bb)
+  _sparse_to_full_mul(x̂,ba,x,bb)
 end
 
 """
@@ -109,13 +110,11 @@ end
 function inv_project!(
   x::AbstractArray,
   a::Projection,
-  b::Projection,
-  x̂::AbstractArray
+  x̂::AbstractArray,
+  b::Projection
   )
 
-  ba = get_basis(a)
-  bb = get_basis(b)
-  mul!(x,ba,x̂*bb')
+  @notimplemented "Need to provide a sparsity pattern"
 end
 
 """
@@ -425,18 +424,18 @@ get_basis(a::TTSVDProjection) = cores2basis(get_cores(a)...)
 num_fe_dofs(a::TTSVDProjection) = prod(map(c -> size(c,2),get_cores(a)))
 num_reduced_dofs(a::TTSVDProjection) = size(last(get_cores(a)),3)
 
-#TODO this needs to be fixed; for now it's ok, since it's only used to generate
-# zero free reduced dof values
 function project!(
   x̂::AbstractArray,
   a::TTSVDProjection,
   x::AbstractArray,
   norm_matrix::AbstractRankTensor
   )
-  # a′ = rescale(_sparse_rescaling,norm_matrix,a)
-  # basis′ = get_basis(a′)
-  # mul!(x̂,basis′',x)
-  x̂
+
+  a′ = PODProjection(get_basis(a))
+  k_norm_matrix = kron(norm_matrix)
+  k_norm_matrix′ = _make_compatible(k_norm_matrix,a′)
+  k_a′ = NormedProjection(a′,k_norm_matrix′)
+  project!(x̂,k_a′,x)
 end
 
 function union_bases(a::TTSVDProjection,b::TTSVDProjection,args...)
@@ -834,8 +833,35 @@ function _galerkin_projection(
   return ReducedProjection(proj_basis)
 end
 
+function _sparse_to_full_mul(x̂::AbstractMatrix,ba,x::AbstractMatrix,bb)
+  cache = zeros(size(x,1),size(bb,2))
+  _sparse_to_full_mul!(x̂,ba,x,bb,cache)
+end
+
+function _sparse_to_full_mul(x̂::AbstractParamMatrix,ba,x::AbstractParamMatrix,bb)
+  @check param_length(x̂) == param_length(x)
+  x1 = testitem(x)
+  cache = zeros(size(x1,1),size(bb,2))
+  @inbounds for i in param_eachindex(x)
+    _sparse_to_full_mul!(param_getindex(x̂,i),ba,param_getindex(x,i),bb,cache)
+  end
+end
+
+function _sparse_to_full_mul!(x̂,ba,x,bb,cache)
+  mul!(cache,x,bb)
+  mul!(x̂,ba',cache)
+  x̂
+end
+
 _proj_type(::PODReduction) = PODProjection
 _proj_type(::TTSVDReduction) = TTSVDProjection
-_proj_type(::PODReduction,::MatrixOrTensor) = NormedProjection
 _proj_type(::LocalReduction) = LocalProjection
+_proj_type(::PODReduction,::MatrixOrTensor) = NormedProjection
+_proj_type(::TTSVDReduction,::MatrixOrTensor) = NormedProjection
 _proj_type(::LocalReduction,::MatrixOrTensor) = LocalProjection
+
+function _make_compatible(X::AbstractMatrix,a::Projection)
+  size(X,1) == num_fe_dofs(a) && return X 
+  d = Int(num_fe_dofs(a) / size(X,1))
+  kron(I(d),X)
+end

@@ -17,7 +17,7 @@ function main(
 
   method = method ∈ (:pod,:ttsvd) ? method : :pod
   compression = compression ∈ (:global,:local) ? compression : :global
-  hypred_strategy = hypred_strategy ∈ (:mdeim,:sopt) ? hypred_strategy : :mdeim
+  hypred_strategy = hypred_strategy ∈ (:none,:affine,:mdeim,:sopt,:rbf) ? hypred_strategy : :mdeim
 
   println("Running test with compression $method, $compression compressions, and $hypred_strategy hyper-reduction")
 
@@ -75,6 +75,7 @@ function main(
   feop = LinearParamOperator(res,stiffness,pspace,trial,test,domains)
   
   dir = datadir("diagnostics")
+  rm(dir;recursive=true)
   create_dir(dir)
 
   tols = [1e-1,1e-2,1e-3,1e-4,1e-5]
@@ -82,11 +83,9 @@ function main(
 
   dgn = rom_diagnostics(dir,rbsolver,feop)
   println(dgn)
-
-  rm(dir;recursive=true)
 end
 
-for method in (:pod,:ttsvd), compression in (:local,:global), hypred_strategy in (:mdeim,:sopt)
+for method in (:pod,:ttsvd), compression in (:local,:global), hypred_strategy in (:none,:affine,:mdeim,:sopt,:rbf)
   main(method,compression,hypred_strategy)
 end
 

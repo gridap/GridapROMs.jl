@@ -474,9 +474,10 @@ function hr_error_res(
   msg = "fecache mismatch at DEIM interpolation rows"
   Φ_test = get_basis(get_reduced_subspace(test))  
   rows = get_interpolation_rows(get_interpolation(a))
-  @check isapprox(get_all_data(fecache),get_all_data(res)[rows,:];rtol=1e-8) msg
+  bdata = get_all_data(get_param_data(res))
+  @check isapprox(get_all_data(fecache),bdata[rows,:];rtol=1e-8) msg
 
-  b̂ = galerkin_projection(Φ_test,get_all_data(res))
+  b̂ = galerkin_projection(Φ_test,bdata)
 
   μ = get_realisation(res)
   i = VectorDofMap(size(b̂,1))
@@ -503,7 +504,8 @@ function hr_error_jac(
   cols = get_interpolation_cols(get_interpolation(a))
   sparsity = get_sparsity(get_dof_map(jac))
   inds = sparsify_split_indices(rows,cols,sparsity)
-  @check isapprox(get_all_data(fecache),get_all_data(jac)[inds,:];rtol=1e-8) msg
+  Adata = get_all_data(get_param_data(jac))
+  @check isapprox(get_all_data(fecache),Adata[inds,:];rtol=1e-8) msg
 
   μ = get_realisation(jac)
   Â = galerkin_projection(Φ_test,recast(jac),Φ_trial)

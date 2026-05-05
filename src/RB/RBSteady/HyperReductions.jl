@@ -293,6 +293,10 @@ function allocate_coefficient(a::HRProjection)
   return coeff
 end
 
+function allocate_coefficient(a::NoHRProjection)
+  allocate_hyper_reduction(a)
+end
+
 function allocate_hyper_reduction(a::HRVecProjection)
   T = projection_eltype(a)
   nrows = num_reduced_dofs_left_projector(a)
@@ -607,8 +611,12 @@ end
 
 for T in (:AffineContribution,:BlockHRProjection)
   @eval begin
-    function FESpaces.interpolate!(cache::AbstractHRParamArray,a::$T)
+    function FESpaces.interpolate!(cache::HRParamArray,a::$T)
       interpolate!(cache.hypred,cache.coeff,a,cache.fecache)
+    end
+
+    function FESpaces.interpolate!(cache::NoHRParamArray,a::$T)
+      interpolate!(cache.hypred,cache.coeff,a,cache.rbfecache)
     end
 
     function FESpaces.interpolate!(cache::AbstractHRParamArray,a::$T,r::AbstractRealisation)
