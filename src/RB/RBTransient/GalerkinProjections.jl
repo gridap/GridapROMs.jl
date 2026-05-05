@@ -8,6 +8,15 @@ function RBSteady.galerkin_projection(
 end
 
 function RBSteady.galerkin_projection(
+  basis_left::AbstractMatrix,
+  basis::AbstractParamVector,
+  combine::TimeCombination
+  )
+
+  galerkin_projection(basis_left,get_all_data(basis),combine)
+end
+
+function RBSteady.galerkin_projection(
   basis_left::AbstractMatrix{S},
   basis::AbstractMatrix{T},
   basis_right::AbstractMatrix{S},
@@ -49,6 +58,17 @@ function RBSteady.galerkin_projection!(
 end
 
 function RBSteady.galerkin_projection!(
+  proj_basis::AbstractParamVector,
+  basis_left::AbstractMatrix,
+  basis::AbstractParamVector,
+  combine::TimeCombination
+  )
+
+  galerkin_projection!(get_all_data(proj_basis),basis_left,get_all_data(basis),combine)
+  return proj_basis
+end
+
+function RBSteady.galerkin_projection!(
   proj_basis::AbstractArray{T,3} where T,
   basis_left::AbstractMatrix,
   basis::AbstractMatrix,
@@ -77,6 +97,17 @@ function RBSteady.galerkin_projection!(
   end
 
   return proj_basis
+end
+
+function galerkin_projection!(
+  proj_basis::AbstractParamMatrix,
+  basis_left::AbstractMatrix,
+  basis::AbstractMatrix,
+  basis_right::AbstractMatrix,
+  combine::TimeCombination
+  ) 
+
+  galerkin_projection!(get_all_data(proj_basis),basis_left,basis,basis_right,combine)
 end
 
 function RBSteady.galerkin_projection!(

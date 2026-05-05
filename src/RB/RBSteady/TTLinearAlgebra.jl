@@ -282,9 +282,9 @@ function sequential_product(
 
   @check size(factor1,1) == size(factor1,2) == size(factor1,3) == 1
   if size(factor1,4) == size(factor2,1) && size(factor1,5) == size(factor2,2)
-    _seq_prod_missing_trial(factor1,factor2)
+    _seq_prod_missing_right(factor1,factor2)
   else size(factor1,5) == size(factor2,1) && size(factor1,6) == size(factor2,2)
-    _seq_prod_missing_test(factor1,factor2)
+    _seq_prod_missing_left(factor1,factor2)
   end
 end
 
@@ -296,7 +296,7 @@ function sequential_product!(
 
   @check size(factor1,1) == size(factor1,2) == size(factor1,3) == 1
   if size(factor1,4) == size(factor2,1) && size(factor1,5) == size(factor2,2)
-    factor12 = _seq_prod_missing_trial(factor1,factor2)
+    factor12 = _seq_prod_missing_right(factor1,factor2)
     @check size(cache) == size(factor12)
     copyto!(cache,factor12)
   else size(factor1,5) == size(factor2,1) && size(factor1,6) == size(factor2,2)
@@ -346,73 +346,75 @@ function basis2core(basis::AbstractMatrix)
 end
 
 function galerkin_projection(
-  cores_test::Vector{<:AbstractArray{T,3}},
+  cores_left::Vector{<:AbstractArray{T,3}},
   cores::Vector{<:AbstractArray{T,3}}
   ) where T
 
-  rcores = map(contraction,cores_test,cores)
+  rcores = map(contraction,cores_left,cores)
   rcore = sequential_product(rcores...)
   dropdims(rcore;dims=(1,2))
 end
 
+function galerkin_projection!(
+  cache::AbstractMatrix,
+  cores_left::Vector{<:AbstractArray{T,3}},
+  cores::Vector{<:AbstractArray{T,3}}
+  ) where T
+
+  @check size(cache) == (size(last(cores_left),3),size(last(cores),3))
+  rcores = map(contraction,cores_left,cores)
+  sequential_product!(cache,rcores...)
+  cache
+end
+
 function unbalanced_contractions(
-  cores_test::Vector{<:AbstractArray{T,3}},
+  cores_left::Vector{<:AbstractArray{T,3}},
   cores::Vector{<:AbstractArray{T,3}},
-  cores_trial::Vector{<:AbstractArray{T,3}}
+  cores_right::Vector{<:AbstractArray{T,3}}
   ) where T
 
   map(1:length(cores)) do d
-    cond_test = isassigned(cores_test,d)
-    cond_trial = isassigned(cores_trial,d)
-    @notimplementedif !(cond_test || cond_trial)
-    if cond_test && cond_trial
-      contraction(cores_test[d],cores[d],cores_trial[d])
-    elseif cond_test
-      contraction(cores_test[d],cores[d])
+    cond_left = isassigned(cores_left,d)
+    cond_right = isassigned(cores_right,d)
+    @notimplementedif !(cond_left || cond_right)
+    if cond_left && cond_right
+      contraction(cores_left[d],cores[d],cores_right[d])
+    elseif cond_left
+      contraction(cores_left[d],cores[d])
     else
-      contraction(cores[d],cores_trial[d])
+      contraction(cores[d],cores_right[d])
     end
   end
 end
 
 function galerkin_projection(
-  cores_test::Vector{<:AbstractArray{T,3}},
+  cores_left::Vector{<:AbstractArray{T,3}},
   cores::Vector{<:AbstractArray{T,3}},
-  cores_trial::Vector{<:AbstractArray{T,3}}
+  cores_right::Vector{<:AbstractArray{T,3}}
   ) where T
 
-  if length(cores_test) == length(cores) == length(cores_trial)
-    rcores = map(contraction,cores_test,cores,cores_trial)
+  if length(cores_left) == length(cores) == length(cores_right)
+    rcores = map(contraction,cores_left,cores,cores_right)
   else
-    rcores = unbalanced_contractions(cores_test,cores,cores_trial)
+    rcores = unbalanced_contractions(cores_left,cores,cores_right)
   end
 
   rcore = sequential_product(rcores...)
   dropdims(rcore;dims=(1,2,3))
 end
 
-function galerkin_projection(
-  cache::AbstractMatrix,
-  cores_test::Vector{<:AbstractArray{T,3}},
-  cores::Vector{<:AbstractArray{T,3}}
-  ) where T
-
-  rcores = map(contraction,cores_test,cores)
-  sequential_product!(cache,rcores...)
-  cache
-end
-
 function galerkin_projection!(
   cache::AbstractMatrix,
-  cores_test::Vector{<:AbstractArray{T,3}},
+  cores_left::Vector{<:AbstractArray{T,3}},
   cores::Vector{<:AbstractArray{T,3}},
-  cores_trial::Vector{<:AbstractArray{T,3}}
+  cores_right::Vector{<:AbstractArray{T,3}}
   ) where T
 
-  if length(cores_test) == length(cores) == length(cores_trial)
-    rcores = map(contraction,cores_test,cores,cores_trial)
+  @check size(cache) == (size(last(cores_left),3),size(last(cores_right),3))
+  if length(cores_left) == length(cores) == length(cores_right)
+    rcores = map(contraction,cores_left,cores,cores_right)
   else
-    rcores = unbalanced_contractions(cores_test,cores,cores_trial)
+    rcores = unbalanced_contractions(cores_left,cores,cores_right)
   end
 
   sequential_product!(cache,rcores...)
@@ -483,17 +485,17 @@ end
   A
 end
 
-Base.@propagate_inbounds function _seq_prod_missing_trial(
+Base.@propagate_inbounds function _seq_prod_missing_right(
   factor1::AbstractArray{T,6},
   factor2::AbstractArray{S,4}
   ) where {T,S}
 
   factor1′ = permutedims(factor1,(1,2,3,6,4,5))
-  factor12′ = _seq_prod_missing_test(factor1′,factor2)
+  factor12′ = _seq_prod_missing_left(factor1′,factor2)
   permutedims(factor12′,(1,2,3,5,6,4))
 end
 
-Base.@propagate_inbounds function _seq_prod_missing_test(
+Base.@propagate_inbounds function _seq_prod_missing_left(
   factor1::AbstractArray{T,6},
   factor2::AbstractArray{S,4}
   ) where {T,S}

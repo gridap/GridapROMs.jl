@@ -188,7 +188,7 @@ function Algebra.residual!(
   t = get_times(r)
   res = get_res(op)
   dc = res(μ,t,uh,v)
-  assem = get_param_assembler(get_fe_operator(op),r)
+  assem = get_param_assembler(op,r)
 
   for strian in get_domains(rhs)
     vecdata = collect_cell_vector_for_trian(test,dc,strian)
@@ -221,7 +221,7 @@ function Algebra.jacobian!(
   t = get_times(r)
   jacs = get_jacs(op)
   trian_jacs = get_domains_jac(op)
-  assem = get_param_assembler(get_fe_operator(op),r)
+  assem = get_param_assembler(op,r)
 
   for k in 1:get_order(op)+1
     jac = jacs[k]

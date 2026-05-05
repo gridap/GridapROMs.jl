@@ -14,14 +14,32 @@ function galerkin_projection(
   return proj_basis
 end
 
+function galerkin_projection(
+  basis_left::AbstractMatrix,
+  basis::AbstractParamVector
+  )
+
+  galerkin_projection(basis_left,get_all_data(basis))
+end
+
 function galerkin_projection!(
   proj_basis::AbstractMatrix,
   basis_left::AbstractMatrix,
   basis::AbstractMatrix
   )
 
+  @check size(proj_basis) == (size(basis_left,2),size(basis,2))
   mul!(proj_basis,basis_left',basis)
   return proj_basis
+end
+
+function galerkin_projection!(
+  proj_basis::AbstractParamVector,
+  basis_left::AbstractMatrix,
+  basis::AbstractParamVector
+  )
+
+  galerkin_projection!(get_all_data(proj_basis),basis_left,get_all_data(basis))
 end
 
 function galerkin_projection(
@@ -56,4 +74,14 @@ function galerkin_projection!(
   end
 
   return proj_basis
+end
+
+function galerkin_projection!(
+  proj_basis::AbstractParamMatrix,
+  basis_left::AbstractMatrix,
+  basis::ParamSparseMatrix,
+  basis_right::AbstractMatrix
+  ) 
+
+  galerkin_projection!(get_all_data(proj_basis),basis_left,basis,basis_right)
 end

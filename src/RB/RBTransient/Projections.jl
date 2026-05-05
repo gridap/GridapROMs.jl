@@ -228,6 +228,7 @@ function RBSteady.galerkin_projection!(
   a::KroneckerProjection
   )
 
+  @check size(proj_basis) == (num_reduced_dofs(proj_left),num_reduced_dofs(a))
   proj_basis_space = galerkin_projection(get_basis_space(proj_left),get_basis_space(a))
   proj_basis_time = galerkin_projection(get_basis_time(proj_left),get_basis_time(a))
   kron!(proj_basis,proj_basis_time,proj_basis_space)
@@ -250,6 +251,12 @@ function RBSteady.galerkin_projection!(
   a::KroneckerProjection,
   proj_right::KroneckerProjection,
   combine
+  )
+
+  @check size(proj_basis) == (
+    num_reduced_dofs(proj_left),
+    num_reduced_dofs(a),
+    num_reduced_dofs(proj_right)
   )
 
   proj_basis_space = galerkin_projection(
@@ -356,6 +363,7 @@ function RBSteady.galerkin_projection!(
   proj_left::SequentialProjection,
   a::SequentialProjection
   )
+
   galerkin_projection!(proj_basis,proj_left.projection,a.projection)
 end
 
