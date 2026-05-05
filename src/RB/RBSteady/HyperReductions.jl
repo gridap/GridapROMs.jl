@@ -105,8 +105,8 @@ function FESpaces.interpolate!(
 
   o = one(eltype2(b̂))
   L = param_length(b̂)
-  ϕ = parameterise(get_basis(a),L)
-  axpy!(o,ϕ,b̂)
+  ϕ = get_basis(get_basis(a))
+  axpy!(o,parameterise(ϕ,L),b̂)
   return b̂
 end
 

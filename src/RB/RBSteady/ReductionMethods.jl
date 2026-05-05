@@ -168,7 +168,7 @@ Subtypes:
 """
 abstract type Reduction{A<:ReductionStyle,B<:NormStyle} end
 
-struct NoReduction{A,B} <: Reduction{NoReductionStyle,EuclideanNorm} end
+struct NoReduction <: Reduction{NoReductionStyle,EuclideanNorm} end
 
 """
     abstract type DirectReduction{A,B} <: Reduction{A,B} end
@@ -270,6 +270,14 @@ ParamDataStructures.num_params(r::TTSVDReduction) = r.nparams
 struct LocalReduction{A,B,R<:Reduction{A,B}} <: Reduction{A,B}
   reduction::R
   ncentroids::Int
+  function LocalReduction(
+    reduction::R,
+    ncentroids::Int
+    ) where {A,B,R<:Reduction{A,B}}
+    
+    nparams = num_params(reduction)
+    new{A,B,R}(reduction,min(ncentroids,nparams))
+  end
 end
 
 function LocalReduction(r::LocalReduction,ncentroids::Int)
@@ -431,7 +439,7 @@ ParamDataStructures.num_params(r::HyperReduction) = num_params(get_reduction(r))
 
 abstract type TrivialHyperReduction <: HyperReduction{NoReductionStyle} end
 
-get_reduction(r::TrivialHyperReduction) = r
+get_reduction(r::TrivialHyperReduction) = NoReduction()
 ReductionStyle(r::TrivialHyperReduction) = NoReductionStyle()
 NormStyle(r::TrivialHyperReduction) = EuclideanNorm()
 ParamDataStructures.num_params(r::TrivialHyperReduction) = 1
