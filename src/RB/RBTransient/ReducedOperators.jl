@@ -234,7 +234,7 @@ function Algebra.jacobian!(
     for strian in trian_jacs[k]
       matdata = collect_cell_matrix_for_trian(trial,test,dc,strian)
       assemble_matrix_add!(Ak[strian],assem,matdata)
-      galerkin_projection!(Ak.coeff[strian],proj_test,Ak.fecache[strian],proj_trial)
+      galerkin_projection!(Ark[strian],proj_test,Ak[strian],proj_trial)
     end
   end
 

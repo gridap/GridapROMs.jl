@@ -69,7 +69,7 @@ function galerkin_projection!(
   @check size(cache,1) == size(proj_basis,1)
   @check size(cache,2) == size(proj_basis,3)
   @check size(cache,3) == size(proj_basis,2)
-  @inbounds for i in eachindex(cache)
+  @inbounds @views for i in axes(proj_basis,2)
     cache[:,:,i] = proj_basis[:,i,:]
   end
   return cache

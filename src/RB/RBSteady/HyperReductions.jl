@@ -84,7 +84,7 @@ function FESpaces.interpolate!(
   )
 
   o = one(eltype2(b̂))
-  axpy!(o,x,b̂)
+  axpy!(o,coeff,b̂)
   return b̂
 end
 
@@ -286,7 +286,7 @@ function HRProjection(
   return HRProjection(proj_basis,red,interp)
 end
 
-function allocate_coefficient(a::HRProjection)
+function allocate_coefficient(a::Projection)
   T = projection_eltype(a)
   n = num_reduced_dofs(a)
   coeff = zeros(T,n)
@@ -313,7 +313,7 @@ function allocate_hyper_reduction(a::HRMatProjection)
 end
 
 for f in (:allocate_coefficient,:allocate_hyper_reduction)
-  @eval $f(a::HRProjection,r::AbstractRealisation) = parameterise($f(a),num_params(r))
+  @eval $f(a::Projection,r::AbstractRealisation) = parameterise($f(a),num_params(r))
 end
 
 """
