@@ -859,13 +859,14 @@ function _galerkin_projection!(
   proj_basis,
   proj_left::TTSVDProjection,
   a::TTSVDProjection,
-  proj_right::TTSVDProjection
+  proj_right::TTSVDProjection,
+  args...
   )
 
   cores_left = get_cores(proj_left)
   cores = get_cores(a)
   cores_right = get_cores(proj_right)
-  galerkin_projection!(proj_basis,cores_left,cores,cores_right)
+  galerkin_projection!(proj_basis,cores_left,cores,cores_right,args...)
   return ReducedProjection(proj_basis)
 end
 
@@ -874,10 +875,11 @@ function _galerkin_projection!(
   proj_basis,
   proj_left::TTSVDProjection,
   a::TTSVDProjection,
-  proj_right::TTSVDProjection
+  proj_right::TTSVDProjection,
+  args...
   )
 
-  galerkin_projection!(proj_basis,get_basis(proj_left),get_basis(a),get_basis(proj_right))
+  galerkin_projection!(proj_basis,get_basis(proj_left),get_basis(a),get_basis(proj_right),args...)
   return ReducedProjection(proj_basis)
 end
 

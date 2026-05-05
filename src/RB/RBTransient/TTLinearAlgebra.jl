@@ -45,9 +45,14 @@ Base.@propagate_inbounds function RBSteady.contraction!(
   A = reshape(permutedims(factor1,(2,1,3)),size(factor1,2),:)
   B = reshape(permutedims(factor2,(2,1,3)),size(factor2,2),:)
   C = reshape(permutedims(factor3,(2,1,3)),size(factor3,2),:)
+  s1,s2 = size(factor1,1),size(factor1,3)
+  s3,s4 = size(factor2,1),size(factor2,3)
+  s5,s6 = size(factor3,1),size(factor3,3)
+  @check size(cache) == (s1,s3,s5,s2,s4,s6)
+  ABCp = permutedims(cache,(1,4,2,5,3,6))
+  ABC = reshape(ABCp,size(A,2),size(B,2),size(C,2))
+  fill!(ABC,zero(T))
   θ = get_coefficients(combine,Nt)
-  TSU = promote_type(T,S,U,V)
-  ABC = zeros(TSU,size(A,2),size(B,2),size(C,2))
   for (iA,a) = enumerate(eachcol(A))
     for (iB,b) = enumerate(eachcol(B))
       for (iC,c) = enumerate(eachcol(C))
@@ -60,9 +65,5 @@ Base.@propagate_inbounds function RBSteady.contraction!(
       end
     end
   end
-  s1,s2 = size(factor1,1),size(factor1,3)
-  s3,s4 = size(factor2,1),size(factor2,3)
-  s5,s6 = size(factor3,1),size(factor3,3)
-  ABCp = permutedims(reshape(ABC,s1,s2,s3,s4,s5,s6),(1,3,5,2,4,6))
-  return ABCp
+  return cache
 end
