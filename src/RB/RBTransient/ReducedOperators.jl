@@ -144,11 +144,11 @@ function Algebra.jacobian!(
 end
 
 function Algebra.allocate_residual(
-  op::TransientGenericRBOperator{O,T,<:NoHRContribution},
+  op::GenericRBOperator{O,T,B,<:NoHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
-  ) where {O,T}
+  ) where {O,T,B}
 
   b = allocate_residual(op.op,r,us,paramcache)
   b̂ = allocate_hypred_cache(get_rhs(op),r)
@@ -156,11 +156,11 @@ function Algebra.allocate_residual(
 end
 
 function Algebra.allocate_jacobian(
-  op::TransientGenericRBOperator{O,T,<:NoHRContribution},
+  op::GenericRBOperator{O,T,<:TupOfNoHRContribution,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
-  ) where {O,T}
+  ) where {O,T,B}
 
   A = allocate_jacobian(op.op,r,us,paramcache)
   Â = allocate_hypred_cache(get_lhs(op),r)
@@ -169,11 +169,11 @@ end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::TransientGenericRBOperator{O,T,<:NoHRContribution},
+  op::GenericRBOperator{O,T,A,<:NoHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
-  ) where {O,T}
+  ) where {O,T,A}
 
   fill!(b,zero(eltype(b)))
 
@@ -200,12 +200,12 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::TransientGenericRBOperator{O,T,<:NoHRContribution},
+  op::GenericRBOperator{O,T,<:TupOfNoHRContribution,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
   paramcache
-  ) where {O,T}
+  ) where {O,T,B}
 
   fill!(A,zero(eltype(A)))
 
@@ -243,11 +243,11 @@ end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::TransientGenericRBOperator{O,T,<:AffineHRContribution},
+  op::GenericRBOperator{O,T,A,<:AffineHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
-  ) where {O,T}
+  ) where {O,T,A}
 
   fill!(b,zero(eltype(b)))
   interpolate!(b,op.rhs)
@@ -255,12 +255,12 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::TransientGenericRBOperator{O,T,<:AffineHRContribution},
+  op::GenericRBOperator{O,T,<:TupOfAffineHRContribution,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
   paramcache
-  ) where {O,T}
+  ) where {O,T,B}
 
   fill!(A,zero(eltype(A)))
   interpolate!(A,op.lhs)
@@ -268,11 +268,11 @@ end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::TransientGenericRBOperator{O,T,<:RBFContribution},
+  op::GenericRBOperator{O,T,A,<:RBFContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
-  ) where {O,T}
+  ) where {O,T,A}
 
   fill!(b,zero(eltype(b)))
   interpolate!(b,op.rhs,r)
@@ -280,18 +280,22 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::TransientGenericRBOperator{O,T,<:RBFContribution},
+  op::GenericRBOperator{O,T,<:TupOfRBFContribution,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
   paramcache
-  ) where {O,T}
+  ) where {O,T,B}
 
   fill!(A,zero(eltype(A)))
   interpolate!(A,op.lhs,r)
 end
 
-function RBSteady.get_local(op::TransientLocalRBOperator,μ::AbstractVector)
+function RBSteady.get_local(
+  op::TransientLocalRBOperator,
+  μ::AbstractVector
+  ) 
+  
   trialμ = get_local(op.trial,μ)
   testμ = get_local(op.test,μ)
   lhsμ = map(lhs->get_local(lhs,μ),op.lhs)

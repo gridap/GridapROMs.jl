@@ -41,6 +41,11 @@ function RBSteady.reduced_jacobian(
 end
 
 const TupOfAffineContribution = Tuple{Vararg{AffineContribution}}
+const TupOfNoHRContribution = Tuple{Vararg{NoHRContribution}}
+const TupOfAffineHRContribution = Tuple{Vararg{AffineHRContribution}}
+const TupOfMDEIMContribution = Tuple{Vararg{MDEIMContribution}}
+const TupOfSOPTContribution = Tuple{Vararg{SOPTContribution}}
+const TupOfRBFContribution = Tuple{Vararg{RBFContribution}}
 
 function RBSteady.allocate_coefficient(a::TupOfAffineContribution,b::TupOfArrayContribution)
   @check length(a) == length(b)

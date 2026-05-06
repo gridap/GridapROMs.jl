@@ -202,9 +202,9 @@ function HighDimHyperReduction(
   kwargs...
   )
   if hypred_strategy in (:no,:none,:nohr)
-    return NoHyperReduction()
+    return NoHighDimHyperReduction(combination)
   elseif hypred_strategy == :affine
-    return AffineHyperReduction()
+    return AffineHighDimHyperReduction(combination)
   elseif compression==:global
     reduction = HighDimReduction(args...;kwargs...)
     if hypred_strategy==:mdeim
@@ -277,6 +277,39 @@ function HighDimHyperReduction(
 
   hr = SteadyHyperReduction(reduction;kwargs...)
   _replace_reduction(hr)
+end
+
+abstract type TrivialHighDimHyperReduction <: HighDimHyperReduction{NoReductionStyle} end
+
+get_reduction(r::TrivialHighDimHyperReduction) = NoReduction()
+ReductionStyle(r::TrivialHighDimHyperReduction) = NoReductionStyle()
+NormStyle(r::TrivialHighDimHyperReduction) = EuclideanNorm()
+ParamDataStructures.num_params(r::TrivialHighDimHyperReduction) = 1
+
+"""
+    struct NoHighDimHyperReduction <: TrivialHighDimHyperReduction 
+      combination::TimeCombination
+    end
+
+Reduction employed when the input data is independent with respect to the
+considered realisation. Therefore, simply considering a number of parameters
+equal to 1 suffices for this type of reduction
+"""
+struct NoHighDimHyperReduction <: TrivialHighDimHyperReduction 
+  combination::TimeCombination
+end
+
+"""
+    struct AffineHighDimHyperReduction <: TrivialHighDimHyperReduction 
+      combination::TimeCombination
+    end
+
+Reduction employed when the input data is independent with respect to the
+considered realisation. Therefore, simply considering a number of parameters
+equal to 1 suffices for this type of reduction
+"""
+struct AffineHighDimHyperReduction <: TrivialHighDimHyperReduction 
+  combination::TimeCombination
 end
 
 """
@@ -363,8 +396,8 @@ end
 # utils
 
 _steady_reduction(r::HyperReduction) = SteadyReduction(get_reduction(r))
-_replace_reduction(r::NoHyperReduction) = r
-_replace_reduction(r::AffineHyperReduction) = r
+_replace_reduction(r::NoHighDimHyperReduction) = r
+_replace_reduction(r::AffineHighDimHyperReduction) = r
 _replace_reduction(r::MDEIMHyperReduction) = MDEIMHyperReduction(_steady_reduction(r))
 _replace_reduction(r::SOPTHyperReduction) = SOPTHyperReduction(_steady_reduction(r))
 _replace_reduction(r::RBFHyperReduction) = RBFHyperReduction(_steady_reduction(r),r.strategy)

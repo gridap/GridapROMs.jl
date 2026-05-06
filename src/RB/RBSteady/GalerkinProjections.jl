@@ -83,13 +83,14 @@ end
 
 function galerkin_projection(
   basis_left::VectorBlock,
-  basis::BlockParamVector
+  basis::BlockParamVector,
+  args...
   ) 
 
   block_cache = Vector{Any}(undef,length(basis_left))
   for i in eachindex(basis_left)
     if basis_left.touched[i]
-      block_cache[i] = galerkin_projection(basis_left[i],blocks(basis)[i])
+      block_cache[i] = galerkin_projection(basis_left[i],blocks(basis)[i],args...)
     end
   end
   return ArrayBlock(block_cache,basis_left.touched)
@@ -107,7 +108,7 @@ function galerkin_projection(
   for i in eachindex(basis_left), j in eachindex(basis_right)
     touched[i,j] = basis_left.touched[i] && basis_right.touched[j]
     if touched[i,j]
-      block_cache[i,j] = galerkin_projection(basis_left[i],blocks(basis)[i,j],basis_right[j])
+      block_cache[i,j] = galerkin_projection(basis_left[i],blocks(basis)[i,j],basis_right[j],args...)
     end
   end
   return ArrayBlock(block_cache,touched)
@@ -116,12 +117,13 @@ end
 function galerkin_projection!(
   cache::VectorBlock,
   basis_left::VectorBlock,
-  basis::BlockParamVector
+  basis::BlockParamVector,
+  args...
   )
 
   for i in 1:size(cache,1)
     if cache.touched[i]
-      galerkin_projection!(cache[i],basis_left[i],blocks(basis)[i])
+      galerkin_projection!(cache[i],basis_left[i],blocks(basis)[i],args...)
     end
   end
   return cache
@@ -137,7 +139,7 @@ function galerkin_projection!(
 
   for i in 1:size(cache,1), j in 1:size(cache,2)
     if cache.touched[i,j]
-      galerkin_projection!(cache[i,j],basis_left[i],blocks(basis)[i,j],basis_right[j])
+      galerkin_projection!(cache[i,j],basis_left[i],blocks(basis)[i,j],basis_right[j],args...)
     end
   end
   return cache
@@ -145,14 +147,15 @@ end
 
 function galerkin_projection(
   basis_left::VectorBlock,
-  basis::VectorBlock
+  basis::VectorBlock,
+  args...
   ) 
 
   block_cache = Vector{Any}(undef,length(basis_left))
   for i in eachindex(basis_left)
     if basis_left.touched[i]
       @check basis.touched[i]
-      block_cache[i] = galerkin_projection(basis_left[i],basis[i])
+      block_cache[i] = galerkin_projection(basis_left[i],basis[i],args...)
     end
   end
   return ArrayBlock(block_cache,basis_left.touched)
@@ -171,7 +174,7 @@ function galerkin_projection(
     touched[i,j] = basis_left.touched[i] && basis_right.touched[j]
     if touched[i,j]
       @check basis.touched[i,j]
-      block_cache[i,j] = galerkin_projection(basis_left[i],basis[i,j],basis_right[j])
+      block_cache[i,j] = galerkin_projection(basis_left[i],basis[i,j],basis_right[j],args...)
     end
   end
   return ArrayBlock(block_cache,touched)
@@ -180,13 +183,14 @@ end
 function galerkin_projection!(
   cache::VectorBlock,
   basis_left::VectorBlock,
-  basis::VectorBlock
+  basis::VectorBlock,
+  args...
   )
 
   for i in 1:size(cache,1)
     if cache.touched[i]
       @check basis.touched[i]
-      galerkin_projection!(cache[i],basis_left[i],blocks(basis)[i])
+      galerkin_projection!(cache[i],basis_left[i],blocks(basis)[i],args...)
     end
   end
   return cache
