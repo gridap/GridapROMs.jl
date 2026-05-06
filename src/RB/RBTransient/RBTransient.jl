@@ -109,11 +109,15 @@ export tucker
 include("BasesConstruction.jl")
 
 export TransientProjection
+export KroneckerProjection
+export SequentialProjection
 include("Projections.jl")
 
 include("RBSpaces.jl")
 
 export TransientIntegrationDomain
+export KroneckerDomain
+export SequentialDomain
 include("IntegrationDomains.jl")
 
 export TransientGreedyInterpolation

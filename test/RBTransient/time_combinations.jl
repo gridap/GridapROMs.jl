@@ -545,7 +545,7 @@ function _heat_eq_setup(;nparams=3)
   partition = (6,6)
   model = CartesianDiscreteModel(domain,partition)
 
-  order = 1
+  order = 2
   degree = 2*order
   Ω = Triangulation(model)
   dΩ = Measure(Ω,degree)
@@ -593,7 +593,7 @@ function _wave_eq_setup(;nparams=3)
   partition = (6,6)
   model = CartesianDiscreteModel(domain,partition)
 
-  order = 1
+  order = 2
   degree = 2*order
   Ω = Triangulation(model)
   dΩ = Measure(Ω,degree)
@@ -643,7 +643,7 @@ function _compare_with_gridap_heateq(odeslvr,snaps,b)
   partition = (6,6)
   model     = CartesianDiscreteModel(domain,partition)
 
-  order = 1
+  order = 2
   degree = 2*order
   Ω  = Triangulation(model)
   dΩ = Measure(Ω,degree)
@@ -750,7 +750,7 @@ function _compare_with_gridap_waveeq(odeslvr,snaps,b)
   partition = (6,6)
   model     = CartesianDiscreteModel(domain,partition)
 
-  order = 1
+  order = 2
   degree = 2*order
   Ω  = Triangulation(model)
   dΩ = Measure(Ω,degree)

@@ -39,8 +39,8 @@ end
 const TransientRBOperator{O<:ODEParamOperatorType,T} = RBOperator{O,T}
 const JointTransientRBOperator{O<:ODEParamOperatorType} = TransientRBOperator{O,JointDomains}
 const SplitTransientRBOperator{O<:ODEParamOperatorType} = TransientRBOperator{O,SplitDomains}
-const TransientGenericRBOperator{O<:ODEParamOperatorType,T,B} = GenericRBOperator{O,<:TupOfAffineContribution,T,B}
-const TransientLocalRBOperator{O<:ODEParamOperatorType,T,B} = LocalRBOperator{O,<:Tuple{Vararg{LocalProjection}},T,B}
+const TransientGenericRBOperator{O<:ODEParamOperatorType,T,A<:TupOfAffineContribution,B} = GenericRBOperator{O,T,A,B}
+const TransientLocalRBOperator{O<:ODEParamOperatorType,T} = TransientGenericRBOperator{O,T,<:Tuple{Vararg{LocalProjection}},<:LocalProjection}
 
 function Algebra.allocate_residual(
   op::TransientRBOperator,
@@ -344,4 +344,30 @@ function _reduce_trial(trial::MultiFieldFESpace,hr_ids::AbstractVector)
   vec_trial′ = map(f -> _reduce_trial(f,hr_ids),trial.spaces)
   trial′ = MultiFieldFESpace(trial.vector_type,vec_trial′,trial.multi_field_style)
   return trial′
+end
+
+function _reduce_arguments(
+  us::Tuple{Vararg{AbstractVector}},
+  trial::Tuple{Vararg{FESpace}},
+  hr_ids::AbstractVector
+  )
+
+  us′ = ()
+  trial′ = ()
+  for (u,trial) in zip(us,trial)
+    us′ = (us′...,_reduce_vector(u,hr_ids))
+    trial′ = (trial′...,_reduce_trial(trial,hr_ids))
+  end
+  return us′,trial′
+end
+
+function _make_hr_uh_from_us(
+  odeop::ODEParamOperator,
+  us::Tuple{Vararg{AbstractVector}},
+  trial::Tuple{Vararg{FESpace}},
+  hr_param_time_ids::AbstractVector
+  )
+
+  hr_us,hr_trial = _reduce_arguments(us,trial,hr_param_time_ids)
+  ODEs._make_uh_from_us(odeop,hr_us,hr_trial)
 end

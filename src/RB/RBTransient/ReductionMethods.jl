@@ -208,11 +208,11 @@ function HighDimHyperReduction(
   elseif compression==:global
     reduction = HighDimReduction(args...;kwargs...)
     if hypred_strategy==:mdeim
-      return HighDimMDEIMHyperReduction(reduction,combination)
+      return HighDimMDEIMHyperReduction(combination,reduction)
     elseif hypred_strategy==:sopt
-      return HighDimSOPTHyperReduction(reduction,combination)
+      return HighDimSOPTHyperReduction(combination,reduction)
     elseif hypred_strategy==:rbf
-      return HighDimRBFHyperReduction(reduction,combination)
+      return HighDimRBFHyperReduction(combination,reduction)
     else
       error("Unknown high-dimensional hyper-reduction strategy: $hypred_strategy")
     end

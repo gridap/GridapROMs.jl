@@ -68,7 +68,7 @@ function Extensions.get_bg_space(r::RBSpace{<:SingleFieldParamFESpace{<:DirectSu
 end
 
 function _remove_extension(s::Snapshots,ids::AbstractVector)
-  data = reshape(get_all_data(s),:,num_params(s))
+  data = flatten(s)
   fdata = view(data,ids,:)
   fdof_map = VectorDofMap(length(ids))
   r = get_realisation(s)

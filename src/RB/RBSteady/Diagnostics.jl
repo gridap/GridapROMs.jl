@@ -639,7 +639,7 @@ function hr_error_res(
   Φ_test = get_basis(get_reduced_subspace(test))
 
   μ = get_realisation(res)
-  bdata = get_all_data(get_param_data(res))
+  bdata = flatten(res)
   b̂ = galerkin_projection(Φ_test,bdata)
   
   i = VectorDofMap(size(b̂,1))
@@ -834,7 +834,7 @@ end
 function check_interpolation(res,a::HRVecProjection,fecache)
   msg = "fecache mismatch at interpolation points"
   rows = get_interpolation_rows(get_interpolation(a))
-  bdata = get_all_data(get_param_data(res))
+  bdata = flatten(res)
   @check isapprox(get_all_data(fecache),bdata[rows,:];rtol=1e-8) msg
   return true
 end
@@ -845,7 +845,7 @@ function check_interpolation(jac,a::HRMatProjection,fecache)
   cols = get_interpolation_cols(get_interpolation(a))
   sparsity = get_sparsity(get_dof_map(jac))
   inds = sparsify_split_indices(rows,cols,sparsity)
-  Adata = get_all_data(get_param_data(jac))
+  Adata = flatten(jac)
   @check isapprox(get_all_data(fecache),Adata[inds,:];rtol=1e-8) msg
   return true
 end

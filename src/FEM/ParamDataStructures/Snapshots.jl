@@ -79,6 +79,10 @@ function flatten(s::Snapshots)
   get_all_data(s)
 end
 
+function flatten(s::Snapshots{T,N,<:TrivialDofMap}) where {T,N}
+  get_all_data(s)
+end
+
 function param_cat(v::AbstractVector{<:Snapshots})
   data = param_cat(map(get_param_data,v))
   i = get_dof_map(first(v))

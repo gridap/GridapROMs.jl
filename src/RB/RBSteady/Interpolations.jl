@@ -97,7 +97,7 @@ function Interpolation(red::RBFHyperReduction,a::Projection,s::Snapshots)
   inds,interp = empirical_interpolation(a)
   factor = lu(interp)
   r = get_realisation(s)
-  red_data = _get_at_domain(s,inds)
+  red_data = get_at_domain(s,inds)
   coeff = allocate_coefficient(a,r)
   ldiv!(coeff,factor,red_data)
   interp = Interpolator(r,coeff,strategy)
@@ -283,24 +283,19 @@ function move_interpolation(a::BlockInterpolation{N},test::FESpace,args...) wher
   return BlockInterpolation(cache,a.touched)
 end
 
-# utils
-
-function _get_at_domain(s::Snapshots,rows::AbstractVector{<:Integer})
-  data = reshape(_all_data(s),:,num_params(s))
-  _get_at_domain(data,rows)
+function get_at_domain(s::Snapshots,rows::AbstractVector{<:Integer})
+  data = flatten(s)
+  get_at_domain(data,rows)
 end
 
-function _get_at_domain(s::SparseSnapshots,rowscols::Tuple)
+function get_at_domain(s::SparseSnapshots,rowscols::Tuple)
   rows,cols = rowscols
   sparsity = get_sparsity(get_dof_map(s))
   inds = sparsify_split_indices(rows,cols,sparsity)
-  _get_at_domain(s,inds)
+  get_at_domain(s,inds)
 end
 
-function _get_at_domain(data::AbstractArray,rows::AbstractVector{<:Integer})
+function get_at_domain(data::AbstractArray,rows::AbstractVector{<:Integer})
   datav = view(data,rows,:)
   ConsecutiveParamArray(datav)
 end
-
-_all_data(s::Snapshots) = get_all_data(s)
-_all_data(s::ReshapedSnapshots) = get_all_data(get_param_data(s))

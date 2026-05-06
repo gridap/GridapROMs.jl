@@ -288,7 +288,7 @@ get_lhs(op::GenericRBOperator) = op.lhs
 get_rhs(op::GenericRBOperator) = op.rhs
 
 function Algebra.allocate_residual(
-  op::GenericRBOperator{O,T,<:NoHRContribution,B},
+  op::GenericRBOperator{O,T,B,<:NoHRContribution},
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -300,7 +300,7 @@ function Algebra.allocate_residual(
 end
 
 function Algebra.allocate_jacobian(
-  op::GenericRBOperator{O,T,B,<:NoHRContribution},
+  op::GenericRBOperator{O,T,<:NoHRContribution,B},
   r::Realisation,
   u::AbstractVector,
   paramcache

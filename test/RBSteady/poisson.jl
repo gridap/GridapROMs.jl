@@ -19,14 +19,14 @@ function main(
   pspace = ParamSpace(pdomain)
 
   domain = (0,1,0,1)
-  partition = (20,20)
+  partition = (10,10)
   if method==:ttsvd
     model = TProductDiscreteModel(domain,partition)
   else
     model = CartesianDiscreteModel(domain,partition)
   end
 
-  order = 1
+  order = 2
   degree = 2*order
 
   Ω = Triangulation(model)
