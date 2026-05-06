@@ -34,34 +34,60 @@ function allocate_dcontribution(
   DiagnosticsContribution(fecache,coeff,hypred)
 end
 
-function allocate_diagnostic_residual(nlop::GenericParamNonlinearOperator,u)
-  rhs = get_rhs(nlop.op) 
-  allocate_dcontribution(rhs,nlop.μ)
-end
+function allocate_diagnostic_residual(
+  op::GenericRBOperator,
+  r::Realisation,
+  u::AbstractVector,
+  paramcache
+  )
 
-function allocate_diagnostic_jacobian(nlop::GenericParamNonlinearOperator,u)
-  lhs = get_lhs(nlop.op)
-  allocate_dcontribution(lhs,nlop.μ)
+  rhs = get_rhs(op)
+  allocate_dcontribution(rhs,r)
 end
 
 function allocate_diagnostic_residual(
-  nlop::GenericParamNonlinearOperator{<:GenericRBOperator{O,T,<:NoHRContribution,B}},
-  u) where {O,T,B}
+  op::GenericRBOperator{O,T,<:NoHRContribution,B},
+  r::Realisation,
+  u::AbstractVector,
+  paramcache
+  ) where {O,T,B}
 
-  rhs = get_rhs(nlop.op) 
-  b = allocate_residual(nlop.op,nlop.μ,u,nlop.paramcache)
-  b̂ = allocate_dcontribution(rhs,nlop.μ)
+  rhs = get_rhs(op) 
+  b = allocate_residual(op.op,r,u,paramcache)
+  b̂ = allocate_dcontribution(rhs,r)
   DiagnosticsContribution(b,b̂.coeff,b̂.hypred)
 end
 
+function allocate_diagnostic_residual(nlop::GenericParamNonlinearOperator,u)
+  allocate_diagnostic_residual(nlop.op,nlop.μ,u,nlop.paramcache)
+end
+
 function allocate_diagnostic_jacobian(
-  nlop::GenericParamNonlinearOperator{<:GenericRBOperator{O,T,B,<:NoHRContribution}},
-  u) where {O,T,B}
-  
-  lhs = get_lhs(nlop.op)
-  A = allocate_residual(nlop.op,nlop.μ,u,nlop.paramcache)
-  Â = allocate_dcontribution(lhs,nlop.μ)
+  op::GenericRBOperator,
+  r::Realisation,
+  u::AbstractVector,
+  paramcache
+  )
+
+  lhs = get_lhs(op)
+  allocate_dcontribution(lhs,r)
+end
+
+function allocate_diagnostic_jacobian(
+  op::GenericRBOperator{O,T,B,<:NoHRContribution},
+  r::Realisation,
+  u::AbstractVector,
+  paramcache
+  ) where {O,T,B}
+
+  lhs = get_lhs(op)
+  A = allocate_jacobian(op.op,r,u,paramcache)
+  Â = allocate_dcontribution(lhs,r)
   DiagnosticsContribution(A,Â.coeff,Â.hypred)
+end
+
+function allocate_diagnostic_jacobian(nlop::GenericParamNonlinearOperator,u)
+  allocate_diagnostic_jacobian(nlop.op,nlop.μ,u,nlop.paramcache)
 end
 
 function diagnostic_residual!(
@@ -304,7 +330,7 @@ struct RBDiagnostics
 end
 
 """
-    rom_diagnostics(dir,rbsolver,feop,args...;label="online",kwargs...)
+    rom_diagnostics(dir,rbsolver,feop,args...;label=online_label,kwargs...)
         -> RBDiagnostics
 
 Scans every immediate sub-directory of `dir` whose name parses as a `Float64`
@@ -321,7 +347,7 @@ function rom_diagnostics(
   rbsolver::RBSolver,
   feop::ParamOperator,
   args...;
-  label="online",
+  label=online_label,
   kwargs...
   )
 
@@ -604,7 +630,7 @@ function hr_error_res(
   test::SingleFieldRBSpace,
   res::Snapshots,
   a::HRProjection,
-  fecache::AbstractParamVector,
+  fecache::AbstractParamArray,
   hypred::AbstractParamVector
   )
   
@@ -628,7 +654,7 @@ function hr_error_jac(
   test::SingleFieldRBSpace,
   jac::Snapshots,
   a::HRProjection,
-  fecache::AbstractParamVector,
+  fecache::AbstractParamArray,
   hypred::AbstractParamMatrix
   )
   
@@ -686,6 +712,42 @@ function hr_error_jac(
   error
 end
 
+
+function hr_error_res(
+  test::MultiFieldRBSpace,
+  res::BlockSnapshots,
+  a::BlockHRProjection,
+  fecache::BlockParamVector,
+  hypred::BlockParamVector
+  )
+  
+  error = zeros(size(res))
+  for i in eachindex(res)
+    if res.touched[i]
+      error[i] = hr_error_res(test[i],res[i],a[i],fecache.data[i],hypred.data[i])
+    end
+  end
+  error
+end
+
+function hr_error_jac(
+  trial::MultiFieldRBSpace,
+  test::MultiFieldRBSpace,
+  jac::BlockSnapshots,
+  a::BlockHRProjection,
+  fecache::BlockParamMatrix,
+  hypred::BlockParamMatrix
+  )
+  
+  error = zeros(size(jac))
+  for i in axes(jac,1), j in axes(jac,2)
+    if jac.touched[i,j]
+      error[i,j] = hr_error_jac(trial[j],test[i],jac[i,j],a[i,j],fecache.data[i,j],hypred.data[i,j])
+    end
+  end
+  error
+end
+
 function load_snapshots(dir,rbsolver,feop,args...;label="",kwargs...)
   try
     load_snapshots(dir;label)
@@ -735,32 +797,32 @@ for f in (:load_residuals,:load_jacobians)
   end
 end
 
-function load_residuals(dir,_rbsolver,feop,fesnaps)
+function load_residuals(dir,_rbsolver,feop,fesnaps;label=online_label)
   try
-    load_residuals(dir,feop;label=residuals_label)
+    load_residuals(dir,feop;label)
   catch
     rbsolver = set_params(_rbsolver,nparams=num_params(fesnaps))
     res = residual_snapshots(rbsolver,feop,fesnaps)
-    save_residuals(dir,feop,res)
+    save_residuals(dir,feop,res;label)
     res
   end
 end
 
-function load_jacobians(dir,_rbsolver,feop,fesnaps)
+function load_jacobians(dir,_rbsolver,feop,fesnaps;label=online_label)
   try
-    load_jacobians(dir,feop;label=jacobians_label)
+    load_jacobians(dir,feop;label)
   catch
     rbsolver = set_params(_rbsolver;nparams=num_params(fesnaps))
     jac = jacobian_snapshots(rbsolver,feop,fesnaps)
-    save_jacobians(dir,feop,jac)
+    save_jacobians(dir,feop,jac;label)
     jac
   end
 end
 
-function load_problem_snapshots(dir,rbsolver,feop,args...;label="online",kwargs...)
-  s = load_snapshots(dir,rbsolver,feop,args...;label=label,kwargs...)
-  jac = load_jacobians(dir,rbsolver,feop,s)
-  res = load_residuals(dir,rbsolver,feop,s)
+function load_problem_snapshots(dir,rbsolver,feop,args...;label=online_label,kwargs...)
+  s = load_snapshots(dir,rbsolver,feop,args...;label,kwargs...)
+  jac = load_jacobians(dir,rbsolver,feop,s;label)
+  res = load_residuals(dir,rbsolver,feop,s;label)
   return s,jac,res
 end
 

@@ -294,6 +294,8 @@ export projection_label
 export contributions_label
 export linear_label
 export nonlinear_label
+export offline_label
+export online_label
 export plot_a_solution
 export plot_solutions
 include("PostProcess.jl")

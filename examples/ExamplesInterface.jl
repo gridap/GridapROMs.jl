@@ -68,7 +68,7 @@ function try_loading_fe_snapshots(dir,rbsolver,feop,args...;label="",kwargs...)
 end
 
 function try_loading_online_fe_snapshots(
-  dir,rbsolver,feop,args...;nparams=10,reuse_online=false,sampling=:uniform,label="online",kwargs...)
+  dir,rbsolver,feop,args...;nparams=10,reuse_online=false,sampling=:uniform,label=online_label,kwargs...)
 
   if reuse_online
     x,festats = try_loading_fe_snapshots(dir,rbsolver,feop,args...;nparams,label)

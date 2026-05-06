@@ -1,6 +1,29 @@
 function RBSteady.allocate_diagnostic_residual(nlop::SpaceTimeParamOperator,u)
-  rhs = get_rhs(nlop.op) 
-  RBSteady.allocate_dcontribution(rhs,nlop.r)
+  RBSteady.allocate_diagnostic_residual(nlop.op,nlop.r,nlop.usx,nlop.paramcache)
+end
+
+function RBSteady.allocate_diagnostic_residual(
+  op::TransientGenericRBOperator,
+  r::TransientRealisation,
+  us::Tuple{Vararg{AbstractVector}},
+  paramcache
+  )
+
+  rhs = get_rhs(op)
+  RBSteady.allocate_dcontribution(rhs,r)
+end
+
+function RBSteady.allocate_diagnostic_residual(
+  op::TransientGenericRBOperator{O,T,<:NoHRContribution,B},
+  r::TransientRealisation,
+  us::Tuple{Vararg{AbstractVector}},
+  paramcache
+  ) where {O,T,B}
+
+  rhs = get_rhs(op)
+  b = allocate_residual(op,r,us,paramcache)
+  b̂ = RBSteady.allocate_dcontribution(rhs,r)
+  DiagnosticsContribution(b,b̂.coeff,b̂.hypred)
 end
 
 function RBSteady.allocate_dcontribution(
@@ -15,8 +38,31 @@ function RBSteady.allocate_dcontribution(
 end
 
 function RBSteady.allocate_diagnostic_jacobian(nlop::SpaceTimeParamOperator,u)
-  lhs = get_lhs(nlop.op)
-  RBSteady.allocate_dcontribution(lhs,nlop.r)
+  RBSteady.allocate_diagnostic_jacobian(nlop.op,nlop.r,nlop.usx,nlop.paramcache)
+end
+
+function RBSteady.allocate_diagnostic_jacobian(
+  op::TransientGenericRBOperator,
+  r::TransientRealisation,
+  us::Tuple{Vararg{AbstractVector}},
+  paramcache
+  )
+
+  lhs = get_lhs(op)
+  RBSteady.allocate_dcontribution(lhs,r)
+end
+
+function RBSteady.allocate_diagnostic_jacobian(
+  op::TransientGenericRBOperator{O,T,B,<:NoHRContribution},
+  r::TransientRealisation,
+  us::Tuple{Vararg{AbstractVector}},
+  paramcache
+  ) where {O,T,B}
+
+  lhs = get_lhs(op)
+  A = allocate_jacobian(op,r,us,paramcache)
+  Â = RBSteady.allocate_dcontribution(lhs,r)
+  DiagnosticsContribution(A,Â.coeff,Â.hypred)
 end
 
 function RBSteady.diagnostic_interpolate!(

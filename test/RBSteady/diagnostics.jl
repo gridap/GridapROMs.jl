@@ -101,7 +101,7 @@ using GridapROMs
 include("../../examples/ExamplesInterface.jl")
 
 method=:pod
-compression=:local
+compression=:global
 hypred_strategy=:none 
   tol=1e-4
   nparams=50
@@ -194,7 +194,7 @@ hypred_strategy=:none
   using Gridap.Algebra
   using Gridap.FESpaces
 
-  fesnaps = load_snapshots(dir,label="online")
+  fesnaps = load_snapshots(dir,label=online_label)
   jacs = load_jacobians(dir,feop)
   ress = load_residuals(dir,feop)
   op = RBSteady.get_local(rbop,first(μon))

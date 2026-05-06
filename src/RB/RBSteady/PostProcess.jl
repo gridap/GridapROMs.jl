@@ -25,6 +25,8 @@ const projection_label = "basis"
 const contributions_label = "contrib"
 const linear_label = "lin"
 const nonlinear_label = "nlin"
+const offline_label = "offline"
+const online_label = "online"
 
 function DrWatson.save(dir,args::Tuple)
   map(a->save(dir,a),args)
@@ -319,7 +321,7 @@ function Utils.compute_relative_error(
   args...
   ) where {T,N}
 
-  @check size(sol) == size(sol_approx)
+  @check size(sol) == size(sol_approx) 
   errors = zeros(num_params(sol))
   @inbounds for ip = 1:num_params(sol)
     solip = param_getindex(sol,ip)
