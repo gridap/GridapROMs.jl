@@ -383,7 +383,7 @@ function Algebra.residual!(
   ) where {O,T,A}
 
   fill!(b,zero(eltype(b)))
-  interpolate!(b,op.rhs,r)
+  interpolate!(b,op.rhs)
 end
 
 function Algebra.jacobian!(
@@ -395,7 +395,7 @@ function Algebra.jacobian!(
   ) where {O,T,B}
 
   fill!(A,zero(eltype(A)))
-  interpolate!(A,op.lhs,r)
+  interpolate!(A,op.lhs)
 end
 
 function Algebra.residual!(

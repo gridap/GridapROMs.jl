@@ -19,7 +19,7 @@ function main(
 
   method = method ∈ (:pod,:ttsvd) ? method : :pod
   compression = compression ∈ (:global,:local) ? compression : :global
-  hypred_strategy = hypred_strategy ∈ (:mdeim,:sopt) ? hypred_strategy : :mdeim
+  hypred_strategy = hypred_strategy ∈ (:mdeim,:sopt,:rbf,:none,:affine) ? hypred_strategy : :mdeim
 
   println("Running test with compression $method, $compression compressions, and $hypred_strategy hyper-reduction")
 
@@ -124,8 +124,8 @@ function main(
   @test all(perf_load.error .≈ perf.error)
 end
 
-for method in (:pod,:ttsvd), compression in (:local,:global)
-  main(method,compression)
+for method in (:pod,:ttsvd), compression in (:local,:global), hypred_strategy in (:mdeim,:sopt,:rbf,:none,:affine)
+  main(method,compression,hypred_strategy)
 end
 
 end

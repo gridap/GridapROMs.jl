@@ -598,6 +598,21 @@ function FESpaces.interpolate!(
   hypred::Union{BlockParamArray,BlockArray},
   coeff::ArrayBlock,
   a::BlockHRProjection,
+  b::Union{BlockParamArray,BlockArray}
+  )
+
+  for i in eachindex(a)
+    if a.touched[i]
+      interpolate!(blocks(hypred)[i],coeff.array[i],a.array[i],blocks(b)[i])
+    end
+  end
+  return hypred
+end
+
+function FESpaces.interpolate!(
+  hypred::Union{BlockParamArray,BlockArray},
+  coeff::ArrayBlock,
+  a::BlockHRProjection,
   r::AbstractRealisation
   )
 

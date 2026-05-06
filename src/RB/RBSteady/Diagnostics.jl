@@ -44,6 +44,26 @@ function allocate_diagnostic_jacobian(nlop::GenericParamNonlinearOperator,u)
   allocate_dcontribution(lhs,nlop.μ)
 end
 
+function allocate_diagnostic_residual(
+  nlop::GenericParamNonlinearOperator{<:GenericRBOperator{O,T,<:NoHRContribution,B}},
+  u) where {O,T,B}
+
+  rhs = get_rhs(nlop.op) 
+  b = allocate_residual(nlop.op,nlop.μ,u,nlop.paramcache)
+  b̂ = allocate_dcontribution(rhs,nlop.μ)
+  DiagnosticsContribution(b,b̂.coeff,b̂.hypred)
+end
+
+function allocate_diagnostic_jacobian(
+  nlop::GenericParamNonlinearOperator{<:GenericRBOperator{O,T,B,<:NoHRContribution}},
+  u) where {O,T,B}
+  
+  lhs = get_lhs(nlop.op)
+  A = allocate_residual(nlop.op,nlop.μ,u,nlop.paramcache)
+  Â = allocate_dcontribution(lhs,nlop.μ)
+  DiagnosticsContribution(A,Â.coeff,Â.hypred)
+end
+
 function diagnostic_residual!(
   b::DiagnosticsContribution,
   op::SplitRBOperator,
@@ -69,6 +89,55 @@ function diagnostic_residual!(
   end
 
   diagnostic_interpolate!(b,rhs)
+end
+
+function diagnostic_residual!(
+  b::DiagnosticsContribution,
+  op::GenericRBOperator{O,SplitDomains,A,<:NoHRContribution},
+  r::Realisation,
+  u::AbstractVector,
+  paramcache
+  ) where {O,A}
+
+  uh = EvaluationFunction(paramcache.trial,u)
+  test = get_test(op)
+  v = get_fe_basis(test)
+
+  rhs = get_rhs(op)
+  res = get_res(op)
+  dc = res(r,uh,v)
+  assem = get_param_assembler(op,r)
+  proj_test = get_basis(test)
+
+  for strian in get_domains(rhs)
+    vecdata = collect_cell_vector_for_trian(test,dc,strian)
+    assemble_vector_add!(b.fecache[strian],assem,vecdata)
+    galerkin_projection!(b.coeff[strian],proj_test,b.fecache[strian])
+  end
+
+  diagnostic_interpolate!(b,rhs)
+end
+
+function diagnostic_residual!(
+  b::DiagnosticsContribution,
+  op::GenericRBOperator{O,T,A,<:AffineHRContribution},
+  r::Realisation,
+  u::AbstractVector,
+  paramcache
+  ) where {O,T,A}
+
+  diagnostic_interpolate!(b,op.rhs)
+end
+
+function diagnostic_residual!(
+  b::DiagnosticsContribution,
+  op::GenericRBOperator{O,T,A,<:RBFContribution},
+  r::Realisation,
+  u::AbstractVector,
+  paramcache
+  ) where {O,T,A}
+
+  diagnostic_interpolate!(b,op.rhs,r)
 end
 
 function diagnostic_residual!(b,nlop::GenericParamNonlinearOperator,u)
@@ -110,6 +179,58 @@ function diagnostic_jacobian!(
   diagnostic_interpolate!(A,lhs)
 end
 
+function diagnostic_jacobian!(
+  A::DiagnosticsContribution,
+  op::GenericRBOperator{O,SplitDomains,<:NoHRContribution,B},
+  r::Realisation,
+  u::AbstractVector,
+  paramcache
+  ) where {O,B}
+
+  uh = EvaluationFunction(paramcache.trial,u)
+  trial = get_trial(op)
+  du = get_trial_fe_basis(trial)
+  test = get_test(op)
+  v = get_fe_basis(test)
+
+  lhs = get_lhs(op)
+  jac = get_jac(op)
+  dc = jac(r,uh,du,v)
+  assem = get_param_assembler(op,r)
+  proj_trial = get_basis(trial)
+  proj_test = get_basis(test)
+
+  for strian in get_domains(lhs)
+    matdata = collect_cell_matrix_for_trian(trial,test,dc,strian)
+    assemble_matrix_add!(A.fecache[strian],assem,matdata)
+    galerkin_projection!(A.coeff[strian],proj_test,A.fecache[strian],proj_trial)
+  end
+
+  diagnostic_interpolate!(A,lhs)
+end
+
+function diagnostic_jacobian!(
+  A::DiagnosticsContribution,
+  op::GenericRBOperator{O,T,<:AffineHRContribution,B},
+  r::Realisation,
+  u::AbstractVector,
+  paramcache
+  ) where {O,T,B}
+
+  diagnostic_interpolate!(A,op.lhs)
+end
+
+function diagnostic_jacobian!(
+  A::DiagnosticsContribution,
+  op::GenericRBOperator{O,T,<:RBFContribution,B},
+  r::Realisation,
+  u::AbstractVector,
+  paramcache
+  ) where {O,T,B}
+
+  diagnostic_interpolate!(A,op.lhs,r)
+end
+
 function diagnostic_jacobian!(A,nlop::GenericParamNonlinearOperator,u)
   diagnostic_jacobian!(A,nlop.op,nlop.μ,u,nlop.paramcache)
 end
@@ -133,6 +254,22 @@ function diagnostic_interpolate!(
     )
 
     interpolate!(ht,ct,ât,ft)
+  end
+end
+
+function diagnostic_interpolate!(
+  b::DiagnosticsContribution,
+  a::AffineContribution,
+  r::AbstractRealisation
+  )
+
+  for (ât,ct,ht) in zip(
+    get_contributions(a),
+    get_contributions(b.coeff),
+    get_contributions(b.hypred)
+    )
+
+    interpolate!(ht,ct,ât,r)
   end
 end
 
@@ -471,15 +608,14 @@ function hr_error_res(
   hypred::AbstractParamVector
   )
   
-  msg = "fecache mismatch at DEIM interpolation rows"
-  Φ_test = get_basis(get_reduced_subspace(test))  
-  rows = get_interpolation_rows(get_interpolation(a))
-  bdata = get_all_data(get_param_data(res))
-  @check isapprox(get_all_data(fecache),bdata[rows,:];rtol=1e-8) msg
+  check_interpolation(res,a,fecache)
 
-  b̂ = galerkin_projection(Φ_test,bdata)
+  Φ_test = get_basis(get_reduced_subspace(test))
 
   μ = get_realisation(res)
+  bdata = get_all_data(get_param_data(res))
+  b̂ = galerkin_projection(Φ_test,bdata)
+  
   i = VectorDofMap(size(b̂,1))
   b̂snaps = Snapshots(b̂,i,μ)
   hrb̂snaps = Snapshots(get_all_data(hypred),i,μ)
@@ -496,16 +632,10 @@ function hr_error_jac(
   hypred::AbstractParamMatrix
   )
   
-  msg = "fecache mismatch at DEIM (row,col) pairs"
+  check_interpolation(jac,a,fecache)
+
   Φ_trial = get_basis(get_reduced_subspace(trial))  
   Φ_test = get_basis(get_reduced_subspace(test))  
-
-  rows = get_interpolation_rows(get_interpolation(a))
-  cols = get_interpolation_cols(get_interpolation(a))
-  sparsity = get_sparsity(get_dof_map(jac))
-  inds = sparsify_split_indices(rows,cols,sparsity)
-  Adata = get_all_data(get_param_data(jac))
-  @check isapprox(get_all_data(fecache),Adata[inds,:];rtol=1e-8) msg
 
   μ = get_realisation(jac)
   Â = galerkin_projection(Φ_test,recast(jac),Φ_trial)
@@ -634,7 +764,42 @@ function load_problem_snapshots(dir,rbsolver,feop,args...;label="online",kwargs.
   return s,jac,res
 end
 
-# utils 
+# utils
+
+function check_interpolation(res,a::HRVecProjection,fecache)
+  msg = "fecache mismatch at interpolation points"
+  rows = get_interpolation_rows(get_interpolation(a))
+  bdata = get_all_data(get_param_data(res))
+  @check isapprox(get_all_data(fecache),bdata[rows,:];rtol=1e-8) msg
+  return true
+end
+
+function check_interpolation(jac,a::HRMatProjection,fecache)
+  msg = "fecache mismatch at interpolation points"
+  rows = get_interpolation_rows(get_interpolation(a))
+  cols = get_interpolation_cols(get_interpolation(a))
+  sparsity = get_sparsity(get_dof_map(jac))
+  inds = sparsify_split_indices(rows,cols,sparsity)
+  Adata = get_all_data(get_param_data(jac))
+  @check isapprox(get_all_data(fecache),Adata[inds,:];rtol=1e-8) msg
+  return true
+end
+
+function check_interpolation(res,a::HRVecProjection{<:RBFHyperReduction},fecache)
+  return true
+end
+
+function check_interpolation(jac,a::HRMatProjection{<:RBFHyperReduction},fecache)
+  return true
+end
+
+function check_interpolation(res,a::HRVecProjection{<:TrivialHyperReduction},fecache)
+  return true
+end
+
+function check_interpolation(jac,a::HRMatProjection{<:TrivialHyperReduction},fecache)
+  return true
+end
 
 function set_params(red::PODReduction;nparams::Int)
   PODReduction(red.red_style,red.norm_style,nparams)

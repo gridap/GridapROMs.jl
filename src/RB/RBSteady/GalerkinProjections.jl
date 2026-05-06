@@ -78,3 +78,133 @@ end
 function galerkin_projection!(cache::AbstractParamArray,args...)
   galerkin_projection!(get_all_data(cache),args...)
 end
+
+# multi-field interface 
+
+function galerkin_projection(
+  basis_left::VectorBlock,
+  basis::BlockParamVector
+  ) 
+
+  block_cache = Vector{Any}(undef,length(basis_left))
+  for i in eachindex(basis_left)
+    if basis_left.touched[i]
+      block_cache[i] = galerkin_projection(basis_left[i],blocks(basis)[i])
+    end
+  end
+  return ArrayBlock(block_cache,basis_left.touched)
+end
+
+function galerkin_projection(
+  basis_left::VectorBlock,
+  basis::BlockParamVector,
+  basis_right::VectorBlock,
+  args...
+  ) 
+
+  block_cache = Matrix{Any}(undef,length(basis_left),length(basis_right))
+  touched = Matrix{Bool}(undef,length(basis_left),length(basis_right))
+  for i in eachindex(basis_left), j in eachindex(basis_right)
+    touched[i,j] = basis_left.touched[i] && basis_right.touched[j]
+    if touched[i,j]
+      block_cache[i,j] = galerkin_projection(basis_left[i],blocks(basis)[i,j],basis_right[j])
+    end
+  end
+  return ArrayBlock(block_cache,touched)
+end
+
+function galerkin_projection!(
+  cache::VectorBlock,
+  basis_left::VectorBlock,
+  basis::BlockParamVector
+  )
+
+  for i in 1:size(cache,1)
+    if cache.touched[i]
+      galerkin_projection!(cache[i],basis_left[i],blocks(basis)[i])
+    end
+  end
+  return cache
+end
+
+function galerkin_projection!(
+  cache::MatrixBlock,
+  basis_left::VectorBlock,
+  basis::BlockParamMatrix,
+  basis_right::VectorBlock,
+  args...
+  )
+
+  for i in 1:size(cache,1), j in 1:size(cache,2)
+    if cache.touched[i,j]
+      galerkin_projection!(cache[i,j],basis_left[i],blocks(basis)[i,j],basis_right[j])
+    end
+  end
+  return cache
+end
+
+function galerkin_projection(
+  basis_left::VectorBlock,
+  basis::VectorBlock
+  ) 
+
+  block_cache = Vector{Any}(undef,length(basis_left))
+  for i in eachindex(basis_left)
+    if basis_left.touched[i]
+      @check basis.touched[i]
+      block_cache[i] = galerkin_projection(basis_left[i],basis[i])
+    end
+  end
+  return ArrayBlock(block_cache,basis_left.touched)
+end
+
+function galerkin_projection(
+  basis_left::VectorBlock,
+  basis::MatrixBlock,
+  basis_right::VectorBlock,
+  args...
+  ) 
+
+  block_cache = Matrix{Any}(undef,length(basis_left),length(basis_right))
+  touched = Matrix{Bool}(undef,length(basis_left),length(basis_right))
+  for i in eachindex(basis_left), j in eachindex(basis_right)
+    touched[i,j] = basis_left.touched[i] && basis_right.touched[j]
+    if touched[i,j]
+      @check basis.touched[i,j]
+      block_cache[i,j] = galerkin_projection(basis_left[i],basis[i,j],basis_right[j])
+    end
+  end
+  return ArrayBlock(block_cache,touched)
+end
+
+function galerkin_projection!(
+  cache::VectorBlock,
+  basis_left::VectorBlock,
+  basis::VectorBlock
+  )
+
+  for i in 1:size(cache,1)
+    if cache.touched[i]
+      @check basis.touched[i]
+      galerkin_projection!(cache[i],basis_left[i],blocks(basis)[i])
+    end
+  end
+  return cache
+end
+
+function galerkin_projection!(
+  cache::MatrixBlock,
+  basis_left::VectorBlock,
+  basis::MatrixBlock,
+  basis_right::VectorBlock,
+  args...
+  )
+
+  for i in 1:size(cache,1), j in 1:size(cache,2)
+    if cache.touched[i,j]
+      @check basis.touched[i,j]
+      galerkin_projection!(cache[i,j],basis_left[i],blocks(basis)[i,j],basis_right[j])
+    end
+  end
+  return cache
+end

@@ -697,6 +697,16 @@ for f in (:project!,:inv_project!)
   end
 end
 
+function ReducedProjection(basis::VectorBlock)
+  block_cache = Vector{Any}(undef,length(basis))
+  for i in eachindex(basis)
+    if basis.touched[i]
+      block_cache[i] = ReducedProjection(basis[i])
+    end
+  end
+  return BlockProjection(block_cache,basis.touched)
+end
+
 function get_norm_matrix(a::BlockProjection)
   norm_matrix = _allocate_norm_matrix(a)
   for i in eachindex(a)

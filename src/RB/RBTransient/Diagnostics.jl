@@ -3,18 +3,29 @@ function RBSteady.allocate_diagnostic_residual(nlop::SpaceTimeParamOperator,u)
   RBSteady.allocate_dcontribution(rhs,nlop.r)
 end
 
+function RBSteady.allocate_dcontribution(
+  a::TupOfAffineContribution,
+  r::AbstractRealisation
+  )
+
+  fecache = map(ai -> RBSteady.allocate_coefficient(ai,r),a)
+  coeff = map(ai -> RBSteady.allocate_coefficient(ai,r),a)
+  hypred = map(ai -> RBSteady.allocate_hyper_reduction(ai,r),a)
+  DiagnosticsContribution(fecache,coeff,hypred)
+end
+
 function RBSteady.allocate_diagnostic_jacobian(nlop::SpaceTimeParamOperator,u)
   lhs = get_lhs(nlop.op)
   RBSteady.allocate_dcontribution(lhs,nlop.r)
 end
 
 function RBSteady.diagnostic_interpolate!(
-  cache::Tuple{Vararg{DiagnosticsContribution}},
+  cache::DiagnosticsContribution,
   a::TupOfAffineContribution
   )
 
-  for (ai,bi,ci,di) in zip(cache.hypred,cache.coeff,a,cache.fecache)
-    RBSteady.diagnostic_interpolate!(ai,bi,ci,di)
+  for (hi,ci,ai,fi) in zip(cache.hypred,cache.coeff,a,cache.fecache)
+    RBSteady.diagnostic_interpolate!(DiagnosticsContribution(fi,ci,hi),ai)
   end
 end
 
@@ -53,6 +64,57 @@ end
 
 function RBSteady.diagnostic_residual!(b,nlop::SpaceTimeParamOperator,u)
   RBSteady.diagnostic_residual!(b,nlop.op,nlop.r,nlop.usx,nlop.paramcache)
+end
+
+function RBSteady.diagnostic_residual!(
+  b::DiagnosticsContribution,
+  op::TransientGenericRBOperator{O,T,<:NoHRContribution},
+  r::TransientRealisation,
+  us::Tuple{Vararg{AbstractVector}},
+  paramcache
+  ) where {O,T}
+
+  uh = ODEs._make_uh_from_us(op,us,paramcache.trial)
+  test = get_test(op)
+  v = get_fe_basis(test)
+
+  rhs = get_rhs(op)
+  μ = get_params(r)
+  t = get_times(r)
+  res = get_res(op)
+  dc = res(μ,t,uh,v)
+  assem = get_param_assembler(op,r)
+  proj_test = get_basis(test)
+
+  for strian in get_domains(rhs)
+    vecdata = collect_cell_vector_for_trian(test,dc,strian)
+    assemble_vector_add!(b.fecache[strian],assem,vecdata)
+    galerkin_projection!(b.coeff[strian],proj_test,b.fecache[strian])
+  end
+
+  RBSteady.diagnostic_interpolate!(b,rhs)
+end
+
+function RBSteady.diagnostic_residual!(
+  b::DiagnosticsContribution,
+  op::TransientGenericRBOperator{O,T,<:AffineHRContribution},
+  r::TransientRealisation,
+  us::Tuple{Vararg{AbstractVector}},
+  paramcache
+  ) where {O,T}
+
+  interpolate!(b.hypred,b.coeff,op.rhs,b.fecache)
+end
+
+function RBSteady.diagnostic_residual!(
+  b::DiagnosticsContribution,
+  op::TransientGenericRBOperator{O,T,<:RBFContribution},
+  r::TransientRealisation,
+  us::Tuple{Vararg{AbstractVector}},
+  paramcache
+  ) where {O,T}
+
+  interpolate!(b.hypred,b.coeff,op.rhs,r)
 end
 
 function RBSteady.diagnostic_jacobian!(
@@ -100,7 +162,74 @@ function RBSteady.diagnostic_jacobian!(
 end
 
 function RBSteady.diagnostic_jacobian!(A,nlop::SpaceTimeParamOperator,u)
-  RBSteady.diagnostic_jacobian!(A,nlop.op,nlop.r,nlop.usx,nlop.paramcache)
+  RBSteady.diagnostic_jacobian!(A,nlop.op,nlop.r,nlop.usx,nlop.ws,nlop.paramcache)
+end
+
+function RBSteady.diagnostic_jacobian!(
+  A::DiagnosticsContribution,
+  op::TransientGenericRBOperator{O,T,<:NoHRContribution},
+  r::TransientRealisation,
+  us::Tuple{Vararg{AbstractVector}},
+  ws::Tuple{Vararg{Real}},
+  paramcache
+  ) where {O,T}
+
+  uh = ODEs._make_uh_from_us(op,us,paramcache.trial)
+  trial = get_trial(op)
+  du = get_trial_fe_basis(trial)
+  test = get_test(op)
+  v = get_fe_basis(test)
+
+  lhss = get_lhs(op)
+  μ = get_params(r)
+  t = get_times(r)
+  jacs = get_jacs(op)
+  trian_jacs = get_domains_jac(op)
+  assem = get_param_assembler(op,r)
+  proj_trial = get_basis(trial)
+  proj_test = get_basis(test)
+
+  for k in 1:get_order(op)+1
+    Ak = A.fecache[k]
+    Ark = A.coeff[k]
+    jac = jacs[k]
+    w = ws[k]
+    iszero(w) && continue
+    dc = w * jac(μ,t,uh,du,v)
+    for strian in trian_jacs[k]
+      matdata = collect_cell_matrix_for_trian(trial,test,dc,strian)
+      assemble_matrix_add!(Ak[strian],assem,matdata)
+      galerkin_projection!(Ark[strian],proj_test,Ak[strian],proj_trial)
+    end
+  end
+
+  RBSteady.diagnostic_interpolate!(A,lhss)
+end
+
+function RBSteady.diagnostic_jacobian!(
+  A::DiagnosticsContribution,
+  op::TransientGenericRBOperator{O,T,<:AffineHRContribution},
+  r::TransientRealisation,
+  us::Tuple{Vararg{AbstractVector}},
+  ws::Tuple{Vararg{Real}},
+  paramcache
+  ) where {O,T}
+
+  interpolate!(A.hypred,A.coeff,op.lhs,A.fecache)
+end
+
+function RBSteady.diagnostic_jacobian!(
+  A::DiagnosticsContribution,
+  op::TransientGenericRBOperator{O,T,<:RBFContribution},
+  r::TransientRealisation,
+  us::Tuple{Vararg{AbstractVector}},
+  ws::Tuple{Vararg{Real}},
+  paramcache
+  ) where {O,T}
+
+  for (hi,ci,ai) in zip(A.hypred,A.coeff,op.lhs)
+    interpolate!(hi,ci,ai,r)
+  end
 end
 
 function RBSteady.hr_diagnostics(c::TupOfAffineContribution)

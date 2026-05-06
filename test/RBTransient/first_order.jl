@@ -13,7 +13,7 @@ function main(
 
   method = method ∈ (:pod,:ttsvd) ? method : :pod
   compression = compression ∈ (:global,:local) ? compression : :global
-  hypred_strategy = hypred_strategy ∈ (:mdeim,:sopt) ? hypred_strategy : :mdeim
+  hypred_strategy = hypred_strategy ∈ (:mdeim,:sopt,:rbf,:none,:affine) ? hypred_strategy : :mdeim
 
   println("Running test with compression $method, $compression compressions, and $hypred_strategy hyper-reduction")
 
@@ -103,7 +103,7 @@ end
 dt = 0.01
 fesolvers = (GeneralizedAlpha1(LUSolver(),dt,ρ∞),ThetaMethod(LUSolver(),dt,θ))
 
-for fesolver in fesolvers, method in (:pod,:ttsvd), compression in (:local,:global), hypred_strategy in (:mdeim,:sopt)
+for fesolver in fesolvers, method in (:pod,:ttsvd), compression in (:local,:global), hypred_strategy in (:mdeim,:sopt,:rbf,:none,:affine)
   main(fesolver,method,compression,hypred_strategy)
 end
 

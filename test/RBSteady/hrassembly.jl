@@ -15,7 +15,7 @@ function main(
 )
   method = method ∈ (:pod,:ttsvd) ? method : :pod
   compression = compression ∈ (:global,:local) ? compression : :global
-  hypred_strategy = hypred_strategy ∈ (:mdeim,:sopt) ? hypred_strategy : :mdeim
+  hypred_strategy = hypred_strategy ∈ (:mdeim,:sopt,:rbf,:none,:affine) ? hypred_strategy : :mdeim
 
   pdomain = (1,10,1,10,1,10)
   pspace = ParamSpace(pdomain)
