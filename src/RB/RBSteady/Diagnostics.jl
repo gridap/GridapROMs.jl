@@ -797,22 +797,20 @@ for f in (:load_residuals,:load_jacobians)
   end
 end
 
-function load_residuals(dir,_rbsolver,feop,fesnaps;label=online_label)
+function load_residuals(dir,rbsolver,feop,fesnaps;label=online_label)
   try
     load_residuals(dir,feop;label)
   catch
-    rbsolver = set_params(_rbsolver,nparams=num_params(fesnaps))
     res = residual_snapshots(rbsolver,feop,fesnaps)
     save_residuals(dir,feop,res;label)
     res
   end
 end
 
-function load_jacobians(dir,_rbsolver,feop,fesnaps;label=online_label)
+function load_jacobians(dir,rbsolver,feop,fesnaps;label=online_label)
   try
     load_jacobians(dir,feop;label)
   catch
-    rbsolver = set_params(_rbsolver;nparams=num_params(fesnaps))
     jac = jacobian_snapshots(rbsolver,feop,fesnaps)
     save_jacobians(dir,feop,jac;label)
     jac
@@ -821,6 +819,11 @@ end
 
 function load_problem_snapshots(dir,rbsolver,feop,args...;label=online_label,kwargs...)
   s = load_snapshots(dir,rbsolver,feop,args...;label,kwargs...)
+  try
+    rbsolver = set_params(rbsolver;nparams=num_params(s))
+  catch
+    s = select_snapshots(s,1:1)
+  end
   jac = load_jacobians(dir,rbsolver,feop,s;label)
   res = load_residuals(dir,rbsolver,feop,s;label)
   return s,jac,res
@@ -879,8 +882,9 @@ function set_params(red::SupremizerReduction;kwargs...)
   SupremizerReduction(set_params(red.reduction;kwargs...),red.supr_op,red.supr_tol)
 end
 
-function set_params(red::TrivialHyperReduction;kwargs...)
-  red
+function set_params(red::TrivialHyperReduction;nparams::Int)
+  nparams == 1 && return red
+  @notimplemented "Cannot set parameters for TrivialHyperReduction"
 end
 
 function set_params(red::MDEIMHyperReduction;kwargs...)

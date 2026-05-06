@@ -90,7 +90,7 @@ end
 get_all_data(s::TransientSnapshotsWithIC) = get_all_data(s.snaps)
 get_initial_data(s::TransientSnapshotsWithIC) = s.initial_data
 get_initial_param_data(s::TransientSnapshotsWithIC) = ConsecutiveParamArray.(s.initial_data)
-DofMaps.get_dof_map(s::TransientSnapshotsWithIC) = get_dof_map(s.snaps)
+get_dof_map(s::TransientSnapshotsWithIC) = get_dof_map(s.snaps)
 get_realisation(s::TransientSnapshotsWithIC) = get_realisation(s.snaps)
 
 function Base.getindex(s::TransientSnapshotsWithIC{T,N},i::Vararg{Integer,N}) where {T,N}
@@ -111,6 +111,10 @@ end
 function param_cat(v::AbstractVector{<:TransientSnapshotsWithIC})
   _get_snaps(s) = s.snaps
   param_cat(map(_get_snaps,v))
+end
+
+function change_dof_map(s::TransientSnapshotsWithIC,i)
+  TransientSnapshotsWithIC(s.initial_data,change_dof_map(s.snaps,i))
 end
 
 const TransientReshapedSnapshots{T,N,I,R<:TransientRealisation,A,B} = ReshapedSnapshots{T,N,I,R,A,B}
@@ -249,7 +253,7 @@ end
 Base.size(s::ModeTransientSnapshots) = size(s.data)
 
 get_all_data(s::ModeTransientSnapshots) = s.data
-DofMaps.get_dof_map(s::ModeTransientSnapshots) = s.dof_map
+get_dof_map(s::ModeTransientSnapshots) = s.dof_map
 get_realisation(s::ModeTransientSnapshots) = s.realisation
 
 function Base.getindex(s::ModeTransientSnapshots,i,j)
@@ -298,4 +302,12 @@ end
 
 function select_snapshots(a::TupOfArrayContribution,pindex)
   map(a->select_snapshots(a,pindex),a)
+end
+
+function change_dof_map(a::TupOfArrayContribution,i::TupOfArrayContribution)
+  a′ = ()
+  for j in eachindex(a)
+    a′ = (a′...,change_dof_map(a[j],i[j]))
+  end
+  return a′
 end

@@ -9,13 +9,14 @@ using Test
 @testset "extensions" begin include("FEM/extensions.jl") end
 
 @testset "rb steady algorithms" begin include("RBSteady/rb_steady.jl") end
-@testset "diagnostics" begin include("RBSteady/diagnostics.jl") end
+@testset "steady diagnostics" begin include("RBSteady/diagnostics.jl") end
 @testset "hr assembly" begin include("RBSteady/hrassembly.jl") end
 @testset "poisson" begin include("RBSteady/poisson.jl") end
 @testset "steady stokes" begin include("RBSteady/stokes.jl") end
 @testset "steady navier-stokes" begin include("RBSteady/navier_stokes.jl") end
 
 @testset "rb transient algorithms" begin include("RBTransient/rb_transient.jl") end
+@testset "transient diagnostics" begin include("RBTransient/diagnostics.jl") end
 @testset "time combinations" begin include("RBTransient/time_combinations.jl") end
 @testset "save operator" begin include("RBTransient/save_operator.jl") end
 @testset "first order" begin include("RBTransient/first_order.jl") end

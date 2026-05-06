@@ -24,7 +24,7 @@ Returns the realisations associated to the snapshots `s`
 """
 get_realisation(s::AbstractSnapshots) = @abstractmethod
 
-DofMaps.get_dof_map(s::AbstractSnapshots) = @abstractmethod
+get_dof_map(s::AbstractSnapshots) = @abstractmethod
 
 num_params(s::AbstractSnapshots) = num_params(get_realisation(s))
 
@@ -62,6 +62,21 @@ function select_snapshots(s::Snapshots,pindex)
   else
     _select_snapshots(s,pindex)
   end
+end
+
+function change_dof_map(s::Snapshots,i)
+  pdata = get_param_data(s)
+  r = get_realisation(s)
+  Snapshots(pdata,i,r)
+end
+
+flatten(s::AbstractMatrix) = s 
+flatten(s::AbstractArray) = reshape(s,size(s,1),:) 
+
+function flatten(s::Snapshots)
+  i = flatten(get_dof_map(s))
+  s = change_dof_map(s,i)
+  get_all_data(s)
 end
 
 function param_cat(v::AbstractVector{<:Snapshots})
@@ -137,7 +152,7 @@ function Snapshots(s::AbstractArray{<:Number},i::TrivialDofMap,r::AbstractRealis
 end
 
 get_all_data(s::GenericSnapshots) = s.data
-DofMaps.get_dof_map(s::GenericSnapshots) = s.dof_map
+get_dof_map(s::GenericSnapshots) = s.dof_map
 get_realisation(s::GenericSnapshots) = s.realisation
 
 function Base.getindex(s::GenericSnapshots{T,N},i::Vararg{Integer,N}) where {T,N}
@@ -201,7 +216,7 @@ end
 
 get_all_data(s::ReshapedSnapshots) = s.data
 get_param_data(s::ReshapedSnapshots) = s.param_data
-DofMaps.get_dof_map(s::ReshapedSnapshots) = s.dof_map
+get_dof_map(s::ReshapedSnapshots) = s.dof_map
 get_realisation(s::ReshapedSnapshots) = s.realisation
 
 function _select_snapshots(s::ReshapedSnapshots{T,N},pindex) where {T,N}
@@ -236,11 +251,11 @@ end
 """
 const SparseSnapshots{T,N,I<:AbstractSparseDofMap,R} = Snapshots{T,N,I,R}
 
-function DofMaps.recast(a::AbstractArray,s::SparseSnapshots)
+function recast(a::AbstractArray,s::SparseSnapshots)
   return recast(a,get_dof_map(s))
 end
 
-function DofMaps.recast(s::SparseSnapshots)
+function recast(s::SparseSnapshots)
   return recast(get_all_data(s),s)
 end
 
@@ -314,7 +329,7 @@ function Arrays.testitem(s::BlockSnapshots)
   end
 end
 
-function DofMaps.get_dof_map(s::BlockSnapshots{N}) where N
+function get_dof_map(s::BlockSnapshots{N}) where N
   I = eltype(map(get_dof_map,blocks(s)))
   array = Array{I,N}(undef,size(s))
   for i in eachindex(s.touched)
@@ -354,6 +369,17 @@ function param_cat(v::AbstractVector{<:BlockSnapshots{N}}) where N
   return BlockSnapshots(array,touched)
 end
 
+function change_dof_map(s::BlockSnapshots{N},i::ArrayBlock{<:AbstractDofMap,N}) where N
+  @check s.touched == i.touched 
+  array = Array{Any,N}(undef,size(s))
+  for j in eachindex(s.touched)
+    if s.touched[j]
+      array[j] = change_dof_map(s[j],i[j])
+    end
+  end
+  return BlockSnapshots(array,s.touched)
+end
+
 # utils
 
 function Snapshots(a::ArrayContribution,i::ArrayContribution,r::AbstractRealisation)
@@ -366,6 +392,14 @@ function select_snapshots(a::ArrayContribution,pindex)
   contribution(a.trians) do trian
     select_snapshots(a[trian],pindex)
   end
+end
+
+function change_dof_map(a::ArrayContribution,i::ArrayContribution)
+  a′ = ()
+  for j in eachindex(a)
+    a′ = (a′...,change_dof_map(a[j],i[j]))
+  end
+  return Contribution(a′,a.trians)
 end
 
 # linear algebra

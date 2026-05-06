@@ -286,7 +286,7 @@ end
 # utils
 
 function _get_at_domain(s::Snapshots,rows::AbstractVector{<:Integer})
-  data = reshape(get_all_data(s),:,num_params(s))
+  data = reshape(_all_data(s),:,num_params(s))
   _get_at_domain(data,rows)
 end
 
@@ -294,8 +294,7 @@ function _get_at_domain(s::SparseSnapshots,rowscols::Tuple)
   rows,cols = rowscols
   sparsity = get_sparsity(get_dof_map(s))
   inds = sparsify_split_indices(rows,cols,sparsity)
-  data = reshape(_all_data(s),:,num_params(s))
-  _get_at_domain(data,inds)
+  _get_at_domain(s,inds)
 end
 
 function _get_at_domain(data::AbstractArray,rows::AbstractVector{<:Integer})

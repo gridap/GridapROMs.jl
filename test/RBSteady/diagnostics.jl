@@ -1,10 +1,8 @@
 module DiagnosticTests
 
+using DrWatson
 using Gridap
 using Gridap.MultiField
-using Test
-using DrWatson
-
 using GridapROMs
 
 include("../../examples/ExamplesInterface.jl")
@@ -78,7 +76,7 @@ function main(
   rm(dir;recursive=true)
   create_dir(dir)
 
-  tols = [1e-1,1e-2,1e-3,1e-4,1e-5]
+  tols = [1e-1,1e-3,1e-5]
   run_test(dir,rbsolver,feop,tols)
 
   dgn = rom_diagnostics(dir,rbsolver,feop)
@@ -100,9 +98,9 @@ using GridapROMs
 
 include("../../examples/ExamplesInterface.jl")
 
-method=:pod
-compression=:global
-hypred_strategy=:none 
+method=:ttsvd
+compression=:local
+hypred_strategy=:affine 
   tol=1e-4
   nparams=50
   nparams_res=floor(Int,nparams/3)

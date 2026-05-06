@@ -193,12 +193,12 @@ function Base.copyto!(A::ConsecutiveParamSparseMatrixCSC,B::ConsecutiveParamSpar
   copyto!(A.data,B.data)
 end
 
-function DofMaps.recast(a::AbstractMatrix,A::SparseMatrixCSC)
+function recast(a::AbstractMatrix,A::SparseMatrixCSC)
   @check size(a,1) == nnz(A)
   ConsecutiveParamSparseMatrixCSC(A.m,A.n,A.colptr,A.rowval,a)
 end
 
-function DofMaps.recast(a::AbstractMatrix,A::ConsecutiveParamSparseMatrixCSC)
+function recast(a::AbstractMatrix,A::ConsecutiveParamSparseMatrixCSC)
   @check size(a,1) == nnz(A)
   ConsecutiveParamSparseMatrixCSC(A.m,A.n,A.colptr,A.rowval,a)
 end
@@ -446,12 +446,12 @@ function Base.copyto!(A::ConsecutiveParamSparseMatrixCSR,B::ConsecutiveParamSpar
   copyto!(A.data,B.data)
 end
 
-function DofMaps.recast(a::AbstractMatrix,A::SparseMatrixCSR{Bi}) where Bi
+function recast(a::AbstractMatrix,A::SparseMatrixCSR{Bi}) where Bi
   @check size(a,1) == nnz(A)
   ConsecutiveParamSparseMatrixCSR{Bi}(A.m,A.n,A.rowptr,A.colval,a)
 end
 
-function DofMaps.recast(a::AbstractMatrix,A::ConsecutiveParamSparseMatrixCSR{Bi}) where Bi
+function recast(a::AbstractMatrix,A::ConsecutiveParamSparseMatrixCSR{Bi}) where Bi
   @check size(a,1) == nnz(A)
   ConsecutiveParamSparseMatrixCSR{Bi}(A.m,A.n,A.rowptr,A.colval,a)
 end

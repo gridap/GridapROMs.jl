@@ -60,6 +60,7 @@ import StatsBase: sample
 import Gridap.Fields: BroadcastOpFieldArray,BroadcastingFieldOpMap,LinearCombinationField,LinearCombinationMap,AffineMap,ConstantMap
 import Gridap.ReferenceFEs: LagrangianDofBasis
 import Gridap.TensorValues: ⊗, ⊙
+import GridapROMs.DofMaps: get_dof_map,change_dof_map,recast,flatten
 import SparseArrays.getcolptr
 
 export UniformSampling

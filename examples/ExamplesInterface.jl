@@ -5,9 +5,10 @@ using Serialization
 using Test
 
 using GridapROMs
+using GridapROMs.DofMaps
+using GridapROMs.ParamDataStructures
 using GridapROMs.RBSteady
 using GridapROMs.RBTransient
-using GridapROMs.ParamDataStructures
 
 using GridapSolvers
 using GridapSolvers.LinearSolvers
@@ -16,41 +17,9 @@ using GridapSolvers.NonlinearSolvers
 import Gridap.Helpers: @abstractmethod
 import Gridap.MultiField: BlockMultiFieldStyle
 import GridapROMs.ParamAlgebra: get_linear_operator,get_nonlinear_operator
-import GridapROMs.ParamDataStructures: ReshapedSnapshots,TransientSnapshotsWithIC,get_realisation
+import GridapROMs.ParamDataStructures: get_realisation
 import GridapROMs.RBSteady: TrivialHyperReduction,get_state_reduction,get_residual_reduction,get_jacobian_reduction,get_error,_get_label
 import GridapROMs.Utils: Contribution,TupOfArrayContribution
-
-function change_dof_map(s::GenericSnapshots,dof_map)
-  pdata = get_param_data(s)
-  r = get_realisation(s)
-  Snapshots(pdata,dof_map,r)
-end
-
-function change_dof_map(s::ReshapedSnapshots,dof_map)
-  pdata = get_param_data(s)
-  r = get_realisation(s)
-  Snapshots(pdata,dof_map,r)
-end
-
-function change_dof_map(s::TransientSnapshotsWithIC,dof_map)
-  TransientSnapshotsWithIC(s.initial_data,change_dof_map(s.snaps,dof_map))
-end
-
-function change_dof_map(resjac::Contribution,dof_map::Contribution)
-  resjac′ = ()
-  for i in eachindex(resjac)
-    resjac′ = (resjac′...,change_dof_map(resjac[i],dof_map[i]))
-  end
-  return Contribution(resjac′,resjac.trians)
-end
-
-function change_dof_map(jac::TupOfArrayContribution,dof_map::TupOfArrayContribution)
-  jac′ = ()
-  for i in eachindex(jac)
-    jac′ = (jac′...,change_dof_map(jac[i],dof_map[i]))
-  end
-  return jac′
-end
 
 function try_loading_fe_snapshots(dir,rbsolver,feop,args...;label="",kwargs...)
   try
