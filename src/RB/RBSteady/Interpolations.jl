@@ -174,6 +174,23 @@ function FESpaces.interpolate!(
   end
 end
 
+function get_at_domain(s::Snapshots,rows::AbstractVector{<:Integer})
+  data = flatten(s)
+  get_at_domain(data,rows)
+end
+
+function get_at_domain(s::SparseSnapshots,rowscols::Tuple)
+  rows,cols = rowscols
+  sparsity = get_sparsity(get_dof_map(s))
+  inds = sparsify_split_indices(rows,cols,sparsity)
+  get_at_domain(s,inds)
+end
+
+function get_at_domain(data::AbstractArray,rows::AbstractVector{<:Integer})
+  datav = view(data,rows,:)
+  ConsecutiveParamArray(datav)
+end
+
 # multi field
 
 struct BlockInterpolation{N} <: Interpolation
@@ -261,41 +278,28 @@ function get_owned_icells(a::BlockInterpolation{N},cells::AbstractVector) where 
   return ArrayBlock(array,a.touched)
 end
 
-function move_interpolation(a::BlockInterpolation{N},trial::FESpace,test::FESpace,args...) where N
-  I = eltype(a.interp)
-  cache = Array{I,N}(undef,size(a))
-  for (i,j) in Iterators.product(axes(a)...)
-    if a.touched[i,j]
-      cache[i,j] = move_interpolation(a.interp[i,j],trial[j],test[i],args...)
+for T in (:MultiFieldFESpace,:MultiFieldRBSpace)
+  @eval begin
+    function move_interpolation(a::BlockInterpolation{N},test::$T,args...) where N
+      I = eltype(a.interp)
+      cache = Array{I,N}(undef,size(a))
+      for i in eachindex(a)
+        if a.touched[i]
+          cache[i] = move_interpolation(a.interp[i],test[i],args...)
+        end
+      end
+      return BlockInterpolation(cache,a.touched)
+    end
+
+    function move_interpolation(a::BlockInterpolation{N},trial::$T,test::$T,args...) where N
+      I = eltype(a.interp)
+      cache = Array{I,N}(undef,size(a))
+      for (i,j) in Iterators.product(axes(a)...)
+        if a.touched[i,j]
+          cache[i,j] = move_interpolation(a.interp[i,j],trial[j],test[i],args...)
+        end
+      end
+      return BlockInterpolation(cache,a.touched)
     end
   end
-  return BlockInterpolation(cache,a.touched)
-end
-
-function move_interpolation(a::BlockInterpolation{N},test::FESpace,args...) where N
-  I = eltype(a.interp)
-  cache = Array{I,N}(undef,size(a))
-  for i in eachindex(a)
-    if a.touched[i]
-      cache[i] = move_interpolation(a.interp[i],test[i],args...)
-    end
-  end
-  return BlockInterpolation(cache,a.touched)
-end
-
-function get_at_domain(s::Snapshots,rows::AbstractVector{<:Integer})
-  data = flatten(s)
-  get_at_domain(data,rows)
-end
-
-function get_at_domain(s::SparseSnapshots,rowscols::Tuple)
-  rows,cols = rowscols
-  sparsity = get_sparsity(get_dof_map(s))
-  inds = sparsify_split_indices(rows,cols,sparsity)
-  get_at_domain(s,inds)
-end
-
-function get_at_domain(data::AbstractArray,rows::AbstractVector{<:Integer})
-  datav = view(data,rows,:)
-  ConsecutiveParamArray(datav)
 end

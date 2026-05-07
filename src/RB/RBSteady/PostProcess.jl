@@ -101,12 +101,6 @@ function DrWatson.save(dir,contrib::Contribution;label="")
   serialize(contrib_dir,get_contributions(contrib))
 end
 
-function DrWatson.save(dir,lproj::LocalProjection{<:Contribution};label="")
-  _lproj = LocalProjection(map(get_contributions,lproj.projections),lproj.k)
-  contrib_dir = get_filename(dir,contributions_label,label)
-  serialize(contrib_dir,_lproj)
-end
-
 function _setup_contribution(vals::Tuple{Vararg{Any}},trian)
   @check length(trian)==length(vals)
   Contribution(vals,trian)
@@ -119,11 +113,6 @@ function _setup_contribution(vals::Tuple{Vararg{HRProjection}},trian)
     redtrian = (redtrian...,reduced_triangulation(trian[i],vals[i]))
   end
   Contribution(vals,redtrian)
-end
-
-function _setup_contribution(vals::LocalProjection,trian)
-  projections = map(p -> _setup_contribution(p,trian),vals.projections)
-  LocalProjection(projections,vals.k)
 end
 
 """

@@ -43,14 +43,6 @@ end
 local_vals(a) = @abstractmethod
 local_vals(a::LocalProjection) = a.projections
 
-function local_vals(a::BlockProjection)
-  litems = map(local_vals,a.array)
-  nlitems = length(first(litems))
-  map(1:nlitems) do i
-    BlockProjection(getindex.(litems,i),a.touched)
-  end
-end
-
 function local_vals(a::RBSpace)
   space = get_fe_space(a)
   lsubspace = local_vals(get_reduced_subspace(a))
@@ -62,7 +54,6 @@ local_proj_to_proj(a::LocalProjection,b::AbstractVector{<:Projection}) = LocalPr
 
 get_clusters(a) = @abstractmethod
 get_clusters(a::LocalProjection) = a.k
-get_clusters(a::BlockProjection) = get_clusters(testitem(a))
 get_clusters(a::RBSpace) = get_clusters(get_reduced_subspace(a))
 
 function get_local(a,r::Realisation)
@@ -82,10 +73,6 @@ function get_local(a::MatLocalProjection,μ::AbstractVector)
   labk = get_label(k,μ)
   labl = get_label(l,μ)
   a.projections[labk,labl]
-end
-
-function get_local(a::BlockProjection,μ::AbstractVector)
-  BlockProjection(map(p -> get_local(p,μ),a.array),a.touched)
 end
 
 function get_local(a::RBSpace,μ::AbstractVector)

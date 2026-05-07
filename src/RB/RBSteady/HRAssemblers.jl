@@ -17,26 +17,6 @@ function collect_cell_hr_matrix(
   (cell_mat_rc,cell_irows,cell_icols,icells)
 end
 
-function collect_reduced_cell_hr_matrix(
-  trial::FESpace,
-  test::FESpace,
-  a::DomainContribution,
-  strian::Triangulation,
-  interp::Interpolation
-  )
-
-  cell_irows = get_cell_irows(interp)
-  cell_icols = get_cell_icols(interp)
-  cells = get_integration_cells(interp)
-  icells = get_owned_icells(interp,strian)
-  scell_mat = lazy_map(Reindex(get_contribution(a,strian)),cells)
-  cell_mat,trian = move_contributions(scell_mat,strian)
-  @assert ndims(eltype(cell_mat)) == 2 "$(ndims(eltype(cell_mat)))"
-  cell_mat_c = attach_constraints_cols(trial,cell_mat,trian)
-  cell_mat_rc = attach_constraints_rows(test,cell_mat_c,trian)
-  (cell_mat_rc,cell_irows,cell_icols,icells)
-end
-
 function collect_cell_hr_vector(
   test::FESpace,
   a::DomainContribution,
@@ -47,23 +27,6 @@ function collect_cell_hr_vector(
   cell_irows = get_cell_irows(interp)
   icells = get_owned_icells(interp,strian)
   scell_vec = get_contribution(a,strian)
-  cell_vec,trian = move_contributions(scell_vec,strian)
-  @assert ndims(eltype(cell_vec)) == 1
-  cell_vec_r = attach_constraints_rows(test,cell_vec,trian)
-  (cell_vec_r,cell_irows,icells)
-end
-
-function collect_reduced_cell_hr_vector(
-  test::FESpace,
-  a::DomainContribution,
-  strian::Triangulation,
-  interp::Interpolation
-  )
-
-  cell_irows = get_cell_irows(interp)
-  cells = get_integration_cells(interp)
-  icells = get_owned_icells(interp,strian)
-  scell_vec = lazy_map(Reindex(get_contribution(a,strian)),cells)
   cell_vec,trian = move_contributions(scell_vec,strian)
   @assert ndims(eltype(cell_vec)) == 1
   cell_vec_r = attach_constraints_rows(test,cell_vec,trian)
@@ -265,6 +228,10 @@ function assemble_hr_vector_add!(
   end
 end
 
+function assemble_hr_vector_add!(b,cellvec,cellidsrows,icells::Table)
+  
+end
+
 function assemble_hr_vector_add!(b,cellvec,cellidsrows,icells)
   if length(cellvec) > 0
     rows_cache = array_cache(cellidsrows)
@@ -304,6 +271,10 @@ function assemble_hr_matrix_add!(
         A.array[i],cellmati,cellidsrows.array[i],cellidscols.array[i],icells.array[i])
     end
   end
+end
+
+function assemble_hr_matrix_add!(A,cellmat,cellidsrows,cellidscols,icells::Table)
+  
 end
 
 function assemble_hr_matrix_add!(A,cellmat,cellidsrows,cellidscols,icells)

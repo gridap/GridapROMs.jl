@@ -834,6 +834,7 @@ function _galerkin_projection(
   return ReducedProjection(proj_basis)
 end
 
+_proj_type(::Reduction,args...) = @abstractmethod
 _proj_type(::PODReduction) = PODProjection
 _proj_type(::TTSVDReduction) = TTSVDProjection
 _proj_type(::LocalReduction) = LocalProjection

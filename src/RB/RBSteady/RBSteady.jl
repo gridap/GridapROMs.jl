@@ -248,6 +248,7 @@ export local_vals
 export get_clusters
 include("LocalProjections.jl")
 
+export LocalInterpolation
 export LocalHRProjection
 include("LocalHyperReductions.jl")
 
