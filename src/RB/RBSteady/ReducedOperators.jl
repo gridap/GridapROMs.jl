@@ -287,6 +287,15 @@ FESpaces.get_test(op::GenericRBOperator) = op.test
 get_lhs(op::GenericRBOperator) = op.lhs
 get_rhs(op::GenericRBOperator) = op.rhs
 
+function get_local(op::GenericRBOperator,μ::AbstractVector)
+  opμ = get_local(op.op,μ)
+  trialμ = get_local(op.trial,μ)
+  testμ = get_local(op.test,μ)
+  lhsμ = get_local(op.lhs,μ)
+  rhsμ = get_local(op.rhs,μ)
+  RBOperator(opμ,trialμ,testμ,lhsμ,rhsμ)
+end
+
 function Algebra.allocate_residual(
   op::GenericRBOperator{O,T,B,<:NoHRContribution},
   r::Realisation,

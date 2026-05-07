@@ -222,13 +222,6 @@ function RBSteady.galerkin_projection(
   return ReducedProjection(proj_basis)
 end
 
-
-
-
-
-
-
-
 function RBSteady.projection_eltype(a::KroneckerProjection)
   T = projection_eltype(a.projection_space)
   S = projection_eltype(a.projection_time)
@@ -306,16 +299,8 @@ function RBSteady.galerkin_projection(
   RBSteady._galerkin_projection(get_dof_map(a),proj_left,a,proj_right,combine)
 end
 
-
-
-
-
 function RBSteady.projection_eltype(a::SequentialProjection)
   projection_eltype(a.projection)
-end
-
-function RBSteady.rescale(op::Function,X::AbstractRankTensor,b::SequentialProjection)
-  RBSteady.rescale(op,X,b.projection)
 end
 
 function RBSteady.project!(

@@ -194,14 +194,11 @@ gram_schmidt(a::Projection,b::Projection,args...) = gram_schmidt(get_basis(a),ge
 
 get_norm_matrix(a::Projection) = I(num_fe_dofs(a))
 
-rescale(op::Function,x::AbstractArray,b::Projection) = @abstractmethod
-
 Base.:+(a::Projection,b::Projection) = union_bases(a,b)
 Base.:-(a::Projection,b::Projection) = union_bases(a,b)
 Base.:*(a::Projection,b::Projection) = galerkin_projection(a,b)
 Base.:*(a::Projection,b::Projection,c::Projection) = galerkin_projection(a,b,c)
 Base.:*(a::Projection,x::AbstractArray) = inv_project(a,x)
-Base.:*(x::AbstractArray,b::Projection) = rescale(*,x,b)
 
 function Base.:*(b::Projection,y::ConsecutiveParamArray{T}) where T
   S = promote_type(projection_eltype(b),T)
@@ -373,10 +370,6 @@ for f in (:empirical_interpolation,:s_opt)
   end
 end
 
-function rescale(op::Function,x::AbstractArray,b::PODProjection)
-  PODProjection(op(x,get_basis(b)))
-end
-
 # TT interface
 
 """
@@ -499,18 +492,6 @@ for f in (:empirical_interpolation,:s_opt)
   end
 end
 
-function rescale(op::Function,X::AbstractRankTensor{D},b::TTSVDProjection) where D
-  cores = get_cores(b)
-  dof_map = get_dof_map(b)
-  if D == ndims(dof_map)
-    TTSVDProjection(op(X,cores),dof_map)
-  else
-    c1 = op(X,cores[1:D])
-    c2 = cores[D+1:end]
-    TTSVDProjection([c1...,c2...],dof_map)
-  end
-end
-
 """
     struct NormedProjection <: Projection
       projection::Projection
@@ -572,11 +553,6 @@ for f in (:empirical_interpolation,:s_opt)
   @eval begin
     $f(a::NormedProjection) = $f(a.projection)
   end
-end
-
-function rescale(op::Function,x::Any,b::NormedProjection)
-  projection′ = rescale(op,x,b.projection)
-  NormedProjection(projection′,b.norm_matrix)
 end
 
 # multi field interface

@@ -13,15 +13,6 @@ function get_local(a::LocalInterpolation,μ::AbstractVector)
   a.interp[labk,labl]
 end
 
-Base.ndims(a::LocalInterpolation) = ndims(a.interp)
-Base.size(a::LocalInterpolation,args...) = size(a.interp,args...)
-Base.axes(a::LocalInterpolation,args...) = axes(a.interp,args...)
-Base.length(a::LocalInterpolation) = length(a.interp)
-Base.eachindex(a::LocalInterpolation) = eachindex(a.interp)
-Base.getindex(a::LocalInterpolation,i...) = a.interp[i...] 
-Base.setindex!(a::LocalInterpolation,v,i...) = (a.interp[i...] = v)
-Arrays.testitem(a::LocalInterpolation) = first(a.interp)
-
 for f in (:get_cell_irows,:get_cell_icols)
   @eval begin
     function $f(a::LocalInterpolation) 
@@ -78,6 +69,29 @@ function get_local(a::LocalHRProjection,μ::AbstractVector)
   labk = get_label(k,μ)
   labl = get_label(l,μ)
   a.reductions[labk,labl]
+end
+
+get_local(a::AffineContribution,μ::AbstractVector) = a
+
+const LocalHRContribution = AffineContribution{<:LocalHRProjection}
+
+function get_local(a::LocalHRContribution,μ::AbstractVector)
+  vals = map(v -> get_local(v,μ),get_contributions(a))
+  Contribution(vals,get_domains(a))
+end
+
+function allocate_coefficient(a::LocalHRProjection,r::AbstractRealisation)
+  vals = map(r) do μ
+    allocate_coefficient(get_local(a,μ))
+  end
+  GenericParamArray(vals)
+end
+
+function allocate_hyper_reduction(a::LocalHRProjection,r::AbstractRealisation)
+  vals = map(r) do μ
+    allocate_hyper_reduction(get_local(a,μ))
+  end
+  GenericParamArray(vals)
 end
 
 function reduced_form(

@@ -8,6 +8,8 @@ LocalProjection(projections::AbstractVector,k::KmeansResult) = LocalProjection(p
 const VecLocalProjection{A} = LocalProjection{A,1}
 const MatLocalProjection{A} = LocalProjection{A,2}
 
+num_fe_dofs(a::LocalProjection) = num_fe_dofs(first(a.projections))
+
 function projection(lred::LocalReduction,s::Snapshots)
   red = get_reduction(lred)
   k = compute_clusters(lred,s)
@@ -81,7 +83,49 @@ function get_local(a::RBSpace,μ::AbstractVector)
   reduced_subspace(space,lsubspace)
 end
 
-get_local(a::ParamOperator,μ::AbstractVector) = a
+get_local(a::Projection,μ::AbstractVector) = a
+
+function Algebra.allocate_in_domain(a::LocalProjection,r::AbstractRealisation)
+  values = map(r) do μ
+    ai = get_local(a,μ)
+    allocate_in_domain(ai)
+  end
+  GenericParamVector(values)
+end
+
+function Algebra.allocate_in_range(a::LocalProjection,r::AbstractRealisation)
+  values = map(r) do μ
+    ai = get_local(a,μ)
+    allocate_in_range(ai)
+  end
+  GenericParamVector(values)
+end
+
+function project(a::LocalProjection,x::AbstractParamVector,r::AbstractRealisation)
+  @check param_length(x) == param_length(r)
+  x̂ = allocate_in_domain(a,r)
+  for i in param_eachindex(r)
+    μi = param_getindex(r,i)
+    ai = get_local(a,μi)
+    xi = param_getindex(x,i)
+    x̂i = param_getindex(x̂,i)
+    project!(x̂i,ai,xi)
+  end
+  x̂
+end
+
+function inv_project(a::LocalProjection,x̂::AbstractParamVector,r::AbstractRealisation)
+  @check param_length(x̂) == param_length(r)
+  x = allocate_in_range(a,r)
+  for i in param_eachindex(r)
+    μi = param_getindex(r,i)
+    ai = get_local(a,μi)
+    x̂i = param_getindex(x̂,i)
+    xi = param_getindex(x,i)
+    inv_project!(xi,ai,x̂i)
+  end
+  x
+end
 
 function enrich!(
   red::SupremizerReduction{A,<:LocalReduction},
