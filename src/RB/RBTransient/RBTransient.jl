@@ -143,27 +143,16 @@ export TransientRBFInterpolation
 export TransientBlockInterpolation
 include("Interpolations.jl")
 
-export HighDimNoHRProjection
-export HighDimAffineHRProjection
-export HighDimMDEIMProjection
-export HighDimSOPTProjection
-export HighDimRBFProjection
-export HighDimNoHRContribution
 export HighDimAffineHRContribution
-export HighDimMDEIMContribution
-export HighDimSOPTContribution
-export HighDimRBFContribution
-export TupOfHighDimNoHRContribution
 export TupOfHighDimAffineHRContribution
-export TupOfHighDimMDEIMContribution
-export TupOfHighDimSOPTContribution
-export TupOfHighDimRBFContribution
 export get_common_time_domain
 include("HyperReductions.jl")
 
 include("HRAssemblers.jl")
 
 include("LocalProjections.jl")
+
+include("LocalHyperReductions.jl")
 
 export TransientRBOperator
 export TransientGenericRBOperator

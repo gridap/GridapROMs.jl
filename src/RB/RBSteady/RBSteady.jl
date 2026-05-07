@@ -215,12 +215,6 @@ export move_interpolation
 include("Interpolations.jl")
 
 export HRProjection
-export GenericHRProjection
-export NoHRrojection
-export AffineHRrojection
-export MDEIMProjection
-export SOPTProjection
-export RBFProjection
 export AffineContribution
 export BlockHRProjection
 export get_interpolation
@@ -233,7 +227,6 @@ export allocate_hypred_cache
 export allocate_hrtrian_cache
 include("HyperReductions.jl")
 
-export FetchBlockMap
 export collect_cell_hr_matrix
 export collect_cell_hr_vector
 export assemble_hr_vector_add!
@@ -250,6 +243,7 @@ include("LocalProjections.jl")
 
 export LocalInterpolation
 export LocalHRProjection
+export LocalHRContribution
 include("LocalHyperReductions.jl")
 
 export RBOperator

@@ -199,40 +199,37 @@ end
   A
 end
 
-struct FetchBlockMap{A} <: Map
-  values::A
-  blockid::Int
-end
+# struct FetchBlockMap{A} <: Map
+#   values::A
+#   blockid::Int
+# end
 
-function Arrays.return_cache(k::FetchBlockMap,i...)
-  array_cache(k.values)
-end
+# function Arrays.return_cache(k::FetchBlockMap,i...)
+#   array_cache(k.values)
+# end
 
-function Arrays.evaluate!(cache,k::FetchBlockMap,i...)
-  a = getindex!(cache,k.values,i...)
-  a.array[k.blockid]
-end
+# function Arrays.evaluate!(cache,k::FetchBlockMap,i...)
+#   a = getindex!(cache,k.values,i...)
+#   a.array[k.blockid]
+# end
 
-function assemble_hr_vector_add!(
-  b::ArrayBlock,
-  cellvec,
-  cellidsrows::ArrayBlock,
-  icells::ArrayBlock
-  )
-  @check cellidsrows.touched == icells.touched
-  for i in eachindex(cellidsrows)
-    if cellidsrows.touched[i]
-      cellveci = lazy_map(FetchBlockMap(cellvec,i),icells.array[i])
-      assemble_hr_vector_add!(b.array[i],cellveci,cellidsrows.array[i],icells.array[i])
-    end
-  end
-end
+# function assemble_hr_vector_add!(
+#   b::ArrayBlock,
+#   cellvec,
+#   cellidsrows::ArrayBlock,
+#   icells::ArrayBlock
+#   )
+#   @check cellidsrows.touched == icells.touched
+#   for i in eachindex(cellidsrows)
+#     if cellidsrows.touched[i]
+#       cellveci = lazy_map(FetchBlockMap(cellvec,i),icells.array[i])
+#       assemble_hr_vector_add!(b.array[i],cellveci,cellidsrows.array[i],icells.array[i])
+#     end
+#   end
+# end
 
-function assemble_hr_vector_add!(b,cellvec,cellidsrows,icells::Table)
-  
-end
-
-function assemble_hr_vector_add!(b,cellvec,cellidsrows,icells)
+function assemble_hr_vector_add!(b,_cellvec,cellidsrows,icells)
+  cellvec = lazy_map(Reindex(_cellvec),icells)
   if length(cellvec) > 0
     rows_cache = array_cache(cellidsrows)
     vals_cache = array_cache(cellvec)
@@ -256,28 +253,25 @@ end
   end
 end
 
-function assemble_hr_matrix_add!(
-  A::ArrayBlock,
-  cellmat,
-  cellidsrows::ArrayBlock,
-  cellidscols::ArrayBlock,
-  icells::ArrayBlock
-  )
-  @check cellidsrows.touched == cellidscols.touched == icells.touched
-  for i in eachindex(cellidsrows)
-    if cellidsrows.touched[i]
-      cellmati = lazy_map(FetchBlockMap(cellmat,i),icells.array[i])
-      assemble_hr_matrix_add!(
-        A.array[i],cellmati,cellidsrows.array[i],cellidscols.array[i],icells.array[i])
-    end
-  end
-end
+# function assemble_hr_matrix_add!(
+#   A::ArrayBlock,
+#   cellmat,
+#   cellidsrows::ArrayBlock,
+#   cellidscols::ArrayBlock,
+#   icells::ArrayBlock
+#   )
+#   @check cellidsrows.touched == cellidscols.touched == icells.touched
+#   for i in eachindex(cellidsrows)
+#     if cellidsrows.touched[i]
+#       cellmati = lazy_map(FetchBlockMap(cellmat,i),icells.array[i])
+#       assemble_hr_matrix_add!(
+#         A.array[i],cellmati,cellidsrows.array[i],cellidscols.array[i],icells.array[i])
+#     end
+#   end
+# end
 
-function assemble_hr_matrix_add!(A,cellmat,cellidsrows,cellidscols,icells::Table)
-  
-end
-
-function assemble_hr_matrix_add!(A,cellmat,cellidsrows,cellidscols,icells)
+function assemble_hr_matrix_add!(A,_cellmat,cellidsrows,cellidscols,icells)
+  cellmat = lazy_map(Reindex(_cellmat),icells)
   if length(cellmat) > 0
     rows_cache = array_cache(cellidsrows)
     cols_cache = array_cache(cellidscols)

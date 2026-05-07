@@ -287,15 +287,6 @@ FESpaces.get_test(op::GenericRBOperator) = op.test
 get_lhs(op::GenericRBOperator) = op.lhs
 get_rhs(op::GenericRBOperator) = op.rhs
 
-function get_local(op::GenericRBOperator,μ::AbstractVector)
-  opμ = get_local(op.op,μ)
-  trialμ = get_local(op.trial,μ)
-  testμ = get_local(op.test,μ)
-  lhsμ = get_local(op.lhs,μ)
-  rhsμ = get_local(op.rhs,μ)
-  RBOperator(opμ,trialμ,testμ,lhsμ,rhsμ)
-end
-
 function Algebra.allocate_residual(
   op::GenericRBOperator{O,T,B,<:NoHRContribution},
   r::Realisation,
@@ -431,43 +422,7 @@ function Algebra.jacobian!(
   interpolate!(A,op.lhs,r)
 end
 
-"""
-    struct LocalRBOperator{O,T,A,B} <: RBOperator{O,T}
-      op::ParamOperator{O,T}
-      trial::RBSpace
-      test::RBSpace
-      lhs::A
-      rhs::B
-    end
-
-Fields:
-
-- `op`: underlying high dimensional FE operator
-- `trial`: local reduced trial spaces
-- `test`: local reduced test spaces
-- `lhs`: local hyper-reduced left hand sides
-- `rhs`: local hyper-reduced right hand sides
-"""
-struct LocalRBOperator{O,T,A,B} <: RBOperator{O,T}
-  op::ParamOperator{O,T}
-  trial::RBSpace
-  test::RBSpace
-  lhs::A
-  rhs::B
-end
-
-ParamSteady.get_fe_operator(op::LocalRBOperator) = op.op
-FESpaces.get_trial(op::LocalRBOperator) = op.trial
-FESpaces.get_test(op::LocalRBOperator) = op.test
-get_lhs(op::LocalRBOperator) = op.lhs
-get_rhs(op::LocalRBOperator) = op.rhs
-
-function RBOperator(
-  op::ParamOperator,trial::RBSpace,test::RBSpace,lhs::LocalProjection,rhs::LocalProjection
-  )
-
-  LocalRBOperator(op,trial,test,lhs,rhs)
-end
+const LocalRBOperator{O,T} = GenericRBOperator{O,T,<:LocalHRContribution,<:LocalHRContribution}
 
 function get_local(op::LocalRBOperator,μ::AbstractVector)
   opμ = get_local(op.op,μ)

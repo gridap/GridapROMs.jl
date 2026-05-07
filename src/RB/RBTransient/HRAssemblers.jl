@@ -397,24 +397,24 @@ end
   A
 end
 
-function RBSteady.assemble_hr_vector_add!(
-  b::ArrayBlock,
-  cellvec,
-  cellidsrows::ArrayBlock,
-  icells::ArrayBlock,
-  locations::ArrayBlock,
-  style::TransientIntegrationDomainStyle
-  )
+# function RBSteady.assemble_hr_vector_add!(
+#   b::ArrayBlock,
+#   cellvec,
+#   cellidsrows::ArrayBlock,
+#   icells::ArrayBlock,
+#   locations::ArrayBlock,
+#   style::TransientIntegrationDomainStyle
+#   )
 
-  @check cellidsrows.touched == icells.touched == locations.touched
-  for i in eachindex(cellidsrows)
-    if cellidsrows.touched[i]
-      cellveci = lazy_map(FetchBlockMap(cellvec,i),icells.array[i])
-      assemble_hr_vector_add!(
-        b.array[i],cellveci,cellidsrows.array[i],icells.array[i],locations.array[i],style)
-    end
-  end
-end
+#   @check cellidsrows.touched == icells.touched == locations.touched
+#   for i in eachindex(cellidsrows)
+#     if cellidsrows.touched[i]
+#       cellveci = lazy_map(FetchBlockMap(cellvec,i),icells.array[i])
+#       assemble_hr_vector_add!(
+#         b.array[i],cellveci,cellidsrows.array[i],icells.array[i],locations.array[i],style)
+#     end
+#   end
+# end
 
 function RBSteady.assemble_hr_vector_add!(b,cellvec,cellidsrows,icells,locations,style)
   if length(cellvec) > 0
@@ -430,26 +430,26 @@ function RBSteady.assemble_hr_vector_add!(b,cellvec,cellidsrows,icells,locations
   b
 end
 
-function RBSteady.assemble_hr_matrix_add!(
-  A::ArrayBlock,
-  cellmat,
-  cellidsrows::ArrayBlock,
-  cellidscols::ArrayBlock,
-  icells::ArrayBlock,
-  locations::ArrayBlock,
-  style::TransientIntegrationDomainStyle
-  )
+# function RBSteady.assemble_hr_matrix_add!(
+#   A::ArrayBlock,
+#   cellmat,
+#   cellidsrows::ArrayBlock,
+#   cellidscols::ArrayBlock,
+#   icells::ArrayBlock,
+#   locations::ArrayBlock,
+#   style::TransientIntegrationDomainStyle
+#   )
 
-  @check cellidsrows.touched == cellidscols.touched == icells.touched == locations.touched
-  for i in eachindex(cellidsrows)
-    if cellidsrows.touched[i]
-      cellmati = lazy_map(FetchBlockMap(cellmat,i),icells.array[i])
-      assemble_hr_matrix_add!(
-        A.array[i],cellmati,cellidsrows.array[i],cellidscols.array[i],
-        icells.array[i],locations.array[i],style)
-    end
-  end
-end
+#   @check cellidsrows.touched == cellidscols.touched == icells.touched == locations.touched
+#   for i in eachindex(cellidsrows)
+#     if cellidsrows.touched[i]
+#       cellmati = lazy_map(FetchBlockMap(cellmat,i),icells.array[i])
+#       assemble_hr_matrix_add!(
+#         A.array[i],cellmati,cellidsrows.array[i],cellidscols.array[i],
+#         icells.array[i],locations.array[i],style)
+#     end
+#   end
+# end
 
 function RBSteady.assemble_hr_matrix_add!(A,cellmat,cellidsrows,cellidscols,icells,locations,style)
   if length(cellmat) > 0

@@ -71,27 +71,14 @@ function get_local(a::LocalHRProjection,μ::AbstractVector)
   a.reductions[labk,labl]
 end
 
-get_local(a::AffineContribution,μ::AbstractVector) = a
-
 const LocalHRContribution = AffineContribution{<:LocalHRProjection}
 
+get_local(a::AffineContribution,μ::AbstractVector) = a
+
 function get_local(a::LocalHRContribution,μ::AbstractVector)
-  vals = map(v -> get_local(v,μ),get_contributions(a))
-  Contribution(vals,get_domains(a))
-end
-
-function allocate_coefficient(a::LocalHRProjection,r::AbstractRealisation)
-  vals = map(r) do μ
-    allocate_coefficient(get_local(a,μ))
+  contribution(get_domains(a)) do trian
+    get_local(a[trian],μ)
   end
-  GenericParamArray(vals)
-end
-
-function allocate_hyper_reduction(a::LocalHRProjection,r::AbstractRealisation)
-  vals = map(r) do μ
-    allocate_hyper_reduction(get_local(a,μ))
-  end
-  GenericParamArray(vals)
 end
 
 function reduced_form(
