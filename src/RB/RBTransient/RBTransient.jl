@@ -94,9 +94,14 @@ export SequentialReduction
 export HighDimHyperReduction
 export SteadyHyperReduction
 export TransientHyperReduction
+export NoHighDimHyperReduction
+export AffineHighDimHyperReduction
 export HighDimMDEIMHyperReduction
 export HighDimSOPTHyperReduction
 export HighDimRBFHyperReduction
+export LocalHighDimHyperReduction
+export get_reduction
+export get_time_combination
 include("ReductionMethods.jl")
 
 include("RBSolvers.jl")
@@ -111,6 +116,14 @@ include("BasesConstruction.jl")
 export TransientProjection
 export KroneckerProjection
 export SequentialProjection
+export projection
+export get_basis_space
+export get_basis_time
+export get_projection_space
+export get_projection_time
+export num_space_dofs
+export num_times
+export time_enrichment
 include("Projections.jl")
 
 include("RBSpaces.jl")
@@ -118,6 +131,11 @@ include("RBSpaces.jl")
 export TransientIntegrationDomain
 export KroneckerDomain
 export SequentialDomain
+export get_domain_style
+export get_indices_time
+export get_integration_domain_space
+export get_itimes
+export get_param_itimes
 include("IntegrationDomains.jl")
 
 export TransientGreedyInterpolation
@@ -125,6 +143,22 @@ export TransientRBFInterpolation
 export TransientBlockInterpolation
 include("Interpolations.jl")
 
+export HighDimNoHRProjection
+export HighDimAffineHRProjection
+export HighDimMDEIMProjection
+export HighDimSOPTProjection
+export HighDimRBFProjection
+export HighDimNoHRContribution
+export HighDimAffineHRContribution
+export HighDimMDEIMContribution
+export HighDimSOPTContribution
+export HighDimRBFContribution
+export TupOfHighDimNoHRContribution
+export TupOfHighDimAffineHRContribution
+export TupOfHighDimMDEIMContribution
+export TupOfHighDimSOPTContribution
+export TupOfHighDimRBFContribution
+export get_common_time_domain
 include("HyperReductions.jl")
 
 include("HRAssemblers.jl")
@@ -132,6 +166,9 @@ include("HRAssemblers.jl")
 include("LocalProjections.jl")
 
 export TransientRBOperator
+export TransientGenericRBOperator
+export TransientLocalRBOperator
+export TransientLinearNonlinearRBOperator
 include("ReducedOperators.jl")
 
 export SpaceTimeParamOperator

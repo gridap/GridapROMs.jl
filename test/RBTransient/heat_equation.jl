@@ -105,7 +105,7 @@ using Gridap
 using GridapROMs
 
 method=:pod
-compression=:local
+compression=:global
 hypred_strategy=:mdeim
   tol=1e-4
   nparams=50
@@ -198,3 +198,9 @@ hypred_strategy=:mdeim
   perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
 
   println(perf)
+
+  using GridapROMs.RBSteady
+  using GridapROMs.RBTransient
+  ress = residual_snapshots(rbsolver,feop,fesnaps)
+  red = get_reduction(rbsolver.residual_reduction)
+  basis = projection(red,ress[1])

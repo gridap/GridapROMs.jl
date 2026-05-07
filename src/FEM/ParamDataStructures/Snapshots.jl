@@ -70,9 +70,6 @@ function change_dof_map(s::Snapshots,i)
   Snapshots(pdata,i,r)
 end
 
-flatten(s::AbstractMatrix) = s 
-flatten(s::AbstractArray) = reshape(s,size(s,1),:) 
-
 function flatten(s::Snapshots)
   i = flatten(get_dof_map(s))
   s = change_dof_map(s,i)

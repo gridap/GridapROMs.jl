@@ -144,7 +144,7 @@ function Algebra.jacobian!(
 end
 
 function Algebra.allocate_residual(
-  op::GenericRBOperator{O,T,B,<:NoHRContribution},
+  op::GenericRBOperator{O,T,B,<:HighDimNoHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -156,7 +156,7 @@ function Algebra.allocate_residual(
 end
 
 function Algebra.allocate_jacobian(
-  op::GenericRBOperator{O,T,<:TupOfNoHRContribution,B},
+  op::GenericRBOperator{O,T,<:TupOfHighDimNoHRContribution,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -169,7 +169,7 @@ end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::GenericRBOperator{O,T,A,<:NoHRContribution},
+  op::GenericRBOperator{O,T,A,<:HighDimNoHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -200,7 +200,7 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::GenericRBOperator{O,T,<:TupOfNoHRContribution,B},
+  op::GenericRBOperator{O,T,<:TupOfHighDimNoHRContribution,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
@@ -243,7 +243,7 @@ end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::GenericRBOperator{O,T,A,<:AffineHRContribution},
+  op::GenericRBOperator{O,T,A,<:HighDimAffineHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -255,7 +255,7 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::GenericRBOperator{O,T,<:TupOfAffineHRContribution,B},
+  op::GenericRBOperator{O,T,<:TupOfHighDimAffineHRContribution,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
@@ -268,7 +268,7 @@ end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::GenericRBOperator{O,T,A,<:RBFContribution},
+  op::GenericRBOperator{O,T,A,<:HighDimRBFContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -280,7 +280,7 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::GenericRBOperator{O,T,<:TupOfRBFContribution,B},
+  op::GenericRBOperator{O,T,<:TupOfHighDimRBFContribution,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},

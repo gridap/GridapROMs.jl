@@ -281,9 +281,9 @@ end
 
 abstract type TrivialHighDimHyperReduction <: HighDimHyperReduction{NoReductionStyle} end
 
-get_reduction(r::TrivialHighDimHyperReduction) = NoReduction()
-ReductionStyle(r::TrivialHighDimHyperReduction) = NoReductionStyle()
-NormStyle(r::TrivialHighDimHyperReduction) = EuclideanNorm()
+RBSteady.get_reduction(r::TrivialHighDimHyperReduction) = NoReduction()
+RBSteady.ReductionStyle(r::TrivialHighDimHyperReduction) = NoReductionStyle()
+RBSteady.NormStyle(r::TrivialHighDimHyperReduction) = EuclideanNorm()
 ParamDataStructures.num_params(r::TrivialHighDimHyperReduction) = 1
 
 """
@@ -299,6 +299,8 @@ struct NoHighDimHyperReduction <: TrivialHighDimHyperReduction
   combination::TimeCombination
 end
 
+get_time_combination(r::NoHighDimHyperReduction) = r.combination
+
 """
     struct AffineHighDimHyperReduction <: TrivialHighDimHyperReduction 
       combination::TimeCombination
@@ -311,6 +313,8 @@ equal to 1 suffices for this type of reduction
 struct AffineHighDimHyperReduction <: TrivialHighDimHyperReduction 
   combination::TimeCombination
 end
+
+get_time_combination(r::AffineHighDimHyperReduction) = r.combination
 
 """
     struct HighDimMDEIMHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}

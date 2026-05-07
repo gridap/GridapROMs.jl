@@ -13,6 +13,76 @@ function RBSteady.HRProjection(
 end
 
 function RBSteady.HRProjection(
+  red::NoHighDimHyperReduction,
+  s::Snapshots,
+  trian::Triangulation,
+  test::RBSpace
+  )
+
+  T = get_dof_value_type(test)
+  nrows = num_reduced_dofs(test)
+  basis = ReducedProjection(zeros(T,nrows,1))
+  interp = Interpolation(red)
+  return HRProjection(basis,red,interp)
+end
+
+function RBSteady.HRProjection(
+  red::NoHighDimHyperReduction,
+  s::Snapshots,
+  trian::Triangulation,
+  trial::RBSpace,
+  test::RBSpace
+  )
+
+  T = get_dof_value_type(trial)
+  nrows = num_reduced_dofs(test)
+  ncols = num_reduced_dofs(trial)
+  basis = ReducedProjection(zeros(T,nrows,1,ncols))
+  interp = Interpolation(red)
+  return HRProjection(basis,red,interp)
+end
+
+function RBSteady.HRProjection(
+  red::AffineHighDimHyperReduction,
+  s::Snapshots,
+  trian::Triangulation,
+  test::RBSpace
+  )
+
+  basis = projection(get_reduction(red),s)
+  proj_basis = project(test,basis)
+  interp = Interpolation(red)
+  return HRProjection(proj_basis,red,interp)
+end
+
+function RBSteady.HRProjection(
+  red::AffineHighDimHyperReduction,
+  s::Snapshots,
+  trian::Triangulation,
+  trial::RBSpace,
+  test::RBSpace
+  )
+
+  basis = projection(get_reduction(red),s)
+  proj_basis = project(test,basis,trial,get_time_combination(red))
+  interp = Interpolation(red)
+  return HRProjection(proj_basis,red,interp)
+end
+
+function RBSteady.HRProjection(
+  red::HighDimRBFHyperReduction,
+  s::Snapshots,
+  trian::Triangulation,
+  test::RBSpace
+  )
+
+  basis = projection(get_reduction(red),s)
+  proj_basis = project(test,basis)
+  interp = Interpolation(red,basis,s)
+  return HRProjection(proj_basis,red,interp)
+end
+
+function RBSteady.HRProjection(
   red::HighDimRBFHyperReduction,
   s::Snapshots,
   trian::Triangulation,
@@ -40,12 +110,50 @@ function RBSteady.reduced_jacobian(
   return a
 end
 
+const HighDimNoHRProjection{A<:Projection} = HRProjection{A,<:NoHighDimHyperReduction}
+const HighDimAffineHRProjection{A<:Projection} = HRProjection{A,<:AffineHighDimHyperReduction}
+const HighDimMDEIMProjection{A<:Projection} = HRProjection{A,<:HighDimMDEIMHyperReduction}
+const HighDimSOPTProjection{A<:Projection} = HRProjection{A,<:HighDimSOPTHyperReduction}
+const HighDimRBFProjection{A<:Projection} = HRProjection{A,<:HighDimRBFHyperReduction}
+
+function FESpaces.interpolate!(
+  b̂::AbstractArray,
+  coeff::AbstractArray,
+  a::HighDimNoHRProjection,
+  x::AbstractArray
+  )
+
+  o = one(eltype2(b̂))
+  axpy!(o,coeff,b̂)
+  return b̂
+end
+
+function FESpaces.interpolate!(
+  b̂::AbstractArray,
+  coeff::AbstractArray,
+  a::HighDimAffineHRProjection,
+  x::Any
+  )
+
+  o = one(eltype2(b̂))
+  L = param_length(b̂)
+  ϕ = get_basis(get_basis(a))
+  axpy!(o,parameterise(ϕ,L),b̂)
+  return b̂
+end
+
+const HighDimNoHRContribution = AffineContribution{<:HighDimNoHRProjection}
+const HighDimAffineHRContribution = AffineContribution{<:HighDimAffineHRProjection}
+const HighDimMDEIMContribution = AffineContribution{<:HighDimMDEIMProjection}
+const HighDimSOPTContribution = AffineContribution{<:HighDimSOPTProjection}
+const HighDimRBFContribution = AffineContribution{<:HighDimRBFProjection}
+
 const TupOfAffineContribution = Tuple{Vararg{AffineContribution}}
-const TupOfNoHRContribution = Tuple{Vararg{NoHRContribution}}
-const TupOfAffineHRContribution = Tuple{Vararg{AffineHRContribution}}
-const TupOfMDEIMContribution = Tuple{Vararg{MDEIMContribution}}
-const TupOfSOPTContribution = Tuple{Vararg{SOPTContribution}}
-const TupOfRBFContribution = Tuple{Vararg{RBFContribution}}
+const TupOfHighDimNoHRContribution = Tuple{Vararg{HighDimNoHRContribution}}
+const TupOfHighDimAffineHRContribution = Tuple{Vararg{HighDimAffineHRContribution}}
+const TupOfHighDimMDEIMContribution = Tuple{Vararg{HighDimMDEIMContribution}}
+const TupOfHighDimSOPTContribution = Tuple{Vararg{HighDimSOPTContribution}}
+const TupOfHighDimRBFContribution = Tuple{Vararg{HighDimRBFContribution}}
 
 function RBSteady.allocate_coefficient(a::TupOfAffineContribution,b::TupOfArrayContribution)
   @check length(a) == length(b)

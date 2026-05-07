@@ -98,6 +98,7 @@ import PartitionedArrays: tuple_of_arrays
 import Statistics: mean
 
 export ReductionStyle
+export NoReductionStyle
 export SearchSVDRank
 export FixedSVDRank
 export LRApproxRank
@@ -106,6 +107,7 @@ export NormStyle
 export EuclideanNorm
 export EnergyNorm
 export Reduction
+export NoReduction
 export DirectReduction
 export GreedyReduction
 export PODReduction
@@ -220,11 +222,6 @@ export MDEIMProjection
 export SOPTProjection
 export RBFProjection
 export AffineContribution
-export NoHRContribution
-export AffineHRContribution
-export MDEIMContribution
-export SOPTContribution
-export RBFContribution
 export BlockHRProjection
 export get_interpolation
 export get_integration_domain

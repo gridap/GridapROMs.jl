@@ -14,7 +14,7 @@ function RBSteady.allocate_diagnostic_residual(
 end
 
 function RBSteady.allocate_diagnostic_residual(
-  op::TransientGenericRBOperator{O,T,<:NoHRContribution,B},
+  op::GenericRBOperator{O,T,B,<:HighDimNoHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -53,7 +53,7 @@ function RBSteady.allocate_diagnostic_jacobian(
 end
 
 function RBSteady.allocate_diagnostic_jacobian(
-  op::TransientGenericRBOperator{O,T,B,<:NoHRContribution},
+  op::GenericRBOperator{O,T,<:TupOfHighDimNoHRContribution,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -114,11 +114,11 @@ end
 
 function RBSteady.diagnostic_residual!(
   b::DiagnosticsContribution,
-  op::TransientGenericRBOperator{O,T,<:NoHRContribution},
+  op::GenericRBOperator{O,T,A,<:HighDimNoHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
-  ) where {O,T}
+  ) where {O,T,A}
 
   uh = ODEs._make_uh_from_us(op,us,paramcache.trial)
   test = get_test(op)
@@ -143,22 +143,22 @@ end
 
 function RBSteady.diagnostic_residual!(
   b::DiagnosticsContribution,
-  op::TransientGenericRBOperator{O,T,<:AffineHRContribution},
+  op::GenericRBOperator{O,T,A,<:HighDimAffineHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
-  ) where {O,T}
+  ) where {O,T,A}
 
   interpolate!(b.hypred,b.coeff,op.rhs,b.fecache)
 end
 
 function RBSteady.diagnostic_residual!(
   b::DiagnosticsContribution,
-  op::TransientGenericRBOperator{O,T,<:RBFContribution},
+  op::GenericRBOperator{O,T,A,<:HighDimRBFContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
-  ) where {O,T}
+  ) where {O,T,A}
 
   interpolate!(b.hypred,b.coeff,op.rhs,r)
 end
@@ -213,12 +213,12 @@ end
 
 function RBSteady.diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::TransientGenericRBOperator{O,T,<:NoHRContribution},
+  op::GenericRBOperator{O,T,<:TupOfHighDimNoHRContribution,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
   paramcache
-  ) where {O,T}
+  ) where {O,T,B}
 
   uh = ODEs._make_uh_from_us(op,us,paramcache.trial)
   trial = get_trial(op)
@@ -254,24 +254,24 @@ end
 
 function RBSteady.diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::TransientGenericRBOperator{O,T,<:AffineHRContribution},
+  op::GenericRBOperator{O,T,<:TupOfHighDimAffineHRContribution,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
   paramcache
-  ) where {O,T}
+  ) where {O,T,B}
 
   interpolate!(A.hypred,A.coeff,op.lhs,A.fecache)
 end
 
 function RBSteady.diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::TransientGenericRBOperator{O,T,<:RBFContribution},
+  op::GenericRBOperator{O,T,<:TupOfHighDimRBFContribution,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
   paramcache
-  ) where {O,T}
+  ) where {O,T,B}
 
   for (hi,ci,ai) in zip(A.hypred,A.coeff,op.lhs)
     interpolate!(hi,ci,ai,r)
