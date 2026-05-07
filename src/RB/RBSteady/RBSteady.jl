@@ -248,6 +248,9 @@ export local_vals
 export get_clusters
 include("LocalProjections.jl")
 
+export LocalHRProjection
+include("LocalHyperReductions.jl")
+
 export RBOperator
 export GenericRBOperator
 export LinearNonlinearRBOperator

@@ -286,7 +286,7 @@ function HRProjection(
   return HRProjection(proj_basis,red,interp)
 end
 
-function allocate_coefficient(a::Projection)
+function allocate_coefficient(a::HRProjection)
   T = projection_eltype(a)
   n = num_reduced_dofs(a)
   coeff = zeros(T,n)
@@ -313,15 +313,15 @@ function allocate_hyper_reduction(a::HRMatProjection)
 end
 
 for f in (:allocate_coefficient,:allocate_hyper_reduction)
-  @eval $f(a::Projection,r::AbstractRealisation) = parameterise($f(a),num_params(r))
+  @eval $f(a::HRProjection,r::AbstractRealisation) = parameterise($f(a),r)
 end
 
 """
-    const AffineContribution{V<:Projection} = Contribution{V}
+    const AffineContribution{V<:HRProjection} = Contribution{V}
 
 [`Contribution`](@ref) whose field `values` are Projections
 """
-const AffineContribution{V<:Projection} = Contribution{V}
+const AffineContribution{V<:HRProjection} = Contribution{V}
 
 """
 """

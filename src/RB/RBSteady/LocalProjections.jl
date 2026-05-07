@@ -1,4 +1,4 @@
-struct LocalProjection{A,N} <: Projection
+struct LocalProjection{A<:Projection,N} <: Projection
   projections::Array{A,N}
   k::NTuple{N,KmeansResult}
 end
@@ -38,13 +38,6 @@ function galerkin_projection(
 
   b̂ = map((pa,pb,pc) -> galerkin_projection(pa,pb,pc,args...),a.projections,b.projections,c.projections)
   LocalProjection(b̂,b.k)
-end
-
-CellData.get_domains(a::LocalProjection) = map(get_domains,a.projections)
-
-function Utils.change_domains(a::LocalProjection,trians)
-  projections′ = map(change_domains,a.projections,trians)
-  LocalProjection(projections′,a.k)
 end
 
 local_vals(a) = @abstractmethod
@@ -157,48 +150,6 @@ function enrich!(
   return
 end
 
-function reduced_residual(lred::LocalReduction,test::RBSpace,c::ArrayContribution)
-  red = get_reduction(lred)
-  kc = compute_clusters(lred,c)
-  kr, = get_clusters(test)
-  cc = cluster(c,kc)
-
-  hr = Matrix{AffineContribution}(undef,length(kc.counts),length(kr.counts))
-  for i in eachindex(kc.counts)
-    ci = cc[i]
-    for (j,centerj) in enumerate(eachcol(kr.centers))
-      testj = get_local(test,centerj)
-      hr[i,j] = reduced_residual(red,testj,ci)
-    end
-  end
-
-  LocalProjection(hr,(kc,kr))
-end
-
-function reduced_jacobian(
-  lred::LocalReduction,
-  trial::RBSpace,
-  test::RBSpace,
-  c::ArrayContribution
-  )
-  red = get_reduction(lred)
-  kc = compute_clusters(lred,c)
-  kr, = get_clusters(test)
-  cc = cluster(c,kc)
-
-  hr = Matrix{AffineContribution}(undef,length(kc.counts),length(kr.counts))
-  for i in eachindex(kc.counts)
-    ci = cc[i]
-    for (j,centerj) in enumerate(eachcol(kr.centers))
-      trialj = get_local(trial,centerj)
-      testj = get_local(test,centerj)
-      hr[i,j] = reduced_jacobian(red,trialj,testj,ci)
-    end
-  end
-
-  LocalProjection(hr,(kc,kr))
-end
-
 for f in (:cluster,:cluster_sort)
   @eval begin
     function $f(a,red::LocalReduction)
@@ -249,10 +200,6 @@ end
 
 function compute_clusters(red::LocalReduction,s::AbstractSnapshots)
   compute_clusters(red,get_realisation(s))
-end
-
-function compute_clusters(red::LocalReduction,s::ArrayContribution)
-  compute_clusters(red,first(s.values))
 end
 
 function get_label(k::KmeansResult,a)
@@ -338,7 +285,6 @@ end
 
 _get_realisation(r::AbstractRealisation) = get_params(r)
 _get_realisation(s::AbstractSnapshots) = get_realisation(s)
-_get_realisation(a::ArrayContribution) = get_realisation(first(a.values))
 
 _get_params_marix(r::AbstractRealisation) = stack(ParamDataStructures._get_params(r))
 
@@ -348,12 +294,6 @@ end
 
 function _cluster(r::Realisation,inds::AbstractVector)
   r[inds]
-end
-
-function _cluster(s::ArrayContribution,inds::AbstractVector)
-  contribution(get_domains(s)) do trian
-    _cluster(s[trian],inds)
-  end
 end
 
 function _cluster(s::GenericSnapshots,inds::AbstractVector)
