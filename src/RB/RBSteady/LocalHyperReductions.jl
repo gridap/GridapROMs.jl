@@ -29,7 +29,7 @@ function get_integration_cells(a::LocalInterpolation,args...)
 
   isempty(a.interp) && return Int32[]
   cells = get_integration_cells(a.interp[1],args...)
-  for i in 2:length(a)
+  for i in 2:length(a.interp)
     cells = _union(cells,get_integration_cells(a.interp[i],args...))
   end
   return cells

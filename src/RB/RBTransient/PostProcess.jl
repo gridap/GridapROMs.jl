@@ -95,45 +95,4 @@ function RBSteady.plot_a_solution(dir,Ω,uh,ûh,r::TransientRealisation)
   end
 end
 
-function RBSteady.to_snapshots(
-  rbop::AbstractLocalRBOperator,
-  x̂::AbstractParamVector,
-  r::TransientRealisation
-  )
-  xvec = map(enumerate(get_params(r))) do (i,μ)
-    x̂μ = param_getindex(x̂,i)
-    opμ = get_local(rbop,μ)
-    trialμ = get_trial(opμ)
-    inv_project(trialμ,x̂μ)
-  end
-  x = ParamArray(xvec)
-  i = get_dof_map(rbop)
-  s = Snapshots(x,i,r)
-  _permutelastdims(s)
-end
-
-# utils
-
-function _permutelastdims(s::Snapshots{T,N}) where {T,N}
-  ids = (ntuple(i->i,Val(N-2))...,N,N-1)
-  data = permutedims(get_all_data(s),ids)
-  pids = (:,size(data,N-1),size(data,N))
-  pdata = ConsecutiveParamArray(reshape(data,pids))
-  Snapshots(pdata,get_dof_map(s),get_realisation(s))
-end
-
-function _permutelastdims(s::TransientSnapshotsWithIC)
-  TransientSnapshotsWithIC(s.initial_data,_permutelastdims(s.snaps))
-end
-
-function _permutelastdims(s::BlockSnapshots{N}) where N
-  array = Array{Any,N}(undef,size(s))
-  for i in eachindex(s)
-    if s.touched[i]
-      array[i] = _permutelastdims(s[i])
-    end
-  end
-  return BlockSnapshots(array,s.touched)
-end
-
 include("Diagnostics.jl")

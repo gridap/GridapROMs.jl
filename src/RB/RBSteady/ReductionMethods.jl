@@ -93,7 +93,7 @@ end
 
 function TTSVDRanks(tols::AbstractVector{T},args...;kwargs...) where T<:AbstractFloat
   d = length(tols)
-  dtols = map(ε -> ε*d^(1/d),tols)
+  dtols = map(ε -> ε*d^(-1/d),tols)
   style = map(tol -> ReductionStyle(tol,args...;kwargs...),dtols)
   TTSVDRanks(style)
 end

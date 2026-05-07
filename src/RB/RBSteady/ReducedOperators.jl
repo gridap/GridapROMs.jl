@@ -425,12 +425,11 @@ end
 const LocalRBOperator{O,T} = GenericRBOperator{O,T,<:LocalHRContribution,<:LocalHRContribution}
 
 function get_local(op::LocalRBOperator,μ::AbstractVector)
-  opμ = get_local(op.op,μ)
   trialμ = get_local(op.trial,μ)
   testμ = get_local(op.test,μ)
   lhsμ = get_local(op.lhs,μ)
   rhsμ = get_local(op.rhs,μ)
-  RBOperator(opμ,trialμ,testμ,lhsμ,rhsμ)
+  RBOperator(op.op,trialμ,testμ,lhsμ,rhsμ)
 end
 
 """
@@ -528,12 +527,16 @@ function Algebra.solve(
   r::Realisation
   )
 
-  t = @timed x̂vec = map(r) do μ
-    opμ = get_local(op,μ)
-    x̂, = solve(solver,opμ,Realisation([μ]))
+  trial = get_trial(op)
+  k, = get_clusters(trial)
+  labels = get_label(k,r)
+  rsplit = cluster(r,labels)
+  t = @timed x̂vec = map(rsplit) do μ
+    opμ = get_local(op,first(μ))
+    x̂, = solve(solver,opμ,μ)
     x̂
   end
-  x̂ = param_cat(x̂vec)
+  x̂ = cluster_sort(param_cat(x̂vec),labels)
   stats = CostTracker(t,nruns=num_params(r),name="RB")
   return (x̂,stats)
 end

@@ -227,6 +227,7 @@ export allocate_hypred_cache
 export allocate_hrtrian_cache
 include("HyperReductions.jl")
 
+export FetchBlockMap
 export collect_cell_hr_matrix
 export collect_cell_hr_vector
 export assemble_hr_vector_add!

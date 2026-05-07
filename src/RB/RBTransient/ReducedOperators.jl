@@ -40,7 +40,7 @@ const TransientRBOperator{O<:ODEParamOperatorType,T} = RBOperator{O,T}
 const JointTransientRBOperator{O<:ODEParamOperatorType} = TransientRBOperator{O,JointDomains}
 const SplitTransientRBOperator{O<:ODEParamOperatorType} = TransientRBOperator{O,SplitDomains}
 const TransientGenericRBOperator{O<:ODEParamOperatorType,T,A<:TupOfAffineContribution,B} = GenericRBOperator{O,T,A,B}
-const TransientLocalRBOperator{O<:ODEParamOperatorType,T} = TransientGenericRBOperator{O,T,<:TupleOfLocalHRContribution,<:LocalHRContribution}
+const TransientLocalRBOperator{O<:ODEParamOperatorType,T} = TransientGenericRBOperator{O,T,<:TupOfLocalHRContribution,<:LocalHRContribution}
 
 function Algebra.allocate_residual(
   op::TransientRBOperator,
