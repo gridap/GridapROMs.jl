@@ -203,16 +203,13 @@ function Algebra.solve(
   ush0::Tuple{Vararg{Function}}
   )
 
-  trial = get_trial(op)
-  k, = get_clusters(trial)
-  labels = get_label(k,r)
-  rsplit = cluster(r,labels)
-  t = @timed x̂vec = map(get_params(rsplit)) do μt
-    opμt = get_local(op,first(μt))
-    x̂, = solve(solver,opμt,μt,ush0)
+  t = @timed x̂vec = map(get_params(r)) do μ
+    opμt = get_local(op,μ)
+    rμt = _to_realisation(r,μ)
+    x̂, = solve(solver,opμt,rμt,ush0)
     x̂
   end
-  x̂ = cluster_sort(param_cat(x̂vec),labels)
+  x̂ = param_cat(x̂vec)
   stats = CostTracker(t,nruns=num_params(r),name="RB")
   return (x̂,stats)
 end
@@ -223,3 +220,8 @@ get_time_order(::ODESolver) = @abstractmethod
 get_time_order(::ThetaMethod) = 1
 get_time_order(::GeneralizedAlpha1) = 1
 get_time_order(::GeneralizedAlpha2) = 2
+
+function _to_realisation(r::TransientRealisation,μ::AbstractVector)
+  all_times = [get_initial_time(r),get_times(r)...]
+  TransientRealisation(Realisation([μ]),all_times)
+end

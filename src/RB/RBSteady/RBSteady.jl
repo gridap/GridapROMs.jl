@@ -208,6 +208,8 @@ export move_integration_domain
 include("IntegrationDomains.jl")
 
 export Interpolation
+export EmptyInterpolation
+export FullInterpolation
 export GreedyInterpolation
 export RBFInterpolation
 export BlockInterpolation

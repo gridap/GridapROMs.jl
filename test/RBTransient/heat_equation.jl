@@ -204,3 +204,4 @@ hypred_strategy=:mdeim
   ress = residual_snapshots(rbsolver,feop,fesnaps)
   red = get_reduction(rbsolver.residual_reduction)
   basis = projection(red,ress[1])
+  proj_basis = project(rbop.test,basis)

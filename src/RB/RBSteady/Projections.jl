@@ -103,13 +103,13 @@ Returns the eltype of the projection `a`
 projection_eltype(a::Projection) = eltype2(get_basis(a))
 
 function Algebra.allocate_in_domain(a::Projection) 
-  V = projection_eltype(a)
+  V = Vector{projection_eltype(a)}
   x̂ = allocate_vector(V,num_reduced_dofs(a))
   return x̂
 end
 
 function Algebra.allocate_in_range(a::Projection) 
-  V = projection_eltype(a)
+  V = Vector{projection_eltype(a)}
   x = allocate_vector(V,num_fe_dofs(a))
   return x
 end
@@ -659,6 +659,11 @@ end
 
 for f in (:(Algebra.allocate_in_domain),:(Algebra.allocate_in_range))
   @eval begin
+    function $f(a::BlockProjection)
+      @notimplementedif !all(a.touched)
+      mortar(map($f,a.array))
+    end
+
     function $f(a::BlockProjection,x::Union{BlockVector,BlockParamVector})
       @check length(a) == blocklength(x)
       @notimplementedif !all(a.touched)

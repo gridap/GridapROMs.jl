@@ -30,6 +30,23 @@ end
 
 get_integration_cells(a::EmptyInterpolation,trian::AppendedTriangulation) = lazy_append(Int32[],Int32[])
 
+struct FullInterpolation <: Interpolation
+  cells::IdentityVector{Int32}
+end
+
+function Interpolation(
+  red::NoHyperReduction,
+  trian::Triangulation,
+  args...
+  )
+
+  n = Int32(num_cells(trian))
+  cells = IdentityVector(n)
+  FullInterpolation(cells)
+end
+
+get_integration_cells(a::FullInterpolation,trian::AppendedTriangulation) = a.cells
+
 # EIM interpolation
 
 struct GreedyInterpolation{A,B<:IntegrationDomain} <: Interpolation

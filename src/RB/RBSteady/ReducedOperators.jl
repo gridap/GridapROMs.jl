@@ -527,16 +527,12 @@ function Algebra.solve(
   r::Realisation
   )
 
-  trial = get_trial(op)
-  k, = get_clusters(trial)
-  labels = get_label(k,r)
-  rsplit = cluster(r,labels)
-  t = @timed x̂vec = map(rsplit) do μ
-    opμ = get_local(op,first(μ))
-    x̂, = solve(solver,opμ,μ)
+  t = @timed x̂vec = map(r) do μ
+    opμ = get_local(op,μ)
+    x̂, = solve(solver,opμ,Realisation([μ]))
     x̂
   end
-  x̂ = cluster_sort(param_cat(x̂vec),labels)
+  x̂ = param_cat(x̂vec)
   stats = CostTracker(t,nruns=num_params(r),name="RB")
   return (x̂,stats)
 end

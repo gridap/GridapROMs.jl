@@ -212,7 +212,7 @@ function HRProjection(
   T = get_dof_value_type(test)
   nrows = num_reduced_dofs(test)
   basis = ReducedProjection(zeros(T,nrows,1))
-  interp = Interpolation(red)
+  interp = Interpolation(red,trian)
   return HRProjection(basis,red,interp)
 end
 
@@ -228,7 +228,7 @@ function HRProjection(
   nrows = num_reduced_dofs(test)
   ncols = num_reduced_dofs(trial)
   basis = ReducedProjection(zeros(T,nrows,1,ncols))
-  interp = Interpolation(red)
+  interp = Interpolation(red,trian)
   return HRProjection(basis,red,interp)
 end
 

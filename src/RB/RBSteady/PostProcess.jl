@@ -542,20 +542,15 @@ function to_snapshots(
   r::AbstractRealisation
   )
 
-  trial = get_trial(rbop)
-  k, = get_clusters(trial)
-  labels = get_label(k,r)
-  x̂split = cluster(x̂,labels)
-  rsplit = cluster(r,labels)
-  xvec = map(zip(x̂split,rsplit)) do (x̂μ,μ)
-    opμ = get_local(rbop,first(μ))
+  xvec = map(enumerate(r)) do (i,μ)
+    x̂μ = param_getindex(x̂,i)
+    opμ = get_local(rbop,μ)
     trialμ = get_trial(opμ)
     inv_project(trialμ,x̂μ)
   end
-  x = hcat(xvec...)
+  x = ParamArray(xvec)
   i = get_dof_map(rbop)
-  s = Snapshots(x,i,r)
-  cluster_sort(s,labels)
+  Snapshots(x,i,r)
 end
 
 include("Diagnostics.jl")
