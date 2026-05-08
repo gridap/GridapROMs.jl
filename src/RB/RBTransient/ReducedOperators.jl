@@ -294,16 +294,6 @@ function ParamODEs.add_initial_conditions(
   add_initial_conditions(solver,get_nonlinear_operator(op),args...)
 end
 
-# local 
-
-function RBSteady.get_local(op::TransientRBOperator,μ::AbstractVector) 
-  trialμ = get_local(op.trial,μ)
-  testμ = get_local(op.test,μ)
-  lhsμ = map(lhs->get_local(lhs,μ),op.lhs)
-  rhsμ = get_local(op.rhs,μ)
-  RBOperator(op.op,trialμ,testμ,lhsμ,rhsμ)
-end
-
 # utils
 
 function _reduce_vector(u::ConsecutiveParamVector,hr_ids::AbstractVector)

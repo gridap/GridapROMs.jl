@@ -67,18 +67,19 @@ for (T,f) in zip((:KroneckerProjection,:SequentialProjection),
                  (:get_at_kron_domain,:get_at_seq_domain))
   @eval begin
     function RBSteady.Interpolation(
-      strategy::AbstractRadialBasis,
+      red::HighDimRBFHyperReduction,
       a::$T,
       s::TransientSnapshots
       )
 
+      strategy = RBSteady.interp_strategy(red)
       inds,interp = empirical_interpolation(a)
       factor = lu(interp)
-      r = get_realisation(s)
+      r = get_params(get_realisation(s))
       red_data = $f(s,inds...)
-      coeff = allocate_coefficient(a,r)
+      coeff = parameterise(allocate_in_domain(a),r)
       ldiv!(coeff,factor,red_data)
-      interp = Interpolator(get_params(r),coeff,strategy)
+      interp = Interpolator(r,coeff,strategy)
       RBFInterpolation(interp)
     end
   end

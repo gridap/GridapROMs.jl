@@ -423,9 +423,9 @@ function _projection_dims(a::Projection)
 end
 
 function _projection_dims(a::LocalProjection)
-  nloc = map(p -> last(_projection_dims(p)),a.projections)
-  inloc = argmax(nloc)
-  _projection_dims(a.projections[inloc])
+  N = num_fe_dofs(first(local_vals(a)))
+  n = maximum(map(num_reduced_dofs,local_vals(a)))
+  (N,n)
 end
 
 function _projection_dims(a::BlockProjection)
@@ -442,28 +442,28 @@ function _projection_dims(a::BlockProjection)
 end
 
 """
-    hr_diagnostics(hrproj::HRProjection) -> NamedTuple
+    hr_diagnostics(a::HRProjection) -> NamedTuple
 
 Returns `(dim=n,)` for a single HR projection.
 """
-function hr_diagnostics(hrproj::HRProjection)
-  n = num_reduced_dofs(hrproj)
+function hr_diagnostics(a::HRProjection)
+  n = num_reduced_dofs(a)
   (dim=n,)
 end
 
-function hr_diagnostics(hrproj::LocalProjection)
-  map(hr_diagnostics,hrproj.projections)
+function hr_diagnostics(a::LocalHRProjection)
+  map(hr_diagnostics,local_vals(a))
 end
 
-function hr_diagnostics(hrproj::BlockHRProjection{N}) where N
-  s = size(hrproj)
-  array = Array{NamedTuple,N}(undef,s)
-  for i in eachindex(hrproj)
-    if hrproj.touched[i]
-      array[i] = hr_diagnostics(hrproj.array[i])
+function hr_diagnostics(a::BlockHRProjection{N}) where N
+  s = size(a)
+  array = Array{Any,N}(undef,s)
+  for i in eachindex(a)
+    if a.touched[i]
+      array[i] = hr_diagnostics(a.array[i])
     end
   end
-  ArrayBlock(array,hrproj.touched)
+  ArrayBlock(array,a.touched)
 end
 
 function hr_diagnostics(c::AffineContribution)
@@ -487,6 +487,7 @@ function projection_error(
   trial = get_trial(op)(μ)
   x = get_param_data(s)
   x̂ = project(trial,x)
+  x̂ = inv_project(trial,x̂)
   i = get_dof_map(trial)
   ŝ = Snapshots(x̂,i,μ)
   compute_relative_error(solver,feop,s,ŝ)
@@ -498,21 +499,16 @@ function projection_error(
   s::AbstractSnapshots
   )
 
-  μ = get_realisation(s)
-  feop = get_fe_operator(op)
+  gsolver = change_context(solver)
   trial = get_trial(op)
-  x = get_param_data(s)
+  k, = get_clusters(trial)
+  cs = cluster(s,k)
 
-  x̂vec = map(enumerate(μ)) do (i,μi)
-    ri = to_realisation(μ,μi)
-    trialμi = get_local(trial,μi)(ri)
-    xi = param_getindex(x,i)
-    project(trialμi,xi)
-  end
-  x̂ = ParamArray(x̂vec)
-  i = get_dof_map(trial)
-  ŝ = Snapshots(x̂,i,μ)
-  compute_relative_error(solver,feop,s,ŝ)
+  map(cs) do s  
+    μ = get_realisation(s)
+    opμ = get_local(op,first(μ))
+    projection_error(gsolver,opμ,s)
+  end |> mean 
 end
 
 """
@@ -556,9 +552,9 @@ function hr_error(solver::LocalRBSolver,op::RBOperator,res,jac,s)
   err_jac = Any[]
   for (i,μi) in enumerate(μ)
     opi = get_local(op,μi)
-    si = select_snapshots(s,[i])
-    resi = select_snapshots(res,[i])
-    jaci = select_snapshots(jac,[i])
+    si = select_snapshots(s,i)
+    resi = select_snapshots(res,i)
+    jaci = select_snapshots(jac,i)
     err_res_i,err_jac_i = hr_error(gsolver,opi,resi,jaci,si)
     push!(err_res,err_res_i)
     push!(err_jac,err_jac_i)

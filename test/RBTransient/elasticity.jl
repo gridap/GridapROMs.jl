@@ -18,7 +18,7 @@ function main(
   compression = compression ∈ (:global,:local) ? compression : :global
   hypred_strategy = hypred_strategy ∈ (:mdeim,:sopt,:rbf,:none,:affine) ? hypred_strategy : :mdeim
 
-  println("Running test with compression $method, $compression compressions, and $hypred_strategy hyper-reduction")
+  println("Running test with $compression ($method, $hypred_strategy) strategy")
 
   pdomain = (0.9,1.0,0.25,0.42,-4*1e-4,4*1e-4)
 

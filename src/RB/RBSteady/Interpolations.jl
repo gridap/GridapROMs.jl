@@ -124,7 +124,7 @@ end
 get_integration_cells(a::RBFHyperReduction,trian::AppendedTriangulation) = lazy_append(Int32[],Int32[])
 
 function FESpaces.interpolate!(cache::AbstractArray,a::RBFInterpolation,r::AbstractRealisation)
-  interpolate!(cache,a.interpolation,r)
+  interpolate!(cache,a.interpolation,get_params(r))
   cache
 end
 
@@ -136,9 +136,21 @@ function RadialBasisFunctions.Interpolator(
 
   dim = length(first(x))
   k = param_length(x)
-  npoly = binomial(dim+basis.poly_deg,basis.poly_deg)
+  
+  # Reduce polynomial degree to ensure non-singular collocation system
+  poly_deg = basis.poly_deg
+  npoly = binomial(dim + poly_deg,poly_deg)
+  while k < npoly && poly_deg > 0
+    poly_deg -= 1
+    npoly = binomial(dim + poly_deg,poly_deg)
+  end
+  
+  if poly_deg < basis.poly_deg
+    @warn "RBF cluster too small for polynomial degree; reducing from $(basis.poly_deg) to $poly_deg" k npoly dim
+  end
+  
   n = k + npoly
-  mon = MonomialBasis(dim,basis.poly_deg)
+  mon = MonomialBasis(dim,poly_deg)
   data_type = promote_type(eltype(first(x.params)),eltype2(y))
   A = Symmetric(zeros(data_type,n,n))
   RadialBasisFunctions._build_collocation_matrix!(A,x.params,basis,mon,k)

@@ -301,18 +301,19 @@ function Algebra.solve(
   )
 
   gsolver = change_context(solver)
-  t = @timed x̂vec = map(r) do _μ
+  t = @timed x̂vec = map(get_params(r)) do _μ
     opμ = get_local(op,_μ)
     μ = to_realisation(r,_μ)
     x̂, = solve(gsolver,opμ,μ,args...)
     x̂
   end
-  x̂ = param_cat(x̂vec)
+  x̂ = to_param_array(r,x̂vec)
   stats = CostTracker(t,nruns=num_params(r),name="RB")
   return (x̂,stats)
 end
 
 to_realisation(r::Realisation,μ) = Realisation([μ])
+to_param_array(r::Realisation,x) = param_cat(x)
 
 function solution_snapshots(
   solver::RBSolver,

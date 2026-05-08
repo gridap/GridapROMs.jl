@@ -10,13 +10,13 @@ function get_local(a::LocalInterpolation,μ::AbstractVector)
   k,l = get_clusters(a)
   labk = get_label(k,μ)
   labl = get_label(l,μ)
-  a.interp[labk,labl]
+  local_vals(a)[labk,labl]
 end
 
 for f in (:get_cell_irows,:get_cell_icols)
   @eval begin
     function $f(a::LocalInterpolation) 
-      data = map($f,a.interp)
+      data = map($f,local_vals(a))
       return Table(data)
     end
   end
@@ -27,10 +27,11 @@ function get_integration_cells(a::LocalInterpolation,args...)
   _union(a::T,b::T) where T<:AbstractVector = union(a,b)
   _union(a::T,b::T) where T<:AppendedArray = lazy_append(union(a.a,b.a),union(a.b,b.b))
 
-  isempty(a.interp) && return Int32[]
-  cells = get_integration_cells(a.interp[1],args...)
-  for i in 2:length(a.interp)
-    cells = _union(cells,get_integration_cells(a.interp[i],args...))
+  vals = local_vals(a)
+  isempty(vals) && return Int32[]
+  cells = get_integration_cells(vals[1],args...)
+  for i in 2:length(vals)
+    cells = _union(cells,get_integration_cells(vals[i],args...))
   end
   return cells
 end
@@ -41,13 +42,13 @@ function get_owned_icells(a::LocalInterpolation,args...)
 end
 
 function get_owned_icells(a::LocalInterpolation,cells::AbstractVector) 
-  data = map(i -> get_owned_icells(i,cells),a.interp)
+  data = map(i -> get_owned_icells(i,cells),local_vals(a))
   return Table(data)
 end
 
 function move_interpolation(a::LocalInterpolation,args...)
-  interp = map(i -> move_interpolation(i,args...),a.interp)
-  return LocalInterpolation(interp,a.touched)
+  interp = map(i -> move_interpolation(i,args...),local_vals(a))
+  return LocalInterpolation(interp,get_clusters(a))
 end
 
 struct LocalHRProjection <: HRProjection{Projection,HyperReduction}
@@ -57,11 +58,20 @@ end
 
 LocalHRProjection(reductions::AbstractVector,k::KmeansResult) = LocalHRProjection(reductions,(k,))
 
-get_basis(a::LocalHRProjection) = LocalProjection(map(get_basis,a.reductions),a.k)
-get_interpolation(a::LocalHRProjection) = LocalInterpolation(map(get_interpolation,a.reductions),a.k)
-projection_eltype(a::LocalHRProjection) = promote_type(map(projection_eltype,a.reductions))
+get_basis(a::LocalHRProjection) = LocalProjection(map(get_basis,local_vals(a)),get_clusters(a))
+get_interpolation(a::LocalHRProjection) = LocalInterpolation(map(get_interpolation,local_vals(a)),get_clusters(a))
+projection_eltype(a::LocalHRProjection) = promote_type(map(projection_eltype,local_vals(a)))
 
 local_vals(a::LocalHRProjection) = a.reductions
+
+function local_vals(a::BlockHRProjection)
+  litems = map(local_vals,a.array)
+  nlitems = length(first(litems))
+  map(1:nlitems) do i
+    BlockHRProjection(getindex.(litems,i),a.touched)
+  end
+end
+
 get_clusters(a::LocalHRProjection) = a.k
 
 get_local(a::HRProjection,μ::AbstractVector) = a
@@ -70,7 +80,7 @@ function get_local(a::LocalHRProjection,μ::AbstractVector)
   k,l = get_clusters(a)
   labk = get_label(k,μ)
   labl = get_label(l,μ)
-  a.reductions[labk,labl]
+  local_vals(a)[labk,labl]
 end
 
 function get_local(a::BlockHRProjection,μ::AbstractVector)

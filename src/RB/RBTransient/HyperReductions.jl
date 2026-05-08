@@ -181,8 +181,29 @@ function FESpaces.interpolate!(
   return b̂
 end
 
+function FESpaces.interpolate!(
+  b̂::AbstractParamArray,
+  coeff::TupOfArrayContribution,
+  a::TupOfAffineContribution,
+  r::AbstractRealisation
+  )
+
+  @check length(coeff) == length(a)
+  fill!(b̂,zero(eltype(b̂)))
+  for (ai,ci) in zip(a,coeff)
+    for (aval,cval) in zip(get_contributions(ai),get_contributions(ci))
+      interpolate!(b̂,cval,aval,r)
+    end
+  end
+  return b̂
+end
+
 function FESpaces.interpolate!(cache::HRParamArray,a::TupOfAffineContribution)
   interpolate!(cache.hypred,cache.coeff,a,cache.fecache)
+end
+
+function FESpaces.interpolate!(cache::HRParamArray,a::TupOfAffineContribution,r::AbstractRealisation)
+  interpolate!(cache.hypred,cache.coeff,a,r)
 end
 
 function RBSteady.allocate_hypred_cache(a::TupOfAffineContribution,args...)

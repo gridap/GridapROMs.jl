@@ -193,9 +193,36 @@ function RBSteady.to_realisation(r::TransientRealisation,μ)
   TransientRealisation(ploc,all_times)
 end
 
+function RBSteady.to_param_array(r::TransientRealisation,x)
+  _permutelastdims(param_cat(x);nparams=num_params(r))
+end
+
 # utils 
 
 get_time_order(::ODESolver) = @abstractmethod
 get_time_order(::ThetaMethod) = 1
 get_time_order(::GeneralizedAlpha1) = 1
 get_time_order(::GeneralizedAlpha2) = 2
+
+_permutelastdims(x::AbstractParamVector;kwargs...) = @notimplemented
+
+function _permutelastdims(x::ConsecutiveParamVector;nparams::Int)
+  ntimes = Int(param_length(x)/nparams)
+  data = get_all_data(x)
+  data′ = similar(data)
+  @inbounds for ip in 1:nparams
+    ipt = (ip-1)*ntimes+1:ip*ntimes
+    ipt′ = ip:nparams:nparams*ntimes
+    @views data′[:,ipt′] .= data[:,ipt]
+  end
+  ConsecutiveParamArray(data′) 
+end
+
+function _permutelastdims(x::BlockParamVector;kwargs...)
+  map(y -> _permutelastdims(y;kwargs...),blocks(x)) |> mortar 
+end
+
+function _permutelastdims(x::RBParamVector;kwargs...)
+  fe_data′ = _permutelastdims(x.fe_data;kwargs...)
+  RBParamVector(x.data,fe_data′)
+end

@@ -25,7 +25,7 @@ function projection(lred::LocalReduction,s::Snapshots,X::MatrixOrTensor)
 end
 
 function galerkin_projection(a::LocalProjection,b::LocalProjection)
-  b̂ = map(galerkin_projection,a.projections,b.projections)
+  b̂ = map(galerkin_projection,local_vals(a),local_vals(b))
   LocalProjection(b̂,b.k)
 end
 
@@ -36,12 +36,25 @@ function galerkin_projection(
   args...
   )
 
-  b̂ = map((pa,pb,pc) -> galerkin_projection(pa,pb,pc,args...),a.projections,b.projections,c.projections)
+  b̂ = map(
+    (pa,pb,pc) -> galerkin_projection(pa,pb,pc,args...),
+    local_vals(a),
+    local_vals(b),
+    local_vals(c)
+  )
   LocalProjection(b̂,b.k)
 end
 
 local_vals(a) = @abstractmethod
 local_vals(a::LocalProjection) = a.projections
+
+function local_vals(a::BlockProjection)
+  litems = map(local_vals,a.array)
+  nlitems = length(first(litems))
+  map(1:nlitems) do i
+    BlockProjection(getindex.(litems,i),a.touched)
+  end
+end
 
 function local_vals(a::RBSpace)
   space = get_fe_space(a)
@@ -54,6 +67,7 @@ local_proj_to_proj(a::LocalProjection,b::AbstractVector{<:Projection}) = LocalPr
 
 get_clusters(a) = @abstractmethod
 get_clusters(a::LocalProjection) = a.k
+get_clusters(a::BlockProjection) = get_clusters(testitem(a))
 get_clusters(a::RBSpace) = get_clusters(get_reduced_subspace(a))
 
 function get_local(a,r::Realisation)
@@ -67,14 +81,14 @@ get_local(a::Projection,μ::AbstractVector) = a
 function get_local(a::VecLocalProjection,μ::AbstractVector)
   k, = get_clusters(a)
   lab = get_label(k,μ)
-  a.projections[lab]
+  local_vals(a)[lab]
 end
 
 function get_local(a::MatLocalProjection,μ::AbstractVector)
   k,l = get_clusters(a)
   labk = get_label(k,μ)
   labl = get_label(l,μ)
-  a.projections[labk,labl]
+  local_vals(a)[labk,labl]
 end
 
 function get_local(a::BlockProjection,μ::AbstractVector)
