@@ -94,12 +94,12 @@ export SequentialReduction
 export HighDimHyperReduction
 export SteadyHyperReduction
 export TransientHyperReduction
-export NoHighDimHyperReduction
-export AffineHighDimHyperReduction
+export HighDimNoHyperReduction
+export HighDimAffineHyperReduction
 export HighDimMDEIMHyperReduction
 export HighDimSOPTHyperReduction
 export HighDimRBFHyperReduction
-export LocalHighDimHyperReduction
+export HighDimLocalHyperReduction
 export get_reduction
 export get_time_combination
 include("ReductionMethods.jl")

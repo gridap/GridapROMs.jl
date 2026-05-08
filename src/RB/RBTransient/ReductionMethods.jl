@@ -202,9 +202,9 @@ function HighDimHyperReduction(
   kwargs...
   )
   if hypred_strategy in (:no,:none,:nohr)
-    return NoHighDimHyperReduction(combination)
+    return HighDimNoHyperReduction(combination)
   elseif hypred_strategy == :affine
-    return AffineHighDimHyperReduction(combination)
+    return HighDimAffineHyperReduction(combination)
   elseif compression==:global
     reduction = HighDimReduction(args...;kwargs...)
     if hypred_strategy==:mdeim
@@ -217,7 +217,7 @@ function HighDimHyperReduction(
       error("Unknown high-dimensional hyper-reduction strategy: $hypred_strategy")
     end
   else
-    LocalHighDimHyperReduction(combination,args...;hypred_strategy,kwargs...)
+    HighDimLocalHyperReduction(combination,args...;hypred_strategy,kwargs...)
   end
 end
 
@@ -251,11 +251,11 @@ function HighDimHyperReduction(reduction::SupremizerReduction,args...;kwargs...)
 end
 
 function HighDimHyperReduction(combination::TimeCombination,r::LocalReduction,args...;ncentroids=num_centroids(r),kwargs...)
-  LocalHighDimHyperReduction(combination,get_reduction(r),args...;ncentroids,kwargs...)
+  HighDimLocalHyperReduction(combination,get_reduction(r),args...;ncentroids,kwargs...)
 end
 
 function HighDimHyperReduction(r::LocalReduction,combination::TimeCombination;ncentroids=num_centroids(r),kwargs...)
-  LocalHighDimHyperReduction(combination,get_reduction(r);ncentroids,kwargs...)
+  HighDimLocalHyperReduction(combination,get_reduction(r);ncentroids,kwargs...)
 end
 
 get_time_combination(r::HighDimHyperReduction) = @abstractmethod
@@ -287,7 +287,7 @@ RBSteady.NormStyle(r::TrivialHighDimHyperReduction) = EuclideanNorm()
 ParamDataStructures.num_params(r::TrivialHighDimHyperReduction) = 1
 
 """
-    struct NoHighDimHyperReduction <: TrivialHighDimHyperReduction 
+    struct HighDimNoHyperReduction <: TrivialHighDimHyperReduction 
       combination::TimeCombination
     end
 
@@ -295,14 +295,14 @@ Reduction employed when the input data is independent with respect to the
 considered realisation. Therefore, simply considering a number of parameters
 equal to 1 suffices for this type of reduction
 """
-struct NoHighDimHyperReduction <: TrivialHighDimHyperReduction 
+struct HighDimNoHyperReduction <: TrivialHighDimHyperReduction 
   combination::TimeCombination
 end
 
-get_time_combination(r::NoHighDimHyperReduction) = r.combination
+get_time_combination(r::HighDimNoHyperReduction) = r.combination
 
 """
-    struct AffineHighDimHyperReduction <: TrivialHighDimHyperReduction 
+    struct HighDimAffineHyperReduction <: TrivialHighDimHyperReduction 
       combination::TimeCombination
     end
 
@@ -310,11 +310,11 @@ Reduction employed when the input data is independent with respect to the
 considered realisation. Therefore, simply considering a number of parameters
 equal to 1 suffices for this type of reduction
 """
-struct AffineHighDimHyperReduction <: TrivialHighDimHyperReduction 
+struct HighDimAffineHyperReduction <: TrivialHighDimHyperReduction 
   combination::TimeCombination
 end
 
-get_time_combination(r::AffineHighDimHyperReduction) = r.combination
+get_time_combination(r::HighDimAffineHyperReduction) = r.combination
 
 """
     struct HighDimMDEIMHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
@@ -392,7 +392,7 @@ RBSteady.get_reduction(r::HighDimRBFHyperReduction) = r.reduction
 RBSteady.interp_strategy(r::HighDimRBFHyperReduction) = r.strategy
 get_time_combination(r::HighDimRBFHyperReduction) = r.combination
 
-function LocalHighDimHyperReduction(args...;ncentroids=10,kwargs...)
+function HighDimLocalHyperReduction(args...;ncentroids=10,kwargs...)
   reduction = HighDimHyperReduction(args...;kwargs...)
   LocalReduction(reduction,ncentroids)
 end
@@ -400,8 +400,8 @@ end
 # utils
 
 _steady_reduction(r::HyperReduction) = SteadyReduction(get_reduction(r))
-_replace_reduction(r::NoHighDimHyperReduction) = r
-_replace_reduction(r::AffineHighDimHyperReduction) = r
+_replace_reduction(r::HighDimNoHyperReduction) = r
+_replace_reduction(r::HighDimAffineHyperReduction) = r
 _replace_reduction(r::MDEIMHyperReduction) = MDEIMHyperReduction(_steady_reduction(r))
 _replace_reduction(r::SOPTHyperReduction) = SOPTHyperReduction(_steady_reduction(r))
 _replace_reduction(r::RBFHyperReduction) = RBFHyperReduction(_steady_reduction(r),r.strategy)

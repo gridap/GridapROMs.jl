@@ -106,7 +106,7 @@ using GridapROMs
 
 method=:pod
 compression=:local
-hypred_strategy=:mdeim
+hypred_strategy=:none
   tol=1e-4
   nparams=50
   nparams_res=floor(Int,nparams/3)

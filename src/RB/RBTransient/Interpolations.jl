@@ -10,6 +10,17 @@ function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,b::Abstract
   cache
 end
 
+function RBSteady.Interpolation(
+  red::HighDimNoHyperReduction,
+  trian::Triangulation,
+  args...
+  )
+
+  n = num_cells(trian)
+  cells = collect(Int32,1:n)
+  FullInterpolation(cells)
+end
+
 # EIM interpolation
 
 const TransientGreedyInterpolation{A,B} = GreedyInterpolation{A,B}

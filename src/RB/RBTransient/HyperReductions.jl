@@ -13,7 +13,7 @@ function RBSteady.HRProjection(
 end
 
 function RBSteady.HRProjection(
-  red::NoHighDimHyperReduction,
+  red::HighDimNoHyperReduction,
   s::Snapshots,
   trian::Triangulation,
   test::RBSpace
@@ -27,7 +27,7 @@ function RBSteady.HRProjection(
 end
 
 function RBSteady.HRProjection(
-  red::NoHighDimHyperReduction,
+  red::HighDimNoHyperReduction,
   s::Snapshots,
   trian::Triangulation,
   trial::RBSpace,
@@ -43,7 +43,7 @@ function RBSteady.HRProjection(
 end
 
 function RBSteady.HRProjection(
-  red::AffineHighDimHyperReduction,
+  red::HighDimAffineHyperReduction,
   s::Snapshots,
   trian::Triangulation,
   test::RBSpace
@@ -56,7 +56,7 @@ function RBSteady.HRProjection(
 end
 
 function RBSteady.HRProjection(
-  red::AffineHighDimHyperReduction,
+  red::HighDimAffineHyperReduction,
   s::Snapshots,
   trian::Triangulation,
   trial::RBSpace,
@@ -110,8 +110,8 @@ function RBSteady.reduced_jacobian(
   return a
 end
 
-const HighDimNoHRProjection{A<:Projection} = HRProjection{A,<:NoHighDimHyperReduction}
-const HighDimAffineHRProjection{A<:Projection} = HRProjection{A,<:AffineHighDimHyperReduction}
+const HighDimNoHRProjection{A<:Projection} = HRProjection{A,<:HighDimNoHyperReduction}
+const HighDimAffineHRProjection{A<:Projection} = HRProjection{A,<:HighDimAffineHyperReduction}
 const HighDimMDEIMProjection{A<:Projection} = HRProjection{A,<:HighDimMDEIMHyperReduction}
 const HighDimSOPTProjection{A<:Projection} = HRProjection{A,<:HighDimSOPTHyperReduction}
 const HighDimRBFProjection{A<:Projection} = HRProjection{A,<:HighDimRBFHyperReduction}
@@ -127,6 +127,8 @@ function FESpaces.interpolate!(
   axpy!(o,coeff,b̂)
   return b̂
 end
+
+RBSteady.allocate_coefficient(a::HighDimNoHRProjection) = RBSteady.allocate_hyper_reduction(a)
 
 function FESpaces.interpolate!(
   b̂::AbstractArray,
