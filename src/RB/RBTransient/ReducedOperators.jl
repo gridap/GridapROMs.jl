@@ -25,22 +25,10 @@ function RBSteady.RBOperator(
   GenericRBOperator(odeop′,trial,test,lhs,rhs)
 end
 
-function RBSteady.RBOperator(
-  odeop::ODEParamOperator,
-  trial::RBSpace,
-  test::RBSpace,
-  lhs::Tuple{Vararg{LocalProjection}},
-  rhs::LocalProjection
-  )
-
-  LocalRBOperator(odeop,trial,test,lhs,rhs)
-end
-
 const TransientRBOperator{O<:ODEParamOperatorType,T} = RBOperator{O,T}
 const JointTransientRBOperator{O<:ODEParamOperatorType} = TransientRBOperator{O,JointDomains}
 const SplitTransientRBOperator{O<:ODEParamOperatorType} = TransientRBOperator{O,SplitDomains}
 const TransientGenericRBOperator{O<:ODEParamOperatorType,T,A<:TupOfAffineContribution,B} = GenericRBOperator{O,T,A,B}
-const TransientLocalRBOperator{O<:ODEParamOperatorType,T} = TransientGenericRBOperator{O,T,<:TupOfLocalHRContribution,<:LocalHRContribution}
 
 function Algebra.allocate_residual(
   op::TransientRBOperator,
@@ -291,18 +279,6 @@ function Algebra.jacobian!(
   interpolate!(A,op.lhs,r)
 end
 
-function RBSteady.get_local(
-  op::TransientLocalRBOperator,
-  μ::AbstractVector
-  ) 
-  
-  trialμ = get_local(op.trial,μ)
-  testμ = get_local(op.test,μ)
-  lhsμ = map(lhs->get_local(lhs,μ),op.lhs)
-  rhsμ = get_local(op.rhs,μ)
-  RBOperator(op.op,trialμ,testμ,lhsμ,rhsμ)
-end
-
 const TransientLinearNonlinearRBOperator{A<:TransientRBOperator,B<:TransientRBOperator} = LinearNonlinearRBOperator{A,B}
 
 function get_order(op::TransientLinearNonlinearRBOperator)
@@ -316,6 +292,16 @@ function ParamODEs.add_initial_conditions(
   )
   
   add_initial_conditions(solver,get_nonlinear_operator(op),args...)
+end
+
+# local 
+
+function RBSteady.get_local(op::TransientRBOperator,μ::AbstractVector) 
+  trialμ = get_local(op.trial,μ)
+  testμ = get_local(op.test,μ)
+  lhsμ = map(lhs->get_local(lhs,μ),op.lhs)
+  rhsμ = get_local(op.rhs,μ)
+  RBOperator(op.op,trialμ,testμ,lhsμ,rhsμ)
 end
 
 # utils

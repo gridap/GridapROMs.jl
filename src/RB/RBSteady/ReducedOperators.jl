@@ -422,16 +422,6 @@ function Algebra.jacobian!(
   interpolate!(A,op.lhs,r)
 end
 
-const LocalRBOperator{O,T} = GenericRBOperator{O,T,<:LocalHRContribution,<:LocalHRContribution}
-
-function get_local(op::LocalRBOperator,μ::AbstractVector)
-  trialμ = get_local(op.trial,μ)
-  testμ = get_local(op.test,μ)
-  lhsμ = get_local(op.lhs,μ)
-  rhsμ = get_local(op.rhs,μ)
-  RBOperator(op.op,trialμ,testμ,lhsμ,rhsμ)
-end
-
 """
     struct LinearNonlinearRBOperator{A<:RBOperator,B<:RBOperator,T} <: RBOperator{LinearNonlinearParamEq,T}
       op_linear::A
@@ -509,11 +499,17 @@ end
 
 const LinearNonlinearGenericRBOperator{T} = LinearNonlinearRBOperator{<:GenericRBOperator,<:GenericRBOperator,T}
 
-const LinearNonlinearLocalRBOperator{T} = LinearNonlinearRBOperator{<:LocalRBOperator,<:LocalRBOperator,T}
+# local
 
-const AbstractLocalRBOperator = Union{LocalRBOperator,LinearNonlinearLocalRBOperator}
+function get_local(op::RBOperator,μ::AbstractVector)
+  trialμ = get_local(op.trial,μ)
+  testμ = get_local(op.test,μ)
+  lhsμ = get_local(op.lhs,μ)
+  rhsμ = get_local(op.rhs,μ)
+  RBOperator(op.op,trialμ,testμ,lhsμ,rhsμ)
+end
 
-function get_local(op::LinearNonlinearLocalRBOperator,μ::AbstractVector)
+function get_local(op::LinearNonlinearRBOperator,μ::AbstractVector)
   opμ_linear = get_local(get_linear_operator(op),μ)
   opμ_nlinear = get_local(get_nonlinear_operator(op),μ)
   LinearNonlinearRBOperator(opμ_linear,opμ_nlinear)

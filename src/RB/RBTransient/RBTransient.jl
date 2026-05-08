@@ -156,7 +156,6 @@ include("LocalHyperReductions.jl")
 
 export TransientRBOperator
 export TransientGenericRBOperator
-export TransientLocalRBOperator
 export TransientLinearNonlinearRBOperator
 include("ReducedOperators.jl")
 

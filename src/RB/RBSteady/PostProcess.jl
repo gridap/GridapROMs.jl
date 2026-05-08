@@ -229,7 +229,7 @@ end
 """
     eval_performance(
       solver::RBSolver,
-      feop::ParamOperator,
+      rbop::RBOperator,
       fesnaps::AbstractSnapshots,
       rbsnaps::AbstractSnapshots,
       festats::CostTracker,
@@ -238,7 +238,7 @@ end
 
 Arguments:
   - `solver`: solver for the reduced problem
-  - `feop`: FE operator representing the PDE
+  - `rbop`: reduced operator representing the PDE
   - `fesnaps`: online snapshots of the FE solution
   - `rbsnaps`: reduced approximation of `fesnaps`
   - `festats`: time and memory consumption needed to compute `fesnaps`
@@ -250,13 +250,14 @@ and `festats`
 """
 function eval_performance(
   solver::RBSolver,
-  feop::ParamOperator,
+  rbop::RBOperator,
   fesnaps::AbstractSnapshots,
   rbsnaps::AbstractSnapshots,
   festats::CostTracker,
   rbstats::CostTracker
   )
 
+  feop = get_fe_operator(rbop)
   error = compute_relative_error(solver,feop,fesnaps,rbsnaps)
   speedup = compute_speedup(festats,rbstats)
   ROMPerformance(error,speedup)
@@ -264,17 +265,17 @@ end
 
 function eval_performance(
   solver::RBSolver,
-  feop::ParamOperator,
   rbop::RBOperator,
   fesnaps::AbstractSnapshots,
-  x̂::AbstractParamVector,
+  x̂::RBParamVector,
   festats::CostTracker,
   rbstats::CostTracker
   )
 
   r = get_realisation(fesnaps)
-  rbsnaps = to_snapshots(rbop,x̂,r)
-  eval_performance(solver,feop,fesnaps,rbsnaps,festats,rbstats)
+  i = get_dof_map(fesnaps)
+  rbsnaps = Snapshots(_fe_data(x̂),i,r)
+  eval_performance(solver,rbop,fesnaps,rbsnaps,festats,rbstats)
 end
 
 function DrWatson.save(dir,perf::ROMPerformance;label="")
@@ -431,15 +432,16 @@ end
 
 function plot_a_solution(
   dir::String,
-  feop::ParamOperator,
   rbop::RBOperator,
   fesnaps::AbstractSnapshots,
-  x̂::AbstractParamVector,
+  x̂::RBParamVector,
   r::AbstractRealisation;
   kwargs...
   )
 
-  rbsnaps = to_snapshots(rbop,x̂,r)
+  i = get_dof_map(fesnaps)
+  rbsnaps = Snapshots(_fe_data(x̂),i,r)
+  feop = get_fe_operator(rbop)
   plot_a_solution(dir,feop,fesnaps,rbsnaps;kwargs...)
 end
 
@@ -498,7 +500,6 @@ end
 
 function plot_solutions(
   dir::String,
-  feop::ParamOperator,
   rbop::RBOperator,
   fesnaps::AbstractSnapshots,
   x̂::AbstractParamVector,
@@ -506,7 +507,9 @@ function plot_solutions(
   kwargs...
   )
 
-  rbsnaps = to_snapshots(rbop,x̂,r)
+  i = get_dof_map(fesnaps)
+  rbsnaps = Snapshots(_fe_data(x̂),i,r)
+  feop = get_fe_operator(rbop)
   plot_solutions(dir,feop,fesnaps,rbsnaps;kwargs...)
 end
 
@@ -528,29 +531,6 @@ function _plot_solutions(dir,trian,uh,ûh,r::Realisation)
     end
   end
   writevtk(trian,dir*".vtu",cellfields=fields)
-end
-
-# utils
-
-function to_snapshots(rbop::RBOperator,x̂::AbstractParamVector,r::AbstractRealisation)
-  to_snapshots(get_trial(rbop),x̂,r)
-end
-
-function to_snapshots(
-  rbop::AbstractLocalRBOperator,
-  x̂::AbstractParamVector,
-  r::AbstractRealisation
-  )
-
-  xvec = map(enumerate(r)) do (i,μ)
-    x̂μ = param_getindex(x̂,i)
-    opμ = get_local(rbop,μ)
-    trialμ = get_trial(opμ)
-    inv_project(trialμ,x̂μ)
-  end
-  x = ParamArray(xvec)
-  i = get_dof_map(rbop)
-  Snapshots(x,i,r)
 end
 
 include("Diagnostics.jl")

@@ -487,13 +487,14 @@ function projection_error(
   trial = get_trial(op)(μ)
   x = get_param_data(s)
   x̂ = project(trial,x)
-  ŝ = to_snapshots(op,x̂,μ)
+  i = get_dof_map(trial)
+  ŝ = Snapshots(x̂,i,μ)
   compute_relative_error(solver,feop,s,ŝ)
 end
 
 function projection_error(
-  solver::RBSolver,
-  op::AbstractLocalRBOperator,
+  solver::LocalRBSolver,
+  op::RBOperator,
   s::AbstractSnapshots
   )
 
@@ -503,17 +504,19 @@ function projection_error(
   x = get_param_data(s)
 
   x̂vec = map(enumerate(μ)) do (i,μi)
-    trialμi = get_local(trial,μi)
+    ri = to_realisation(μ,μi)
+    trialμi = get_local(trial,μi)(ri)
     xi = param_getindex(x,i)
     project(trialμi,xi)
   end
   x̂ = ParamArray(x̂vec)
-  ŝ = to_snapshots(op,x̂,μ)
+  i = get_dof_map(trial)
+  ŝ = Snapshots(x̂,i,μ)
   compute_relative_error(solver,feop,s,ŝ)
 end
 
 """
-    hr_error(op,res,jac,μ) -> (Tuple,Tuple)
+    hr_error(solver,op,res,jac,μ) -> (Tuple,Tuple)
 
 Compute per-triangulation hyper-reduction errors for residuals and Jacobians.
 
@@ -528,25 +531,7 @@ For each triangulation in the HR contributions:
 Returns `(hr_error_res,hr_error_jac)` where each is a `Tuple` with one
 `Float64` per triangulation (mean relative error over parameters).
 """
-function hr_error(op::LocalRBOperator,res,jac,s)
-  μ = get_realisation(s)
-  err_res = Any[]
-  err_jac = Any[]
-
-  for (i,μi) in enumerate(μ)
-    opi = get_local(op,μi)
-    si = select_snapshots(s,[i])
-    resi = select_snapshots(res,[i])
-    jaci = select_snapshots(jac,[i])
-    err_res_i,err_jac_i = hr_error(opi,resi,jaci,si)
-    push!(err_res,err_res_i)
-    push!(err_jac,err_jac_i)
-  end
-
-  return _diag_mean(err_res),_diag_mean(err_jac)
-end
-
-function hr_error(op::RBOperator,res,jac,s)
+function hr_error(::GlobalRBSolver,op::RBOperator,res,jac,s)
   μ = get_realisation(s)
   u = get_param_data(s)
   err_res = hr_error_res(op,res,μ,u)
@@ -554,7 +539,7 @@ function hr_error(op::RBOperator,res,jac,s)
   return err_res,err_jac
 end
 
-function hr_error(op::RBOperator{<:LinearParamEq},res,jac,s)
+function hr_error(::GlobalRBSolver,op::RBOperator{<:LinearParamEq},res,jac,s)
   μ = get_realisation(s)
   u = get_param_data(s)|> similar
   fill!(u,zero(eltype2(u)))
@@ -563,15 +548,36 @@ function hr_error(op::RBOperator{<:LinearParamEq},res,jac,s)
   return err_res,err_jac
 end
 
-function hr_error(op::LinearNonlinearRBOperator,res,jac,s)
-  res_lin,res_nlin = res
-  jac_lin,jac_nlin = jac
-  op_lin = get_linear_operator(op)
-  op_nlin = get_nonlinear_operator(op)
-  (err_res_lin,err_jac_lin) = hr_error(op_lin,res_lin,jac_lin,s)
-  (err_res_nlin,err_jac_nlin) = hr_error(op_nlin,res_nlin,jac_nlin,s)
-  return (err_res_lin,err_res_nlin),(err_jac_lin,err_jac_nlin)
+function hr_error(solver::LocalRBSolver,op::RBOperator,res,jac,s)
+  μ = get_realisation(s)
+  gsolver = change_context(solver)
+
+  err_res = Any[]
+  err_jac = Any[]
+  for (i,μi) in enumerate(μ)
+    opi = get_local(op,μi)
+    si = select_snapshots(s,[i])
+    resi = select_snapshots(res,[i])
+    jaci = select_snapshots(jac,[i])
+    err_res_i,err_jac_i = hr_error(gsolver,opi,resi,jaci,si)
+    push!(err_res,err_res_i)
+    push!(err_jac,err_jac_i)
+  end
+
+  return _diag_mean(err_res),_diag_mean(err_jac)
 end
+
+for T in (:GlobalRBSolver, :LocalRBSolver)
+  @eval function hr_error(solver::$T,op::LinearNonlinearRBOperator,res,jac,s)
+    res_lin,res_nlin = res
+    jac_lin,jac_nlin = jac
+    op_lin = get_linear_operator(op)
+    op_nlin = get_nonlinear_operator(op)
+    (err_res_lin,err_jac_lin) = hr_error(solver,op_lin,res_lin,jac_lin,s)
+    (err_res_nlin,err_jac_nlin) = hr_error(solver,op_nlin,res_nlin,jac_nlin,s)
+    return (err_res_lin,err_res_nlin),(err_jac_lin,err_jac_nlin)
+  end
+end 
 
 function hr_error_res(
   op::RBOperator,

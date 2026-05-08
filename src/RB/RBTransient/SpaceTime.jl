@@ -279,7 +279,7 @@ function _st_solve_nr!(
       xi .+= dx
     end
 
-    inv_project(trial,x)
+    inv_project!(x,trial)
     time_combination!(nlop.usx,tcomb,x,s.us0)
     residual!(b,op,x)
     res  = norm(b)

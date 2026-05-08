@@ -32,7 +32,7 @@ small system for new parameter values.  Main building blocks:
   `reduced_jacobian` / `reduced_residual` / `reduced_weak_form`.
 
 - **Reduced operators** (`ReducedOperators.jl`) — `GenericRBOperator`,
-  `LinearNonlinearRBOperator`, `LocalRBOperator`; `reduced_operator`.
+  `LinearNonlinearRBOperator`; `reduced_operator`.
 
 - **RB solvers** (`RBSolvers.jl`) — `RBSolver` orchestrates snapshot collection,
   offline reduction, and online solve; `solution_snapshots`, `residual_snapshots`,
@@ -252,8 +252,6 @@ include("LocalHyperReductions.jl")
 export RBOperator
 export GenericRBOperator
 export LinearNonlinearRBOperator
-export AbstractLocalRBOperator
-export LocalRBOperator
 export reduced_operator
 export change_operator
 include("ReducedOperators.jl")

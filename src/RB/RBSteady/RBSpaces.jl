@@ -163,13 +163,21 @@ for (f,f!) in zip((:project,:inv_project),(:project!,:inv_project!))
 end
 
 function project(r::RBSpace,a::RBParamVector)
-  project!(a.data,r,a.fe_data)
+  project!(a,r)
   return a.data
 end
 
+function project!(a::RBParamVector,r::RBSpace)
+  project!(a.data,r,a.fe_data)
+end
+
 function inv_project(r::RBSpace,a::RBParamVector)
-  inv_project!(a.fe_data,r,a.data)
+  inv_project!(a,r)
   return a.fe_data
+end
+
+function inv_project!(a::RBParamVector,r::RBSpace)
+  inv_project!(a.fe_data,r,a.data)
 end
 
 function project(r::RBSpace,x::Projection)
@@ -258,14 +266,5 @@ Base.length(r::MultiFieldRBSpace) = num_fields(r)
 function FESpaces.zero_free_values(r::MultiFieldRBSpace)
   x̂ = mortar(map(zero_free_values,r))
   unfold(x̂)
-end
-
-# utils
-
-function to_snapshots(f::RBSpace,x̂::AbstractParamVector,r::AbstractRealisation)
-  fr = f(r)
-  x = inv_project(fr,x̂)
-  i = get_dof_map(fr)
-  Snapshots(x,i,r)
 end
 

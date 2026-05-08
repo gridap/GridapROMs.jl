@@ -1,9 +1,14 @@
+abstract type RBSolverContext end
+struct GlobalContext <: RBSolverContext end
+struct LocalContext <: RBSolverContext end
+
 """
-    struct RBSolver{A,B,C,D} <: GridapType
+    struct RBSolver{A,B,C,D,E} <: GridapType
       fesolver::A
-      state_reduction::B
-      residual_reduction::C
-      jacobian_reduction::D
+      context::B
+      state_reduction::C
+      residual_reduction::D
+      jacobian_reduction::E
     end
 
 Wrapper around a FE solver (e.g. `NonlinearSolver` or `ODESolver` in [`Gridap`](@ref)) with
@@ -31,11 +36,38 @@ In particular:
 - nparams_test:  number of snapshots considered when computing the error the RB
   method commits with respect to the FE procedure
 """
-struct RBSolver{A,B,C,D} <: GridapType
+struct RBSolver{A,B,C,D,E} <: RBSolver
   fesolver::A
-  state_reduction::B
-  residual_reduction::C
-  jacobian_reduction::D
+  context::B
+  state_reduction::C
+  residual_reduction::D
+  jacobian_reduction::E
+end
+
+const GlobalRBSolver{A,C,D,E} = RBSolver{A,GlobalContext,C,D,E}
+
+function GlobalRBSolver(
+  fesolver,
+  state_reduction,
+  residual_reduction,
+  jacobian_reduction
+  )
+  
+  context = GlobalContext()
+  RBSolver(fesolver,context,state_reduction,residual_reduction,jacobian_reduction)
+end
+
+const LocalRBSolver{A,C,D,E} = RBSolver{A,LocalContext,C,D,E}
+
+function LocalRBSolver(
+  fesolver,
+  state_reduction,
+  residual_reduction,
+  jacobian_reduction
+  )
+  
+  context = LocalContext()
+  RBSolver(fesolver,context,state_reduction,residual_reduction,jacobian_reduction)
 end
 
 function RBSolver(
@@ -48,7 +80,7 @@ function RBSolver(
 
   residual_reduction = HyperReduction(reduction;nparams=nparams_res,kwargs...)
   jacobian_reduction = HyperReduction(reduction;nparams=nparams_jac,kwargs...)
-  RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)
+  GlobalRBSolver(fesolver,residual_reduction,jacobian_reduction)
 end
 
 function RBSolver(
@@ -63,7 +95,7 @@ function RBSolver(
 
   residual_reduction = LocalHyperReduction(reduction;nparams=nparams_res,ncentroids=ncentroids_res,kwargs...)
   jacobian_reduction = LocalHyperReduction(reduction;nparams=nparams_jac,ncentroids=ncentroids_jac,kwargs...)
-  RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)
+  LocalRBSolver(fesolver,residual_reduction,jacobian_reduction)
 end
 
 function RBSolver(
@@ -95,6 +127,14 @@ num_offline_params(s::RBSolver) = max(num_state_params(s),num_res_params(s),num_
 offline_params(s::RBSolver) = 1:num_offline_params(s)
 res_params(s::RBSolver) = 1:num_res_params(s)
 jac_params(s::RBSolver) = 1:num_jac_params(s)
+
+function change_context(s::GlobalRBSolver)
+  LocalRBSolver(get_fe_solver(s),get_state_reduction(s),get_residual_reduction(s),get_jacobian_reduction(s))
+end
+
+function change_context(s::LocalRBSolver)
+  GlobalRBSolver(get_fe_solver(s),get_state_reduction(s),get_residual_reduction(s),get_jacobian_reduction(s))
+end
 
 """
     solution_snapshots(solver::NonlinearSolver,feop::ParamOperator,r::Realisation) -> SteadySnapshots
@@ -240,17 +280,10 @@ end
 
 # solvers 
 
-abstract type Context end
-struct Global <: Context end
-struct Local <: Context end
-
-Context(a) = Global()
-islocal(a) = isa(Context(a),Local)
-
 function Algebra.solve(
-  solver::RBSolver,
+  solver::GlobalRBSolver,
   op::NonlinearOperator,
-  r::AbstractRealisation
+  r::Realisation
   )
 
   islocal(op) && return local_solve(solver,op,r)
@@ -265,21 +298,23 @@ function Algebra.solve(
   t = @timed solve!(x̂,fesolver,nlop,syscache)
   stats = CostTracker(t,nruns=num_params(r),name="RB")
 
+  inv_project!(x̂,trial)
+
   return x̂,stats
 end
 
-# local solver
-
-function local_solve(
-  solver::RBSolver,
+function Algebra.solve(
+  solver::LocalRBSolver,
   op::NonlinearOperator,
-  r::AbstractRealisation
+  r::AbstractRealisation,
+  args...
   )
 
+  gsolver = change_context(solver)
   t = @timed x̂vec = map(r) do _μ
     opμ = get_local(op,_μ)
     μ = to_realisation(r,_μ)
-    x̂, = solve(solver,opμ,μ)
+    x̂, = solve(gsolver,opμ,μ,args...)
     x̂
   end
   x̂ = param_cat(x̂vec)
@@ -288,6 +323,18 @@ function local_solve(
 end
 
 to_realisation(r::Realisation,μ) = Realisation([μ])
+
+function solution_snapshots(
+  solver::RBSolver,
+  op::NonlinearOperator,
+  r::AbstractRealisation,
+  args...
+  )
+
+  x̂ = solve(solver,op,r,args...)
+  i = get_dof_map(trial)
+  Snapshots(_fe_data(x̂),i,r)
+end
 
 # nonlinear solver
 
@@ -317,7 +364,7 @@ function Algebra._solve_nr!(
       xi .+= dx
     end
 
-    inv_project(trial,x)
+    inv_project!(x,trial)
     residual!(b,op,x)
     res  = norm(b)
     done = LinearSolvers.update!(log,res)

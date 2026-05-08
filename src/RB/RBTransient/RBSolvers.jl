@@ -15,7 +15,7 @@ function RBSteady.RBSolver(
     ),
     Val(get_time_order(fesolver)+1)
   )
-  RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)
+  GlobalRBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)
 end
 
 function RBSteady.RBSolver(
@@ -34,10 +34,10 @@ function RBSteady.RBSolver(
       nparams=nparams_jacs[i],kwargs...),
     Val(get_time_order(fesolver)+1)
   )
-  RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)
+  LocalRBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)
 end
 
-const TransientRBSolver{A<:ODESolver,B,C,D} = RBSolver{A,B,C,D}
+const TransientRBSolver{A<:ODESolver,B,C,D,E} = RBSolver{A,B,C,D,E}
 
 ParamODEs.TimeCombination(s::TransientRBSolver) = TimeCombination(get_fe_solver(s))
 
@@ -132,7 +132,7 @@ function RBSteady.jacobian_snapshots(
 end
 
 function Algebra.solve(
-  solver::RBSolver,
+  solver::GlobalRBSolver,
   op::NonlinearOperator,
   r::TransientRealisation,
   us0::Tuple{Vararg{AbstractVector}}
@@ -148,11 +148,13 @@ function Algebra.solve(
   t = @timed solve!(x̂,fesolver,nlop,syscache)
   stats = CostTracker(t,nruns=num_params(r),name="RB")
 
+  inv_project!(x̂,trial)
+  
   return x̂,stats
 end
 
 function Algebra.solve(
-  solver::RBSolver,
+  solver::GlobalRBSolver,
   op::NonlinearOperator,
   r::TransientRealisation,
   uhs0::Tuple{Vararg{Function}}
@@ -174,7 +176,7 @@ function Algebra.solve(
 end
 
 function Algebra.solve(
-  solver::RBSolver,
+  solver::GlobalRBSolver,
   op::NonlinearOperator,
   r::TransientRealisation,
   u0::Any
@@ -185,33 +187,10 @@ end
 
 # local solver
 
-function Algebra.solve(
-  solver::RBSolver,
-  op::AbstractLocalRBOperator,
-  r::TransientRealisation,
-  ush0::Tuple{Vararg{AbstractVector}}
-  )
-
-  @notimplemented "When using local reduced operators, provide the initial condition as functions 
-  of the parameters, so that they can be localised. See the other solve method for an example."
-end
-
-function Algebra.solve(
-  solver::RBSolver,
-  op::AbstractLocalRBOperator,
-  r::TransientRealisation,
-  ush0::Tuple{Vararg{Function}}
-  )
-
-  t = @timed x̂vec = map(get_params(r)) do μ
-    opμt = get_local(op,μ)
-    rμt = _to_realisation(r,μ)
-    x̂, = solve(solver,opμt,rμt,ush0)
-    x̂
-  end
-  x̂ = param_cat(x̂vec)
-  stats = CostTracker(t,nruns=num_params(r),name="RB")
-  return (x̂,stats)
+function RBSteady.to_realisation(r::TransientRealisation,μ)
+  ploc = RBSteady.to_realisation(get_params(r),μ)
+  all_times = [get_initial_time(r),get_times(r)...]
+  TransientRealisation(ploc,all_times)
 end
 
 # utils 
@@ -220,8 +199,3 @@ get_time_order(::ODESolver) = @abstractmethod
 get_time_order(::ThetaMethod) = 1
 get_time_order(::GeneralizedAlpha1) = 1
 get_time_order(::GeneralizedAlpha2) = 2
-
-function _to_realisation(r::TransientRealisation,μ::AbstractVector)
-  all_times = [get_initial_time(r),get_times(r)...]
-  TransientRealisation(Realisation([μ]),all_times)
-end
