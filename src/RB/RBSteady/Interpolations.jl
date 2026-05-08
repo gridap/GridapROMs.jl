@@ -31,7 +31,7 @@ end
 get_integration_cells(a::EmptyInterpolation,trian::AppendedTriangulation) = lazy_append(Int32[],Int32[])
 
 struct FullInterpolation <: Interpolation
-  cells::IdentityVector{Int32}
+  cells::Vector{Int32}
 end
 
 function Interpolation(
@@ -39,9 +39,9 @@ function Interpolation(
   trian::Triangulation,
   args...
   )
-
-  n = Int32(num_cells(trian))
-  cells = IdentityVector(n)
+  
+  n = num_cells(trian)
+  cells = collect(Int32,1:n)
   FullInterpolation(cells)
 end
 

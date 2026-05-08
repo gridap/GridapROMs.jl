@@ -586,7 +586,7 @@ function main_rb(;method=:pod,M_test=(25,50,100),tols=(1e-1,1e-2,1e-3,1e-4,1e-5)
       rbop = try_loading_reduced_operator(dir_tol,rbsolver,feop,fesnaps,method)
       x̂,rbstats = solve(rbsolver,rbop,μ,args...)
 
-      perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
+      perf = eval_performance(rbsolver,rbop,x,x̂,festats,rbstats)
       println(perf)
     end
   end

@@ -115,11 +115,11 @@ function main(
   μon = realisation(feop;nparams=10,sampling=:uniform)
   x̂,rbstats = solve(rbsolver,rbop,μon,xh0μ)
   x,festats = solution_snapshots(rbsolver,feop,μon,xh0μ)
-  perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
+  perf = eval_performance(rbsolver,rbop,x,x̂,festats,rbstats)
 
   rbop_load = load_operator(dir,feop)
   x̂_load, = solve(rbsolver,rbop_load,μon,xh0μ)
-  perf_load = eval_performance(rbsolver,feop,rbop_load,x,x̂_load,festats,rbstats)
+  perf_load = eval_performance(rbsolver,rbop_load,x,x̂_load,festats,rbstats)
 
   @test all(perf_load.error .≈ perf.error)
 end

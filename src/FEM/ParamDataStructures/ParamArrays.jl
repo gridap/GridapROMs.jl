@@ -297,6 +297,10 @@ function param_cat(A::Vector{<:ConsecutiveParamArray})
 end
 
 function param_cat(A::Vector{<:ConsecutiveParamVector{T}}) where T
+  if all((innersize(a) == innersize(first(A)) for a in A))
+    data = hcat(map(get_all_data,A)...)
+    return ConsecutiveParamArray(data)
+  end
   ptrs = _vec_of_pointers(A)
   n = length(A)
   u = one(eltype(ptrs))
@@ -450,6 +454,10 @@ function Base.vec(A::GenericParamVector)
 end
 
 function param_cat(A::Vector{<:GenericParamVector})
+  if all((innersize(a) == innersize(first(A)) for a in A))
+    data = stack(map(get_all_data,A))
+    return ConsecutiveParamVector(data)
+  end
   A1, = A
   data = copy(A1.data)
   ptrs = copy(A1.ptrs)

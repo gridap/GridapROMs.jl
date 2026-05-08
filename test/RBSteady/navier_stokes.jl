@@ -91,7 +91,7 @@ function main(
   μon = realisation(feop;nparams=10,sampling=:uniform)
   x̂,rbstats = solve(rbsolver,rbop,μon)
   x,festats = solution_snapshots(rbsolver,feop,μon)
-  perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
+  perf = eval_performance(rbsolver,rbop,x,x̂,festats,rbstats)
 
   println(perf)
 end

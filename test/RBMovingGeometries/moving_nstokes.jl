@@ -151,7 +151,7 @@ function local_solver(rbsolver,rbop,μ,x,festats)
     feopi = def_fe_operator(μi)
     rbopi = change_operator(get_local(rbop,first(μi)),feopi)
     x̂,rbstats = solve(rbsolver,rbopi,μi)
-    perf = eval_performance(rbsolver,feopi,rbopi,xi,x̂,festats,rbstats)
+    perf = eval_performance(rbsolver,rbopi,xi,x̂,festats,rbstats)
     push!(perfs,perf)
   end
   return RBSteady.mean(perfs)
@@ -177,7 +177,7 @@ rbop = reduced_operator(rbsolver,feop,fesnaps)
 if compression == :global
   rbop′ = change_operator(rbop,feopon)
   x̂,rbstats = solve(rbsolver,rbop′,μon)
-  perf = eval_performance(rbsolver,feop,rbop′,x,x̂,festats,rbstats)
+  perf = eval_performance(rbsolver,rbop′,x,x̂,festats,rbstats)
 else
   perf = local_solver(rbsolver,rbop,μon,x,festats)
 end

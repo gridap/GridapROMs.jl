@@ -148,6 +148,8 @@ export cores2basis
 include("TTLinearAlgebra.jl")
 
 export RBSolver
+export GlobalRBSolver
+export LocalRBSolver
 export get_fe_solver
 export solution_snapshots
 export residual_snapshots
@@ -292,7 +294,6 @@ export linear_label
 export nonlinear_label
 export offline_label
 export online_label
-export plot_a_solution
 export plot_solutions
 include("PostProcess.jl")
 

@@ -214,11 +214,11 @@ function run_test(
     rbop = try_loading_reduced_operator(dir_tolrank,rbsolver,feop,fesnaps,jac,res)
 
     x̂,rbstats = solve(rbsolver,rbop,μon,args...)
-    perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
+    perf = eval_performance(rbsolver,rbop,x,x̂,festats,rbstats)
     println(perf)
     push!(perfs,perf)
 
-    plot_a_solution(plot_dir_tolrank,feop,rbop,x,x̂,μon;kwargs...)
+    plot_solutions(plot_dir_tolrank,rbop,x,x̂;kwargs...)
   end
 
   results_dir = joinpath(dir,"results")

@@ -73,7 +73,7 @@ function main(
   feop = LinearParamOperator(res,stiffness,pspace,trial,test,domains)
   
   dir = datadir("diagnostics")
-  rm(dir;recursive=true)
+  isdir(dir) && rm(dir;recursive=true)
   create_dir(dir)
 
   tols = [1e-1,1e-3,1e-5]

@@ -88,7 +88,7 @@ rbop = reduced_operator(rbsolver,feop,fesnaps)
 μon = realisation(feop;nparams=10,sampling=:uniform)
 x̂,rbstats = collect(solve(fesolver,rbop,μon,uh0μ))
 x,festats = solution_snapshots(rbsolver,feop,μon,uh0μ)
-perf = eval_performance(rbsolver,feop,rbop,x,x̂,festats,rbstats)
+perf = eval_performance(rbsolver,rbop,x,x̂,festats,rbstats)
 
 red_trial,red_test = reduced_spaces(rbsolver,feop,fesnaps)
 reduced_jacobian(rbsolver,feop,red_trial,red_test,fesnaps)

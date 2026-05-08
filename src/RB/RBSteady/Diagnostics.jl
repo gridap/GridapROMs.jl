@@ -372,7 +372,7 @@ function rom_diagnostics(
     push!(offline_entries,(tol=tol,diagnostics=offline_diagnostics(rbop)))
 
     proj_err = projection_error(rbsolver,rbop,s)
-    err_res,err_jac = hr_error(rbop,res,jac,s)
+    err_res,err_jac = hr_error(rbsolver,rbop,res,jac,s)
     push!(online_entries,(tol=tol,diagnostics=(
       projection_error=proj_err,
       hr_error_res=err_res,

@@ -268,7 +268,7 @@ In order to test the quality of the approximation `x̂on`, we can run the follow
 
 ```julia
 xon,festats = solution_snapshots(solver,feop,μₒₙ)
-perf = eval_performance(rbsolver,feop,rbop,xon,x̂on,festats,rbstats)
+perf = eval_performance(rbsolver,rbop,xon,x̂on,festats,rbstats)
 println(perf)
 ```
 

@@ -356,97 +356,8 @@ function Utils.compute_relative_error(
   error
 end
 
-function _writevtk(::Type{T},Ω,dir,uh,ûh,eh) where T
-  writevtk(Ω,dir,cellfields=["uh"=>uh,"ûh"=>ûh,"eh"=>eh])
-end
-
-function _writevtk(::Type{T},Ω,dir,uh,ûh,eh) where T<:Complex
-  writevtk(Ω,dir,cellfields=["uh"=>abs2(uh),"ûh"=>abs2(ûh),"eh"=>abs2(eh)])
-end
-
-function plot_a_solution(dir,Ω,uh,ûh,r::Realisation)
-  T = eltype2(get_free_dof_values(uh))
-  uh1 = param_getindex(uh,1)
-  ûh1 = param_getindex(ûh,1)
-  eh1 = uh1 - ûh1
-  _writevtk(T,Ω,dir*".vtu",uh1,ûh1,eh1)
-end
-
-function plot_a_solution(
-  dir::String,
-  trial::UnEvalTrialFESpace,
-  sol::Snapshots,
-  sol_approx::Snapshots;
-  trian=get_triangulation(trial),
-  field=1
-  )
-
-  r = get_realisation(sol)
-  Ur = trial(r)
-  uh = FEFunction(Ur,get_param_data(sol))
-  ûh = FEFunction(Ur,get_param_data(sol_approx))
-  dirfield = joinpath(dir,"var$field")
-  plot_a_solution(dirfield,trian,uh,ûh,r)
-end
-
 """
-    plot_a_solution(
-      dir::String,
-      feop::ParamOperator,
-      sol::AbstractSnapshots,
-      sol_approx::AbstractSnapshots,
-      args...;
-      kwargs...
-      ) -> Nothing
-
-Plots a single FE solution, RB solution, and the point-wise error between the two,
-by selecting the first FE snapshot in `sol` and the first reduced snapshot in `sol_approx`
-"""
-function plot_a_solution(
-  dir::String,
-  feop::ParamOperator,
-  sol::Snapshots,
-  sol_approx::Snapshots;
-  kwargs...
-  )
-
-  trial = get_trial(feop)
-  plot_a_solution(dir,trial,sol,sol_approx;kwargs...)
-end
-
-function plot_a_solution(
-  dir::String,
-  feop::ParamOperator,
-  sol::BlockSnapshots,
-  sol_approx::BlockSnapshots;
-  kwargs...
-  )
-
-  trials = get_trial(feop)
-  for i in eachindex(sol)
-    if sol.touched[i]
-      plot_a_solution(dir,trials[i],sol[i],sol_approx[i];field=i,kwargs...)
-    end
-  end
-end
-
-function plot_a_solution(
-  dir::String,
-  rbop::RBOperator,
-  fesnaps::AbstractSnapshots,
-  x̂::RBParamVector,
-  r::AbstractRealisation;
-  kwargs...
-  )
-
-  i = get_dof_map(fesnaps)
-  rbsnaps = Snapshots(_fe_data(x̂),i,r)
-  feop = get_fe_operator(rbop)
-  plot_a_solution(dir,feop,fesnaps,rbsnaps;kwargs...)
-end
-
-"""
-    plot_solutions(dir,feop,sol,sol_approx;kwargs...) -> Nothing
+  plot_solutions(dir,rbop,sol,sol_approx;kwargs...) -> Nothing
 
 Like [`plot_a_solution`](@ref), but writes all parametric solutions into a
 single VTK file. Each parameter index `i` produces fields
@@ -472,24 +383,26 @@ end
 
 function plot_solutions(
   dir::String,
-  feop::ParamOperator,
+  rbop::RBOperator,
   sol::Snapshots,
   sol_approx::Snapshots;
   kwargs...
   )
 
+  feop = get_fe_operator(rbop)
   trial = get_trial(feop)
   plot_solutions(dir,trial,sol,sol_approx;kwargs...)
 end
 
 function plot_solutions(
   dir::String,
-  feop::ParamOperator,
+  rbop::RBOperator,
   sol::BlockSnapshots,
   sol_approx::BlockSnapshots;
   kwargs...
   )
-
+  
+  feop = get_fe_operator(rbop)
   trials = get_trial(feop)
   for i in eachindex(sol)
     if sol.touched[i]
@@ -502,15 +415,14 @@ function plot_solutions(
   dir::String,
   rbop::RBOperator,
   fesnaps::AbstractSnapshots,
-  x̂::AbstractParamVector,
-  r::AbstractRealisation;
+  x̂::AbstractParamVector;
   kwargs...
   )
 
   i = get_dof_map(fesnaps)
+  r = get_realisation(fesnaps)
   rbsnaps = Snapshots(_fe_data(x̂),i,r)
-  feop = get_fe_operator(rbop)
-  plot_solutions(dir,feop,fesnaps,rbsnaps;kwargs...)
+  plot_solutions(dir,rbop,fesnaps,rbsnaps;kwargs...)
 end
 
 function _plot_solutions(dir,trian,uh,ûh,r::Realisation)

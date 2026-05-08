@@ -212,6 +212,7 @@ function get_label(k::KmeansResult,r::Realisation)
 end
 
 function get_label(k::KmeansResult,x::AbstractVector{<:Number})
+  length(k.counts) == 1 && return 1
   dists = centroid_distances(k,x)
   argmin(dists)
 end

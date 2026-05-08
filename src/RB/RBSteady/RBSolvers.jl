@@ -36,7 +36,7 @@ In particular:
 - nparams_test:  number of snapshots considered when computing the error the RB
   method commits with respect to the FE procedure
 """
-struct RBSolver{A,B,C,D,E} <: RBSolver
+struct RBSolver{A,B,C,D,E} <: GridapType
   fesolver::A
   context::B
   state_reduction::C
@@ -46,28 +46,34 @@ end
 
 const GlobalRBSolver{A,C,D,E} = RBSolver{A,GlobalContext,C,D,E}
 
-function GlobalRBSolver(
+function GlobalRBSolver(fesolver,args...)
+  RBSolver(fesolver,GlobalContext(),args...)
+end
+
+function RBSolver(
   fesolver,
   state_reduction,
   residual_reduction,
   jacobian_reduction
   )
   
-  context = GlobalContext()
-  RBSolver(fesolver,context,state_reduction,residual_reduction,jacobian_reduction)
+  GlobalRBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
 end
 
 const LocalRBSolver{A,C,D,E} = RBSolver{A,LocalContext,C,D,E}
 
-function LocalRBSolver(
+function LocalRBSolver(fesolver,args...)
+  RBSolver(fesolver,LocalContext(),args...)
+end
+
+function RBSolver(
   fesolver,
-  state_reduction,
+  state_reduction::Union{LocalReduction,SupremizerReduction{A,<:LocalReduction} where A},
   residual_reduction,
   jacobian_reduction
   )
   
-  context = LocalContext()
-  RBSolver(fesolver,context,state_reduction,residual_reduction,jacobian_reduction)
+  LocalRBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
 end
 
 function RBSolver(
@@ -80,33 +86,19 @@ function RBSolver(
 
   residual_reduction = HyperReduction(reduction;nparams=nparams_res,kwargs...)
   jacobian_reduction = HyperReduction(reduction;nparams=nparams_jac,kwargs...)
-  GlobalRBSolver(fesolver,residual_reduction,jacobian_reduction)
+  RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)
 end
 
 function RBSolver(
   fesolver::GridapType,
-  reduction::LocalReduction;
-  nparams_res=20,
-  nparams_jac=20,
-  ncentroids_res=num_centroids(reduction),
-  ncentroids_jac=num_centroids(reduction),
-  kwargs...
-  )
-
-  residual_reduction = LocalHyperReduction(reduction;nparams=nparams_res,ncentroids=ncentroids_res,kwargs...)
-  jacobian_reduction = LocalHyperReduction(reduction;nparams=nparams_jac,ncentroids=ncentroids_jac,kwargs...)
-  LocalRBSolver(fesolver,residual_reduction,jacobian_reduction)
-end
-
-function RBSolver(
-  fesolver::GridapType,
-  style::ReductionStyle;
+  style::ReductionStyle,
+  args...;
   nparams=100,
   kwargs...
   )
 
   reduction = Reduction(style;nparams)
-  RBSolver(fesolver,reduction;kwargs...)
+  RBSolver(fesolver,reduction,args...;kwargs...)
 end
 
 """
@@ -286,8 +278,6 @@ function Algebra.solve(
   r::Realisation
   )
 
-  islocal(op) && return local_solve(solver,op,r)
-
   trial = get_trial(op)(r)
   x̂ = zero_free_values(trial)
 
@@ -331,8 +321,8 @@ function solution_snapshots(
   args...
   )
 
-  x̂ = solve(solver,op,r,args...)
-  i = get_dof_map(trial)
+  x̂, = solve(solver,op,r,args...)
+  i = get_dof_map(op)
   Snapshots(_fe_data(x̂),i,r)
 end
 

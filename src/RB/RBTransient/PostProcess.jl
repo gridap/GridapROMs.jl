@@ -84,15 +84,25 @@ function Utils.compute_relative_error(
   return mean(errors)
 end
 
-function RBSteady.plot_a_solution(dir,Ω,uh,ûh,r::TransientRealisation)
+function RBSteady._plot_solutions(dir,trian,uh,ûh,r::TransientRealisation)
   T = eltype2(get_free_dof_values(uh))
+  fields = Pair{String}[]
   np = num_params(r)
-  for i in 1:num_times(r)
-    uhi = param_getindex(uh,(i-1)*np+1)
-    ûhi = param_getindex(ûh,(i-1)*np+1)
-    ehi = uhi - ûhi
-    RBSteady._writevtk(T,Ω,dir*"_$i.vtu",uhi,ûhi,ehi)
+  for it in 1:num_times(r), ip in 1:num_params(r)
+    uhipt  = param_getindex(uh,(it-1)*np+ip)
+    ûhipt  = param_getindex(ûh,(it-1)*np+ip)
+    ehipt  = uhipt - ûhipt
+    if T <: Complex
+      push!(fields,"uh_param_$ip_$it"  => abs2(uhipt))
+      push!(fields,"ûh_param_$ip_$it" => abs2(ûhipt))
+      push!(fields,"eh_param_$ip_$it"  => abs2(ehipt))
+    else
+      push!(fields,"uh_param_$ip_$it"  => uhipt)
+      push!(fields,"ûh_param_$ip_$it" => ûhipt)
+      push!(fields,"eh_param_$ip_$it"  => ehipt)
+    end
   end
+  writevtk(trian,dir*".vtu",cellfields=fields)
 end
 
 include("Diagnostics.jl")
