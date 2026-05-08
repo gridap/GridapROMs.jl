@@ -45,7 +45,7 @@ function Interpolation(
   FullInterpolation(cells)
 end
 
-get_integration_cells(a::FullInterpolation,trian::AppendedTriangulation) = a.cells
+get_integration_cells(a::FullInterpolation,args...) = a.cells
 
 # EIM interpolation
 

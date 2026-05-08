@@ -64,6 +64,8 @@ projection_eltype(a::LocalHRProjection) = promote_type(map(projection_eltype,a.r
 local_vals(a::LocalHRProjection) = a.reductions
 get_clusters(a::LocalHRProjection) = a.k
 
+get_local(a::HRProjection,μ::AbstractVector) = a
+
 function get_local(a::LocalHRProjection,μ::AbstractVector)
   k,l = get_clusters(a)
   labk = get_label(k,μ)
@@ -71,19 +73,21 @@ function get_local(a::LocalHRProjection,μ::AbstractVector)
   a.reductions[labk,labl]
 end
 
-const LocalHRContribution = AffineContribution{<:LocalHRProjection}
+function get_local(a::BlockHRProjection,μ::AbstractVector)
+  BlockHRProjection(map(p -> get_local(p,μ),a.array),a.touched)
+end
 
-get_local(a::AffineContribution,μ::AbstractVector) = a
-
-function get_local(a::LocalHRContribution,μ::AbstractVector)
+function get_local(a::AffineContribution,μ::AbstractVector)
   contribution(get_domains(a)) do trian
     get_local(a[trian],μ)
   end
 end
 
+const LocalHRContribution = AffineContribution{<:LocalHRProjection}
+
 function reduced_form(
   lred::LocalReduction,
-  s::Snapshots,
+  s,
   trian::Triangulation,
   test::SingleFieldRBSpace
   )
@@ -94,7 +98,6 @@ function reduced_form(
   cs = cluster(s,ks)
 
   hr = Matrix{HRProjection}(undef,length(ks.counts),length(kr.counts))
-
   for i in eachindex(ks.counts)
     si = cs[i]
     for (j,centerj) in enumerate(eachcol(kr.centers))
@@ -112,7 +115,7 @@ end
 
 function reduced_form(
   lred::LocalReduction,
-  s::Snapshots,
+  s,
   trian::Triangulation,
   trial::SingleFieldRBSpace,
   test::SingleFieldRBSpace
@@ -124,7 +127,6 @@ function reduced_form(
   cs = cluster(s,ks)
 
   hr = Matrix{HRProjection}(undef,length(ks.counts),length(kr.counts))
-
   for i in eachindex(ks.counts)
     si = cs[i]
     for (j,centerj) in enumerate(eachcol(kr.centers))

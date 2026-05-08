@@ -77,6 +77,10 @@ function get_local(a::MatLocalProjection,μ::AbstractVector)
   a.projections[labk,labl]
 end
 
+function get_local(a::BlockProjection,μ::AbstractVector)
+  BlockProjection(map(p -> get_local(p,μ),a.array),a.touched)
+end
+
 function get_local(a::RBSpace,μ::AbstractVector)
   space = get_fe_space(a)
   lsubspace = get_local(get_reduced_subspace(a),μ)
@@ -171,6 +175,10 @@ function cluster(a,cluster_ids::Table)
   return cache
 end
 
+function cluster(::Nothing,::KmeansResult)
+  [nothing]
+end
+
 function cluster_sort(a,cluster_ids::Table)
   ids′ = sortperm(cluster_ids.data)
   _cluster(a,ids′)
@@ -187,6 +195,10 @@ end
 
 function compute_clusters(red::LocalReduction,s::AbstractSnapshots)
   compute_clusters(red,get_realisation(s))
+end
+
+function compute_clusters(::LocalReduction,::Nothing)
+  kmeans(zeros(1,1),1)
 end
 
 function get_label(k::KmeansResult,a)

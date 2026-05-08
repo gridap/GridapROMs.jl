@@ -238,11 +238,22 @@ function jacobian_snapshots(
   return (jac_lin,jac_nlin)
 end
 
+# solvers 
+
+abstract type Context end
+struct Global <: Context end
+struct Local <: Context end
+
+Context(a) = Global()
+islocal(a) = isa(Context(a),Local)
+
 function Algebra.solve(
   solver::RBSolver,
   op::NonlinearOperator,
   r::AbstractRealisation
   )
+
+  islocal(op) && return local_solve(solver,op,r)
 
   trial = get_trial(op)(r)
   x̂ = zero_free_values(trial)
@@ -256,6 +267,29 @@ function Algebra.solve(
 
   return x̂,stats
 end
+
+# local solver
+
+function local_solve(
+  solver::RBSolver,
+  op::NonlinearOperator,
+  r::AbstractRealisation
+  )
+
+  t = @timed x̂vec = map(r) do _μ
+    opμ = get_local(op,_μ)
+    μ = to_realisation(r,_μ)
+    x̂, = solve(solver,opμ,μ)
+    x̂
+  end
+  x̂ = param_cat(x̂vec)
+  stats = CostTracker(t,nruns=num_params(r),name="RB")
+  return (x̂,stats)
+end
+
+to_realisation(r::Realisation,μ) = Realisation([μ])
+
+# nonlinear solver
 
 function Algebra._solve_nr!(
   x::RBParamVector,

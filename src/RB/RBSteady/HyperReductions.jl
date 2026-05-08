@@ -88,10 +88,6 @@ function FESpaces.interpolate!(
   return b̂
 end
 
-function reduced_triangulation(trian::Triangulation,a::NoHRProjection)
-  trian
-end
-
 """
 """
 const AffineHRProjection{A<:Projection} = HRProjection{A,<:AffineHyperReduction}

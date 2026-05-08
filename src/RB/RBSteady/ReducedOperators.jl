@@ -518,21 +518,3 @@ function get_local(op::LinearNonlinearLocalRBOperator,μ::AbstractVector)
   opμ_nlinear = get_local(get_nonlinear_operator(op),μ)
   LinearNonlinearRBOperator(opμ_linear,opμ_nlinear)
 end
-
-# local solver
-
-function Algebra.solve(
-  solver::RBSolver,
-  op::AbstractLocalRBOperator,
-  r::Realisation
-  )
-
-  t = @timed x̂vec = map(r) do μ
-    opμ = get_local(op,μ)
-    x̂, = solve(solver,opμ,Realisation([μ]))
-    x̂
-  end
-  x̂ = param_cat(x̂vec)
-  stats = CostTracker(t,nruns=num_params(r),name="RB")
-  return (x̂,stats)
-end
