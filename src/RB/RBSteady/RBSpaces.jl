@@ -180,20 +180,36 @@ function inv_project!(a::RBParamVector,r::RBSpace)
   inv_project!(a.fe_data,r,a.data)
 end
 
-function project(r::RBSpace,x::Projection)
-  galerkin_projection(get_reduced_subspace(r),x)
+function project(r::RBSpace,x::Projection,args...)
+  galerkin_projection(r,x,args...)
 end
 
-function project(r1::RBSpace,x::Projection,r2::RBSpace)
-  galerkin_projection(get_reduced_subspace(r1),x,get_reduced_subspace(r2))
+function project(r1::RBSpace,x::Projection,r2::RBSpace,args...)
+  galerkin_projection(r1,x,r2,args...)
 end
 
-function project!(cache,r::RBSpace,x::Projection)
-  copyto!(cache,galerkin_projection(get_reduced_subspace(r),x))
+function project!(cache,r::RBSpace,x::Projection,args...)
+  galerkin_projection!(cache,r,x,args...)
 end
 
-function project!(cache,r1::RBSpace,x::Projection,r2::RBSpace)
-  copyto!(cache,galerkin_projection(get_reduced_subspace(r1),x,get_reduced_subspace(r2)))
+function project!(cache,r1::RBSpace,x::Projection,r2::RBSpace,args...)
+  galerkin_projection!(cache,r1,x,r2,args...)
+end
+
+function galerkin_projection(r::RBSpace,x::Projection,args...)
+  galerkin_projection(get_reduced_subspace(r),x,args...)
+end
+
+function galerkin_projection(r1::RBSpace,x::Projection,r2::RBSpace,args...)
+  galerkin_projection(get_reduced_subspace(r1),x,get_reduced_subspace(r2),args...)
+end
+
+function galerkin_projection!(cache,r::RBSpace,x::Projection,args...)
+  galerkin_projection!(cache,get_reduced_subspace(r),x,args...)
+end
+
+function galerkin_projection!(cache,r1::RBSpace,x::Projection,r2::RBSpace,args...)
+  galerkin_projection!(cache,get_reduced_subspace(r1),x,get_reduced_subspace(r2),args...)
 end
 
 function FESpaces.FEFunction(r::RBSpace,x̂::AbstractVector)

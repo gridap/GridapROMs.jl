@@ -130,12 +130,11 @@ function RBSteady.diagnostic_residual!(
   res = get_res(op)
   dc = res(μ,t,uh,v)
   assem = get_param_assembler(op,r)
-  proj_test = get_basis(test)
 
   for strian in get_domains(rhs)
     vecdata = collect_cell_vector_for_trian(test,dc,strian)
     assemble_vector_add!(b.fecache[strian],assem,vecdata)
-    galerkin_projection!(b.coeff[strian],proj_test,b.fecache[strian])
+    galerkin_projection!(b.coeff[strian],test,b.fecache[strian])
   end
 
   RBSteady.diagnostic_interpolate!(b,rhs)
@@ -232,8 +231,6 @@ function RBSteady.diagnostic_jacobian!(
   jacs = get_jacs(op)
   trian_jacs = get_domains_jac(op)
   assem = get_param_assembler(op,r)
-  proj_trial = get_basis(trial)
-  proj_test = get_basis(test)
 
   for k in 1:get_order(op)+1
     Ak = A.fecache[k]
@@ -245,7 +242,7 @@ function RBSteady.diagnostic_jacobian!(
     for strian in trian_jacs[k]
       matdata = collect_cell_matrix_for_trian(trial,test,dc,strian)
       assemble_matrix_add!(Ak[strian],assem,matdata)
-      galerkin_projection!(Ark[strian],proj_test,Ak[strian],proj_trial)
+      galerkin_projection!(Ark[strian],test,Ak[strian],trial)
     end
   end
 

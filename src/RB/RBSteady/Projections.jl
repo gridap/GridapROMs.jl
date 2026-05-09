@@ -472,7 +472,8 @@ for f in (:empirical_interpolation,:s_opt)
       end
       length_to_ptrs!(ptrs)
 
-      interp = ones(1,1)
+      T = projection_eltype(a)
+      interp = ones(T,1,1)
       data = fill(zero(Int32),ptrs[end]-1)
       for i = eachindex(cores)
         interp_core = reshape(interp,1,size(interp)...)

@@ -138,6 +138,7 @@ function HRProjection(basis::ReducedProjection,style::HyperReduction,interp::Int
 end
 
 get_basis(a::GenericHRProjection) = a.basis
+get_style(a::GenericHRProjection) = a.style
 get_interpolation(a::GenericHRProjection) = a.interpolation
 projection_eltype(a::GenericHRProjection) = projection_eltype(get_basis(a))
 
@@ -574,6 +575,9 @@ function get_interpolation(a::BlockHRProjection)
   end
   return BlockInterpolation(array,a.touched)
 end
+
+get_style(a::BlockHRProjection) = get_style(first(a.array))
+projection_eltype(a::BlockHRProjection) = promote_type(map(projection_eltype,a.array)...)
 
 function FESpaces.interpolate!(
   hypred::Union{BlockParamArray,BlockArray},

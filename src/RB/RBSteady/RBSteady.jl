@@ -221,6 +221,7 @@ include("Interpolations.jl")
 export HRProjection
 export AffineContribution
 export BlockHRProjection
+export get_style
 export get_interpolation
 export get_integration_domain
 export reduced_triangulation

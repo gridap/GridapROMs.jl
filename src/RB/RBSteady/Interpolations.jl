@@ -171,7 +171,8 @@ end
 function FESpaces.interpolate(rbfi::Interpolator,x::AbstractRealisation)
   k′ = param_length(x)
   l = size(rbfi.rbf_weights,2)
-  cache = ConsecutiveParamArray(zeros(l,k′))
+  T = eltype(rbfi.rbf_weights)
+  cache = ConsecutiveParamArray(zeros(T,l,k′))
   interpolate!(cache,rbfi,x)
   return cache
 end

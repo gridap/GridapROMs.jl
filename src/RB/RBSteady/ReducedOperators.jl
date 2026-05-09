@@ -330,12 +330,10 @@ function Algebra.residual!(
   dc = res(r,uh,v)
   assem = get_param_assembler(op,r)
 
-  proj_test = get_basis(test)
-
   for strian in get_domains(rhs)
     vecdata = collect_cell_vector_for_trian(test,dc,strian)
     assemble_vector_add!(b.fecache[strian],assem,vecdata)
-    galerkin_projection!(b.coeff[strian],proj_test,b.fecache[strian])
+    galerkin_projection!(b.coeff[strian],test,b.fecache[strian])
   end
 
   interpolate!(b,rhs)
@@ -362,13 +360,10 @@ function Algebra.jacobian!(
   dc = jac(r,uh,du,v)
   assem = get_param_assembler(op,r)
 
-  proj_trial = get_basis(trial)
-  proj_test = get_basis(test)
-
   for strian in get_domains(lhs)
     matdata = collect_cell_matrix_for_trian(trial,test,dc,strian)
     assemble_matrix_add!(A.fecache[strian],assem,matdata)
-    galerkin_projection!(A.coeff[strian],proj_test,A.fecache[strian],proj_trial)
+    galerkin_projection!(A.coeff[strian],test,A.fecache[strian],trial)
   end
 
   interpolate!(A,lhs)

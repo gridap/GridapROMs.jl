@@ -105,7 +105,7 @@ using Gridap
 using GridapROMs
 
 method=:pod
-compression=:local
+compression=:global 
 hypred_strategy=:none
   tol=1e-4
   nparams=50
@@ -201,7 +201,45 @@ hypred_strategy=:none
 
   using GridapROMs.RBSteady
   using GridapROMs.RBTransient
-  ress = residual_snapshots(rbsolver,feop,fesnaps)
-  red = get_reduction(rbsolver.residual_reduction)
-  basis = projection(red,ress[1])
-  proj_basis = project(rbop.test,basis)
+  using GridapROMs.ParamAlgebra
+  using GridapROMs.ParamSteady
+  using GridapROMs.ParamDataStructures
+  using GridapROMs.ParamODEs
+
+  using Gridap.Algebra
+  using Gridap.FESpaces
+  using Gridap.ODEs
+  
+  r,op = μon,rbop
+  U = get_trial(op)
+  params = get_params(r)
+  us0 = ()
+  for uh0 in (uh0μ,)
+    u0 = get_free_dof_values(uh0(params))
+    û0 = RBTransient.space_project(U,u0)
+    us0 = (us0...,RBParamVector(û0,u0))
+  end
+  if length(us0) < ODEs.get_order(op) + 1
+    us0 = add_initial_conditions(fesolver,op,r,us0)
+  end
+
+  x̂ = zero_free_values(U(r))
+  fesolver = RBTransient.SpaceTimeSolver(rbsolver,us0)
+  nlop = parameterise(op,r)
+  syscache = allocate_systemcache(nlop,x̂)
+
+  b = syscache.b
+  fill!(b,zero(eltype(b)))
+
+  uh = ODEs._make_uh_from_us(op,nlop.usx,nlop.paramcache.trial)
+  v = get_fe_basis(get_test(op))
+
+  μ = get_params(r)
+  t = get_times(r)
+  dc = get_res(op)(μ,t,uh,v)
+  assem = get_param_assembler(op,r)
+
+  strian = get_domains(RBSteady.get_rhs(op))[1]
+  vecdata = collect_cell_vector_for_trian(test,dc,strian)
+  assemble_vector_add!(b.fecache[strian],assem,vecdata)
+  galerkin_projection!(b.coeff[strian],proj_test,b.fecache[strian])

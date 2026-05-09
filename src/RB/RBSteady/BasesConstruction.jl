@@ -270,7 +270,7 @@ function ttsvd(
 
   @check D ≤ last_dim(A)
 
-  weight = ones(1,rank(X),1)
+  weight = ones(T,1,rank(X),1)
   decomp = get_decomposition(X)
   X′ = get_crossnorm(X)
 
@@ -312,7 +312,8 @@ end
 
 function orthogonalize!(cores::AbstractVector,X::AbstractRankTensor{D}) where D
   red_style = LRApproxRank(1e-10)
-  weight = ones(1,rank(X),1)
+  T = promote_eltype(map(eltype,cores))
+  weight = ones(T,1,rank(X),1)
   decomp = get_decomposition(X)
   local remainder
   for d in eachindex(cores)
