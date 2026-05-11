@@ -216,30 +216,30 @@ end
 
 function RBSteady.galerkin_projection(
   proj_left::KroneckerProjection,
-  a::AbstractParamVector,
+  a::GalerkinProjectable,
   args...
   )
 
   nt = num_times(proj_left)
-  np = Int(param_length(a) / nt)
-  proj_a_space = galerkin_projection(get_basis_space(proj_left),get_all_data(a))
+  np = Int(param_length(a.array) / nt)
+  proj_a_space = galerkin_projection(get_basis_space(proj_left),get_basis(a))
   proj_a_spacetime = galerkin_projection(get_basis_time(proj_left),change_mode(proj_a_space,np))
   return ReducedProjection(proj_a_spacetime)
 end
 
 function RBSteady.galerkin_projection(
   proj_left::KroneckerProjection,
-  a::ParamSparseMatrix,
+  a::GalerkinProjectable,
   proj_right::KroneckerProjection,
   combine
   )
 
   nt = num_times(proj_left)
-  np = Int(param_length(a) / nt)
+  np = Int(param_length(a.array) / nt)
 
   proj_a_space = galerkin_projection(
     get_basis_space(proj_left),
-    get_all_data(a),
+    get_basis(a),
     get_basis_space(proj_right))
 
   proj_basis_spacetime = galerkin_projection(
@@ -332,30 +332,30 @@ end
 
 function RBSteady.galerkin_projection(
   proj_left::SequentialProjection,
-  a::AbstractParamVector,
+  a::GalerkinProjectable,
   args...
   )
 
   nt = num_times(proj_left)
-  np = Int(param_length(a) / nt)
-  proj_a_space = galerkin_projection(get_basis_space(proj_left),get_all_data(a))
+  np = Int(param_length(a.array) / nt)
+  proj_a_space = galerkin_projection(get_basis_space(proj_left),get_basis(a))
   proj_a_spacetime = galerkin_projection(get_basis_time(proj_left),change_mode(proj_a_space,np))
   return ReducedProjection(proj_a_spacetime)
 end
 
 function RBSteady.galerkin_projection(
   proj_left::SequentialProjection,
-  a::ParamSparseMatrix,
+  a::GalerkinProjectable,
   proj_right::SequentialProjection,
   combine
   )
 
   nt = num_times(proj_left)
-  np = Int(param_length(a) / nt)
+  np = Int(param_length(a.array) / nt)
 
   proj_a_space = galerkin_projection(
     get_basis_space(proj_left),
-    get_all_data(a),
+    get_basis(a),
     get_basis_space(proj_right))
 
   proj_basis_spacetime = galerkin_projection(

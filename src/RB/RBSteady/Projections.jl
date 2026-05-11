@@ -161,22 +161,6 @@ function galerkin_projection(a::Projection,b::Projection,c::Projection,args...)
   return ReducedProjection(b̂)
 end
 
-function galerkin_projection(a::Projection,b)
-  galerkin_projection(get_basis(a),b)
-end
-
-function galerkin_projection(a::Projection,b,c::Projection,args...)
-  galerkin_projection(get_basis(a),b,get_basis(c),args...)
-end
-
-function galerkin_projection!(cache,a::Projection,b,args...)
-  galerkin_projection!(cache,get_basis(a),b,args...)
-end
-
-function galerkin_projection!(cache,a::Projection,b,c::Projection,args...)
-  galerkin_projection!(cache,get_basis(a),b,get_basis(c),args...)
-end
-
 """
     empirical_interpolation(a::Projection) -> (AbstractVector,AbstractMatrix)
 
@@ -707,6 +691,75 @@ for f in (:project!,:inv_project!)
   end
 end
 
+function galerkin_projection(
+  proj_left::BlockProjection,
+  a::BlockProjection,
+  args...
+  )
+
+  @check size(proj_left) == size(a)
+  block_cache = Vector{Any}(undef,length(a))
+  touched = fill(false,size(a))
+  for i in eachindex(a)
+    if proj_left.touched[i] && a.touched[i]
+      block_cache[i] = galerkin_projection(proj_left[i],a[i])
+      touched[i] = true
+    end
+  end
+  return ArrayBlock(block_cache,touched)
+end
+
+function galerkin_projection(
+  proj_left::BlockProjection{A,1},
+  a::BlockProjection{B,2},
+  proj_right::BlockProjection{A,1},
+  args...
+  ) where {A,B}
+
+  @check size(proj_left) == size(a,1)
+  @check size(proj_right) == size(a,2)
+  block_cache = Matrix{Any}(undef,size(a))
+  touched = fill(false,size(a))
+  for i in axes(a,1), j in axes(a,2)
+    if proj_left.touched[i] && a.touched[i,j] && proj_right.touched[j]
+      block_cache[i,j] = galerkin_projection(proj_left[i],a[i,j],proj_right[j])
+      touched[i,j] = true
+    end
+  end
+  return ArrayBlock(block_cache,touched)
+end
+
+function galerkin_projection!(
+  cache::VectorBlock,
+  basis_left::BlockProjection,
+  a::BlockProjection,
+  args...
+  )
+
+  for i in axes(cache,1)
+    if cache.touched[i] && basis_left.touched[i] && a.touched[i]
+      galerkin_projection!(cache[i],basis_left[i],a[i],args...)
+    end
+  end
+  return cache
+end
+
+function galerkin_projection!(
+  cache::MatrixBlock,
+  basis_left::BlockProjection,
+  a::BlockProjection,
+  basis_right::BlockProjection,
+  args...
+  )
+
+  for i in axes(cache,1), j in axes(cache,2)
+    if cache.touched[i,j] && basis_left.touched[i] && a.touched[i,j] && basis_right.touched[j]
+      galerkin_projection!(cache[i,j],basis_left[i],a[i,j],basis_right[j])
+    end
+  end
+  return cache
+end
+
 function ReducedProjection(basis::VectorBlock)
   block_cache = Vector{Any}(undef,length(basis))
   for i in eachindex(basis)
@@ -778,6 +831,41 @@ function enrich!(
   end
   a[1] = a_primal
   return
+end
+
+# galerkin projections
+
+struct GalerkinProjectable{A<:AbstractParamArray} <: Projection
+  array::A
+end
+
+get_basis(a::GalerkinProjectable) = a.array
+
+function GalerkinProjectable(a::BlockParamArray{T,N}) where {T,N}
+  block_cache = Array{Any,N}(undef,size(blocks(a)))
+  for i in eachindex(blocks(a))
+    block_cache[i] = GalerkinProjectable(blocks(a)[i])
+  end
+  touched = fill(true,size(blocks(a)))
+  return BlockProjection(block_cache,touched)
+end
+
+function GalerkinProjectable(a::ArrayBlock{T,N}) where {T,N}
+  block_cache = Array{GalerkinProjectable,N}(undef,size(a))
+  for i in eachindex(a)
+    if a.touched[i]
+      block_cache[i] = GalerkinProjectable(a[i])
+    end
+  end
+  return BlockProjection(block_cache,a.touched)
+end
+
+function galerkin_projection(a::Projection,b,args...)
+  galerkin_projection(a,GalerkinProjectable(b),args...)
+end
+
+function galerkin_projection(a::Projection,b,c::Projection,args...)
+  galerkin_projection(a,GalerkinProjectable(b),c,args...)
 end
 
 # utils

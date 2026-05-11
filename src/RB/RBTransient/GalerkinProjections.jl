@@ -1,43 +1,43 @@
 function RBSteady.galerkin_projection(
   basis_left::AbstractMatrix,
-  basis::AbstractMatrix,
+  a::AbstractMatrix,
   combine::TimeCombination
   )
 
-  galerkin_projection(basis_left,basis)
+  galerkin_projection(basis_left,a)
 end
 
 function RBSteady.galerkin_projection(
   basis_left::AbstractMatrix,
-  basis::AbstractParamVector,
+  a::AbstractParamVector,
   combine::TimeCombination
   )
 
-  galerkin_projection(basis_left,get_all_data(basis),combine)
+  galerkin_projection(basis_left,get_all_data(a),combine)
 end
 
 function RBSteady.galerkin_projection(
   basis_left::AbstractMatrix{S},
-  basis::AbstractMatrix{T},
+  a::AbstractMatrix{T},
   basis_right::AbstractMatrix{S},
   combine::TimeCombination
   ) where {T,S}
 
   nleft = size(basis_left,2)
-  n = size(basis,2)
+  n = size(a,2)
   nright = size(basis_right,2)
   TS = promote_type(T,S)
   proj_basis = zeros(TS,nleft,n,nright)
 
-  θ = get_coefficients(combine,size(basis,1))
-  Nt = size(basis,1)
+  θ = get_coefficients(combine,size(a,1))
+  Nt = size(a,1)
 
   @inbounds for i = 1:nleft, k = 1:n, j = 1:nright
     s = zero(TS)
     for γ = eachindex(θ)
-      for α = axes(basis,1)
+      for α = axes(a,1)
         α+γ > Nt+1 && break 
-        s += θ[γ]*basis_left[α+γ-1,i]*basis[α+γ-1,k]*basis_right[α,j]
+        s += θ[γ]*basis_left[α+γ-1,i]*a[α+γ-1,k]*basis_right[α,j]
       end
     end
     proj_basis[i,k,j] = s
@@ -48,7 +48,7 @@ end
 
 function RBSteady.galerkin_projection(
   core_left::AbstractArray{T,3},
-  basis::AbstractMatrix,
+  a::AbstractMatrix,
   core_right::AbstractArray{T,3},
   combine::TimeCombination
   ) where T
@@ -56,6 +56,6 @@ function RBSteady.galerkin_projection(
   _,s2,_ = size(core_left)
   _,s5,_ = size(core_right)
   @check s2 == s5
-  core = reshape(basis,:,s2,size(basis,2))
+  core = reshape(a,:,s2,size(a,2))
   contraction(core_left,core,core_right,combine)
 end

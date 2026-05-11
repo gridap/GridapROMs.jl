@@ -171,6 +171,7 @@ export TTSVDProjection
 export NormedProjection
 export BlockProjection
 export ReducedProjection
+export GalerkinProjectable
 export projection
 export get_basis
 export num_fe_dofs

@@ -204,14 +204,6 @@ function galerkin_projection(r1::RBSpace,x,r2::RBSpace,args...)
   galerkin_projection(get_reduced_subspace(r1),x,get_reduced_subspace(r2),args...)
 end
 
-function galerkin_projection!(cache,r::RBSpace,x,args...)
-  galerkin_projection!(cache,get_reduced_subspace(r),x,args...)
-end
-
-function galerkin_projection!(cache,r1::RBSpace,x,r2::RBSpace,args...)
-  galerkin_projection!(cache,get_reduced_subspace(r1),x,get_reduced_subspace(r2),args...)
-end
-
 function FESpaces.FEFunction(r::RBSpace,x̂::AbstractVector)
   x = inv_project(r,x̂)
   fe = get_fe_space(r)
