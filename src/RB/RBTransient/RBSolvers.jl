@@ -15,26 +15,7 @@ function RBSteady.RBSolver(
     ),
     Val(get_time_order(fesolver)+1)
   )
-  GlobalRBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)
-end
-
-function RBSteady.RBSolver(
-  fesolver::ODESolver,
-  reduction::Union{LocalReduction,SupremizerReduction{A,<:LocalReduction} where A};
-  nparams_res=20,
-  nparams_jacs=ntuple(_ -> 20,get_time_order(fesolver)+1),
-  kwargs...
-  )
-
-  c = TimeCombination(fesolver)
-  residual_reduction = HighDimLocalHyperReduction(c,reduction;nparams=nparams_res,kwargs...)
-  jacobian_reduction = ntuple(
-    i -> HighDimLocalHyperReduction(
-      CombinationOrder{i}(c),reduction;
-      nparams=nparams_jacs[i],kwargs...),
-    Val(get_time_order(fesolver)+1)
-  )
-  LocalRBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)
+  RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)
 end
 
 const TransientRBSolver{A<:ODESolver,B,C,D,E} = RBSolver{A,B,C,D,E}

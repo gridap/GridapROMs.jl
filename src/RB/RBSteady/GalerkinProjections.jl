@@ -88,10 +88,8 @@ function copy_projection!(
   proj_basis::ArrayBlock{B,N}
   ) where {A,B,N}
 
-  msg = "Insufficient allocation in cache for projection"
   @check size(cache) == size(proj_basis)
   for i in eachindex(cache)
-    proj_basis.touched[i] && !cache.touched[i] && error(msg)
     if cache.touched[i] && proj_basis.touched[i]
       copy_projection!(cache[i],proj_basis[i])
     end

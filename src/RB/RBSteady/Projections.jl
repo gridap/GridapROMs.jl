@@ -702,7 +702,7 @@ function galerkin_projection(
   touched = fill(false,size(a))
   for i in eachindex(a)
     if proj_left.touched[i] && a.touched[i]
-      block_cache[i] = galerkin_projection(proj_left[i],a[i])
+      block_cache[i] = galerkin_projection(proj_left[i],a[i],args...)
       touched[i] = true
     end
   end
@@ -722,7 +722,7 @@ function galerkin_projection(
   touched = fill(false,size(a))
   for i in axes(a,1), j in axes(a,2)
     if proj_left.touched[i] && a.touched[i,j] && proj_right.touched[j]
-      block_cache[i,j] = galerkin_projection(proj_left[i],a[i,j],proj_right[j])
+      block_cache[i,j] = galerkin_projection(proj_left[i],a[i,j],proj_right[j],args...)
       touched[i,j] = true
     end
   end
