@@ -815,7 +815,7 @@ function GalerkinProjectable(s::Snapshots)
 end
 
 function GalerkinProjectable(a::BlockParamArray{T,N}) where {T,N}
-  block_cache = Array{Any,N}(undef,size(blocks(a)))
+  block_cache = Array{GalerkinProjectable,N}(undef,size(blocks(a)))
   for i in eachindex(blocks(a))
     block_cache[i] = GalerkinProjectable(blocks(a)[i])
   end

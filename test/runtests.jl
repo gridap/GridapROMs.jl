@@ -15,6 +15,7 @@ using Test
 @testset "steady navier-stokes" begin include("RBSteady/navier_stokes.jl") end
 
 @testset "rb transient algorithms" begin include("RBTransient/rb_transient.jl") end
+@testset "galerkin" begin include("RBTransient/galerkin.jl") end
 @testset "transient diagnostics" begin include("RBTransient/diagnostics.jl") end
 @testset "time combinations" begin include("RBTransient/time_combinations.jl") end
 @testset "save operator" begin include("RBTransient/save_operator.jl") end

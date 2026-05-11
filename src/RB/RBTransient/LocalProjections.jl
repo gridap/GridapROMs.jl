@@ -52,6 +52,18 @@ function RBSteady.enrich!(
   return
 end
 
+function RBSteady.enrich!(
+  red::SupremizerReduction{A,<:LocalReduction{B,C,<:SequentialReduction}},
+  a::BlockProjection,
+  norm_matrix::BlockRankTensor,
+  supr_matrix::BlockRankTensor;
+  kwargs...
+  ) where {A,B,C}
+
+  red′ = SupremizerReduction(LocalReduction(red.reduction.reduction.reduction),red.supr_op,red.supr_tol)
+  enrich!(red′,a,norm_matrix,supr_matrix;kwargs...)
+end
+
 function RBSteady._cluster(r::GenericTransientRealisation,inds::AbstractVector)
   params = RBSteady._cluster(get_params(r),inds)
   times = get_times(r)

@@ -412,6 +412,33 @@ function RBSteady.enrich!(
   ) where A
 
   @check a.touched[1] "Primal field not defined"
+  tol = RBSteady.get_supr_tol(red)
+  a_primal,a_dual... = a.array
+  a_primal_space = a_primal.projection_space
+  a_primal_time = a_primal.projection_time
+  X_primal = norm_matrix[Block(1,1)]
+  H_primal = symcholesky(X_primal)
+  for i = eachindex(a_dual)
+    dual_i_space = get_basis_space(a_dual[i])
+    C_primal_dual_i = supr_matrix[Block(1,i+1)]
+    supr_space_i = H_primal \ C_primal_dual_i * dual_i_space
+    a_primal_space = union_bases(a_primal_space,supr_space_i,H_primal)
+
+    dual_i_time = get_basis_time(a_dual[i])
+    a_primal_time = time_enrichment(a_primal_time,dual_i_time;tol)
+  end
+  a[1] = KroneckerProjection(a_primal_space,a_primal_time)
+  return
+end
+
+function RBSteady.enrich!(
+  red::SupremizerReduction{A,<:SequentialReduction},
+  a::BlockProjection,
+  norm_matrix::BlockRankTensor,
+  supr_matrix::BlockRankTensor;
+  kwargs...
+  ) where A
+
   red′ = SupremizerReduction(red.reduction.reduction,red.supr_op,red.supr_tol)
   enrich!(red′,a,norm_matrix,supr_matrix;kwargs...)
 end

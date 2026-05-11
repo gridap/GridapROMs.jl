@@ -76,7 +76,7 @@ Base.@propagate_inbounds function _contraction(
           for iC in axes(factor3,3)
             for i1 in axes(factor1,1)
               for i3 in axes(factor3,1)
-                v = θ[γ]*factor1[i1,n,iA]*factor2[i1,n,iB,i3]*factor3[i3,n,iC]
+                v = θ[γ]*factor1[i1,n+γ-1,iA]*factor2[i1,n+γ-1,iB,i3]*factor3[i3,n,iC]
                 RBSteady._entry!(+,ABC,v,iA,iB,iC)
               end
             end

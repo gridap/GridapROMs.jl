@@ -20,7 +20,7 @@ end
 
 function RBSteady.RBSolver(
   fesolver::ODESolver,
-  reduction::LocalReduction;
+  reduction::Union{LocalReduction,SupremizerReduction{A,<:LocalReduction} where A};
   nparams_res=20,
   nparams_jacs=ntuple(_ -> 20,get_time_order(fesolver)+1),
   kwargs...
