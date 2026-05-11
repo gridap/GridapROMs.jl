@@ -810,6 +810,10 @@ end
 
 get_basis(a::GalerkinProjectable) = a.array
 
+function GalerkinProjectable(s::Snapshots)
+  GalerkinProjectable(get_param_data(s))
+end
+
 function GalerkinProjectable(a::BlockParamArray{T,N}) where {T,N}
   block_cache = Array{Any,N}(undef,size(blocks(a)))
   for i in eachindex(blocks(a))

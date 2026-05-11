@@ -49,7 +49,7 @@ function RBSteady.HRProjection(
   test::RBSpace
   )
 
-  basis = projection(get_reduction(red),s)
+  basis = GalerkinProjectable(s)
   proj_basis = project(test,basis)
   interp = Interpolation(red)
   return HRProjection(proj_basis,red,interp)
@@ -63,7 +63,7 @@ function RBSteady.HRProjection(
   test::RBSpace
   )
 
-  basis = projection(get_reduction(red),s)
+  basis = GalerkinProjectable(s)
   proj_basis = project(test,basis,trial,get_time_combination(red))
   interp = Interpolation(red)
   return HRProjection(proj_basis,red,interp)
