@@ -224,7 +224,8 @@ function RBSteady.galerkin_projection(
   np = Int(param_length(a.array) / nt)
   proj_a_space = galerkin_projection(get_basis_space(proj_left),get_basis(a))
   proj_a_spacetime = galerkin_projection(get_basis_time(proj_left),change_mode(proj_a_space,np))
-  return ReducedProjection(proj_a_spacetime)
+  proj = reshape(change_mode(proj_a_spacetime,np),:,np)
+  return ReducedProjection(proj)
 end
 
 function RBSteady.galerkin_projection(
@@ -236,19 +237,29 @@ function RBSteady.galerkin_projection(
 
   nt = num_times(proj_left)
   np = Int(param_length(a.array) / nt)
+  ns_left = num_reduced_dofs(proj_left.projection_space)
+  ns_right = num_reduced_dofs(proj_right.projection_space)
+  nt_left = num_reduced_dofs(proj_left.projection_time)
+  nt_right = num_reduced_dofs(proj_right.projection_time)
 
   proj_a_space = galerkin_projection(
     get_basis_space(proj_left),
     get_basis(a),
     get_basis_space(proj_right))
 
-  proj_basis_spacetime = galerkin_projection(
+  a2 = permutedims(proj_a_space,(2,1,3)) # Nt*Nμ x ns_left x ns_right
+  a3 = reshape(a2,nt,np,ns_left,ns_right) # Nt x Nμ x ns_left x ns_right
+  a4 = reshape(permutedims(a3,(1,3,2,4)),nt,:) # Nt x ns_left*Nμ*ns_right
+  proj_a_spacetime = galerkin_projection(
     get_basis_time(proj_left),
-    change_mode(proj_a_space,np),
+    a4,
     get_basis_time(proj_right),
-    combine)
+    combine) # nt_left x ns_left*Nμ*ns_right x nt_right
 
-  return ReducedProjection(proj_basis_spacetime)
+  a5 = reshape(proj_a_spacetime,nt_left,ns_left,np,ns_right,nt_right) # nt_left x ns_left x Nμ x ns_right x nt_right
+  a6 = permutedims(a5,(2,1,3,4,5)) # ns_left x nt_left x Nμ x ns_right x nt_right
+  proj = reshape(a6,ns_left*nt_left,np,ns_right*nt_right)
+  return ReducedProjection(proj)
 end
 
 function RBSteady.projection_eltype(a::KroneckerProjection)
@@ -336,11 +347,7 @@ function RBSteady.galerkin_projection(
   args...
   )
 
-  nt = num_times(proj_left)
-  np = Int(param_length(a.array) / nt)
-  proj_a_space = galerkin_projection(get_basis_space(proj_left),get_basis(a))
-  proj_a_spacetime = galerkin_projection(get_basis_time(proj_left),change_mode(proj_a_space,np))
-  return ReducedProjection(proj_a_spacetime)
+  galerkin_projection(to_kronecker(proj_left),a,args...)
 end
 
 function RBSteady.galerkin_projection(
@@ -350,21 +357,7 @@ function RBSteady.galerkin_projection(
   combine
   )
 
-  nt = num_times(proj_left)
-  np = Int(param_length(a.array) / nt)
-
-  proj_a_space = galerkin_projection(
-    get_basis_space(proj_left),
-    get_basis(a),
-    get_basis_space(proj_right))
-
-  proj_basis_spacetime = galerkin_projection(
-    get_basis_time(proj_left),
-    change_mode(proj_a_space,np),
-    get_basis_time(proj_right),
-    combine)
-
-  return ReducedProjection(proj_basis_spacetime)
+  galerkin_projection(to_kronecker(proj_left),a,to_kronecker(proj_right),combine)
 end
 
 function RBSteady.projection_eltype(a::SequentialProjection)
@@ -385,6 +378,14 @@ function RBSteady.inv_project!(
   x̂::AbstractVector{<:Number}
   )
   inv_project!(x,a.projection,x̂)
+end
+
+function to_kronecker(a::SequentialProjection)
+  basis_space = get_basis_space(a)
+  basis_time = get_basis_time(a)
+  projection_space = PODProjection(basis_space)
+  projection_time = PODProjection(basis_time)
+  KroneckerProjection(projection_space,projection_time)
 end
 
 # multfield interface

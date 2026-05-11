@@ -697,7 +697,7 @@ function galerkin_projection(
   args...
   )
 
-  @check size(proj_left) == size(a)
+  @check length(proj_left) == size(a,1)
   block_cache = Vector{Any}(undef,length(a))
   touched = fill(false,size(a))
   for i in eachindex(a)
@@ -716,8 +716,8 @@ function galerkin_projection(
   args...
   ) where {A,B}
 
-  @check size(proj_left) == size(a,1)
-  @check size(proj_right) == size(a,2)
+  @check length(proj_left) == size(a,1)
+  @check length(proj_right) == size(a,2)
   block_cache = Matrix{Any}(undef,size(a))
   touched = fill(false,size(a))
   for i in axes(a,1), j in axes(a,2)
@@ -727,37 +727,6 @@ function galerkin_projection(
     end
   end
   return ArrayBlock(block_cache,touched)
-end
-
-function galerkin_projection!(
-  cache::VectorBlock,
-  basis_left::BlockProjection,
-  a::BlockProjection,
-  args...
-  )
-
-  for i in axes(cache,1)
-    if cache.touched[i] && basis_left.touched[i] && a.touched[i]
-      galerkin_projection!(cache[i],basis_left[i],a[i],args...)
-    end
-  end
-  return cache
-end
-
-function galerkin_projection!(
-  cache::MatrixBlock,
-  basis_left::BlockProjection,
-  a::BlockProjection,
-  basis_right::BlockProjection,
-  args...
-  )
-
-  for i in axes(cache,1), j in axes(cache,2)
-    if cache.touched[i,j] && basis_left.touched[i] && a.touched[i,j] && basis_right.touched[j]
-      galerkin_projection!(cache[i,j],basis_left[i],a[i,j],basis_right[j])
-    end
-  end
-  return cache
 end
 
 function ReducedProjection(basis::VectorBlock)
@@ -866,6 +835,10 @@ end
 
 function galerkin_projection(a::Projection,b,c::Projection,args...)
   galerkin_projection(a,GalerkinProjectable(b),c,args...)
+end
+
+function copy_projection!(cache,a::Projection)
+  copy_projection!(cache,get_basis(a))
 end
 
 # utils

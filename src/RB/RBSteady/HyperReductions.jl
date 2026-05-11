@@ -310,7 +310,7 @@ function allocate_hyper_reduction(a::HRMatProjection)
 end
 
 for f in (:allocate_coefficient,:allocate_hyper_reduction)
-  @eval $f(a::HRProjection,r::AbstractRealisation) = parameterise($f(a),r)
+  @eval $f(a::HRProjection,r::AbstractRealisation) = parameterise($f(a),num_params(r))
 end
 
 """
