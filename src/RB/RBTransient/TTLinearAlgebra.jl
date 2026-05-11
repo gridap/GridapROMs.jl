@@ -32,7 +32,29 @@ Base.@propagate_inbounds function RBSteady.contraction(
   return ABCp
 end
 
-Base.@propagate_inbounds function RBSteady.contraction(
+Base.@propagate_inbounds function _contraction(
+  factor1::AbstractArray{T,3},
+  factor2::AbstractArray{S,3},
+  args...
+  ) where {T,S} 
+
+  @check size(factor1,2) == size(factor2,2) 
+  @check size(factor1,1) == size(factor2,1)
+  TS = promote_type(T,S)
+  AB = zeros(TS,size(factor1,3),size(factor2,3))
+  for iA in axes(factor1,3)
+    for iB in axes(factor2,3)
+      for i1 in axes(factor1,1)
+        for n in axes(factor1,2)
+          AB[iA,iB] += factor1[i1,n,iA]*factor2[i1,n,iB]
+        end
+      end
+    end
+  end
+  AB
+end
+
+Base.@propagate_inbounds function _contraction(
   factor1::AbstractArray{T,3},
   factor2::AbstractArray{S,4},
   factor3::AbstractArray{U,3},
@@ -46,23 +68,16 @@ Base.@propagate_inbounds function RBSteady.contraction(
   θ = get_coefficients(combine,Nt)
   TSU = promote_type(T,S,U)
   ABC = zeros(TSU,size(factor1,3),size(factor2,3),size(factor3,3))
-  for iA in axes(factor1,3)
-    for iB in axes(factor2,3)
-      for iC in axes(factor3,3)
-        for i1 in size(factor1,1)
-          for i3 in size(factor3,1)
-            for γ = eachindex(θ)
-              for n in axes(factor1,2)
-                n+γ > Nt+1 && break
-                v = factor1[i1,n,iA]*factor2[i1,n,iB,i3]*factor3[i3,n,iC]
-                RBSteady._entry!(
-                  +,
-                  ABC,
-                  θ[γ]*v,
-                  iA,
-                  iB,
-                  iC
-                )
+  for γ = eachindex(θ)
+    for n in axes(factor1,2)
+      n+γ > Nt+1 && break
+      for iA in axes(factor1,3)
+        for iB in axes(factor2,3)
+          for iC in axes(factor3,3)
+            for i1 in axes(factor1,1)
+              for i3 in axes(factor3,1)
+                v = θ[γ]*factor1[i1,n,iA]*factor2[i1,n,iB,i3]*factor3[i3,n,iC]
+                RBSteady._entry!(+,ABC,v,iA,iB,iC)
               end
             end
           end

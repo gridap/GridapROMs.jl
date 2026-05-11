@@ -349,26 +349,10 @@ function RBSteady.galerkin_projection(
   nt = num_times(proj_left)
   np = Int(param_length(a.array) / nt)
   proj_a_space = galerkin_projection(get_basis_space(proj_left),get_basis(a))
-  proj_core_space = RBSteady.basis2core(change_mode(proj_a_space,np))
-  proj_a_spacetime = galerkin_projection(get_basis_time(proj_left),change_mode(proj_a_space,np))
-  proj = reshape(proj_a_spacetime,:,np)
-
-  # space
-  pl_space = get_basis_space(proj_left)
-  a_space = first(get_cores(a))
-  pr_space = get_basis_space(proj_right)
-  p_space = contraction(pl_space,a_space,pr_space)
-
-  # time
-  pl_time = get_core_time(proj_left)
-  a_time = get_core_time(a)
-  pr_time = get_core_time(proj_right)
-  p_time = contraction(pl_time,a_time,pr_time,combine)
-
-  p = sequential_product(p_space,p_time)
-  proj_cores = dropdims(p;dims=(1,2,3))
-
-  return ReducedProjection(proj_cores)
+  proj_core_space = permutedims(reshape(proj_a_space,:,np,nt),(1,3,2)) # ns_left x Nt x Nμ
+  pl_time = get_core_time(proj_left) # ns_left x Nt x nt_left
+  proj = _contraction(pl_time,proj_core_space) # nt_left x Nμ
+  return ReducedProjection(proj)
 end
 
 function RBSteady.galerkin_projection(
@@ -378,7 +362,24 @@ function RBSteady.galerkin_projection(
   combine
   )
 
-  galerkin_projection(to_kronecker(proj_left),a,to_kronecker(proj_right),combine)
+  nt = num_times(proj_left)
+  np = Int(param_length(a.array) / nt)
+  ns_left = num_reduced_dofs_space(proj_left)
+  ns_right = num_reduced_dofs_space(proj_right)
+
+  proj_a_space = galerkin_projection(
+    get_basis_space(proj_left),
+    get_basis(a),
+    get_basis_space(proj_right))
+
+  a2 = permutedims(proj_a_space,(2,1,3)) # Nμ*Nt x ns_left x ns_right
+  a3 = reshape(a2,np,nt,ns_left,ns_right) # Nμ x Nt x ns_left x ns_right
+  a4 = permutedims(a3,(3,2,1,4)) # ns_left x Nt x Nμ x ns_right
+
+  pl_time = get_core_time(proj_left) # ns_left x Nt x nt_left
+  pr_time = get_core_time(proj_right) # ns_right x Nt x nt_right
+  proj_cores = _contraction(pl_time,a4,pr_time,combine) # nt_left x Nμ x nt_right
+  return ReducedProjection(proj_cores)
 end
 
 function RBSteady.projection_eltype(a::SequentialProjection)
