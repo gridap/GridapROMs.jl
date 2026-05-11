@@ -214,17 +214,42 @@ function RBSteady.galerkin_projection(
   return ReducedProjection(proj_basis)
 end
 
-# function RBSteady.galerkin_projection(
-#   proj_left::KroneckerProjection,
-#   a::AbstractParamVector,
-#   args...
-#   )
+function RBSteady.galerkin_projection(
+  proj_left::KroneckerProjection,
+  a::AbstractParamVector,
+  args...
+  )
 
-#   proj_basis_space = galerkin_projection(get_basis_space(proj_left),get_basis_space(a))
-#   proj_basis_time = galerkin_projection(get_basis_time(proj_left),get_basis_time(a))
-#   proj_basis = kron(proj_basis_time,proj_basis_space)
-#   return ReducedProjection(proj_basis)
-# end
+  nt = num_times(proj_left)
+  np = Int(param_length(a) / nt)
+  proj_a_space = galerkin_projection(get_basis_space(proj_left),get_all_data(a))
+  proj_a_spacetime = galerkin_projection(get_basis_time(proj_left),change_mode(proj_a_space,np))
+  return ReducedProjection(proj_a_spacetime)
+end
+
+function RBSteady.galerkin_projection(
+  proj_left::KroneckerProjection,
+  a::ParamSparseMatrix,
+  proj_right::KroneckerProjection,
+  combine
+  )
+
+  nt = num_times(proj_left)
+  np = Int(param_length(a) / nt)
+
+  proj_a_space = galerkin_projection(
+    get_basis_space(proj_left),
+    get_all_data(a),
+    get_basis_space(proj_right))
+
+  proj_basis_spacetime = galerkin_projection(
+    get_basis_time(proj_left),
+    change_mode(proj_a_space,np),
+    get_basis_time(proj_right),
+    combine)
+
+  return ReducedProjection(proj_basis_spacetime)
+end
 
 function RBSteady.projection_eltype(a::KroneckerProjection)
   T = projection_eltype(a.projection_space)
@@ -303,6 +328,43 @@ function RBSteady.galerkin_projection(
   )
 
   RBSteady._galerkin_projection(get_dof_map(a),proj_left,a,proj_right,combine)
+end
+
+function RBSteady.galerkin_projection(
+  proj_left::SequentialProjection,
+  a::AbstractParamVector,
+  args...
+  )
+
+  nt = num_times(proj_left)
+  np = Int(param_length(a) / nt)
+  proj_a_space = galerkin_projection(get_basis_space(proj_left),get_all_data(a))
+  proj_a_spacetime = galerkin_projection(get_basis_time(proj_left),change_mode(proj_a_space,np))
+  return ReducedProjection(proj_a_spacetime)
+end
+
+function RBSteady.galerkin_projection(
+  proj_left::SequentialProjection,
+  a::ParamSparseMatrix,
+  proj_right::SequentialProjection,
+  combine
+  )
+
+  nt = num_times(proj_left)
+  np = Int(param_length(a) / nt)
+
+  proj_a_space = galerkin_projection(
+    get_basis_space(proj_left),
+    get_all_data(a),
+    get_basis_space(proj_right))
+
+  proj_basis_spacetime = galerkin_projection(
+    get_basis_time(proj_left),
+    change_mode(proj_a_space,np),
+    get_basis_time(proj_right),
+    combine)
+
+  return ReducedProjection(proj_basis_spacetime)
 end
 
 function RBSteady.projection_eltype(a::SequentialProjection)

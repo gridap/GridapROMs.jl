@@ -169,12 +169,12 @@ function galerkin_projection(a::Projection,b,c::Projection,args...)
   galerkin_projection(get_basis(a),b,get_basis(c),args...)
 end
 
-function galerkin_projection!(cache,a::Projection,b)
-  galerkin_projection(cache,get_basis(a),b)
+function galerkin_projection!(cache,a::Projection,b,args...)
+  galerkin_projection!(cache,get_basis(a),b,args...)
 end
 
 function galerkin_projection!(cache,a::Projection,b,c::Projection,args...)
-  galerkin_projection(cache,get_basis(a),b,get_basis(c),args...)
+  galerkin_projection!(cache,get_basis(a),b,get_basis(c),args...)
 end
 
 """
