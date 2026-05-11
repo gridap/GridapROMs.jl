@@ -168,22 +168,14 @@ end
 
 function RBSteady.galerkin_projection(
   proj_left::KroneckerProjection,
-  a::KroneckerProjection
+  a::KroneckerProjection,
+  args...
   )
 
   proj_basis_space = galerkin_projection(get_basis_space(proj_left),get_basis_space(a))
   proj_basis_time = galerkin_projection(get_basis_time(proj_left),get_basis_time(a))
   proj_basis = kron(proj_basis_time,proj_basis_space)
   return ReducedProjection(proj_basis)
-end
-
-function RBSteady.galerkin_projection(
-  proj_left::KroneckerProjection,
-  a::KroneckerProjection,
-  proj_right::KroneckerProjection
-  )
-
-  @notimplemented "In unsteady problems, we need to provide a combining function"
 end
 
 function RBSteady.galerkin_projection(
@@ -221,6 +213,18 @@ function RBSteady.galerkin_projection(
 
   return ReducedProjection(proj_basis)
 end
+
+# function RBSteady.galerkin_projection(
+#   proj_left::KroneckerProjection,
+#   a::AbstractParamVector,
+#   args...
+#   )
+
+#   proj_basis_space = galerkin_projection(get_basis_space(proj_left),get_basis_space(a))
+#   proj_basis_time = galerkin_projection(get_basis_time(proj_left),get_basis_time(a))
+#   proj_basis = kron(proj_basis_time,proj_basis_space)
+#   return ReducedProjection(proj_basis)
+# end
 
 function RBSteady.projection_eltype(a::KroneckerProjection)
   T = projection_eltype(a.projection_space)
@@ -284,8 +288,10 @@ end
 
 function RBSteady.galerkin_projection(
   proj_left::SequentialProjection,
-  a::SequentialProjection
+  a::SequentialProjection,
+  args...
   )
+
   galerkin_projection(proj_left.projection,a.projection)
 end
 

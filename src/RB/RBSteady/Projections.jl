@@ -161,6 +161,22 @@ function galerkin_projection(a::Projection,b::Projection,c::Projection,args...)
   return ReducedProjection(b̂)
 end
 
+function galerkin_projection(a::Projection,b)
+  galerkin_projection(get_basis(a),b)
+end
+
+function galerkin_projection(a::Projection,b,c::Projection,args...)
+  galerkin_projection(get_basis(a),b,get_basis(c),args...)
+end
+
+function galerkin_projection!(cache,a::Projection,b)
+  galerkin_projection(cache,get_basis(a),b)
+end
+
+function galerkin_projection!(cache,a::Projection,b,c::Projection,args...)
+  galerkin_projection(cache,get_basis(a),b,get_basis(c),args...)
+end
+
 """
     empirical_interpolation(a::Projection) -> (AbstractVector,AbstractMatrix)
 

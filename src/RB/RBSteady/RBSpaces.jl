@@ -196,19 +196,19 @@ function project!(cache,r1::RBSpace,x::Projection,r2::RBSpace,args...)
   galerkin_projection!(cache,r1,x,r2,args...)
 end
 
-function galerkin_projection(r::RBSpace,x::Projection,args...)
+function galerkin_projection(r::RBSpace,x,args...)
   galerkin_projection(get_reduced_subspace(r),x,args...)
 end
 
-function galerkin_projection(r1::RBSpace,x::Projection,r2::RBSpace,args...)
+function galerkin_projection(r1::RBSpace,x,r2::RBSpace,args...)
   galerkin_projection(get_reduced_subspace(r1),x,get_reduced_subspace(r2),args...)
 end
 
-function galerkin_projection!(cache,r::RBSpace,x::Projection,args...)
+function galerkin_projection!(cache,r::RBSpace,x,args...)
   galerkin_projection!(cache,get_reduced_subspace(r),x,args...)
 end
 
-function galerkin_projection!(cache,r1::RBSpace,x::Projection,r2::RBSpace,args...)
+function galerkin_projection!(cache,r1::RBSpace,x,r2::RBSpace,args...)
   galerkin_projection!(cache,get_reduced_subspace(r1),x,get_reduced_subspace(r2),args...)
 end
 
