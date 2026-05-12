@@ -193,7 +193,7 @@ hypred_strategy=:mdeim
   
   feop = TransientLinearParamOperator(res,(stiffness,mass),ptspace,trial,test,domains)
 
-  dir = datadir("diagnostics")
+  dir = datadir("tdiagnostics")
   isdir(dir) && rm(dir;recursive=true)
   create_dir(dir)
   
@@ -231,7 +231,12 @@ hypred_strategy=:mdeim
   # red_trian = reduced_triangulation(trian,hyper_red)
 
   # interp = get_interpolation(hyper_red)
+  using GridapROMs.ParamAlgebra
+  using GridapROMs.ParamSteady
+  using GridapROMs.ParamODEs
   using GridapROMs.RBSteady
+  using GridapROMs.RBTransient
+  using Gridap.FESpaces
   
   s,jacs,ress = load_problem_snapshots(dir,rbsolver,feop,xh0μ;label=online_label)
 
@@ -251,7 +256,30 @@ hypred_strategy=:mdeim
   jaci = select_snapshots(jacs,i)
   gsolver = RBSteady.change_context(rbsolver)
   # err_res_i,err_jac_i = RBSteady.hr_error(gsolver,opi,resi,jaci,si)
-  μ = get_realisation(s)
-  u = get_param_data(s)
-  # err_res = RBSteady.hr_error_res(opi,ress,μ,u)
-  rs = ress[1]
+  r = get_realisation(si)
+  u = get_param_data(si)
+  # err_res = RBSteady.hr_error_res(opi,ress,r,u)
+
+  V = get_test(opi)
+  rhss = RBSteady.get_rhs(opi)
+  c = TimeCombination(fesolver)
+  us0 = get_initial_param_data(si)
+  ParamODEs.to_stencil!(r,c)
+  paramcache = allocate_paramcache(opi,r;evaluated=true)
+  usx = zero_time_combination(c,u,us0)
+  red_res = RBSteady.allocate_diagnostic_residual(opi,r,usx,paramcache)
+  RBSteady.diagnostic_residual!(red_res,opi,r,usx,paramcache)
+  ParamODEs.from_stencil!(r,c)
+
+  res_t,a_t,fecache_t,hypred_t = resi[1],rhss[1],red_res.fecache[1],red_res.hypred[1]
+  # RBSteady.hr_error_res(V[1],res_t[1],a_t[1],fecache_t.array[1],hypred_t.data[1])
+  # RBSteady.check_interpolation(res_t[1],a_t[1],fecache_t.array[1])
+  interp = get_interpolation(a_t[1])
+  rows = get_interpolation_rows(interp)
+  indices_time = get_indices_time(interp)
+  style = get_domain_style(interp)
+  bdata = RBTransient.get_at_kron_domain(res_t[1],rows,indices_time)
+  AA = fecache_t.array[1].data
+  BB = bdata.data
+
+  # 

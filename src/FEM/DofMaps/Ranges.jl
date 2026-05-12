@@ -18,6 +18,7 @@ end
 
 Base.size(r::Range2D) = (length(r.axis1),length(r.axis2))
 Base.getindex(r::Range2D,i::Integer,j::Integer) = r.axis1[i] + (r.axis2[j]-1)*r.scale
+Base.copy(r::Range2D) = Range2D(copy(r.axis1),copy(r.axis2),r.scale)
 
 """
     range_2d(i::AbstractVector,j::AbstractVector,scale=length(i)) -> Range2D
@@ -46,3 +47,4 @@ range_1d(i::AbstractVector,j::AbstractVector,args...) = Range1D(range_2d(i,j,arg
 
 Base.size(r::Range1D) = (length(r.parent),)
 Base.getindex(r::Range1D,k::Integer) = r.parent[k]
+Base.copy(r::Range1D) = Range1D(copy(r.parent))

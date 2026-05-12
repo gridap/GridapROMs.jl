@@ -33,7 +33,13 @@ function RBSteady.allocate_dcontribution(
 
   fecache = map(ai -> RBSteady.allocate_coefficient(ai,r),a)
   coeff = map(ai -> RBSteady.allocate_coefficient(ai,r),a)
-  hypred = map(ai -> RBSteady.allocate_hyper_reduction(ai,r),a)
+  hypred = ()
+  for ai in a 
+    hypredi = contribution(get_domains(ai)) do trian
+      RBSteady.allocate_hyper_reduction(ai[trian],r)
+    end
+    hypred = (hypred...,hypredi)
+  end
   DiagnosticsContribution(fecache,coeff,hypred)
 end
 
@@ -71,7 +77,33 @@ function RBSteady.diagnostic_interpolate!(
   )
 
   for (hi,ci,ai,fi) in zip(cache.hypred,cache.coeff,a,cache.fecache)
-    RBSteady.diagnostic_interpolate!(DiagnosticsContribution(fi,ci,hi),ai)
+    for (ât,ft,ct,ht) in zip(
+      get_contributions(ai),
+      get_contributions(fi),
+      get_contributions(ci),
+      get_contributions(hi)
+      )
+
+      interpolate!(ht,ct,ât,ft)
+    end
+  end
+end
+
+function RBSteady.diagnostic_interpolate!(
+  cache::DiagnosticsContribution,
+  a::TupOfAffineContribution,
+  r::TransientRealisation
+  )
+
+  for (hi,ci,ai) in zip(cache.hypred,cache.coeff,a)
+    for (ât,ct,ht) in zip(
+      get_contributions(ai),
+      get_contributions(ci),
+      get_contributions(hi)
+      )
+
+      interpolate!(ht,ct,ât,r)
+    end
   end
 end
 
@@ -283,17 +315,110 @@ function RBSteady.hr_diagnostics(c::TupOfAffineContribution)
   Tuple(RBSteady.hr_diagnostics(v) for v in c)
 end
 
-function RBSteady.hr_error_jac(
-  op::RBOperator,
-  jac::TupOfArrayContribution,
-  μ::AbstractRealisation
+function RBSteady.hr_error_res(
+  test::SingleFieldRBSpace,
+  res::TransientSnapshots,
+  a::HRProjection,
+  fecache::AbstractParamArray,
+  hypred::AbstractParamVector
   )
+  
+  RBSteady.check_interpolation(res,a,fecache)
+
+  red = get_style(a)
+  c = get_time_combination(red)
+  b̂ = get_basis(galerkin_projection(test,res,c))
+  hrb̂ = get_all_data(hypred)
+
+  err = sqrt.(sum((b̂-hrb̂).^2,dims=1))
+  den = sqrt.(sum(b̂.^2,dims=1))
+  mean(err./den)
+end
+
+function RBSteady.hr_error_jac(
+  trial::SingleFieldRBSpace,
+  test::SingleFieldRBSpace,
+  jac::TransientSnapshots,
+  a::HRProjection,
+  fecache::AbstractParamArray,
+  hypred::AbstractParamMatrix
+  )
+  
+  RBSteady.check_interpolation(jac,a,fecache)
+
+  μ = get_realisation(jac)
+  red = get_style(a)
+  c = get_time_combination(red)
+  Â = get_basis(galerkin_projection(test,jac,trial,c))
+  Â = reshape(permutedims(Â,(1,3,2)),:,num_params(μ))
+  hrÂ = reshape(get_all_data(hypred),:,num_params(μ))
+
+  err = sqrt.(sum((Â-hrÂ).^2,dims=1))
+  den = sqrt.(sum(Â.^2,dims=1))
+  mean(err./den)
+end
+
+function RBSteady.hr_error_res(
+  c::TimeCombination,
+  op::TransientRBOperator{O},
+  res::ArrayContribution,
+  r::AbstractRealisation,
+  u::AbstractVector,
+  us0::Tuple{Vararg{AbstractVector}}
+  ) where O
+
+  test = get_test(op)
+  rhs = get_rhs(op)
+
+  ParamODEs.to_stencil!(r,c)
+  paramcache = allocate_paramcache(op,r;evaluated=true)
+  usx = if O == LinearParamODE
+    zero_time_combination(c,u,us0)
+  else
+    time_combination(c,u,us0)
+  end
+  red_res = RBSteady.allocate_diagnostic_residual(op,r,usx,paramcache)
+  RBSteady.diagnostic_residual!(red_res,op,r,usx,paramcache)
+  ParamODEs.from_stencil!(r,c)
+
+  err = ()
+  for (res_t,a_t,fecache_t,hypred_t) in zip(
+    get_contributions(res),
+    get_contributions(rhs),
+    get_contributions(red_res.fecache),
+    get_contributions(red_res.hypred)
+    )
+
+    err = (err...,RBSteady.hr_error_res(test,res_t,a_t,fecache_t,hypred_t))
+  end 
+  
+  return err
+end
+
+function RBSteady.hr_error_jac(
+  c::TimeCombination,
+  op::TransientRBOperator{O},
+  jac::TupOfArrayContribution,
+  r::AbstractRealisation,
+  u::AbstractVector,
+  us0::Tuple{Vararg{AbstractVector}}
+  ) where O
 
   test  = get_test(op)
   trial = get_trial(op)
   lhs = get_lhs(op)
-  nlop = parameterise(op,μ)
-  red_jac = diagnostic_jacobian(nlop,u)
+
+  ws = ntuple(_ -> 1,Val{get_order(op)+1}())
+  ParamODEs.to_stencil!(r,c)
+  paramcache = allocate_paramcache(op,r;evaluated=true)
+  usx = if O == LinearParamODE
+    zero_time_combination(c,u,us0)
+  else
+    time_combination(c,u,us0)
+  end
+  red_jac = RBSteady.allocate_diagnostic_jacobian(op,r,usx,paramcache)
+  RBSteady.diagnostic_jacobian!(red_jac,op,r,usx,ws,paramcache)
+  ParamODEs.from_stencil!(r,c)
 
   err = ()
   for (i,(jaci,lhsi)) in enumerate(zip(jac,lhs))
@@ -301,16 +426,26 @@ function RBSteady.hr_error_jac(
     for (jaci_t,ai_t,fecache_t,hypred_t) in zip(
       get_contributions(jaci),
       get_contributions(lhsi),
-      get_contributions(red_jac.fecache),
-      get_contributions(red_jac.hypred)
+      get_contributions(red_jac.fecache[i]),
+      get_contributions(red_jac.hypred[i])
       )
 
-      erri = (erri...,hr_error_jac(trial,test,jaci_t,ai_t,fecache_t,hypred_t))
+      erri = (erri...,RBSteady.hr_error_jac(trial,test,jaci_t,ai_t,fecache_t,hypred_t))
     end 
     err = (err...,erri)
   end
   
   return err
+end
+
+function RBSteady.hr_error(solver::GlobalRBSolver,op::TransientRBOperator,res,jac,s)
+  c = TimeCombination(solver)
+  μ = get_realisation(s)
+  u = get_param_data(s)
+  us0 = get_initial_param_data(s)
+  err_res = RBSteady.hr_error_res(c,op,res,μ,u,us0)
+  err_jac = RBSteady.hr_error_jac(c,op,jac,μ,u,us0)
+  return err_res,err_jac
 end
 
 function RBSteady.save_jacobians(dir,feop::ODEParamOperator,jacs::Tuple;label="")
