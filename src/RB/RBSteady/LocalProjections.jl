@@ -313,13 +313,7 @@ end
 function _cluster(s::GenericSnapshots,inds::AbstractVector)
   sinds = select_snapshots(s,inds)
   data = collect(get_all_data(sinds))
-  GenericSnapshots(data,get_dof_map(sinds),get_realisation(sinds))
-end
-
-function _cluster(s::ReshapedSnapshots,inds::AbstractVector)
-  sinds = select_snapshots(s,inds)
-  data = collect(get_all_data(sinds))
-  ReshapedSnapshots(data,get_param_data(sinds),get_dof_map(sinds),get_realisation(sinds))
+  GenericSnapshots(data,get_param_data(sinds),get_dof_map(sinds),get_realisation(sinds))
 end
 
 function _cluster(s::BlockSnapshots{N},inds::AbstractVector) where N

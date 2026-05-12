@@ -635,17 +635,12 @@ function hr_error_res(
   
   check_interpolation(res,a,fecache)
 
-  Φ_test = get_basis(get_reduced_subspace(test))
+  b̂ = get_basis(galerkin_projection(test,res))
+  hrb̂ = get_all_data(hypred)
 
-  μ = get_realisation(res)
-  bdata = flatten(res)
-  b̂ = galerkin_projection(Φ_test,bdata)
-  
-  i = VectorDofMap(size(b̂,1))
-  b̂snaps = Snapshots(b̂,i,μ)
-  hrb̂snaps = Snapshots(get_all_data(hypred),i,μ)
-
-  compute_relative_error(b̂snaps,hrb̂snaps)
+  err = sqrt.(sum((b̂-hrb̂).^2,dims=1))
+  den = sqrt.(sum(b̂.^2,dims=1))
+  mean(err./den)
 end
 
 function hr_error_jac(
@@ -659,19 +654,14 @@ function hr_error_jac(
   
   check_interpolation(jac,a,fecache)
 
-  Φ_trial = get_basis(get_reduced_subspace(trial))  
-  Φ_test = get_basis(get_reduced_subspace(test))  
-
   μ = get_realisation(jac)
-  Â = galerkin_projection(Φ_test,recast(jac),Φ_trial)
+  Â = get_basis(galerkin_projection(test,jac,trial))
   Â = reshape(permutedims(Â,(1,3,2)),:,num_params(μ))
   hrÂ = reshape(get_all_data(hypred),:,num_params(μ))
 
-  i = VectorDofMap(size(Â,1))
-  Âsnaps = Snapshots(Â,i,μ)
-  hrÂsnaps = Snapshots(hrÂ,i,μ)
-
-  compute_relative_error(Âsnaps,hrÂsnaps)
+  err = sqrt.(sum((Â-hrÂ).^2,dims=1))
+  den = sqrt.(sum(Â.^2,dims=1))
+  mean(err./den)
 end
 
 function hr_error_res(

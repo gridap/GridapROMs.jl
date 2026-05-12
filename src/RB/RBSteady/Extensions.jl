@@ -39,7 +39,13 @@ end
 # post process
 
 function remove_extension(s::RBSolver{<:ExtensionSolver})
-  RBSolver(s.solver.solver,s.state_reduction,s.residual_reduction,s.jacobian_reduction)
+  RBSolver(
+    s.solver.solver,
+    s.context,
+    s.state_reduction,
+    s.residual_reduction,
+    s.jacobian_reduction
+  )
 end
 
 function Utils.compute_relative_error(
@@ -68,6 +74,7 @@ function Extensions.get_bg_space(r::RBSpace{<:SingleFieldParamFESpace{<:DirectSu
 end
 
 function _remove_extension(s::Snapshots,ids::AbstractVector)
+  @check ParamDataStructures._is_one_to(get_dof_map(s))
   data = flatten(s)
   fdata = view(data,ids,:)
   fdof_map = VectorDofMap(length(ids))

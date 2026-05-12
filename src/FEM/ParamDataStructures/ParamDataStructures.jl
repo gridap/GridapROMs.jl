@@ -156,7 +156,6 @@ export AbstractSnapshots
 export Snapshots
 export SteadySnapshots
 export GenericSnapshots
-export ReshapedSnapshots
 export SnapshotsAtIndices
 export SparseSnapshots
 export BlockSnapshots

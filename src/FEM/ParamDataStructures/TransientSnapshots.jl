@@ -51,6 +51,11 @@ function param_getindex(
   view(get_all_data(s),_ncolons(Val{N-2}())...,pindex,tindex)
 end
 
+function flatten(s::TransientSnapshots)
+  d = get_all_data(s)
+  reshape(d,:,num_params(s),num_times(s))
+end
+
 """
     struct TransientSnapshotsWithIC{T,N,I,R,A,B<:TransientSnapshots{T,N,I,R}} <: TransientSnapshots{T,N,I,R}
       initial_data::A
@@ -117,9 +122,9 @@ function change_dof_map(s::TransientSnapshotsWithIC,i)
   TransientSnapshotsWithIC(s.initial_data,change_dof_map(s.snaps,i))
 end
 
-const TransientReshapedSnapshots{T,N,I,R<:TransientRealisation,A,B} = ReshapedSnapshots{T,N,I,R,A,B}
+const TransientGenericSnapshots{T,N,I,R<:TransientRealisation,A,B} = GenericSnapshots{T,N,I,R,A,B}
 
-function get_param_data(s::TransientReshapedSnapshots)
+function get_param_data(s::TransientGenericSnapshots)
   data = get_all_data(s)
   ncols = num_times(s)*num_params(s)
   ConsecutiveParamArray(reshape(data,:,ncols))
@@ -130,7 +135,7 @@ function Snapshots(s::AbstractParamMatrix,i::AbstractDofMap,r::TransientRealisat
   param_data = s
   dims = (size(i)...,num_params(r),num_times(r))
   idata = reshape(data,dims)
-  ReshapedSnapshots(idata,param_data,i,r)
+  GenericSnapshots(idata,param_data,i,r)
 end
 
 function Snapshots(
@@ -138,11 +143,11 @@ function Snapshots(
   i::TrivialSparseMatrixDofMap,
   r::TransientRealisation
   )
-  T = eltype2(s)
+  
   data = get_all_data(s)
   data′ = reshape(data,:,num_params(r),num_times(r))
   param_data = s
-  ReshapedSnapshots(data′,param_data,i,r)
+  GenericSnapshots(data′,param_data,i,r)
 end
 
 function Snapshots(s::ParamSparseMatrix,i::SparseMatrixDofMap,r::TransientRealisation)
@@ -159,17 +164,17 @@ function Snapshots(s::ParamSparseMatrix,i::SparseMatrixDofMap,r::TransientRealis
       end
     end
   end
-  ReshapedSnapshots(idata,param_data,i,r)
+  GenericSnapshots(idata,param_data,i,r)
 end
 
-function _select_snapshots(s::TransientReshapedSnapshots{T,N},pindex) where {T,N}
+function _select_snapshots(s::TransientGenericSnapshots{T,N},pindex) where {T,N}
   np = num_params(s)
   prange = _format_index(pindex)
   trange = 1:num_times(s)
   drange = view(get_all_data(s),_ncolons(Val{N-2}())...,prange,trange)
   pdrange = _get_param_data(s.param_data,prange,trange;nparams=np)
   rrange = get_realisation(s)[prange,trange]
-  ReshapedSnapshots(drange,pdrange,get_dof_map(s),rrange)
+  GenericSnapshots(drange,pdrange,get_dof_map(s),rrange)
 end
 
 function _get_param_data(pdata::ConsecutiveParamMatrix,prange,trange;kwargs...)
@@ -188,9 +193,6 @@ end
 """
 """
 const TransientSparseSnapshots{T,N,I<:AbstractSparseDofMap,R<:TransientRealisation} = Snapshots{T,N,I,R}
-
-get_param_data(s::GenericSnapshots{T,N,<:AbstractSparseDofMap,<:TransientRealisation}) where {T,N} = s.param_data
-get_param_data(s::ReshapedSnapshots{T,N,<:AbstractSparseDofMap,<:TransientRealisation}) where {T,N} = s.param_data
 
 # block snapshots
 

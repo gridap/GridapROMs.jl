@@ -149,15 +149,16 @@ end
 
 # ─── Snapshots ────────────────────────────────────────────────────────────────
 
-@testset "SteadySnapshots (GenericSnapshots) construction and access" begin
+@testset "SteadySnapshots construction and access" begin
+  nparams = 4
   p = ParamSpace((0.0,1.0))
-  r = realisation(p;nparams=4)
+  r = realisation(p;nparams)
   ndofs = 10
-  data = rand(Float64,ndofs,4)   # ndofs × nparams
+  pdata = ParamArray([rand(ndofs) for _ in 1:nparams])
   dm = VectorDofMap(ndofs)
-  s = Snapshots(data,dm,r)
+  s = Snapshots(pdata,dm,r)
   @test s isa AbstractSnapshots
-  @test num_params(s) == 4
+  @test num_params(s) == nparams
   @test num_space_dofs(s) == ndofs
 
   # select a subset

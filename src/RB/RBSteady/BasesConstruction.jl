@@ -10,7 +10,7 @@ function reduction(red::Reduction,A::AbstractArray,args...)
 end
 
 function reduction(red::NoReduction,A::AbstractArray,args...)
-  flatten(A)
+  A
 end
 
 function reduction(red::PODReduction,A::AbstractArray,args...)

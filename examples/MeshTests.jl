@@ -13,7 +13,7 @@ using GridapROMs.RBTransient
 
 import Gridap.Helpers: @abstractmethod
 import GridapROMs.Utils: Contribution,TupOfArrayContribution,get_domains_res,get_domains_jac
-import GridapROMs.ParamDataStructures: ReshapedSnapshots,TransientSnapshotsWithIC,GenericTransientRealisation,_get_params
+import GridapROMs.ParamDataStructures: GenericSnapshots,TransientSnapshotsWithIC,GenericTransientRealisation,_get_params
 import GridapROMs.RBSteady: load_stats
 
 include("ExamplesInterface.jl")
@@ -101,22 +101,13 @@ end
 
 function merge_snapshots(svec::Vector{<:GenericSnapshots})
   dvec = map(get_all_data,svec)
-  rvec = map(get_realisation,svec)
-  d = hcat(dvec...)
-  r = merge_realisations(rvec)
-  i = get_dof_map(first(svec))
-  GenericSnapshots(d,i,r)
-end
-
-function merge_snapshots(svec::Vector{<:ReshapedSnapshots})
-  dvec = map(get_all_data,svec)
   pvec = map(get_param_data,svec)
   rvec = map(get_realisation,svec)
   d = hcat(dvec...)
   p = merge_param_data(pvec)
   r = merge_realisations(rvec)
   i = get_dof_map(first(svec))
-  ReshapedSnapshots(d,p,i,r)
+  GenericSnapshots(d,p,i,r)
 end
 
 function merge_snapshots(svec::Vector{<:TransientSnapshotsWithIC})

@@ -147,7 +147,7 @@ function get_at_kron_domain(
   indices_time::AbstractVector{<:Integer}
   )
 
-  data = reshape(get_all_data(s),:,num_params(s),num_times(s))
+  data = flatten(s)
   datav = zeros(eltype(s),length(rows)*length(indices_time),num_params(s))
   for (j,itime) in enumerate(indices_time)
     for (i,row) in enumerate(rows)
@@ -187,7 +187,7 @@ function get_at_seq_domain(
   )
 
   @check length(rows) == length(indices_time)
-  data = reshape(get_all_data(s),:,num_params(s),num_times(s))
+  data = flatten(s)
   datav = zeros(eltype(s),length(rows),num_params(s))
   for i in CartesianIndices(datav)
     datav[i] = data[rows[i.I[1]],i.I[2],indices_time[i.I[1]]]
