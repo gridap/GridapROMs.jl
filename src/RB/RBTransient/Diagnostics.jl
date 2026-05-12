@@ -327,46 +327,44 @@ end
 
 # utils 
 
-function RBSteady.check_interpolation(res::TransientSnapshots,a::HRVecProjection,fecache)
-  msg = "fecache mismatch at interpolation points"
-  interp = get_interpolation(a)
-  rows = get_interpolation_rows(interp)
-  indices_time = get_indices_time(interp)
-  style = get_domain_style(interp)
+for T in (:HighDimMDEIMProjection,:HighDimSOPTProjection)
+  @eval begin
+    function RBSteady.check_interpolation(res,a::$T{<:ReducedVecProjection},fecache)
+      msg = "fecache mismatch at interpolation points"
+      interp = get_interpolation(a)
+      rows = get_interpolation_rows(interp)
+      indices_time = get_indices_time(interp)
+      style = get_domain_style(interp)
 
-  bdata = if style isa KroneckerDomain
-    get_at_kron_domain(res,rows,indices_time)
-  else
-    @check style isa SequentialDomain "Unsupported transient domain style"
-    get_at_seq_domain(res,rows,indices_time)
-  end
+      bdata = if style isa KroneckerDomain
+        get_at_kron_domain(res,rows,indices_time)
+      else
+        @check style isa SequentialDomain "Unsupported transient domain style"
+        get_at_seq_domain(res,rows,indices_time)
+      end
 
-  @check isapprox(get_all_data(fecache),get_all_data(bdata);rtol=1e-8) msg
-  return true
-end
+      @check isapprox(get_all_data(fecache),get_all_data(bdata);rtol=1e-8) msg
+      return true
+    end
 
-function RBSteady.check_interpolation(jac::TransientSnapshots,a::HRMatProjection,fecache)
-  msg = "fecache mismatch at interpolation points"
-  interp = get_interpolation(a)
-  rows = get_interpolation_rows(interp)
-  cols = get_interpolation_cols(interp)
-  indices_time = get_indices_time(interp)
-  style = get_domain_style(interp)
+    function RBSteady.check_interpolation(jac,a::$T{<:ReducedMatProjection},fecache)
+      msg = "fecache mismatch at interpolation points"
+      interp = get_interpolation(a)
+      rows = get_interpolation_rows(interp)
+      cols = get_interpolation_cols(interp)
+      indices_time = get_indices_time(interp)
+      style = get_domain_style(interp)
 
-  Adata = if style isa KroneckerDomain
-    get_at_kron_domain(jac,(rows,cols),indices_time)
-  else
-    @check style isa SequentialDomain "Unsupported transient domain style"
-    get_at_seq_domain(jac,(rows,cols),indices_time)
-  end
+      Adata = if style isa KroneckerDomain
+        get_at_kron_domain(jac,(rows,cols),indices_time)
+      else
+        @check style isa SequentialDomain "Unsupported transient domain style"
+        get_at_seq_domain(jac,(rows,cols),indices_time)
+      end
 
-  @check isapprox(get_all_data(fecache),get_all_data(Adata);rtol=1e-8) msg
-  return true
-end
-
-for S in (:HRVecProjection,:HRMatProjection), T in (:HighDimRBFHyperReduction,:TrivialHyperReduction)
-  @eval function RBSteady.check_interpolation(s::TransientSnapshots,a::$S{<:$T},fecache)
-    return true
+      @check isapprox(get_all_data(fecache),get_all_data(Adata);rtol=1e-8) msg
+      return true
+    end
   end
 end
 

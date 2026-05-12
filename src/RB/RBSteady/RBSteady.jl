@@ -171,6 +171,8 @@ export TTSVDProjection
 export NormedProjection
 export BlockProjection
 export ReducedProjection
+export ReducedVecProjection
+export ReducedMatProjection
 export GalerkinProjectable
 export projection
 export get_basis

@@ -254,3 +254,4 @@ hypred_strategy=:mdeim
   μ = get_realisation(s)
   u = get_param_data(s)
   # err_res = RBSteady.hr_error_res(opi,ress,μ,u)
+  rs = ress[1]
