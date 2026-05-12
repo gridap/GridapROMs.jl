@@ -88,6 +88,10 @@ function main(
 
   feop = TransientLinearParamOperator(res,(stiffness,mass),ptspace,trial,test,domains)
   
+  dir = datadir("diagnostics")
+  isdir(dir) && rm(dir;recursive=true)
+  create_dir(dir)
+  
   tols = [1e-1,1e-3,1e-5]
   run_test(dir,rbsolver,feop,tols)
 

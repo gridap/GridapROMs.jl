@@ -849,20 +849,10 @@ function check_interpolation(jac,a::HRMatProjection,fecache)
   return true
 end
 
-function check_interpolation(res,a::HRVecProjection{<:RBFHyperReduction},fecache)
-  return true
-end
-
-function check_interpolation(jac,a::HRMatProjection{<:RBFHyperReduction},fecache)
-  return true
-end
-
-function check_interpolation(res,a::HRVecProjection{<:TrivialHyperReduction},fecache)
-  return true
-end
-
-function check_interpolation(jac,a::HRMatProjection{<:TrivialHyperReduction},fecache)
-  return true
+for S in (:HRVecProjection,:HRMatProjection), T in (:RBFHyperReduction,:TrivialHyperReduction)
+  @eval function check_interpolation(res,a::$S{<:$T},fecache)
+    return true
+  end
 end
 
 function set_params(red::PODReduction;nparams::Int)

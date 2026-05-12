@@ -327,37 +327,74 @@ end
 
 # utils 
 
+function RBSteady.check_interpolation(res::TransientSnapshots,a::HRVecProjection,fecache)
+  msg = "fecache mismatch at interpolation points"
+  interp = get_interpolation(a)
+  rows = get_interpolation_rows(interp)
+  indices_time = get_indices_time(interp)
+  style = get_domain_style(interp)
+
+  bdata = if style isa KroneckerDomain
+    get_at_kron_domain(res,rows,indices_time)
+  else
+    @check style isa SequentialDomain "Unsupported transient domain style"
+    get_at_seq_domain(res,rows,indices_time)
+  end
+
+  @check isapprox(get_all_data(fecache),get_all_data(bdata);rtol=1e-8) msg
+  return true
+end
+
+function RBSteady.check_interpolation(jac::TransientSnapshots,a::HRMatProjection,fecache)
+  msg = "fecache mismatch at interpolation points"
+  interp = get_interpolation(a)
+  rows = get_interpolation_rows(interp)
+  cols = get_interpolation_cols(interp)
+  indices_time = get_indices_time(interp)
+  style = get_domain_style(interp)
+
+  Adata = if style isa KroneckerDomain
+    get_at_kron_domain(jac,(rows,cols),indices_time)
+  else
+    @check style isa SequentialDomain "Unsupported transient domain style"
+    get_at_seq_domain(jac,(rows,cols),indices_time)
+  end
+
+  @check isapprox(get_all_data(fecache),get_all_data(Adata);rtol=1e-8) msg
+  return true
+end
+
+for S in (:HRVecProjection,:HRMatProjection), T in (:HighDimRBFHyperReduction,:TrivialHyperReduction)
+  @eval function RBSteady.check_interpolation(s::TransientSnapshots,a::$S{<:$T},fecache)
+    return true
+  end
+end
+
 function RBSteady.set_params(red::SteadyReduction;kwargs...)
   SteadyReduction(RBSteady.set_params(red.reduction;kwargs...))
 end
 
 function RBSteady.set_params(red::KroneckerReduction;kwargs...)
-  KroneckerReduction(
-    map(r->RBSteady.set_params(r;kwargs...),red.reductions)
-  )
+  KroneckerReduction(map(r->RBSteady.set_params(r;kwargs...),red.reductions))
 end
 
 function RBSteady.set_params(red::SequentialReduction;kwargs...)
   SequentialReduction(RBSteady.set_params(red.reduction;kwargs...))
 end
 
-for T in (:HighDimMDEIMHyperReduction,:HighDimSOPTHyperReduction,)
-  @eval begin
-    function RBSteady.set_params(red::$T;kwargs...)
-      $T(RBSteady.set_params(red.reduction;kwargs...),red.combination)
-    end
+function RBSteady.set_params(red::HighDimMDEIMHyperReduction;kwargs...)
+  HighDimMDEIMHyperReduction(RBSteady.set_params(red.reduction;kwargs...),red.combination)
+end
 
-    function RBSteady.set_params(red::NTuple{N,$T};kwargs...) where N
-      map(r->RBSteady.set_params(r;kwargs...),red)
-    end
-  end
+function RBSteady.set_params(red::HighDimSOPTHyperReduction;kwargs...)
+  HighDimSOPTHyperReduction(RBSteady.set_params(red.reduction;kwargs...),red.combination)
 end
 
 function RBSteady.set_params(red::HighDimRBFHyperReduction;kwargs...)
   HighDimRBFHyperReduction(RBSteady.set_params(red.reduction;kwargs...),red.combination,red.strategy)
 end
 
-function RBSteady.set_params(red::NTuple{N,HighDimRBFHyperReduction};kwargs...) where N
+function RBSteady.set_params(red::NTuple{N,Reduction};kwargs...) where N
   map(r->RBSteady.set_params(r;kwargs...),red)
 end
 

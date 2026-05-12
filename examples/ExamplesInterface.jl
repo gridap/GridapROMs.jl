@@ -138,23 +138,15 @@ function update_reduction(red::HighDimMDEIMHyperReduction,tolrank)
   HighDimMDEIMHyperReduction(update_reduction(red.reduction,tolrank),red.combination)
 end
 
-function update_reduction(red::NTuple{N,HighDimMDEIMHyperReduction},tolrank) where N
-  map(r->update_reduction(r,tolrank),red)
-end
-
 function update_reduction(red::HighDimSOPTHyperReduction,tolrank)
   HighDimSOPTHyperReduction(update_reduction(red.reduction,tolrank),red.combination)
-end
-
-function update_reduction(red::NTuple{N,HighDimSOPTHyperReduction},tolrank) where N
-  map(r->update_reduction(r,tolrank),red)
 end
 
 function update_reduction(red::HighDimRBFHyperReduction,tolrank)
   HighDimRBFHyperReduction(update_reduction(red.reduction,tolrank),red.combination,red.strategy)
 end
 
-function update_reduction(red::NTuple{N,HighDimRBFHyperReduction},tolrank) where N
+function update_reduction(red::NTuple{N,Reduction},tolrank) where N
   map(r->update_reduction(r,tolrank),red)
 end
 

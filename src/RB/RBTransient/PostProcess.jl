@@ -93,13 +93,13 @@ function RBSteady._plot_solutions(dir,trian,uh,ûh,r::TransientRealisation)
     ûhipt  = param_getindex(ûh,(it-1)*np+ip)
     ehipt  = uhipt - ûhipt
     if T <: Complex
-      push!(fields,"uh_param_$ip_$it"  => abs2(uhipt))
-      push!(fields,"ûh_param_$ip_$it" => abs2(ûhipt))
-      push!(fields,"eh_param_$ip_$it"  => abs2(ehipt))
+      push!(fields,"uh_param_$(ip)_$(it)"  => abs2(uhipt))
+      push!(fields,"ûh_param_$(ip)_$(it)" => abs2(ûhipt))
+      push!(fields,"eh_param_$(ip)_$(it)"  => abs2(ehipt))
     else
-      push!(fields,"uh_param_$ip_$it"  => uhipt)
-      push!(fields,"ûh_param_$ip_$it" => ûhipt)
-      push!(fields,"eh_param_$ip_$it"  => ehipt)
+      push!(fields,"uh_param_$(ip)_$(it)"  => uhipt)
+      push!(fields,"ûh_param_$(ip)_$(it)" => ûhipt)
+      push!(fields,"eh_param_$(ip)_$(it)"  => ehipt)
     end
   end
   writevtk(trian,dir*".vtu",cellfields=fields)
