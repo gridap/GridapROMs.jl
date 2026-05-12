@@ -76,7 +76,7 @@ end
 function _remove_extension(s::Snapshots,ids::AbstractVector)
   @check ParamDataStructures._is_one_to(get_dof_map(s))
   data = flatten(s)
-  fdata = view(data,ids,:)
+  fdata = ConsecutiveParamArray(view(data,ids,:))
   fdof_map = VectorDofMap(length(ids))
   r = get_realisation(s)
   Snapshots(fdata,fdof_map,r)

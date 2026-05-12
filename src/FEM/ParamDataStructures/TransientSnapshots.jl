@@ -15,33 +15,36 @@ num_times(s::TransientSnapshots) = num_times(get_realisation(s))
 
 Base.size(s::TransientSnapshots) = (space_dofs(s)...,num_params(s),num_times(s))
 
-function Snapshots(s::AbstractParamVector,i::AbstractDofMap,r::TransientRealisation)
-  data = get_all_data(s)
-  data′ = reshape(data,:,num_params(r),num_times(r))
-  s′ = ConsecutiveParamArray(data′)
-  Snapshots(s′,i,r)
+function Snapshots(s::AbstractParamArray,i::TrivialDofMap,r::TransientRealisation)
+  dims = (length(i),num_params(r),num_times(r))
+  idata = reshape(get_all_data(s),dims)
+  GenericSnapshots(idata,s,i,r)
 end
 
-function Snapshots(s::AbstractParamMatrix,i::TrivialDofMap,r::TransientRealisation)
-  Snapshots(get_all_data(s),i,r)
-end
-
-function get_param_data(s::TransientSnapshots)
+function Snapshots(s::AbstractParamArray,i::AbstractDofMap,r::TransientRealisation)
   data = get_all_data(s)
-  ncols = num_times(s)*num_params(s)
-  ConsecutiveParamArray(reshape(data,:,ncols))
+  param_data = s
+  if _is_one_to(i)
+    dims = (size(i)...,num_params(r),num_times(r))
+    idata = reshape(data,dims)
+    return GenericSnapshots(idata,param_data,i,r)
+  end
+  T = eltype2(s)
+  idata = zeros(T,size(i)...,num_params(r),num_times(r))
+  for it in 1:num_times(r), ip in 1:num_params(r)
+    ipt = (it-1)*num_params(r)+ip
+    for k in CartesianIndices(i)
+      k′ = i[k]
+      if k′ > 0
+        idata[k.I...,ip,it] = data[k′,ipt]
+      end
+    end
+  end
+  GenericSnapshots(idata,param_data,i,r)
 end
 
 get_initial_data(s::TransientSnapshots) = @abstractmethod
 get_initial_param_data(s::TransientSnapshots) = @abstractmethod
-
-function _select_snapshots(s::TransientSnapshots,pindex)
-  prange = _format_index(pindex)
-  trange = 1:num_times(s)
-  drange = view(get_all_data(s),:,prange,trange)
-  rrange = get_realisation(s)[prange,trange]
-  Snapshots(drange,get_dof_map(s),rrange)
-end
 
 function param_getindex(
   s::TransientSnapshots{T,N},
@@ -70,7 +73,7 @@ struct TransientSnapshotsWithIC{T,N,I,R,A,B<:TransientSnapshots{T,N,I,R}} <: Tra
 end
 
 function Snapshots(
-  s::AbstractParamMatrix,
+  s::AbstractParamArray,
   s0::Tuple{Vararg{AbstractParamVector}},
   i::AbstractDofMap,
   r::TransientRealisation
@@ -80,19 +83,8 @@ function Snapshots(
   TransientSnapshotsWithIC(initial_data,snaps)
 end
 
-function Snapshots(
-  s::AbstractParamVector,
-  s0::Tuple{Vararg{AbstractParamVector}},
-  i::AbstractDofMap,
-  r::TransientRealisation
-  )
-  data = get_all_data(s)
-  data′ = reshape(data,:,num_params(r),num_times(r))
-  s′ = ConsecutiveParamArray(data′)
-  Snapshots(s′,s0,i,r)
-end
-
 get_all_data(s::TransientSnapshotsWithIC) = get_all_data(s.snaps)
+get_param_data(s::TransientSnapshotsWithIC) = get_param_data(s.snaps)
 get_initial_data(s::TransientSnapshotsWithIC) = s.initial_data
 get_initial_param_data(s::TransientSnapshotsWithIC) = ConsecutiveParamArray.(s.initial_data)
 get_dof_map(s::TransientSnapshotsWithIC) = get_dof_map(s.snaps)
@@ -106,10 +98,10 @@ function Base.setindex!(s::TransientSnapshotsWithIC{T,N},v,i::Vararg{Integer,N})
   setindex!(s.snaps,v,i...)
 end
 
-function _select_snapshots(s::TransientSnapshotsWithIC,pindex)
+function select_snapshots(s::TransientSnapshotsWithIC,pindex)
   prange = _format_index(pindex)
   d0range = map(d0 -> view(d0,:,prange),s.initial_data)
-  srange = _select_snapshots(s.snaps,pindex)
+  srange = select_snapshots(s.snaps,pindex)
   TransientSnapshotsWithIC(d0range,srange)
 end
 
@@ -124,50 +116,7 @@ end
 
 const TransientGenericSnapshots{T,N,I,R<:TransientRealisation,A,B} = GenericSnapshots{T,N,I,R,A,B}
 
-function get_param_data(s::TransientGenericSnapshots)
-  data = get_all_data(s)
-  ncols = num_times(s)*num_params(s)
-  ConsecutiveParamArray(reshape(data,:,ncols))
-end
-
-function Snapshots(s::AbstractParamMatrix,i::AbstractDofMap,r::TransientRealisation)
-  data = get_all_data(s)
-  param_data = s
-  dims = (size(i)...,num_params(r),num_times(r))
-  idata = reshape(data,dims)
-  GenericSnapshots(idata,param_data,i,r)
-end
-
-function Snapshots(
-  s::ParamSparseMatrix,
-  i::TrivialSparseMatrixDofMap,
-  r::TransientRealisation
-  )
-  
-  data = get_all_data(s)
-  data′ = reshape(data,:,num_params(r),num_times(r))
-  param_data = s
-  GenericSnapshots(data′,param_data,i,r)
-end
-
-function Snapshots(s::ParamSparseMatrix,i::SparseMatrixDofMap,r::TransientRealisation)
-  T = eltype2(s)
-  data = get_all_data(s)
-  param_data = s
-  idata = zeros(T,size(i)...,num_params(r),num_times(r))
-  for it in 1:num_times(r), ip in 1:num_params(r)
-    ipt = (it-1)*num_params(r)+ip
-    for k in CartesianIndices(i)
-      k′ = i[k]
-      if k′ > 0
-        idata[k.I...,ip,it] = data[k′,ipt]
-      end
-    end
-  end
-  GenericSnapshots(idata,param_data,i,r)
-end
-
-function _select_snapshots(s::TransientGenericSnapshots{T,N},pindex) where {T,N}
+function select_snapshots(s::TransientGenericSnapshots{T,N},pindex) where {T,N}
   np = num_params(s)
   prange = _format_index(pindex)
   trange = 1:num_times(s)
@@ -175,19 +124,6 @@ function _select_snapshots(s::TransientGenericSnapshots{T,N},pindex) where {T,N}
   pdrange = _get_param_data(s.param_data,prange,trange;nparams=np)
   rrange = get_realisation(s)[prange,trange]
   GenericSnapshots(drange,pdrange,get_dof_map(s),rrange)
-end
-
-function _get_param_data(pdata::ConsecutiveParamMatrix,prange,trange;kwargs...)
-  ConsecutiveParamArray(view(pdata.data,:,prange,trange))
-end
-
-# in practice, when dealing with the Jacobian, the param data is never fetched
-function _get_param_data(
-  pdata::ConsecutiveParamSparseMatrixCSC,prange,trange;
-  nparams=Int(param_length(pdata)/length(trange))
-  )
-  datarange = view(pdata.data,:,range_1d(prange,trange,nparams))
-  ConsecutiveParamSparseMatrixCSC(pdata.m,pdata.n,pdata.colptr,pdata.rowval,datarange)
 end
 
 """
@@ -315,4 +251,24 @@ function change_dof_map(a::TupOfArrayContribution,i::TupOfArrayContribution)
     a′ = (a′...,change_dof_map(a[j],i[j]))
   end
   return a′
+end
+
+function _get_param_data(
+  pdata::ConsecutiveParamArray{T,N},
+  prange,trange;
+  nparams=Int(param_length(pdata)/length(trange))
+  ) where {T,N}
+
+  datarange = view(pdata.data,_ncolons(Val{N}())...,range_1d(prange,trange,nparams))
+  ConsecutiveParamArray(datarange)
+end
+
+# in practice, when dealing with the Jacobian, the param data is never fetched
+function _get_param_data(
+  pdata::ConsecutiveParamSparseMatrixCSC,prange,trange;
+  nparams=Int(param_length(pdata)/length(trange))
+  )
+
+  datarange = view(pdata.data,:,range_1d(prange,trange,nparams))
+  ConsecutiveParamSparseMatrixCSC(pdata.m,pdata.n,pdata.colptr,pdata.rowval,datarange)
 end

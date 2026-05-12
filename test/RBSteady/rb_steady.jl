@@ -102,8 +102,11 @@ end
   model = CartesianDiscreteModel((0,1,0,1),(2,2))
   trian = Triangulation(model)
   basis = ReducedProjection(zeros(2,1))
-  nohr = HRProjection(basis,RBSteady.NoHyperReduction(),Interpolation(RBSteady.NoHyperReduction()))
-  @test reduced_triangulation(trian,nohr) === trian
+  nohr_red = RBSteady.NoHyperReduction()
+  nohr = HRProjection(basis,nohr_red,Interpolation(nohr_red,trian))
+  red_trian = reduced_triangulation(trian,nohr)
+  @test num_cells(red_trian) == num_cells(trian)
+  @test get_integration_cells(get_interpolation(nohr)) == collect(Int32,1:num_cells(trian))
 end
 
 end # module

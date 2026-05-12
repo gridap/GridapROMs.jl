@@ -56,13 +56,7 @@ function Base.reshape(s::Snapshots,dims::Dims)
   reshape(get_all_data(s),dims...)
 end
 
-function select_snapshots(s::Snapshots,pindex)
-  if num_params(s)==length(pindex)
-    s
-  else
-    _select_snapshots(s,pindex)
-  end
-end
+select_snapshots(s::Snapshots,pindex) = @abstractmethod
 
 function change_dof_map(s::Snapshots,i)
   pdata = get_param_data(s)
@@ -91,13 +85,6 @@ Returns the spatial size of the snapshots
 space_dofs(s::SteadySnapshots{T,N}) where {T,N} = size(get_all_data(s))[1:N-1]
 
 Base.size(s::SteadySnapshots) = (space_dofs(s)...,num_params(s))
-
-function _select_snapshots(s::SteadySnapshots,pindex)
-  prange = _format_index(pindex)
-  drange = view(get_all_data(s),:,prange)
-  rrange = get_realisation(s)[prange]
-  Snapshots(drange,get_dof_map(s),rrange)
-end
 
 function param_getindex(s::SteadySnapshots{T,N},pindex::Integer) where {T,N}
   view(get_all_data(s),_ncolons(Val{N-1}())...,pindex)
@@ -165,7 +152,7 @@ get_param_data(s::GenericSnapshots) = s.param_data
 get_dof_map(s::GenericSnapshots) = s.dof_map
 get_realisation(s::GenericSnapshots) = s.realisation
 
-function _select_snapshots(s::GenericSnapshots{T,N},pindex) where {T,N}
+function select_snapshots(s::GenericSnapshots{T,N},pindex) where {T,N}
   prange = _format_index(pindex)
   drange = view(get_all_data(s),_ncolons(Val{N-1}())...,prange)
   pdrange = _get_param_data(s.param_data,prange)
@@ -350,8 +337,8 @@ end
 _format_index(i) = i
 _format_index(i::Number) = i:i
 
-function _get_param_data(pdata::ConsecutiveParamVector,prange)
-  ConsecutiveParamArray(view(pdata.data,:,prange))
+function _get_param_data(pdata::ConsecutiveParamArray{T,N},prange) where {T,N}
+  ConsecutiveParamArray(view(pdata.data,_ncolons(Val{N}())...,prange))
 end
 
 # in practice, when dealing with the Jacobian, the param data is never fetched
