@@ -159,27 +159,6 @@ function get_at_kron_domain(
   ConsecutiveParamArray(datav)
 end
 
-function get_at_kron_domain(
-  s::TransientSparseSnapshots,
-  rowscols::Tuple,
-  indices_time::AbstractVector{<:Integer}
-  )
-
-  rows,cols = rowscols
-  sparsity = get_sparsity(get_dof_map(s))
-  inds = sparsify_split_indices(rows,cols,sparsity)
-  data = get_all_data(s)
-  datav = zeros(eltype(s),length(inds)*length(indices_time),num_params(s))
-  for (j,itime) in enumerate(indices_time)
-    for (i,ind) in enumerate(inds)
-      for k in 1:num_params(s)
-        datav[(j-1)*length(inds)+i,k] = data[ind,k,itime]
-      end
-    end
-  end
-  ConsecutiveParamArray(datav)
-end
-
 function get_at_seq_domain(
   s::TransientSnapshots,
   rows::AbstractVector{<:Integer},
@@ -195,20 +174,18 @@ function get_at_seq_domain(
   ConsecutiveParamArray(datav)
 end
 
-function get_at_seq_domain(
-  s::TransientSparseSnapshots,
-  rowscols::Tuple,
-  indices_time::AbstractVector{<:Integer}
-  )
+for f in (:get_at_kron_domain,:get_at_seq_domain)
+  @eval begin
+    function $f(
+      s::TransientSparseSnapshots,
+      rowscols::Tuple,
+      indices_time::AbstractVector{<:Integer}
+      )
 
-  rows,cols = rowscols
-  @check length(rows) == length(indices_time)
-  sparsity = get_sparsity(get_dof_map(s))
-  inds = sparsify_split_indices(rows,cols,sparsity)
-  data = get_all_data(s)
-  datav = zeros(eltype(s),length(inds),num_params(s))
-  for i in CartesianIndices(datav)
-    datav[i] = data[inds[i.I[1]],i.I[2],indices_time[i.I[1]]]
+      rows,cols = rowscols
+      sparsity = get_sparsity(get_dof_map(s))
+      inds = sparsify_split_indices(rows,cols,sparsity)
+      $f(s,inds,indices_time)
+    end
   end
-  ConsecutiveParamArray(datav)
 end

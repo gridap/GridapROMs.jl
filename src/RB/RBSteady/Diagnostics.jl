@@ -638,9 +638,7 @@ function hr_error_res(
   b̂ = get_basis(galerkin_projection(test,res))
   hrb̂ = get_all_data(hypred)
 
-  err = sqrt.(sum((b̂-hrb̂).^2,dims=1))
-  den = sqrt.(sum(b̂.^2,dims=1))
-  mean(err./den)
+  _mean_err(b̂,hrb̂)
 end
 
 function hr_error_jac(
@@ -659,9 +657,7 @@ function hr_error_jac(
   Â = reshape(permutedims(Â,(1,3,2)),:,num_params(μ))
   hrÂ = reshape(get_all_data(hypred),:,num_params(μ))
 
-  err = sqrt.(sum((Â-hrÂ).^2,dims=1))
-  den = sqrt.(sum(Â.^2,dims=1))
-  mean(err./den)
+  _mean_err(Â,hrÂ)
 end
 
 function hr_error_res(
@@ -884,6 +880,13 @@ function set_params(rbsolver;kwargs...)
   residual_reduction = set_params(get_residual_reduction(rbsolver);kwargs...)
   jacobian_reduction = set_params(get_jacobian_reduction(rbsolver);kwargs...)
   RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
+end
+
+function _mean_err(a,â)
+  err = sqrt.(sum((a-â).^2,dims=1))
+  den = sqrt.(sum(a.^2,dims=1))
+  ε = eps(eltype(den))
+  mean(err./(den .+ ε))
 end
 
 function _entries_to_dict(entries::Vector{<:NamedTuple})

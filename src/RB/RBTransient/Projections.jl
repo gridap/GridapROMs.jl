@@ -100,7 +100,7 @@ function kron_projection(red::KroneckerReduction,s::TransientSnapshots,args...)
   basis_space,basis_time = tucker(red.reductions,s,args...)
   projection_space = PODProjection(basis_space)
   projection_time = PODProjection(basis_time)
-  KroneckerProjection(projection_space,projection_time)
+  return projection_space,projection_time
 end
 
 function kron_projection(red::KroneckerReduction,s::TransientSparseSnapshots,args...)
@@ -108,11 +108,12 @@ function kron_projection(red::KroneckerReduction,s::TransientSparseSnapshots,arg
   basis_space′ = recast(basis_space,s)
   projection_space = PODProjection(basis_space′)
   projection_time = PODProjection(basis_time)
-  KroneckerProjection(projection_space,projection_time)
+  return projection_space,projection_time
 end
 
 function RBSteady.projection(red::KroneckerReduction,s::TransientSnapshots)
-  kron_projection(red,s)
+  ps,pt = kron_projection(red,s)
+  return KroneckerProjection(ps,pt)
 end
 
 function RBSteady.projection(
@@ -120,7 +121,10 @@ function RBSteady.projection(
   s::TransientSnapshots,
   X::MatrixOrTensor
   )
-  kron_projection(red,s,X)
+
+  ps,pt = kron_projection(red,s,X)
+  psX = NormedProjection(ps,X)
+  return KroneckerProjection(psX,pt)
 end
 
 get_projection_space(a::KroneckerProjection) = a.projection_space

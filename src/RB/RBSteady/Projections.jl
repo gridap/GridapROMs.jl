@@ -683,8 +683,7 @@ for f in (:project!,:inv_project!)
 
       for i in eachindex(a)
         if a.touched[i]
-          yi = blocks(y)[i]
-          $f(yi,a[i],x[Block(i)])
+          $f(blocks(y)[i],a[i],blocks(x)[i])
         end
       end
     end
@@ -692,13 +691,13 @@ for f in (:project!,:inv_project!)
 end
 
 function galerkin_projection(
-  proj_left::BlockProjection,
-  a::BlockProjection,
+  proj_left::BlockProjection{A,1},
+  a::BlockProjection{B,1},
   args...
-  )
+  ) where {A,B}
 
   @check length(proj_left) == size(a,1)
-  block_cache = Vector{Any}(undef,length(a))
+  block_cache = Vector{Projection}(undef,length(a))
   touched = fill(false,size(a))
   for i in eachindex(a)
     if proj_left.touched[i] && a.touched[i]
@@ -706,7 +705,7 @@ function galerkin_projection(
       touched[i] = true
     end
   end
-  return ArrayBlock(block_cache,touched)
+  return BlockProjection(block_cache,touched)
 end
 
 function galerkin_projection(
@@ -718,7 +717,7 @@ function galerkin_projection(
 
   @check length(proj_left) == size(a,1)
   @check length(proj_right) == size(a,2)
-  block_cache = Matrix{Any}(undef,size(a))
+  block_cache = Matrix{Projection}(undef,size(a))
   touched = fill(false,size(a))
   for i in axes(a,1), j in axes(a,2)
     if proj_left.touched[i] && a.touched[i,j] && proj_right.touched[j]
@@ -726,7 +725,7 @@ function galerkin_projection(
       touched[i,j] = true
     end
   end
-  return ArrayBlock(block_cache,touched)
+  return BlockProjection(block_cache,touched)
 end
 
 function ReducedProjection(basis::VectorBlock)
@@ -810,7 +809,7 @@ end
 
 get_basis(a::GalerkinProjectable) = a.array
 
-function GalerkinProjectable(s::Snapshots)
+function GalerkinProjectable(s::AbstractSnapshots)
   GalerkinProjectable(get_param_data(s))
 end
 

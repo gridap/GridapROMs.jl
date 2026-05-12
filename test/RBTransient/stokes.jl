@@ -109,7 +109,7 @@ using GridapROMs
 include("../../examples/ExamplesInterface.jl")
 
 method=:pod
-compression=:local
+compression=:global
 hypred_strategy=:mdeim
   tol=1e-4
   nparams=50
@@ -283,3 +283,13 @@ hypred_strategy=:mdeim
   BB = bdata.data
 
   # 
+  # err_jac = RBSteady.hr_error_jac(c,opi,jacs,r,u,us0)
+  U = get_trial(opi)
+  lhs = opi.lhs
+  ws = (1,1)
+  ParamODEs.to_stencil!(r,c)
+  paramcache = allocate_paramcache(opi,r;evaluated=true)
+  usx = zero_time_combination(c,u,us0)
+  red_jac = RBSteady.allocate_diagnostic_jacobian(opi,r,usx,paramcache)
+  RBSteady.diagnostic_jacobian!(red_jac,opi,r,usx,ws,paramcache)
+  ParamODEs.from_stencil!(r,c)

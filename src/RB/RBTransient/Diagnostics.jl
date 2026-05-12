@@ -330,9 +330,7 @@ function RBSteady.hr_error_res(
   b̂ = get_basis(galerkin_projection(test,res,c))
   hrb̂ = get_all_data(hypred)
 
-  err = sqrt.(sum((b̂-hrb̂).^2,dims=1))
-  den = sqrt.(sum(b̂.^2,dims=1))
-  mean(err./den)
+  RBSteady._mean_err(b̂,hrb̂)
 end
 
 function RBSteady.hr_error_jac(
@@ -353,9 +351,7 @@ function RBSteady.hr_error_jac(
   Â = reshape(permutedims(Â,(1,3,2)),:,num_params(μ))
   hrÂ = reshape(get_all_data(hypred),:,num_params(μ))
 
-  err = sqrt.(sum((Â-hrÂ).^2,dims=1))
-  den = sqrt.(sum(Â.^2,dims=1))
-  mean(err./den)
+  RBSteady._mean_err(Â,hrÂ)
 end
 
 function RBSteady.hr_error_res(
@@ -530,5 +526,3 @@ end
 function RBSteady.set_params(red::NTuple{N,Reduction};kwargs...) where N
   map(r->RBSteady.set_params(r;kwargs...),red)
 end
-
-
