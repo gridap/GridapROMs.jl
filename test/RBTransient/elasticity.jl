@@ -3,11 +3,6 @@ module TransientElasticity
 using Gridap
 using GridapROMs
 
-tol_or_rank(tol,rank) = @assert false "Provide either a tolerance or a rank for the reduction step"
-tol_or_rank(tol::Real,rank) = tol
-tol_or_rank(tol::Real,rank::Int) = tol
-tol_or_rank(tol,rank::Int) = rank
-
 function main(
   method=:pod,compression=:global,hypred_strategy=:mdeim;
   tol=1e-4,nparams=50,nparams_res=floor(Int,nparams/3),
@@ -71,9 +66,9 @@ function main(
   uh0μ(μ) = interpolate_everywhere(u0μ(μ),trial(μ,t0))
 
   if method == :pod
-    state_reduction = HighDimReduction(tol,energy;nparams,sketch)
+    state_reduction = HighDimReduction(tol,energy;nparams,sketch,compression,ncentroids)
   elseif method == :ttsvd
-    state_reduction = HighDimReduction(fill(tol,4),energy;nparams,)
+    state_reduction = HighDimReduction(fill(tol,4),energy;nparams,sketch,compression,ncentroids)
   end
 
   θ = 0.5

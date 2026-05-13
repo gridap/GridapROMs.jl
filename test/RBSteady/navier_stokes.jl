@@ -96,7 +96,7 @@ function main(
   println(perf)
 end
 
-for method in (:pod,:ttsvd), compression in (:local,:global), hypred_strategy in (:mdeim,:sopt,:rbf,:none,:affine)
+for method in (:pod,:ttsvd), compression in (:local,:global), hypred_strategy in (:mdeim,:sopt,:none)
   main(method,compression,hypred_strategy)
 end
 

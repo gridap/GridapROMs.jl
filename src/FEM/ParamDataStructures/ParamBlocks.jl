@@ -1174,11 +1174,8 @@ end
 function Arrays.return_value(
   k::ParamBroadcastingFieldOpMap,a::Union{ParamBlock,AbstractArray}...
   )
-  pa = lazy_parameterise(a...;plength=param_length(k))
-  ais = map(testitem,pa)
-  hi = return_value(k,ais...)
-  data = Vector{typeof(hi)}(undef,param_length(k))
-  GenericParamBlock(data)
+  
+  return_value(k,lazy_parameterise(a...;plength=param_length(k))...)
 end
 
 function Arrays.return_cache(
@@ -2194,22 +2191,20 @@ function lazy_parameterise(a::ParamBlock,plength::Integer=param_length(a))
   a
 end
 
-function lazy_parameterise(
-  a::Union{AbstractArray{<:Number},Nothing,Field,AbstractArray{<:Field}},
-  plength::Integer
-  )
-  TrivialParamBlock(a,plength)
-end
+for T in (:Nothing,:Number,:Field)
+  @eval begin 
+    function lazy_parameterise(a::Union{$T,AbstractArray{<:$T}},plength::Integer)
+      TrivialParamBlock(a,plength)
+    end
 
-function local_parameterise(
-  a::Union{AbstractArray{<:Number},Nothing,Field,AbstractArray{<:Field}},
-  plength::Integer
-  )
-  data = Vector{typeof(a)}(undef,plength)
-  @inbounds for i in 1:plength
-    data[i] = copy(a)
+    function local_parameterise(a::Union{$T,AbstractArray{<:$T}},plength::Integer)
+      data = Vector{typeof(a)}(undef,plength)
+      @inbounds for i in 1:plength
+        data[i] = copy(a)
+      end
+      GenericParamBlock(data)
+    end
   end
-  GenericParamBlock(data)
 end
 
 function local_parameterise(a::AbstractArray{<:AbstractArray},plength::Integer)

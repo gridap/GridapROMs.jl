@@ -13,7 +13,7 @@ using GridapROMs.RBSteady
 using GridapROMs.RBTransient
 
 import GridapROMs.RBTransient: get_time_combination, time_enrichment, get_time_order,
-  get_domain_style, get_indices_time, get_integration_domain_space, _to_realisation
+  get_domain_style, get_indices_time, get_integration_domain_space
 
 function _make_realisation(np=3,nt=4)
   params = Realisation([[i*0.1,i*0.2] for i in 1:np])
@@ -68,8 +68,8 @@ end
 
   hr_no  = HighDimHyperReduction(CombinationOrder{1}(tcomb),red;hypred_strategy=:no)
   hr_aff = HighDimHyperReduction(CombinationOrder{1}(tcomb),red;hypred_strategy=:affine)
-  @test hr_no isa RBSteady.NoHyperReduction
-  @test hr_aff isa RBSteady.AffineHyperReduction
+  @test hr_no isa HighDimNoHyperReduction
+  @test hr_aff isa HighDimAffineHyperReduction
 
   solver = Newmark(LUSolver(),0.1,0.5,0.25)
   tcomb  = TimeCombination(solver)
@@ -208,20 +208,20 @@ end
   @test all(r -> r isa HighDimMDEIMHyperReduction,solver.jacobian_reduction)
 
   solver_no = RBSolver(fesolver,red;nparams_res=5,nparams_jacs=(5,5),hypred_strategy=:no)
-  @test solver_no.residual_reduction isa RBSteady.NoHyperReduction
-  @test all(r -> r isa RBSteady.NoHyperReduction,solver_no.jacobian_reduction)
+  @test solver_no.residual_reduction isa HighDimNoHyperReduction
+  @test all(r -> r isa HighDimNoHyperReduction,solver_no.jacobian_reduction)
 
   solver_aff = RBSolver(fesolver,red;nparams_res=5,nparams_jacs=(5,5),hypred_strategy=:affine)
-  @test solver_aff.residual_reduction isa RBSteady.AffineHyperReduction
-  @test all(r -> r isa RBSteady.AffineHyperReduction,solver_aff.jacobian_reduction)
+  @test solver_aff.residual_reduction isa HighDimAffineHyperReduction
+  @test all(r -> r isa HighDimAffineHyperReduction,solver_aff.jacobian_reduction)
 end
 
-# ─── _to_realisation ──────────────────────────────────────────────────────────
+# ─── to_realisation ───────────────────────────────────────────────────────────
 
-@testset "_to_realisation creates a single-param TransientRealisation" begin
+@testset "to_realisation creates a single-param TransientRealisation" begin
   r  = _make_realisation(3,4)
   μ  = collect(get_params(r))[2]
-  rμ = _to_realisation(r,μ)
+  rμ = RBSteady.to_realisation(r,μ)
 
   @test rμ isa TransientRealisation
   @test num_params(rμ) == 1

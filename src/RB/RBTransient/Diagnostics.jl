@@ -182,7 +182,7 @@ function RBSteady.diagnostic_residual!(
   paramcache
   ) where {O,T,A}
 
-  interpolate!(b.hypred,b.coeff,op.rhs,b.fecache)
+  RBSteady.diagnostic_interpolate!(b,op.rhs)
 end
 
 function RBSteady.diagnostic_residual!(
@@ -193,7 +193,7 @@ function RBSteady.diagnostic_residual!(
   paramcache
   ) where {O,T,A}
 
-  interpolate!(b.hypred,b.coeff,op.rhs,r)
+  RBSteady.diagnostic_interpolate!(b,op.rhs,r)
 end
 
 function RBSteady.diagnostic_jacobian!(
@@ -295,7 +295,7 @@ function RBSteady.diagnostic_jacobian!(
   paramcache
   ) where {O,T,B}
 
-  interpolate!(A.hypred,A.coeff,op.lhs,A.fecache)
+  RBSteady.diagnostic_interpolate!(A,op.lhs)
 end
 
 function RBSteady.diagnostic_jacobian!(
@@ -307,9 +307,7 @@ function RBSteady.diagnostic_jacobian!(
   paramcache
   ) where {O,T,B}
 
-  for (hi,ci,ai) in zip(A.hypred,A.coeff,op.lhs)
-    interpolate!(hi,ci,ai,r)
-  end
+  RBSteady.diagnostic_interpolate!(A,op.lhs,r)
 end
 
 function RBSteady.hr_diagnostics(c::TupOfAffineContribution)

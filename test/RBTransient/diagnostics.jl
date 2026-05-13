@@ -93,9 +93,9 @@ function main(
   create_dir(dir)
   
   tols = [1e-1,1e-3,1e-5]
-  run_test(dir,rbsolver,feop,tols)
+  run_test(dir,rbsolver,feop,tols,xh0μ)
 
-  dgn = rom_diagnostics(dir,rbsolver,feop)
+  dgn = rom_diagnostics(dir,rbsolver,feop,xh0μ)
   println(dgn)
 end
 
