@@ -94,6 +94,7 @@ export SequentialReduction
 export HighDimHyperReduction
 export SteadyHyperReduction
 export TransientHyperReduction
+export HighDimTrivialHyperReduction
 export HighDimNoHyperReduction
 export HighDimAffineHyperReduction
 export HighDimMDEIMHyperReduction

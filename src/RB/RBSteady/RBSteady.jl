@@ -115,6 +115,7 @@ export TTSVDReduction
 export LocalReduction
 export SupremizerReduction
 export HyperReduction
+export TrivialHyperReduction
 export NoHyperReduction
 export AffineHyperReduction
 export MDEIMHyperReduction
@@ -222,8 +223,10 @@ export move_interpolation
 include("Interpolations.jl")
 
 export HRProjection
-export AffineContribution
+export HRVecProjection
+export HRMatProjection
 export BlockHRProjection
+export AffineContribution
 export get_style
 export get_interpolation
 export get_integration_domain

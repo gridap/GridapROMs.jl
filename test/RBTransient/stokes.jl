@@ -108,9 +108,9 @@ using GridapROMs
 
 include("../../examples/ExamplesInterface.jl")
 
-method=:pod
-compression=:global
-hypred_strategy=:mdeim
+method=:ttsvd
+compression=:global 
+hypred_strategy=:none
   tol=1e-4
   nparams=50
   nparams_res=floor(Int,nparams/3)
@@ -201,95 +201,3 @@ hypred_strategy=:mdeim
   run_test(dir,rbsolver,feop,tols,xh0μ)
 
   dgn = rom_diagnostics(dir,rbsolver,feop,xh0μ)
-
-  # fesnaps, = solution_snapshots(rbsolver,feop,xh0μ)
-  # rbop = reduced_operator(rbsolver,feop,fesnaps)
-
-  # μon = realisation(feop;nparams=8,sampling=:uniform)
-  # x̂,rbstats = solve(rbsolver,rbop,μon,xh0μ)
-  # x,festats = solution_snapshots(rbsolver,feop,μon,xh0μ)
-  # perf = eval_performance(rbsolver,rbop,x,x̂,festats,rbstats)
-
-  # println(perf)
-
-  # rhs = rbop.rhs.values[1]
-  # trian = rbop.rhs.trians[1]
-  # ids = trian.tface_to_mface
-
-  # union(map(i->get_integration_cells(rhs[1].reductions[i].interpolation),1:4)...)
-  
-  # red = rbsolver.residual_reduction
-  # ress = residual_snapshots(rbsolver,feop,fesnaps)
-  # s = ress.values[1]
-  # trian = ress.trians[1]
-  # hyper_reds = map(eachindex(s)) do i
-  #   hyper_red, = RBSteady.reduced_form(red,s[i],trian,rbop.test[i])
-  #   hyper_red
-  # end
-
-  # hyper_red = BlockHRProjection(hyper_reds,s.touched)
-  # red_trian = reduced_triangulation(trian,hyper_red)
-
-  # interp = get_interpolation(hyper_red)
-  using GridapROMs.ParamAlgebra
-  using GridapROMs.ParamSteady
-  using GridapROMs.ParamODEs
-  using GridapROMs.RBSteady
-  using GridapROMs.RBTransient
-  using Gridap.FESpaces
-  
-  s,jacs,ress = load_problem_snapshots(dir,rbsolver,feop,xh0μ;label=online_label)
-
-  name = first(sort(readdir(dir)))
-  subdir = joinpath(dir,name)
-
-  rbop = load_operator(subdir,feop)
-  diagnostics = RBSteady.offline_diagnostics(rbop)
-
-  proj_err = projection_error(rbsolver,rbop,s)
-  # err_res,err_jac = hr_error(rbsolver,rbop,ress,jacs,s)
-  i = 1
-  μi = first(get_realisation(s))
-  opi = get_local(rbop,μi)
-  si = select_snapshots(s,i)
-  resi = select_snapshots(ress,i)
-  jaci = select_snapshots(jacs,i)
-  gsolver = RBSteady.change_context(rbsolver)
-  # err_res_i,err_jac_i = RBSteady.hr_error(gsolver,opi,resi,jaci,si)
-  r = get_realisation(si)
-  u = get_param_data(si)
-  # err_res = RBSteady.hr_error_res(opi,ress,r,u)
-
-  V = get_test(opi)
-  rhss = RBSteady.get_rhs(opi)
-  c = TimeCombination(fesolver)
-  us0 = get_initial_param_data(si)
-  ParamODEs.to_stencil!(r,c)
-  paramcache = allocate_paramcache(opi,r;evaluated=true)
-  usx = zero_time_combination(c,u,us0)
-  red_res = RBSteady.allocate_diagnostic_residual(opi,r,usx,paramcache)
-  RBSteady.diagnostic_residual!(red_res,opi,r,usx,paramcache)
-  ParamODEs.from_stencil!(r,c)
-
-  res_t,a_t,fecache_t,hypred_t = resi[1],rhss[1],red_res.fecache[1],red_res.hypred[1]
-  # RBSteady.hr_error_res(V[1],res_t[1],a_t[1],fecache_t.array[1],hypred_t.data[1])
-  # RBSteady.check_interpolation(res_t[1],a_t[1],fecache_t.array[1])
-  interp = get_interpolation(a_t[1])
-  rows = get_interpolation_rows(interp)
-  indices_time = get_indices_time(interp)
-  style = get_domain_style(interp)
-  bdata = RBTransient.get_at_kron_domain(res_t[1],rows,indices_time)
-  AA = fecache_t.array[1].data
-  BB = bdata.data
-
-  # 
-  # err_jac = RBSteady.hr_error_jac(c,opi,jacs,r,u,us0)
-  U = get_trial(opi)
-  lhs = opi.lhs
-  ws = (1,1)
-  ParamODEs.to_stencil!(r,c)
-  paramcache = allocate_paramcache(opi,r;evaluated=true)
-  usx = zero_time_combination(c,u,us0)
-  red_jac = RBSteady.allocate_diagnostic_jacobian(opi,r,usx,paramcache)
-  RBSteady.diagnostic_jacobian!(red_jac,opi,r,usx,ws,paramcache)
-  ParamODEs.from_stencil!(r,c)

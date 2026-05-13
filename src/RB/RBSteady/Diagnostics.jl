@@ -547,7 +547,7 @@ function hr_error(solver::LocalRBSolver,op::RBOperator,res,jac,s)
 
   err_res = Any[]
   err_jac = Any[]
-  for (i,μi) in enumerate(μ)
+  for (i,μi) in enumerate(get_params(μ))
     opi = get_local(op,μi)
     si = select_snapshots(s,i)
     resi = select_snapshots(res,i)
@@ -836,7 +836,7 @@ function check_interpolation(jac,a::HRMatProjection,fecache)
 end
 
 for S in (:HRVecProjection,:HRMatProjection), T in (:RBFHyperReduction,:TrivialHyperReduction)
-  @eval function check_interpolation(res,a::$S{<:$T},fecache)
+  @eval function check_interpolation(resjac,a::$S{<:$T},fecache)
     return true
   end
 end

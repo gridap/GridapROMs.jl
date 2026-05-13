@@ -3,7 +3,7 @@ function RBSteady.allocate_diagnostic_residual(nlop::SpaceTimeParamOperator,u)
 end
 
 function RBSteady.allocate_diagnostic_residual(
-  op::TransientGenericRBOperator,
+  op::TransientRBOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -14,14 +14,14 @@ function RBSteady.allocate_diagnostic_residual(
 end
 
 function RBSteady.allocate_diagnostic_residual(
-  op::GenericRBOperator{O,T,B,<:HighDimNoHRContribution},
+  op::TransientGenericRBOperator{O,T,B,<:HighDimNoHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
   ) where {O,T,B}
 
   rhs = get_rhs(op)
-  b = allocate_residual(op,r,us,paramcache)
+  b = allocate_residual(op.op,r,us,paramcache)
   b̂ = RBSteady.allocate_dcontribution(rhs,r)
   DiagnosticsContribution(b,b̂.coeff,b̂.hypred)
 end
@@ -48,7 +48,7 @@ function RBSteady.allocate_diagnostic_jacobian(nlop::SpaceTimeParamOperator,u)
 end
 
 function RBSteady.allocate_diagnostic_jacobian(
-  op::TransientGenericRBOperator,
+  op::TransientRBOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -59,14 +59,14 @@ function RBSteady.allocate_diagnostic_jacobian(
 end
 
 function RBSteady.allocate_diagnostic_jacobian(
-  op::GenericRBOperator{O,T,<:TupOfHighDimNoHRContribution,B},
+  op::TransientGenericRBOperator{O,T,<:TupOfHighDimNoHRContribution,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
   ) where {O,T,B}
 
   lhs = get_lhs(op)
-  A = allocate_jacobian(op,r,us,paramcache)
+  A = allocate_jacobian(op.op,r,us,paramcache)
   Â = RBSteady.allocate_dcontribution(lhs,r)
   DiagnosticsContribution(A,Â.coeff,Â.hypred)
 end
@@ -146,7 +146,7 @@ end
 
 function RBSteady.diagnostic_residual!(
   b::DiagnosticsContribution,
-  op::GenericRBOperator{O,T,A,<:HighDimNoHRContribution},
+  op::TransientGenericRBOperator{O,T,A,<:HighDimNoHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -176,7 +176,7 @@ end
 
 function RBSteady.diagnostic_residual!(
   b::DiagnosticsContribution,
-  op::GenericRBOperator{O,T,A,<:HighDimAffineHRContribution},
+  op::TransientGenericRBOperator{O,T,A,<:HighDimAffineHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -187,7 +187,7 @@ end
 
 function RBSteady.diagnostic_residual!(
   b::DiagnosticsContribution,
-  op::GenericRBOperator{O,T,A,<:HighDimRBFContribution},
+  op::TransientGenericRBOperator{O,T,A,<:HighDimRBFContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -246,7 +246,7 @@ end
 
 function RBSteady.diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::GenericRBOperator{O,T,<:TupOfHighDimNoHRContribution,B},
+  op::TransientGenericRBOperator{O,T,<:TupOfHighDimNoHRContribution,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
@@ -269,6 +269,7 @@ function RBSteady.diagnostic_jacobian!(
   for k in 1:get_order(op)+1
     Ak = A.fecache[k]
     Ark = A.coeff[k]
+    lhs = lhss[k]
     jac = jacs[k]
     w = ws[k]
     iszero(w) && continue
@@ -287,7 +288,7 @@ end
 
 function RBSteady.diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::GenericRBOperator{O,T,<:TupOfHighDimAffineHRContribution,B},
+  op::TransientGenericRBOperator{O,T,<:TupOfHighDimAffineHRContribution,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
@@ -299,7 +300,7 @@ end
 
 function RBSteady.diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::GenericRBOperator{O,T,<:TupOfHighDimRBFContribution,B},
+  op::TransientGenericRBOperator{O,T,<:TupOfHighDimRBFContribution,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
@@ -458,9 +459,9 @@ end
 
 # utils 
 
-for T in (:HighDimMDEIMProjection,:HighDimSOPTProjection)
+for T in (:HighDimMDEIMHyperReduction,:HighDimSOPTHyperReduction)
   @eval begin
-    function RBSteady.check_interpolation(res,a::$T{<:ReducedVecProjection},fecache)
+    function RBSteady.check_interpolation(res,a::HRVecProjection{<:$T},fecache)
       msg = "fecache mismatch at interpolation points"
       interp = get_interpolation(a)
       rows = get_interpolation_rows(interp)
@@ -478,7 +479,7 @@ for T in (:HighDimMDEIMProjection,:HighDimSOPTProjection)
       return true
     end
 
-    function RBSteady.check_interpolation(jac,a::$T{<:ReducedMatProjection},fecache)
+    function RBSteady.check_interpolation(jac,a::HRMatProjection{<:$T},fecache)
       msg = "fecache mismatch at interpolation points"
       interp = get_interpolation(a)
       rows = get_interpolation_rows(interp)
@@ -496,6 +497,12 @@ for T in (:HighDimMDEIMProjection,:HighDimSOPTProjection)
       @check isapprox(get_all_data(fecache),get_all_data(Adata);rtol=1e-8) msg
       return true
     end
+  end
+end
+
+for S in (:HRVecProjection,:HRMatProjection), T in (:HighDimRBFHyperReduction,:HighDimTrivialHyperReduction)
+  @eval function RBSteady.check_interpolation(resjac,a::$S{<:$T},fecache)
+    return true
   end
 end
 

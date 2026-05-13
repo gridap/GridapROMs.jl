@@ -18,7 +18,7 @@ import Gridap.Helpers: @abstractmethod
 import Gridap.MultiField: BlockMultiFieldStyle
 import GridapROMs.ParamAlgebra: get_linear_operator,get_nonlinear_operator
 import GridapROMs.ParamDataStructures: get_realisation
-import GridapROMs.RBSteady: TrivialHyperReduction,get_state_reduction,get_residual_reduction,get_jacobian_reduction,get_error,_get_label
+import GridapROMs.RBSteady: get_state_reduction,get_residual_reduction,get_jacobian_reduction,get_error,_get_label
 import GridapROMs.Utils: Contribution,TupOfArrayContribution
 
 function try_loading_fe_snapshots(dir,rbsolver,feop,args...;label="",kwargs...)
@@ -88,6 +88,10 @@ function update_reduction(red::Reduction,tolrank)
   @abstractmethod
 end
 
+function update_reduction(red::TrivialHyperReduction,tolrank)
+  red
+end
+
 function update_reduction(red::PODReduction,tolrank)
   PODReduction(update_redstyle(red.red_style,tolrank),red.norm_style,red.nparams)
 end
@@ -132,6 +136,10 @@ end
 
 function update_reduction(red::SequentialReduction,tolrank)
   SequentialReduction(update_reduction(red.reduction,tolrank))
+end
+
+function update_reduction(red::HighDimTrivialHyperReduction,tolrank)
+  red
 end
 
 function update_reduction(red::HighDimMDEIMHyperReduction,tolrank)

@@ -279,15 +279,15 @@ function HighDimHyperReduction(
   _replace_reduction(hr)
 end
 
-abstract type TrivialHighDimHyperReduction <: HighDimHyperReduction{NoReductionStyle} end
+abstract type HighDimTrivialHyperReduction <: HighDimHyperReduction{NoReductionStyle} end
 
-RBSteady.get_reduction(r::TrivialHighDimHyperReduction) = NoReduction()
-RBSteady.ReductionStyle(r::TrivialHighDimHyperReduction) = NoReductionStyle()
-RBSteady.NormStyle(r::TrivialHighDimHyperReduction) = EuclideanNorm()
-ParamDataStructures.num_params(r::TrivialHighDimHyperReduction) = 1
+RBSteady.get_reduction(r::HighDimTrivialHyperReduction) = NoReduction()
+RBSteady.ReductionStyle(r::HighDimTrivialHyperReduction) = NoReductionStyle()
+RBSteady.NormStyle(r::HighDimTrivialHyperReduction) = EuclideanNorm()
+ParamDataStructures.num_params(r::HighDimTrivialHyperReduction) = 1
 
 """
-    struct HighDimNoHyperReduction <: TrivialHighDimHyperReduction 
+    struct HighDimNoHyperReduction <: HighDimTrivialHyperReduction 
       combination::TimeCombination
     end
 
@@ -295,14 +295,14 @@ Reduction employed when the input data is independent with respect to the
 considered realisation. Therefore, simply considering a number of parameters
 equal to 1 suffices for this type of reduction
 """
-struct HighDimNoHyperReduction <: TrivialHighDimHyperReduction 
+struct HighDimNoHyperReduction <: HighDimTrivialHyperReduction 
   combination::TimeCombination
 end
 
 get_time_combination(r::HighDimNoHyperReduction) = r.combination
 
 """
-    struct HighDimAffineHyperReduction <: TrivialHighDimHyperReduction 
+    struct HighDimAffineHyperReduction <: HighDimTrivialHyperReduction 
       combination::TimeCombination
     end
 
@@ -310,7 +310,7 @@ Reduction employed when the input data is independent with respect to the
 considered realisation. Therefore, simply considering a number of parameters
 equal to 1 suffices for this type of reduction
 """
-struct HighDimAffineHyperReduction <: TrivialHighDimHyperReduction 
+struct HighDimAffineHyperReduction <: HighDimTrivialHyperReduction 
   combination::TimeCombination
 end
 
