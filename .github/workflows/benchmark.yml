@@ -32,7 +32,7 @@ jobs:
           git fetch --tags
           git fetch origin "${{ github.event.inputs.base }}:${{ github.event.inputs.base }}" || true
           git fetch origin "${{ github.event.inputs.target }}:${{ github.event.inputs.target }}" || true
-      - uses: julia-actions/setup-julia@v2
+      - uses: julia-actions/setup-julia@v3
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
