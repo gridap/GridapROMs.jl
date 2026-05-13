@@ -228,7 +228,8 @@ function RBSteady.galerkin_projection(
   np = Int(param_length(a.array) / nt)
   proj_a_space = galerkin_projection(get_basis_space(proj_left),get_basis(a))
   proj_a_spacetime = galerkin_projection(get_basis_time(proj_left),change_mode(proj_a_space,np))
-  proj = reshape(proj_a_spacetime,:,np)
+  proj_a_time_space = permutedims(reshape(proj_a_spacetime,size(proj_a_spacetime,1),:,np),(2,1,3))
+  proj = reshape(proj_a_time_space,:,np)
   return ReducedProjection(proj)
 end
 
@@ -261,7 +262,8 @@ function RBSteady.galerkin_projection(
     combine) # nt_left x ns_left*Nμ*ns_right x nt_right
 
   a5 = reshape(proj_a_spacetime,nt_left,ns_left,np,ns_right,nt_right) # nt_left x ns_left x Nμ x ns_right x nt_right
-  proj = reshape(a5,ns_left*nt_left,np,ns_right*nt_right)
+  a6 = permutedims(a5,(2,1,3,4,5)) # ns_left x nt_left x Nμ x ns_right x nt_right
+  proj = reshape(a6,ns_left*nt_left,np,ns_right*nt_right)
   return ReducedProjection(proj)
 end
 

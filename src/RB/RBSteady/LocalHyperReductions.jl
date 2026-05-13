@@ -64,11 +64,17 @@ projection_eltype(a::LocalHRProjection) = promote_type(map(projection_eltype,loc
 
 local_vals(a::LocalHRProjection) = a.reductions
 
-function local_vals(a::BlockHRProjection)
+function local_vals(a::BlockHRProjection{N,A,B}) where {N,A,B}
   litems = map(local_vals,a.array)
   nlitems = length(first(litems))
   map(1:nlitems) do i
-    BlockHRProjection(getindex.(litems,i),a.touched)
+    array = Array{HRProjection{A,B},N}(undef,size(a))
+    for j in eachindex(a)
+      if a.touched[j]
+        array[j] = litems[j][i]
+      end
+    end
+    BlockHRProjection(array,a.touched)
   end
 end
 
@@ -83,8 +89,14 @@ function get_local(a::LocalHRProjection,μ::AbstractVector)
   local_vals(a)[labk,labl]
 end
 
-function get_local(a::BlockHRProjection,μ::AbstractVector)
-  BlockHRProjection(map(p -> get_local(p,μ),a.array),a.touched)
+function get_local(a::BlockHRProjection{N,A,B},μ::AbstractVector) where {N,A,B}
+  array = Array{HRProjection{A,B},N}(undef,size(a))
+  for i in eachindex(a)
+    if a.touched[i]
+      array[i] = get_local(a.array[i],μ)
+    end
+  end
+  BlockHRProjection(array,a.touched)
 end
 
 function get_local(a::AffineContribution,μ::AbstractVector)
