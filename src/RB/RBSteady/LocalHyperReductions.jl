@@ -36,11 +36,6 @@ function get_integration_cells(a::LocalInterpolation,args...)
   return cells
 end
 
-function get_owned_icells(a::LocalInterpolation,args...)
-  cells = get_integration_cells(a,args...)
-  get_owned_icells(a,cells)
-end
-
 function get_owned_icells(a::LocalInterpolation,cells::AbstractVector) 
   data = map(i -> get_owned_icells(i,cells),local_vals(a))
   return Table(data)

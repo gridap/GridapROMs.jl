@@ -5,7 +5,7 @@ Interpolation(args...) = @abstractmethod
 get_integration_cells(a::Interpolation,args...) = Int32[]
 get_cell_irows(a::Interpolation) = empty_table(Int,Int32,0)
 get_cell_icols(a::Interpolation) = empty_table(Int,Int32,0)
-get_owned_icells(a::Interpolation,args...) = Int[]
+get_owned_icells(a::Interpolation) = collect(1:length(get_integration_cells(a)))
 move_interpolation(a::Interpolation,args...) = a
 get_interpolation_rows(a::Interpolation) = @abstractmethod
 get_interpolation_cols(a::Interpolation) = @notimplemented
@@ -18,6 +18,17 @@ function reduced_triangulation(trian::Triangulation,a::Interpolation)
   red_cells = get_integration_cells(a)
   red_trian = view(trian,red_cells)
   return red_trian
+end
+
+function get_owned_icells(a::Interpolation,trian::Triangulation) 
+  cells = get_integration_cells(trian)
+  get_owned_icells(a,cells)
+end
+
+function get_owned_icells(a::Interpolation,cells::AbstractVector)
+  cellsi = get_integration_cells(a)
+  icells = filter(!isnothing,indexin(cellsi,cells))
+  Int.(icells)
 end
 
 # Empty interpolation
@@ -88,8 +99,6 @@ end
 get_integration_cells(a::GreedyInterpolation,args...) = get_integration_cells(a.domain,args...)
 get_cell_irows(a::GreedyInterpolation) = get_cell_irows(a.domain)
 get_cell_icols(a::GreedyInterpolation) = get_cell_icols(a.domain)
-get_owned_icells(a::GreedyInterpolation,args...) = get_owned_icells(a,get_integration_cells(a,args...))
-get_owned_icells(a::GreedyInterpolation,cells::AbstractVector) = get_owned_icells(a.domain,cells)
 get_interpolation_rows(a::GreedyInterpolation) = get_interpolation_rows(a.domain)
 get_interpolation_cols(a::GreedyInterpolation) = get_interpolation_cols(a.domain)
 
@@ -291,11 +300,6 @@ function get_integration_cells(a::BlockInterpolation,args...)
     end
   end
   return cells
-end
-
-function get_owned_icells(a::BlockInterpolation,args...)
-  cells = get_integration_cells(a,args...)
-  get_owned_icells(a,cells)
 end
 
 function get_owned_icells(a::BlockInterpolation{N},cells::AbstractVector) where N

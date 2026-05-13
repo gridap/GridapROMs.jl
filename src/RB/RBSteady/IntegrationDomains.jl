@@ -182,11 +182,6 @@ get_integration_cells(i::IntegrationDomain,args...) = @abstractmethod
 get_cell_irows(i::IntegrationDomain) = @abstractmethod
 get_cell_icols(i::IntegrationDomain) = @notimplemented
 
-function get_owned_icells(i::IntegrationDomain,cells::AbstractVector)::Vector{Int}
-  cellsi = get_integration_cells(i)
-  filter(!isnothing,indexin(cellsi,cells))
-end
-
 function get_integration_cells(i::IntegrationDomain,trian::Triangulation)
   get_integration_cells(i)
 end
@@ -335,6 +330,20 @@ function move_integration_domain(
   cols = i.cols
   IntegrationDomain(ttrian,trial,test,rows,cols)
 end
+
+# triangulation utils 
+
+get_integration_cells(g::Grid) = @abstractmethod
+get_integration_cells(g::Triangulation) = get_integration_cells(get_grid(g))
+get_integration_cells(g::Geometry.GridView) = g.cell_to_parent_cell
+
+function get_integration_cells(g::Geometry.AppendedTriangulation)
+  pa = get_parent(g.a)
+  npa = num_cells(pa)
+  ca = get_integration_cells(g.a)
+  cb = get_integration_cells(g.b) 
+  return lazy_append(ca,cb.+npa)
+end 
 
 # utils
 
