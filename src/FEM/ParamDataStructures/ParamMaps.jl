@@ -22,6 +22,82 @@ for T in (:ParamReindex,:PosNegParamReindex)
   @eval begin
     function Arrays.return_value(
       f::Broadcasting{<:$T},
+      x::Number...
+      )
+
+      vi = return_value(Broadcasting(testitem(f.f)),x...)
+      local_parameterise(vi,param_length(f.f))
+    end
+
+    function Arrays.return_cache(
+      f::Broadcasting{<:$T},
+      x::Number...
+      )
+
+      c = return_cache(Broadcasting(testitem(f.f)),x...)
+      a = evaluate!(c,Broadcasting(testitem(f.f)),x...)
+      cache = Vector{typeof(c)}(undef,param_length(f.f))
+      data = local_parameterise(a,param_length(f.f))
+      @inbounds for i = param_eachindex(f.f)
+        cache[i] = return_cache(Broadcasting(param_getindex(f.f,i)),x...)
+      end
+      cache,data
+    end
+
+    function Arrays.evaluate!(
+      cache,
+      f::Broadcasting{<:$T},
+      x::Number...
+      )
+
+      c,data = cache
+      @inbounds for i = param_eachindex(f.f)
+        vi = evaluate!(c[i],Broadcasting(param_getindex(f.f,i)),x...)
+        param_setindex!(data,vi,i)
+      end
+      data
+    end
+
+    function Arrays.return_value(
+      f::Broadcasting{<:$T},
+      x::AbstractArray{<:Number}
+      )
+
+      vi = return_value(Broadcasting(testitem(f.f)),x)
+      local_parameterise(vi,param_length(f.f))
+    end
+
+    function Arrays.return_cache(
+      f::Broadcasting{<:$T},
+      x::AbstractArray{<:Number}
+      )
+
+      c = return_cache(Broadcasting(testitem(f.f)),x)
+      a = evaluate!(c,Broadcasting(testitem(f.f)),x)
+      cache = Vector{typeof(c)}(undef,param_length(f.f))
+      data = local_parameterise(a,param_length(f.f))
+      @inbounds for i = param_eachindex(f.f)
+        cache[i] = return_cache(Broadcasting(param_getindex(f.f,i)),x)
+      end
+      cache,data
+    end
+
+    function Arrays.evaluate!(
+      cache,
+      f::Broadcasting{<:$T},
+      x::AbstractArray{<:Number}
+      )
+
+      c,data = cache
+      @inbounds for i = param_eachindex(f.f)
+        vi = evaluate!(c[i],Broadcasting(param_getindex(f.f,i)),x)
+        param_setindex!(data,vi,i)
+      end
+      data
+    end
+
+    function Arrays.return_value(
+      f::Broadcasting{<:$T},
       x::Union{Number,AbstractArray{<:Number}}...
       )
 
@@ -48,34 +124,6 @@ for T in (:ParamReindex,:PosNegParamReindex)
       cache,
       f::Broadcasting{<:$T},
       x::Union{Number,AbstractArray{<:Number}}...
-      )
-
-      c,data = cache
-      @inbounds for i = param_eachindex(f.f)
-        vi = evaluate!(c[i],Broadcasting(param_getindex(f.f,i)),x...)
-        param_setindex!(data,vi,i)
-      end
-      data
-    end
-
-    function Arrays.evaluate!(
-      cache,
-      f::Broadcasting{<:$T},
-      x::AbstractArray{<:Number}
-      )
-
-      c,data = cache
-      @inbounds for i = param_eachindex(f.f)
-        vi = evaluate!(c[i],Broadcasting(param_getindex(f.f,i)),x)
-        param_setindex!(data,vi,i)
-      end
-      data
-    end
-
-    function Arrays.evaluate!(
-      cache,
-      f::Broadcasting{<:$T},
-      x::Number...
       )
 
       c,data = cache
@@ -171,7 +219,7 @@ function Arrays.return_cache(k::FetchParam,a::ArrayBlock{A,N}) where {A,N}
   g = Array{typeof(fix),N}(undef,size(a.array))
   for i in eachindex(a.array)
     if a.touched[i]
-      a[i] = return_cache(k,a.array[i])
+      l[i] = return_cache(k,a.array[i])
     end
   end
   ArrayBlock(g,a.touched),l

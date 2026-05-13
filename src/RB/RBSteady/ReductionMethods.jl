@@ -398,6 +398,22 @@ Subtypes:
 """
 abstract type HyperReduction{A<:ReductionStyle} <: Reduction{A,EuclideanNorm} end
 
+"""
+  HyperReduction(args...; compression=:global, hypred_strategy=:mdeim, kwargs...)
+
+Factory for steady hyper-reduction strategies.
+
+Supported `hypred_strategy` values:
+
+- `:mdeim` (existing)
+- `:sopt` (existing)
+- `:rbf` (existing)
+- `:none` (new, aliases: `:no`, `:nohr`) -> [`NoHyperReduction`](@ref)
+- `:affine` (new) -> [`AffineHyperReduction`](@ref)
+
+When `compression=:local`, this dispatches to [`LocalHyperReduction`](@ref)
+with the selected strategy.
+"""
 function HyperReduction(args...;compression=:global,hypred_strategy=:mdeim,kwargs...)
   if hypred_strategy in (:no,:none,:nohr)
     return NoHyperReduction()
@@ -456,9 +472,10 @@ struct NoHyperReduction <: TrivialHyperReduction end
 """
     struct AffineHyperReduction <: TrivialHyperReduction end
 
-Reduction employed when the input data is independent with respect to the
-considered realisation. Therefore, simply considering a number of parameters
-equal to 1 suffices for this type of reduction
+Reduction employed when reduced contributions are affine with respect to
+parameter-independent (μ-independent) structures. As in the no-hyper-reduction
+case, this uses a single effective parameter sample (`num_params = 1`) for the
+hyper-reduction stage.
 """
 struct AffineHyperReduction <: TrivialHyperReduction end
 

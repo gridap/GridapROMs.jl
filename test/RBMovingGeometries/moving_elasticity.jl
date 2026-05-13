@@ -12,6 +12,7 @@ using GridapROMs.RBSteady
 using GridapROMs.Extensions
 
 import Gridap.Geometry: push_normal
+import GridapROMs.RBSteady: change_context
 
 method = :pod
 tol = 1e-4
@@ -154,6 +155,7 @@ end
 get_feop = method==:ttsvd ? def_extended_fe_operator : def_fe_operator
 
 function local_solver(rbsolver,rbop,μ,x,festats)
+  gsolver = change_context(rbsolver)
   k, = get_clusters(rbop.test)
   μsplit = cluster(μ,k)
   xsplit = cluster(x,k)
@@ -161,7 +163,7 @@ function local_solver(rbsolver,rbop,μ,x,festats)
   for (μi,xi) in zip(μsplit,xsplit)
     feopi = get_feop(μi)
     rbopi = change_operator(get_local(rbop,first(μi)),feopi)
-    x̂,rbstats = solve(rbsolver,rbopi,μi)
+    x̂,rbstats = solve(gsolver,rbopi,μi)
     perf = eval_performance(rbsolver,rbopi,xi,x̂,festats,rbstats)
     push!(perfs,perf)
   end

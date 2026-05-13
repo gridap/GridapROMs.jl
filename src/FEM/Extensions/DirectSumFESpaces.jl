@@ -166,9 +166,6 @@ function _same_background_space(space::EmbeddedFESpace,complementary::EmbeddedFE
   _same_background_space(get_bg_space(space),get_bg_space(complementary))
 end
 
-FESpaces.get_dirichlet_dof_values(uh::SingleFieldFEFunction) = uh.dirichlet_values
-FESpaces.get_dirichlet_dof_values(uh::SingleFieldParamFEFunction) = uh.dirichlet_values
-
 # dof map utils
 
 function DofMaps.get_dof_map(f::DirectSumFESpace)

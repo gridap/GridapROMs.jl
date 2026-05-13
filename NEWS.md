@@ -1,5 +1,114 @@
 # GridapROMs.jl Release Notes
 
+## Release: v0.1.3
+
+### New features
+
+#### Improved handling of local quantities
+
+The local (clustered) ROM execution path has been strengthened across
+parametric blocks, local operator changes, and local solve workflows. In
+practice this improves robustness when evaluating and assembling local
+contributions under local compression settings and local hyper-reduction.
+
+At API level, local workflows are now first-class in both steady and
+transient stacks, including dedicated local projection/hyper-reduction
+components (for example `LocalProjection`, `LocalHyperReduction`,
+`HighDimLocalHyperReduction`, and their related local interpolation and
+contribution paths).
+
+#### Diagnostics API for steady and transient workflows
+
+Diagnostics are now supported and exercised in both steady and transient
+test pipelines:
+
+- Steady diagnostics test: [test/RBSteady/diagnostics.jl](test/RBSteady/diagnostics.jl)
+- Transient diagnostics test: [test/RBTransient/diagnostics.jl](test/RBTransient/diagnostics.jl)
+
+The diagnostics entry-point signatures used in tests are:
+
+- Steady: `rom_diagnostics(dir,rbsolver,feop)`
+- Transient: `rom_diagnostics(dir,rbsolver,feop,xh0μ)`
+
+Both tests run end-to-end diagnostics after snapshot generation and test
+execution (`run_test`), then print the diagnostics object returned by
+`rom_diagnostics`.
+
+The main diagnostics implementation is provided by new dedicated modules:
+
+- `src/RB/RBSteady/Diagnostics.jl`
+- `src/RB/RBTransient/Diagnostics.jl`
+
+and is integrated in the standard test matrix via:
+
+- `test/runtests.jl` testset `steady diagnostics`
+- `test/runtests.jl` testset `transient diagnostics`
+
+#### Hyper-reduction strategy keywords, including affine and none
+
+The hyper-reduction strategy keyword interface now explicitly supports:
+
+- `:mdeim`
+- `:rbf`
+- `:sopt`
+- `:none`
+- `:affine`
+
+The strategies `:mdeim`, `:rbf`, and `:sopt` were already available in
+previous releases. This release extends the interface with `:none` and
+`:affine`.
+
+In addition, `:none` accepts aliases `:no` and `:nohr`.
+
+The steady and transient diagnostics tests validate these options by looping
+over all strategies when constructing the RB solver:
+
+- `RBSolver(...; hypred_strategy=:mdeim, ...)`
+- `RBSolver(...; hypred_strategy=:rbf, ...)`
+- `RBSolver(...; hypred_strategy=:sopt, ...)`
+- `RBSolver(...; hypred_strategy=:none, ...)`
+- `RBSolver(...; hypred_strategy=:affine, ...)`
+
+The `:affine` option targets parameter-independent (μ-independent)
+structures, while `:none` disables hyper-reduction entirely for validation,
+debugging, or accuracy-oriented runs.
+
+### Additional technical changes since v0.1.2
+
+#### Transient Galerkin and projection workflow updates
+
+Transient Galerkin/projection paths have been substantially updated and are
+now covered by a dedicated test module:
+
+- `test/RBTransient/galerkin.jl`
+
+This complements the broader transient algorithm suite and improves
+confidence in projection consistency for transient reduced operators.
+
+#### Test matrix expansion and refresh
+
+The default test matrix (`test/runtests.jl`) now includes dedicated steady
+and transient diagnostics testsets, a transient Galerkin testset, and an
+updated moving-geometry suite focused on moving Poisson, elasticity, and
+Stokes workflows.
+
+### Maintenance
+
+#### Dependency and compat updates
+
+Compatibility bounds were revised for the current supported ecosystem. In
+particular:
+
+- `Gridap`: `0.19` -> `0.20`
+- `GridapSolvers`: `0.6` -> `0.7`
+- Added dependency: `MiniQhull = 0.4.0`
+
+#### CI and release engineering updates
+
+Project automation has been expanded with additional workflows for docs,
+downgrade testing, and benchmarks, plus updates to CI/CompatHelper/TagBot
+configuration. This improves regression detection and release reliability.
+
 ## Release: v0.1.2
 
 ### New features

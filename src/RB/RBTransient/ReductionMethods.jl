@@ -195,6 +195,22 @@ function HighDimHyperReduction end
 
 const TransientHyperReduction = HighDimHyperReduction
 
+"""
+    HighDimHyperReduction(combination, args...; compression=:global, hypred_strategy=:mdeim, kwargs...)
+
+Factory for transient high-dimensional hyper-reduction strategies.
+
+Supported `hypred_strategy` values:
+
+- `:mdeim` (existing)
+- `:sopt` (existing)
+- `:rbf` (existing)
+- `:none` (new, aliases: `:no`, `:nohr`) -> [`HighDimNoHyperReduction`](@ref)
+- `:affine` (new) -> [`HighDimAffineHyperReduction`](@ref)
+
+When `compression=:local`, this dispatches to
+[`HighDimLocalHyperReduction`](@ref) with the selected strategy.
+"""
 function HighDimHyperReduction(
   combination::TimeCombination,
   args...;compression=:global,
@@ -306,9 +322,10 @@ get_time_combination(r::HighDimNoHyperReduction) = r.combination
       combination::TimeCombination
     end
 
-Reduction employed when the input data is independent with respect to the
-considered realisation. Therefore, simply considering a number of parameters
-equal to 1 suffices for this type of reduction
+Reduction employed when transient reduced contributions are affine with
+parameter-independent (μ-independent) structure. As in the no-hyper-reduction
+case, this uses a single effective parameter sample (`num_params = 1`) for the
+hyper-reduction stage.
 """
 struct HighDimAffineHyperReduction <: HighDimTrivialHyperReduction 
   combination::TimeCombination

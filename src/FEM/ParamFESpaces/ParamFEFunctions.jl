@@ -40,6 +40,7 @@ CellData.get_data(f::SingleFieldParamFEFunction) = get_data(f.cell_field)
 FESpaces.get_triangulation(f::SingleFieldParamFEFunction) = get_triangulation(f.cell_field)
 CellData.DomainStyle(::Type{SingleFieldParamFEFunction{T}}) where T = DomainStyle(T)
 FESpaces.get_free_dof_values(f::SingleFieldParamFEFunction) = f.free_values
+FESpaces.get_dirichlet_dof_values(f::SingleFieldParamFEFunction) = f.dirichlet_values
 FESpaces.get_cell_dof_values(f::SingleFieldParamFEFunction) = f.cell_dof_values
 FESpaces.get_fe_space(f::SingleFieldParamFEFunction) = f.fe_space
 

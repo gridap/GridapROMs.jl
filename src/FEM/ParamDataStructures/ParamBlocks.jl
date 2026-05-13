@@ -985,17 +985,19 @@ function Arrays.return_value(k::BroadcastingFieldOpMap,a::ParamBlock...)
 end
 
 function Arrays.return_value(k::BroadcastingFieldOpMap,f::ParamBlock,g::ParamBlock)
-  @notimplementedif param_length(f) != param_length(g)
+  @check param_length(f) == param_length(g)
   fi = testitem(f)
   gi = testitem(g)
   hi = return_value(k,fi,gi)
-  a = Vector{typeof(hi)}(undef,param_length(f))
-  fill!(a,hi)
-  GenericParamBlock(a)
+  h = Vector{typeof(hi)}(undef,param_length(f))
+  for i in param_eachindex(f)
+    h[i] = return_value(k,param_getindex(f,i),param_getindex(g,i))
+  end
+  GenericParamBlock(h)
 end
 
 function Arrays.return_cache(k::BroadcastingFieldOpMap,f::ParamBlock,g::ParamBlock)
-  @notimplementedif param_length(f) != param_length(g)
+  @check param_length(f) == param_length(g)
   fi = testitem(f)
   gi = testitem(g)
   ci = return_cache(k,fi,gi)
@@ -1009,7 +1011,7 @@ function Arrays.return_cache(k::BroadcastingFieldOpMap,f::ParamBlock,g::ParamBlo
 end
 
 function Arrays.evaluate!(cache,k::BroadcastingFieldOpMap,f::ParamBlock,g::ParamBlock)
-  @notimplementedif param_length(f) != param_length(g)
+  @check param_length(f) == param_length(g)
   a,b = cache
   for i in param_eachindex(f)
     a.data[i] = evaluate!(b[i],k,param_getindex(f,i),param_getindex(g,i))
@@ -1019,7 +1021,7 @@ end
 
 function Arrays.return_cache(k::BroadcastingFieldOpMap,a::ParamBlock...)
   a1 = first(a)
-  @notimplementedif any(ai->param_length(ai)!=param_length(a1),a)
+  @check all(ai->param_length(ai)==param_length(a1),a)
   ais = map(testitem,a)
   ci = return_cache(k,ais...)
   bi = evaluate!(ci,k,ais...)
@@ -1034,7 +1036,7 @@ end
 
 function Arrays.evaluate!(cache,k::BroadcastingFieldOpMap,a::ParamBlock...)
   a1 = first(a)
-  @notimplementedif any(ai->param_length(ai)!=param_length(a1),a)
+  @check all(ai->param_length(ai)==param_length(a1),a)
   r,c = cache
   for i in param_eachindex(a1)
     ais = map(ai->param_getindex(ai,i),a)
@@ -1047,13 +1049,7 @@ function Arrays.return_value(
   k::BroadcastingFieldOpMap,a::Union{ParamBlock,AbstractArray}...
   )
 
-  pa = lazy_parameterise(a...)
-  p1 = first(pa)
-  ais = map(testitem,pa)
-  hi = return_value(k,ais...)
-  data = Vector{typeof(hi)}(undef,param_length(p1))
-  fill!(data,hi)
-  GenericParamBlock(data)
+  return_value(k,lazy_parameterise(a...)...)
 end
 
 function Arrays.return_cache(
@@ -1077,17 +1073,19 @@ param_getindex(f::ParamBroadcastingFieldOpMap,i::Int) = BroadcastingFieldOpMap(p
 Arrays.testitem(f::ParamBroadcastingFieldOpMap) = param_getindex(f,1)
 
 function Arrays.return_value(k::ParamBroadcastingFieldOpMap,f::ParamBlock)
-  @notimplementedif param_length(k) != param_length(f)
+  @check param_length(k) == param_length(f)
   ki = testitem(k)
   fi = testitem(f)
   hi = return_value(ki,fi)
-  a = Vector{typeof(hi)}(undef,param_length(f))
-  fill!(a,hi)
-  GenericParamBlock(a)
+  h = Vector{typeof(hi)}(undef,param_length(f))
+  for i in param_eachindex(f)
+    h[i] = return_value(param_getindex(k,i),param_getindex(f,i))
+  end
+  GenericParamBlock(h)
 end
 
 function Arrays.return_cache(k::ParamBroadcastingFieldOpMap,f::ParamBlock)
-  @notimplementedif param_length(k) != param_length(f)
+  @check param_length(k) == param_length(f)
   ki = testitem(k)
   fi = testitem(f)
   ci = return_cache(ki,fi)
@@ -1101,7 +1099,7 @@ function Arrays.return_cache(k::ParamBroadcastingFieldOpMap,f::ParamBlock)
 end
 
 function Arrays.evaluate!(cache,k::ParamBroadcastingFieldOpMap,f::ParamBlock)
-  @notimplementedif param_length(k) != param_length(f)
+  @check param_length(k) == param_length(f)
   a,b = cache
   for i in param_eachindex(f)
     v = evaluate!(b[i],param_getindex(k,i),param_getindex(f,i))
@@ -1111,18 +1109,20 @@ function Arrays.evaluate!(cache,k::ParamBroadcastingFieldOpMap,f::ParamBlock)
 end
 
 function Arrays.return_value(k::ParamBroadcastingFieldOpMap,f::ParamBlock,g::ParamBlock)
-  @notimplementedif !(param_length(k) == param_length(f) == param_length(g))
+  @check param_length(k) == param_length(f) == param_length(g)
   ki = testitem(k)
   fi = testitem(f)
   gi = testitem(g)
   hi = return_value(ki,fi,gi)
-  a = Vector{typeof(hi)}(undef,param_length(f))
-  fill!(a,hi)
-  GenericParamBlock(a)
+  h = Vector{typeof(hi)}(undef,param_length(f))
+  for i in param_eachindex(f)
+    h[i] = return_value(param_getindex(k,i),param_getindex(f,i),param_getindex(g,i))
+  end
+  GenericParamBlock(h)
 end
 
 function Arrays.return_cache(k::ParamBroadcastingFieldOpMap,f::ParamBlock,g::ParamBlock)
-  @notimplementedif !(param_length(k) == param_length(f) == param_length(g))
+  @check param_length(k) == param_length(f) == param_length(g)
   ki = testitem(k)
   fi = testitem(f)
   gi = testitem(g)
@@ -1137,7 +1137,7 @@ function Arrays.return_cache(k::ParamBroadcastingFieldOpMap,f::ParamBlock,g::Par
 end
 
 function Arrays.evaluate!(cache,k::ParamBroadcastingFieldOpMap,f::ParamBlock,g::ParamBlock)
-  @notimplementedif !(param_length(k) == param_length(f) == param_length(g))
+  @check param_length(k) == param_length(f) == param_length(g)
   a,b = cache
   for i in param_eachindex(f)
     v = evaluate!(b[i],param_getindex(k,i),param_getindex(f,i),param_getindex(g,i))
@@ -1147,7 +1147,7 @@ function Arrays.evaluate!(cache,k::ParamBroadcastingFieldOpMap,f::ParamBlock,g::
 end
 
 function Arrays.return_cache(k::ParamBroadcastingFieldOpMap,a::ParamBlock...)
-  @notimplementedif any(ai->param_length(ai)!=param_length(k),a)
+  @check all(ai->param_length(ai)==param_length(k),a)
   ais = map(testitem,a)
   ci = return_cache(k,ais...)
   bi = evaluate!(ci,k,ais...)
@@ -1161,7 +1161,7 @@ function Arrays.return_cache(k::ParamBroadcastingFieldOpMap,a::ParamBlock...)
 end
 
 function Arrays.evaluate!(cache,k::ParamBroadcastingFieldOpMap,a::ParamBlock...)
-  @notimplementedif any(ai->param_length(ai)!=param_length(k),a)
+  @check all(ai->param_length(ai)==param_length(k),a)
   r,c = cache
   for i in param_eachindex(k)
     ais = map(ai->param_getindex(ai,i),a)
