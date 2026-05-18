@@ -313,12 +313,6 @@ function Geometry.is_change_possible(strian::Geometry.TriangulationView,ttrian::
   _default_change_possible(strian,ttrian)
 end
 
-const _change_domain_err_msg = """\n
-We cannot move the given CellField to the domain of the requested triangulation.
-Make sure that the given triangulation is either the same as the triangulation on which the
-CellField is defined, or that the latter triangulation is the background of the former.
-"""
-
 # strian is a plain (non-view) triangulation, ttrian is a view:
 # preferred path is change to ttrian.parent then reindex; fall back to direct glues.
 function CellData.change_domain(a::CellField,strian::Triangulation,::ReferenceDomain,ttrian::Geometry.TriangulationView,::ReferenceDomain)
@@ -398,12 +392,6 @@ function Base.view(trian::Geometry.AppendedTriangulation,ids::AbstractArray)
     end
   end
 
-  if c1 == 0
-    return view(trian.b,ids .- n1)
-  elseif c2 == 0
-    return view(trian.a,ids)
-  end
-
   ids1 = zeros(Ti,c1)
   ids2 = zeros(Ti,c2)
 
@@ -424,10 +412,45 @@ function Base.view(trian::Geometry.AppendedTriangulation,ids::AbstractArray)
   lazy_append(trian1,trian2)
 end
 
+function CellData.attach_constraints_rows(
+  cellmat::AppendedArray,
+  cellconstr::AppendedArray,
+  cellmask::AppendedArray
+  )
+
+  if length(cellmat.a) == length(cellconstr.a) == length(cellmask.a) == 0 
+    return CellData.attach_constraints_rows(cellmat.b,cellconstr.b,cellmask.b)
+  elseif length(cellmat.b) == length(cellconstr.b) == length(cellmask.b) == 0
+    return CellData.attach_constraints_rows(cellmat.a,cellconstr.a,cellmask.a)
+  end
+  lazy_map(CellData.ConstrainRowsMap(),cellmat,cellconstr,cellmask)
+end
+
+function CellData.attach_constraints_cols(
+  cellmat::AppendedArray,
+  cellconstr::AppendedArray,
+  cellmask::AppendedArray
+  )
+
+  if length(cellmat.a) == length(cellconstr.a) == length(cellmask.a) == 0 
+    return CellData.attach_constraints_cols(cellmat.b,cellconstr.b,cellmask.b)
+  elseif length(cellmat.b) == length(cellconstr.b) == length(cellmask.b) == 0
+    return CellData.attach_constraints_cols(cellmat.a,cellconstr.a,cellmask.a)
+  end
+  cellconstr_t = lazy_map(transpose,cellconstr)
+  lazy_map(CellData.ConstrainColsMap(),cellmat,cellconstr_t,cellmask)
+end
+
 # utils 
 
 const _background_model_err_msg = """\n
 Triangulations do not point to the same background discrete model!
+"""
+
+const _change_domain_err_msg = """\n
+We cannot move the given CellField to the domain of the requested triangulation.
+Make sure that the given triangulation is either the same as the triangulation on which the
+CellField is defined, or that the latter triangulation is the background of the former.
 """
 
 function _default_change_possible(strian,ttrian)
