@@ -16,10 +16,8 @@ using GridapSolvers.NonlinearSolvers
 
 import Gridap.Helpers: @abstractmethod
 import Gridap.MultiField: BlockMultiFieldStyle
-import GridapROMs.ParamAlgebra: get_linear_operator,get_nonlinear_operator
 import GridapROMs.ParamDataStructures: get_realisation
-import GridapROMs.RBSteady: get_state_reduction,get_residual_reduction,get_jacobian_reduction,get_error,_get_label
-import GridapROMs.Utils: Contribution,TupOfArrayContribution
+import GridapROMs.RBSteady: get_state_reduction,get_residual_reduction,get_jacobian_reduction,get_error
 
 function try_loading_fe_snapshots(dir,rbsolver,feop,args...;label="",kwargs...)
   try
@@ -128,10 +126,6 @@ function update_reduction(red::KroneckerReduction,tolrank)
   KroneckerReduction(
     map(r->update_reduction(r,tolrank),red.reductions)
   )
-end
-
-function update_reduction(red::TrivialHyperReduction,tolrank)
-  red
 end
 
 function update_reduction(red::SequentialReduction,tolrank)
