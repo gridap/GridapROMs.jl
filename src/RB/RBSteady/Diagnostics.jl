@@ -784,7 +784,8 @@ end
 
 function load_residuals(dir,rbsolver,feop,fesnaps;label=online_label)
   try
-    load_residuals(dir,feop;label)
+    res = load_residuals(dir,feop;label)
+    select_snapshots(res,res_params(rbsolver))
   catch
     res = residual_snapshots(rbsolver,feop,fesnaps)
     save_residuals(dir,feop,res;label)
@@ -794,7 +795,8 @@ end
 
 function load_jacobians(dir,rbsolver,feop,fesnaps;label=online_label)
   try
-    load_jacobians(dir,feop;label)
+    jac = load_jacobians(dir,feop;label)
+    select_snapshots(jac,jac_params(rbsolver))
   catch
     jac = jacobian_snapshots(rbsolver,feop,fesnaps)
     save_jacobians(dir,feop,jac;label)
@@ -802,8 +804,13 @@ function load_jacobians(dir,rbsolver,feop,fesnaps;label=online_label)
   end
 end
 
-function load_problem_snapshots(dir,rbsolver,feop,args...;label=online_label,kwargs...)
+function load_problem_snapshots(
+  dir,rbsolver,feop,args...;
+  nparams=:all,label=online_label,kwargs...
+  )
+
   s = load_snapshots(dir,rbsolver,feop,args...;label,kwargs...)
+  s = nparams == :all ? s : select_snapshots(s,1:nparams)
   try
     rbsolver = set_params(rbsolver;nparams=num_params(s))
   catch

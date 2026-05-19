@@ -32,13 +32,22 @@ function RBSteady.galerkin_projection(
   θ = get_coefficients(combine,size(a,1))
   Nt = size(a,1)
 
+  tmp = zeros(TS,Nt,nright)
+  @inbounds for j = 1:nright
+    for m = 1:Nt
+      t = zero(TS)
+      γmax = min(length(θ),m)
+      for γ = 1:γmax
+        t += θ[γ]*basis_right[m-γ+1,j]
+      end
+      tmp[m,j] = t
+    end
+  end
+
   @inbounds for i = 1:nleft, k = 1:n, j = 1:nright
     s = zero(TS)
-    for γ = eachindex(θ)
-      for α = axes(a,1)
-        α+γ > Nt+1 && break 
-        s += θ[γ]*basis_left[α+γ-1,i]*a[α+γ-1,k]*basis_right[α,j]
-      end
+    for m = 1:Nt
+      s += basis_left[m,i]*a[m,k]*tmp[m,j]
     end
     proj_basis[i,k,j] = s
   end

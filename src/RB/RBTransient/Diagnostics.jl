@@ -416,16 +416,16 @@ function RBSteady.hr_error_jac(
   ParamODEs.from_stencil!(r,c)
 
   err = ()
-  for (i,(jaci,lhsi)) in enumerate(zip(jac,lhs))
+  for (jaci,lhsi,fecachei,hypredi) in zip(jac,lhs,red_jac.fecache,red_jac.hypred)
     erri = ()
-    for (jaci_t,ai_t,fecache_t,hypred_t) in zip(
+    for (jaci_t,ai_t,fecachei_t,hypredi_t) in zip(
       get_contributions(jaci),
       get_contributions(lhsi),
-      get_contributions(red_jac.fecache[i]),
-      get_contributions(red_jac.hypred[i])
+      get_contributions(fecachei),
+      get_contributions(hypredi)
       )
-
-      erri = (erri...,RBSteady.hr_error_jac(trial,test,jaci_t,ai_t,fecache_t,hypred_t))
+      
+      erri = (erri...,RBSteady.hr_error_jac(trial,test,jaci_t,ai_t,fecachei_t,hypredi_t))
     end 
     err = (err...,erri)
   end

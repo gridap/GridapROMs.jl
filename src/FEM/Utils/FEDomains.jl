@@ -123,7 +123,6 @@ function get_polynomial_orders(basis)
   get_orders(shapefun.fields)
 end
 
-
 """
     function collect_cell_matrix_for_trian(
       trial::FESpace,

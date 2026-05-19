@@ -13,15 +13,25 @@ Base.@propagate_inbounds function RBSteady.contraction(
   θ = get_coefficients(combine,Nt)
   TSU = promote_type(T,S,U)
   ABC = zeros(TSU,size(A,2),size(B,2),size(C,2))
-  for (iA,a) = enumerate(eachcol(A))
+  tmp = zeros(TSU,Nt,size(C,2))
+  @inbounds for iC in axes(C,2)
+    for m = 1:Nt
+      t = zero(TSU)
+      γmax = min(length(θ),m)
+      for γ = 1:γmax
+        t += θ[γ]*C[m-γ+1,iC]
+      end
+      tmp[m,iC] = t
+    end
+  end
+  @inbounds for (iA,a) = enumerate(eachcol(A))
     for (iB,b) = enumerate(eachcol(B))
-      for (iC,c) = enumerate(eachcol(C))
-        for γ = eachindex(θ)
-          for n in axes(factor1,2)
-            n+γ > Nt+1 && break
-            RBSteady._entry!(+,ABC,θ[γ]*a[n+γ-1]*b[n+γ-1]*c[n],iA,iB,iC)
-          end
+      for iC in axes(C,2)
+        s = zero(TSU)
+        for m = 1:Nt
+          s += a[m]*b[m]*tmp[m,iC]
         end
+        RBSteady._entry!(+,ABC,s,iA,iB,iC)
       end
     end
   end
@@ -68,17 +78,27 @@ Base.@propagate_inbounds function _contraction(
   θ = get_coefficients(combine,Nt)
   TSU = promote_type(T,S,U)
   ABC = zeros(TSU,size(factor1,3),size(factor2,3),size(factor3,3))
-  for γ = eachindex(θ)
-    for n in axes(factor1,2)
-      n+γ > Nt+1 && break
-      for iA in axes(factor1,3)
-        for iB in axes(factor2,3)
-          for iC in axes(factor3,3)
-            for i1 in axes(factor1,1)
-              for i3 in axes(factor3,1)
-                v = θ[γ]*factor1[i1,n+γ-1,iA]*factor2[i1,n+γ-1,iB,i3]*factor3[i3,n,iC]
-                RBSteady._entry!(+,ABC,v,iA,iB,iC)
-              end
+  tmp = zeros(TSU,size(factor3,1),Nt,size(factor3,3))
+  @inbounds for iC in axes(factor3,3)
+    for m = 1:Nt
+      γmax = min(length(θ),m)
+      for i3 in axes(factor3,1)
+        t = zero(TSU)
+        for γ = 1:γmax
+          t += θ[γ]*factor3[i3,m-γ+1,iC]
+        end
+        tmp[i3,m,iC] = t
+      end
+    end
+  end
+  @inbounds for m = 1:Nt
+    for iA in axes(factor1,3)
+      for iB in axes(factor2,3)
+        for iC in axes(factor3,3)
+          for i1 in axes(factor1,1)
+            for i3 in axes(factor3,1)
+              v = factor1[i1,m,iA]*factor2[i1,m,iB,i3]*tmp[i3,m,iC]
+              RBSteady._entry!(+,ABC,v,iA,iB,iC)
             end
           end
         end
