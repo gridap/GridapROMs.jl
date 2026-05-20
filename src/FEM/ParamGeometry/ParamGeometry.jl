@@ -42,7 +42,6 @@ using GridapROMs.ParamDataStructures
 
 import FillArrays: Fill
 import Gridap.CellData: similar_cell_field
-import Gridap.Visualization: _prepare_node_to_coords
 
 export PhysicalMap
 export DisplacementMap

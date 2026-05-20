@@ -56,6 +56,7 @@ using Clustering
 using DrWatson
 using LinearAlgebra
 using LowRankApprox
+using Makie
 using RadialBasisFunctions
 using Random
 using Serialization

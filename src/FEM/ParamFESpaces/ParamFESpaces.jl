@@ -56,6 +56,8 @@ using GridapROMs.TProduct
 
 import Gridap.Algebra: residual!,jacobian!
 import Gridap.FESpaces: FEFunction,SparseMatrixAssembler,EvaluationFunction
+import GridapMakie: MeshField
+import Makie: Lines,Scatter,ScatterLines,convert_arguments
 
 export SingleFieldParamFESpace
 export get_dirichlet_cells
@@ -85,5 +87,7 @@ export MultiFieldParamFEFunction
 include("ParamFEFunctions.jl")
 
 include("ParamAssemblers.jl")
+
+include("Visualisation.jl")
 
 end # module

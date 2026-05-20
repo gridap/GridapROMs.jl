@@ -358,11 +358,6 @@ end
 
 """
   plot_solutions(dir,rbop,sol,sol_approx;kwargs...) -> Nothing
-
-Like [`plot_a_solution`](@ref), but writes all parametric solutions into a
-single VTK file. Each parameter index `i` produces fields
-`"uh_param_i"`, `"ûh_param_i"` and `"eh_param_i"` (or their `abs²` for
-complex-valued problems).
 """
 function plot_solutions(
   dir::String,
@@ -370,15 +365,14 @@ function plot_solutions(
   sol::Snapshots,
   sol_approx::Snapshots;
   trian=get_triangulation(trial),
-  field=1
+  kwargs...
   )
 
   r = get_realisation(sol)
   Ur = trial(r)
   uh = FEFunction(Ur,get_param_data(sol))
   ûh = FEFunction(Ur,get_param_data(sol_approx))
-  dirfield = joinpath(dir,"var$field")
-  _plot_solutions(dirfield,trian,uh,ûh,r)
+  _plot_solutions(dir,trian,uh,ûh,r;kwargs...)
 end
 
 function plot_solutions(
@@ -425,24 +419,26 @@ function plot_solutions(
   plot_solutions(dir,rbop,fesnaps,rbsnaps;kwargs...)
 end
 
-function _plot_solutions(dir,trian,uh,ûh,r::Realisation)
+function _plot_solutions(dir,trian,uh,ûh,r::Realisation;field=1)
   T = eltype2(get_free_dof_values(uh))
-  fields = Pair{String}[]
-  for ip in 1:num_params(r)
-    uhip  = param_getindex(uh,ip)
-    ûhip  = param_getindex(ûh,ip)
-    ehip  = uhip - ûhip
-    if T <: Complex
-      push!(fields,"uh_param_$ip"  => abs2(uhip))
-      push!(fields,"ûh_param_$ip" => abs2(ûhip))
-      push!(fields,"eh_param_$ip"  => abs2(ehip))
-    else
-      push!(fields,"uh_param_$ip"  => uhip)
-      push!(fields,"ûh_param_$ip" => ûhip)
-      push!(fields,"eh_param_$ip"  => ehip)
-    end
+  nparams = num_params(r)
+  for ip in 1:nparams
+    uhip = param_getindex(uh,ip)
+    ûhip = param_getindex(ûh,ip)
+    ehip = uhip - ûhip
+    uplot = T <: Complex ? abs2(uhip) : uhip
+    ûplot = T <: Complex ? abs2(ûhip) : ûhip
+    eplot = T <: Complex ? abs2(ehip) : ehip
+    fig = Makie.Figure()
+    Makie.plot(fig[1,1],trian,uplot)
+    Makie.plot(fig[1,2],trian,ûplot)
+    Makie.plot(fig[1,3],trian,eplot)
+    
+    dir_param = joinpath(dir,"param$ip")
+    create_dir(dir_param)
+    dir_fig = joinpath(dir_param,"field_$(field).png")
+    Makie.save(dir_fig,fig)
   end
-  writevtk(trian,dir*".vtu",cellfields=fields)
 end
 
 include("Diagnostics.jl")

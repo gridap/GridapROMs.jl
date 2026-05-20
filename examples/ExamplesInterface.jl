@@ -1,6 +1,6 @@
 using DrWatson
 using Gridap
-using Plots
+using Makie
 using Serialization
 using Test
 
@@ -172,16 +172,19 @@ function plot_errors(dir,tolranks,perfs::AbstractVector{<:ROMPerformance})
   errs = map(get_error,perfs)
   n = length(first(errs))
   errvec = hcat(map(i -> getindex.(errs,i),1:n)...)
-  labvec = n==1 ? "Error" : hcat(["Error $i" for i in 1:n])
 
   file = joinpath(dir,"convergence.png")
-  p = plot(tolranks,tolranks,lw=3,label="Tol.")
-  scatter!(tolranks,errvec,lw=3,label=labvec)
-  plot!(xscale=:log10,yscale=:log10)
-  xlabel!("Tolerance")
-  ylabel!("Error")
-  title!("Average relative error")
-  savefig(p,file)
+  fig = Makie.Figure()
+  ax = Makie.Axis(fig[1,1],xscale=log10,yscale=log10,xlabel="Tolerance",ylabel="Error",title="Average relative error")
+  Makie.lines!(ax,tolranks,tolranks,label="Tol.",linewidth=3)
+  
+  for i in 1:n
+    label = n==1 ? "Error" : "Error $i"
+    Makie.scatter!(ax,tolranks,errvec[:,i],label=label)
+  end
+  
+  Makie.axislegend(ax)
+  Makie.save(file,fig)
 end
 
 function run_test(

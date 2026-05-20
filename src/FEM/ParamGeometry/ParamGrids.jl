@@ -402,21 +402,3 @@ function _map_coords!(
   end
 end
 
-function _model_compatibility(a::DiscreteModel,b::DiscreteModel)
-  return false
-end
-
-function _model_compatibility(a::A,b::A) where {A<:DiscreteModel}
-  return a === b
-end
-
-function _model_compatibility(
-  a::A,
-  b::A
-  ) where {A<:Union{MappedDiscreteModel,ParamMappedDiscreteModel}}
-  return a === b || a.model === b.model
-end
-
-function _prepare_node_to_coords(cell_to_points::AbstractVector{<:ParamBlock})
-  _prepare_node_to_coords(lazy_testitem(cell_to_points))
-end
