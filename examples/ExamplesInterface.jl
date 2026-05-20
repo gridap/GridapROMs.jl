@@ -1,5 +1,6 @@
 using DrWatson
 using Gridap
+using Makie
 using GLMakie
 using Serialization
 using Test
@@ -14,10 +15,11 @@ using GridapSolvers
 using GridapSolvers.LinearSolvers
 using GridapSolvers.NonlinearSolvers
 
+import Gridap.FESpaces: get_trial
 import Gridap.Helpers: @abstractmethod
 import Gridap.MultiField: BlockMultiFieldStyle
-import GridapROMs.ParamDataStructures: get_realisation
-import GridapROMs.RBSteady: get_state_reduction,get_residual_reduction,get_jacobian_reduction,get_error
+import GridapROMs.ParamSteady: get_fe_operator
+import GridapROMs.RBSteady: get_state_reduction,get_residual_reduction,get_jacobian_reduction,get_error,_fe_data
 
 function try_loading_fe_snapshots(dir,rbsolver,feop,args...;label="",kwargs...)
   try
@@ -168,6 +170,117 @@ function update_solver(rbsolver::RBSolver,tol)
   RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
 end
 
+function plot_solutions(
+  dir::String,
+  trial::UnEvalTrialFESpace,
+  sol::Snapshots,
+  sol_approx::Snapshots;
+  trian=get_triangulation(trial),
+  kwargs...
+  )
+
+  r = get_realisation(sol)
+  Ur = trial(r)
+  uh = FEFunction(Ur,get_param_data(sol))
+  ûh = FEFunction(Ur,get_param_data(sol_approx))
+  _plot_solutions(dir,trian,uh,ûh,r;kwargs...)
+end
+
+function plot_solutions(
+  dir::String,
+  rbop::RBOperator,
+  sol::Snapshots,
+  sol_approx::Snapshots;
+  kwargs...
+  )
+
+  feop = get_fe_operator(rbop)
+  trial = get_trial(feop)
+  plot_solutions(dir,trial,sol,sol_approx;kwargs...)
+end
+
+function plot_solutions(
+  dir::String,
+  rbop::RBOperator,
+  sol::BlockSnapshots,
+  sol_approx::BlockSnapshots;
+  kwargs...
+  )
+  
+  feop = get_fe_operator(rbop)
+  trials = get_trial(feop)
+  for i in eachindex(sol)
+    if sol.touched[i]
+      plot_solutions(dir,trials[i],sol[i],sol_approx[i];field=i,kwargs...)
+    end
+  end
+end
+
+function plot_solutions(
+  dir::String,
+  rbop::RBOperator,
+  fesnaps::AbstractSnapshots,
+  x̂::AbstractParamVector;
+  kwargs...
+  )
+
+  i = get_dof_map(fesnaps)
+  r = get_realisation(fesnaps)
+  rbsnaps = Snapshots(_fe_data(x̂),i,r)
+  plot_solutions(dir,rbop,fesnaps,rbsnaps;kwargs...)
+end
+
+function _plot_solutions(dir,trian,uh,ûh,r::Realisation;field=1)
+  T = eltype2(get_free_dof_values(uh))
+  nparams = num_params(r)
+  ptrian = num_point_dims(trian) < 3 ? trian : BoundaryTriangulation(get_background_model(trian))
+  for ip in 1:nparams
+    uhip = param_getindex(uh,ip)
+    ûhip = param_getindex(ûh,ip)
+    ehip = uhip - ûhip
+    uplot = T <: Complex ? abs2(uhip) : uhip
+    ûplot = T <: Complex ? abs2(ûhip) : ûhip
+    eplot = T <: Complex ? abs2(ehip) : ehip
+    fig = Makie.Figure()
+    Makie.plot(fig[1,1],ptrian,uplot)
+    Makie.plot(fig[1,2],ptrian,ûplot)
+    Makie.plot(fig[1,3],ptrian,eplot)
+    dir_param = joinpath(dir,"param$ip")
+    create_dir(dir_param)
+    Makie.save(joinpath(dir_param,"field_$(field).png"),fig)
+  end
+end
+
+function _plot_solutions(dir,trian,uh,ûh,r::TransientRealisation;field=1)
+  T = eltype2(get_free_dof_values(uh))
+  np = num_params(r)
+  nt = num_times(r)
+  ptrian = num_point_dims(trian) < 3 ? trian : BoundaryTriangulation(get_background_model(trian))
+  for ip in 1:np
+    dir_param = joinpath(dir,"param$ip")
+    create_dir(dir_param)
+    ufields = [param_getindex(uh,(it-1)*np+ip) for it in 1:nt]
+    ûfields = [param_getindex(ûh,(it-1)*np+ip) for it in 1:nt]
+    efields = [ufields[it]-ûfields[it] for it in 1:nt]
+    if T <: Complex
+      ufields = abs2.(ufields)
+      ûfields = abs2.(ûfields)
+      efields = abs2.(efields)
+    end
+    it_obs = Makie.Observable(1)
+    uplot = Makie.lift(i->ufields[i],it_obs)
+    ûplot = Makie.lift(i->ûfields[i],it_obs)
+    eplot = Makie.lift(i->efields[i],it_obs)
+    fig = Makie.Figure()
+    Makie.plot(fig[1,1],ptrian,uplot)
+    Makie.plot(fig[1,2],ptrian,ûplot)
+    Makie.plot(fig[1,3],ptrian,eplot)
+    Makie.record(fig,joinpath(dir_param,"field_$(field).gif"),1:nt) do it
+      it_obs[] = it
+    end
+  end
+end
+
 function plot_errors(dir,tolranks,perfs::AbstractVector{<:ROMPerformance})
   errs = map(get_error,perfs)
   n = length(first(errs))
@@ -204,9 +317,6 @@ function run_test(
     dir_tolrank = joinpath(dir,string(tolrank))
     create_dir(dir_tolrank)
 
-    plot_dir_tolrank = joinpath(dir_tolrank,"plot")
-    create_dir(plot_dir_tolrank)
-
     rbsolver = update_solver(rbsolver,tolrank)
     rbop = try_loading_reduced_operator(dir_tolrank,rbsolver,feop,fesnaps,jac,res)
 
@@ -214,8 +324,6 @@ function run_test(
     perf = eval_performance(rbsolver,rbop,x,x̂,festats,rbstats)
     println(perf)
     push!(perfs,perf)
-
-    plot_solutions(plot_dir_tolrank,rbop,x,x̂;kwargs...)
   end
 
   results_dir = joinpath(dir,"results")

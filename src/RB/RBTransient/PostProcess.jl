@@ -84,34 +84,4 @@ function Utils.compute_relative_error(
   return mean(errors)
 end
 
-function RBSteady._plot_solutions(dir,trian,uh,ûh,r::TransientRealisation;field=1)
-  T = eltype2(get_free_dof_values(uh))
-  np = num_params(r)
-  nt = num_times(r)
-  ptrian = num_point_dims(trian) < 3 ? trian : BoundaryTriangulation(get_background_model(trian))
-  for ip in 1:np
-    dir_param = joinpath(dir,"param$ip")
-    RBSteady.create_dir(dir_param)
-    ufields = [param_getindex(uh,(it-1)*np+ip) for it in 1:nt]
-    ûfields = [param_getindex(ûh,(it-1)*np+ip) for it in 1:nt]
-    efields = [ufields[it]-ûfields[it] for it in 1:nt]
-    if T <: Complex
-      ufields = abs2.(ufields)
-      ûfields = abs2.(ûfields)
-      efields = abs2.(efields)
-    end
-    it_obs = Makie.Observable(1)
-    uplot = Makie.lift(i->ufields[i],it_obs)
-    ûplot = Makie.lift(i->ûfields[i],it_obs)
-    eplot = Makie.lift(i->efields[i],it_obs)
-    fig = Makie.Figure()
-    Makie.plot(fig[1,1],ptrian,uplot)
-    Makie.plot(fig[1,2],ptrian,ûplot)
-    Makie.plot(fig[1,3],ptrian,eplot)
-    Makie.record(fig,joinpath(dir_param,"field_$(field).gif"),1:nt) do it
-      it_obs[] = it
-    end
-  end
-end
-
 include("Diagnostics.jl")
