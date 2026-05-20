@@ -422,6 +422,7 @@ end
 function _plot_solutions(dir,trian,uh,ûh,r::Realisation;field=1)
   T = eltype2(get_free_dof_values(uh))
   nparams = num_params(r)
+  ptrian = num_point_dims(trian) < 3 ? trian : BoundaryTriangulation(get_background_model(trian))
   for ip in 1:nparams
     uhip = param_getindex(uh,ip)
     ûhip = param_getindex(ûh,ip)
@@ -430,14 +431,12 @@ function _plot_solutions(dir,trian,uh,ûh,r::Realisation;field=1)
     ûplot = T <: Complex ? abs2(ûhip) : ûhip
     eplot = T <: Complex ? abs2(ehip) : ehip
     fig = Makie.Figure()
-    Makie.plot(fig[1,1],trian,uplot)
-    Makie.plot(fig[1,2],trian,ûplot)
-    Makie.plot(fig[1,3],trian,eplot)
-    
+    Makie.plot(fig[1,1],ptrian,uplot)
+    Makie.plot(fig[1,2],ptrian,ûplot)
+    Makie.plot(fig[1,3],ptrian,eplot)
     dir_param = joinpath(dir,"param$ip")
     create_dir(dir_param)
-    dir_fig = joinpath(dir_param,"field_$(field).png")
-    Makie.save(dir_fig,fig)
+    Makie.save(joinpath(dir_param,"field_$(field).png"),fig)
   end
 end
 

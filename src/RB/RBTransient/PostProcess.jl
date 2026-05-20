@@ -88,6 +88,7 @@ function RBSteady._plot_solutions(dir,trian,uh,ûh,r::TransientRealisation;field
   T = eltype2(get_free_dof_values(uh))
   np = num_params(r)
   nt = num_times(r)
+  ptrian = num_point_dims(trian) < 3 ? trian : BoundaryTriangulation(get_background_model(trian))
   for ip in 1:np
     dir_param = joinpath(dir,"param$ip")
     RBSteady.create_dir(dir_param)
@@ -104,11 +105,10 @@ function RBSteady._plot_solutions(dir,trian,uh,ûh,r::TransientRealisation;field
     ûplot = Makie.lift(i->ûfields[i],it_obs)
     eplot = Makie.lift(i->efields[i],it_obs)
     fig = Makie.Figure()
-    Makie.plot(fig[1,1],trian,uplot)
-    Makie.plot(fig[1,2],trian,ûplot)
-    Makie.plot(fig[1,3],trian,eplot)
-    dir_anim = joinpath(dir_param,"field_$(field).gif")
-    Makie.record(fig,dir_anim,1:nt) do it
+    Makie.plot(fig[1,1],ptrian,uplot)
+    Makie.plot(fig[1,2],ptrian,ûplot)
+    Makie.plot(fig[1,3],ptrian,eplot)
+    Makie.record(fig,joinpath(dir_param,"field_$(field).gif"),1:nt) do it
       it_obs[] = it
     end
   end

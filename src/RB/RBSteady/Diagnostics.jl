@@ -889,11 +889,14 @@ function set_params(rbsolver;kwargs...)
   RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
 end
 
-function _mean_err(a,â)
-  err = sqrt.(sum((a-â).^2,dims=1))
-  den = sqrt.(sum(a.^2,dims=1))
-  ε = eps(eltype(den))
-  mean(err./(den .+ ε))
+function _mean_err(a::AbstractMatrix,â::AbstractMatrix)
+  @check size(a) == size(â) 
+  err = 0.0
+  ε = eps()
+  @inbounds @views for i in axes(a,2)
+    err += norm(a[:,i]-â[:,i]) / (norm(a[:,i]) + ε)
+  end
+  err / size(a,2)
 end
 
 function _entries_to_dict(entries::Vector{<:NamedTuple})
