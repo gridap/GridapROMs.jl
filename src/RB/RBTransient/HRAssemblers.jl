@@ -239,7 +239,7 @@ end
 end
 
 @inline function add_hr_kron_entries!(
-  vi,combine::Function,A::AbstractParamVector,vs,is,loc,r
+  vi,combine::Function,A::AbstractParamVector,vs,is,r,loc
   )
 
   for (li,i) in enumerate(is)
@@ -253,7 +253,7 @@ end
 end
 
 @inline function add_hr_kron_entries!(
-  vi,combine::Function,A::AbstractParamVector,vs::ParamBlock,is,loc,r
+  vi,combine::Function,A::AbstractParamVector,vs::ParamBlock,is,r,loc
   )
 
   for (li,i) in enumerate(is)
@@ -267,7 +267,7 @@ end
 end
 
 @inline function add_hr_kron_entries!(
-  vij,combine::Function,A::AbstractParamVector,vs,is,js,loc,r,c
+  vij,combine::Function,A::AbstractParamVector,vs,is,js,r,c,loc
   )
 
   for (lj,j) in enumerate(js)
@@ -288,7 +288,7 @@ end
 end
 
 @inline function add_hr_kron_entries!(
-  vij,combine::Function,A::AbstractParamVector,vs::ParamBlock,is,js,loc,r,c
+  vij,combine::Function,A::AbstractParamVector,vs::ParamBlock,is,js,r,c,loc
   )
 
   for (lj,j) in enumerate(js)
@@ -299,6 +299,82 @@ end
         if !isnothing(ir)
           if ir == ic
             get_hr_param_entry!(vij,vs,loc,li,lj)
+            add_hr_kron_entry!(combine,A,vij,loc,ir)
+          end
+        end
+      end
+    end
+  end
+  A
+end
+
+@inline function add_hr_kron_entries!(
+  vi,combine::Function,A::AbstractParamVector,vs,is::OIdsToIds,r,loc
+  )
+
+  for (li,i) in enumerate(is)
+    ir = _indexin(i,r)
+    if !isnothing(ir)
+      lip = is.terms[li]
+      vi = vs[lip]
+      add_hr_kron_entry!(combine,A,vi,loc,ir)
+    end
+  end
+  A
+end
+
+@inline function add_hr_kron_entries!(
+  vi,combine::Function,A::AbstractParamVector,vs::ParamBlock,is::OIdsToIds,r,loc
+  )
+
+  for (li,i) in enumerate(is)
+    ir = _indexin(i,r)
+    if !isnothing(ir)
+      lip = is.terms[li]
+      get_hr_param_entry!(vi,vs,loc,lip)
+      add_hr_kron_entry!(combine,A,vi,loc,ir)
+    end
+  end
+  A
+end
+
+@inline function add_hr_kron_entries!(
+  vij,combine::Function,A::AbstractParamVector,vs,is::OIdsToIds,js::OIdsToIds,r,c,loc
+  )
+
+  for (lj,j) in enumerate(js)
+    ic = _indexin(j,c)
+    if !isnothing(ic)
+      ljp = js.terms[lj]
+      for (li,i) in enumerate(is)
+        ir = _indexin(i,r)
+        if !isnothing(ir)
+          if ir == ic
+            lip = is.terms[li]
+            vij = vs[lip,ljp]
+            add_hr_kron_entry!(combine,A,vij,loc,ir)
+          end
+        end
+      end
+    end
+  end
+  A
+end
+
+@inline function add_hr_kron_entries!(
+  vij,combine::Function,A::AbstractParamVector,vs::ParamBlock,is::OIdsToIds,js::OIdsToIds,r,c,loc
+  )
+
+  for (lj,j) in enumerate(js)
+    ic = _indexin(j,c)
+    if !isnothing(ic)
+      ljp = js.terms[lj]
+      for (li,i) in enumerate(is)
+        ir = _indexin(i,r)
+        if !isnothing(ir)
+          if ir == ic
+            lip = is.terms[li]
+            get_hr_param_entry!(vij,vs,loc,lip,ljp)
             add_hr_kron_entry!(combine,A,vij,loc,ir)
           end
         end
@@ -341,9 +417,11 @@ end
   )
 
   for (ik,rk) in enumerate(r)
-    li = findfirst(==(rk),is)::Int
-    vi = vs[li]
-    add_hr_lin_entry!(combine,A,vi,ik)
+    li = findfirst(==(rk),is)
+    if !isnothing(li)
+      vi = vs[li]
+      add_hr_lin_entry!(combine,A,vi,ik)
+    end
   end
   A
 end
@@ -353,9 +431,11 @@ end
   )
 
   for (ik,rk) in enumerate(r)
-    li = findfirst(==(rk),is)::Int
-    get_hr_param_entry!(vi,vs,loc,li)
-    add_hr_lin_entry!(combine,A,vi,ik)
+    li = findfirst(==(rk),is)
+    if !isnothing(li)
+      get_hr_param_entry!(vi,vs,loc,li)
+      add_hr_lin_entry!(combine,A,vi,ik)
+    end
   end
   A
 end
@@ -365,10 +445,12 @@ end
   )
 
   for (ik,(rk,ck)) in enumerate(zip(r,c))
-    li = findfirst(==(rk),is)::Int
-    lj = findfirst(==(ck),js)::Int
-    vij = vs[li,lj]
-    add_hr_lin_entry!(combine,A,vij,ik)
+    li = findfirst(==(rk),is)
+    lj = findfirst(==(ck),js)
+    if !isnothing(li) && !isnothing(lj)
+      vij = vs[li,lj]
+      add_hr_lin_entry!(combine,A,vij,ik)
+    end
   end
   A
 end
@@ -378,10 +460,76 @@ end
   )
 
   for (ik,(rk,ck)) in enumerate(zip(r,c))
-    li = findfirst(==(rk),is)::Int
-    lj = findfirst(==(ck),js)::Int
-    get_hr_param_entry!(vij,vs,loc,li,lj)
-    add_hr_lin_entry!(combine,A,vij,ik)
+    li = findfirst(==(rk),is)
+    lj = findfirst(==(ck),js)
+    if !isnothing(li) && !isnothing(lj)
+      get_hr_param_entry!(vij,vs,loc,li,lj)
+      add_hr_lin_entry!(combine,A,vij,ik)
+    end
+  end
+  A
+end
+
+@inline function add_hr_lin_entries!(
+  vi,combine::Function,A::AbstractParamVector,vs,is::OIdsToIds,r,loc
+  )
+
+  for (ik,rk) in enumerate(r)
+    li = findfirst(==(rk),is)
+    if !isnothing(li)
+      lip = is.terms[li]
+      vi = vs[lip]
+      add_hr_lin_entry!(combine,A,vi,ik)
+    end
+  end
+  A
+end
+
+@inline function add_hr_lin_entries!(
+  vi,combine::Function,A::AbstractParamVector,vs::ParamBlock,is::OIdsToIds,r,loc
+  )
+
+  for (ik,rk) in enumerate(r)
+    li = findfirst(==(rk),is)
+    if !isnothing(li)
+      lip = is.terms[li]
+      get_hr_param_entry!(vi,vs,loc,lip)
+      add_hr_lin_entry!(combine,A,vi,ik)
+    end
+  end
+  A
+end
+
+@inline function add_hr_lin_entries!(
+  vij,combine::Function,A::AbstractParamVector,vs,is::OIdsToIds,js::OIdsToIds,r,c,loc
+  )
+
+  for (ik,(rk,ck)) in enumerate(zip(r,c))
+    li = findfirst(==(rk),is)
+    lj = findfirst(==(ck),js)
+    if !isnothing(li) && !isnothing(lj)
+      lip = is.terms[li]
+      ljp = js.terms[lj]
+      vij = vs[lip,ljp]
+      add_hr_lin_entry!(combine,A,vij,ik)
+    end
+  end
+  A
+end
+
+@inline function add_hr_lin_entries!(
+  vij,combine::Function,A::AbstractParamVector,vs::ParamBlock,is::OIdsToIds,js::OIdsToIds,r,c,loc
+  )
+
+  for (ik,(rk,ck)) in enumerate(zip(r,c))
+    li = findfirst(==(rk),is)
+    lj = findfirst(==(ck),js)
+    if !isnothing(li) && !isnothing(lj)
+      lip = is.terms[li]
+      ljp = js.terms[lj]
+      get_hr_param_entry!(vij,vs,loc,lip,ljp)
+      add_hr_lin_entry!(combine,A,vij,ik)
+    end
   end
   A
 end

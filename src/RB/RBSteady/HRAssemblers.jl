@@ -169,7 +169,7 @@ end
     ir = _indexin(i,r)
     if !isnothing(ir)
       vi = vs[li]
-      add_entry!(combine,b,vi,i)
+      add_entry!(combine,b,vi,ir)
     end
   end  
   b
@@ -180,7 +180,7 @@ end
     ir = _indexin(i,r)
     if !isnothing(ir)
       get_param_entry!(vi,vs,li)
-      add_entry!(combine,b,vi,i)
+      add_entry!(combine,b,vi,ir)
     end
   end  
   b
@@ -195,7 +195,7 @@ end
         if !isnothing(ir)
           if ir == ic
             vij = vs[li,lj]
-            add_entry!(combine,A,vij,i)
+            add_entry!(combine,A,vij,ir)
           end
         end
       end
@@ -213,7 +213,71 @@ end
         if !isnothing(ir)
           if ir == ic
             get_param_entry!(vij,vs,li,lj)
-            add_entry!(combine,A,vij,i)
+            add_entry!(combine,A,vij,ir)
+          end
+        end
+      end
+    end
+  end
+  A
+end
+
+@inline function add_hr_entries!(vi,combine,b,vs,is::OIdsToIds,r)
+  for (li,i) in enumerate(is)
+    ir = _indexin(i,r)
+    if !isnothing(ir)
+      lip = is.terms[li]
+      vi = vs[lip]
+      add_entry!(combine,b,vi,ir)
+    end
+  end  
+  b
+end
+
+@inline function add_hr_entries!(vi,combine,b,vs::ParamBlock,is::OIdsToIds,r)
+  for (li,i) in enumerate(is)
+    ir = _indexin(i,r)
+    if !isnothing(ir)
+      lip = is.terms[li]
+      get_param_entry!(vi,vs,lip)
+      add_entry!(combine,b,vi,ir)
+    end
+  end  
+  b
+end
+
+@inline function add_hr_entries!(vij,combine,A,vs,is::OIdsToIds,js::OIdsToIds,r,c)
+  for (lj,j) in enumerate(js)
+    ic = _indexin(j,c)
+    if !isnothing(ic)
+      ljp = js.terms[lj]
+      for (li,i) in enumerate(is)
+        ir = _indexin(i,r)
+        if !isnothing(ir)
+          if ir == ic
+            lip = is.terms[li]
+            vij = vs[lip,ljp]
+            add_entry!(combine,A,vij,ir)
+          end
+        end
+      end
+    end
+  end
+  A
+end
+
+@inline function add_hr_entries!(vij,combine,A,vs::ParamBlock,is::OIdsToIds,js::OIdsToIds,r,c)
+  for (lj,j) in enumerate(js)
+    ic = _indexin(j,c)
+    if !isnothing(ic)
+      ljp = js.terms[lj]
+      for (li,i) in enumerate(is)
+        ir = _indexin(i,r)
+        if !isnothing(ir)
+          if ir == ic
+            lip = is.terms[li]
+            get_param_entry!(vij,vs,lip,ljp)
+            add_entry!(combine,A,vij,ir)
           end
         end
       end
@@ -339,7 +403,7 @@ function Arrays.evaluate!(cache,k::FetchBlockMap,i...)
   a.array[k.blockid]
 end
 
-function _indexin(j::Int,ids::AbstractVector{<:Integer})
+function _indexin(j::Integer,ids::AbstractVector{<:Integer})
   i = findfirst(==(j),ids)
   return i
 end

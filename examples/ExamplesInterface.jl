@@ -18,6 +18,7 @@ using GridapSolvers.NonlinearSolvers
 import Gridap.FESpaces: get_trial
 import Gridap.Helpers: @abstractmethod
 import Gridap.MultiField: BlockMultiFieldStyle
+import GridapROMs.ParamFESpaces: UnEvalTrialFESpace
 import GridapROMs.ParamSteady: get_fe_operator
 import GridapROMs.RBSteady: get_state_reduction,get_residual_reduction,get_jacobian_reduction,get_error,_fe_data
 

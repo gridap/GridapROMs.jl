@@ -218,8 +218,9 @@ function IntegrationDomain(
   rows::Vector{<:Number}
   )
 
-  cell_row_ids = get_cell_dof_ids(test,trian)
-  cells = get_rows_to_cells(cell_row_ids,rows)
+  all_cell_row_ids = get_cell_dof_ids(test,trian)
+  cells = get_rows_to_cells(all_cell_row_ids,rows)
+  cell_row_ids = lazy_map(Reindex(all_cell_row_ids),cells)
   VectorDomain(cells,cell_row_ids,rows)
 end
 
@@ -279,9 +280,11 @@ function IntegrationDomain(
   cols::Vector{<:Number}
   )
 
-  cell_row_ids = get_cell_dof_ids(test,trian)
-  cell_col_ids = get_cell_dof_ids(trial,trian)
-  cells = get_rowcols_to_cells(cell_row_ids,cell_col_ids,rows,cols)
+  all_cell_row_ids = get_cell_dof_ids(test,trian)
+  all_cell_col_ids = get_cell_dof_ids(trial,trian)
+  cells = get_rowcols_to_cells(all_cell_row_ids,all_cell_col_ids,rows,cols)
+  cell_row_ids = lazy_map(Reindex(all_cell_row_ids),cells)
+  cell_col_ids = lazy_map(Reindex(all_cell_col_ids),cells)
   MatrixDomain(cells,cell_row_ids,cell_col_ids,rows,cols)
 end
 
