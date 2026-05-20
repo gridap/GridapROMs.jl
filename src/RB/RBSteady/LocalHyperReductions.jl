@@ -13,7 +13,7 @@ function get_local(a::LocalInterpolation,μ::AbstractVector)
   local_vals(a)[labk,labl]
 end
 
-for f in (:get_cell_irows,:get_cell_icols)
+for f in (:get_cell_row_ids,:get_cell_col_ids,:get_interpolation_rows,:get_interpolation_cols)
   @eval begin
     function $f(a::LocalInterpolation) 
       data = map($f,local_vals(a))

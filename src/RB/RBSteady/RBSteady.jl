@@ -205,8 +205,8 @@ export MatrixDomain
 export empirical_interpolation
 export s_opt
 export get_integration_cells
-export get_cell_irows
-export get_cell_icols
+export get_cell_row_ids
+export get_cell_col_ids
 export get_owned_icells
 export get_interpolation_rows
 export get_interpolation_cols
