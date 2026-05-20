@@ -56,7 +56,153 @@ function get_hr_param_entry!(v::AbstractVector,b::TrivialParamBlock,hr_indices,i
   fill!(v,vk)
 end
 
-@inline function add_hr_entry!(
+struct AddTransientHREntriesMap{A<:TransientIntegrationDomainStyle,F,Is,It} <: Map
+  style::A
+  combine::F
+  indices::Is
+  locations::It
+end
+
+function AddTransientHREntriesMap(style::TransientIntegrationDomainStyle,indices,locations)
+  AddTransientHREntriesMap(style,+,indices,locations)
+end
+
+get_param_time_inds(k::AddTransientHREntriesMap) = k.locations
+get_param_inds(k::AddTransientHREntriesMap) = k.locations.axis1
+get_time_inds(k::AddTransientHREntriesMap) = k.locations.axis2
+
+function Arrays.return_cache(k::AddTransientHREntriesMap,A,vs::ParamBlock,args...)
+  zeros(eltype2(vs),length(get_param_time_inds(k)))
+end
+
+for (T,f) in zip((:KroneckerDomain,:SequentialDomain),(:add_hr_kron_entries!,:add_hr_lin_entries!))
+  @eval begin
+    function Arrays.evaluate!(cache,k::AddTransientHREntriesMap{$T},b,vs,is)
+      $f(cache,k.combine,b,vs,is,k.indices,k.locations)
+    end
+
+    function Arrays.evaluate!(cache,k::AddTransientHREntriesMap{$T},A,vs,is,js)
+      r,c = k.indices
+      $f(cache,k.combine,A,vs,is,js,r,c,k.locations)
+    end
+  end
+end
+
+for T in (:KroneckerDomain,:SequentialDomain)
+  @eval begin
+    function Arrays.return_cache(k::AddTransientHREntriesMap{$T},A,v::MatrixBlock,I::VectorBlock,J::VectorBlock)
+      qs = findall(v.touched)
+      i,j = Tuple(first(qs))
+      cij = return_cache(k,A,v.array[i,j],I.array[i],J.array[j])
+      ni,nj = size(v.touched)
+      cache = Matrix{typeof(cij)}(undef,ni,nj)
+      for j in 1:nj
+        for i in 1:ni
+          if v.touched[i,j]
+            cache[i,j] = return_cache(k,A,v.array[i,j],I.array[i],J.array[j])
+          end
+        end
+      end
+      cache
+    end
+
+    function Arrays.evaluate!(cache,k::AddTransientHREntriesMap{$T},A,v::MatrixBlock,I::VectorBlock,J::VectorBlock)
+      ni,nj = size(v.touched)
+      for j in 1:nj
+        for i in 1:ni
+          if v.touched[i,j]
+            evaluate!(cache[i,j],k,A,v.array[i,j],I.array[i],J.array[j])
+          end
+        end
+      end
+    end
+
+    function Arrays.return_cache(k::AddTransientHREntriesMap{$T},A,v::VectorBlock,I::VectorBlock)
+      qs = findall(v.touched)
+      i = first(qs)
+      ci = return_cache(k,A,v.array[i],I.array[i])
+      ni = length(v.touched)
+      cache = Vector{typeof(ci)}(undef,ni)
+      for i in 1:ni
+        if v.touched[i]
+          cache[i] = return_cache(k,A,v.array[i],I.array[i])
+        end
+      end
+      cache
+    end
+
+    function Arrays.evaluate!(cache,k::AddTransientHREntriesMap{$T},A,v::VectorBlock,I::VectorBlock)
+      ni = length(v.touched)
+      for i in 1:ni
+        if v.touched[i]
+          evaluate!(cache[i],k,A,v.array[i],I.array[i])
+        end
+      end
+    end
+  end
+
+  for MT in (:MatrixBlock,:MatrixBlockView)
+    Aij = (MT == :MatrixBlock) ? :(A.array[i,j]) : :(A[i,j])
+    @eval begin
+      function Arrays.return_cache(k::AddTransientHREntriesMap{$T},A::$MT,v::MatrixBlock,I::VectorBlock,J::VectorBlock)
+        qs = findall(v.touched)
+        i,j = Tuple(first(qs))
+        cij = return_cache(k,$Aij,v.array[i,j],I.array[i],J.array[j])
+        ni,nj = size(v.touched)
+        cache = Matrix{typeof(cij)}(undef,ni,nj)
+        for j in 1:nj
+          for i in 1:ni
+            if v.touched[i,j]
+              cache[i,j] = return_cache(k,$Aij,v.array[i,j],I.array[i],J.array[j])
+            end
+          end
+        end
+        cache
+      end
+
+      function Arrays.evaluate!(cache,k::AddTransientHREntriesMap{$T},A::$MT,v::MatrixBlock,I::VectorBlock,J::VectorBlock)
+        ni,nj = size(v.touched)
+        for j in 1:nj
+          for i in 1:ni
+            if v.touched[i,j]
+              evaluate!(cache[i,j],k,$Aij,v.array[i,j],I.array[i],J.array[j])
+            end
+          end
+        end
+      end
+    end 
+  end 
+
+  for VT in (:VectorBlock,:VectorBlockView)
+    Ai = (VT == :VectorBlock) ? :(A.array[i]) : :(A[i])
+    @eval begin
+      function Arrays.return_cache(k::AddTransientHREntriesMap{$T},A::$VT,v::VectorBlock,I::VectorBlock)
+        qs = findall(v.touched)
+        i = first(qs)
+        ci = return_cache(k,$Ai,v.array[i],I.array[i])
+        ni = length(v.touched)
+        cache = Vector{typeof(ci)}(undef,ni)
+        for i in 1:ni
+          if v.touched[i]
+            cache[i] = return_cache(k,$Ai,v.array[i],I.array[i])
+          end
+        end
+        cache
+      end
+
+      function Arrays.evaluate!(cache,k::AddTransientHREntriesMap{$T},A::$VT,v::VectorBlock,I::VectorBlock)
+        ni = length(v.touched)
+        for i in 1:ni
+          if v.touched[i]
+            evaluate!(cache[i],k,$Ai,v.array[i],I.array[i])
+          end
+        end
+      end
+    end 
+  end
+end
+
+@inline function add_hr_kron_entry!(
   combine::Function,A::ConsecutiveParamVector,v::Number,hr_indices::Range2D,i::Integer
   )
 
@@ -73,7 +219,7 @@ end
   A
 end
 
-@inline function add_hr_entry!(
+@inline function add_hr_kron_entry!(
   combine::Function,A::ConsecutiveParamVector,v::AbstractVector,hr_indices::Range2D,i::Integer
   )
 
@@ -92,184 +238,6 @@ end
   A
 end
 
-@inline function add_hr_entry!(
-  combine::Function,A::ConsecutiveParamVector,v::Number,ids::Tuple
-  )
-
-  uids = unique(ids)
-  data = get_all_data(A)
-  np = param_length(A)
-  for it in uids
-    for ip in 1:np
-      astp = data[it,ip]
-      data[it,ip] = combine(astp,v)
-    end
-  end
-  A
-end
-
-@inline function add_hr_entry!(
-  combine::Function,A::ConsecutiveParamVector,v::AbstractVector,ids::Tuple
-  )
-
-  uids = unique(ids)
-  data = get_all_data(A)
-  np = param_length(A)
-  for it in uids
-    for ip in 1:np
-      ipt = (it-1)*np + ip
-      vtp = v[ipt]
-      astp = data[it,ip]
-      data[it,ip] = combine(astp,vtp)
-    end
-  end
-  A
-end
-
-struct AddTransientHREntriesMap{A<:TransientIntegrationDomainStyle,F,I<:Range2D} <: Map
-  style::A
-  combine::F
-  locations::I
-end
-
-function AddTransientHREntriesMap(style::TransientIntegrationDomainStyle,locations::Range2D)
-  AddTransientHREntriesMap(style,+,locations)
-end
-
-get_param_time_inds(k::AddTransientHREntriesMap) = k.locations
-get_param_inds(k::AddTransientHREntriesMap) = k.locations.axis1
-get_time_inds(k::AddTransientHREntriesMap) = k.locations.axis2
-
-function Arrays.return_cache(k::AddTransientHREntriesMap,A,vs::ParamBlock,args...)
-  zeros(eltype2(vs),length(get_param_time_inds(k)))
-end
-
-for (T,f) in zip((:KroneckerDomain,:SequentialDomain),(:add_hr_kron_entries!,:add_hr_lin_entries!))
-  @eval begin
-    function Arrays.evaluate!(cache,k::AddTransientHREntriesMap{$T},b,vs,is,r)
-      $f(cache,k.combine,b,vs,is,k.locations,r)
-    end
-
-    function Arrays.evaluate!(cache,k::AddTransientHREntriesMap{$T},A,vs,is,js,r,c)
-      $f(cache,k.combine,A,vs,is,js,k.locations,r,c)
-    end
-  end
-end
-
-for T in (:KroneckerDomain,:SequentialDomain)
-  @eval begin
-    function Arrays.return_cache(k::AddTransientHREntriesMap{$T},A,v::MatrixBlock,I::VectorBlock,J::VectorBlock,r,c)
-      qs = findall(v.touched)
-      i,j = Tuple(first(qs))
-      cij = return_cache(k,A,v.array[i,j],I.array[i],J.array[j])
-      ni,nj = size(v.touched)
-      cache = Matrix{typeof(cij)}(undef,ni,nj)
-      for j in 1:nj
-        for i in 1:ni
-          if v.touched[i,j]
-            cache[i,j] = return_cache(k,A,v.array[i,j],I.array[i],J.array[j])
-          end
-        end
-      end
-      cache
-    end
-
-    function Arrays.evaluate!(cache,k::AddTransientHREntriesMap{$T},A,v::MatrixBlock,I::VectorBlock,J::VectorBlock,r,c)
-      ni,nj = size(v.touched)
-      for j in 1:nj
-        for i in 1:ni
-          if v.touched[i,j]
-            evaluate!(cache[i,j],k,A,v.array[i,j],I.array[i],J.array[j],r,c)
-          end
-        end
-      end
-    end
-
-    function Arrays.return_cache(k::AddTransientHREntriesMap{$T},A,v::VectorBlock,I::VectorBlock,r)
-      qs = findall(v.touched)
-      i = first(qs)
-      ci = return_cache(k,A,v.array[i],I.array[i])
-      ni = length(v.touched)
-      cache = Vector{typeof(ci)}(undef,ni)
-      for i in 1:ni
-        if v.touched[i]
-          cache[i] = return_cache(k,A,v.array[i],I.array[i])
-        end
-      end
-      cache
-    end
-
-    function Arrays.evaluate!(cache,k::AddTransientHREntriesMap{$T},A,v::VectorBlock,I::VectorBlock,r)
-      ni = length(v.touched)
-      for i in 1:ni
-        if v.touched[i]
-          evaluate!(cache[i],k,A,v.array[i],I.array[i],r)
-        end
-      end
-    end
-  end
-
-  for MT in (:MatrixBlock,:MatrixBlockView)
-    Aij = (MT == :MatrixBlock) ? :(A.array[i,j]) : :(A[i,j])
-    @eval begin
-      function Arrays.return_cache(k::AddTransientHREntriesMap{$T},A::$MT,v::MatrixBlock,I::VectorBlock,J::VectorBlock,r,c)
-        qs = findall(v.touched)
-        i,j = Tuple(first(qs))
-        cij = return_cache(k,$Aij,v.array[i,j],I.array[i],J.array[j])
-        ni,nj = size(v.touched)
-        cache = Matrix{typeof(cij)}(undef,ni,nj)
-        for j in 1:nj
-          for i in 1:ni
-            if v.touched[i,j]
-              cache[i,j] = return_cache(k,$Aij,v.array[i,j],I.array[i],J.array[j])
-            end
-          end
-        end
-        cache
-      end
-
-      function Arrays.evaluate!(cache,k::AddTransientHREntriesMap{$T},A::$MT,v::MatrixBlock,I::VectorBlock,J::VectorBlock,r,c)
-        ni,nj = size(v.touched)
-        for j in 1:nj
-          for i in 1:ni
-            if v.touched[i,j]
-              evaluate!(cache[i,j],k,$Aij,v.array[i,j],I.array[i],J.array[j],r,c)
-            end
-          end
-        end
-      end
-    end 
-  end 
-
-  for VT in (:VectorBlock,:VectorBlockView)
-    Ai = (VT == :VectorBlock) ? :(A.array[i]) : :(A[i])
-    @eval begin
-      function Arrays.return_cache(k::AddTransientHREntriesMap{$T},A::$VT,v::VectorBlock,I::VectorBlock,r)
-        qs = findall(v.touched)
-        i = first(qs)
-        ci = return_cache(k,$Ai,v.array[i],I.array[i])
-        ni = length(v.touched)
-        cache = Vector{typeof(ci)}(undef,ni)
-        for i in 1:ni
-          if v.touched[i]
-            cache[i] = return_cache(k,$Ai,v.array[i],I.array[i])
-          end
-        end
-        cache
-      end
-
-      function Arrays.evaluate!(cache,k::AddTransientHREntriesMap{$T},A::$VT,v::VectorBlock,I::VectorBlock,r)
-        ni = length(v.touched)
-        for i in 1:ni
-          if v.touched[i]
-            evaluate!(cache[i],k,$Ai,v.array[i],I.array[i],r)
-          end
-        end
-      end
-    end 
-  end
-end
-
 @inline function add_hr_kron_entries!(
   vi,combine::Function,A::AbstractParamVector,vs,is,loc,r
   )
@@ -278,7 +246,7 @@ end
     ir = _indexin(i,r)
     if !isnothing(ir)
       vi = vs[li]
-      add_hr_entry!(combine,A,vi,loc,ir)
+      add_hr_kron_entry!(combine,A,vi,loc,ir)
     end
   end
   A
@@ -292,7 +260,7 @@ end
     ir = _indexin(i,r)
     if !isnothing(ir)
       get_hr_param_entry!(vi,vs,loc,li)
-      add_hr_entry!(combine,A,vi,loc,ir)
+      add_hr_kron_entry!(combine,A,vi,loc,ir)
     end
   end
   A
@@ -310,7 +278,7 @@ end
         if !isnothing(ir)
           if ir == ic
             vij = vs[li,lj]
-            add_hr_entry!(combine,A,vij,loc,ir)
+            add_hr_kron_entry!(combine,A,vij,loc,ir)
           end
         end
       end
@@ -331,7 +299,7 @@ end
         if !isnothing(ir)
           if ir == ic
             get_hr_param_entry!(vij,vs,loc,li,lj)
-            add_hr_entry!(combine,A,vij,loc,ir)
+            add_hr_kron_entry!(combine,A,vij,loc,ir)
           end
         end
       end
@@ -340,68 +308,80 @@ end
   A
 end
 
-@inline function add_hr_lin_entries!(
-  vi,combine::Function,A::AbstractParamVector,vs,is,loc,r
+@inline function add_hr_lin_entry!(
+  combine::Function,A::ConsecutiveParamVector,v::Number,it::Int
   )
 
-  for (li,i) in enumerate(is)
-    if _ipos(i)
-      vi = vs[li]
-      add_hr_entry!(combine,A,vi,_get_ids(i))
-    end
+  data = get_all_data(A)
+  np = param_length(A)
+  for ip in 1:np
+    astp = data[it,ip]
+    data[it,ip] = combine(astp,v)
+  end
+  A
+end
+
+@inline function add_hr_lin_entry!(
+  combine::Function,A::ConsecutiveParamVector,v::AbstractVector,it::Int
+  )
+
+  data = get_all_data(A)
+  np = param_length(A)
+  for ip in 1:np
+    ipt = (it-1)*np + ip
+    vtp = v[ipt]
+    astp = data[it,ip]
+    data[it,ip] = combine(astp,vtp)
   end
   A
 end
 
 @inline function add_hr_lin_entries!(
-  vi,combine::Function,A::AbstractParamVector,vs::ParamBlock,is,loc,r
+  vi,combine::Function,A::AbstractParamVector,vs,is,r,loc
   )
 
-  for (li,i) in enumerate(is)
-    if _ipos(i)
-      get_hr_param_entry!(vi,vs,loc,li)
-      add_hr_entry!(combine,A,vi,_get_ids(i))
-    end
+  for (ik,rk) in enumerate(r)
+    li = findfirst(==(rk),is)::Int
+    vi = vs[li]
+    add_hr_lin_entry!(combine,A,vi,ik)
   end
   A
 end
 
 @inline function add_hr_lin_entries!(
-  vij,combine::Function,A::AbstractParamVector,vs,is,js,loc,r,c
+  vi,combine::Function,A::AbstractParamVector,vs::ParamBlock,is,r,loc
   )
 
-  for (lj,j) in enumerate(js)
-    if _ipos(j)
-      for (li,i) in enumerate(is)
-        if _ipos(i)
-          ids = _get_ids(i,j)
-          if !isempty(ids)
-            vij = vs[li,lj]
-            add_hr_entry!(combine,A,vij,ids)
-          end
-        end
-      end
-    end
+  for (ik,rk) in enumerate(r)
+    li = findfirst(==(rk),is)::Int
+    get_hr_param_entry!(vi,vs,loc,li)
+    add_hr_lin_entry!(combine,A,vi,ik)
   end
   A
 end
 
 @inline function add_hr_lin_entries!(
-  vij,combine::Function,A::AbstractParamVector,vs::ParamBlock,is,js,loc,r,c
+  vij,combine::Function,A::AbstractParamVector,vs,is,js,r,c,loc
   )
 
-  for (lj,j) in enumerate(js)
-    if _ipos(j)
-      for (li,i) in enumerate(is)
-        if _ipos(i)
-          ids = _get_ids(i,j)
-          if !isempty(ids)
-            get_hr_param_entry!(vij,vs,loc,li,lj)
-            add_hr_entry!(combine,A,vij,ids)
-          end
-        end
-      end
-    end
+  for (ik,(rk,ck)) in enumerate(zip(r,c))
+    li = findfirst(==(rk),is)::Int
+    lj = findfirst(==(ck),js)::Int
+    vij = vs[li,lj]
+    add_hr_lin_entry!(combine,A,vij,ik)
+  end
+  A
+end
+
+@inline function add_hr_lin_entries!(
+  vij,combine::Function,A::AbstractParamVector,vs::ParamBlock,is,js,r,c,loc
+  )
+
+  for (ik,(rk,ck)) in enumerate(zip(r,c))
+    li = findfirst(==(rk),is)::Int
+    lj = findfirst(==(ck),js)::Int
+    get_hr_param_entry!(vij,vs,loc,li,lj)
+    add_hr_lin_entry!(combine,A,vij,ik)
   end
   A
 end
@@ -438,10 +418,10 @@ function RBSteady._assemble_hr_vector_add!(b,cellvec,cellidsrows,rows,locations,
     vals_cache = array_cache(cellvec)
     vals1 = getindex!(vals_cache,cellvec,1)
     rows1 = getindex!(rows_cache,cellidsrows,1)
-    add! = AddTransientHREntriesMap(style,locations)
+    add! = AddTransientHREntriesMap(style,rows,locations)
     add_cache = return_cache(add!,b,vals1,rows1)
     caches = add!,add_cache,vals_cache,rows_cache
-    RBSteady._numeric_loop_hr_vector!(b,caches,cellvec,cellidsrows,rows)
+    RBSteady._numeric_loop_hr_vector!(b,caches,cellvec,cellidsrows)
   end
   b
 end
@@ -482,39 +462,10 @@ function RBSteady._assemble_hr_matrix_add!(A,cellmat,cellidsrows,cellidscols,row
     vals1 = getindex!(vals_cache,cellmat,1)
     rows1 = getindex!(rows_cache,cellidsrows,1)
     cols1 = getindex!(cols_cache,cellidscols,1)
-    add! = AddTransientHREntriesMap(style,locations)
+    add! = AddTransientHREntriesMap(style,(rows,cols),locations)
     add_cache = return_cache(add!,A,vals1,rows1,cols1)
     caches = add!,add_cache,vals_cache,rows_cache,cols_cache
-    RBSteady._numeric_loop_hr_matrix!(A,caches,cellmat,cellidsrows,cellidscols,rows,cols)
+    RBSteady._numeric_loop_hr_matrix!(A,caches,cellmat,cellidsrows,cellidscols)
   end
   A
-end
-
-# utils
-
-_ipos(v::VectorValue) = any(i>0 for i in v.data)
-
-@inline function _get_ids(v::VectorValue)
-  ids = ()
-  for vi in v.data
-    if vi > 0
-      ids = (ids...,vi)
-    end
-  end
-  return ids
-end
-
-@inline function _get_ids(v::VectorValue,w::VectorValue)
-  ids = ()
-  for vi in v.data
-    if vi > 0
-      for wi in w.data
-        if wi == vi
-          ids = (ids...,wi)
-          break
-        end
-      end
-    end
-  end
-  return ids
 end

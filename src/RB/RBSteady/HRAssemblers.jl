@@ -36,23 +36,25 @@ function collect_cell_hr_vector(
   (cell_vec_r,cell_row_ids,rows,icells)
 end
 
-struct AddHREntriesMap{F} <: Map
+struct AddHREntriesMap{F,I} <: Map
   combine::F
+  indices::I
 end
 
 function Arrays.return_cache(k::AddHREntriesMap,A,vs::ParamBlock,args...)
   zeros(eltype2(vs),param_length(vs))
 end
 
-function Arrays.evaluate!(cache,k::AddHREntriesMap,A,v,i,j,r,c)
+function Arrays.evaluate!(cache,k::AddHREntriesMap,A,v,i,j)
+  r,c = k.indices
   add_hr_entries!(cache,k.combine,A,v,i,j,r,c)
 end
 
-function Arrays.evaluate!(cache,k::AddHREntriesMap,A,v,i,r)
-  add_hr_entries!(cache,k.combine,A,v,i,r)
+function Arrays.evaluate!(cache,k::AddHREntriesMap,A,v,i)
+  add_hr_entries!(cache,k.combine,A,v,i,k.indices)
 end
 
-function Arrays.return_cache(k::AddHREntriesMap,A,v::MatrixBlock,I::VectorBlock,J::VectorBlock,r,c)
+function Arrays.return_cache(k::AddHREntriesMap,A,v::MatrixBlock,I::VectorBlock,J::VectorBlock)
   qs = findall(v.touched)
   i,j = Tuple(first(qs))
   cij = return_cache(k,A,v.array[i,j],I.array[i],J.array[j])
@@ -61,25 +63,25 @@ function Arrays.return_cache(k::AddHREntriesMap,A,v::MatrixBlock,I::VectorBlock,
   for j in 1:nj
     for i in 1:ni
       if v.touched[i,j]
-        cache[i,j] = return_cache(k,A,v.array[i,j],I.array[i],J.array[j],r,c)
+        cache[i,j] = return_cache(k,A,v.array[i,j],I.array[i],J.array[j])
       end
     end
   end
   cache
 end
 
-function Arrays.evaluate!(cache,k::AddHREntriesMap,A,v::MatrixBlock,I::VectorBlock,J::VectorBlock,r,c)
+function Arrays.evaluate!(cache,k::AddHREntriesMap,A,v::MatrixBlock,I::VectorBlock,J::VectorBlock)
   ni,nj = size(v.touched)
   for j in 1:nj
     for i in 1:ni
       if v.touched[i,j]
-        evaluate!(cache[i,j],k,A,v.array[i,j],I.array[i],J.array[j],r,c)
+        evaluate!(cache[i,j],k,A,v.array[i,j],I.array[i],J.array[j])
       end
     end
   end
 end
 
-function Arrays.return_cache(k::AddHREntriesMap,A,v::VectorBlock,I::VectorBlock,r)
+function Arrays.return_cache(k::AddHREntriesMap,A,v::VectorBlock,I::VectorBlock)
   qs = findall(v.touched)
   i = first(qs)
   ci = return_cache(k,A,v.array[i],I.array[i])
@@ -87,17 +89,17 @@ function Arrays.return_cache(k::AddHREntriesMap,A,v::VectorBlock,I::VectorBlock,
   cache = Vector{typeof(ci)}(undef,ni)
   for i in 1:ni
     if v.touched[i]
-      cache[i] = return_cache(k,A,v.array[i],I.array[i],r)
+      cache[i] = return_cache(k,A,v.array[i],I.array[i])
     end
   end
   cache
 end
 
-function Arrays.evaluate!(cache,k::AddHREntriesMap,A,v::VectorBlock,I::VectorBlock,r)
+function Arrays.evaluate!(cache,k::AddHREntriesMap,A,v::VectorBlock,I::VectorBlock)
   ni = length(v.touched)
   for i in 1:ni
     if v.touched[i]
-      evaluate!(cache[i],k,A,v.array[i],I.array[i],r)
+      evaluate!(cache[i],k,A,v.array[i],I.array[i])
     end
   end
 end
@@ -105,7 +107,7 @@ end
 for MT in (:MatrixBlock,:MatrixBlockView)
   Aij = (MT == :MatrixBlock) ? :(A.array[i,j]) : :(A[i,j])
   @eval begin
-    function Arrays.return_cache(k::AddHREntriesMap,A::$MT,v::MatrixBlock,I::VectorBlock,J::VectorBlock,r,c)
+    function Arrays.return_cache(k::AddHREntriesMap,A::$MT,v::MatrixBlock,I::VectorBlock,J::VectorBlock)
       qs = findall(v.touched)
       i,j = Tuple(first(qs))
       cij = return_cache(k,$Aij,v.array[i,j],I.array[i],J.array[j])
@@ -114,19 +116,19 @@ for MT in (:MatrixBlock,:MatrixBlockView)
       for j in 1:nj
         for i in 1:ni
           if v.touched[i,j]
-            cache[i,j] = return_cache(k,$Aij,v.array[i,j],I.array[i],J.array[j],r,c)
+            cache[i,j] = return_cache(k,$Aij,v.array[i,j],I.array[i],J.array[j])
           end
         end
       end
       cache
     end
 
-    function Arrays.evaluate!(cache,k::AddHREntriesMap,A::$MT,v::MatrixBlock,I::VectorBlock,J::VectorBlock,r,c)
+    function Arrays.evaluate!(cache,k::AddHREntriesMap,A::$MT,v::MatrixBlock,I::VectorBlock,J::VectorBlock)
       ni,nj = size(v.touched)
       for j in 1:nj
         for i in 1:ni
           if v.touched[i,j]
-            evaluate!(cache[i,j],k,$Aij,v.array[i,j],I.array[i],J.array[j],r,c)
+            evaluate!(cache[i,j],k,$Aij,v.array[i,j],I.array[i],J.array[j])
           end
         end
       end
@@ -137,25 +139,25 @@ end
 for VT in (:VectorBlock,:VectorBlockView)
   Ai = (VT == :VectorBlock) ? :(A.array[i]) : :(A[i])
   @eval begin
-    function Arrays.return_cache(k::AddHREntriesMap,A::$VT,v::VectorBlock,I::VectorBlock,r)
+    function Arrays.return_cache(k::AddHREntriesMap,A::$VT,v::VectorBlock,I::VectorBlock)
       qs = findall(v.touched)
       i = first(qs)
-      ci = return_cache(k,$Ai,v.array[i],I.array[i],r)
+      ci = return_cache(k,$Ai,v.array[i],I.array[i])
       ni = length(v.touched)
       cache = Vector{typeof(ci)}(undef,ni)
       for i in 1:ni
         if v.touched[i]
-          cache[i] = return_cache(k,$Ai,v.array[i],I.array[i],r)
+          cache[i] = return_cache(k,$Ai,v.array[i],I.array[i])
         end
       end
       cache
     end
 
-    function Arrays.evaluate!(cache,k::AddHREntriesMap,A::$VT,v::VectorBlock,I::VectorBlock,r)
+    function Arrays.evaluate!(cache,k::AddHREntriesMap,A::$VT,v::VectorBlock,I::VectorBlock)
       ni = length(v.touched)
       for i in 1:ni
         if v.touched[i]
-          evaluate!(cache[i],k,$Ai,v.array[i],I.array[i],r)
+          evaluate!(cache[i],k,$Ai,v.array[i],I.array[i])
         end
       end
     end
@@ -250,21 +252,21 @@ function _assemble_hr_vector_add!(b,cellvec,cellidsrows,rows)
     vals_cache = array_cache(cellvec)
     vals1 = getindex!(vals_cache,cellvec,1)
     rows1 = getindex!(rows_cache,cellidsrows,1)
-    add! = AddHREntriesMap(+)
+    add! = AddHREntriesMap(+,rows)
     add_cache = return_cache(add!,b,vals1,rows1)
     caches = add!,add_cache,vals_cache,rows_cache
-    _numeric_loop_hr_vector!(b,caches,cellvec,cellidsrows,rows)
+    _numeric_loop_hr_vector!(b,caches,cellvec,cellidsrows)
   end
   b
 end
 
-@noinline function _numeric_loop_hr_vector!(vec,caches,cell_vals,cell_rows,hr_rows)
+@noinline function _numeric_loop_hr_vector!(vec,caches,cell_vals,cell_rows)
   add!,add_cache,vals_cache,rows_cache = caches
   @assert length(cell_vals) == length(cell_rows)
   for cell in 1:length(cell_rows)
     rows = getindex!(rows_cache,cell_rows,cell)
     vals = getindex!(vals_cache,cell_vals,cell)
-    evaluate!(add_cache,add!,vec,vals,rows,hr_rows)
+    evaluate!(add_cache,add!,vec,vals,rows)
   end
 end
 
@@ -302,22 +304,22 @@ function _assemble_hr_matrix_add!(A,cellmat,cellidsrows,cellidscols,rows,cols)
     vals1 = getindex!(vals_cache,cellmat,1)
     rows1 = getindex!(rows_cache,cellidsrows,1)
     cols1 = getindex!(cols_cache,cellidscols,1)
-    add! = AddHREntriesMap(+)
+    add! = AddHREntriesMap(+,(rows,cols))
     add_cache = return_cache(add!,A,vals1,rows1,cols1)
     caches = add!,add_cache,vals_cache,rows_cache,cols_cache
-    _numeric_loop_hr_matrix!(A,caches,cellmat,cellidsrows,cellidscols,rows,cols)
+    _numeric_loop_hr_matrix!(A,caches,cellmat,cellidsrows,cellidscols)
   end
   A
 end
 
-@noinline function _numeric_loop_hr_matrix!(mat,caches,cell_vals,cell_rows,cell_cols,hr_rows,hr_cols)
+@noinline function _numeric_loop_hr_matrix!(mat,caches,cell_vals,cell_rows,cell_cols)
   add!,add_cache,vals_cache,rows_cache,cols_cache = caches
   @assert length(cell_vals) == length(cell_rows) == length(cell_cols)
   for cell in 1:length(cell_rows)
     rows = getindex!(rows_cache,cell_rows,cell)
     cols = getindex!(cols_cache,cell_cols,cell)
     vals = getindex!(vals_cache,cell_vals,cell)
-    evaluate!(add_cache,add!,mat,vals,rows,cols,hr_rows,hr_cols)
+    evaluate!(add_cache,add!,mat,vals,rows,cols)
   end
 end
 
