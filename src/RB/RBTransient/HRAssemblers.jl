@@ -3,13 +3,13 @@ function RBSteady.collect_cell_hr_matrix(
   test::FESpace,
   a::DomainContribution,
   strian::Triangulation,
-  interp::TransientIntegrationDomain,
+  interp::Interpolation,
   common_indices::AbstractVector
   )
 
   cell_idofs = get_cell_idofs(interp)
   icells = get_owned_icells(interp,strian)
-  locations = get_param_itimes(interp,common_indices)
+  locations = get_locations(interp,common_indices)
   style = get_domain_style(interp)
 
   scell_mat = get_contribution(a,strian)
@@ -24,13 +24,13 @@ function RBSteady.collect_cell_hr_vector(
   test::FESpace,
   a::DomainContribution,
   strian::Triangulation,
-  interp::TransientIntegrationDomain,
+  interp::Interpolation,
   common_indices::AbstractVector
   )
 
   cell_idofs = get_cell_idofs(interp)
   icells = get_owned_icells(interp,strian)
-  locations = get_param_itimes(interp,common_indices)
+  locations = get_locations(interp,common_indices)
   style = get_domain_style(interp)
 
   scell_vec = get_contribution(a,strian)
@@ -40,48 +40,16 @@ function RBSteady.collect_cell_hr_vector(
   (cell_vec_r,cell_idofs,icells,locations,style)
 end
 
-function RBSteady.collect_cell_hr_matrix(
-  trial::FESpace,
-  test::FESpace,
-  a::DomainContribution,
-  strian::Triangulation,
-  interp::TransientIntegrationDomain{<:SequentialDomain},
-  common_indices::AbstractVector
-  )
-
-  cell_idofs = get_cell_idofs(interp)
-  icells = get_owned_icells(interp,strian)
-  rows,cols = get_interpolation_dofs(interp)
-  iurowcol_to_irowcol = get_iurowcol_to_irowcol(rows,cols)
-  style = get_domain_style(interp)
-
-  scell_mat = get_contribution(a,strian)
-  cell_mat,trian = move_contributions(scell_mat,strian)
-  @assert ndims(eltype(cell_mat)) == 2
-  cell_mat_c = attach_constraints_cols(trial,cell_mat,trian)
-  cell_mat_rc = attach_constraints_rows(test,cell_mat_c,trian)
-  (cell_mat_rc,cell_idofs,icells,iurowcol_to_irowcol,style)
+function get_hr_param_entry!(v::AbstractVector,A::GenericParamBlock,hr_indices,i...)
+  for (k,hrk) in enumerate(hr_indices)
+    v[k] = A.data[hrk][i...]
+  end
+  v
 end
 
-function RBSteady.collect_cell_hr_vector(
-  test::FESpace,
-  a::DomainContribution,
-  strian::Triangulation,
-  interp::TransientIntegrationDomain{<:SequentialDomain},
-  common_indices::AbstractVector
-  )
-
-  cell_idofs = get_cell_idofs(interp)
-  icells = get_owned_icells(interp,strian)
-  rows = get_interpolation_dofs(interp)
-  iurow_to_irow = get_iurow_to_irow(rows)
-  style = get_domain_style(interp)
-
-  scell_vec = get_contribution(a,strian)
-  cell_vec,trian = move_contributions(scell_vec,strian)
-  @assert ndims(eltype(cell_vec)) == 1
-  cell_vec_r = attach_constraints_rows(test,cell_vec,trian)
-  (cell_vec_r,cell_idofs,icells,iurow_to_irow,style)
+function get_hr_param_entry!(v::AbstractVector,A::TrivialParamBlock,hr_indices,i...)
+  vk = A.data[i...]
+  fill!(v,vk)
 end
 
 struct AddTransientHREntriesMap{A<:TransientIntegrationDomainStyle,F,I} <: Map
@@ -98,16 +66,22 @@ function Arrays.return_cache(k::AddTransientHREntriesMap{KroneckerDomain},A,vs::
   zeros(eltype2(vs),length(k.locations))
 end
 
+function Arrays.return_cache(k::AddTransientHREntriesMap{SequentialDomain},A,vs,args...)
+  sloc,tloc = k.locations
+  array_cache(sloc)
+end
+
 function Arrays.return_cache(k::AddTransientHREntriesMap{SequentialDomain},A,vs::ParamBlock,args...)
-  cv = zeros(eltype2(vs),param_length(A))
-  cl = array_cache(k.locations)
+  sloc,tloc = k.locations
+  cv = zeros(eltype2(vs),length(tloc))
+  cl = array_cache(sloc)
   (cv,cl)
 end
 
 for (T,f) in zip((:KroneckerDomain,:SequentialDomain),(:add_hr_kron_entries!,:add_hr_lin_entries!))
   @eval begin
-    function Arrays.evaluate!(cache,k::AddTransientHREntriesMap{$T},b,vs,is)
-      $f(cache,k.combine,b,vs,is,k.locations)
+    function Arrays.evaluate!(cache,k::AddTransientHREntriesMap{$T},A,vs,is)
+      $f(cache,k.combine,A,vs,is,k.locations)
     end
   end
 end
@@ -262,18 +236,6 @@ end
   A
 end
 
-function get_hr_kron_param_entry!(v::AbstractVector,b::GenericParamBlock,hr_indices,i...)
-  for (k,hrk) in enumerate(hr_indices)
-    v[k] = b.data[hrk][i...]
-  end
-  v
-end
-
-function get_hr_kron_param_entry!(v::AbstractVector,b::TrivialParamBlock,hr_indices,i...)
-  vk = b.data[i...]
-  fill!(v,vk)
-end
-
 @inline function add_hr_kron_entries!(
   vi,combine::Function,A::AbstractParamVector,vs,is,loc
   )
@@ -293,74 +255,70 @@ end
 
   for (li,i) in enumerate(is)
     if i>0
-      get_hr_kron_param_entry!(vi,vs,loc,li)
+      get_hr_param_entry!(vi,vs,loc,li)
       add_hr_kron_entry!(combine,A,vi,loc,i)
     end
   end
   A
 end
 
-function get_hr_lin_param_entry!(v::AbstractVector,b::GenericParamBlock,i::Integer)
-  for ip in eachindex(v)
-    @inbounds v[ip] = b.data[ip][i]
-  end
-  v
-end
-
-function get_hr_lin_param_entry!(v::AbstractVector,b::TrivialParamBlock,i::Integer)
-  fill!(v,b.data[i])
-end
-
 @inline function add_hr_lin_entry!(
-  combine::Function,A::ConsecutiveParamVector,v::Number,k::Integer
+  combine::Function,A::ConsecutiveParamVector,v::Number,ids
   )
 
   data = get_all_data(A)
   np = param_length(A)
-  for ip in 1:np
-    data[k,ip] = combine(data[k,ip],v)
+  for it in ids
+    for ip in 1:np
+      astp = data[it,ip]
+      data[it,ip] = combine(astp,v)
+    end
   end
   A
 end
 
 @inline function add_hr_lin_entry!(
-  combine::Function,A::ConsecutiveParamVector,v::AbstractVector,k::Integer
+  combine::Function,A::ConsecutiveParamVector,v::AbstractVector,ids
   )
 
   data = get_all_data(A)
   np = param_length(A)
-  for ip in 1:np
-    data[k,ip] = combine(data[k,ip],v[ip])
-  end
-  A
-end
-
-@inline function add_hr_lin_entries!(
-  cache,combine::Function,A::AbstractParamVector,vs,is,iurow_to_irow::Table
-  )
-
-  vi,ucache = cache
-  for (li,i) in enumerate(is)
-    if i > 0
-      vi = vs[li]
-      ks = getindex!(ucache,iurow_to_irow,i)
-      for k in ks
-        add_hr_lin_entry!(combine,A,vi,k)
-      end
+  for it in ids
+    for ip in 1:np
+      ipt = (it-1)*np + ip
+      vtp = v[ipt]
+      astp = data[it,ip]
+      data[it,ip] = combine(astp,vtp)
     end
   end
   A
 end
 
 @inline function add_hr_lin_entries!(
-  cache,combine::Function,A::AbstractParamVector,vs::ParamBlock,is,iurow_to_irow::Table
+  cache,combine::Function,A::AbstractParamVector,vs,is,loc
   )
 
-  vi,ucache = cache
+  sloc,tloc = loc
   for (li,i) in enumerate(is)
     if i > 0
-      get_hr_lin_param_entry!(vi,vs,li)
-      ks = getindex!(ucache,iurow_to_irow,i)
+      vi = vs[li]
+      ks = getindex!(cache,sloc,i)
+      add_hr_lin_entry!(combine,A,vi,ks)
+    end
+  end
+  A
+end
+
+@inline function add_hr_lin_entries!(
+  cache,combine::Function,A::AbstractParamVector,vs::ParamBlock,is,loc
+  )
+
+  sloc,tloc = loc
+  vi,scache = cache
+  for (li,i) in enumerate(is)
+    if i > 0
+      get_hr_param_entry!(vi,vs,tloc,li)
+      ks = getindex!(scache,sloc,i)
       for k in ks
         add_hr_lin_entry!(combine,A,vi,k)
       end
@@ -370,7 +328,7 @@ end
 end
 
 function RBSteady.assemble_hr_array_add!(
-  b::ArrayBlock,
+  A::ArrayBlock,
   _cellvals,
   celldofs::ArrayBlock,
   icells::ArrayBlock,
@@ -382,28 +340,28 @@ function RBSteady.assemble_hr_array_add!(
   for i in eachindex(celldofs)
     if celldofs.touched[i]
       cellvalsi = lazy_map(FetchBlockMap(_cellvals,i),icells[i])
-      RBSteady._assemble_hr_array_add!(b[i],cellvalsi,celldofs[i],locations[i],style)
+      RBSteady._assemble_hr_array_add!(A[i],cellvalsi,celldofs[i],locations[i],style)
     end
   end
-  b
+  A
 end
 
-function RBSteady.assemble_hr_array_add!(b,_cellvals,celldofs,icells,locations,style)
+function RBSteady.assemble_hr_array_add!(A,_cellvals,celldofs,icells,locations,style)
   cellvals = lazy_map(Reindex(_cellvals),icells)
-  RBSteady._assemble_hr_array_add!(b,cellvals,celldofs,locations,style)
-  b
+  RBSteady._assemble_hr_array_add!(A,cellvals,celldofs,locations,style)
+  A
 end
 
-function RBSteady._assemble_hr_array_add!(b,cellvals,celldofs,locations,style)
+function RBSteady._assemble_hr_array_add!(A,cellvals,celldofs,locations,style)
   if length(cellvals) > 0
     dofs_cache = array_cache(celldofs)
     vals_cache = array_cache(cellvals)
     vals1 = getindex!(vals_cache,cellvals,1)
     dofs1 = getindex!(dofs_cache,celldofs,1)
     add! = AddTransientHREntriesMap(style,locations)
-    add_cache = return_cache(add!,b,vals1,dofs1)
+    add_cache = return_cache(add!,A,vals1,dofs1)
     caches = add!,add_cache,vals_cache,dofs_cache
-    RBSteady._numeric_loop_hr_array!(b,caches,cellvals,celldofs)
+    RBSteady._numeric_loop_hr_array!(A,caches,cellvals,celldofs)
   end
-  b
+  A
 end

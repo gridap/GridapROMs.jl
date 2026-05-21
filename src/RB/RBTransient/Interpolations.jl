@@ -1,9 +1,9 @@
 get_indices_time(a::Interpolation) = Int[]
 get_itimes(a::Interpolation,ids::AbstractVector) = Int[]
-get_param_itimes(a::Interpolation,ids::Range2D) = range_2d(ids.axis1,Int[])
+get_locations(a::Interpolation,ids::Range2D) = range_2d(ids.axis1,Int[])
 
 get_itimes(a::Interpolation,ids::Range1D) = error("should not be here")
-get_param_itimes(a::Interpolation,ids::Range1D) = get_param_itimes(a,ids.parent)
+get_locations(a::Interpolation,ids::Range1D) = get_locations(a,ids.parent)
 
 function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,b::AbstractMatrix)
   ldiv!(cache,a,vec(b))
@@ -60,14 +60,24 @@ end
 get_domain_style(a::TransientGreedyInterpolation) = get_domain_style(a.domain)
 get_indices_time(a::TransientGreedyInterpolation) = get_indices_time(a.domain)
 get_itimes(a::TransientGreedyInterpolation,ids::Union{Vector,Range2D}) = get_itimes(a.domain,ids)
-get_param_itimes(a::TransientGreedyInterpolation,ids::Vector) = get_param_itimes(a.domain,ids)
+get_locations(a::TransientGreedyInterpolation,ids::Vector) = get_locations(a.domain,ids)
 
-function get_param_itimes(a::TransientGreedyInterpolation,ids::Range2D)
+function get_locations(a::TransientGreedyInterpolation{A,<:KroneckerIntegrationDomain},ids::Range2D) where A
   common_param_ids = ids.axis1
   common_time_ids = ids.axis2
   local_itime_ids = get_itimes(a,common_time_ids)
   locations = range_2d(common_param_ids,local_itime_ids,length(common_param_ids))
   return locations
+end
+
+function get_locations(a::TransientGreedyInterpolation{A,<:SequentialIntegrationDomain},ids::Range2D) where A
+  dofs = get_interpolation_dofs(a)
+  slocations = get_iudof_to_idof(dofs)
+  common_param_ids = ids.axis1
+  common_time_ids = ids.axis2
+  local_itime_ids = get_itimes(a,common_time_ids)
+  tlocations = range_2d(common_param_ids,local_itime_ids,length(common_param_ids))
+  return (slocations,tlocations)
 end
 
 # RBF interpolation
@@ -129,11 +139,11 @@ function get_itimes(a::TransientBlockInterpolation{N},ids::Union{Vector,Range2D}
   ArrayBlock(array,a.touched)
 end
 
-function get_param_itimes(a::TransientBlockInterpolation{N},ids::Range2D) where N
+function get_locations(a::TransientBlockInterpolation{N},ids::Range2D) where N
   array = Array{Any,N}(undef,size(a))
   for i in eachindex(a)
     if a.touched[i]
-      array[i] = get_param_itimes(a.interp[i],ids)
+      array[i] = get_locations(a.interp[i],ids)
     end
   end
   ArrayBlock(array,a.touched)

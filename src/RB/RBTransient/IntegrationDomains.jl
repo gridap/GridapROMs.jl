@@ -99,6 +99,9 @@ struct TransientIntegrationDomain{A<:TransientIntegrationDomainStyle,Ti<:Integer
   indices_time::Vector{Ti}
 end
 
+const KroneckerIntegrationDomain{Ti<:Integer} = TransientIntegrationDomain{KroneckerDomain,Ti}
+const SequentialIntegrationDomain{Ti<:Integer} = TransientIntegrationDomain{SequentialDomain,Ti}
+
 get_domain_style(a::TransientIntegrationDomain) = a.domain_style
 
 function RBSteady.IntegrationDomain(
@@ -138,4 +141,13 @@ get_indices_time(i::TransientIntegrationDomain) = i.indices_time
 function get_itimes(i::TransientIntegrationDomain,ids::AbstractVector)::Vector{Int}
   idsi = get_indices_time(i)
   filter(!isnothing,indexin(idsi,ids))
+end
+
+function get_iudof_to_idof(rows::AbstractVector)
+  get_iurow_to_irow(rows)
+end
+
+function get_iudof_to_idof(rowcols::Tuple{<:AbstractVector,<:AbstractVector})
+  rows,cols = rowcols
+  get_iurowcol_to_irowcol(rows,cols)
 end

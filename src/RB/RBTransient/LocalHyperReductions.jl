@@ -22,11 +22,11 @@ function get_itimes(a::LocalInterpolation,ids::Union{Vector,Range2D})
   itime_ids
 end
 
-function get_param_itimes(a::LocalInterpolation,ids::Range2D)
+function get_locations(a::LocalInterpolation,ids::Range2D)
   vals = local_vals(a)
   isempty(vals) && return range_2d(ids.axis1,Int[])
-  locations = get_param_itimes(vals[1],ids)
-  @check all(get_param_itimes(v,ids) == locations for v in vals)
+  locations = get_locations(vals[1],ids)
+  @check all(get_locations(v,ids) == locations for v in vals)
   locations
 end
 

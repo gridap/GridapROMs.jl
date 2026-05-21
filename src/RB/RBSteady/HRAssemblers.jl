@@ -154,16 +154,16 @@ for VT in (:VectorBlock,:VectorBlockView)
   end 
 end
 
-@inline function add_hr_entries!(vi,combine,b,vs,is)
-  Algebra._add_entries!(combine,b,vs,is)
+@inline function add_hr_entries!(vi,combine,A,vs,is)
+  Algebra._add_entries!(combine,A,vs,is)
 end
 
-@inline function add_hr_entries!(vi,combine,b,vs::ParamBlock,is)
-  Algebra._add_entries!(vi,combine,b,vs,is)
+@inline function add_hr_entries!(vi,combine,A,vs::ParamBlock,is)
+  Algebra._add_entries!(vi,combine,A,vs,is)
 end
 
 function assemble_hr_array_add!(
-  b::ArrayBlock,
+  A::ArrayBlock,
   _cellvals,
   celldofs::ArrayBlock,
   icells::ArrayBlock
@@ -173,30 +173,30 @@ function assemble_hr_array_add!(
   for i in eachindex(celldofs)
     if celldofs.touched[i]
       cellvalsi = lazy_map(FetchBlockMap(_cellvals,i),icells[i])
-      _assemble_hr_array_add!(b[i],cellvalsi,celldofs[i])
+      _assemble_hr_array_add!(A[i],cellvalsi,celldofs[i])
     end
   end
-  b
+  A
 end
 
-function assemble_hr_array_add!(b,_cellvals,celldofs,icells)
+function assemble_hr_array_add!(A,_cellvals,celldofs,icells)
   cellvals = lazy_map(Reindex(_cellvals),icells)
-  _assemble_hr_array_add!(b,cellvals,celldofs)
-  b
+  _assemble_hr_array_add!(A,cellvals,celldofs)
+  A
 end
 
-function _assemble_hr_array_add!(b,cellvals,celldofs)
+function _assemble_hr_array_add!(A,cellvals,celldofs)
   if length(cellvals) > 0
     dofs_cache = array_cache(celldofs)
     vals_cache = array_cache(cellvals)
     vals1 = getindex!(vals_cache,cellvals,1)
     rows1 = getindex!(dofs_cache,celldofs,1)
     add! = AddHREntriesMap(+)
-    add_cache = return_cache(add!,b,vals1,rows1)
+    add_cache = return_cache(add!,A,vals1,rows1)
     caches = add!,add_cache,vals_cache,dofs_cache
-    _numeric_loop_hr_array!(b,caches,cellvals,celldofs)
+    _numeric_loop_hr_array!(A,caches,cellvals,celldofs)
   end
-  b
+  A
 end
 
 @noinline function _numeric_loop_hr_array!(arr,caches,cell_vals,cell_dofs)
