@@ -41,7 +41,7 @@ function Arrays.return_cache(k::AddHREntriesMap,A,vs::ParamBlock,args...)
 end
 
 function Arrays.evaluate!(cache,k::AddHREntriesMap,A,v,i)
-  add_hr_entries!(cache,k.combine,A,v,i,j)
+  add_hr_entries!(cache,k.combine,A,v,i)
 end
 
 function Arrays.return_cache(k::AddHREntriesMap,A,v::MatrixBlock,IJ::MatrixBlock)
@@ -162,23 +162,9 @@ end
   Algebra._add_entries!(vi,combine,b,vs,is)
 end
 
-struct FetchBlockMap{A} <: Map
-  values::A
-  blockid::Int
-end
-
-function Arrays.return_cache(k::FetchBlockMap,i...)
-  array_cache(k.values)
-end
-
-function Arrays.evaluate!(cache,k::FetchBlockMap,i...)
-  a = getindex!(cache,k.values,i...)
-  a.array[k.blockid]
-end
-
 function assemble_hr_array_add!(
   b::ArrayBlock,
-  _cellvec,
+  _cellvals,
   celldofs::ArrayBlock,
   icells::ArrayBlock
   )
@@ -186,39 +172,67 @@ function assemble_hr_array_add!(
   @check celldofs.touched == icells.touched
   for i in eachindex(celldofs)
     if celldofs.touched[i]
-      cellveci = lazy_map(FetchBlockMap(_cellvec,i),icells[i])
-      _assemble_hr_array_add!(b[i],cellveci,celldofs[i])
+      cellvalsi = lazy_map(FetchBlockMap(_cellvals,i),icells[i])
+      _assemble_hr_array_add!(b[i],cellvalsi,celldofs[i])
     end
   end
   b
 end
 
-function assemble_hr_array_add!(b,_cellvec,celldofs,icells)
-  cellvec = lazy_map(Reindex(_cellvec),icells)
-  _assemble_hr_array_add!(b,cellvec,celldofs)
+function assemble_hr_array_add!(b,_cellvals,celldofs,icells)
+  cellvals = lazy_map(Reindex(_cellvals),icells)
+  _assemble_hr_array_add!(b,cellvals,celldofs)
   b
 end
 
-function _assemble_hr_array_add!(b,cellvec,celldofs)
-  if length(cellvec) > 0
+function _assemble_hr_array_add!(b,cellvals,celldofs)
+  if length(cellvals) > 0
     dofs_cache = array_cache(celldofs)
-    vals_cache = array_cache(cellvec)
-    vals1 = getindex!(vals_cache,cellvec,1)
+    vals_cache = array_cache(cellvals)
+    vals1 = getindex!(vals_cache,cellvals,1)
     rows1 = getindex!(dofs_cache,celldofs,1)
     add! = AddHREntriesMap(+)
     add_cache = return_cache(add!,b,vals1,rows1)
     caches = add!,add_cache,vals_cache,dofs_cache
-    _numeric_loop_hr_array!(b,caches,cellvec,celldofs)
+    _numeric_loop_hr_array!(b,caches,cellvals,celldofs)
   end
   b
 end
 
-@noinline function _numeric_loop_hr_array!(vec,caches,cell_vals,cell_dofs)
+@noinline function _numeric_loop_hr_array!(arr,caches,cell_vals,cell_dofs)
   add!,add_cache,vals_cache,dofs_cache = caches
   @assert length(cell_vals) == length(cell_dofs)
   for cell in 1:length(cell_dofs)
     dofs = getindex!(dofs_cache,cell_dofs,cell)
     vals = getindex!(vals_cache,cell_vals,cell)
-    evaluate!(add_cache,add!,vec,vals,dofs)
+    evaluate!(add_cache,add!,arr,vals,dofs)
   end
 end
+
+# # utils 
+
+# _array_cache(a) = array_cache(a)
+
+# function _array_cache(a::ArrayBlock{A,N}) where {A,N}
+#   ci = array_cache(testitem(a))
+#   vi = getindex!(ci,testitem(a),1)
+#   c = Array{typeof(ci),N}(undef,size(a))
+#   v = Array{typeof(vi),N}(undef,size(a))
+#   for i in eachindex(a)
+#     if a.touched[i]
+#       c[i] = array_cache(a.array[i])
+#       v[i] = getindex!(c[i],a.array[i],1)
+#     end
+#   end
+#   return ArrayBlock(v,a.touched),ArrayBlock(c,a.touched)
+# end
+
+# function Arrays.getindex!(c,a::ArrayBlock{A,N},i...) where {A,N}
+#   value,cache = c 
+#   for j in eachindex(a)
+#     if a.touched[j]
+#       value[j] = getindex!(cache[j],a.array[j],i...)
+#     end
+#   end
+#   return value
+# end

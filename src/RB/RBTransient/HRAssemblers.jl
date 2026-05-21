@@ -316,39 +316,39 @@ end
 
 function RBSteady.assemble_hr_array_add!(
   b::ArrayBlock,
-  _cellvec,
-  cellidsrows::ArrayBlock,
+  _cellvals,
+  celldofs::ArrayBlock,
   icells::ArrayBlock,
   locations::ArrayBlock,
   style::TransientIntegrationDomainStyle
   )
 
-  @check cellidsrows.touched == icells.touched == locations.touched
-  for i in eachindex(cellidsrows)
-    if cellidsrows.touched[i]
-      cellveci = lazy_map(FetchBlockMap(_cellvec,i),icells[i])
-      RBSteady._assemble_hr_array_add!(b[i],cellveci,cellidsrows[i],locations[i],style)
+  @check celldofs.touched == icells.touched == locations.touched
+  for i in eachindex(celldofs)
+    if celldofs.touched[i]
+      cellvalsi = lazy_map(FetchBlockMap(_cellvals,i),icells[i])
+      RBSteady._assemble_hr_array_add!(b[i],cellvalsi,celldofs[i],locations[i],style)
     end
   end
   b
 end
 
-function RBSteady.assemble_hr_array_add!(b,_cellvec,cellidsrows,icells,locations,style)
-  cellvec = lazy_map(Reindex(_cellvec),icells)
-  RBSteady._assemble_hr_array_add!(b,cellvec,cellidsrows,locations,style)
+function RBSteady.assemble_hr_array_add!(b,_cellvals,celldofs,icells,locations,style)
+  cellvals = lazy_map(Reindex(_cellvals),icells)
+  RBSteady._assemble_hr_array_add!(b,cellvals,celldofs,locations,style)
   b
 end
 
-function RBSteady._assemble_hr_array_add!(b,cellvec,cellidsrows,locations,style)
-  if length(cellvec) > 0
+function RBSteady._assemble_hr_array_add!(b,cellvals,celldofs,locations,style)
+  if length(cellvals) > 0
     dofs_cache = array_cache(celldofs)
-    vals_cache = array_cache(cellvec)
-    vals1 = getindex!(vals_cache,cellvec,1)
+    vals_cache = array_cache(cellvals)
+    vals1 = getindex!(vals_cache,cellvals,1)
     dofs1 = getindex!(dofs_cache,celldofs,1)
     add! = AddTransientHREntriesMap(style,locations)
     add_cache = return_cache(add!,b,vals1,dofs1)
     caches = add!,add_cache,vals_cache,dofs_cache
-    RBSteady._numeric_loop_hr_array!(b,caches,cellvec,celldofs)
+    RBSteady._numeric_loop_hr_array!(b,caches,cellvals,celldofs)
   end
   b
 end

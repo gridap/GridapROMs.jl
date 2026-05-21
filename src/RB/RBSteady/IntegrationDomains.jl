@@ -222,38 +222,64 @@ function get_cells_to_irowcols(
   Table(data,ptrs)
 end
 
+struct FetchBlockMap{A} <: Map
+  values::A
+  blockid::Int
+end
+
+function Arrays.return_cache(k::FetchBlockMap,i...)
+  array_cache(k.values)
+end
+
+function Arrays.evaluate!(cache,k::FetchBlockMap,i...)
+  a = getindex!(cache,k.values,i...)
+  a.array[k.blockid]
+end
+
 function get_cells_to_irows(
-  cell_row_ids::VectorBlock,
+  cell_row_ids::AbstractArray{<:VectorBlock},
   cells::AbstractVector,
   rows::AbstractVector
   )
 
+  item_rows = testitem(cell_row_ids)
   T = typeof(empty_table(Int,Int32,0))
-  array = Vector{T}(undef,length(cell_row_ids))
-  for i in eachindex(cell_row_ids)
-    if cell_row_ids.touched[i]
-      array[i] = get_cells_to_irows(cell_row_ids[i],cells,rows)
+  array = Vector{T}(undef,length(item_rows))
+  touched = fill(false,size(array))
+  for i in eachindex(item_rows)
+    if item_rows.touched[i]
+      array[i] = get_cells_to_irows(
+        lazy_map(FetchBlockMap(cell_row_ids,i),eachindex(cell_row_ids)),
+        cells,rows
+      )
+      touched[i] = true
     end 
   end
-  return ArrayBlock(array,cell_row_ids.touched)
+  return ArrayBlock(array,touched)
 end
 
 function get_cells_to_irowcols(
-  cell_row_ids::VectorBlock,
-  cell_col_ids::VectorBlock,
+  cell_row_ids::AbstractArray{<:VectorBlock},
+  cell_col_ids::AbstractArray{<:VectorBlock},
   cells::AbstractVector,
   rows::AbstractVector,
   cols::AbstractVector
   )
 
+  item_rows = testitem(cell_row_ids)
+  item_cols = testitem(cell_col_ids)
   T = typeof(empty_table(Int,Int32,0))
-  array = Matrix{T}(undef,(length(cell_row_ids),length(cell_col_ids)))
+  array = Matrix{T}(undef,(length(item_rows),length(item_cols)))
   touched = fill(false,size(array))
-  for j in eachindex(cell_col_ids)
-    if cell_col_ids.touched[j]
-      for i in eachindex(cell_row_ids)
-        if cell_row_ids.touched[i]
-          array[i,j] = get_cells_to_irowcols(cell_row_ids[i],cell_col_ids[j],cells,rows,cols)
+  for j in eachindex(item_cols)
+    if item_cols.touched[j]
+      for i in eachindex(item_rows)
+        if item_rows.touched[i]
+          array[i,j] = get_cells_to_irowcols(
+            lazy_map(FetchBlockMap(cell_row_ids,i),eachindex(cell_row_ids)),
+            lazy_map(FetchBlockMap(cell_col_ids,j),eachindex(cell_col_ids)),
+            cells,rows,cols
+          )
           touched[i,j] = true
         end 
       end
