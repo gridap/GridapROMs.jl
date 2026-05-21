@@ -510,7 +510,7 @@ function _evaluate!(a,cellrows::OIdsToIds,cellcols::OIdsToIds,rows,cols)
 end
 
 function _evaluate!(a::MatrixBlock,cellrows::VectorBlock,cellcols::VectorBlock,rows,cols)
-  for j in axis(a,2), i in axis(a,1)
+  for j in axes(a,2), i in axes(a,1)
     if a.touched[i,j]
       @check cellrows.touched[i] && cellcols.touched[j]
       _evaluate!(a.array[i,j],cellrows.array[i],cellcols.array[j],rows,cols)

@@ -76,90 +76,13 @@ function get_max_offset(a::Table)
   get_max_offset(a.ptrs)
 end
 
-struct CellsToSpacetimeIrowsMap{N,A,B,C,D} <: Map
-  cell_row_ids::A
-  cells::B
-  rows::C
-  iurow_to_irow::D
-
-  function CellsToSpacetimeIrowsMap{N}(
-    a::A,b::B,c::C,d::D
-    ) where {N,A,B,C,D}
-
-    new{N,A,B,C,D}(a,b,c,d)
-  end
-end
-
-function Arrays.return_cache(k::CellsToSpacetimeIrowsMap{N},icell::Int) where N
-  row_cache = array_cache(k.cell_row_ids)
-  rows_s = getindex!(row_cache,k.cell_row_ids,icell)
-  irow_cache = _st_cache(rows_s,Val{N}())
-  unwrap_cache = return_cache(unwrap_and_setsize!,irow_cache,rows_s)
-  ucache = array_cache(k.iurow_to_irow)
-  return row_cache,irow_cache,unwrap_cache,ucache
-end
-
-function Arrays.evaluate!(cache,k::CellsToSpacetimeIrowsMap{N},icell::Int) where N
-  row_cache,irow_cache,unwrap_cache,ucache = cache
-  cell = k.cells[icell]
-  cellrows = getindex!(row_cache,k.cell_row_ids,cell)
-  a = evaluate!(unwrap_cache,unwrap_and_setsize!,irow_cache,cellrows)
-  _st_evaluate!(a,cellrows,k.rows,k.iurow_to_irow,ucache)
-end
-
-function get_spacetime_irows(cell_row_ids,cells,rows)
-  iurow_to_irow = get_iurow_to_irow(rows)
-  N = get_max_offset(iurow_to_irow)
-  k = CellsToSpacetimeIrowsMap{N}(cell_row_ids,cells,rows,iurow_to_irow)
-  lazy_map(k,1:length(cells))
-end
-
-struct CellsToSpacetimeIrowcolsMap{N,A,B,C,D,E,F} <: Map
-  cell_row_ids::A
-  cell_col_ids::B
-  cells::C
-  rows::D
-  cols::E
-  iurowcol_to_irowcol::F
-
-  function CellsToSpacetimeIrowcolsMap{N}(
-    a::A,b::B,c::C,d::D,e::E,f::F
-    ) where {N,A,B,C,D,E,F}
-
-    new{N,A,B,C,D,E,F}(a,b,c,d,e,f)
-  end
-end
-
-function Arrays.return_cache(k::CellsToSpacetimeIrowcolsMap{N},icell::Int) where N
-  row_cache = array_cache(k.cell_row_ids)
-  col_cache = array_cache(k.cell_col_ids)
-  rowcols_s = getindex!(row_cache,k.cell_row_ids,icell)
-  colcols_s = getindex!(col_cache,k.cell_col_ids,icell)
-  irowcol_cache = _st_cache(rowcols_s,Val{N}())
-  unwrap_cache = return_cache(unwrap_and_setsize!,irowcol_cache,rowcols_s,colcols_s)
-  ucache = array_cache(k.iurowcol_to_irowcol)
-  return row_cache,col_cache,irowcol_cache,unwrap_cache,ucache
-end
-
-function Arrays.evaluate!(cache,k::CellsToSpacetimeIrowcolsMap{N},icell::Int) where N
-  row_cache,col_cache,irowcol_cache,unwrap_cache,ucache = cache
-  cell = k.cells[icell]
-  cellrows = getindex!(row_cache,k.cell_row_ids,cell)
-  cellcols = getindex!(col_cache,k.cell_col_ids,cell)
-  a = evaluate!(unwrap_cache,unwrap_and_setsize!,irowcol_cache,cellrows,cellcols)
-  _st_evaluate!(a,cellrows,cellcols,k.rows,k.cols,k.iurowcol_to_irowcol,ucache)
-end
-
-function get_spacetime_irowcols(cell_row_ids,cell_col_ids,cells,rows,cols)
-  iurowcol_to_irowcol = get_iurowcol_to_irowcol(rows,cols)
-  N = get_max_offset(iurowcol_to_irowcol)
-  k = CellsToSpacetimeIrowcolsMap{N}(cell_row_ids,cell_col_ids,cells,rows,cols,iurowcol_to_irowcol)
-  lazy_map(k,1:length(cells))
-end
-
 abstract type TransientIntegrationDomainStyle end
 struct KroneckerDomain <: TransientIntegrationDomainStyle end
 struct SequentialDomain <: TransientIntegrationDomainStyle end
+
+TransientIntegrationDomainStyle(args...) = @abstractmethod
+TransientIntegrationDomainStyle(::Type{<:KroneckerProjection}) = KroneckerDomain()
+TransientIntegrationDomainStyle(::Type{<:SequentialProjection}) = SequentialDomain()
 
 """
     struct TransientIntegrationDomain{A<:TransientIntegrationDomainStyle,Ti<:Integer} <: IntegrationDomain
@@ -179,19 +102,20 @@ end
 get_domain_style(a::TransientIntegrationDomain) = a.domain_style
 
 function RBSteady.IntegrationDomain(
-  ::Type{<:KroneckerProjection},
+  proj_style,
   trian::Triangulation,
   test::FESpace,
   rows::AbstractVector,
   indices_time::AbstractVector
   )
 
+  domain_style = TransientIntegrationDomainStyle(proj_style)
   domain_space = IntegrationDomain(trian,test,rows)
-  TransientIntegrationDomain(KroneckerDomain(),domain_space,indices_time)
+  TransientIntegrationDomain(domain_style,domain_space,indices_time)
 end
 
 function RBSteady.IntegrationDomain(
-  ::Type{<:KroneckerProjection},
+  proj_style,
   trian::Triangulation,
   trial::FESpace,
   test::FESpace,
@@ -200,41 +124,9 @@ function RBSteady.IntegrationDomain(
   indices_time::AbstractVector
   )
 
+  domain_style = TransientIntegrationDomainStyle(proj_style)
   domain_space = IntegrationDomain(trian,trial,test,rows,cols)
-  TransientIntegrationDomain(KroneckerDomain(),domain_space,indices_time)
-end
-
-function RBSteady.IntegrationDomain(
-  ::Type{<:SequentialProjection},
-  trian::Triangulation,
-  test::FESpace,
-  rows::AbstractVector,
-  indices_time::AbstractVector
-  )
-
-  cell_row_ids = get_cell_dof_ids(test,trian)
-  cells = RBSteady.get_rows_to_cells(cell_row_ids,rows)
-  irows = get_spacetime_irows(cell_row_ids,cells,rows)
-  domain_space = GenericDomain(cells,irows,rows)
-  TransientIntegrationDomain(SequentialDomain(),domain_space,indices_time)
-end
-
-function RBSteady.IntegrationDomain(
-  ::Type{<:SequentialProjection},
-  trian::Triangulation,
-  trial::FESpace,
-  test::FESpace,
-  rows::AbstractVector,
-  cols::AbstractVector,
-  indices_time::AbstractVector
-  )
-
-  cell_row_ids = get_cell_dof_ids(test,trian)
-  cell_col_ids = get_cell_dof_ids(trial,trian)
-  cells = RBSteady.get_rowcols_to_cells(cell_row_ids,cell_col_ids,rows,cols)
-  irowcols = get_spacetime_irowcols(cell_row_ids,cell_col_ids,cells,rows,cols)
-  domain_space = GenericDomain(cells,irowcols,(rows,cols))
-  TransientIntegrationDomain(SequentialDomain(),domain_space,indices_time)
+  TransientIntegrationDomain(domain_style,domain_space,indices_time)
 end
 
 RBSteady.get_integration_cells(i::TransientIntegrationDomain) = get_integration_cells(i.domain_space)
@@ -246,145 +138,4 @@ get_indices_time(i::TransientIntegrationDomain) = i.indices_time
 function get_itimes(i::TransientIntegrationDomain,ids::AbstractVector)::Vector{Int}
   idsi = get_indices_time(i)
   filter(!isnothing,indexin(idsi,ids))
-end
-
-# utils 
-
-function _st_cache(rows::AbstractArray{<:Integer},::Val{N}) where N
-  CachedArray(similar(rows,VectorValue{N,Int32}))
-end
-
-function _st_cache(rows::OIdsToIds,::Val{N}) where N
-  _st_cache(rows.indices,Val{N}())
-end
-
-function _st_cache(rows::VectorBlock,::Val{N}) where N
-  ai = _st_cache(testitem(rows),Val{N}())
-  array = Vector{typeof(ai)}(undef,length(rows))
-  for i in eachindex(rows.array)
-    if rows.touched[i]
-      array[i] = _st_cache(rows.array[i],Val{N}())
-    end
-  end
-  ArrayBlock(array,rows.touched)
-end
-
-function _st_cache(rows::AbstractArray{<:Integer},cols::AbstractArray{<:Integer},::Val{N}) where N
-  CachedArray(similar(rows,VectorValue{N,Int32},length(rows)*length(cols)))
-end
-
-function _st_cache(rows::OIdsToIds,cols::OIdsToIds,::Val{N}) where N
-  _st_cache(rows.indices,cols.indices,Val{N}())
-end
-
-function _st_cache(rows::VectorBlock,cols::VectorBlock,::Val{N}) where N
-  ai = _st_cache(testitem(rows),testitem(cols),Val{N}())
-  array = Matrix{typeof(ai)}(undef,length(rows),length(cols))
-  touched = fill(false,size(array))
-  for j in eachindex(cols.array)
-    if cols.touched[j]
-      for i in eachindex(rows.array)
-        if rows.touched[i]
-          array[i,j] = _st_cache(rows.array[i],cols.array[j],Val{N}())
-          touched[i,j] = true
-        end
-      end 
-    end
-  end
-  ArrayBlock(array,touched)
-end
-
-function _st_evaluate!(a,cellrows,rows,iurow_to_irow,ucache)
-  fill!(a,zero(eltype(a)))
-  for iurow in eachindex(iurow_to_irow)
-    irows = getindex!(ucache,iurow_to_irow,iurow)
-    for (iuirow,irow) in enumerate(irows)
-      row = rows[irow]
-      for (icellrow,cellrow) in enumerate(cellrows)
-        if row == cellrow
-          a[icellrow][iuirow] = irow
-        end
-      end
-    end
-  end
-  a
-end
-
-function _st_evaluate!(a,cellrows::OIdsToIds,rows,iurow_to_irow,ucache)
-  fill!(a,zero(eltype(a)))
-  for iurow in eachindex(iurow_to_irow)
-    irows = getindex!(ucache,iurow_to_irow,iurow)
-    for (iuirow,irow) in enumerate(irows)
-      row = rows[irow]
-      for (_icellrow,cellrow) in enumerate(cellrows)
-        if row == cellrow
-          icellrow = cellrows.terms[_icellrow]
-          a[icellrow][iuirow] = irow
-        end
-      end
-    end
-  end
-  a
-end
-
-function _st_evaluate!(a::VectorBlock,cellrows::VectorBlock,rows,iurow_to_irow,ucache)
-  for i in eachindex(a)
-    if a.touched[i]
-      @check cellrows.touched[i]
-      _st_evaluate!(a.array[i],cellrows.array[i],rows,iurow_to_irow,ucache)
-    end
-  end
-  a
-end
-
-function _st_evaluate!(a,cellrows,cellcols,rows,cols,iurowcol_to_irowcol,ucache)
-  fill!(a,zero(eltype(a)))
-  ncellrows = length(cellrows)
-  for iurowcol in eachindex(iurowcol_to_irowcol)
-    irowcols = getindex!(ucache,iurowcol_to_irowcol,iurowcol)
-    for (iuirowcol,irowcol) in enumerate(irowcols)
-      row,col = rows[irowcol],cols[irowcol]
-      for (icellrow,cellrow) in enumerate(cellrows)
-        for (icellcol,cellcol) in enumerate(cellcols)
-          if row == cellrow && col == cellcol
-            icellrowcol = icellrow + (icellcol-1)*ncellrows
-            a[icellrowcol][iuirowcol] = irowcol
-          end
-        end
-      end
-    end
-  end
-  a
-end
-
-function _st_evaluate!(a,cellrows::OIdsToIds,cellcols::OIdsToIds,rows,cols,iurowcol_to_irowcol,ucache)
-  fill!(a,zero(eltype(a)))
-  ncellrows = length(cellrows)
-  for iurowcol in eachindex(iurowcol_to_irowcol)
-    irowcols = getindex!(ucache,iurowcol_to_irowcol,iurowcol)
-    for (iuirowcol,irowcol) in enumerate(irowcols)
-      row,col = rows[irowcol],cols[irowcol]
-      for (_icellrow,cellrow) in enumerate(cellrows)
-        for (_icellcol,cellcol) in enumerate(cellcols)
-          if row == cellrow && col == cellcol
-            icellrow = cellrows.terms[_icellrow] 
-            icellcol = cellcols.terms[_icellcol]
-            icellrowcol = icellrow + (icellcol-1)*ncellrows
-            a[icellrowcol][iuirowcol] = irowcol
-          end
-        end
-      end
-    end
-  end
-  a
-end
-
-function _st_evaluate!(a::MatrixBlock,cellrows::VectorBlock,cellcols::VectorBlock,rows,cols,iurowcol_to_irowcol,ucache)
-  for j in axis(a,2), i in axis(a,1)
-    if a.touched[i,j]
-      @check cellrows.touched[i] && cellcols.touched[j]
-      _st_evaluate!(a.array[i,j],cellrows.array[i],cellcols.array[j],rows,cols,iurowcol_to_irowcol,ucache)
-    end
-  end
-  a
 end
