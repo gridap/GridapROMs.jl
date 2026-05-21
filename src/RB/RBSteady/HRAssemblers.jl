@@ -209,30 +209,18 @@ end
   end
 end
 
-# # utils 
+# utils 
 
-# _array_cache(a) = array_cache(a)
+struct FetchBlockMap{A} <: Map
+  values::A
+  blockid::Int
+end
 
-# function _array_cache(a::ArrayBlock{A,N}) where {A,N}
-#   ci = array_cache(testitem(a))
-#   vi = getindex!(ci,testitem(a),1)
-#   c = Array{typeof(ci),N}(undef,size(a))
-#   v = Array{typeof(vi),N}(undef,size(a))
-#   for i in eachindex(a)
-#     if a.touched[i]
-#       c[i] = array_cache(a.array[i])
-#       v[i] = getindex!(c[i],a.array[i],1)
-#     end
-#   end
-#   return ArrayBlock(v,a.touched),ArrayBlock(c,a.touched)
-# end
+function Arrays.return_cache(k::FetchBlockMap,i...)
+  array_cache(k.values)
+end
 
-# function Arrays.getindex!(c,a::ArrayBlock{A,N},i...) where {A,N}
-#   value,cache = c 
-#   for j in eachindex(a)
-#     if a.touched[j]
-#       value[j] = getindex!(cache[j],a.array[j],i...)
-#     end
-#   end
-#   return value
-# end
+function Arrays.evaluate!(cache,k::FetchBlockMap,i...)
+  a = getindex!(cache,k.values,i...)
+  a.array[k.blockid]
+end
