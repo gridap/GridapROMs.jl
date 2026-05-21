@@ -200,16 +200,13 @@ export get_reduced_subspace
 include("RBSpaces.jl")
 
 export IntegrationDomain
-export VectorDomain
-export MatrixDomain
+export GenericDomain
 export empirical_interpolation
 export s_opt
 export get_integration_cells
-export get_cell_irows
-export get_cell_icols
+export get_cell_idofs
 export get_owned_icells
-export get_interpolation_rows
-export get_interpolation_cols
+export get_interpolation_dofs
 export move_integration_domain
 include("IntegrationDomains.jl")
 
@@ -241,8 +238,7 @@ include("HyperReductions.jl")
 export FetchBlockMap
 export collect_cell_hr_matrix
 export collect_cell_hr_vector
-export assemble_hr_vector_add!
-export assemble_hr_matrix_add!
+export assemble_hr_array_add!
 include("HRAssemblers.jl")
 
 export LocalProjection
