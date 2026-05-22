@@ -55,8 +55,7 @@ end
 struct AddTransientHREntriesMap{A<:TransientIntegrationDomainStyle,F,I} <: Map
   style::A
   combine::F
-  indices::Is
-  locations::It
+  locations::I
 end
 
 function AddTransientHREntriesMap(style::TransientIntegrationDomainStyle,locations)
@@ -238,12 +237,11 @@ end
 end
 
 @inline function add_hr_kron_entries!(
-  vi,combine::Function,A::AbstractParamVector,vs,is,r,loc
+  vi,combine::Function,A::AbstractParamVector,vs,is,loc
   )
 
   for (li,i) in enumerate(is)
-    ir = _indexin(i,r)
-    if !isnothing(ir)
+    if i>0
       vi = vs[li]
       add_hr_kron_entry!(combine,A,vi,loc,i)
     end
@@ -252,12 +250,11 @@ end
 end
 
 @inline function add_hr_kron_entries!(
-  vi,combine::Function,A::AbstractParamVector,vs::ParamBlock,is,r,loc
+  vi,combine::Function,A::AbstractParamVector,vs::ParamBlock,is,loc
   )
 
   for (li,i) in enumerate(is)
-    ir = _indexin(i,r)
-    if !isnothing(ir)
+    if i>0
       get_hr_param_entry!(vi,vs,loc,li)
       add_hr_kron_entry!(combine,A,vi,loc,i)
     end
@@ -293,110 +290,6 @@ end
       astp = data[it,ip]
       data[it,ip] = combine(astp,vtp)
     end
-  end
-  A
-end
-
-@inline function add_hr_kron_entries!(
-  vi,combine::Function,A::AbstractParamVector,vs,is::OIdsToIds,r,loc
-  )
-
-  for (li,i) in enumerate(is)
-    ir = _indexin(i,r)
-    if !isnothing(ir)
-      lip = is.terms[li]
-      vi = vs[lip]
-      add_hr_kron_entry!(combine,A,vi,loc,ir)
-    end
-  end
-  A
-end
-
-@inline function add_hr_kron_entries!(
-  vi,combine::Function,A::AbstractParamVector,vs::ParamBlock,is::OIdsToIds,r,loc
-  )
-
-  for (li,i) in enumerate(is)
-    ir = _indexin(i,r)
-    if !isnothing(ir)
-      lip = is.terms[li]
-      get_hr_param_entry!(vi,vs,loc,lip)
-      add_hr_kron_entry!(combine,A,vi,loc,ir)
-    end
-  end
-  A
-end
-
-@inline function add_hr_kron_entries!(
-  vij,combine::Function,A::AbstractParamVector,vs,is::OIdsToIds,js::OIdsToIds,r,c,loc
-  )
-
-  for (lj,j) in enumerate(js)
-    ic = _indexin(j,c)
-    if !isnothing(ic)
-      ljp = js.terms[lj]
-      for (li,i) in enumerate(is)
-        ir = _indexin(i,r)
-        if !isnothing(ir)
-          if ir == ic
-            lip = is.terms[li]
-            vij = vs[lip,ljp]
-            add_hr_kron_entry!(combine,A,vij,loc,ir)
-          end
-        end
-      end
-    end
-  end
-  A
-end
-
-@inline function add_hr_kron_entries!(
-  vij,combine::Function,A::AbstractParamVector,vs::ParamBlock,is::OIdsToIds,js::OIdsToIds,r,c,loc
-  )
-
-  for (lj,j) in enumerate(js)
-    ic = _indexin(j,c)
-    if !isnothing(ic)
-      ljp = js.terms[lj]
-      for (li,i) in enumerate(is)
-        ir = _indexin(i,r)
-        if !isnothing(ir)
-          if ir == ic
-            lip = is.terms[li]
-            get_hr_param_entry!(vij,vs,loc,lip,ljp)
-            add_hr_kron_entry!(combine,A,vij,loc,ir)
-          end
-        end
-      end
-    end
-  end
-  A
-end
-
-@inline function add_hr_lin_entry!(
-  combine::Function,A::ConsecutiveParamVector,v::Number,it::Int
-  )
-
-  data = get_all_data(A)
-  np = param_length(A)
-  for ip in 1:np
-    astp = data[it,ip]
-    data[it,ip] = combine(astp,v)
-  end
-  A
-end
-
-@inline function add_hr_lin_entry!(
-  combine::Function,A::ConsecutiveParamVector,v::AbstractVector,it::Int
-  )
-
-  data = get_all_data(A)
-  np = param_length(A)
-  for ip in 1:np
-    ipt = (it-1)*np + ip
-    vtp = v[ipt]
-    astp = data[it,ip]
-    data[it,ip] = combine(astp,vtp)
   end
   A
 end

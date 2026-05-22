@@ -32,9 +32,8 @@ function collect_cell_hr_vector(
   (cell_vec_r,cell_idofs,icells)
 end
 
-struct AddHREntriesMap{F,I} <: Map
+struct AddHREntriesMap{F} <: Map
   combine::F
-  indices::I
 end
 
 function Arrays.return_cache(k::AddHREntriesMap,A,vs::ParamBlock,args...)
@@ -42,7 +41,7 @@ function Arrays.return_cache(k::AddHREntriesMap,A,vs::ParamBlock,args...)
 end
 
 function Arrays.evaluate!(cache,k::AddHREntriesMap,A,v,i)
-  add_hr_entries!(cache,k.combine,A,v,i,k.indices)
+  add_hr_entries!(cache,k.combine,A,v,i)
 end
 
 function Arrays.return_cache(k::AddHREntriesMap,A,v::MatrixBlock,IJ::MatrixBlock)
@@ -217,16 +216,8 @@ struct FetchBlockMap{A} <: Map
   blockid::Int
 end
 
-@inline function add_hr_entries!(vi,combine,b,vs::ParamBlock,is::OIdsToIds,r)
-  for (li,i) in enumerate(is)
-    ir = _indexin(i,r)
-    if !isnothing(ir)
-      lip = is.terms[li]
-      get_param_entry!(vi,vs,lip)
-      add_entry!(combine,b,vi,ir)
-    end
-  end  
-  b
+function Arrays.return_cache(k::FetchBlockMap,i...)
+  array_cache(k.values)
 end
 
 function Arrays.evaluate!(cache,k::FetchBlockMap,i...)
