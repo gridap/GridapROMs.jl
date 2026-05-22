@@ -135,9 +135,6 @@ export KroneckerDomain
 export SequentialDomain
 export get_domain_style
 export get_indices_time
-export get_integration_domain_space
-export get_itimes
-export get_param_itimes
 include("IntegrationDomains.jl")
 
 export TransientGreedyInterpolation

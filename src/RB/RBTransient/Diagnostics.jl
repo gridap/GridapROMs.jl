@@ -134,7 +134,7 @@ function RBSteady.diagnostic_residual!(
     b_strian = b.fecache[strian]
     rhs_strian = get_interpolation(rhs[strian])
     vecdata = collect_cell_hr_vector(test,dc,strian,rhs_strian,hr_param_time_ids)
-    assemble_hr_vector_add!(b_strian,vecdata...)
+    assemble_hr_array_add!(b_strian,vecdata...)
   end
 
   RBSteady.diagnostic_interpolate!(b,rhs)
@@ -233,7 +233,7 @@ function RBSteady.diagnostic_jacobian!(
       A_strian = Ak[strian]
       lhs_strian = get_interpolation(lhs[strian])
       matdata = collect_cell_hr_matrix(trial,test,dc,strian,lhs_strian,hr_param_time_ids)
-      assemble_hr_matrix_add!(A_strian,matdata...)
+      assemble_hr_array_add!(A_strian,matdata...)
     end
   end
 
@@ -462,7 +462,7 @@ for T in (:HighDimMDEIMHyperReduction,:HighDimSOPTHyperReduction)
     function RBSteady.check_interpolation(res,a::HRVecProjection{<:$T},fecache)
       msg = "fecache mismatch at interpolation points"
       interp = get_interpolation(a)
-      rows = get_interpolation_rows(interp)
+      rows = get_interpolation_dofs(interp)
       indices_time = get_indices_time(interp)
       style = get_domain_style(interp)
 
@@ -480,8 +480,7 @@ for T in (:HighDimMDEIMHyperReduction,:HighDimSOPTHyperReduction)
     function RBSteady.check_interpolation(jac,a::HRMatProjection{<:$T},fecache)
       msg = "fecache mismatch at interpolation points"
       interp = get_interpolation(a)
-      rows = get_interpolation_rows(interp)
-      cols = get_interpolation_cols(interp)
+      rows,cols = get_interpolation_dofs(interp)
       indices_time = get_indices_time(interp)
       style = get_domain_style(interp)
 

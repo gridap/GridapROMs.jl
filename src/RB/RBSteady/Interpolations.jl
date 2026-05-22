@@ -3,12 +3,10 @@ abstract type Interpolation end
 Interpolation(args...) = @abstractmethod
 
 get_integration_cells(a::Interpolation,args...) = Int32[]
-get_cell_row_ids(a::Interpolation) = empty_table(Int,Int32,0)
-get_cell_col_ids(a::Interpolation) = empty_table(Int,Int32,0)
+get_cell_idofs(a::Interpolation) = empty_table(Int,Int32,0)
 get_owned_icells(a::Interpolation) = collect(1:length(get_integration_cells(a)))
 move_interpolation(a::Interpolation,args...) = a
-get_interpolation_rows(a::Interpolation) = Int32[]
-get_interpolation_cols(a::Interpolation) = Int32[]
+get_interpolation_dofs(a::Interpolation) = @abstractmethod
 
 function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,x::Any)
   cache
@@ -97,10 +95,8 @@ for (T,f) in zip((:MDEIMHyperReduction,:SOPTHyperReduction),(:empirical_interpol
 end
 
 get_integration_cells(a::GreedyInterpolation,args...) = get_integration_cells(a.domain,args...)
-get_cell_row_ids(a::GreedyInterpolation) = get_cell_row_ids(a.domain)
-get_cell_col_ids(a::GreedyInterpolation) = get_cell_col_ids(a.domain)
-get_interpolation_rows(a::GreedyInterpolation) = get_interpolation_rows(a.domain)
-get_interpolation_cols(a::GreedyInterpolation) = get_interpolation_cols(a.domain)
+get_cell_idofs(a::GreedyInterpolation) = get_cell_idofs(a.domain)
+get_interpolation_dofs(a::GreedyInterpolation) = get_interpolation_dofs(a.domain)
 
 function FESpaces.interpolate!(cache::AbstractArray,a::GreedyInterpolation,b::AbstractArray)
   ldiv!(cache,a.interpolation,b)
@@ -272,18 +268,14 @@ end
 Base.getindex(a::BlockInterpolation,i::Block) = getindex(a,i.n...)
 Base.setindex!(a::BlockInterpolation,v,i::Block) = setindex!(a,v,i.n...)
 
-for f in (:get_cell_row_ids,:get_cell_col_ids,:get_interpolation_rows,:get_interpolation_cols)
-  @eval begin
-    function $f(a::BlockInterpolation{N}) where N
-      array = Array{Any,N}(undef,size(a))
-      for i in eachindex(a)
-        if a.touched[i]
-          array[i] = $f(a.interp[i])
-        end
-      end
-      return ArrayBlock(array,a.touched)
+function get_cell_idofs(a::BlockInterpolation{N}) where N
+  array = Array{Any,N}(undef,size(a))
+  for i in eachindex(a)
+    if a.touched[i]
+      array[i] = get_cell_idofs(a.interp[i])
     end
   end
+  return ArrayBlock(array,a.touched)
 end
 
 function get_integration_cells(a::BlockInterpolation,args...)

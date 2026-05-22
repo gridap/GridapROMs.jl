@@ -13,13 +13,9 @@ function get_local(a::LocalInterpolation,μ::AbstractVector)
   local_vals(a)[labk,labl]
 end
 
-for f in (:get_cell_row_ids,:get_cell_col_ids,:get_interpolation_rows,:get_interpolation_cols)
-  @eval begin
-    function $f(a::LocalInterpolation) 
-      data = map($f,local_vals(a))
-      return Table(data)
-    end
-  end
+function get_cell_idofs(a::LocalInterpolation) 
+  data = map(get_cell_idofs,local_vals(a))
+  return Table(data)
 end
 
 function get_integration_cells(a::LocalInterpolation,args...)

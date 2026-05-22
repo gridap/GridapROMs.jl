@@ -111,7 +111,7 @@ function diagnostic_residual!(
     b_strian = b.fecache[strian]
     rhs_strian = get_interpolation(rhs[strian])
     vecdata = collect_cell_hr_vector(test,dc,strian,rhs_strian)
-    assemble_hr_vector_add!(b_strian,vecdata...)
+    assemble_hr_array_add!(b_strian,vecdata...)
   end
 
   diagnostic_interpolate!(b,rhs)
@@ -198,7 +198,7 @@ function diagnostic_jacobian!(
     A_strian = A.fecache[strian]
     lhs_strian = get_interpolation(lhs[strian])
     matdata = collect_cell_hr_matrix(trial,test,dc,strian,lhs_strian)
-    assemble_hr_matrix_add!(A_strian,matdata...)
+    assemble_hr_array_add!(A_strian,matdata...)
   end
 
   diagnostic_interpolate!(A,lhs)
@@ -825,7 +825,7 @@ end
 
 function check_interpolation(res,a::HRVecProjection,fecache)
   msg = "fecache mismatch at interpolation points"
-  rows = get_interpolation_rows(get_interpolation(a))
+  rows = get_interpolation_dofs(get_interpolation(a))
   bdata = flatten(res)
   @check isapprox(get_all_data(fecache),bdata[rows,:];rtol=1e-8) msg
   return true
@@ -833,8 +833,7 @@ end
 
 function check_interpolation(jac,a::HRMatProjection,fecache)
   msg = "fecache mismatch at interpolation points"
-  rows = get_interpolation_rows(get_interpolation(a))
-  cols = get_interpolation_cols(get_interpolation(a))
+  rows,cols = get_interpolation_dofs(get_interpolation(a))
   sparsity = get_sparsity(get_dof_map(jac))
   inds = sparsify_split_indices(rows,cols,sparsity)
   Adata = flatten(jac)

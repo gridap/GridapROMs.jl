@@ -170,7 +170,7 @@ end
   cells        = Int32[1,2,3]
   cell_row_ids   = Table(Int32[1,2,3],Int32[1,2,3,4])
   rows         = Int32[1,2,3]
-  domain_space = VectorDomain(cells,cell_row_ids,rows)
+  domain_space = GenericDomain(cells,cell_irows,rows)
 
   indices_time = Int32[2,4,6]
   tid = TransientIntegrationDomain(KroneckerDomain(),domain_space,indices_time)
@@ -185,7 +185,7 @@ end
   cells        = Int32[5,7]
   cell_row_ids   = Table(Int32[10,11,12],Int32[1,3,4])
   rows         = Int32[10,11,12]
-  domain_space = VectorDomain(cells,cell_row_ids,rows)
+  domain_space = GenericDomain(cells,cell_irows,rows)
 
   indices_time = Int32[1,3]
   tid = TransientIntegrationDomain(SequentialDomain(),domain_space,indices_time)

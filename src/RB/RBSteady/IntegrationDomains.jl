@@ -139,23 +139,79 @@ function get_rowcols_to_cells(
   Int32.(findall(cells))
 end
 
+struct CellsToIrowsMap{A,B,C} <: Map
+  cell_row_ids::A
+  cells::B
+  rows::C
+end
+
+function Arrays.return_cache(k::CellsToIrowsMap,icell::Int)
+  row_cache = array_cache(k.cell_row_ids)
+  rows = getindex!(row_cache,k.cell_row_ids,icell)
+  irow_cache = _cache(rows)
+  unwrap_cache = return_cache(unwrap_and_setsize!,irow_cache,rows)
+  return row_cache,irow_cache,unwrap_cache
+end
+
+function Arrays.evaluate!(cache,k::CellsToIrowsMap,icell::Int)
+  row_cache,irow_cache,unwrap_cache = cache
+  cell = k.cells[icell]
+  cellrows = getindex!(row_cache,k.cell_row_ids,cell)
+  a = evaluate!(unwrap_cache,unwrap_and_setsize!,irow_cache,cellrows)
+  _evaluate!(a,cellrows,k.rows)
+end
+
+function get_cells_to_irows(cell_row_ids,cells,rows)
+  k = CellsToIrowsMap(cell_row_ids,cells,rows)
+  lazy_map(k,1:length(cells))
+end
+
+struct CellsToIrowcolsMap{A,B,C,D,E} <: Map
+  cell_row_ids::A
+  cell_col_ids::B
+  cells::C
+  rows::D
+  cols::E
+end
+
+function Arrays.return_cache(k::CellsToIrowcolsMap,icell::Int)
+  row_cache = array_cache(k.cell_row_ids)
+  col_cache = array_cache(k.cell_col_ids)
+  cellrows = getindex!(row_cache,k.cell_row_ids,icell)
+  cellcols = getindex!(col_cache,k.cell_col_ids,icell)
+  irowcol_cache = _cache(cellrows,cellcols)
+  unwrap_cache = return_cache(unwrap_and_setsize!,irowcol_cache,cellrows,cellcols)
+  return row_cache,col_cache,irowcol_cache,unwrap_cache
+end
+
+function Arrays.evaluate!(cache,k::CellsToIrowcolsMap,icell::Int)
+  row_cache,col_cache,irowcol_cache,unwrap_cache = cache
+  cell = k.cells[icell]
+  cellrows = getindex!(row_cache,k.cell_row_ids,cell)
+  cellcols = getindex!(col_cache,k.cell_col_ids,cell)
+  a = evaluate!(unwrap_cache,unwrap_and_setsize!,irowcol_cache,cellrows,cellcols)
+  _evaluate!(a,cellrows,cellcols,k.rows,k.cols)
+end
+
+function get_cells_to_irowcols(cell_row_ids,cell_col_ids,cells,rows,cols)
+  k = CellsToIrowcolsMap(cell_row_ids,cell_col_ids,cells,rows,cols)
+  lazy_map(k,1:length(cells))
+end
+
 """
     abstract type IntegrationDomain end
 
-Type representing the set of interpolation rows of a `Projection` subjected
+Type representing the set of interpolation DOFs of a `Projection` subjected
 to a EIM approximation.
 Subtypes:
-- [`VectorDomain`](@ref)
-- [`MatrixDomain`](@ref)
+- [`GenericDomain`](@ref)
 - [`TransientIntegrationDomain`](@ref)
 """
 abstract type IntegrationDomain end
 
 get_integration_cells(i::IntegrationDomain,args...) = @abstractmethod
-get_interpolation_rows(i::IntegrationDomain) = @abstractmethod
-get_interpolation_cols(i::IntegrationDomain) = @notimplemented
-get_cell_row_ids(i::IntegrationDomain) = @abstractmethod
-get_cell_col_ids(i::IntegrationDomain) = @notimplemented
+get_cell_idofs(i::IntegrationDomain) = @abstractmethod
+get_interpolation_dofs(i::IntegrationDomain) = @abstractmethod
 
 function get_integration_cells(i::IntegrationDomain,trian::Triangulation)
   get_integration_cells(i)
@@ -191,25 +247,31 @@ function IntegrationDomain(args...)
 end
 
 """
-    struct VectorDomain{A,B} <: IntegrationDomain
+    struct GenericDomain{A,B} <: IntegrationDomain
       cells::Vector{Int32}
-      cell_row_ids::A
-      rows::B
+      cell_idofs::A
+      dofs::B
     end
 
-Integration domain for the hyper-reduction of a residual (vector-valued form).
+Integration domain for the hyper-reduction of a residual (vector-valued form) or
+a Jacobian (matrix-valued form).
 
 - `cells`: sorted list of cell indices (local to the triangulation) that contain
-  at least one interpolation row.
-- `cell_row_ids`: lazy map over `cells`; `cell_row_ids[ic][j]` is the 1-based index
-  into `rows` of the `j`-th DOF of cell `cells[ic]`, or `0` if that DOF is not
-  an interpolation row.
-- `rows`: vector of global DOF indices selected as interpolation rows by EIM/DEIM.
+  at least one interpolation DOF.
+- `cell_idofs`: lazy map over `cells`; for the vector case, `cell_idofs[ic][j]` is
+  the 1-based index into `dofs` of the `j`-th DOF of cell `cells[ic]`, or `0` if
+  that DOF is not an interpolation DOF. For the matrix case, `cell_idofs[ic]` is a
+  flat (column-major) array of length `ncellrows * ncellcols`; position
+  `r + (c-1)*ncellrows` stores the EIM pair index, or `0` if that (row,col) entry
+  is not an interpolation pair.
+- `dofs`: for the vector case, a vector of global DOF indices selected as
+  interpolation DOFs by EIM/DEIM. For the matrix case, a tuple `(rows, cols)` of
+  such vectors.
 """
-struct VectorDomain{A,B} <: IntegrationDomain
+struct GenericDomain{A,B} <: IntegrationDomain
   cells::Vector{Int32}
-  cell_row_ids::A
-  rows::B
+  cell_idofs::A
+  dofs::B
 end
 
 function IntegrationDomain(
@@ -218,58 +280,10 @@ function IntegrationDomain(
   rows::Vector{<:Number}
   )
 
-  all_cell_row_ids = get_cell_dof_ids(test,trian)
-  cells = get_rows_to_cells(all_cell_row_ids,rows)
-  cell_row_ids = lazy_map(Reindex(all_cell_row_ids),cells)
-  VectorDomain(cells,cell_row_ids,rows)
-end
-
-get_integration_cells(i::VectorDomain) = i.cells
-get_cell_row_ids(i::VectorDomain) = i.cell_row_ids
-get_interpolation_rows(i::VectorDomain) = i.rows
-
-function move_integration_domain(
-  i::VectorDomain,
-  test::FESpace,
-  ttrian::Triangulation,
-  )
-
-  rows = i.rows
-  IntegrationDomain(ttrian,test,rows)
-end
-
-"""
-    struct MatrixDomain{A,B,C,D} <: IntegrationDomain
-      cells::Vector{Int32}
-      cell_row_ids::A
-      cell_col_ids::B
-      rows::C
-      cols::D
-    end
-
-Integration domain for the hyper-reduction of a Jacobian (matrix-valued form).
-
-- `cells`: sorted list of cell indices (local to the triangulation) that contain
-  at least one interpolation (row, col) pair.
-- `cell_row_ids`: lazy map over `cells`; `cell_row_ids[ic][jr]` is the 1-based index
-  into `rows` of the `jr`-th test DOF of cell `cells[ic]`, or `0` if that DOF
-  is not an interpolation row.
-- `cell_col_ids`: lazy map over `cells`; `cell_col_ids[ic][jc]` is the 1-based index
-  into `cols` of the `jc`-th trial DOF of cell `cells[ic]`, or `0` if that DOF
-  is not an interpolation column.
-- `rows`: global test DOF indices selected as interpolation rows by EIM/DEIM.
-- `cols`: global trial DOF indices selected as interpolation columns by EIM/DEIM.
-
-Row and column indices are stored independently (not as flattened pairs), so the
-assembly loop iterates over all `(jr, jc)` pairs with `cell_row_ids[ic][jr] > 0`
-and `cell_col_ids[ic][jc] > 0`.
-"""
-struct MatrixDomain{A,B,C,D} <: IntegrationDomain
-  cells::Vector{Int32}
-  cell_row_ids::A
-  cell_col_ids::B
-  rows::C
-  cols::D
+  cell_dof_ids = get_cell_dof_ids(test,trian)
+  cells = get_rows_to_cells(cell_dof_ids,rows)
+  idofs = get_cells_to_irows(cell_dof_ids,cells,rows)
+  GenericDomain(cells,idofs,rows)
 end
 
 function IntegrationDomain(
@@ -280,29 +294,35 @@ function IntegrationDomain(
   cols::Vector{<:Number}
   )
 
-  all_cell_row_ids = get_cell_dof_ids(test,trian)
-  all_cell_col_ids = get_cell_dof_ids(trial,trian)
-  cells = get_rowcols_to_cells(all_cell_row_ids,all_cell_col_ids,rows,cols)
-  cell_row_ids = lazy_map(Reindex(all_cell_row_ids),cells)
-  cell_col_ids = lazy_map(Reindex(all_cell_col_ids),cells)
-  MatrixDomain(cells,cell_row_ids,cell_col_ids,rows,cols)
+  cell_row_ids = get_cell_dof_ids(test,trian)
+  cell_col_ids = get_cell_dof_ids(trial,trian)
+  cells = get_rowcols_to_cells(cell_row_ids,cell_col_ids,rows,cols)
+  irowcols = get_cells_to_irowcols(cell_row_ids,cell_col_ids,cells,rows,cols)
+  GenericDomain(cells,irowcols,(rows,cols))
 end
 
-get_integration_cells(i::MatrixDomain) = i.cells
-get_cell_row_ids(i::MatrixDomain) = i.cell_row_ids
-get_cell_col_ids(i::MatrixDomain) = i.cell_col_ids
-get_interpolation_rows(i::MatrixDomain) = i.rows
-get_interpolation_cols(i::MatrixDomain) = i.cols
+get_integration_cells(i::GenericDomain) = i.cells
+get_cell_idofs(i::GenericDomain) = i.cell_idofs
+get_interpolation_dofs(i::GenericDomain) = i.dofs
 
 function move_integration_domain(
-  i::MatrixDomain,
+  i::GenericDomain,
+  test::FESpace,
+  ttrian::Triangulation,
+  )
+
+  rows = i.dofs
+  IntegrationDomain(ttrian,test,rows)
+end
+
+function move_integration_domain(
+  i::GenericDomain,
   trial::FESpace,
   test::FESpace,
   ttrian::Triangulation,
   )
 
-  rows = i.rows
-  cols = i.cols
+  rows,cols = i.dofs
   IntegrationDomain(ttrian,trial,test,rows,cols)
 end
 
@@ -372,4 +392,129 @@ function _isrowcol(cellrows::VectorBlock,cellcols::VectorBlock,rows,cols)
     end 
   end
   return false
+end
+
+function _cache(rows::AbstractVector{<:Integer})
+  CachedArray(similar(rows,Int32))
+end
+
+function _cache(rows::OIdsToIds)
+  _cache(rows.indices)
+end
+
+function _cache(rows::VectorBlock)
+  ai = _cache(testitem(rows))
+  array = Vector{typeof(ai)}(undef,length(rows))
+  for i in eachindex(rows.array)
+    if rows.touched[i]
+      array[i] = _cache(rows.array[i])
+    end
+  end
+  ArrayBlock(array,rows.touched)
+end
+
+function _cache(rows::AbstractVector{<:Integer},cols::AbstractVector{<:Integer})
+  CachedArray(similar(rows,Int32,length(rows)*length(cols)))
+end
+
+function _cache(rows::OIdsToIds,cols::OIdsToIds)
+  _cache(rows.indices,cols.indices)
+end
+
+function _cache(rows::VectorBlock,cols::VectorBlock)
+  ai = _cache(testitem(rows),testitem(cols))
+  array = Matrix{typeof(ai)}(undef,length(rows),length(cols))
+  touched = fill(false,size(array))
+  for j in eachindex(cols.array)
+    if cols.touched[j]
+      for i in eachindex(rows.array)
+        if rows.touched[i]
+          array[i,j] = _cache(rows.array[i],cols.array[j])
+          touched[i,j] = true
+        end
+      end 
+    end
+  end
+  ArrayBlock(array,touched)
+end
+
+function _evaluate!(a,cellrows,rows)
+  fill!(a,zero(eltype(a)))
+  for (irow,row) in enumerate(rows)
+    for (icellrow,cellrow) in enumerate(cellrows)
+      if row == cellrow
+        a[icellrow] = irow
+      end
+    end
+  end
+  a 
+end
+
+function _evaluate!(a,cellrows::OIdsToIds,rows)
+  fill!(a,zero(eltype(a)))
+  for (irow,row) in enumerate(rows)
+    for (_icellrow,cellrow) in enumerate(cellrows)
+      if row == cellrow
+        icellrow = cellrows.terms[_icellrow] 
+        a[icellrow] = irow
+      end
+    end
+  end
+  a 
+end
+
+function _evaluate!(a::VectorBlock,cellrows::VectorBlock,rows)
+  for i in eachindex(a)
+    if a.touched[i]
+      @check cellrows.touched[i]
+      _evaluate!(a.array[i],cellrows.array[i],rows)
+    end
+  end
+  a
+end
+
+function _evaluate!(a,cellrows,cellcols,rows,cols)
+  fill!(a,zero(eltype(a)))
+  ncellrows = length(cellrows)
+  for (irowcol,rowcol) in enumerate(zip(rows,cols))
+    row,col = rowcol
+    for (icellrow,cellrow) in enumerate(cellrows)
+      for (icellcol,cellcol) in enumerate(cellcols)
+        if row == cellrow && col == cellcol
+          icellrowcol = icellrow + (icellcol-1)*ncellrows
+          a[icellrowcol] = irowcol
+        end
+      end
+    end
+  end
+  a 
+end
+
+function _evaluate!(a,cellrows::OIdsToIds,cellcols::OIdsToIds,rows,cols)
+  fill!(a,zero(eltype(a)))
+  ncellrows = length(cellrows)
+  for (irowcol,rowcol) in enumerate(zip(rows,cols))
+    row,col = rowcol
+    for (_icellrow,cellrow) in enumerate(cellrows)
+      for (_icellcol,cellcol) in enumerate(cellcols)
+        if row == cellrow && col == cellcol
+          icellrow = cellrows.terms[_icellrow] 
+          icellcol = cellcols.terms[_icellcol]
+          icellrowcol = icellrow + (icellcol-1)*ncellrows
+          a[icellrowcol] = irowcol
+        end
+      end
+    end
+  end
+  a 
+end
+
+function _evaluate!(a::MatrixBlock,cellrows::VectorBlock,cellcols::VectorBlock,rows,cols)
+  for j in axes(a,2), i in axes(a,1)
+    if a.touched[i,j]
+      @check cellrows.touched[i] && cellcols.touched[j]
+      _evaluate!(a.array[i,j],cellrows.array[i],cellcols.array[j],rows,cols)
+    end
+  end
+  a
 end
