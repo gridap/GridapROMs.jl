@@ -26,6 +26,8 @@ include("RB/RBTransient/RBTransient.jl")
 
 include("Distributed/Distributed.jl")
 
+include("NeuralOperatorROMs/NeuralOperatorROMs.jl")
+
 include("Exports.jl")
 
 end
