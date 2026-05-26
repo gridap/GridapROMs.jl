@@ -92,6 +92,7 @@ using GridapROMs.Extensions
 import ArraysOfArrays: _ncolons
 import Base: +,-,*,\
 import FillArrays: Fill
+import Gridap.Algebra: residual,jacobian
 import GridapROMs.TProduct: get_factor
 import LowRankApprox: getcols,qr!,svd!,psvdrank
 import PartitionedArrays: tuple_of_arrays
