@@ -32,11 +32,11 @@ jobs:
           git fetch --tags
           git fetch origin "${{ github.event.inputs.base }}:${{ github.event.inputs.base }}" || true
           git fetch origin "${{ github.event.inputs.target }}:${{ github.event.inputs.target }}" || true
-      - uses: julia-actions/setup-julia@v2
+      - uses: julia-actions/setup-julia@v3
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         env:
           cache-name: cache-artifacts
         with:
@@ -56,7 +56,7 @@ jobs:
         env:
           BM_BASE: ${{ github.event.inputs.base }}
           BM_TARGET: ${{ github.event.inputs.target }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: benchmarks
           path: benchmark/benchmark_results.md

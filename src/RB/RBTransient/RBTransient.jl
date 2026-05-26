@@ -45,7 +45,6 @@ using BlockArrays
 using Clustering
 using DrWatson
 using LinearAlgebra
-using Makie
 using RadialBasisFunctions
 using SparseArrays
 using Serialization

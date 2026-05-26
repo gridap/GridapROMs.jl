@@ -298,7 +298,6 @@ export linear_label
 export nonlinear_label
 export offline_label
 export online_label
-export plot_solutions
 include("PostProcess.jl")
 
 include("Extensions.jl")

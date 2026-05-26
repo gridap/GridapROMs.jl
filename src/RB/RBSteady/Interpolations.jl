@@ -268,18 +268,14 @@ end
 Base.getindex(a::BlockInterpolation,i::Block) = getindex(a,i.n...)
 Base.setindex!(a::BlockInterpolation,v,i::Block) = setindex!(a,v,i.n...)
 
-for f in (:get_cell_idofs,)
-  @eval begin
-    function $f(a::BlockInterpolation{N}) where N
-      array = Array{Any,N}(undef,size(a))
-      for i in eachindex(a)
-        if a.touched[i]
-          array[i] = $f(a.interp[i])
-        end
-      end
-      return ArrayBlock(array,a.touched)
+function get_cell_idofs(a::BlockInterpolation{N}) where N
+  array = Array{Any,N}(undef,size(a))
+  for i in eachindex(a)
+    if a.touched[i]
+      array[i] = get_cell_idofs(a.interp[i])
     end
   end
+  return ArrayBlock(array,a.touched)
 end
 
 function get_integration_cells(a::BlockInterpolation,args...)
