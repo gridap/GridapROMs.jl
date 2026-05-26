@@ -557,18 +557,19 @@ function _size_cond(A::AbstractMatrix)
   length(A) > 1e5 && (size(A,1) > 1e2*size(A,2) || size(A,2) > 1e2*size(A,1))
 end
 
-function symcholesky(X::AbstractSparseMatrix;check::Bool=false)
-  if check
-    @assert X ≈ X'
-  end
-  cholesky((X+X')/2)
+function symcholesky(X::AbstractSparseMatrix)
+  issymmetric(X) && return cholesky(X)
+  @assert X ≈ X'
+  X .+= X'
+  rmul!(X,1/2)
+  cholesky(X)
 end
 
 symcholesky(X::Rank1Tensor) = symcholesky.(get_factors(X))
 symcholesky(X::GenericRankTensor) = symcholesky(get_crossnorm(X))
 
 function _cholesky_decomp(X::AbstractSparseMatrix)
-  C = symcholesky(X;check=true)
+  C = symcholesky(X)
   L = sparse(C.L)
   p = C.p
   return L,p

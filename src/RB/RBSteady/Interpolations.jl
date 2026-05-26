@@ -2,7 +2,7 @@ abstract type Interpolation end
 
 Interpolation(args...) = @abstractmethod
 
-get_integration_cells(a::Interpolation,args...) = Int32[]
+get_integration_cells(a::Interpolation) = Int32[]
 get_cell_idofs(a::Interpolation) = empty_table(Int,Int32,0)
 get_owned_icells(a::Interpolation) = collect(1:length(get_integration_cells(a)))
 move_interpolation(a::Interpolation,args...) = a
@@ -14,7 +14,7 @@ end
 
 function reduced_triangulation(trian::Triangulation,a::Interpolation)
   red_cells = get_integration_cells(a)
-  red_trian = view(trian,red_cells)
+  red_trian = ChildTriangulation(trian,red_cells)
   return red_trian
 end
 
@@ -37,8 +37,6 @@ function Interpolation(red::HyperReduction)
   EmptyInterpolation()
 end
 
-get_integration_cells(a::EmptyInterpolation,trian::AppendedTriangulation) = lazy_append(Int32[],Int32[])
-
 struct FullInterpolation <: Interpolation
   cells::Vector{Int32}
 end
@@ -54,7 +52,7 @@ function Interpolation(
   FullInterpolation(cells)
 end
 
-get_integration_cells(a::FullInterpolation,args...) = a.cells
+get_integration_cells(a::FullInterpolation) = a.cells
 
 # EIM interpolation
 
@@ -94,7 +92,7 @@ for (T,f) in zip((:MDEIMHyperReduction,:SOPTHyperReduction),(:empirical_interpol
   end
 end
 
-get_integration_cells(a::GreedyInterpolation,args...) = get_integration_cells(a.domain,args...)
+get_integration_cells(a::GreedyInterpolation) = get_integration_cells(a.domain)
 get_cell_idofs(a::GreedyInterpolation) = get_cell_idofs(a.domain)
 get_interpolation_dofs(a::GreedyInterpolation) = get_interpolation_dofs(a.domain)
 
@@ -126,14 +124,12 @@ function Interpolation(red::RBFHyperReduction,a::Projection,s::Snapshots)
   RBFInterpolation(interp)
 end
 
-get_integration_cells(a::RBFHyperReduction,trian::AppendedTriangulation) = lazy_append(Int32[],Int32[])
-
 function FESpaces.interpolate!(cache::AbstractArray,a::RBFInterpolation,r::AbstractRealisation)
   interpolate!(cache,a.interpolation,get_params(r))
   cache
 end
 
-function RadialBasisFunctions.Interpolator(
+function Interpolator(
   x::Realisation,
   y::ConsecutiveParamArray,
   basis::AbstractRadialBasis=PHS()
@@ -158,7 +154,7 @@ function RadialBasisFunctions.Interpolator(
   mon = MonomialBasis(dim,poly_deg)
   data_type = promote_type(eltype(first(x.params)),eltype2(y))
   A = Symmetric(zeros(data_type,n,n))
-  RadialBasisFunctions._build_collocation_matrix!(A,x.params,basis,mon,k)
+  _build_collocation_matrix!(A,x.params,basis,mon,k)
   l = innerlength(y)
   b = zeros(data_type,n,l)
   z = zero(data_type)
@@ -278,17 +274,17 @@ function get_cell_idofs(a::BlockInterpolation{N}) where N
   return ArrayBlock(array,a.touched)
 end
 
-function get_integration_cells(a::BlockInterpolation,args...)
+function get_integration_cells(a::BlockInterpolation)
   _union(args...) = @notimplemented
   _union(a::T,b::T) where T<:AbstractVector = union(a,b)
   _union(a::T,b::T) where T<:AppendedArray = lazy_append(union(a.a,b.a),union(a.b,b.b))
 
   i = findfirst(a.touched)
   isnothing(i) && return Int32[]
-  cells = get_integration_cells(a.interp[i],args...)
+  cells = get_integration_cells(a.interp[i])
   for i in 2:length(a)
     if a.touched[i]
-      cells = _union(cells,get_integration_cells(a.interp[i],args...))
+      cells = _union(cells,get_integration_cells(a.interp[i]))
     end
   end
   return cells

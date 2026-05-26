@@ -67,7 +67,7 @@ end
 
 function robust_logdet(A::AbstractMatrix{T}) where T
   try
-    H = cholesky(Symmetric(A);check=true)
+    H = symcholesky(A)
     2.0*sum(log,diag(H.L))
   catch
     _,Σ,_ = svd(A)
@@ -209,38 +209,9 @@ Subtypes:
 """
 abstract type IntegrationDomain end
 
-get_integration_cells(i::IntegrationDomain,args...) = @abstractmethod
+get_integration_cells(i::IntegrationDomain) = @abstractmethod
 get_cell_idofs(i::IntegrationDomain) = @abstractmethod
 get_interpolation_dofs(i::IntegrationDomain) = @abstractmethod
-
-function get_integration_cells(i::IntegrationDomain,trian::Triangulation)
-  get_integration_cells(i)
-end
-
-function get_integration_cells(i::IntegrationDomain,trian::AppendedTriangulation)
-  cells = get_integration_cells(i)
-  parent = get_parent(trian)
-  parent_ncellsa = num_cells(parent.a)
-  cell_to_istriana = zeros(Bool,num_cells(trian))
-  for (icell,cell) in enumerate(cells)
-    cell_to_istriana[icell] = cell <= parent_ncellsa
-  end
-  ncellsa = length(findall(cell_to_istriana))
-  a = Vector{eltype(cells)}(undef,ncellsa)
-  b = Vector{eltype(cells)}(undef,length(cells)-ncellsa)
-  na = 0
-  nb = 0
-  for (icell,cell) in enumerate(cells)
-    if cell_to_istriana[icell]
-      na += 1
-      a[na] = cell
-    else
-      nb += 1
-      b[nb] = cell
-    end
-  end
-  lazy_append(a,b)
-end
 
 function IntegrationDomain(args...)
   @abstractmethod
@@ -328,17 +299,8 @@ end
 
 # triangulation utils 
 
-get_integration_cells(g::Grid) = @abstractmethod
-get_integration_cells(g::Triangulation) = get_integration_cells(get_grid(g))
-get_integration_cells(g::Geometry.GridView) = g.cell_to_parent_cell
-
-function get_integration_cells(g::Geometry.AppendedTriangulation)
-  pa = get_parent(g.a)
-  npa = num_cells(pa)
-  ca = get_integration_cells(g.a)
-  cb = get_integration_cells(g.b) 
-  return lazy_append(ca,cb.+npa)
-end 
+get_integration_cells(t::Triangulation) = @abstractmethod
+get_integration_cells(t::ChildTriangulation) = t.cell_to_parent_cell
 
 # utils
 

@@ -191,7 +191,7 @@ function residual_snapshots(
   sres = select_snapshots(s,res_params(solver))
   us_res = get_param_data(sres)
   r_res = get_realisation(sres)
-  b = residual(op,r_res,us_res)
+  b = Algebra.residual(op,r_res,us_res)
   ib = get_dof_map(op,b)
   return Snapshots(b,ib,r_res)
 end
@@ -206,7 +206,7 @@ function residual_snapshots(
   us_res = get_param_data(sres) |> similar
   fill!(us_res,zero(eltype2(us_res)))
   r_res = get_realisation(sres)
-  b = residual(op,r_res,us_res)
+  b = Algebra.residual(op,r_res,us_res)
   ib = get_dof_map(op,b)
   return Snapshots(b,ib,r_res)
 end
@@ -239,7 +239,7 @@ function jacobian_snapshots(
   sjac = select_snapshots(s,jac_params(solver))
   us_jac = get_param_data(sjac)
   r_jac = get_realisation(sjac)
-  A = jacobian(op,r_jac,us_jac)
+  A = Algebra.jacobian(op,r_jac,us_jac)
   iA = get_sparse_dof_map(op,A)
   return Snapshots(A,iA,r_jac)
 end
@@ -254,7 +254,7 @@ function jacobian_snapshots(
   us_jac = get_param_data(sjac) |> similar
   fill!(us_jac,zero(eltype2(us_jac)))
   r_jac = get_realisation(sjac)
-  A = jacobian(op,r_jac,us_jac)
+  A = Algebra.jacobian(op,r_jac,us_jac)
   iA = get_sparse_dof_map(op,A)
   return Snapshots(A,iA,r_jac)
 end

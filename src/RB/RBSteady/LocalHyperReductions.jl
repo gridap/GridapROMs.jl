@@ -18,16 +18,16 @@ function get_cell_idofs(a::LocalInterpolation)
   return Table(data)
 end
 
-function get_integration_cells(a::LocalInterpolation,args...)
+function get_integration_cells(a::LocalInterpolation)
   _union(args...) = @notimplemented
   _union(a::T,b::T) where T<:AbstractVector = union(a,b)
   _union(a::T,b::T) where T<:AppendedArray = lazy_append(union(a.a,b.a),union(a.b,b.b))
 
   vals = local_vals(a)
   isempty(vals) && return Int32[]
-  cells = get_integration_cells(vals[1],args...)
+  cells = get_integration_cells(vals[1])
   for i in 2:length(vals)
-    cells = _union(cells,get_integration_cells(vals[i],args...))
+    cells = _union(cells,get_integration_cells(vals[i]))
   end
   return cells
 end

@@ -69,7 +69,7 @@ Base.getindex(a::Rank1Tensor,d::Integer) = get_factors(a)[d]
 Base.setindex!(a::Rank1Tensor,v,d::Integer) = (get_factors(a)[d]=v)
 
 function LinearAlgebra.cholesky(a::Rank1Tensor)
-  cholesky.(get_factors(a))
+  symcholesky.(get_factors(a))
 end
 
 @doc raw"""
