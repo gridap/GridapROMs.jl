@@ -35,11 +35,11 @@ function Geometry.get_glue(t::ChildTriangulation,::Val{d}) where d
 end
 
 function Geometry.get_facet_normal(trian::ChildTriangulation)
-  restrict(get_facet_normal(trian.parent),trian.cell_to_parent_cell)
+  Geometry.restrict(get_facet_normal(trian.parent),trian.cell_to_parent_cell)
 end
 
 function Geometry.get_cell_map(trian::ChildTriangulation)
-  restrict(get_cell_map(trian.parent),trian.cell_to_parent_cell)
+  Geometry.restrict(get_cell_map(trian.parent),trian.cell_to_parent_cell)
 end
 
 struct ChildCellQuadrature{DDS,IDS} <: CellDatum

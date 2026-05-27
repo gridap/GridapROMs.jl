@@ -170,8 +170,7 @@ end
 
 function RBSteady.to_realisation(r::TransientRealisation,μ)
   ploc = RBSteady.to_realisation(get_params(r),μ)
-  all_times = get_times(r)
-  pushfirst!(all_times,get_initial_time(r))
+  all_times = [get_initial_time(r),get_times(r)...]
   TransientRealisation(ploc,all_times)
 end
 
