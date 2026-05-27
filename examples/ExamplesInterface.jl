@@ -329,7 +329,7 @@ function run_test(
   results_dir = joinpath(dir,"results")
   create_dir(results_dir)
 
-  plot_errors(results_dir,tolranks,perfs)
+  # plot_errors(results_dir,tolranks,perfs)
   serialize(joinpath(results_dir,"performance.jld"),(tolrank => perf for (tolrank,perf) in zip(tolranks,perfs)))
 
   return perfs
