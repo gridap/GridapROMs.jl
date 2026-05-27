@@ -1,0 +1,267 @@
+
+[816998] signal (11.128): Segmentation fault
+in expression starting at /home/nmueller1/.julia/packages/CxxWrap/0hc89/src/StdLib.jl:22
+typekeyvalue_hash at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/jltypes.c:1637 [inlined]
+lookup_typevalue at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/jltypes.c:1059
+lookup_arg_type_tuple at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/gf.c:2237 [inlined]
+jl_lookup_generic_ at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/gf.c:3011 [inlined]
+ijl_apply_generic at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/gf.c:3073
+argmap at /home/nmueller1/.julia/packages/CxxWrap/0hc89/src/CxxWrap.jl:749
+unknown function (ip: 0x1458412c0b65)
+_jl_invoke at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/gf.c:2895 [inlined]
+ijl_apply_generic at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/gf.c:3077
+build_function_expression at /home/nmueller1/.julia/packages/CxxWrap/0hc89/src/CxxWrap.jl:758
+unknown function (ip: 0x1458412bb183)
+_jl_invoke at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/gf.c:2895 [inlined]
+ijl_apply_generic at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/gf.c:3077
+wrap_functions at /home/nmueller1/.julia/packages/CxxWrap/0hc89/src/CxxWrap.jl:831
+unknown function (ip: 0x1458412b89b9)
+_jl_invoke at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/gf.c:2895 [inlined]
+ijl_apply_generic at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/gf.c:3077
+wrapfunctions at /home/nmueller1/.julia/packages/CxxWrap/0hc89/src/CxxWrap.jl:848
+wrapmodule at /home/nmueller1/.julia/packages/CxxWrap/0hc89/src/CxxWrap.jl:885
+unknown function (ip: 0x1458411dba66)
+_jl_invoke at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/gf.c:2895 [inlined]
+ijl_apply_generic at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/gf.c:3077
+jl_apply at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/julia.h:1982 [inlined]
+do_call at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/interpreter.c:126
+eval_value at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/interpreter.c:223
+eval_stmt_value at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/interpreter.c:174 [inlined]
+eval_body at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/interpreter.c:617
+jl_interpret_toplevel_thunk at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/interpreter.c:775
+jl_toplevel_eval_flex at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/toplevel.c:934
+jl_eval_module_expr at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/toplevel.c:215 [inlined]
+jl_toplevel_eval_flex at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/toplevel.c:736
+jl_toplevel_eval_flex at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/toplevel.c:877
+ijl_toplevel_eval_in at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/toplevel.c:985
+eval at ./boot.jl:385 [inlined]
+include_string at ./loading.jl:2076
+_jl_invoke at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/gf.c:2895 [inlined]
+ijl_apply_generic at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/gf.c:3077
+_include at ./loading.jl:2136
+include at ./Base.jl:495
+jfptr_include_46393.1 at /gpfs/admin/_hpc/sw/arch/AMD-ZEN4/RHEL8/EB_production/2023/software/Julia/1.10.4-linux-x86_64/lib/julia/sys.so (unknown line)
+_jl_invoke at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/gf.c:2895 [inlined]
+ijl_apply_generic at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/gf.c:3077
+jl_apply at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/julia.h:1982 [inlined]
+jl_f__call_latest at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/builtins.c:812
+include at /home/nmueller1/.julia/packages/CxxWrap/0hc89/src/CxxWrap.jl:1
+unknown function (ip: 0x1458411d8225)
+_jl_invoke at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/gf.c:2895 [inlined]
+ijl_apply_generic at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/gf.c:3077
+jl_apply at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/julia.h:1982 [inlined]
+do_call at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/interpreter.c:126
+eval_value at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/interpreter.c:223
+eval_stmt_value at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/interpreter.c:174 [inlined]
+eval_body at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/interpreter.c:617
+jl_interpret_toplevel_thunk at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/interpreter.c:775
+jl_toplevel_eval_flex at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/toplevel.c:934
+jl_eval_module_expr at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/toplevel.c:215 [inlined]
+jl_toplevel_eval_flex at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/toplevel.c:736
+jl_toplevel_eval_flex at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/toplevel.c:877
+ijl_toplevel_eval_in at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/toplevel.c:985
+eval at ./boot.jl:385 [inlined]
+include_string at ./loading.jl:2076
+_jl_invoke at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/gf.c:2895 [inlined]
+ijl_apply_generic at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/gf.c:3077
+_include at ./loading.jl:2136
+include at ./Base.jl:495 [inlined]
+include_package_for_output at ./loading.jl:2222
+jfptr_include_package_for_output_81041.1 at /gpfs/admin/_hpc/sw/arch/AMD-ZEN4/RHEL8/EB_production/2023/software/Julia/1.10.4-linux-x86_64/lib/julia/sys.so (unknown line)
+_jl_invoke at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/gf.c:2895 [inlined]
+ijl_apply_generic at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/gf.c:3077
+jl_apply at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/julia.h:1982 [inlined]
+do_call at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/interpreter.c:126
+eval_value at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/interpreter.c:223
+eval_stmt_value at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/interpreter.c:174 [inlined]
+eval_body at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/interpreter.c:617
+jl_interpret_toplevel_thunk at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/interpreter.c:775
+jl_toplevel_eval_flex at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/toplevel.c:934
+jl_toplevel_eval_flex at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/toplevel.c:877
+ijl_toplevel_eval_in at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/toplevel.c:985
+eval at ./boot.jl:385 [inlined]
+include_string at ./loading.jl:2076
+include_string at ./loading.jl:2086 [inlined]
+exec_options at ./client.jl:316
+_start at ./client.jl:552
+jfptr__start_82729.1 at /gpfs/admin/_hpc/sw/arch/AMD-ZEN4/RHEL8/EB_production/2023/software/Julia/1.10.4-linux-x86_64/lib/julia/sys.so (unknown line)
+_jl_invoke at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/gf.c:2895 [inlined]
+ijl_apply_generic at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/gf.c:3077
+jl_apply at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/julia.h:1982 [inlined]
+true_main at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/jlapi.c:582
+jl_repl_entrypoint at /cache/build/builder-amdci4-0/julialang/julia-release-1-dot-10/src/jlapi.c:731
+main at julia.bin (unknown line)
+__libc_start_call_main at /lib64/libc.so.6 (unknown line)
+__libc_start_main at /lib64/libc.so.6 (unknown line)
+unknown function (ip: 0x4010b8)
+Allocations: 18992735 (Pool: 18981978; Big: 10757); GC: 28
+/gpfs/admin/_hpc/sw/arch/AMD-ZEN4/RHEL8/EB_production/2023/software/Julia/1.10.4-linux-x86_64/bin/julia: line 2: 816998 Segmentation fault      (core dumped) LD_LIBRARY_PATH="$EBROOTJULIA/lib:$EBROOTJULIA/lib/julia:$LD_LIBRARY_PATH" julia.bin "$@"
+ERROR: LoadError: Failed to precompile CxxWrap [1f15a43c-97ca-5a2a-ae31-89f07a497df4] to "/home/nmueller1/.julia/compiled/v1.10/CxxWrap/jl_XDAZLv".
+Stacktrace:
+  [1] error(s::String)
+    @ Base ./error.jl:35
+  [2] compilecache(pkg::Base.PkgId, path::String, internal_stderr::IO, internal_stdout::IO, keep_loaded_modules::Bool)
+    @ Base ./loading.jl:2468
+  [3] compilecache
+    @ ./loading.jl:2340 [inlined]
+  [4] (::Base.var"#968#969"{Base.PkgId})()
+    @ Base ./loading.jl:1974
+  [5] mkpidlock(f::Base.var"#968#969"{Base.PkgId}, at::String, pid::Int32; kwopts::@Kwargs{stale_age::Int64, wait::Bool})
+    @ FileWatching.Pidfile /gpfs/admin/_hpc/sw/arch/AMD-ZEN4/RHEL8/EB_production/2023/software/Julia/1.10.4-linux-x86_64/share/julia/stdlib/v1.10/FileWatching/src/pidfile.jl:93
+  [6] #mkpidlock#6
+    @ /gpfs/admin/_hpc/sw/arch/AMD-ZEN4/RHEL8/EB_production/2023/software/Julia/1.10.4-linux-x86_64/share/julia/stdlib/v1.10/FileWatching/src/pidfile.jl:88 [inlined]
+  [7] trymkpidlock(::Function, ::Vararg{Any}; kwargs::@Kwargs{stale_age::Int64})
+    @ FileWatching.Pidfile /gpfs/admin/_hpc/sw/arch/AMD-ZEN4/RHEL8/EB_production/2023/software/Julia/1.10.4-linux-x86_64/share/julia/stdlib/v1.10/FileWatching/src/pidfile.jl:111
+  [8] #invokelatest#2
+    @ ./essentials.jl:894 [inlined]
+  [9] invokelatest
+    @ ./essentials.jl:889 [inlined]
+ [10] maybe_cachefile_lock(f::Base.var"#968#969"{Base.PkgId}, pkg::Base.PkgId, srcpath::String; stale_age::Int64)
+    @ Base ./loading.jl:2983
+ [11] maybe_cachefile_lock
+    @ ./loading.jl:2980 [inlined]
+ [12] _require(pkg::Base.PkgId, env::String)
+    @ Base ./loading.jl:1970
+ [13] __require_prelocked(uuidkey::Base.PkgId, env::String)
+    @ Base ./loading.jl:1812
+ [14] #invoke_in_world#3
+    @ ./essentials.jl:926 [inlined]
+ [15] invoke_in_world
+    @ ./essentials.jl:923 [inlined]
+ [16] _require_prelocked(uuidkey::Base.PkgId, env::String)
+    @ Base ./loading.jl:1803
+ [17] macro expansion
+    @ ./loading.jl:1790 [inlined]
+ [18] macro expansion
+    @ ./lock.jl:267 [inlined]
+ [19] __require(into::Module, mod::Symbol)
+    @ Base ./loading.jl:1753
+ [20] #invoke_in_world#3
+    @ ./essentials.jl:926 [inlined]
+ [21] invoke_in_world
+    @ ./essentials.jl:923 [inlined]
+ [22] require(into::Module, mod::Symbol)
+    @ Base ./loading.jl:1746
+ [23] include(mod::Module, _path::String)
+    @ Base ./Base.jl:495
+ [24] include(x::String)
+    @ GridapEmbedded ~/.julia/packages/GridapEmbedded/uXRUe/src/GridapEmbedded.jl:1
+ [25] top-level scope
+    @ ~/.julia/packages/GridapEmbedded/uXRUe/src/GridapEmbedded.jl:13
+ [26] include
+    @ ./Base.jl:495 [inlined]
+ [27] include_package_for_output(pkg::Base.PkgId, input::String, depot_path::Vector{String}, dl_load_path::Vector{String}, load_path::Vector{String}, concrete_deps::Vector{Pair{Base.PkgId, UInt128}}, source::String)
+    @ Base ./loading.jl:2222
+ [28] top-level scope
+    @ stdin:3
+in expression starting at /home/nmueller1/.julia/packages/GridapEmbedded/uXRUe/src/AlgoimUtils/AlgoimUtils.jl:1
+in expression starting at /home/nmueller1/.julia/packages/GridapEmbedded/uXRUe/src/GridapEmbedded.jl:1
+in expression starting at stdin:3
+ERROR: LoadError: Failed to precompile GridapEmbedded [8838a6a3-0006-4405-b874-385995508d5d] to "/home/nmueller1/.julia/compiled/v1.10/GridapEmbedded/jl_EflaUK".
+Stacktrace:
+  [1] error(s::String)
+    @ Base ./error.jl:35
+  [2] compilecache(pkg::Base.PkgId, path::String, internal_stderr::IO, internal_stdout::IO, keep_loaded_modules::Bool)
+    @ Base ./loading.jl:2468
+  [3] compilecache
+    @ ./loading.jl:2340 [inlined]
+  [4] (::Base.var"#968#969"{Base.PkgId})()
+    @ Base ./loading.jl:1974
+  [5] mkpidlock(f::Base.var"#968#969"{Base.PkgId}, at::String, pid::Int32; kwopts::@Kwargs{stale_age::Int64, wait::Bool})
+    @ FileWatching.Pidfile /gpfs/admin/_hpc/sw/arch/AMD-ZEN4/RHEL8/EB_production/2023/software/Julia/1.10.4-linux-x86_64/share/julia/stdlib/v1.10/FileWatching/src/pidfile.jl:93
+  [6] #mkpidlock#6
+    @ /gpfs/admin/_hpc/sw/arch/AMD-ZEN4/RHEL8/EB_production/2023/software/Julia/1.10.4-linux-x86_64/share/julia/stdlib/v1.10/FileWatching/src/pidfile.jl:88 [inlined]
+  [7] trymkpidlock(::Function, ::Vararg{Any}; kwargs::@Kwargs{stale_age::Int64})
+    @ FileWatching.Pidfile /gpfs/admin/_hpc/sw/arch/AMD-ZEN4/RHEL8/EB_production/2023/software/Julia/1.10.4-linux-x86_64/share/julia/stdlib/v1.10/FileWatching/src/pidfile.jl:111
+  [8] #invokelatest#2
+    @ ./essentials.jl:894 [inlined]
+  [9] invokelatest
+    @ ./essentials.jl:889 [inlined]
+ [10] maybe_cachefile_lock(f::Base.var"#968#969"{Base.PkgId}, pkg::Base.PkgId, srcpath::String; stale_age::Int64)
+    @ Base ./loading.jl:2983
+ [11] maybe_cachefile_lock
+    @ ./loading.jl:2980 [inlined]
+ [12] _require(pkg::Base.PkgId, env::String)
+    @ Base ./loading.jl:1970
+ [13] __require_prelocked(uuidkey::Base.PkgId, env::String)
+    @ Base ./loading.jl:1812
+ [14] #invoke_in_world#3
+    @ ./essentials.jl:926 [inlined]
+ [15] invoke_in_world
+    @ ./essentials.jl:923 [inlined]
+ [16] _require_prelocked(uuidkey::Base.PkgId, env::String)
+    @ Base ./loading.jl:1803
+ [17] macro expansion
+    @ ./loading.jl:1790 [inlined]
+ [18] macro expansion
+    @ ./lock.jl:267 [inlined]
+ [19] __require(into::Module, mod::Symbol)
+    @ Base ./loading.jl:1753
+ [20] #invoke_in_world#3
+    @ ./essentials.jl:926 [inlined]
+ [21] invoke_in_world
+    @ ./essentials.jl:923 [inlined]
+ [22] require(into::Module, mod::Symbol)
+    @ Base ./loading.jl:1746
+ [23] include(mod::Module, _path::String)
+    @ Base ./Base.jl:495
+ [24] include(x::String)
+    @ GridapROMs /gpfs/home6/nmueller1/GridapROMs.jl/src/GridapROMs.jl:1
+ [25] top-level scope
+    @ /gpfs/home6/nmueller1/GridapROMs.jl/src/GridapROMs.jl:3
+ [26] include
+    @ ./Base.jl:495 [inlined]
+ [27] include_package_for_output(pkg::Base.PkgId, input::String, depot_path::Vector{String}, dl_load_path::Vector{String}, load_path::Vector{String}, concrete_deps::Vector{Pair{Base.PkgId, UInt128}}, source::String)
+    @ Base ./loading.jl:2222
+ [28] top-level scope
+    @ stdin:3
+in expression starting at /gpfs/home6/nmueller1/GridapROMs.jl/src/FEM/Utils/Utils.jl:1
+in expression starting at /gpfs/home6/nmueller1/GridapROMs.jl/src/GridapROMs.jl:1
+in expression starting at stdin:3
+ERROR: LoadError: Failed to precompile GridapROMs [9ec1d169-1b02-4ed6-9618-ff21f43ad569] to "/home/nmueller1/.julia/compiled/v1.10/GridapROMs/jl_2LSJgO".
+Stacktrace:
+  [1] error(s::String)
+    @ Base ./error.jl:35
+  [2] compilecache(pkg::Base.PkgId, path::String, internal_stderr::IO, internal_stdout::IO, keep_loaded_modules::Bool)
+    @ Base ./loading.jl:2468
+  [3] compilecache
+    @ ./loading.jl:2340 [inlined]
+  [4] (::Base.var"#968#969"{Base.PkgId})()
+    @ Base ./loading.jl:1974
+  [5] mkpidlock(f::Base.var"#968#969"{Base.PkgId}, at::String, pid::Int32; kwopts::@Kwargs{stale_age::Int64, wait::Bool})
+    @ FileWatching.Pidfile /gpfs/admin/_hpc/sw/arch/AMD-ZEN4/RHEL8/EB_production/2023/software/Julia/1.10.4-linux-x86_64/share/julia/stdlib/v1.10/FileWatching/src/pidfile.jl:93
+  [6] #mkpidlock#6
+    @ /gpfs/admin/_hpc/sw/arch/AMD-ZEN4/RHEL8/EB_production/2023/software/Julia/1.10.4-linux-x86_64/share/julia/stdlib/v1.10/FileWatching/src/pidfile.jl:88 [inlined]
+  [7] trymkpidlock(::Function, ::Vararg{Any}; kwargs::@Kwargs{stale_age::Int64})
+    @ FileWatching.Pidfile /gpfs/admin/_hpc/sw/arch/AMD-ZEN4/RHEL8/EB_production/2023/software/Julia/1.10.4-linux-x86_64/share/julia/stdlib/v1.10/FileWatching/src/pidfile.jl:111
+  [8] #invokelatest#2
+    @ ./essentials.jl:894 [inlined]
+  [9] invokelatest
+    @ ./essentials.jl:889 [inlined]
+ [10] maybe_cachefile_lock(f::Base.var"#968#969"{Base.PkgId}, pkg::Base.PkgId, srcpath::String; stale_age::Int64)
+    @ Base ./loading.jl:2983
+ [11] maybe_cachefile_lock
+    @ ./loading.jl:2980 [inlined]
+ [12] _require(pkg::Base.PkgId, env::String)
+    @ Base ./loading.jl:1970
+ [13] __require_prelocked(uuidkey::Base.PkgId, env::String)
+    @ Base ./loading.jl:1812
+ [14] #invoke_in_world#3
+    @ ./essentials.jl:926 [inlined]
+ [15] invoke_in_world
+    @ ./essentials.jl:923 [inlined]
+ [16] _require_prelocked(uuidkey::Base.PkgId, env::String)
+    @ Base ./loading.jl:1803
+ [17] macro expansion
+    @ ./loading.jl:1790 [inlined]
+ [18] macro expansion
+    @ ./lock.jl:267 [inlined]
+ [19] __require(into::Module, mod::Symbol)
+    @ Base ./loading.jl:1753
+ [20] #invoke_in_world#3
+    @ ./essentials.jl:926 [inlined]
+ [21] invoke_in_world
+    @ ./essentials.jl:923 [inlined]
+ [22] require(into::Module, mod::Symbol)
+    @ Base ./loading.jl:1746
+in expression starting at /gpfs/home6/nmueller1/GridapROMs.jl/scripts/job.jl:8

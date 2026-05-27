@@ -223,8 +223,8 @@ function CellData.integrate(f::CellField,b::TProductMeasure)
   integrate(f,b.measure)
 end
 
-# unfitted elements
+# # unfitted elements
 
-function GridapEmbedded.cut(cutter::LevelSetCutter,background::TProductDiscreteModel,geom)
-  cut(cutter,background.model,geom)
-end
+# function GridapEmbedded.cut(cutter::LevelSetCutter,background::TProductDiscreteModel,geom)
+#   cut(cutter,background.model,geom)
+# end
