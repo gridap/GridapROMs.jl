@@ -1,7 +1,6 @@
 using DrWatson
 using Gridap
 using Makie
-using GLMakie
 using Serialization
 using Test
 
@@ -325,13 +324,51 @@ function run_test(
     perf = eval_performance(rbsolver,rbop,x,x̂,festats,rbstats)
     println(perf)
     push!(perfs,perf)
+
+    serialize(joinpath(dir_tolrank,"rb_solution.jld"),x̂)
   end
 
   results_dir = joinpath(dir,"results")
   create_dir(results_dir)
 
-  plot_errors(results_dir,tolranks,perfs)
+  # plot_errors(results_dir,tolranks,perfs)
   serialize(joinpath(results_dir,"performance.jld"),(tolrank => perf for (tolrank,perf) in zip(tolranks,perfs)))
 
   return perfs
+end
+
+struct Problem{A,B,C,D,E}
+  rbsolver::A
+  feop::B
+  r::C
+  name::D
+  ic::E
+end
+
+const SteadyProblem{A,B,C,D} = Problem{A,B,C,D,Nothing}
+
+Problem(rbsolver,feop,r,name::AbstractString) = Problem(rbsolver,feop,r,name,nothing)
+
+function run_problem(prob::Problem;outdir::String=default_outdir())
+  fesnaps = _solve(prob)
+  dir = joinpath(outdir,prob.name)
+  create_dir(dir)
+  save(dir,fesnaps)
+  return fesnaps
+end
+
+function _solve(prob::SteadyProblem)
+  fesnaps, = solution_snapshots(prob.rbsolver,prob.feop,prob.r)
+  fesnaps
+end
+
+function _solve(prob::Problem)
+  fesnaps, = solution_snapshots(prob.rbsolver,prob.feop,prob.r,prob.ic)
+  fesnaps
+end
+
+function default_outdir()
+  projdir = get(ENV,"PROJECT",nothing)
+  @assert !isnothing(projdir) 
+  projdir
 end
