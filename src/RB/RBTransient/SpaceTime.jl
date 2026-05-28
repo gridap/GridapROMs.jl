@@ -300,6 +300,7 @@ function _set_initial_condition!(nlop::SpaceTimeParamOperator,s::SpaceTimeSolver
 end
 
 function _set_initial_condition!(nlop::LinNonlinParamOperator,s::SpaceTimeSolver)
+  _set_initial_condition!(nlop.op_linear,s)
   _set_initial_condition!(nlop.op_nonlinear,s)
 end
 

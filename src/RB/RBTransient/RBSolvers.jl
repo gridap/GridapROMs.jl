@@ -21,6 +21,7 @@ end
 const TransientRBSolver{A<:ODESolver,B,C,D,E} = RBSolver{A,B,C,D,E}
 
 ParamODEs.TimeCombination(s::TransientRBSolver) = TimeCombination(get_fe_solver(s))
+ParamODEs.TimeCombination(s::TransientRBSolver{<:ODESolver,B,<:SteadyReduction}) where B = TimeMarchingCombination(get_fe_solver(s))
 
 RBSteady.num_jac_params(s::TransientRBSolver) = maximum(map(num_params,s.jacobian_reduction))
 

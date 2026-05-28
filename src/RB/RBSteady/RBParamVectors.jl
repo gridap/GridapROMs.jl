@@ -52,7 +52,20 @@ end
 
 function Base.fill!(a::RBParamVector,b::Number)
   fill!(a.data,b)
+  fill!(a.fe_data,b)
   return a
+end
+
+function LinearAlgebra.rmul!(a::RBParamVector,b::Number)
+  rmul!(a.data,b)
+  rmul!(a.fe_data,b)
+  return a
+end
+
+function LinearAlgebra.axpy!(α::Number,a::RBParamVector,b::RBParamVector)
+  axpy!(α,a.data,b.data)
+  axpy!(α,a.fe_data,b.fe_data)
+  return b
 end
 
 # multi field
