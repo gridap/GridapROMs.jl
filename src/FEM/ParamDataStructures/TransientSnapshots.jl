@@ -106,8 +106,12 @@ function select_snapshots(s::TransientSnapshotsWithIC,pindex)
 end
 
 function param_cat(v::AbstractVector{<:TransientSnapshotsWithIC})
-  _get_snaps(s) = s.snaps
-  param_cat(map(_get_snaps,v))
+  snaps = param_cat(map(s -> s.snaps,v))
+  s = first(v)
+  initial_data = map(eachindex(s.initial_data)) do i
+    hcat(map(s -> s.initial_data[i],v)...)
+  end
+  TransientSnapshotsWithIC(initial_data,snaps)
 end
 
 function change_dof_map(s::TransientSnapshotsWithIC,i)

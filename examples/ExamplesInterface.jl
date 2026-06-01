@@ -350,25 +350,44 @@ const SteadyProblem{A,B,C,D} = Problem{A,B,C,D,Nothing}
 Problem(rbsolver,feop,r,name::AbstractString) = Problem(rbsolver,feop,r,name,nothing)
 
 function run_problem(prob::Problem;outdir::String=default_outdir())
-  fesnaps = _solve(prob)
+  fesnaps,stats = _solve(prob)
   dir = joinpath(outdir,prob.name)
   create_dir(dir)
   save(dir,fesnaps)
+  save(dir,stats)
   return fesnaps
 end
 
 function _solve(prob::SteadyProblem)
-  fesnaps, = solution_snapshots(prob.rbsolver,prob.feop,prob.r)
-  fesnaps
+  solution_snapshots(prob.rbsolver,prob.feop,prob.r)
 end
 
 function _solve(prob::Problem)
-  fesnaps, = solution_snapshots(prob.rbsolver,prob.feop,prob.r,prob.ic)
-  fesnaps
+  solution_snapshots(prob.rbsolver,prob.feop,prob.r,prob.ic)
 end
 
 function default_outdir()
   projdir = get(ENV,"PROJECT",nothing)
   @assert !isnothing(projdir) 
   projdir
+end
+
+function save_gathered_snapshots(name::String;outdir::String=default_outdir())
+  i = 1 
+  dirs = String[]
+  while isdir(joinpath(outdir,name*"_$i"))
+    push!(dirs,joinpath(outdir,name*"_$i"))
+    i += 1
+  end
+  isempty(dirs) && error("No gathered snapshot directories found for $name in $outdir")
+  svec = map(dirs) do path
+    load_snapshots(path)
+  end
+  s_offline = param_cat(svec[1:end-1])
+  s_online = svec[end]
+  target_dir = joinpath(outdir,name)
+  (isdir(target_dir) || isfile(target_dir)) && error("Refusing to overwrite existing gathered snapshots at $target_dir")
+  create_dir(target_dir)
+  save(target_dir,s_offline)
+  save(target_dir,s_online;label=online_label)
 end

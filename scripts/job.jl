@@ -20,11 +20,10 @@ order = 2
 Lb = 12.5
 mᵨ = 8.36
 EI₁ = 47100.0
-EI₂ = 471.0
+EI₂(μ) = EI₁ / μ[3]
 β = 0.2
 H = 1.1
 α = 0.249
-ξ = 0.0
 
 # Domain size
 Ld = Lb # damping zone length
@@ -41,8 +40,9 @@ g = 9.81
 ρ = 1025.0
 d₀ = mᵨ/ρ
 a₁ = EI₁/ρ
-a₂ = EI₂/ρ
-kᵣ = ξ*a₁/Lb
+a₂(μ,t) = x -> EI₂(μ)/ρ
+ξ(μ) = μ[2]
+kᵣ(μ,t) = x -> ξ(μ)*a₁/Lb
 
 # Numerics constants
 nx_total = Int(ceil(nx/β)*ceil(LΩ/Lb))
@@ -51,16 +51,16 @@ h = LΩ / nx_total
 βₕ = 0.5
 η₀ = 0.01
 
-# Time discretization (fixed Δt based on reference wavelength α*Lb)
-_λ_ref = α*Lb
+# Time discretization 
+_λ_ref = 20*h
 _k_ref = 2π/_λ_ref
 _ω_ref = √(g*_k_ref*tanh(_k_ref*H))
 _T_ref = 2π/_ω_ref
 γₜ = 0.5
 βₜ = 0.25
 t₀ = 0.0
-dt = _T_ref/40
-tf = 5*_T_ref
+dt = _T_ref/20
+tf = 50*_T_ref/_λ_ref
 ∂uₜ_∂u = γₜ/(βₜ*dt)
 ∂uₜₜ_∂u = 1/(βₜ*dt^2)
 αₕ = ∂uₜ_∂u/g * (1-βₕ)/βₕ
@@ -70,10 +70,10 @@ tf = 5*_T_ref
 μ₁ᵢₙ(x) = μ₀*(1.0 - sin(π/2*(x[1])/Ld))
 μ₁ₒᵤₜ(x) = μ₀*(1.0 - cos(π/2*(x[1]-xdₒᵤₜ)/Ld))
 
-# Parametric space: λ(μ) = μ[1] (wavelength as parameter)
-pdomain = (20*h, 30*h)
+# Parametric space
+pdomain = (20*h,30*h,0.0,625.0,1.0,500.0)
 tdomain = t₀:dt:tf
-ptspace = TransientParamSpace(pdomain, tdomain)
+ptspace = TransientParamSpace(pdomain,tdomain)
 
 λ(μ) = μ[1]
 k(μ) = 2π/λ(μ)
@@ -89,13 +89,15 @@ vzᵢₙ(μ,t) = x -> ω(μ,t)(x)*η₀*sin(k(μ)*x[1] - ω(μ,t)(x)*t)
 ∇ₙϕd(μ,t) = x -> μ₁ᵢₙ(x)*vzᵢₙ(μ,t)(x)
 
 vμᵢₙ(μ,t)    = parameterise(vᵢₙ,μ,t)
+a₂μ(μ,t)     = parameterise(a₂,μ,t)
+kᵣμ(μ,t)     = parameterise(kᵣ,μ,t)
 μμ₂ᵢₙ(μ,t)  = parameterise(μ₂ᵢₙ,μ,t)
 μμ₂ₒᵤₜ(μ,t) = parameterise(μ₂ₒᵤₜ,μ,t)
 ηdμ(μ,t)    = parameterise(ηd,μ,t)
 ∇ₙϕdμ(μ,t) = parameterise(∇ₙϕd,μ,t)
 
 # Fluid model
-domain = (x₀, LΩ, 0.0, H)
+domain = (x₀,LΩ,0.0,H)
 partition = (nx_total,ny)
 function f_y(x)
   if x == H
@@ -104,7 +106,7 @@ function f_y(x)
   i = x / (H/ny)
   return H-H/(2.5^i)
 end
-map_Ω(x) = VectorValue(x[1], f_y(x[2]))
+map_Ω(x) = VectorValue(x[1],f_y(x[2]))
 𝒯_Ω = CartesianDiscreteModel(domain,partition,map=map_Ω)
 
 # Labelling
@@ -113,7 +115,7 @@ add_tag_from_tags!(labels_Ω,"surface",[3,4,6])   # assign the label "surface" t
 add_tag_from_tags!(labels_Ω,"bottom",[1,2,5])    # assign the label "bottom" to the entity 1,2 and 5 (bottom corners and bottom side)
 add_tag_from_tags!(labels_Ω,"inlet",[7])         # assign the label "inlet" to the entity 7 (left side)
 add_tag_from_tags!(labels_Ω,"outlet",[8])        # assign the label "outlet" to the entity 8 (right side)
-add_tag_from_tags!(labels_Ω, "water", [9])       # assign the label "water" to the entity 9 (interior)
+add_tag_from_tags!(labels_Ω,"water",[9])       # assign the label "water" to the entity 9 (interior)
 # Triangulations
 Ω = Interior(𝒯_Ω)
 Γ = Boundary(𝒯_Ω,tags="surface")
@@ -176,7 +178,6 @@ xΓ_dim_0 = get_cell_coordinates(grid_dim_0_Γ)
 Λj_to_Γ_mask = lazy_map(is_a_joint,xΓ_dim_0)
 Λj = Skeleton(Γ,Λj_to_Γ_mask)
 
-
 # Measures
 degree = 2*order
 dΩ = Measure(Ω,degree)
@@ -197,9 +198,9 @@ nΛj = get_normal_vector(Λj)
 
 # FE spaces
 reffe = ReferenceFE(lagrangian,Float64,order)
-V_Ω = TestFESpace(Ω, reffe, conformity=:H1)
-V_Γκ = TestFESpace(Γκ, reffe, conformity=:H1)
-V_Γη = TestFESpace(Γη, reffe, conformity=:H1)
+V_Ω = TestFESpace(Ω,reffe,conformity=:H1)
+V_Γκ = TestFESpace(Γκ,reffe,conformity=:H1)
+V_Γη = TestFESpace(Γη,reffe,conformity=:H1)
 U_Ω  = TransientTrialParamFESpace(V_Ω)
 U_Γκ = TransientTrialParamFESpace(V_Γκ)
 U_Γη = TransientTrialParamFESpace(V_Γη)
@@ -225,10 +226,10 @@ a(μ,t,(ϕ,κ,η),(w,u,v),dΩ,dΓfs,dΓd1,dΓd2,dΓb1,dΓb2,dΛb1,dΛb2,dΛj) =
   ∫( βₕ*(u + αₕ*w)*(g*κ) - μμ₂ᵢₙ(μ,t)*κ*w + μ₁ᵢₙ*∇ₙ(ϕ)*(u + αₕ*w) )dΓd1 +
   ∫( βₕ*(u + αₕ*w)*(g*κ) - μμ₂ₒᵤₜ(μ,t)*κ*w + μ₁ₒᵤₜ*∇ₙ(ϕ)*(u + αₕ*w) )dΓd2 +
   ∫( v*(g*η) + a₁*Δ(v)*Δ(η) )dΓb1 +
-  ∫( v*(g*η) + a₂*Δ(v)*Δ(η) )dΓb2 +
+  ∫( v*(g*η) + a₂μ(μ,t)*Δ(v)*Δ(η) )dΓb2 +
   ∫( a₁*( - jump(∇(v)⋅nΛb1)*mean(Δ(η)) - mean(Δ(v))*jump(∇(η)⋅nΛb1) + γ*jump(∇(v)⋅nΛb1)*jump(∇(η)⋅nΛb1) ) )dΛb1 +
-  ∫( a₂*( - jump(∇(v)⋅nΛb2)*mean(Δ(η)) - mean(Δ(v))*jump(∇(η)⋅nΛb2) + γ*jump(∇(v)⋅nΛb2)*jump(∇(η)⋅nΛb2) ) )dΛb2 +
-  ∫( kᵣ*jump(∇(v)⋅nΛj)*jump(∇(η)⋅nΛj) )dΛj
+  ∫( a₂μ(μ,t)*( - jump(∇(v)⋅nΛb2)*mean(Δ(η)) - mean(Δ(v))*jump(∇(η)⋅nΛb2) + γ*jump(∇(v)⋅nΛb2)*jump(∇(η)⋅nΛb2) ) )dΛb2 +
+  ∫( kᵣμ(μ,t)*jump(∇(v)⋅nΛj)*jump(∇(η)⋅nΛj) )dΛj
 
 b(μ,t,(w,u,v),dΓin,dΓd1) =
   ∫( w*vμᵢₙ(μ,t) )dΓin -
@@ -260,17 +261,22 @@ v0(μ) = interpolate_everywhere([zμ(μ),zμ(μ),zμ(μ)],X(μ,t₀))
 a0(μ) = interpolate_everywhere([zμ(μ),zμ(μ),zμ(μ)],X(μ,t₀))
 
 # RB solver
-nparams = 10
-nparams_res = 10
-nparams_jacs = (10,10,10)
+nparams = 90
+nparams_res = 90
+nparams_jacs = (90,90,90)
+_EI₂ = 500.0
+_a₂ = _EI₂/ρ
+_ξ = 625.0
+_kᵣ = _ξ*a₁/Lb
 dΓκ = Measure(Γκ,degree)
 energy((ϕ,κ,η),(w,u,v)) =
   ∫( ∇(ϕ)⋅∇(w) )dΩ +
   ∫(βₕ*g*κ*u)dΓκ + 
   ∫( (∂uₜₜ_∂u*d₀+g)*η*v )dΓb1 + ∫( (∂uₜₜ_∂u*d₀+g)*η*v )dΓb2 +
-  ∫( a₁*Δ(v)*Δ(η) )dΓb1 + ∫( a₂*Δ(v)*Δ(η) )dΓb2 +
+  ∫( a₁*Δ(v)*Δ(η) )dΓb1 + ∫( _a₂*Δ(v)*Δ(η) )dΓb2 +
   ∫( a₁*γ*jump(∇(v)⋅nΛb1)*jump(∇(η)⋅nΛb1) )dΛb1 +
-  ∫( a₂*γ*jump(∇(v)⋅nΛb2)*jump(∇(η)⋅nΛb2) )dΛb2
+  ∫( _a₂*γ*jump(∇(v)⋅nΛb2)*jump(∇(η)⋅nΛb2) )dΛb2 +
+  ∫( _kᵣ*jump(∇(v)⋅nΛj)*jump(∇(η)⋅nΛj) )dΛj
 
 state_reduction = HighDimReduction(1e-4,energy;nparams,sketch=:sprn)
 rbsolver = RBSolver(ode_solver,state_reduction;nparams_res,nparams_jacs)
@@ -285,5 +291,5 @@ ifin = parse(Int,final_case)
 start = (i-1)*nparams+1
 μ = i == ifin ? realisation(op;nparams,sampling=:uniform) : realisation(op;nparams,start)
 
-problem = Problem(rbsolver,op,μ,"khaba_time_ord2_$(i)",(x₀,v₀,a₀))
+problem = Problem(rbsolver,op,μ,"khaba_time_ord2_$(i)",(x0,v0,a0))
 run_problem(problem)
