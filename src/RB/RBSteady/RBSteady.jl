@@ -91,6 +91,7 @@ using GridapROMs.Extensions
 import ArraysOfArrays: _ncolons
 import Base: +,-,*,\
 import FillArrays: Fill
+import Gridap.Polynomials: Monomial
 import GridapROMs.TProduct: get_factor
 import LowRankApprox: getcols,qr!,svd!,psvdrank
 import PartitionedArrays: tuple_of_arrays
@@ -165,6 +166,10 @@ export gram_schmidt
 export orth_complement!
 export orth_projection
 include("BasesConstruction.jl")
+
+export QuadratureFESpace
+export reduce_integral
+include("FunctionReductions.jl")
 
 export Projection
 export PODProjection
