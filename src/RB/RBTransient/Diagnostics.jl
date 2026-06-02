@@ -449,10 +449,15 @@ function RBSteady.save_jacobians(dir,feop::ODEParamOperator,jacs::Tuple;label=""
   end
 end
 
-function RBSteady.save_jacobians(dir,feop::LinearNonlinearODEParamOperator,jacs::Tuple;label="")
-  @assert length(jacs) == 2
-  save_jacobians(dir,feop.linear_op,jacs[1];label=string(label,"_lin"))
-  save_jacobians(dir,feop.nonlinear_op,jacs[2];label=string(label,"_nonlin"))
+function RBSteady.load_jacobians(dir,feop::ODEParamOperator;label="")
+  jacs = ()
+  for i in 1:get_order(feop)+1
+    dom_jaci = get_domains_jac(feop)[i]
+    labi = _get_label(label,i,jacobians_label)
+    jaci = load_contribution(dir,dom_jaci;label=labi)
+    jacs = (jacs...,jaci)
+  end
+  return jacs
 end
 
 # utils 

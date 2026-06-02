@@ -105,6 +105,11 @@ function select_snapshots(s::TransientSnapshotsWithIC,pindex)
   TransientSnapshotsWithIC(d0range,srange)
 end
 
+function select_times(s::TransientSnapshotsWithIC,tindex)
+  srange = select_times(s.snaps,tindex)
+  TransientSnapshotsWithIC(s.initial_data,srange)
+end
+
 function param_cat(v::AbstractVector{<:TransientSnapshotsWithIC})
   _get_snaps(s) = s.snaps
   param_cat(map(_get_snaps,v))
@@ -120,6 +125,16 @@ function select_snapshots(s::TransientGenericSnapshots{T,N},pindex) where {T,N}
   np = num_params(s)
   prange = _format_index(pindex)
   trange = 1:num_times(s)
+  drange = view(get_all_data(s),_ncolons(Val{N-2}())...,prange,trange)
+  pdrange = _get_param_data(s.param_data,prange,trange;nparams=np)
+  rrange = get_realisation(s)[prange,trange]
+  GenericSnapshots(drange,pdrange,get_dof_map(s),rrange)
+end
+
+function select_times(s::TransientGenericSnapshots{T,N},tindex) where {T,N}
+  np = num_params(s)
+  prange = 1:np
+  trange = _format_index(tindex)
   drange = view(get_all_data(s),_ncolons(Val{N-2}())...,prange,trange)
   pdrange = _get_param_data(s.param_data,prange,trange;nparams=np)
   rrange = get_realisation(s)[prange,trange]
@@ -172,6 +187,16 @@ for f in (:get_initial_data,:get_initial_param_data)
       return a
     end
   end
+end
+
+function select_times(s::BlockSnapshots{N},tindex) where N
+  array = Array{Any,N}(undef,size(s))
+  for i in eachindex(s.touched)
+    if s.touched[i]
+      array[i] = select_times(s[i],tindex)
+    end
+  end
+  return BlockSnapshots(array,s.touched)
 end
 
 # mode snapshots
@@ -243,6 +268,10 @@ end
 
 function select_snapshots(a::TupOfArrayContribution,pindex)
   map(a->select_snapshots(a,pindex),a)
+end
+
+function select_times(a::TupOfArrayContribution,tindex)
+  map(a->select_times(a,tindex),a)
 end
 
 function change_dof_map(a::TupOfArrayContribution,i::TupOfArrayContribution)

@@ -159,7 +159,7 @@ for f in (:cluster,:cluster_sort)
   @eval begin
     function $f(a,red::LocalReduction)
       r = _get_realisation(a)
-      k = compute_clusters(r,red)
+      k = compute_clusters(red,r)
       $f(a,k)
     end
 
@@ -246,7 +246,7 @@ function centroid_distances(k::KmeansResult,x::AbstractMatrix)
   dists = zeros(size(x,2))
   for i in axes(x,2)
     xi = view(x,:,i)
-    dists[i] = centroid_distances(k,xi)
+    dists[i] = minimum(centroid_distances(k,xi))
   end
   return dists
 end

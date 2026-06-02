@@ -418,6 +418,12 @@ for op in (:+,:-,:*,:/,:^)
       _fun(μ) = x -> $op(α,f.fun(μ)(x))
       ParamFunction(_fun,f.params)
     end
+
+    function ($op)(f::ParamFunction,g::ParamFunction)
+      @check all(_get_params(f) .== _get_params(g))
+      _fg(μ) = x -> $op(f.fun(μ)(x),g.fun(μ)(x))
+      ParamFunction(_fg,f.params)
+    end
   end
 end
 
@@ -506,6 +512,12 @@ for op in (:+,:-,:*,:/,:^)
     function ($op)(α::Number,f::TransientParamFunction)
       _fun(μ,t) = x -> $op(α,f.fun(μ,t)(x))
       TransientParamFunction(_fun,f.params,f.times)
+    end
+
+    function ($op)(f::TransientParamFunction,g::TransientParamFunction)
+      @check all(_get_params(f) .== _get_params(g))
+      _fg(μ,t) = x -> $op(f.fun(μ,t)(x),g.fun(μ,t)(x))
+      TransientParamFunction(_fg,f.params,f.times)
     end
   end
 end

@@ -64,6 +64,13 @@ function ParamDataStructures.select_snapshots(s::DistributedSnapshots,pindex)
   DistributedSnapshots(snaps)
 end
 
+function ParamDataStructures.select_times(s::DistributedTransientSnapshots,tindex)
+  snaps = map(local_views(s)) do s
+    select_times(s,tindex)
+  end
+  DistributedSnapshots(snaps)
+end
+
 GridapDistributed.local_views(s::DistributedSnapshots) = local_views(s.snaps)
 PartitionedArrays.partition(s::DistributedSnapshots) = partition(s.snaps)
 PartitionedArrays.local_values(s::DistributedSnapshots) = local_values(s.snaps)

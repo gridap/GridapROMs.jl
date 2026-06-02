@@ -50,7 +50,7 @@ end
 
 function MultiField._restrict_to_field(
   f,
-  ::Union{<:ConsecutiveMultiFieldStyle,<:BlockMultiFieldExtensionStyle},
+  ::BlockMultiFieldExtensionStyle,
   free_values,
   field
 )
@@ -95,7 +95,7 @@ end
 
 function FESpaces.get_cell_dof_ids(f::MultiFieldFESpace,
                                    trian::Triangulation,
-                                   ::Union{<:ConsecutiveMultiFieldStyle,<:BlockMultiFieldExtensionStyle}
+                                   ::BlockMultiFieldExtensionStyle
                                    )
   offsets = MultiField.compute_field_offsets(f)
   nfields = length(f.spaces)

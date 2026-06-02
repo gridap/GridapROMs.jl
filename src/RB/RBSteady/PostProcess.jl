@@ -42,7 +42,7 @@ end
 
 function _get_label(name,labels...)
   first_lab,last_labs... = labels
-  _get_label(name,_get_label(first_lab,last_labs...))
+  _get_label(_get_label(name,first_lab...),last_labs...)
 end
 
 function get_filename(dir::String,name::String,labels...;extension=".jld")
