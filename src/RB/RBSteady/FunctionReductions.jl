@@ -71,76 +71,105 @@ function QuadratureFESpace(
   FESpace(trian,cell_reffe;conformity=:L2,kwargs...)
 end
 
-struct QuadCellField <: CellField
+struct QuadCellField{DS<:DomainStyle} <: CellField
   cell_field::AbstractArray
   trian::Triangulation
-  function QuadCellField(cell_field::AbstractArray,trian::Triangulation)
-    new(Fields.MemoArray(cell_field),trian)
+  domain_style::DS
+
+  function QuadCellField(
+    cell_field::AbstractArray,
+    trian::Triangulation,
+    ds::DomainStyle=PhysicalDomain(),
+  )
+    new{typeof(ds)}(Fields.MemoArray(cell_field),trian,ds)
   end
 end
 
 CellData.get_data(f::QuadCellField) = f.cell_field
 CellData.get_triangulation(f::QuadCellField) = f.trian
-CellData.DomainStyle(::Type{QuadCellField}) = PhysicalDomain()
+CellData.DomainStyle(::Type{QuadCellField{DS}}) where {DS} = DS()
 
-for T in (:ReferenceDomain,:PhysicalDomain)
-  @eval begin
-    function CellData.change_domain(
-      a::QuadCellField,
-      strian::Triangulation,
-      source::ReferenceDomain,
-      ttrian::Triangulation,
-      target::$T
-      )
-
-      error("Should not be here")
-    end
-    
-    function CellData.change_domain(
-      a::QuadCellField,
-      strian::Triangulation,
-      source::PhysicalDomain,
-      ttrian::Triangulation,
-      target::$T
-      )
-
-      if strian === ttrian
-        return QuadCellField(get_data(a),ttrian)
-      end
-
-      @check is_change_possible(strian,ttrian)
-      D = num_cell_dims(strian)
-      sglue = get_glue(strian,Val(D))
-      tglue = get_glue(ttrian,Val(D))
-
-      sface_to_field = get_data(a)
-      mface_to_sface = sglue.mface_to_tface
-      tface_to_mface = tglue.tface_to_mface
-      mface_to_field = extend(sface_to_field,mface_to_sface)
-      tface_to_field = lazy_map(Reindex(mface_to_field),tface_to_mface)
-
-      GenericCellField(tface_to_field,ttrian,target)
-    end
-  end
+function CellData.change_domain(a::QuadCellField,::PhysicalDomain,::PhysicalDomain)
+  a
 end
 
-# function Arrays.evaluate!(cache,f::QuadCellField,x::CellPoint)
-#   @check get_triangulation(f) == get_triangulation(x) 
-#   get_data(f)
-# end
+function CellData.change_domain(a::QuadCellField,::ReferenceDomain,::ReferenceDomain)
+  a
+end
 
-# function Arrays.evaluate!(cache,k::Operation,a::QuadCellField,b::QuadCellField)
-#   _operate_cellfields(k,a...)
-# end
+function CellData.change_domain(a::QuadCellField,::PhysicalDomain,::ReferenceDomain)
+  QuadCellField(get_data(a),get_triangulation(a),ReferenceDomain())
+end
+
+function CellData.change_domain(a::QuadCellField,::ReferenceDomain,::PhysicalDomain)
+  QuadCellField(get_data(a),get_triangulation(a),PhysicalDomain())
+end
+
+function CellData.change_domain(
+  a::QuadCellField,
+  strian::Triangulation,
+  ::PhysicalDomain,
+  ttrian::Triangulation,
+  ::PhysicalDomain,
+  )
+
+  data = _change_quadcellfield_data(get_data(a),strian,ttrian)
+  QuadCellField(data,ttrian,PhysicalDomain())
+end
+
+function CellData.change_domain(
+  a::QuadCellField,
+  strian::Triangulation,
+  ::PhysicalDomain,
+  ttrian::Triangulation,
+  ::ReferenceDomain,
+  )
+
+  data = _change_quadcellfield_data(get_data(a),strian,ttrian)
+  QuadCellField(data,ttrian,ReferenceDomain())
+end
+
+function CellData.change_domain(
+  a::QuadCellField,
+  strian::Triangulation,
+  ::ReferenceDomain,
+  ttrian::Triangulation,
+  ::PhysicalDomain,
+  )
+
+  data = _change_quadcellfield_data(get_data(a),strian,ttrian)
+  QuadCellField(data,ttrian,PhysicalDomain())
+end
+
+function CellData.change_domain(
+  a::QuadCellField,
+  strian::Triangulation,
+  ::ReferenceDomain,
+  ttrian::Triangulation,
+  ::ReferenceDomain,
+  )
+
+  data = _change_quadcellfield_data(get_data(a),strian,ttrian)
+  QuadCellField(data,ttrian,ReferenceDomain())
+end
+
+function Arrays.evaluate!(cache,f::QuadCellField,x::CellPoint)
+  trian_x = get_triangulation(x)
+  domain_x = DomainStyle(x)
+  fx = change_domain(f,trian_x,domain_x)
+  get_data(fx)
+end
 
 function reduce_cell_values(
-  fields::Fill{<:ParamBlock{<:Fields.GenericField}},
+  a::LazyArray{<:Fill{<:ParamBlock{<:Fields.GenericField}}},
   trian::Triangulation,
   order::Int;
   tol=1e-5,
   red=Reduction(tol;sketch=:sprn),
   )
   
+  fields = a.maps 
+
   reffe = ReferenceFE(lagrangian,Float64,order)
   qspace = QuadratureFESpace(trian,reffe)
   qdofs = get_fe_dof_basis(qspace)
@@ -162,59 +191,55 @@ function reduce_cell_values(
     reduced_diri_values
   )
   
-  return QuadCellField(reduced_cell_values,trian)
+  return reduced_cell_values
 end
 
 function reduce_cell_values(a::LazyArray{G,T,N,F},args...;kwargs...) where {G,T,N,F}
-  if G<:AbstractArray{<:ParamBlock{<:Fields.GenericField}}
-    rmaps = reduce_cell_values(a.maps,args...;kwargs...)
-    return LazyArray(T,N,rmaps,a.args...)
-  else    
-    rargs = map(ai->reduce_cell_values(ai,args...;kwargs...),a.args)
-    return LazyArray(T,N,a.maps,rargs...)
-  end
+  rargs = map(ai->reduce_cell_values(ai,args...;kwargs...),a.args)
+  return LazyArray(T,Val(N),a.maps,rargs...)
 end
 
 function reduce_integral(a::AbstractArray,args...;kwargs...)
   reduce_cell_values(a,args...;kwargs...)
 end
 
-# struct ReduceCellField{DS,T} <: CellField
-#   cell_field::GenericCellField{DS}
-#   function ReduceCellField(cell_field::GenericCellField{DS}) where DS
-#     T = eltype(get_data(cell_field))
-#     new{DS,T}(cell_field)
-#   end
-# end
+struct ReduceCellField{DS,T} <: CellField
+  cell_field::GenericCellField{DS}
+end
 
-# function ReduceCellField(f::CellField)
-#   @abstractmethod
-# end
+function ReduceCellField(f::CellField)
+  f
+end
 
-# function ReduceCellField(f::OperationCellField)
-#   OperationCellField(f.op,map(ReduceCellField,f.args)...)
-# end
+function ReduceCellField(cell_field::GenericCellField{DS}) where DS
+  T = eltype(get_data(cell_field))
+  new{DS,T}(cell_field)
+end
 
-# function ReduceCellField(f::CellFieldAt{T}) where T
-#   CellFieldAt{T}(ReduceCellField(f.parent))
-# end
+function ReduceCellField(f::OperationCellField)
+  OperationCellField(f.op,map(ReduceCellField,f.args)...)
+end
 
-# function ReduceCellField(f::SkeletonCellFieldPair)
-#   cf_plus = ReduceCellField(f.cf_plus)
-#   cf_minus = ReduceCellField(f.cf_minus)
-#   SkeletonCellFieldPair(cf_plus,cf_minus,f.trian)
-# end
+function ReduceCellField(f::CellFieldAt{T}) where T
+  CellFieldAt{T}(ReduceCellField(f.parent))
+end
 
-# CellData.get_data(f::ReduceCellField) = get_data(f.cell_field)
-# CellData.get_triangulation(f::ReduceCellField) = get_triangulation(f.cell_field)
-# CellData.DomainStyle(::Type{<:ReduceCellField{DS}}) where DS = DS()
+function ReduceCellField(f::SkeletonCellFieldPair)
+  cf_plus = ReduceCellField(f.cf_plus)
+  cf_minus = ReduceCellField(f.cf_minus)
+  SkeletonCellFieldPair(cf_plus,cf_minus,f.trian)
+end
 
-# function reduced_field(cache,f::CellField,x::CellPoint)
-#   _f,_x = CellData._to_common_domain(f,x)
-#   cell_field = get_data(_f)
-#   cell_point = get_data(_x)
-#   lazy_map(evaluate,cell_field,cell_point)
-# end
+CellData.get_data(f::ReduceCellField) = get_data(f.cell_field)
+CellData.get_triangulation(f::ReduceCellField) = get_triangulation(f.cell_field)
+CellData.DomainStyle(::Type{<:ReduceCellField{DS}}) where DS = DS()
+
+function reduced_field(cache,f::CellField,x::CellPoint)
+  _f,_x = CellData._to_common_domain(f,x)
+  cell_field = get_data(_f)
+  cell_point = get_data(_x)
+  lazy_map(evaluate,cell_field,cell_point)
+end
 
 # utils 
 
@@ -299,7 +324,7 @@ _get_degree(::Type{T},order::Integer;γ=2) where T = γ*order
 _get_degree(::Type{T},orders::Tuple{Vararg{Integer}};γ=2) where T = γ*maximum(orders)  
 
 function _get_quad_nodes(quad::CellQuadrature)
-  @check _compatible_quad_nodes(quad.cell_point) "Quadrature with incompatible nodes, got $(quad.cell_point)."
+  @check _compatible_quad_nodes(quad.cell_point) "Quadrature with incompatible nodes,got $(quad.cell_point)."
   first(quad.cell_point)
 end
 
@@ -316,23 +341,20 @@ function _compatible_quad_nodes(cell_point::AbstractArray{<:AbstractVector{<:Poi
   all([p .== p1 for p in cell_point]) 
 end
 
-# function CellData._to_common_domain(a::QuadCellField)
-#   a 
-# end
+function _change_quadcellfield_data(
+  data::AbstractArray,
+  strian::Triangulation,
+  ttrian::Triangulation,
+)
+  if strian === ttrian
+    return data
+  end
 
-# for T in (:CellField,:QuadCellField)
-#   @eval begin
-#     function CellData._to_common_domain(a::QuadCellField,b::$T)
-#       trian_a = get_triangulation(a)
-#       trian_b = get_triangulation(b)
-#       sa_tb = is_change_possible(trian_a,trian_b)
-#       sb_ta = is_change_possible(trian_b,trian_a)
-#       @check sa_tb || sb_ta "Cannot find common domain for $(typeof(a)) and $(typeof(b))."
-#       return a,change_domain(b,trian_a,DomainStyle(a))
-#     end
-#   end
-# end
+  @check is_change_possible(strian,ttrian)
+  D = num_cell_dims(strian)
+  sglue = get_glue(strian,Val(D))
+  tglue = get_glue(ttrian,Val(D))
 
-# function CellData._to_common_domain(a::CellField,b::QuadCellField)
-#   reverse(CellData._to_common_domain(b,a))
-# end
+  mface_to_field = extend(data,sglue.mface_to_tface)
+  lazy_map(Reindex(mface_to_field),tglue.tface_to_mface)
+end
