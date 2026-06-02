@@ -168,7 +168,8 @@ export orth_projection
 include("BasesConstruction.jl")
 
 export QuadratureFESpace
-export reduce_integral
+export ReducedCellField
+export ℛ
 include("FunctionReductions.jl")
 
 export Projection

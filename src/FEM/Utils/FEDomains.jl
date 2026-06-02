@@ -106,7 +106,33 @@ get_polynomial_order(f::MultiFieldFESpace) = maximum(map(get_polynomial_order,f.
 function get_polynomial_order(basis)
   cell_basis = get_data(basis)
   shapefun = testitem(cell_basis)
-  get_order(shapefun.fields)
+  _get_order(shapefun)
+end
+
+_get_order(ϕ) = @abstractmethod
+_get_order(ϕ::Fields.LinearCombinationFieldVector) = get_order(ϕ.fields)
+
+function _get_order(ϕ::Fields.BroadcastOpFieldArray)
+  found = ()
+  for ai in ϕ.args
+    try
+      oi = _get_order(ai)
+      found = (found...,oi)
+    catch
+    end
+  end
+
+  if isempty(found)
+    msg = "Unable to infer polynomial order from BroadcastOpFieldArray: _get_order failed for all arguments"
+    @assert false msg
+  elseif length(found) == 1
+    return first(found)
+  elseif all(==(first(found)),found)
+    return first(found)
+  else
+    msg = "Inconsistent polynomial orders found in BroadcastOpFieldArray arguments: $(found)"
+    @notimplemented msg
+  end
 end
 
 """
