@@ -91,6 +91,17 @@ struct ReducedCellField{DS<:DomainStyle} <: CellField
   end
 end
 
+function ReducedCellField(
+  f::CellField;
+  order::Int,
+  reduction::Reduction=Reduction(1e-5;sketch=:sprn)
+  )
+
+  trian = get_triangulation(f)
+  ds = DomainStyle(typeof(f))
+  ReducedCellField(get_data(f),trian,ds,order,reduction)
+end
+
 CellData.get_data(f::ReducedCellField) = f.cell_field
 CellData.get_triangulation(f::ReducedCellField) = f.trian
 CellData.DomainStyle(::Type{ReducedCellField{DS}}) where {DS} = DS()
@@ -99,31 +110,130 @@ function CellData.similar_cell_field(f::ReducedCellField,cell_data,trian,ds)
   ReducedCellField(cell_data,trian,ds,f.order,f.reduction)
 end
 
+function _param_length_or_nothing(data)
+  length(data) == 0 && return nothing
+  d0 = first(data)
+  applicable(param_length,d0) ? param_length(d0) : nothing
+end
+
+function _is_parametric_field(f::CellField)
+  data = get_data(f)
+  plength = _param_length_or_nothing(data)
+  !isnothing(plength) && plength > 1
+end
+
+_reduce_field(f::CellField;order,reduction) = ReducedCellField(f;order,reduction)
+
+function _rebuild_operation(f::CellData.OperationCellField,args::Tuple)
+  CellData.OperationCellField(f.op,args...)
+end
+
+function _partition_parametric(args::Tuple)
+  p_args = CellField[]
+  np_args = CellField[]
+  p_flags = Vector{Bool}(undef,length(args))
+  for (i,arg) in enumerate(args)
+    is_p = _is_parametric_field(arg)
+    p_flags[i] = is_p
+    if is_p
+      push!(p_args,arg)
+    else
+      push!(np_args,arg)
+    end
+  end
+  return p_args,np_args,p_flags
+end
+
+function _maybe_group_parametric(
+  f::CellData.OperationCellField,
+  args::Tuple;
+  order::Int,
+  reduction::Reduction
+  )
+
+  node = _rebuild_operation(f,args)
+  _is_parametric_field(node) || return node
+
+  p_args,np_args,_ = _partition_parametric(args)
+  np = length(p_args)
+  nn = length(np_args)
+
+  np == 0 && return node
+
+  # Single argument operation: reduce if parametric.
+  if length(args) == 1
+    return _reduce_field(node;order,reduction)
+  end
+
+  op = f.op.op
+
+  if op === (+)
+    if np > 1
+      pnode = CellData.OperationCellField(f.op,p_args...)
+      pred = _reduce_field(pnode;order,reduction)
+      if nn == 0
+        return pred
+      else
+        return CellData.OperationCellField(f.op,pred,np_args...)
+      end
+    else
+      return node
+    end
+  elseif op === (*)
+    # Only reduce pure-parametric products; mixed products can change value
+    # types (e.g. scalar*vector) and break interpolation consistency.
+    if nn == 0 && np > 1
+      return _reduce_field(node;order,reduction)
+    else
+      return node
+    end
+  else
+    # Keep mixed non-multiplicative nodes untouched (e.g. dot with non-parametric du).
+    return node
+  end
+end
+
+function propagate_reduction(
+  f::CellField;
+  order::Int,
+  reduction::Reduction=Reduction(1e-5;sketch=:sprn)
+  )
+
+  if f isa ReducedCellField
+    return f
+  elseif f isa CellData.OperationCellField
+    args = map(arg -> propagate_reduction(arg;order,reduction),f.args)
+    _maybe_group_parametric(f,args;order,reduction)
+  elseif _is_parametric_field(f)
+    _reduce_field(f;order,reduction)
+  else
+    f
+  end
+end
+
 function Arrays.evaluate!(cache,f::ReducedCellField,x::CellPoint)
-  cell_field, = CellData._to_common_domain(f,x)
+  cell_field,x = CellData._to_common_domain(f,x)
   
   data = get_data(cell_field)
+  plength = _param_length_or_nothing(data)
+  if isnothing(plength) || plength <= 1
+    return cell_field(x)
+  end
   trian = get_triangulation(cell_field)
 
   reffe = ReferenceFE(lagrangian,Float64,f.order)
   qspace = QuadratureFESpace(trian,reffe)
-  qdofs = get_fe_dof_basis(qspace)
-  cell_values = qdofs(cell_field)
+  pqspace = parameterise(qspace,plength)
+  fqh = interpolate(cell_field,pqspace)
 
-  plength = param_length(first(data))
-  free_values = parameterise(zero_free_values(qspace),plength)
-  diri_values = parameterise(zero_dirichlet_values(qspace),plength)
-  gather_free_and_dirichlet_values!(free_values,diri_values,qspace,cell_values)
+  free_vals = get_free_dof_values(fqh)
+  _red_free_vals = reduction(f.reduction,get_all_data(free_vals))
+  red_free_vals = ConsecutiveParamArray(_red_free_vals)
+  rplength = param_length(red_free_vals)
+  rpqspace = parameterise(qspace,rplength)
+  rfqh = FEFunction(rpqspace,red_free_vals)
 
-  _reduced_free_values = reduction(f.reduction,get_all_data(free_values))
-  reduced_free_values = ConsecutiveParamArray(_reduced_free_values)
-  rplength = param_length(reduced_free_values)
-  reduced_diri_values = parameterise(zero_dirichlet_values(qspace),rplength)
-  scatter_free_and_dirichlet_values(
-    qspace,
-    reduced_free_values,
-    reduced_diri_values
-  )
+  return rfqh(x)
 end
 
 struct ReducedFunction{F<:Function,R<:Reduction} <: Function
@@ -136,12 +246,151 @@ function ReducedFunction(f::Function;order::Int,reduction=Reduction(1e-5;sketch=
   ReducedFunction(f,order,reduction)
 end
 
-const ℛ = ReducedFunction
+function ℛ(
+  f::Function;
+  order::Int,
+  reduction::Reduction=Reduction(1e-5;sketch=:sprn)
+  )
+
+  ReducedFunction(f;order,reduction)
+end
+
+function ℛ(
+  f::CellField;
+  order::Int,
+  reduction::Reduction=Reduction(1e-5;sketch=:sprn)
+  )
+
+  ReducedCellField(f;order,reduction)
+end
 
 function CellData.CellField(f::ReducedFunction,trian::Triangulation,domain_style::DomainStyle)
   s = size(get_cell_map(trian))
   data = Fill(GenericField(f.f),s)
   ReducedCellField(data,trian,PhysicalDomain(),f.order,f.reduction)
+end
+
+struct ReducedIntegrand{A,R}
+  object::A
+  order::Int
+  reduction::R
+end
+
+function ReducedIntegrand(
+  object;
+  order::Int,
+  reduction::Reduction=Reduction(1e-5;sketch=:sprn)
+  )
+
+  ReducedIntegrand(object,order,reduction)
+end
+
+function reduced_integrate(
+  f::CellField,
+  quad::CellQuadrature;
+  order::Int,
+  reduction::Reduction=Reduction(1e-5;sketch=:sprn)
+  )
+
+  trian_f = get_triangulation(f)
+  trian_x = get_triangulation(quad)
+
+  msg = """\n
+    Your are trying to integrate a CellField using a CellQuadrature defined on incompatible
+    triangulations. Verify that either the two objects are defined in the same triangulation
+    or that the triangulaiton of the CellField is the background triangulation of the CellQuadrature.
+    """
+  @check is_change_possible(trian_f,trian_x) msg
+
+  b = change_domain(f,quad.trian,quad.data_domain_style)
+  b′ = propagate_reduction(b;order,reduction)
+  x = get_cell_points(quad)
+  bx = b′(x)
+
+  if quad.data_domain_style == PhysicalDomain() &&
+            quad.integration_domain_style == PhysicalDomain()
+    lazy_map(IntegrationMap(),bx,quad.cell_weight)
+  elseif quad.data_domain_style == ReferenceDomain() &&
+            quad.integration_domain_style == PhysicalDomain()
+    cell_map = get_cell_map(quad.trian)
+    cell_Jt = lazy_map(∇,cell_map)
+    cell_Jtx = lazy_map(evaluate,cell_Jt,quad.cell_point)
+    lazy_map(IntegrationMap(),bx,quad.cell_weight,cell_Jtx)
+  elseif quad.data_domain_style == ReferenceDomain() &&
+            quad.integration_domain_style == ReferenceDomain()
+    cell_map = Fill(GenericField(identity),length(bx))
+    cell_Jt = lazy_map(∇,cell_map)
+    cell_Jtx = lazy_map(evaluate,cell_Jt,quad.cell_point)
+    lazy_map(IntegrationMap(),bx,quad.cell_weight,cell_Jtx)
+  else
+    @notimplemented
+  end
+end
+
+function reduced_integrate(
+  a,
+  quad::CellQuadrature;
+  order::Int,
+  reduction::Reduction=Reduction(1e-5;sketch=:sprn)
+  )
+
+  b = CellField(a,quad.trian,quad.data_domain_style)
+  reduced_integrate(b,quad;order,reduction)
+end
+
+function CellData.integrate(
+  a::ReducedIntegrand,
+  quad::CellQuadrature
+  )
+
+  reduced_integrate(a.object,quad;order=a.order,reduction=a.reduction)
+end
+
+function reduced_integrate(
+  a,
+  m;
+  order::Int,
+  reduction::Reduction=Reduction(1e-5;sketch=:sprn)
+  )
+
+  integrate(ReducedIntegrand(a;order,reduction),m)
+end
+
+function _is_integral_call(ex)
+  ex isa Expr || return false
+  ex.head == :call || return false
+  length(ex.args) == 2 || return false
+  ex.args[1] == Symbol("∫")
+end
+
+function _rewrite_integrals(ex,order_ex)
+  ex isa Expr || return ex
+
+  if ex.head == :call && length(ex.args) == 3 && ex.args[1] == :*
+    left = _rewrite_integrals(ex.args[2],order_ex)
+    right = _rewrite_integrals(ex.args[3],order_ex)
+    if _is_integral_call(left)
+      integrand = left.args[2]
+      return :(GridapROMs.RBSteady.reduced_integrate($integrand,$right;order=$order_ex))
+    end
+    return Expr(:call,:*,left,right)
+  end
+
+  Expr(ex.head,(_rewrite_integrals(arg,order_ex) for arg in ex.args)...)
+end
+
+"""
+    @reduce_integrals order expr
+
+Rewrites all occurrences of `∫(integrand)*measure` inside `expr` into
+`reduced_integrate(integrand,measure;order=order)`.
+
+This applies reduction after `change_domain` and right before point-wise
+evaluation in integration, so grouping is performed on the full integrand
+CellField at runtime.
+"""
+macro reduce_integrals(order,expr)
+  _rewrite_integrals(expr,order) |> esc
 end
 
 # utils 

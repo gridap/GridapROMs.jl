@@ -168,82 +168,47 @@ fesnaps, = solution_snapshots(rbsolver,feop)
 red_trial,red_test = reduced_spaces(rbsolver,feop,fesnaps)
 du,v = get_trial_fe_basis(red_trial),get_fe_basis(red_test)
 μ = realisation(feop;nparams=10) 
-# ∫(aμ(μ)*∇(v)⋅∇(du))dΩ
-# integrate(aμ(μ)*∇(v)⋅∇(du),dΩ.quad)
-x = get_cell_points(dΩ.quad)
-cf = aμ(μ)*∇(v)⋅∇(du)
-acf = cf.args[1].args[1]
-
-reffe = ReferenceFE(lagrangian,Float64,order)
-spacel2 = TestFESpace(Ω,reffe,conformity=:L2)
-spaceh1 = TestFESpace(Ω,reffe,conformity=:H1)
-
-fh = interpolate(x->x[1]+x[2],spacel2)
-
-using Gridap.FESpaces
-conformity = :L2
-cell_reffe = ReferenceFE(model,reffe)
-reffe_name,reffe_args,reffe_kwargs = reffe
+dc = ∫(aμ(μ)*∇(v)⋅∇(du))dΩ
 trian = Ω
-# ReferenceFE(trian,reffe_name,reffe_args...;reffe_kwargs...)
+
+using GridapROMs.RBSteady 
+using Gridap.Arrays
 using Gridap.Geometry
 using Gridap.ReferenceFEs
-ctype_to_polytope = get_polytopes(trian)
-cell_to_ctype = get_cell_type(trian)
-# ctype_to_reffe = map(p->ReferenceFE(p,reffe_name,reffe_args...;reffe_kwargs...),ctype_to_polytope)
-# ReferenceFE(ctype_to_polytope[1],reffe_name,reffe_args...;reffe_kwargs...)
-cell_to_reffe = expand_cell_data(ctype_to_reffe,cell_to_ctype)
+using Gridap.CellData
 
-# conf = FESpaces.Conformity(testitem(cell_reffe),conformity)
-# cell_fe = CellFE(model,cell_reffe,conf)
+ℛstiffness(μ,u,v,dΩ) = ∫(ℛ(aμ(μ);order)*∇(v)⋅∇(u))dΩ
+ℛrhs(μ,v,dΩ,dΓn) = ∫(ℛ(fμ(μ);order)*v)dΩ + ∫(ℛ(hμ(μ);order)*v)dΓn
+ℛres(μ,u,v,dΩ,dΓn) = ℛstiffness(μ,u,v,dΩ) - ℛrhs(μ,v,dΩ,dΓn)
 
-# FESpaces.get_cell_shapefuns_and_dof_basis(model,cell_reffe,conf)
+ℛfeop = LinearParamOperator(ℛres,ℛstiffness,pspace,trial,test,domains)
+jacs = jacobian_snapshots(rbsolver,ℛfeop,fesnaps)
+ress = residual_snapshots(rbsolver,ℛfeop,fesnaps)
 
-gf = dc[Ω].args[1].args[1].args[1].maps[1].data[1]
+cf = aμ(μ)*∇(v)⋅∇(uh)
+_cf = ℛ(aμ(μ);order)*∇(v)⋅∇(uh)
 
-fields = dc[Ω].args[1].args[1].args[1].maps
-qspace = QuadratureFESpace(trian,reffe)
-qdofs = get_fe_dof_basis(qspace)
-cell_fields = GenericCellField(fields,trian,DomainStyle(qdofs))
-cell_values = qdofs(cell_fields)
+# cfx = cf.args[1].args[1](x)
+# _cfx = _cf.args[1].args[1](x)
 
-plength = param_length(first(fields))
-free_values = parameterise(zero_free_values(qspace),plength)
-diri_values = parameterise(zero_dirichlet_values(qspace),plength)
-gather_free_and_dirichlet_values!(free_values,diri_values,qspace,cell_values)
+ax = map(i->i(x),cf.args)
+eltype(ax[1])
+eltype(ax[2])
+k = Fields.BroadcastingFieldOpMap(⋅)
+# lazy_map(k,ax...)
+c = return_cache(k,ax[1][1],ax[2][1]) 
+evaluate!(c,k,ax[1][1],ax[2][1])
 
-red = Reduction(1e-5;sketch=:sprn)
-_reduced_free_values = reduction(red,get_all_data(free_values))
-reduced_free_values = ConsecutiveParamArray(_reduced_free_values)
-rplength = param_length(reduced_free_values)
-reduced_diri_values = parameterise(zero_dirichlet_values(qspace),rplength)
-rcv = scatter_free_and_dirichlet_values(qspace,reduced_free_values,reduced_diri_values)
-rrcv = Fill(rcv,fields.axes)
-rcf = GenericCellField(rrcv,trian,PhysicalDomain())
-# reduce_integral(dc[Ω],trian,order;red)
+_ax = map(i->i(x),_cf.args)
+eltype(_ax[1])
+eltype(_ax[2])
+# lazy_map(k,_ax...)
+_c = return_cache(k,_ax[1][1],_ax[2][1]) 
+evaluate!(_c,k,_ax[1][1],_ax[2][1])
 
-rdc = ∫(rcf*∇(v)⋅∇(du))dΩ
-rdc = ∫(rrcv*∇(v)⋅∇(du))dΩ
+idk = (ℛ(aμ(μ);order)*∇(v)⋅∇(du))(x)
+cache = array_cache(idk)
+getindex!(cache,idk,10)
 
-struct ConstantCellField{DS} <: CellField
-  cell_field::AbstractArray
-  trian::Triangulation
-  domain_style::DS
-  function ConstantCellField(
-    cell_field::AbstractArray,
-    trian::Triangulation,
-    domain_style::DomainStyle)
-
-    DS = typeof(domain_style)
-    new{DS}(Fields.MemoArray(cell_field),trian,domain_style)
-  end
-end
-
-CellData.get_data(f::ConstantCellField) = f.cell_field
-CellData.get_triangulation(f::ConstantCellField) = f.trian
-CellData.DomainStyle(::Type{ConstantCellField{DS}}) where DS = DS()
-
-function Arrays.evaluate!(cache,f::ConstantCellField,x::CellPoint)
-  @check get_triangulation(f) == get_triangulation(x) 
-  get_data(f)
-end
+cvm = (∫(aμ(μ)*∇(v)⋅∇(du))dΩ)[Ω]
+cvv = (∫(aμ(μ)*v)dΩ)[Ω]

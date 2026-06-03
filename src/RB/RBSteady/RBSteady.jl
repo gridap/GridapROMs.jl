@@ -170,6 +170,7 @@ include("BasesConstruction.jl")
 export QuadratureFESpace
 export ReducedCellField
 export ℛ
+export @reduce_integrals
 include("FunctionReductions.jl")
 
 export Projection

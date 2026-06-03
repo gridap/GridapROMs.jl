@@ -379,7 +379,7 @@ struct ParamFunction{F,P} <: AbstractParamFunction{P}
   params::P
 end
 
-function ParamFunction(f::Function,p::Union{AbstractArray,TransientRealisation})
+function ParamFunction(f::Function,p::TransientRealisation)
   @notimplemented "Use a Realisation as a parameter input"
 end
 
@@ -469,10 +469,6 @@ struct TransientParamFunction{F,P,T} <: AbstractParamFunction{P}
   times::T
 end
 
-function TransientParamFunction(f::Function,p::AbstractArray,t)
-  @notimplemented "Use a TransientRealisation as a parameter input"
-end
-
 function TransientParamFunction(f::Function,r::Realisation)
   @notimplemented "Use a TransientRealisation as a parameter input"
 end
@@ -543,3 +539,45 @@ function pteval(f::TransientParamFunction,x)
 end
 
 Arrays.return_value(f::TransientParamFunction,x) = f.fun(testitem(_get_params(f)),testitem(get_times(f)))(x)
+
+# trivial param functions 
+
+struct TrivialParamFunction{F,A} <: Function
+  fun::F
+  args::A
+end
+
+function ParamFunction(f::Function,p::AbstractArray)
+  TrivialParamFunction(f,(p,))
+end
+
+function TransientParamFunction(f::Function,p::AbstractArray,t::Real)
+  TrivialParamFunction(f,(p,t))
+end
+
+(f::TrivialParamFunction)(x) = f.fun(f.args...)(x)
+
+for op in (:+,:-,:*,:/,:^)
+  @eval begin
+    function ($op)(f::TrivialParamFunction,α::Number)
+      x -> $op(f.fun(f.args...)(x),α)
+    end
+
+    function ($op)(α::Number,f::TrivialParamFunction)
+      x -> $op(α,f.fun(f.args...)(x))
+    end
+
+    function ($op)(f::TrivialParamFunction,g::TrivialParamFunction)
+      x -> $op(f.fun(f.args...)(x),g.fun(g.args...)(x))
+    end
+  end
+end
+
+for op in (:(Fields.gradient),:(Fields.symmetric_gradient),:(Fields.divergence),
+  :(Fields.curl),:(Fields.laplacian))
+  @eval begin
+    function ($op)(f::TrivialParamFunction)
+      x -> $op(f.fun(f.args...))(x)
+    end
+  end
+end
