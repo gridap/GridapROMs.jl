@@ -75,33 +75,37 @@ struct ReducedCellField{DS<:DomainStyle} <: CellField
   cell_field::AbstractArray
   trian::Triangulation
   domain_style::DS
+  order::Int
+  reduction::Reduction
 
   function ReducedCellField(
     cell_field::AbstractArray,
     trian::Triangulation,
     domain_style::DomainStyle=PhysicalDomain(),
+    order::Int=2,
+    reduction::Reduction=Reduction(1e-5;sketch=:sprn)
     )
 
     DS = typeof(domain_style)
-    new{DS}(Fields.MemoArray(cell_field),trian,domain_style)
+    new{DS}(Fields.MemoArray(cell_field),trian,domain_style,order,reduction)
   end
 end
 
-function ReducedCellField(f::CellField;kwargs...)
-  @abstractmethod
+CellData.get_data(f::ReducedCellField) = f.cell_field
+CellData.get_triangulation(f::ReducedCellField) = f.trian
+CellData.DomainStyle(::Type{ReducedCellField{DS}}) where {DS} = DS()
+
+function CellData.similar_cell_field(f::ReducedCellField,cell_data,trian,ds)
+  ReducedCellField(cell_data,trian,ds,f.order,f.reduction)
 end
 
-function ReducedCellField(
-  cell_field::GenericCellField;
-  order::Int,
-  tol=1e-5,
-  red=Reduction(tol;sketch=:sprn)
-  ) 
-
+function Arrays.evaluate!(cache,f::ReducedCellField,x::CellPoint)
+  cell_field, = CellData._to_common_domain(f,x)
+  
   data = get_data(cell_field)
   trian = get_triangulation(cell_field)
 
-  reffe = ReferenceFE(lagrangian,Float64,order)
+  reffe = ReferenceFE(lagrangian,Float64,f.order)
   qspace = QuadratureFESpace(trian,reffe)
   qdofs = get_fe_dof_basis(qspace)
   cell_values = qdofs(cell_field)
@@ -111,120 +115,33 @@ function ReducedCellField(
   diri_values = parameterise(zero_dirichlet_values(qspace),plength)
   gather_free_and_dirichlet_values!(free_values,diri_values,qspace,cell_values)
 
-  _reduced_free_values = reduction(red,get_all_data(free_values))
+  _reduced_free_values = reduction(f.reduction,get_all_data(free_values))
   reduced_free_values = ConsecutiveParamArray(_reduced_free_values)
   rplength = param_length(reduced_free_values)
   reduced_diri_values = parameterise(zero_dirichlet_values(qspace),rplength)
-  reduced_cell_values = scatter_free_and_dirichlet_values(
+  scatter_free_and_dirichlet_values(
     qspace,
     reduced_free_values,
     reduced_diri_values
   )
-
-  return ReducedCellField(reduced_cell_values,trian,PhysicalDomain())
 end
 
-function ReducedCellField(f::CellData.OperationCellField;kwargs...)
-  args = map(a -> ReducedCellField(a;kwargs...),f.args)
-  CellData.OperationCellField(f.op,args...)
-end
-
-function ReducedCellField(f::CellData.CellFieldAt{T};kwargs...) where T
-  CellData.CellFieldAt{T}(ReducedCellField(f.parent;kwargs...))
-end
-
-function ReducedCellField(f::SkeletonCellFieldPair;kwargs...)
-  cf_plus = ReducedCellField(f.cf_plus;kwargs...)
-  cf_minus = ReducedCellField(f.cf_minus;kwargs...)
-  SkeletonCellFieldPair(cf_plus,cf_minus,f.trian)
-end
-
-CellData.get_data(f::ReducedCellField) = f.cell_field
-CellData.get_triangulation(f::ReducedCellField) = f.trian
-CellData.DomainStyle(::Type{ReducedCellField{DS}}) where {DS} = DS()
-
-function CellData.change_domain(a::ReducedCellField,::PhysicalDomain,::PhysicalDomain)
-  a
-end
-
-function CellData.change_domain(a::ReducedCellField,::ReferenceDomain,::ReferenceDomain)
-  a
-end
-
-function CellData.change_domain(a::ReducedCellField,::PhysicalDomain,::ReferenceDomain)
-  ReducedCellField(get_data(a),get_triangulation(a),ReferenceDomain())
-end
-
-function CellData.change_domain(a::ReducedCellField,::ReferenceDomain,::PhysicalDomain)
-  ReducedCellField(get_data(a),get_triangulation(a),PhysicalDomain())
-end
-
-function CellData.change_domain(
-  a::ReducedCellField,
-  strian::Triangulation,
-  ::PhysicalDomain,
-  ttrian::Triangulation,
-  ::PhysicalDomain,
-  )
-
-  data = _change_red_cell_data(get_data(a),strian,ttrian)
-  ReducedCellField(data,ttrian,PhysicalDomain())
-end
-
-function CellData.change_domain(
-  a::ReducedCellField,
-  strian::Triangulation,
-  ::PhysicalDomain,
-  ttrian::Triangulation,
-  ::ReferenceDomain,
-  )
-
-  data = _change_red_cell_data(get_data(a),strian,ttrian)
-  ReducedCellField(data,ttrian,ReferenceDomain())
-end
-
-function CellData.change_domain(
-  a::ReducedCellField,
-  strian::Triangulation,
-  ::ReferenceDomain,
-  ttrian::Triangulation,
-  ::PhysicalDomain,
-  )
-
-  data = _change_red_cell_data(get_data(a),strian,ttrian)
-  ReducedCellField(data,ttrian,PhysicalDomain())
-end
-
-function CellData.change_domain(
-  a::ReducedCellField,
-  strian::Triangulation,
-  ::ReferenceDomain,
-  ttrian::Triangulation,
-  ::ReferenceDomain,
-  )
-
-  data = _change_red_cell_data(get_data(a),strian,ttrian)
-  ReducedCellField(data,ttrian,ReferenceDomain())
-end
-
-function Arrays.evaluate!(cache,f::ReducedCellField,x::CellPoint)
-  trian_x = get_triangulation(x)
-  domain_x = DomainStyle(x)
-  fx = change_domain(f,trian_x,domain_x)
-  get_data(fx)
-end
-
-struct ReducedFunction{F<:Function} <: Function
+struct ReducedFunction{F<:Function,R<:Reduction} <: Function
   f::F
+  order::Int
+  reduction::R
+end
+
+function ReducedFunction(f::Function;order::Int,reduction=Reduction(1e-5;sketch=:sprn))
+  ReducedFunction(f,order,reduction)
 end
 
 const ℛ = ReducedFunction
 
-function ReducedCellField(f::ReducedFunction,trian::Triangulation,domain_style::DomainStyle;kwargs...)
+function CellData.CellField(f::ReducedFunction,trian::Triangulation,domain_style::DomainStyle)
   s = size(get_cell_map(trian))
   data = Fill(GenericField(f.f),s)
-  cell_field = GenericCellField(data,trian,PhysicalDomain())
-  ReducedCellField(cell_field;kwargs...)
+  ReducedCellField(data,trian,PhysicalDomain(),f.order,f.reduction)
 end
 
 # utils 
@@ -324,36 +241,5 @@ end
 
 function _compatible_quad_nodes(cell_point::AbstractArray{<:AbstractVector{<:Point}})
   p1 = first(cell_point)
-  all([p .== p1 for p in cell_point]) 
-end
-
-function _change_red_cell_data(
-  data::AbstractArray,
-  strian::Triangulation,
-  ttrian::Triangulation,
-  )
-
-  if strian === ttrian
-    return data
-  end
-
-  @check is_change_possible(strian,ttrian)
-  D = num_cell_dims(strian)
-  sglue = get_glue(strian,Val(D))
-  tglue = get_glue(ttrian,Val(D))
-
-  mface_to_field = extend(data,sglue.mface_to_tface)
-  lazy_map(Reindex(mface_to_field),tglue.tface_to_mface)
-end
-
-function CellData._convert_to_cellfields(_a::ReducedFunction,b::CellField)
-  target_domain = DomainStyle(b)
-  target_trian = get_triangulation(b)
-  order = get_polynomial_order(b)
-  a = ReducedCellField(_a,target_trian,target_domain;order)
-  return (a,b)
-end
-
-function CellData._convert_to_cellfields(a::CellField,b::ReducedFunction)
-  reverse(CellData._convert_to_cellfields(b,a)...)
+  all([p == p1 for p in cell_point]) 
 end
