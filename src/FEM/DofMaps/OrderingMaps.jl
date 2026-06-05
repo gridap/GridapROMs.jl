@@ -144,9 +144,9 @@ function Base.getproperty(a::OTable,sym::Symbol)
 end
 
 Base.view(a::OTable,i::Integer) = OIdsToIds(view(a.values,i),view(a.terms,i))
-Base.view(a::OTable,ids::UnitRange{<:Integer}) = OTable(view(a.values,ids),view(a.terms,ids))
+Base.view(a::OTable,ids::AbstractUnitRange) = OTable(view(a.values,ids),view(a.terms,ids))
 Base.getindex(a::OTable,i::Integer) = OIdsToIds(getindex(a.values,i),getindex(a.terms,i))
-Base.getindex(a::OTable,ids::UnitRange{<:Integer}) = OTable(getindex(a.values,ids),getindex(a.terms,ids))
+Base.getindex(a::OTable,ids::AbstractUnitRange) = OTable(getindex(a.values,ids),getindex(a.terms,ids))
 
 function Arrays.array_cache(a::OTable)
   valscache = array_cache(a.values)

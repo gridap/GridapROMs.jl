@@ -193,6 +193,16 @@ function Base.copyto!(A::ConsecutiveParamSparseMatrixCSC,B::ConsecutiveParamSpar
   copyto!(A.data,B.data)
 end
 
+function get_param_entry(A::ConsecutiveParamSparseMatrixCSC,rows::AbstractUnitRange{Int})
+  pini,pend = first(rows),last(rows)
+  data′ = view(A.data,rows,:)
+  rowval′ = A.rowval[rows]
+  c_ini = searchsortedlast(A.colptr,pini)
+  c_end = searchsortedlast(A.colptr,pend)
+  colptr′ = clamp.(A.colptr[c_ini:c_end+1],pini,pend+1) .- (pini-1)
+  ConsecutiveParamSparseMatrixCSC(A.m,c_end-c_ini+1,colptr′,rowval′,data′)
+end
+
 function recast(a::AbstractMatrix,A::SparseMatrixCSC)
   @check size(a,1) == nnz(A)
   ConsecutiveParamSparseMatrixCSC(A.m,A.n,A.colptr,A.rowval,a)
@@ -454,6 +464,16 @@ end
 function recast(a::AbstractMatrix,A::ConsecutiveParamSparseMatrixCSR{Bi}) where Bi
   @check size(a,1) == nnz(A)
   ConsecutiveParamSparseMatrixCSR{Bi}(A.m,A.n,A.rowptr,A.colval,a)
+end
+
+function get_param_entry(A::ConsecutiveParamSparseMatrixCSR{Bi},rows::AbstractUnitRange{Int}) where Bi
+  pini,pend = first(rows),last(rows)
+  data′ = view(A.data,rows,:)
+  colval′ = A.colval[rows]
+  r_ini = searchsortedlast(A.rowptr,pini+Bi-1)
+  r_end = searchsortedlast(A.rowptr,pend+Bi-1)
+  rowptr′ = clamp.(A.rowptr[r_ini:r_end+1],pini+Bi-1,pend+Bi) .- (pini-1)
+  ConsecutiveParamSparseMatrixCSR{Bi}(r_end-r_ini+1,A.n,rowptr′,colval′,data′)
 end
 
 """

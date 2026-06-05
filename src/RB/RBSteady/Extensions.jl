@@ -74,11 +74,11 @@ end
 
 function _remove_extension(s::Snapshots,ids::AbstractVector)
   @check ParamDataStructures._is_one_to(get_dof_map(s))
-  data = flatten(s)
-  fdata = ConsecutiveParamArray(view(data,ids,:))
+  pdata = get_param_data(s)
+  fpdata = get_param_entry(pdata,ids)
   fdof_map = VectorDofMap(length(ids))
   r = get_realisation(s)
-  Snapshots(fdata,fdof_map,r)
+  Snapshots(fpdata,fdof_map,r)
 end
 
 function remove_extension(f::SingleFieldFESpace,exts::Snapshots,aexts::Snapshots)
@@ -98,5 +98,9 @@ function remove_extension(f::MultiFieldFESpace,exts::BlockSnapshots,aexts::Block
       acache[i] = _remove_extension(aexts[i],fdofs)
     end
   end
-  BlockSnapshots(cache,exts.touched),BlockSnapshots(acache,aexts.touched)
+  epdata = get_param_data(exts)
+  efpdata = get_param_entry(epdata,ids)
+  aepdata = get_param_data(aexts)
+  afpdata = get_param_entry(aepdata,ids)
+  BlockSnapshots(cache,exts.touched,efpdata),BlockSnapshots(acache,aexts.touched,afpdata)
 end

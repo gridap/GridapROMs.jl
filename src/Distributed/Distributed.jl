@@ -53,7 +53,12 @@ using Gridap.Fields
 using Gridap.CellData
 using Gridap.MultiField
 using Gridap.ODEs
+
 using GridapDistributed
+
+using GridapSolvers
+using GridapSolvers.LinearSolvers
+using GridapSolvers.NonlinearSolvers
 
 using GridapROMs.Utils
 using GridapROMs.DofMaps

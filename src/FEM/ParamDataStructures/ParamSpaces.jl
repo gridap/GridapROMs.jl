@@ -547,11 +547,11 @@ struct TrivialParamFunction{F,A} <: Function
   args::A
 end
 
-function parameterise(f::Function,p::AbstractArray)
+function parameterise(f::Function,p::Union{AbstractArray,Number})
   TrivialParamFunction(f,(p,))
 end
 
-function parameterise(f::Function,p::AbstractArray,t::Real)
+function parameterise(f::Function,p::Union{AbstractArray,Number},t::Real)
   TrivialParamFunction(f,(p,t))
 end
 

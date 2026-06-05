@@ -45,7 +45,7 @@ function Algebra.solve!(
 end
 
 function Algebra.solve!(
-  x::AbstractParamVector,
+  x::AbstractVector,
   ls::LinearSolver,
   op::NonlinearParamOperator,
   cache::Nothing
@@ -56,7 +56,7 @@ function Algebra.solve!(
 end
 
 function Algebra.solve!(
-  x::AbstractParamVector,
+  x::AbstractVector,
   ls::LinearSolver,
   op::NonlinearParamOperator,
   cache::SystemCache
@@ -71,7 +71,7 @@ function Algebra.solve!(
 end
 
 function Algebra.solve!(
-  x::AbstractParamVector,
+  x::AbstractVector,
   ls::LinearSolver,
   op::NonlinearParamOperator,
   cache::Algebra.LinearSolverCache
@@ -88,7 +88,7 @@ end
 # nonlinear interface
 
 function Algebra.solve!(
-  x::AbstractParamVector,
+  x::AbstractVector,
   nls::NewtonSolver,
   op::NonlinearParamOperator,
   cache::Nothing
@@ -124,7 +124,7 @@ function Algebra.solve!(
 end
 
 function Algebra.solve!(
-  x::AbstractParamVector,
+  x::AbstractVector,
   nls::NewtonSolver,
   op::NonlinearParamOperator,
   cache::NonlinearSolvers.NewtonCache

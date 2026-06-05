@@ -95,29 +95,44 @@ end
 
 function ParamDataStructures.Snapshots(
   data::BlockPArray{V,T,N},
-  i::AbstractArray,
+  i::ArrayBlock,
   r::AbstractRealisation
   ) where {V,T,N}
 
   block_values = blocks(data)
   s = size(block_values)
   array = Array{Any,N}(undef,s)
-  touched = Array{Bool,N}(undef,s)
   for (j,dataj) in enumerate(block_values)
-    if !iszero(dataj)
+    if i.touched[j]
       array[j] = Snapshots(dataj,i[j],r)
-      touched[j] = true
-    else
-      touched[j] = false
     end
   end
-  DistributedBlockSnapshots(array,touched)
+  DistributedBlockSnapshots(array,i.touched)
+end
+
+function ParamDataStructures.Snapshots(
+  data::Union{PVector,PSparseMatrix},
+  i::ArrayBlock{<:Any,N},
+  r::AbstractRealisation
+  ) where N
+
+  s = size(i)
+  ids = ParamDataStructures.offset_indices(i)
+  array = Array{Any,N}(undef,s)
+  for j in eachindex(i)
+    if i.touched[j]
+      dataj = get_param_entry(data,ids[j]...)
+      array[j] = Snapshots(dataj,i[j],r)
+    end
+  end
+
+  DistributedBlockSnapshots(array,i.touched)
 end
 
 function ParamDataStructures.Snapshots(
   data::BlockPArray{V,T,N},
   data0::BlockPArray,
-  i::AbstractArray,
+  i::ArrayBlock{<:Any,N},
   r::TransientRealisation
   ) where {V,T,N}
 
@@ -126,19 +141,36 @@ function ParamDataStructures.Snapshots(
   @check s == size(i)
 
   array = Array{Any,N}(undef,s)
-  touched = Array{Bool,N}(undef,s)
   for j in eachindex(block_values)
-    dataj = block_values[j]
-    data0j = map(d0 -> blocks(d0)[j],data0)
-    if !iszero(dataj)
+    if i.touched[j]
+      dataj = block_values[j]
+      data0j = map(d0 -> blocks(d0)[j],data0)
       array[j] = Snapshots(dataj,data0j,i[j],r)
-      touched[j] = true
-    else
-      touched[j] = false
     end
   end
 
-  DistributedBlockSnapshots(array,touched)
+  DistributedBlockSnapshots(array,i.touched)
+end
+
+function ParamDataStructures.Snapshots(
+  data::PVector,
+  data0::Tuple{Vararg{PVector}},
+  i::ArrayBlock{<:Any,N},
+  r::TransientRealisation
+  ) where N
+
+  s = size(i)
+  ids = ParamDataStructures.offset_indices(i)
+  array = Array{Any,N}(undef,s)
+  for j in eachindex(i)
+    if i.touched[j]
+      dataj = get_param_entry(data,ids[j]...)
+      data0j = map(d0 -> get_param_entry(d0,ids[j]...),data0)
+      array[j] = Snapshots(dataj,data0j,i[j],r)
+    end
+  end
+
+  DistributedBlockSnapshots(array,i.touched)
 end
 
 function Base.show(io::IO,k::MIME"text/plain",s::DistributedBlockSnapshots)
@@ -165,7 +197,7 @@ function to_parray_of_blocksnaps(a::AbstractArray{<:MPIArray{<:Snapshots}},touch
     array = map(a) do aj
       getany(aj)
     end
-    BlockSnapshots(array,touched)
+    BlockSnapshots(array,touched,nothing)
   end
 end
 
@@ -175,6 +207,6 @@ function to_parray_of_blocksnaps(a::AbstractArray{<:DebugArray{<:Snapshots}},tou
     array = map(a) do aj
       aj.items[i]
     end
-    BlockSnapshots(array,touched)
+    BlockSnapshots(array,touched,nothing)
   end
 end

@@ -34,6 +34,31 @@ function Algebra.solve!(
   ns
 end
 
+function Algebra.solve!(
+  x::AbstractParamPVector,
+  nls::NewtonSolver,
+  op::NonlinearParamOperator,
+  cache::SystemCache
+  )
+
+  fill!(x,zero(eltype(x)))
+  update_systemcache!(op,x)
+
+  @unpack A,b = cache
+  residual!(b,op,x)
+  jacobian!(A,op,x)
+
+  A_item = testitem(A)
+  x_item = testitem(x)
+  dx = allocate_in_domain(A_item)
+  fill!(dx,zero(eltype(dx)))
+  ss = symbolic_setup(nls.ls,A_item)
+  ns = numerical_setup(ss,A_item,x_item)
+
+  Algebra._solve_nr!(x,A,b,dx,ns,nls,op)
+  return NonlinearSolvers.NewtonCache(A,b,dx,ns)
+end
+
 function Algebra._solve_nr!(
   x::AbstractParamPVector,
   A::AbstractParamPSparseMatrix,
