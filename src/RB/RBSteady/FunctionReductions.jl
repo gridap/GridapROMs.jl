@@ -150,7 +150,9 @@ function _quad_lagrangian_ref_fe(
     dofs,
     conf,
     metadata,
-    face_own_dofs)
+    face_own_dofs
+  )
+  
   GenericLagrangianRefFE(reffe,face_nodes)
 end
 
