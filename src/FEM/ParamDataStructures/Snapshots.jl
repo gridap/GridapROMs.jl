@@ -185,25 +185,27 @@ end
 # multi field interface
 
 """
-    struct BlockSnapshots{N} <: AbstractSnapshots{Snapshots,N}
+    struct BlockSnapshots{N,B} <: AbstractSnapshots{Snapshots,N}
       array::Array{<:Any,N}
       touched::Array{Bool,N}
+      param_data::B
     end
 
 Block container for Snapshots of type `S` in a `MultiField` setting. This
 type is conceived similarly to `ArrayBlock` in Gridap
 """
-struct BlockSnapshots{N} <: AbstractSnapshots{Snapshots,N}
+struct BlockSnapshots{N,B} <: AbstractSnapshots{Snapshots,N}
   array::Array{<:Any,N}
   touched::Array{Bool,N}
-
+  param_data::B
   function BlockSnapshots(
     array::Array{<:Any,N},
-    touched::Array{Bool,N}
-    ) where N
+    touched::Array{Bool,N},
+    param_data::B
+    ) where {N,B}
 
     @check size(array) == size(touched)
-    new{N}(array,touched)
+    new{N,B}(array,touched,param_data)
   end
 end
 
@@ -224,7 +226,29 @@ function Snapshots(
     end
   end
 
-  BlockSnapshots(array,i.touched)
+  BlockSnapshots(array,i.touched,data)
+end
+
+function Snapshots(
+  data::AbstractParamArray{T,N},
+  i::ArrayBlock{<:AbstractDofMap},
+  r::AbstractRealisation
+  ) where {T,N}
+
+  offset = 0
+  s = size(i)
+  array = Array{Any,N}(undef,s)
+  for j in eachindex(i)
+    if i.touched[j]
+      pini = offset + 1
+      pend = offset + length(i[j])
+      dataj = get_param_entry(data,pini:pend)
+      array[j] = Snapshots(dataj,i[j],r)
+      offset = pend
+    end
+  end
+
+  BlockSnapshots(array,i.touched,data)
 end
 
 BlockArrays.blocks(s::BlockSnapshots) = s.array
@@ -265,9 +289,7 @@ end
 
 get_realisation(s::BlockSnapshots) = get_realisation(testitem(s))
 
-function get_param_data(s::BlockSnapshots)
-  map(get_param_data,s.array) |> mortar
-end
+get_param_data(s::BlockSnapshots) = s.param_data
 
 function select_snapshots(s::BlockSnapshots{N},pindex) where N
   array = Array{Any,N}(undef,size(s))
@@ -276,7 +298,9 @@ function select_snapshots(s::BlockSnapshots{N},pindex) where N
       array[i] = select_snapshots(s[i],pindex)
     end
   end
-  return BlockSnapshots(array,s.touched)
+  prange = _format_index(pindex)
+  pdrange = _get_param_data(s.param_data,prange)
+  return BlockSnapshots(array,s.touched,pdrange)
 end
 
 function param_cat(v::AbstractVector{<:BlockSnapshots{N}}) where N
@@ -289,18 +313,19 @@ function param_cat(v::AbstractVector{<:BlockSnapshots{N}}) where N
       array[i] = param_cat(map(s -> getindex(s,i),v))
     end
   end
-  return BlockSnapshots(array,touched)
+  param_data = param_cat(map(s -> s.param_data,v))
+  return BlockSnapshots(array,touched,param_data)
 end
 
 function change_dof_map(s::BlockSnapshots{N},i::ArrayBlock{<:AbstractDofMap,N}) where N
-  @check s.touched == i.touched 
+  @check s.touched == i.touched
   array = Array{Any,N}(undef,size(s))
   for j in eachindex(s.touched)
     if s.touched[j]
       array[j] = change_dof_map(s[j],i[j])
     end
   end
-  return BlockSnapshots(array,s.touched)
+  return BlockSnapshots(array,s.touched,s.param_data)
 end
 
 # utils

@@ -81,6 +81,7 @@ include("DirectSumFESpaces.jl")
 export ExtensionAssembler
 include("ExtensionAssemblers.jl")
 
+export ConsecutiveMultiFieldExtensionStyle
 export BlockMultiFieldExtensionStyle 
 export BlockExtensionSparseMatrixAssembler
 include("MultiFieldFESpaces.jl")

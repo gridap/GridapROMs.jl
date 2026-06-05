@@ -113,8 +113,9 @@ end
 function merge_snapshots(svec::Vector{<:TransientSnapshotsWithIC})
   get_snaps(s::TransientSnapshotsWithIC) = s.snaps
   snaps = merge_snapshots(map(get_snaps,svec))
-  d0vec = map(get_initial_data,svec)
-  TransientSnapshotsWithIC(hcat(d0vec...),snaps)
+  p0vec = map(get_initial_param_data,svec)
+  p0 = merge_param_data(p0vec)
+  TransientSnapshotsWithIC(p0,snaps)
 end
 
 function get_offline_snapshots(dir::String;kwargs...)

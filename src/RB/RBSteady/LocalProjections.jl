@@ -323,7 +323,7 @@ function _cluster(s::BlockSnapshots{N},inds::AbstractVector) where N
       array[i] = _cluster(s[i],inds)
     end
   end
-  return BlockSnapshots(array,s.touched)
+  return BlockSnapshots(array,s.touched,s.param_data)
 end
 
 function _cluster(a::ConsecutiveParamArray{T,N},inds::AbstractVector) where {T,N}

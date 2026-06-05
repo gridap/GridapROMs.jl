@@ -1,3 +1,59 @@
+struct ConsecutiveMultiFieldExtensionStyle <: MultiFieldStyle end
+
+function FESpaces.get_free_dof_ids(
+  f::MultiFieldFESpace,
+  ::ConsecutiveMultiFieldExtensionStyle
+  )
+
+  block_num_dofs = map(num_free_dofs,f.spaces)
+  return BlockArrays.blockedrange(block_num_dofs)
+end
+
+function MultiField._restrict_to_field(
+  f,
+  ::ConsecutiveMultiFieldExtensionStyle,
+  free_values,
+  field
+)
+  U = f.spaces
+  offsets = MultiField._compute_field_offsets(U)
+  pini = offsets[field] + 1
+  pend = offsets[field] + num_free_dofs(U[field])
+  view(free_values,pini:pend)
+end
+
+function MultiField._restrict_to_field(
+  f,
+  ::ConsecutiveMultiFieldExtensionStyle,
+  free_values::AbstractParamVector,
+  field
+  )
+
+  U = f.spaces
+  offsets = MultiField._compute_field_offsets(U)
+  pini = offsets[field] + 1
+  pend = offsets[field] + num_free_dofs(U[field])
+  get_param_entry(free_values,pini:pend)
+end
+
+function MultiField.compute_field_offsets(
+  f::MultiFieldFESpace,
+  ::ConsecutiveMultiFieldExtensionStyle
+  )
+
+  MultiField._compute_field_offsets(f.spaces)
+end
+
+function FESpaces.SparseMatrixAssembler(
+  mat,vec,
+  trial::MultiFieldFESpace{<:ConsecutiveMultiFieldExtensionStyle},
+  test ::MultiFieldFESpace{<:ConsecutiveMultiFieldExtensionStyle},
+  strategy::AssemblyStrategy=DefaultAssemblyStrategy()
+  )
+  
+  ExtensionAssembler(mat,vec,trial,test,strategy)
+end
+
 struct BlockMultiFieldExtensionStyle{NB,SB,P} <: MultiFieldStyle end
 
 BlockMultiFieldExtensionStyle() = BlockMultiFieldExtensionStyle{0,0,0}()
@@ -31,6 +87,7 @@ function BlockMultiFieldExtensionStyle(::BlockMultiFieldExtensionStyle{0,0,0},sp
 end
 
 @inline MultiField.get_block_parameters(::BlockMultiFieldExtensionStyle{NB,SB,P}) where {NB,SB,P} = (NB,SB,P)
+
 function BlockArrays.blocks(f::MultiFieldFESpace{<:BlockMultiFieldExtensionStyle})
   block_ranges = MultiField.get_block_ranges(get_block_parameters(MultiFieldStyle(f))...)
   block_spaces = map(block_ranges) do range
@@ -93,10 +150,12 @@ function MultiField.compute_field_offsets(
   return offsets
 end
 
-function FESpaces.get_cell_dof_ids(f::MultiFieldFESpace,
-                                   trian::Triangulation,
-                                   ::BlockMultiFieldExtensionStyle
-                                   )
+function FESpaces.get_cell_dof_ids(
+  f::MultiFieldFESpace,
+  trian::Triangulation,
+  ::Union{ConsecutiveMultiFieldExtensionStyle,BlockMultiFieldExtensionStyle}
+  )
+
   offsets = MultiField.compute_field_offsets(f)
   nfields = length(f.spaces)
   blockmask = [ is_change_possible(get_triangulation(Vi),trian) for Vi in f.spaces ]

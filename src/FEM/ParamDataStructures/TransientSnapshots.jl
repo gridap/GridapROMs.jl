@@ -43,7 +43,6 @@ function Snapshots(s::AbstractParamArray,i::AbstractDofMap,r::TransientRealisati
   GenericSnapshots(idata,param_data,i,r)
 end
 
-get_initial_data(s::TransientSnapshots) = @abstractmethod
 get_initial_param_data(s::TransientSnapshots) = @abstractmethod
 
 function param_getindex(
@@ -61,14 +60,14 @@ end
 
 """
     struct TransientSnapshotsWithIC{T,N,I,R,A,B<:TransientSnapshots{T,N,I,R}} <: TransientSnapshots{T,N,I,R}
-      initial_data::A
+      initial_param_data::A
       snaps::B
     end
 
-Stores a [`TransientSnapshots`](@ref) `snaps` alongside a parametric initial condition `initial_data`
+Stores a [`TransientSnapshots`](@ref) `snaps` alongside a parametric initial condition `initial_param_data`
 """
 struct TransientSnapshotsWithIC{T,N,I,R,A,B<:TransientSnapshots{T,N,I,R}} <: TransientSnapshots{T,N,I,R}
-  initial_data::A
+  initial_param_data::A
   snaps::B
 end
 
@@ -78,15 +77,14 @@ function Snapshots(
   i::AbstractDofMap,
   r::TransientRealisation
   )
-  initial_data = get_all_data.(s0)
+  
   snaps = Snapshots(s,i,r)
-  TransientSnapshotsWithIC(initial_data,snaps)
+  TransientSnapshotsWithIC(s0,snaps)
 end
 
 get_all_data(s::TransientSnapshotsWithIC) = get_all_data(s.snaps)
 get_param_data(s::TransientSnapshotsWithIC) = get_param_data(s.snaps)
-get_initial_data(s::TransientSnapshotsWithIC) = s.initial_data
-get_initial_param_data(s::TransientSnapshotsWithIC) = ConsecutiveParamArray.(s.initial_data)
+get_initial_param_data(s::TransientSnapshotsWithIC) = s.initial_param_data
 get_dof_map(s::TransientSnapshotsWithIC) = get_dof_map(s.snaps)
 get_realisation(s::TransientSnapshotsWithIC) = get_realisation(s.snaps)
 
@@ -100,14 +98,14 @@ end
 
 function select_snapshots(s::TransientSnapshotsWithIC,pindex)
   prange = _format_index(pindex)
-  d0range = map(d0 -> view(d0,:,prange),s.initial_data)
+  d0range = map(d0 -> _get_param_data(d0,prange),s.initial_param_data)
   srange = select_snapshots(s.snaps,pindex)
   TransientSnapshotsWithIC(d0range,srange)
 end
 
 function select_times(s::TransientSnapshotsWithIC,tindex)
   srange = select_times(s.snaps,tindex)
-  TransientSnapshotsWithIC(s.initial_data,srange)
+  TransientSnapshotsWithIC(s.initial_param_data,srange)
 end
 
 function param_cat(v::AbstractVector{<:TransientSnapshotsWithIC})
@@ -116,7 +114,7 @@ function param_cat(v::AbstractVector{<:TransientSnapshotsWithIC})
 end
 
 function change_dof_map(s::TransientSnapshotsWithIC,i)
-  TransientSnapshotsWithIC(s.initial_data,change_dof_map(s.snaps,i))
+  TransientSnapshotsWithIC(s.initial_param_data,change_dof_map(s.snaps,i))
 end
 
 const TransientGenericSnapshots{T,N,I,R<:TransientRealisation,A,B} = GenericSnapshots{T,N,I,R,A,B}
@@ -147,6 +145,16 @@ const TransientSparseSnapshots{T,N,I<:AbstractSparseDofMap,R<:TransientRealisati
 
 # block snapshots
 
+struct StoredParamData{A,B}
+  param_data::A
+  param_data0::B 
+end
+
+get_param_data(s::StoredParamData) = s.param_data
+get_initial_param_data(s::StoredParamData) = s.param_data0
+
+const TransientBlockSnapshots{N} = BlockSnapshots{N,<:StoredParamData}
+
 function Snapshots(
   data::BlockParamArray{T,N},
   data0::Tuple{Vararg{BlockParamArray}},
@@ -160,43 +168,57 @@ function Snapshots(
 
   array = Array{Any,N}(undef,s)
   for j in eachindex(block_values)
-    dataj = block_values[j]
-    data0j = map(d0 -> blocks(d0)[j],data0)
     if i.touched[j]
+      dataj = block_values[j]
+      data0j = map(d0 -> blocks(d0)[j],data0)
       array[j] = Snapshots(dataj,data0j,i[j],r)
     end
   end
 
-  BlockSnapshots(array,i.touched)
+  stored_data = StoredParamData(data,data0)
+  BlockSnapshots(array,i.touched,stored_data)
 end
 
-for f in (:get_initial_data,:get_initial_param_data)
-  @eval begin
-    function $f(s::BlockSnapshots{N}) where N
-      t = $f(testitem(s))
-      a = ()
-      for (j,tj) in enumerate(t)
-        vj = Array{typeof(tj),N}(undef,size(s))
-        for i in eachindex(s.touched)
-          if s.touched[i]
-            vj[i] = $f(s[i])[j]
-          end
-        end
-        a = (a...,mortar(vj))
-      end
-      return a
+function Snapshots(
+  data::AbstractParamArray{T,N},
+  data0::Tuple{Vararg{AbstractParamArray}},
+  i::ArrayBlock{<:AbstractDofMap},
+  r::TransientRealisation
+  ) where {T,N}
+
+  offset = 0
+  s = size(i)
+  array = Array{Any,N}(undef,s)
+  for j in eachindex(i)
+    if i.touched[j]
+      pini = offset + 1
+      pend = offset + length(i[j])
+      dataj = get_param_entry(data,pini:pend)
+      data0j = map(d0 -> get_param_entry(d0,pini:pend),data0)
+      array[j] = Snapshots(dataj,data0j,i[j],r)
+      offset = pend
     end
   end
+
+  stored_data = StoredParamData(data,data0)
+  BlockSnapshots(array,i.touched,stored_data)
 end
 
-function select_times(s::BlockSnapshots{N},tindex) where N
+get_param_data(s::TransientBlockSnapshots) = get_param_data(s.param_data)
+get_initial_param_data(s::TransientBlockSnapshots) = get_initial_param_data(s.param_data)
+
+function select_times(s::TransientBlockSnapshots{N},tindex) where N
   array = Array{Any,N}(undef,size(s))
   for i in eachindex(s.touched)
     if s.touched[i]
       array[i] = select_times(s[i],tindex)
     end
   end
-  return BlockSnapshots(array,s.touched)
+  np = num_params(s)
+  prange = 1:np
+  trange = _format_index(tindex)
+  pdrange = _get_param_data(s.param_data,prange,trange;nparams=np)
+  return BlockSnapshots(array,s.touched,pdrange)
 end
 
 # mode snapshots

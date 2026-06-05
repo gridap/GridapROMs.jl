@@ -170,7 +170,6 @@ export TransientSnapshotsWithIC
 export TransientSparseSnapshots
 export UnfoldingTransientSnapshots
 export ModeTransientSnapshots
-export get_initial_data
 export get_initial_param_data
 export select_times
 export get_mode1
