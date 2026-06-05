@@ -53,6 +53,10 @@ function param_getindex(
   view(get_all_data(s),_ncolons(Val{N-2}())...,pindex,tindex)
 end
 
+function select_all_data(s::TransientSnapshots{T,N},prange,trange) where {T,N}
+  view(get_all_data(s),_ncolons(Val{N-2}())...,prange,trange)
+end
+
 function flatten(s::TransientSnapshots)
   d = get_all_data(s)
   reshape(d,:,num_params(s),num_times(s))
@@ -98,7 +102,7 @@ end
 
 function select_snapshots(s::TransientSnapshotsWithIC,pindex)
   prange = _format_index(pindex)
-  d0range = map(d0 -> _get_param_data(d0,prange),s.initial_param_data)
+  d0range = map(d0 -> select_param_data(d0,prange),s.initial_param_data)
   srange = select_snapshots(s.snaps,pindex)
   TransientSnapshotsWithIC(d0range,srange)
 end
@@ -123,20 +127,24 @@ function select_snapshots(s::TransientGenericSnapshots{T,N},pindex) where {T,N}
   np = num_params(s)
   prange = _format_index(pindex)
   trange = 1:num_times(s)
-  drange = view(get_all_data(s),_ncolons(Val{N-2}())...,prange,trange)
-  pdrange = _get_param_data(s.param_data,prange,trange;nparams=np)
-  rrange = get_realisation(s)[prange,trange]
-  GenericSnapshots(drange,pdrange,get_dof_map(s),rrange)
+  GenericSnapshots(
+    select_all_data(s,prange,trange),
+    select_param_data(s.param_data,prange,trange;nparams=np),
+    get_dof_map(s),
+    get_realisation(s)[prange,trange]
+  )
 end
 
 function select_times(s::TransientGenericSnapshots{T,N},tindex) where {T,N}
   np = num_params(s)
   prange = 1:np
   trange = _format_index(tindex)
-  drange = view(get_all_data(s),_ncolons(Val{N-2}())...,prange,trange)
-  pdrange = _get_param_data(s.param_data,prange,trange;nparams=np)
-  rrange = get_realisation(s)[prange,trange]
-  GenericSnapshots(drange,pdrange,get_dof_map(s),rrange)
+  GenericSnapshots(
+    select_all_data(s,prange,trange),
+    select_param_data(s.param_data,prange,trange;nparams=np),
+    get_dof_map(s),
+    get_realisation(s)[prange,trange]
+  )
 end
 
 """
@@ -152,6 +160,27 @@ end
 
 get_param_data(s::StoredParamData) = s.param_data
 get_initial_param_data(s::StoredParamData) = s.param_data0
+
+function select_param_data(s::StoredParamData,prange)
+  pd = select_param_data(s.param_data,prange)
+  pd0 = map(d0 -> select_param_data(d0,prange),s.param_data0)
+  StoredParamData(pd,pd0)
+end
+
+function select_param_data(
+  s::StoredParamData,prange,trange;
+  nparams=Int(param_length(s.param_data)/length(trange))
+  )
+  pd = select_param_data(s.param_data,prange,trange;nparams=nparams)
+  StoredParamData(pd,s.param_data0)
+end
+
+function param_cat(v::AbstractVector{<:StoredParamData})
+  pd = param_cat(map(s -> s.param_data,v))
+  n = length(first(v).param_data0)
+  pd0 = ntuple(j -> param_cat(map(s -> s.param_data0[j],v)),n)
+  StoredParamData(pd,pd0)
+end
 
 const TransientBlockSnapshots{N} = BlockSnapshots{N,<:StoredParamData}
 
@@ -186,17 +215,14 @@ function Snapshots(
   r::TransientRealisation
   ) where {T,N}
 
-  offset = 0
   s = size(i)
+  ids = offset_indices(i)
   array = Array{Any,N}(undef,s)
   for j in eachindex(i)
     if i.touched[j]
-      pini = offset + 1
-      pend = offset + length(i[j])
-      dataj = get_param_entry(data,pini:pend)
-      data0j = map(d0 -> get_param_entry(d0,pini:pend),data0)
+      dataj = get_param_entry(data,ids[j]...)
+      data0j = map(d0 -> get_param_entry(d0,ids[j]...),data0)
       array[j] = Snapshots(dataj,data0j,i[j],r)
-      offset = pend
     end
   end
 
@@ -217,7 +243,7 @@ function select_times(s::TransientBlockSnapshots{N},tindex) where N
   np = num_params(s)
   prange = 1:np
   trange = _format_index(tindex)
-  pdrange = _get_param_data(s.param_data,prange,trange;nparams=np)
+  pdrange = select_param_data(s.param_data,prange,trange;nparams=np)
   return BlockSnapshots(array,s.touched,pdrange)
 end
 
@@ -304,7 +330,7 @@ function change_dof_map(a::TupOfArrayContribution,i::TupOfArrayContribution)
   return a′
 end
 
-function _get_param_data(
+function select_param_data(
   pdata::ConsecutiveParamArray{T,N},
   prange,trange;
   nparams=Int(param_length(pdata)/length(trange))
@@ -315,7 +341,7 @@ function _get_param_data(
 end
 
 # in practice, when dealing with the Jacobian, the param data is never fetched
-function _get_param_data(
+function select_param_data(
   pdata::ConsecutiveParamSparseMatrixCSC,prange,trange;
   nparams=Int(param_length(pdata)/length(trange))
   )

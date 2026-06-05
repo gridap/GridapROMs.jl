@@ -116,16 +116,13 @@ function ParamDataStructures.Snapshots(
   r::AbstractRealisation
   ) where N
 
-  offset = 0
   s = size(i)
+  ids = ParamDataStructures.offset_indices(i)
   array = Array{Any,N}(undef,s)
   for j in eachindex(i)
     if i.touched[j]
-      pini = offset + 1
-      pend = offset + length(i[j])
-      dataj = get_param_entry(data,pini:pend)
+      dataj = get_param_entry(data,ids[j]...)
       array[j] = Snapshots(dataj,i[j],r)
-      offset = pend
     end
   end
 
@@ -162,17 +159,14 @@ function ParamDataStructures.Snapshots(
   r::TransientRealisation
   ) where N
 
-  offset = 0
   s = size(i)
+  ids = ParamDataStructures.offset_indices(i)
   array = Array{Any,N}(undef,s)
   for j in eachindex(i)
     if i.touched[j]
-      pini = offset + 1
-      pend = offset + length(i[j])
-      dataj = get_param_entry(data,pini:pend)
-      data0j = map(d0 -> get_param_entry(d0,pini:pend),data0)
+      dataj = get_param_entry(data,ids[j]...)
+      data0j = map(d0 -> get_param_entry(d0,ids[j]...),data0)
       array[j] = Snapshots(dataj,data0j,i[j],r)
-      offset = pend
     end
   end
 

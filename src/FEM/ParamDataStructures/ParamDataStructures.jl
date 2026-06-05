@@ -161,6 +161,8 @@ export SparseSnapshots
 export BlockSnapshots
 export get_realisation
 export select_snapshots
+export select_all_data
+export select_param_data
 export num_space_dofs
 include("Snapshots.jl")
 
@@ -168,8 +170,10 @@ export TransientSnapshots
 export TransientGenericSnapshots
 export TransientSnapshotsWithIC
 export TransientSparseSnapshots
+export TransientBlockSnapshots
 export UnfoldingTransientSnapshots
 export ModeTransientSnapshots
+export StoredParamData
 export get_initial_param_data
 export select_times
 export get_mode1
