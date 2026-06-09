@@ -55,8 +55,8 @@ function main(
   reffe_p = ReferenceFE(lagrangian,Float64,order-1)
   test_p = TestFESpace(Ω,reffe_p;conformity=:H1)
   trial_p = ParamTrialFESpace(test_p)
-  test = MultiFieldParamFESpace([test_u,test_p];style=BlockMultiFieldStyle())
-  trial = MultiFieldParamFESpace([trial_u,trial_p];style=BlockMultiFieldStyle())
+  test = MultiFieldParamFESpace([test_u,test_p])
+  trial = MultiFieldParamFESpace([trial_u,trial_p])
 
   energy((du,dp),(v,q)) = ∫(du⋅v)dΩ + ∫(∇(v)⊙∇(du))dΩ + ∫(dp*q)dΩ
   coupling((du,dp),(v,q)) = method == :pod ? ∫(dp*(∇⋅(v)))dΩ : ∫(dp*∂₁(v))dΩ + ∫(dp*∂₂(v))dΩ

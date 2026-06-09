@@ -89,14 +89,3 @@ rbop = reduced_operator(rbsolver,feop,fesnaps)
 x̂,rbstats = collect(solve(fesolver,rbop,μon,uh0μ))
 x,festats = solution_snapshots(rbsolver,feop,μon,uh0μ)
 perf = eval_performance(rbsolver,rbop,x,x̂,festats,rbstats)
-
-red_trial,red_test = reduced_spaces(rbsolver,feop,fesnaps)
-reduced_jacobian(rbsolver,feop,red_trial,red_test,fesnaps)
-
-using GridapROMs.RBSteady 
-using GridapROMs.RBTransient
-
-# rbsnaps = RBSteady.to_snapshots(rbop,x̂,μon)
-Φ = RBTransient.get_basis(rbop.trial.subspace)
-rbs = Φ*x̂.data.data 
-x.data.data

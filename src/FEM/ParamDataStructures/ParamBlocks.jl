@@ -2221,7 +2221,7 @@ function Fields.GenericField(f::AbstractParamFunction)
   GenericParamBlock(map(i -> GenericField(f[i]),1:length(f)))
 end
 
-# need to correct this function
+#TODO this fix should go in Gridap
 
 for T in (:ParamBlock,:(ArrayBlock{<:ParamBlock}))
   @eval begin
@@ -2233,9 +2233,10 @@ for T in (:ParamBlock,:(ArrayBlock{<:ParamBlock}))
       )
 
       if haskey(a.dict,trian)
+        isempty(b) && return a
         a.dict[trian] = lazy_map(Broadcasting(op),a.dict[trian],b)
       else
-        if op == +
+        if (op == +) || isempty(b)
          a.dict[trian] = b
         else
          a.dict[trian] = lazy_map(Broadcasting(op),b)

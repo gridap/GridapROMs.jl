@@ -71,8 +71,7 @@ function time_combination!(
   return usx
 end
 
-# this one here is much simpler, and only accounts for the initial
-# conditions, so that it can be used to compute the initial residual
+# used in linear cases, and usually only accounts for initial conditions 
 function zero_time_combination(
   c::TimeCombination,
   u::AbstractParamVector,
@@ -188,6 +187,29 @@ function TimeCombination(odesolver::GeneralizedAlpha2)
     odesolver.γ,
     odesolver.β
   )
+end
+
+struct TimeMarchingCombination{A<:TimeCombination} <: TimeCombination
+  combination::A
+end
+
+function TimeMarchingCombination(odesolver::ODESolver)
+  c = TimeCombination(odesolver)
+  TimeMarchingCombination(c)
+end
+
+function lin_time_combination!(
+  usx::NTuple{N,AbstractParamVector},
+  c::TimeMarchingCombination,
+  u::AbstractParamVector,
+  us0::NTuple{N,AbstractParamVector}
+  ) where N
+
+  for i in eachindex(us0)
+    ci = CombinationOrder{i}(c)
+    _lin_combination!(usx[i],ci,u,us0)
+  end
+  return usx
 end
 
 @doc raw"""
@@ -331,6 +353,13 @@ function get_coefficients(c::GenAlpha2Strategy{3},N::Int)
   end
 
   return η
+end
+
+const MarchingStrategy{A,N} = CombinationOrder{TimeMarchingCombination{A},N}
+
+function get_coefficients(c::MarchingStrategy{A,N},args...) where {A,N}
+  c = CombinationOrder{N}(c.combination.combination)
+  get_coefficients(c,args...)
 end
 
 # utils
@@ -881,6 +910,330 @@ function _zero_combination!(
     else
       for is in axes(dddataα,1)
         dddataα[is,ipt] = ivec[n]*data0[is,ip] + jvec[n]*ddata0[is,ip] + kvec[n]*dddata0[is,ip]
+      end
+    end
+  end
+
+  return dddataα
+end
+
+function _combination!(
+  uθ::ConsecutiveParamVector,
+  c::MarchingStrategy{A,N},
+  u::ConsecutiveParamVector,
+  us0::NTuple{M,ConsecutiveParamVector}
+  ) where {A,N,M}
+
+  c = CombinationOrder{N}(c.combination.combination)
+  _combination!(uθ,c,u,us0)
+end
+
+function _lin_combination!(
+  ux::BlockParamVector,
+  c::MarchingStrategy,
+  u::BlockParamVector,
+  us0::NTuple{N,BlockParamVector}
+  ) where N
+
+  for i in 1:blocklength(ux)
+    uxi = blocks(ux)[i]
+    ui = blocks(u)[i]
+    us0i = map(d0 -> blocks(d0)[i],us0)
+    _lin_combination!(uxi,c,ui,us0i)
+  end
+end
+
+function _lin_combination!(
+  uθ::ConsecutiveParamVector,
+  c::MarchingStrategy{ThetaMethodCombination,1},
+  u::ConsecutiveParamVector,
+  us0::NTuple{2,ConsecutiveParamVector}
+  )
+
+  u0, = us0
+
+  np = param_length(u0)
+  dataθ = get_all_data(uθ)
+  data = get_all_data(u)
+  data0 = get_all_data(u0)
+
+  @inbounds for ipt = param_eachindex(u)
+    ip = fast_index(ipt,np)
+    it = slow_index(ipt,np)
+    if it == 1
+      for is in axes(data,1)
+        dataθ[is,ipt] = data0[is,ip]
+      end
+    else
+      for is in axes(data,1)
+        dataθ[is,ipt] = data[is,ipt-np]
+      end
+    end
+  end
+
+  return dataθ
+end
+
+function _lin_combination!(
+  vθ::ConsecutiveParamVector,
+  c::MarchingStrategy{ThetaMethodCombination,2},
+  u::ConsecutiveParamVector,
+  us0::NTuple{2,ConsecutiveParamVector}
+  )
+
+  dataθ = get_all_data(vθ)
+  fill!(dataθ,zero(eltype(dataθ)))
+  return dataθ
+end
+
+function _lin_combination!(
+  uα::ConsecutiveParamVector,
+  c::MarchingStrategy{GenAlpha1Combination,1},
+  u::ConsecutiveParamVector,
+  us0::NTuple{2,ConsecutiveParamVector}
+  )
+
+  u0, = us0
+
+  np = param_length(u0)
+  nt = round(Int,param_length(u) / np)
+  η = get_coefficients(c,nt)
+
+  dataα = get_all_data(uα)
+  data = get_all_data(u)
+  data0 = get_all_data(u0)
+
+  @inbounds for ipt = param_eachindex(u)
+    it = slow_index(ipt,np)
+    if it == 1
+      for is in axes(data,1)
+        dataα[is,ipt] = η[1]*data[is,ipt] + η[2]*data0[is,ipt]
+      end
+    else
+      for is in axes(data,1)
+        dataα[is,ipt] = η[1]*data[is,ipt] + η[2]*data[is,ipt-np]
+      end
+    end
+  end
+
+  return dataα
+end
+
+function _lin_combination!(
+  vα::ConsecutiveParamVector,
+  c::MarchingStrategy{GenAlpha1Combination,2},
+  u::ConsecutiveParamVector,
+  us0::NTuple{2,ConsecutiveParamVector}
+  )
+
+  u0,v0 = us0
+
+  np = param_length(u0)
+  nt = round(Int,param_length(u) / np)
+  η = get_coefficients(c,nt)
+
+  @unpack dt,αf,αm,γ = c.combination.combination
+  a = 1 / (γ*dt)
+  b = 1 - 1/γ
+  c = a * (1 - αm + b*αm)
+
+  ddataα = get_all_data(vα)
+  data = get_all_data(u)
+  data0 = get_all_data(u0)
+  ddata0 = get_all_data(v0)
+  @inbounds for ipt = param_eachindex(u)
+    ip = fast_index(ipt,np)
+    it = slow_index(ipt,np)
+    n = it - 1
+    if it == 1
+      for is in axes(data,1)
+        ddataα[is,ipt] = η[1]*data[is,ipt] - a*αm*data0[is,ip] + c / a * ddata0[is,ip]
+      end
+    else
+      for is in axes(data,1)
+        ddataα[is,ipt] = η[1]*data[is,ipt] + η[2]*data[is,ipt-np] + (c / a * b^n)*ddata0[is,ip] - c * b^(n-1)*data0[is,ip]
+        for (j,ipt_back) in enumerate(ipt-2*np : -np : 1)
+          ddataα[is,ipt] += η[2+j]*data[is,ipt_back]
+        end
+      end
+    end
+  end
+
+  return ddataα
+end
+
+function _lin_combination!(
+  uα::ConsecutiveParamVector,
+  c::MarchingStrategy{GenAlpha2Combination,1},
+  u::ConsecutiveParamVector,
+  us0::NTuple{3,ConsecutiveParamVector}
+  )
+
+  u0, = us0
+
+  np = param_length(u0)
+  nt = round(Int,param_length(u) / np)
+  η = get_coefficients(c,nt)
+
+  dataα = get_all_data(uα)
+  data = get_all_data(u)
+  data0 = get_all_data(u0)
+
+  @inbounds for ipt = param_eachindex(u)
+    it = slow_index(ipt,np)
+    if it == 1
+      for is in axes(data,1)
+        dataα[is,ipt] = η[1]*data[is,ipt] + η[2]*data0[is,ipt]
+      end
+    else
+      for is in axes(data,1)
+        dataα[is,ipt] = η[1]*data[is,ipt] + η[2]*data[is,ipt-np]
+      end
+    end
+  end
+
+  return dataα
+end
+
+function _lin_combination!(
+  vα::ConsecutiveParamVector,
+  c::MarchingStrategy{GenAlpha2Combination,2},
+  u::ConsecutiveParamVector,
+  us0::NTuple{3,ConsecutiveParamVector}
+  )
+
+  u0,v0,a0 = us0
+
+  np = param_length(u0)
+  nt = round(Int,param_length(u) / np)
+  η = get_coefficients(c,nt)
+
+  @unpack dt,αf,αm,γ,β = c.combination.combination
+  a = γ / (dt * β)
+  b = -a
+  c = 1 - γ / β
+  d = dt * (1 - γ / (2*β))
+
+  e = 1 / (dt^2 * β)
+  f = -e
+  g = - 1 / (dt * β)
+  h = 1 - 1 / (2*β)
+
+  P = [c d
+      g h]
+
+  an(n) = ([1 0] * P^(n) * [1,0])[1]
+  bn(n) = ([1 0] * P^(n) * [0,1])[1]
+  αnj(n,j) = ([1 0] * P^(n-j) * [a,e])[1]
+  βnj(n,j) = ([1 0] * P^(n-j) * [b,f])[1]
+  cαn(n) = (1-αf) * βnj(n,0) + αf * βnj(n-1,0)
+  dαn(n) = (1-αf) * an(n+1) + αf * an(n)
+  eαn(n) = (1-αf) * bn(n+1) + αf * bn(n)
+
+  βnj00 = βnj(0,0)
+  an1 = an(1)
+  bn1 = bn(1)
+  cvec = zeros(nt-1)
+  dvec = zeros(nt-1)
+  evec = zeros(nt-1)
+  for it in 1:nt-1
+    cvec[it] = cαn(it)
+    dvec[it] = dαn(it)
+    evec[it] = eαn(it)
+  end
+
+  ddataα = get_all_data(vα)
+  data = get_all_data(u)
+  data0 = get_all_data(u0)
+  ddata0 = get_all_data(v0)
+  dddata0 = get_all_data(a0)
+  @inbounds for ipt = param_eachindex(u)
+    ip = fast_index(ipt,np)
+    it = slow_index(ipt,np)
+    n = it - 1
+    if it == 1
+      for is in axes(data,1)
+        ddataα[is,ipt] = η[1]*data[is,ipt] + (1-αf)*βnj00*data0[is,ip] + ((1-αf)*an1 + αf)*ddata0[is,ip] + (1-αf)*bn1*dddata0[is,ip]
+      end
+    else
+      for is in axes(data,1)
+        ddataα[is,ipt] = η[1]*data[is,ipt] + η[2]*data[is,ipt-np] + cvec[n]*data0[is,ip] + dvec[n]*ddata0[is,ip] + evec[n]*dddata0[is,ip]
+        for (j,ipt_back) in enumerate(ipt-2*np : -np : 1)
+          ddataα[is,ipt] += η[2+j]*data[is,ipt_back]
+        end
+      end
+    end
+  end
+
+  return ddataα
+end
+
+function _lin_combination!(
+  aα::ConsecutiveParamVector,
+  c::MarchingStrategy{GenAlpha2Combination,3},
+  u::ConsecutiveParamVector,
+  us0::NTuple{3,ConsecutiveParamVector}
+  )
+
+  u0,v0,a0 = us0
+
+  np = param_length(u0)
+  nt = round(Int,param_length(u) / np)
+  η = get_coefficients(c,nt)
+
+  @unpack dt,αf,αm,γ,β = c.combination.combination
+  a = γ / (dt * β)
+  b = -a
+  c = 1 - γ / β
+  d = dt * (1 - γ / (2*β))
+
+  e = 1 / (dt^2 * β)
+  f = -e
+  g = - 1 / (dt * β)
+  h = 1 - 1 / (2*β)
+
+  P = [c d
+      g h]
+
+  cn(n) = ([0 1] * P^(n) * [1,0])[1]
+  dn(n) = ([0 1] * P^(n) * [0,1])[1]
+  γnj(n,j) = ([0 1] * P^(n-j) * [a,e])[1]
+  δnj(n,j) = ([0 1] * P^(n-j) * [b,f])[1]
+  iαn(n) = (1-αm) * δnj(n,0) + αm * δnj(n-1,0)
+  jαn(n) = (1-αm) * cn(n+1) + αm * cn(n)
+  kαn(n) = (1-αm) * dn(n+1) + αm * dn(n)
+
+  ivec = zeros(nt-1)
+  jvec = zeros(nt-1)
+  kvec = zeros(nt-1)
+  for it in 1:nt-1
+    ivec[it] = iαn(it)
+    jvec[it] = jαn(it)
+    kvec[it] = kαn(it)
+  end
+  δnj00 = δnj(0,0)
+  cn1 = cn(1)
+  dn1 = dn(1)
+
+  dddataα = get_all_data(aα)
+  data = get_all_data(u)
+  data0 = get_all_data(u0)
+  ddata0 = get_all_data(v0)
+  dddata0 = get_all_data(a0)
+  @inbounds for ipt = param_eachindex(u)
+    ip = fast_index(ipt,np)
+    it = slow_index(ipt,np)
+    n = it - 1
+    if it == 1
+      for is in axes(data,1)
+        dddataα[is,ipt] = η[1]*data[is,ipt] + (1-αm)*δnj00*data0[is,ip] + (1-αm)*cn1*ddata0[is,ip] + ((1-αm)*dn1 + αm)*dddata0[is,ip]
+      end
+    else
+      for is in axes(data,1)
+        dddataα[is,ipt] = η[1]*data[is,ipt] + η[2]*data[is,ipt-np] + ivec[n]*data0[is,ip] + jvec[n]*ddata0[is,ip] + kvec[n]*dddata0[is,ip]
+        for (j,ipt_back) in enumerate(ipt-2*np : -np : 1)
+          dddataα[is,ipt] += η[2+j]*data[is,ipt_back]
+        end
       end
     end
   end

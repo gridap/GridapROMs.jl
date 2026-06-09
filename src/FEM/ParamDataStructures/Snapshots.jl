@@ -90,6 +90,10 @@ function param_getindex(s::SteadySnapshots{T,N},pindex::Integer) where {T,N}
   view(get_all_data(s),_ncolons(Val{N-1}())...,pindex)
 end
 
+function select_all_data(s::SteadySnapshots{T,N},prange) where {T,N}
+  view(get_all_data(s),_ncolons(Val{N-1}())...,prange)
+end
+
 function flatten(s::SteadySnapshots)
   d = get_all_data(s)
   reshape(d,:,num_params(s))
@@ -154,10 +158,12 @@ get_realisation(s::GenericSnapshots) = s.realisation
 
 function select_snapshots(s::GenericSnapshots{T,N},pindex) where {T,N}
   prange = _format_index(pindex)
-  drange = view(get_all_data(s),_ncolons(Val{N-1}())...,prange)
-  pdrange = _get_param_data(s.param_data,prange)
-  rrange = get_realisation(s)[prange]
-  GenericSnapshots(drange,pdrange,get_dof_map(s),rrange)
+  GenericSnapshots(
+    select_all_data(s,prange),
+    select_param_data(s.param_data,prange),
+    get_dof_map(s),
+    get_realisation(s)[prange]
+  )
 end
 
 function Base.getindex(s::GenericSnapshots{T,N},i::Vararg{Integer,N}) where {T,N}
@@ -185,25 +191,27 @@ end
 # multi field interface
 
 """
-    struct BlockSnapshots{N} <: AbstractSnapshots{Snapshots,N}
+    struct BlockSnapshots{N,B} <: AbstractSnapshots{Snapshots,N}
       array::Array{<:Any,N}
       touched::Array{Bool,N}
+      param_data::B
     end
 
 Block container for Snapshots of type `S` in a `MultiField` setting. This
 type is conceived similarly to `ArrayBlock` in Gridap
 """
-struct BlockSnapshots{N} <: AbstractSnapshots{Snapshots,N}
+struct BlockSnapshots{N,B} <: AbstractSnapshots{Snapshots,N}
   array::Array{<:Any,N}
   touched::Array{Bool,N}
-
+  param_data::B
   function BlockSnapshots(
     array::Array{<:Any,N},
-    touched::Array{Bool,N}
-    ) where N
+    touched::Array{Bool,N},
+    param_data::B
+    ) where {N,B}
 
     @check size(array) == size(touched)
-    new{N}(array,touched)
+    new{N,B}(array,touched,param_data)
   end
 end
 
@@ -224,7 +232,26 @@ function Snapshots(
     end
   end
 
-  BlockSnapshots(array,i.touched)
+  BlockSnapshots(array,i.touched,data)
+end
+
+function Snapshots(
+  data::AbstractParamArray{T,N},
+  i::ArrayBlock{<:AbstractDofMap},
+  r::AbstractRealisation
+  ) where {T,N}
+
+  s = size(i)
+  ids = offset_indices(i)
+  array = Array{Any,N}(undef,s)
+  for j in eachindex(i)
+    if i.touched[j]
+      dataj = get_param_entry(data,ids[j]...)
+      array[j] = Snapshots(dataj,i[j],r)
+    end
+  end
+
+  BlockSnapshots(array,i.touched,data)
 end
 
 BlockArrays.blocks(s::BlockSnapshots) = s.array
@@ -265,18 +292,17 @@ end
 
 get_realisation(s::BlockSnapshots) = get_realisation(testitem(s))
 
-function get_param_data(s::BlockSnapshots)
-  map(get_param_data,s.array) |> mortar
-end
+get_param_data(s::BlockSnapshots) = s.param_data
 
 function select_snapshots(s::BlockSnapshots{N},pindex) where N
+  prange = _format_index(pindex)
   array = Array{Any,N}(undef,size(s))
   for i in eachindex(s.touched)
     if s.touched[i]
       array[i] = select_snapshots(s[i],pindex)
     end
   end
-  return BlockSnapshots(array,s.touched)
+  return BlockSnapshots(array,s.touched,select_param_data(s.param_data,prange))
 end
 
 function param_cat(v::AbstractVector{<:BlockSnapshots{N}}) where N
@@ -289,18 +315,19 @@ function param_cat(v::AbstractVector{<:BlockSnapshots{N}}) where N
       array[i] = param_cat(map(s -> getindex(s,i),v))
     end
   end
-  return BlockSnapshots(array,touched)
+  param_data = param_cat(map(s -> s.param_data,v))
+  return BlockSnapshots(array,touched,param_data)
 end
 
 function change_dof_map(s::BlockSnapshots{N},i::ArrayBlock{<:AbstractDofMap,N}) where N
-  @check s.touched == i.touched 
+  @check s.touched == i.touched
   array = Array{Any,N}(undef,size(s))
   for j in eachindex(s.touched)
     if s.touched[j]
       array[j] = change_dof_map(s[j],i[j])
     end
   end
-  return BlockSnapshots(array,s.touched)
+  return BlockSnapshots(array,s.touched,s.param_data)
 end
 
 # utils
@@ -337,14 +364,27 @@ end
 _format_index(i) = i
 _format_index(i::Number) = i:i
 
-function _get_param_data(pdata::ConsecutiveParamArray{T,N},prange) where {T,N}
+function select_param_data(pdata::ConsecutiveParamArray{T,N},prange) where {T,N}
   ConsecutiveParamArray(view(pdata.data,_ncolons(Val{N}())...,prange))
 end
 
 # in practice, when dealing with the Jacobian, the param data is never fetched
-function _get_param_data(pdata::ConsecutiveParamSparseMatrixCSC,prange)
+function select_param_data(pdata::ConsecutiveParamSparseMatrixCSC,prange)
   datarange = view(pdata.data,:,prange)
   ConsecutiveParamSparseMatrixCSC(pdata.m,pdata.n,pdata.colptr,pdata.rowval,datarange)
+end
+
+function offset_indices(i::ArrayBlock{A,N}) where {A,N}
+  array = Array{Any,N}(undef,size(i))
+  offset = 0
+  for j in eachindex(i)
+    if i.touched[j]
+      n = length(i[j])
+      array[j] = (offset+1:offset+n,)
+      offset += n
+    end
+  end
+  return array
 end
 
 # linear algebra

@@ -40,6 +40,7 @@ end
 @publish ParamDataStructures parameterise
 @publish ParamDataStructures param_length
 @publish ParamDataStructures param_getindex
+@publish ParamDataStructures select_times
 
 @publish ParamDataStructures ParamArray
 @publish ParamDataStructures ConsecutiveParamArray

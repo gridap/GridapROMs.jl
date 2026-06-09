@@ -95,6 +95,7 @@ export add_initial_conditions
 include("ParamTimeMarching.jl")
 
 export TimeCombination
+export TimeMarchingCombination
 export CombinationOrder
 export ThetaMethodCombination
 export GenAlpha1Combination

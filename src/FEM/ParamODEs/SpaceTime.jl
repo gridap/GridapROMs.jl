@@ -156,12 +156,89 @@ function spacetime_jacobian!(
   return A
 end
 
+# time marching 
+
+function spacetime_residual!(
+  b,
+  c::TimeMarchingCombination,
+  odeop::ODEParamOperator,
+  r::TransientRealisation,
+  u::AbstractParamVector,
+  usx::Tuple{Vararg{AbstractParamVector}},
+  us0::Tuple{Vararg{AbstractParamVector}},
+  paramcache
+  )
+
+  time_combination!(usx,c,u,us0)
+  to_stencil!(r,c)
+  residual!(b,odeop,r,usx,paramcache)
+  from_stencil!(r,c)
+  return b
+end
+
+function spacetime_residual!(
+  b,
+  c::TimeMarchingCombination,
+  odeop::ODEParamOperator{LinearParamODE},
+  r::TransientRealisation,
+  u::AbstractParamVector,
+  usx::Tuple{Vararg{AbstractParamVector}},
+  us0::Tuple{Vararg{AbstractParamVector}},
+  paramcache
+  )
+
+  lin_time_combination!(usx,c,u,us0)
+  to_stencil!(r,c)
+  residual!(b,odeop,r,usx,paramcache)
+  from_stencil!(r,c)
+  return b
+end
+
+function spacetime_jacobian!(
+  A,
+  c::TimeMarchingCombination,
+  odeop::ODEParamOperator,
+  r::TransientRealisation,
+  u::AbstractParamVector,
+  usx::Tuple{Vararg{AbstractParamVector}},
+  us0::Tuple{Vararg{AbstractParamVector}},
+  paramcache
+  )
+
+  ws = ntuple(_ -> 1,Val(length(us0)))
+  time_combination!(usx,c,u,us0)
+  to_stencil!(r,c)
+  jacobian!(A,odeop,r,usx,ws,paramcache)
+  from_stencil!(r,c)
+  return A
+end
+
+function spacetime_jacobian!(
+  A,
+  c::TimeMarchingCombination,
+  odeop::ODEParamOperator{LinearParamODE},
+  r::TransientRealisation,
+  u::AbstractParamVector,
+  usx::Tuple{Vararg{AbstractParamVector}},
+  us0::Tuple{Vararg{AbstractParamVector}},
+  paramcache
+  )
+
+  ws = ntuple(_ -> 1,Val(length(us0)))
+  lin_time_combination!(usx,c,u,us0)
+  to_stencil!(r,c)
+  jacobian!(A,odeop,r,usx,ws,paramcache)
+  from_stencil!(r,c)
+  return A
+end
+
 get_stencil_shift(s::GridapType) = get_stencil_shift(TimeCombination(s))
 get_stencil_shift(c::TimeCombination) = @abstractmethod
-get_stencil_shift(c::CombinationOrder) = get_stencil_shift(c.combination)
 get_stencil_shift(c::ThetaMethodCombination) = c.dt*(1-c.θ)
 get_stencil_shift(c::GenAlpha1Combination) = c.dt*(1-c.αf)
 get_stencil_shift(c::GenAlpha2Combination) = c.dt*c.αf
+get_stencil_shift(c::TimeMarchingCombination) = get_stencil_shift(c.combination)
+get_stencil_shift(c::CombinationOrder) = get_stencil_shift(c.combination)
 
 function to_stencil!(r::TransientRealisation,s_or_c)
   δ = get_stencil_shift(s_or_c)

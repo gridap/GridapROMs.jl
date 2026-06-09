@@ -71,7 +71,8 @@ function RBSteady._cluster(r::GenericTransientRealisation,inds::AbstractVector)
 end
 
 function RBSteady._cluster(s::TransientSnapshotsWithIC,inds::AbstractVector)
-  initial_data = map(d0 -> view(d0,:,inds),s.initial_data)
+  data_inds(d) = ParamDataStructures.select_param_data(d,inds)
+  initial_param_data = map(data_inds,s.initial_param_data)
   snaps = RBSteady._cluster(s.snaps,inds)
-  TransientSnapshotsWithIC(initial_data,snaps)
+  TransientSnapshotsWithIC(initial_param_data,snaps)
 end

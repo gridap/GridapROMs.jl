@@ -379,7 +379,7 @@ struct ParamFunction{F,P} <: AbstractParamFunction{P}
   params::P
 end
 
-function ParamFunction(f::Function,p::Union{AbstractArray,TransientRealisation})
+function ParamFunction(f::Function,p::TransientRealisation)
   @notimplemented "Use a Realisation as a parameter input"
 end
 
@@ -417,6 +417,12 @@ for op in (:+,:-,:*,:/,:^)
     function ($op)(α::Number,f::ParamFunction)
       _fun(μ) = x -> $op(α,f.fun(μ)(x))
       ParamFunction(_fun,f.params)
+    end
+
+    function ($op)(f::ParamFunction,g::ParamFunction)
+      @check all(_get_params(f) .== _get_params(g))
+      _fg(μ) = x -> $op(f.fun(μ)(x),g.fun(μ)(x))
+      ParamFunction(_fg,f.params)
     end
   end
 end
@@ -463,10 +469,6 @@ struct TransientParamFunction{F,P,T} <: AbstractParamFunction{P}
   times::T
 end
 
-function TransientParamFunction(f::Function,p::AbstractArray,t)
-  @notimplemented "Use a TransientRealisation as a parameter input"
-end
-
 function TransientParamFunction(f::Function,r::Realisation)
   @notimplemented "Use a TransientRealisation as a parameter input"
 end
@@ -507,6 +509,12 @@ for op in (:+,:-,:*,:/,:^)
       _fun(μ,t) = x -> $op(α,f.fun(μ,t)(x))
       TransientParamFunction(_fun,f.params,f.times)
     end
+
+    function ($op)(f::TransientParamFunction,g::TransientParamFunction)
+      @check all(_get_params(f) .== _get_params(g))
+      _fg(μ,t) = x -> $op(f.fun(μ,t)(x),g.fun(μ,t)(x))
+      TransientParamFunction(_fg,f.params,f.times)
+    end
   end
 end
 
@@ -531,3 +539,45 @@ function pteval(f::TransientParamFunction,x)
 end
 
 Arrays.return_value(f::TransientParamFunction,x) = f.fun(testitem(_get_params(f)),testitem(get_times(f)))(x)
+
+# trivial param functions 
+
+struct TrivialParamFunction{F,A} <: Function
+  fun::F
+  args::A
+end
+
+function parameterise(f::Function,p::Union{AbstractArray,Number})
+  TrivialParamFunction(f,(p,))
+end
+
+function parameterise(f::Function,p::Union{AbstractArray,Number},t::Real)
+  TrivialParamFunction(f,(p,t))
+end
+
+(f::TrivialParamFunction)(x) = f.fun(f.args...)(x)
+
+for op in (:+,:-,:*,:/,:^)
+  @eval begin
+    function ($op)(f::TrivialParamFunction,α::Number)
+      x -> $op(f.fun(f.args...)(x),α)
+    end
+
+    function ($op)(α::Number,f::TrivialParamFunction)
+      x -> $op(α,f.fun(f.args...)(x))
+    end
+
+    function ($op)(f::TrivialParamFunction,g::TrivialParamFunction)
+      x -> $op(f.fun(f.args...)(x),g.fun(g.args...)(x))
+    end
+  end
+end
+
+for op in (:(Fields.gradient),:(Fields.symmetric_gradient),:(Fields.divergence),
+  :(Fields.curl),:(Fields.laplacian))
+  @eval begin
+    function ($op)(f::TrivialParamFunction)
+      x -> $op(f.fun(f.args...))(x)
+    end
+  end
+end

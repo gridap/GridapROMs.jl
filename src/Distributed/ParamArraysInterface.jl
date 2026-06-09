@@ -50,6 +50,27 @@ function ParamDataStructures.parameterise(a::BlockPArray,plength::Integer)
   BlockPArray(b,a.axes)
 end
 
+function ParamDataStructures.get_param_entry(a::PVector,i...)
+  vector_partition = map(a.vector_partition) do values
+    get_param_entry(values,i...)
+  end
+  PVector(vector_partition,a.index_partition)
+end
+
+function ParamDataStructures.get_param_entry(a::PSparseMatrix,i...)
+  matrix_partition = map(a.matrix_partition) do values
+    get_param_entry(values,i...)
+  end
+  PSparseMatrix(matrix_partition,a.row_partition,a.col_partition,a.cache)
+end
+
+function ParamDataStructures.get_param_entry(a::BlockPArray,i...)
+  b = map(blocks(a)) do a
+    get_param_entry(a,i...)
+  end
+  BlockPArray(b,a.axes)
+end
+
 function PartitionedArrays.default_local_values(
   I,
   V::ConsecutiveParamVector{T},

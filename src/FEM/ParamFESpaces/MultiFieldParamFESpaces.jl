@@ -5,13 +5,17 @@ const MultiFieldParamFESpace = MultiFieldFESpace
 
 function MultiFieldParamFESpace(
   spaces::Vector{<:SingleFieldParamFESpace};
-  style = BlockMultiFieldStyle()
+  style=ConsecutiveMultiFieldStyle()
   )
 
-  @notimplementedif !isa(style,BlockMultiFieldStyle)
-  style = BlockMultiFieldStyle(style,spaces)
-  fv = mortar(map(zero_free_values,spaces))
-  V = typeof(fv)
+  if isa(style,BlockMultiFieldStyle)
+    style = BlockMultiFieldStyle(style,spaces)
+    fv = mortar(map(zero_free_values,spaces))
+    V = typeof(fv)
+  else
+    fv = map(zero_free_values,spaces)
+    V = promote_type(typeof.(fv)...)
+  end
   MultiFieldFESpace(V,spaces,style)
 end
 

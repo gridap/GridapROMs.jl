@@ -37,17 +37,25 @@ function try_loading_fe_snapshots(dir,rbsolver,feop,args...;label="",kwargs...)
 end
 
 function try_loading_online_fe_snapshots(
-  dir,rbsolver,feop,args...;nparams=10,reuse_online=false,sampling=:uniform,label=online_label,kwargs...)
+  dir,rbsolver,feop,args...;
+  nparams=10,reuse_online=false,sampling=:uniform,label=online_label,kwargs...
+  )
 
   if reuse_online
-    x,festats = try_loading_fe_snapshots(dir,rbsolver,feop,args...;nparams,label)
-    μon = get_realisation(x)
-  else
-    μon = realisation(feop;nparams,sampling=:uniform)
-    x,festats = solution_snapshots(rbsolver,feop,μon,args...;kwargs...)
-    save(dir,x;label)
-    save(dir,festats;label)
+    try
+      x = load_snapshots(dir;label)
+      festats = load_stats(dir;label)
+      μon = get_realisation(x)
+      println("Load online snapshots at $dir succeeded!")
+      return x,festats,μon
+    catch
+      println("Load online snapshots at $dir failed, must compute them")
+    end
   end
+  μon = realisation(feop;nparams,sampling)
+  x,festats = solution_snapshots(rbsolver,feop,μon,args...;kwargs...)
+  save(dir,x;label)
+  save(dir,festats;label)
   return x,festats,μon
 end
 
