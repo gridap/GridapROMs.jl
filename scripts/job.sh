@@ -1,12 +1,14 @@
 #!/bin/sh
 #
 #SBATCH --job-name="hydroelasticity"
-#SBATCH --partition=genoa
+#SBATCH --partition=memory
 #SBATCH --time=2-00:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
+#SBATCH --mem-per-cpu=20GB
 #SBATCH -o stdout/slurm-%j-%4t.out
 #SBATCH -e stdout/slurm-%j-%4t.err
+#SBATCH --account=research-ceg-he
 
 source ../compile/modules.sh
 TEST_CASE="${TEST_CASE:-$1}"

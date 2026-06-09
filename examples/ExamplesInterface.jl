@@ -367,7 +367,7 @@ function _solve(prob::Problem)
 end
 
 function default_outdir()
-  projdir = get(ENV,"PROJECT",nothing)
+  projdir = get(ENV,"PROJDIR",nothing)
   @assert !isnothing(projdir) 
   projdir
 end
