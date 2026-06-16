@@ -513,9 +513,7 @@ function LowRankApprox.psvdfact(
     V = idfact(:n,A,opts)
     Q,R = qr!(getcols(:n,A,V[:sk]))
     Ũ,σ,Ṽ = svd!(R*V)
-    if isempty(σ)
-      return _empty_decomposition(A)
-    end
+    isempty(σ) && return _empty_decomposition(A)
     k = psvdrank(σ,opts)
     if k < V[:k]
       U = Q*view(Ũ,:,1:k)
@@ -530,9 +528,7 @@ function LowRankApprox.psvdfact(
     V = idfact(:c,A,opts)
     Q,R = qr!(getcols(:c,A,V[:sk]))
     Ũ,σ,Ṽ = svd!(V'*R')
-    if isempty(σ)
-      return _empty_decomposition(A)
-    end
+    isempty(σ) && return _empty_decomposition(A)
     k = psvdrank(σ,opts)
     if k < V[:k]
       U = Ũ[:,1:k]
@@ -558,15 +554,32 @@ function _size_cond(A::AbstractMatrix)
 end
 
 function symcholesky(X::AbstractSparseMatrix)
-  issymmetric(X) && return cholesky(X)
-  @assert X ≈ X'
-  X .+= X'
-  rmul!(X,1/2)
-  cholesky(X)
+  issymmetric(X) && return cholesky(X;check=false)
+  @check symmetrise!(X)
+  cholesky(X;check=false)
 end
 
 symcholesky(X::Rank1Tensor) = symcholesky.(get_factors(X))
 symcholesky(X::GenericRankTensor) = symcholesky(get_crossnorm(X))
+
+function symmetrise!(A::AbstractMatrix;atol=1e-12,rtol=1e-8)
+  n,m = size(A)
+  n == m || return false
+
+  @inbounds for j in 1:n, i in 1:j-1
+    !isapprox(A[i,j],A[j,i];atol,rtol) && return false
+  end
+
+  @inbounds for j in 1:n
+    for i in 1:j-1
+      s = (A[i,j] + A[j,i]) / 2
+      A[i,j] = s
+      A[j,i] = s
+    end
+  end
+
+  return true
+end
 
 function _cholesky_decomp(X::AbstractSparseMatrix)
   C = symcholesky(X)

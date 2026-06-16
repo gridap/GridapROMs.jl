@@ -132,7 +132,7 @@ function PartitionedArrays.VectorAssemblyCache(
     local_indices_rcv,
     buffer_snd,
     buffer_rcv
-    )
+  )
 end
 
 function Base.reverse(a::ParamVectorAssemblyCache)
@@ -142,7 +142,8 @@ function Base.reverse(a::ParamVectorAssemblyCache)
     a.local_indices_rcv,
     a.local_indices_snd,
     a.buffer_rcv,
-    a.buffer_snd)
+    a.buffer_snd
+  )
 end
 
 function PartitionedArrays.copy_cache(a::ParamVectorAssemblyCache)
@@ -154,7 +155,8 @@ function PartitionedArrays.copy_cache(a::ParamVectorAssemblyCache)
     a.local_indices_snd,
     a.local_indices_rcv,
     buffer_snd,
-    buffer_rcv)
+    buffer_rcv
+  )
 end
 
 function ParamDataStructures.param_getindex(a::ParamVectorAssemblyCache,i::Integer)
@@ -306,9 +308,5 @@ function PartitionedArrays.p_sparse_matrix_cache_impl(
   k_rcv = map(setup_rcv,part,row_partition,col_partition,gi_rcv,gj_rcv,matrix_partition)
   buffers = map(PartitionedArrays.assembly_buffers,matrix_partition,k_snd,k_rcv) |> tuple_of_arrays
   cache = map(PartitionedArrays.VectorAssemblyCache,parts_snd,parts_rcv,k_snd,k_rcv,buffers...)
-  # TODO why is this wrong???
-  # map(PartitionedArrays.SparseMatrixAssemblyCache,cache)
-  map(cache) do c
-    PartitionedArrays.SparseMatrixAssemblyCache(c)
-  end
+  map(ParamSparseMatrixAssemblyCache,cache)
 end

@@ -162,6 +162,7 @@ export reduction
 export tpod
 export ttsvd
 export symcholesky
+export symmetrise!
 export gram_schmidt
 export orth_complement!
 export orth_projection
@@ -169,8 +170,8 @@ include("BasesConstruction.jl")
 
 export QuadratureFESpace
 export ReducedCellField
-export ℛ
-export @reduce_integrals
+export reduce_function
+export reduce_cell_field
 include("FunctionReductions.jl")
 
 export Projection

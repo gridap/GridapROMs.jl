@@ -1,3 +1,5 @@
+module SpaceOnly
+  
 using Gridap
 using GridapROMs
 
@@ -89,3 +91,7 @@ rbop = reduced_operator(rbsolver,feop,fesnaps)
 x̂,rbstats = collect(solve(fesolver,rbop,μon,uh0μ))
 x,festats = solution_snapshots(rbsolver,feop,μon,uh0μ)
 perf = eval_performance(rbsolver,rbop,x,x̂,festats,rbstats)
+
+println(perf)
+
+end

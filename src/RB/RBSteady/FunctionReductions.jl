@@ -90,29 +90,45 @@ CellData.get_data(f::ReducedCellField) = get_data(f.cell_field)
 CellData.get_triangulation(f::ReducedCellField) = get_triangulation(f.cell_field)
 CellData.DomainStyle(::Type{ReducedCellField{DS}}) where DS = DS()
 
-function reduction(red::Reduction,f::ReducedCellField;degree=2*f.order)
-  data = get_data(f)
-  trian = get_triangulation(f) 
-  coords = get_cell_coordinates(trian)
-  _data = testitem(data)
-  __data = testitem(_data)
-  _coords = testitem(coords)
-  __coords = testitem(_coords)
-  plength = param_length(_data)
-  T = eltype(__data(__coords))
+function reduce_cell_field(red::Reduction,f::ReducedCellField;kwargs...)
+  T,plength = _get_plength_and_type(f)
+  _reduce_cell_field(red,f,f.order,T,plength;kwargs...)
+end
 
-  reffe = ReferenceFE(lagrangian,Float64,f.order)
-  qspace = QuadratureFESpace(trian,reffe;degree,vector_type=Vector{T})
-  pqspace = parameterise(qspace,plength)
+function reduce_cell_field(
+  red::Reduction,
+  f::FEFunction,
+  order::Int=get_polynomial_order(get_fe_space(f));
+  degree=2*f.order
+  )
+  
+  fv = get_free_dof_values(f)
+  T = eltype2(fv)
+  plength = param_length(fv)
+  cf = get_cell
+  _reduce_cell_field(red,f,order,T,plength;degree)
+end
 
-  fqh = interpolate(f,pqspace)
-  free_vals = get_free_dof_values(fqh)
-  _red_free_vals = reduction(red,get_all_data(free_vals))
-  red_free_vals = ConsecutiveParamArray(_red_free_vals)
-  rplength = param_length(red_free_vals)
-  rpqspace = parameterise(qspace,rplength)
+function reduce_function(
+  red::Reduction,
+  f::AbstractParamFunction,
+  trian::Triangulation,
+  order::Int;
+  kwargs...
+  )
+  
+  cf = ReducedCellField(f,trian;order)
+  reduce_cell_field(red,cf;kwargs...)
+end
 
-  return FEFunction(rpqspace,red_free_vals)
+function reduce_function(
+  red::Reduction,
+  f::Function,
+  args...;
+  kwargs...
+  )
+  
+  @abstractmethod
 end
 
 # utils 
@@ -216,4 +232,40 @@ end
 function _compatible_quad_nodes(cell_point::AbstractArray{<:AbstractVector{<:Point}})
   p1 = first(cell_point)
   all([p == p1 for p in cell_point]) 
+end
+
+function _get_plength_and_type(f::CellField)
+  data = get_data(f)
+  trian = get_triangulation(f) 
+  coords = get_cell_coordinates(trian)
+  _data = testitem(data)
+  __data = testitem(_data)
+  _coords = testitem(coords)
+  __coords = testitem(_coords)
+  plength = param_length(_data)
+  T = eltype(__data(__coords))
+  return T,plength
+end
+
+function _reduce_cell_field(
+  red::Reduction,
+  cf::CellField,
+  order::Int,
+  ::Type{T},
+  plength::Int;
+  degree=2*order
+  ) where T
+  
+  reffe = ReferenceFE(lagrangian,Float64,order)
+  qspace = QuadratureFESpace(trian,reffe;degree,vector_type=Vector{T})
+  pqspace = parameterise(qspace,plength)
+
+  fqh = interpolate(cf,pqspace)
+  free_vals = get_free_dof_values(fqh)
+  _red_free_vals = reduction(red,get_all_data(free_vals))
+  red_free_vals = ConsecutiveParamArray(_red_free_vals)
+  rplength = param_length(red_free_vals)
+  rpqspace = parameterise(qspace,rplength)
+
+  return FEFunction(rpqspace,red_free_vals)
 end

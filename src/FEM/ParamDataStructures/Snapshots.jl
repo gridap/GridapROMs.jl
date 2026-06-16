@@ -374,6 +374,10 @@ function select_param_data(pdata::ConsecutiveParamSparseMatrixCSC,prange)
   ConsecutiveParamSparseMatrixCSC(pdata.m,pdata.n,pdata.colptr,pdata.rowval,datarange)
 end
 
+function select_param_data(pdata::BlockParamArray,prange) 
+  mortar(map(p -> select_param_data(p,prange),blocks(pdata)))
+end
+
 function offset_indices(i::ArrayBlock{A,N}) where {A,N}
   array = Array{Any,N}(undef,size(i))
   offset = 0

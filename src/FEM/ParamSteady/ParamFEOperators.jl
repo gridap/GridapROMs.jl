@@ -170,6 +170,11 @@ for f in (:ParamFEOperator,:LinearParamFEOperator)
       domains = FEDomains(trians...)
       $f(res,jac,pspace,trial,test,domains)
     end
+
+    function $f(res::Function,pspace,trial,test,args...)
+      jac(μ,u,du,dv) = jacobian(x->res(μ,x,dv),u)
+      $f(res,jac,pspace,trial,test,args...)
+    end
   end
 end
 

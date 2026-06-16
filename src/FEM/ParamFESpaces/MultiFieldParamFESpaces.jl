@@ -58,64 +58,64 @@ end
 function FESpaces.interpolate!(
   objects,
   free_values::AbstractParamVector,
-  fe::MultiFieldFESpace
+  f::MultiFieldFESpace
   )
   blocks = SingleFieldParamFEFunction[]
-  for (field,(U,object)) in enumerate(zip(fe.spaces,objects))
-    free_values_i = restrict_to_field(fe,free_values,field)
+  for (field,(U,object)) in enumerate(zip(f.spaces,objects))
+    free_values_i = restrict_to_field(f,free_values,field)
     uhi = interpolate!(object,free_values_i,U)
     push!(blocks,uhi)
   end
-  MultiFieldFEFunction(free_values,fe,blocks)
+  MultiFieldFEFunction(free_values,f,blocks)
 end
 
 function FESpaces.interpolate_everywhere(
   objects::AbstractVector{<:AbstractParamFunction},
-  fe::MultiFieldFESpace
+  f::MultiFieldFESpace
   )
 
-  free_values = zero_free_values(fe)
+  free_values = zero_free_values(f)
   blocks = SingleFieldParamFEFunction[]
-  for (field,(U,object)) in enumerate(zip(fe.spaces,objects))
-    free_values_i = restrict_to_field(fe,free_values,field)
+  for (field,(U,object)) in enumerate(zip(f.spaces,objects))
+    free_values_i = restrict_to_field(f,free_values,field)
     dirichlet_values_i = zero_dirichlet_values(U)
     uhi = interpolate_everywhere!(object,free_values_i,dirichlet_values_i,U)
     push!(blocks,uhi)
   end
-  MultiFieldFEFunction(free_values,fe,blocks)
+  MultiFieldFEFunction(free_values,f,blocks)
 end
 
 function FESpaces.interpolate_everywhere!(
   objects,
   free_values::AbstractParamVector,
   dirichlet_values::AbstractParamVector,
-  fe::MultiFieldFESpace
+  f::MultiFieldFESpace
   )
 
   blocks = SingleFieldParamFEFunction[]
-  for (field,(U,object)) in enumerate(zip(fe.spaces,objects))
-    free_values_i = restrict_to_field(fe,free_values,field)
+  for (field,(U,object)) in enumerate(zip(f.spaces,objects))
+    free_values_i = restrict_to_field(f,free_values,field)
     dirichlet_values_i = dirichlet_values[field]
     uhi = interpolate_everywhere!(object,free_values_i,dirichlet_values_i,U)
     push!(blocks,uhi)
   end
-  MultiFieldFEFunction(free_values,fe,blocks)
+  MultiFieldFEFunction(free_values,f,blocks)
 end
 
 function FESpaces.interpolate_dirichlet(
   objects::AbstractVector{<:AbstractParamFunction},
-  fe::MultiFieldFESpace
+  f::MultiFieldFESpace
   )
 
-  free_values = zero_free_values(fe)
+  free_values = zero_free_values(f)
   blocks = SingleFieldParamFEFunction[]
-  for (field,(U,object)) in enumerate(zip(fe.spaces,objects))
-    free_values_i = restrict_to_field(fe,free_values,field)
+  for (field,(U,object)) in enumerate(zip(f.spaces,objects))
+    free_values_i = restrict_to_field(f,free_values,field)
     dirichlet_values_i = zero_dirichlet_values(U)
     uhi = interpolate_dirichlet!(object,free_values_i,dirichlet_values_i,U)
     push!(blocks,uhi)
   end
-  MultiFieldFEFunction(free_values,fe,blocks)
+  MultiFieldFEFunction(free_values,f,blocks)
 end
 
 function FESpaces.zero_free_values(f::MultiFieldParamFESpace{<:BlockMultiFieldStyle})
@@ -124,6 +124,19 @@ end
 
 function FESpaces.zero_dirichlet_values(f::MultiFieldParamFESpace{<:BlockMultiFieldStyle})
   mortar(map(zero_dirichlet_values,f.spaces))
+end
+
+function ParamDataStructures.param_length(f::MultiFieldFESpace{MS,CS,<:AbstractParamVector}) where {MS,CS}
+  msg = "All spaces must have the same parameter length."
+  plengths = map(param_length,f.spaces)
+  @check all(plengths .== plengths[1]) msg
+  plengths[1]
+end
+
+get_vector_type2(f::MultiFieldFESpace{<:ConsecutiveMultiFieldStyle,CS,V}) where {CS,V<:AbstractParamVector} = eltype(V)
+
+function FESpaces.zero_free_values(f::MultiFieldFESpace{MS,CS,<:AbstractParamVector}) where {MS,CS}
+  param_zero_free_values(f)
 end
 
 function ParamDataStructures.parameterise(f::MultiFieldParamFESpace,plength::Int)

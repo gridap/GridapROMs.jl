@@ -309,6 +309,34 @@ function plot_errors(dir,tolranks,perfs::AbstractVector{<:ROMPerformance})
   Makie.save(file,fig)
 end
 
+# function run_offline(
+#   dir::String,rbsolver::RBSolver,feop::ParamOperator,
+#   tolranks=[1e-1,1e-2,1e-3,1e-4,1e-5],args...;kwargs...
+#   )
+  
+#   # fesnaps, = try_loading_fe_snapshots(dir,rbsolver,feop,args...)
+#   # jac = load_jacobians(dir,feop)
+#   res = load_residuals(dir,feop)
+
+#   for tolrank in tolranks
+#     println("Running test $dir with tolrank = $tolrank")
+
+#     dir_tolrank = joinpath(dir,string(tolrank))
+#     create_dir(dir_tolrank)
+
+#     rbsolver = update_solver(rbsolver,tolrank)
+#     # red_trial,red_test = reduced_spaces(rbsolver,feop,fesnaps)
+#     # save(dir_tolrank,red_trial;label=trial_label)
+#     # save(dir_tolrank,red_test;label=test_label)
+#     red_trial,red_test = RBSteady._load_fixed_operator_parts(dir_tolrank,feop)
+#     # jac_red = get_jacobian_reduction(rbsolver)
+#     # red_jac = reduced_jacobian(jac_red,red_trial,red_test,jac)
+#     res_red = get_residual_reduction(rbsolver)
+#     red_res = reduced_residual(res_red,red_test,res)
+#     save(dir_tolrank,red_res;label=rhs_label)
+#   end
+# end
+
 function run_test(
   dir::String,rbsolver::RBSolver,feop::ParamOperator,tolranks=[1e-1,1e-2,1e-3,1e-4,1e-5],
   args...;nparams=10,reuse_online=false,sampling=:uniform,kwargs...)
@@ -328,6 +356,7 @@ function run_test(
 
     rbsolver = update_solver(rbsolver,tolrank)
     rbop = try_loading_reduced_operator(dir_tolrank,rbsolver,feop,fesnaps,jac,res)
+    # rbop = load_operator(dir_tolrank,feop)
 
     x̂,rbstats = solve(rbsolver,rbop,μon,args...)
     perf = eval_performance(rbsolver,rbop,x,x̂,festats,rbstats)

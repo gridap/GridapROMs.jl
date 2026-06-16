@@ -349,3 +349,7 @@ function select_param_data(
   datarange = view(pdata.data,:,range_1d(prange,trange,nparams))
   ConsecutiveParamSparseMatrixCSC(pdata.m,pdata.n,pdata.colptr,pdata.rowval,datarange)
 end
+
+function select_param_data(pdata::BlockParamArray,prange,trange;kwargs...) 
+  mortar(map(p -> select_param_data(p,prange,trange;kwargs...),blocks(pdata)))
+end
