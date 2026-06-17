@@ -144,11 +144,17 @@ end
     struct SystemCache <: AbstractParamCache
       A
       b
+      x
     end
 """
 struct SystemCache <: AbstractParamCache
   A
   b
+  x
+  function SystemCache(A,b,x)
+    fill!(x,zero(eltype(x)))
+    new(A,b,x)
+  end
 end
 
 Algebra.get_matrix(c::SystemCache) = c.A
@@ -161,20 +167,17 @@ end
 function allocate_systemcache(nlop::NonlinearParamOperator,x::AbstractVector)
   A = allocate_jacobian(nlop,x)
   b = allocate_residual(nlop,x)
-  return SystemCache(A,b)
+  y = similar(x)
+  return SystemCache(A,b,y)
 end
 
+# This operator does not store a system cache
 function update_systemcache!(nlop::NonlinearParamOperator,x::AbstractVector)
-  nothing #"This operator does not store a system cache "
+  nothing 
 end
 
-function update_systemcache!(c::SystemCache,nlop::NonlinearParamOperator,x::AbstractVector)
-  residual!(c.b,nlop,x)
-  jacobian!(c.A,nlop,x)
-end
-
-Base.copy(c::SystemCache) = SystemCache(copy(c.A),copy(c.b))
-Base.similar(c::SystemCache) = SystemCache(similar(c.A),similar(c.b))
+Base.copy(c::SystemCache) = SystemCache(copy(c.A),copy(c.b),copy(c.x))
+Base.similar(c::SystemCache) = SystemCache(similar(c.A),similar(c.b),similar(c.x))
 
 """
     struct GenericParamNonlinearOperator{A} <: NonlinearParamOperator

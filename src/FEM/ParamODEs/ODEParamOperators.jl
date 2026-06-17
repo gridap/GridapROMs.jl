@@ -92,7 +92,8 @@ function ParamAlgebra.allocate_systemcache(
 
   A = allocate_jacobian(odeop,r,us,paramcache)
   b = allocate_residual(odeop,r,us,paramcache)
-  return SystemCache(A,b)
+  x = similar(first(us))
+  return SystemCache(A,b,x)
 end
 
 function Algebra.allocate_residual(
@@ -430,6 +431,7 @@ function ParamAlgebra.allocate_paramcache(
   op::LinearNonlinearODEParamOperator,
   r::TransientRealisation
   )
+
   op_nlin = get_nonlinear_operator(op)
   allocate_paramcache(op_nlin,r)
 end
@@ -438,6 +440,7 @@ function ParamAlgebra.allocate_systemcache(
   op::LinearNonlinearODEParamOperator,
   u::AbstractVector
   )
+  
   op_nlin = get_nonlinear_operator(op)
   allocate_systemcache(op_nlin,u)
 end

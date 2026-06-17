@@ -104,9 +104,10 @@ end
 function Arrays.testvalue(a::GenericParamBlock{A}) where A
   v = testvalue(A)
   data = Vector{typeof(v)}(undef,param_length(a))
-  for i in param_eachindex(a)
-    data[i] = copy(v)
-  end
+  fill!(data,v)
+  # for i in param_eachindex(a)
+  #   data[i] = copy(v)
+  # end
   GenericParamBlock(data)
 end
 
@@ -1633,13 +1634,32 @@ function Arrays.return_cache(
   ydualcache = param_getindex(ydual,1)
   ci = return_cache(Arrays.AutoDiffMap(),cfg1,ydualcache)
   ri = evaluate!(ci,Arrays.AutoDiffMap(),cfg1,ydualcache)
+  ni,nj = size(ri.touched)
+  j1 = findfirst(ri.touched)
+  Tmat = typeof(ri.array[j1])
+  field_blocks = Matrix{GenericParamBlock{Tmat}}(undef,ni,nj)
+  for bj in 1:nj
+    for bi in 1:ni
+      if ri.touched[bi,bj]
+        field_blocks[bi,bj] = GenericParamBlock(Vector{Tmat}(undef,plength))
+      end
+    end
+  end
+  r = ArrayBlock(field_blocks,ri.touched)
   c = Vector{typeof(ci)}(undef,plength)
-  data = Vector{typeof(ri)}(undef,plength)
   for p in 1:plength
     param_getindex!(ydualcache,ydual,p)
     c[p] = return_cache(Arrays.AutoDiffMap(),param_getindex(cfg,p),ydualcache)
+    ri_p = evaluate!(c[p],Arrays.AutoDiffMap(),param_getindex(cfg,p),ydualcache)
+    for bj in 1:nj
+      for bi in 1:ni
+        if ri.touched[bi,bj]
+          r.array[bi,bj].data[p] = ri_p.array[bi,bj]
+        end
+      end
+    end
   end
-  GenericParamBlock(data),(c,ydualcache)
+  r,(c,ydualcache)
 end
 
 function Arrays.evaluate!(
@@ -1650,9 +1670,17 @@ function Arrays.evaluate!(
   )
 
   r,(c,ydualcache) = cache
+  ni,nj = size(r.touched)
   for p in param_eachindex(cfg)
     param_getindex!(ydualcache,ydual,p)
-    r.data[p] = evaluate!(c[p],Arrays.AutoDiffMap(),param_getindex(cfg,p),ydualcache)
+    ri_p = evaluate!(c[p],Arrays.AutoDiffMap(),param_getindex(cfg,p),ydualcache)
+    for bj in 1:nj
+      for bi in 1:ni
+        if r.touched[bi,bj]
+          r.array[bi,bj].data[p] = ri_p.array[bi,bj]
+        end
+      end
+    end
   end
   r
 end

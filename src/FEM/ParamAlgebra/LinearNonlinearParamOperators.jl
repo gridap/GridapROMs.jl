@@ -65,10 +65,13 @@ function update_paramcache!(
   update_paramcache!(paramcache,op_nlin,μ)
 end
 
+# x is not used for the res/jac updates; rather, the x (which is identically zero) stored 
+# within the linear cache is used 
 function update_systemcache!(op::LinNonlinParamOperator,x::AbstractVector)
   op_lin = get_linear_operator(op)
   syscache_lin = get_linear_systemcache(op)
-  update_systemcache!(syscache_lin,op_lin,x)
+  residual!(syscache_lin.b,op_lin,syscache_lin.x)
+  jacobian!(syscache_lin.A,op_lin,syscache_lin.x)
 end
 
 function Algebra.allocate_residual(
@@ -135,7 +138,8 @@ end
 function compatible_cache(a::SystemCache,b::SystemCache)
   A′ = compatible_cache(a.A,b.A)
   b′ = compatible_cache(a.b,b.b)
-  SystemCache(A′,b′)
+  x′ = compatible_cache(a.x,b.x)
+  SystemCache(A′,b′,x′)
 end
 
 function compatible_cache(a::AbstractParamArray,b::AbstractParamArray)

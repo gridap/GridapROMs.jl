@@ -105,7 +105,6 @@ function Algebra.solve!(
   cache::SystemCache
   )
 
-  fill!(x,zero(eltype(x)))
   update_systemcache!(op,x)
 
   @unpack A,b = cache

@@ -176,7 +176,6 @@ function _st_solve!(
 
   nls = get_solver(s)
 
-  fill!(x,zero(eltype(x)))
   update_systemcache!(op,x)
 
   @unpack A,b = cache
