@@ -53,11 +53,6 @@ Arrays.evaluate(U::FESpace,μ,t) = U
 
 # Define the interface for MultiField
 
-"""
-    const TransientMultiFieldParamFESpace = MultiFieldFESpace
-"""
-const TransientMultiFieldParamFESpace = MultiFieldFESpace
-
 function has_unevaluated(U::MultiFieldFESpace)
   (
     any(space -> space isa TransientTrialFESpace,U.spaces) ||
@@ -75,7 +70,7 @@ function ODEs.allocate_space(U::MultiFieldFESpace,μ,t)
   end
   spaces = map(U->allocate_space(U,μ,t),U.spaces)
   style = MultiFieldStyle(U)
-  MultiFieldParamFESpace(spaces;style)
+  MultiFieldFESpace(spaces;style)
 end
 
 function ODEs.allocate_space(U::MultiFieldFESpace,r::TransientRealisation)

@@ -67,11 +67,11 @@ U = TransientTrialParamFESpace(V,[gₚₜ_in,gₚₜ_0])
 reffe_p = ReferenceFE(lagrangian,Float64,order-1)
 Q = TestFESpace(Ωₕ,reffe_p;conformity=:H1)
 P = TransientTrialParamFESpace(Q)
-Y = TransientMultiFieldParamFESpace([V,Q];style=BlockMultiFieldStyle())
-X = TransientMultiFieldParamFESpace([U,P];style=BlockMultiFieldStyle())
+Y = MultiFieldFESpace([V,Q];style=BlockMultiFieldStyle())
+X = MultiFieldFESpace([U,P];style=BlockMultiFieldStyle())
 ```
 
-A [`TransientTrialParamFESpace`](@ref) extends a traditional `TransientTrialFESpace` in Gridap, as it allows to provide a ``(μ,t)``-dependent Dirichlet datum. The same holds for the multi-field version [`TransientMultiFieldParamFESpace`](@ref). 
+A [`TransientTrialParamFESpace`](@ref) extends a traditional `TransientTrialFESpace` in Gridap, as it allows to provide a ``(μ,t)``-dependent Dirichlet datum.
 
 !!! note
   In the multi-field scenario, the `BlockMultiFieldStyle` style should always be used. Check the appropriate documentation of [Gridap](https://github.com/gridap/Gridap.jl) for more information.

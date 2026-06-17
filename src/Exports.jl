@@ -50,7 +50,6 @@ end
 @publish ParamDataStructures select_snapshots
 
 @publish ParamFESpaces TrialParamFESpace
-@publish ParamFESpaces MultiFieldParamFESpace
 
 @publish ParamSteady ParamTrialFESpace
 @publish ParamSteady ParamOperator
@@ -65,7 +64,6 @@ end
 @publish ParamODEs TransientParamOperator
 @publish ParamODEs LinearNonlinearTransientParamOperator
 @publish ParamODEs TransientTrialParamFESpace
-@publish ParamODEs TransientMultiFieldParamFESpace
 @publish ParamODEs TransientParamFEOperator
 @publish ParamODEs TransientLinearParamFEOperator
 @publish ParamODEs LinearNonlinearTransientParamFEOperator

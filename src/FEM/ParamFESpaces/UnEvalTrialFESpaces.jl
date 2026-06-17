@@ -152,7 +152,7 @@ function ODEs.allocate_space(U::MultiFieldFESpace,r::Realisation)
   end
   spaces = map(U->allocate_space(U,r),U.spaces)
   style = MultiFieldStyle(U)
-  MultiFieldParamFESpace(spaces;style)
+  MultiFieldFESpace(spaces;style)
 end
 
 function Arrays.evaluate!(Upt::MultiFieldFESpace,U::MultiFieldFESpace,r::Realisation)

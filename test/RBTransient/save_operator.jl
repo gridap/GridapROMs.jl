@@ -76,8 +76,8 @@ function main(
   reffe_p = ReferenceFE(lagrangian,Float64,order-1)
   test_p = TestFESpace(Ω,reffe_p;conformity=:H1)
   trial_p = TransientTrialParamFESpace(test_p)
-  test = TransientMultiFieldParamFESpace([test_u,test_p];style=BlockMultiFieldStyle())
-  trial = TransientMultiFieldParamFESpace([trial_u,trial_p];style=BlockMultiFieldStyle())
+  test = MultiFieldFESpace([test_u,test_p];style=BlockMultiFieldStyle())
+  trial = MultiFieldFESpace([trial_u,trial_p];style=BlockMultiFieldStyle())
 
   xh0μ(μ) = interpolate_everywhere([u0μ(μ),p0μ(μ)],trial(μ,t0))
 

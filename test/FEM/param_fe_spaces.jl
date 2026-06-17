@@ -65,7 +65,7 @@ end
   l = 3
   U_u = HomogeneousTrialParamFESpace(V_u,l)
   U_p = HomogeneousTrialParamFESpace(V_p,l)
-  VY = MultiFieldParamFESpace([U_u,U_p])
+  VY = MultiFieldFESpace([U_u,U_p])
   @test VY isa MultiFieldParamFESpace
   @test num_fields(VY) == 2
 end

@@ -1,9 +1,6 @@
-"""
-    const MultiFieldParamFESpace = MultiFieldFESpace
-"""
-const MultiFieldParamFESpace = MultiFieldFESpace
+const MultiFieldParamFESpace{MS,CS,V<:AbstractParamVector} = MultiFieldFESpace{MS,CS,V}
 
-function MultiFieldParamFESpace(
+function MultiField.MultiFieldFESpace(
   spaces::Vector{<:SingleFieldParamFESpace};
   style=ConsecutiveMultiFieldStyle()
   )
@@ -126,20 +123,20 @@ function FESpaces.zero_dirichlet_values(f::MultiFieldParamFESpace{<:BlockMultiFi
   mortar(map(zero_dirichlet_values,f.spaces))
 end
 
-function ParamDataStructures.param_length(f::MultiFieldFESpace{MS,CS,<:AbstractParamVector}) where {MS,CS}
+function ParamDataStructures.param_length(f::MultiFieldParamFESpace)
   msg = "All spaces must have the same parameter length."
   plengths = map(param_length,f.spaces)
   @check all(plengths .== plengths[1]) msg
   plengths[1]
 end
 
-get_vector_type2(f::MultiFieldFESpace{<:ConsecutiveMultiFieldStyle,CS,V}) where {CS,V<:AbstractParamVector} = eltype(V)
+get_vector_type2(f::MultiFieldParamFESpace) = get_vector_type2(first(f.spaces))
 
-function FESpaces.zero_free_values(f::MultiFieldFESpace{MS,CS,<:AbstractParamVector}) where {MS,CS}
+function FESpaces.zero_free_values(f::MultiFieldParamFESpace)
   param_zero_free_values(f)
 end
 
-function ParamDataStructures.parameterise(f::MultiFieldParamFESpace,plength::Int)
+function ParamDataStructures.parameterise(f::MultiFieldFESpace,plength::Int)
   spaces = map(s -> parameterise(s,plength),f.spaces)
   style = f.multi_field_style
   MultiFieldFESpace(spaces;style)

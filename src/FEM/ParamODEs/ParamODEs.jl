@@ -8,9 +8,8 @@ machinery.  Key components:
 
 - **Time derivatives** — `∂ₚt` and `∂ₚtt`, parameter-aware analogues of Gridap's
   `∂t`/`∂tt`, for use inside weak forms.
-- **Transient trial spaces** — `TransientTrialParamFESpace` and
-  `TransientMultiFieldParamFESpace` add time-varying Dirichlet conditions to
-  parametric FE spaces.
+- **Transient trial spaces** — `TransientTrialParamFESpace` add time-varying Dirichlet 
+  conditions to parametric FE spaces.
 - **ODE operators** — `ODEParamOperator` hierarchy (`JointODEParamOperator`,
   `SplitODEParamOperator`, `LinearNonlinearODEParamOperator`, …) translate a
   transient parametric weak form into the residual/Jacobian signature expected by

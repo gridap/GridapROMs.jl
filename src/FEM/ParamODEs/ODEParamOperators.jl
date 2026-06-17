@@ -177,7 +177,7 @@ function Algebra.allocate_jacobian(
   )
 
   uh = ODEs._make_uh_from_us(odeop,us,paramcache.trial)
-  trial = evaluate(get_trial(odeop),nothing)
+  trial = get_trial(odeop)
   du = get_trial_fe_basis(trial)
   test = get_test(odeop)
   v = get_fe_basis(test)
@@ -205,7 +205,7 @@ function ODEs.jacobian_add!(
   )
 
   uh = ODEs._make_uh_from_us(odeop,us,paramcache.trial)
-  trial = evaluate(get_trial(odeop),nothing)
+  trial = get_trial(odeop)
   du = get_trial_fe_basis(trial)
   test = get_test(odeop)
   v = get_fe_basis(test)
@@ -316,7 +316,7 @@ function Algebra.allocate_jacobian(
   )
 
   uh = ODEs._make_uh_from_us(odeop,us,paramcache.trial)
-  trial = evaluate(get_trial(odeop),nothing)
+  trial = get_trial(odeop)
   du = get_trial_fe_basis(trial)
   test = get_test(odeop)
   v = get_fe_basis(test)
@@ -350,7 +350,7 @@ function ODEs.jacobian_add!(
   )
 
   uh = ODEs._make_uh_from_us(odeop,us,paramcache.trial)
-  trial = evaluate(get_trial(odeop),nothing)
+  trial = get_trial(odeop)
   du = get_trial_fe_basis(trial)
   test = get_test(odeop)
   v = get_fe_basis(test)
@@ -387,7 +387,7 @@ function Algebra.jacobian(
   )
 
   uh = ODEs._make_uh_from_us(odeop,us,paramcache.trial)
-  trial = evaluate(get_trial(odeop),nothing)
+  trial = get_trial(odeop)
   du = get_trial_fe_basis(trial)
   test = get_test(odeop)
   v = get_fe_basis(test)

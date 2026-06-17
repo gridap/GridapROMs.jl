@@ -223,15 +223,19 @@ function FESpaces.SparseMatrixAssembler(
   )
 end
 
-function ParamFESpaces.MultiFieldParamFESpace(
+function MultiField.MultiFieldFESpace(
   spaces::Vector{<:DirectSumTrialFESpace};
-  style = BlockMultiFieldExtensionStyle()
+  style=ConsecutiveMultiFieldExtensionStyle()
   )
 
-  @notimplementedif !isa(style,BlockMultiFieldExtensionStyle)
-  style = BlockMultiFieldExtensionStyle(style,spaces)
-  fv = mortar(map(zero_free_values,spaces))
-  V = typeof(fv)
+  if isa(style,BlockMultiFieldExtensionStyle)
+    style = BlockMultiFieldExtensionStyle(style,spaces)
+    fv = mortar(map(zero_free_values,spaces))
+    V = typeof(fv)
+  else
+    fv = map(zero_free_values,spaces)
+    V = promote_type(typeof.(fv)...)
+  end
   MultiFieldFESpace(V,spaces,style)
 end
 
