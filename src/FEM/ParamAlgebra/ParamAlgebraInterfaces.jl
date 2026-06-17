@@ -152,6 +152,7 @@ end
   v::AbstractVector,
   i
   )
+
   @inbounds for k = param_eachindex(A)
     aik = A[k][i]
     vk = v[k]
@@ -175,6 +176,7 @@ end
   v::AbstractVector,
   i
   )
+  
   data = get_all_data(A)
   @inbounds for k = param_eachindex(A)
     aik = data[i,k]
@@ -196,9 +198,9 @@ end
   combine::Function,
   A::AbstractParamMatrix,
   v::AbstractVector,
-  i,
-  j
+  i,j
   )
+
   @inbounds for k = param_eachindex(A)
     aijk = A[k][i,j]
     vk = v[k]
@@ -211,9 +213,9 @@ end
   combine::Function,
   A::ConsecutiveParamMatrix,
   v::Number,
-  i,
-  j
+  i,j
   )
+
   data = get_all_data(A)
   @inbounds for k = param_eachindex(A)
     aijk = data[i,j,k]
@@ -226,9 +228,9 @@ end
   combine::Function,
   A::ConsecutiveParamMatrix,
   v::AbstractVector,
-  i,
-  j
+  i,j
   )
+  
   data = get_all_data(A)
   @inbounds for k = param_eachindex(A)
     aijk = data[i,j,k]
@@ -242,8 +244,7 @@ end
   combine::Function,
   A::ConsecutiveParamSparseMatrix,
   v::Number,
-  i,
-  j
+  i,j
   )
   l = nz_index(A,i,j)
   nz = get_all_data(nonzeros(A))
@@ -258,8 +259,7 @@ end
   combine::Function,
   A::ConsecutiveParamSparseMatrix,
   v::AbstractVector,
-  i,
-  j
+  i,j
   )
   l = nz_index(A,i,j)
   nz = get_all_data(nonzeros(A))

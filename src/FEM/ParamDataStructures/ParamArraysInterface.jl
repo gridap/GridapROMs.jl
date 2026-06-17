@@ -84,32 +84,6 @@ param_getindex(A::AbstractParamArray{T,N},i::Integer) where {T,N} = getindex(A,t
 param_setindex!(A::AbstractParamArray{T,N},v,i::Integer) where {T,N} = setindex!(A,v,tfill(i,Val{N}())...)
 param_getindex!(cache,A::AbstractParamArray,i::Integer) = copyto!(cache,param_getindex(A,i))
 
-function param_getindex(x::ArrayBlock{<:AbstractParamArray,N},i::Integer) where N
-  x1 = param_getindex(testitem(x),i)
-  array = Array{typeof(x1),N}(undef,size(x))
-  for j in eachindex(x)
-    if x.touched[j]
-      array[j] = param_getindex(x.array[j],i)
-    end
-  end
-  ArrayBlock(array,x.touched)
-end
-
-function param_getindex!(
-  cache::ArrayBlock{T,N},
-  x::ArrayBlock{<:AbstractParamArray,N},
-  i::Integer
-  ) where {T,N}
-
-  @check cache.touched == x.touched
-  for j in eachindex(x)
-    if x.touched[j]
-      cache[j] = param_getindex(x.array[j],i)
-    end
-  end
-  cache
-end
-
 innersize(A) = size(param_getindex(A,1))
 
 """

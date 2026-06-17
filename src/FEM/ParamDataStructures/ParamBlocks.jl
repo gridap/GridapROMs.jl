@@ -1437,250 +1437,77 @@ end
 
 # Autodiff related
 
-function Arrays.return_cache(k::Arrays.ConfigMap{typeof(ForwardDiff.gradient)},x::GenericParamBlock)
-  xi = testitem(x)
-  fi = return_cache(k,xi)
-  data = Vector{typeof(fi)}(undef,length(x.data))
-  for i in eachindex(x.data)
-    data[i] = return_cache(k,x.data[i])
-  end
-  GenericParamBlock(data)
-end
-
-function Arrays.return_cache(k::Arrays.ConfigMap{typeof(ForwardDiff.jacobian)},x::GenericParamBlock)
-  xi = testitem(x)
-  fi = return_cache(k,xi)
-  data = Vector{typeof(fi)}(undef,length(x.data))
-  for i in eachindex(x.data)
-    data[i] = return_cache(k,x.data[i])
-  end
-  GenericParamBlock(data)
-end
-
-function Arrays.return_cache(k::Arrays.DualizeMap,x::GenericParamBlock)
-  cfg = return_cache(Arrays.ConfigMap(k.f),x)
-  xi = testitem(x)
-  cfgi = testitem(cfg)
-  xidual = evaluate!(cfgi,k,xi)
-  data = Vector{typeof(xidual)}(undef,length(x.data))
-  cfg,GenericParamBlock(data)
-end
-
-function Arrays.evaluate!(cache,k::Arrays.DualizeMap,x::GenericParamBlock)
-  cfg,xdual = cache
-  for i in eachindex(x.data)
-    xdual.data[i] = evaluate!(cfg.data[i],k,x.data[i])
-  end
-  xdual
-end
-
-function Arrays.return_cache(
-  k::Arrays.AutoDiffMap,
-  ydual::GenericParamBlock,
-  x,
-  cfg::GenericParamBlock
-  )
-
-  yidual = testitem(ydual)
-  xi = testitem(x)
-  cfgi = testitem(cfg)
-  ci = return_cache(k,yidual,xi,cfgi)
-  ri = evaluate!(ci,k,yidual,xi,cfgi)
-  c = Vector{typeof(ci)}(undef,length(ydual.data))
-  data = Vector{typeof(ri)}(undef,length(ydual.data))
-  for i in eachindex(ydual.data)
-    c[i] = return_cache(k,ydual.data[i],x.data[i],cfg.data[i])
-  end
-  GenericParamBlock(data),c
-end
-
-function Arrays.evaluate!(
-  cache,
-  k::Arrays.AutoDiffMap,
-  ydual::GenericParamBlock,
-  x,
-  cfg::GenericParamBlock
-  )
-  r,c = cache
-  for i in eachindex(ydual.data)
-    r.data[i] = evaluate!(c[i],k,ydual.data[i],x.data[i],cfg.data[i])
-  end
-  r
-end
-
-function param_getindex(x::ArrayBlock{<:GenericParamBlock,N},i::Integer) where N
-  x1 = param_getindex(testitem(x),i)
-  array = Array{typeof(x1),N}(undef,size(x))
-  for j in eachindex(x)
-    if x.touched[j]
-      array[j] = param_getindex(x.array[j],i)
-    end
-  end
-  ArrayBlock(array,x.touched)
-end
-
-function param_getindex!(
-  cache::ArrayBlock{T,N},
-  x::ArrayBlock{<:GenericParamBlock,N},
-  i::Integer
-  ) where {T,N}
-
-  @check cache.touched == x.touched
-  for j in eachindex(x)
-    if x.touched[j]
-      cache[j] = param_getindex(x.array[j],i)
-    end
-  end
-  cache
-end
-
-for F in (ForwardDiff.gradient,ForwardDiff.jacobian)
+for f in (:(ForwardDiff.gradient),:(ForwardDiff.jacobian))
   @eval begin
-    function Arrays.return_cache(
-      k::Arrays.ConfigMap{typeof($F)},
-      x::VectorBlock{<:GenericParamBlock}
-      )
-
-      xcache = param_getindex(x,1)
-      x1 = testitem(x)
-      plength = param_length(x1)
-      cfg1 = return_cache(k,xcache)
-      data = Vector{typeof(cfg1)}(undef,plength)
-      for i in param_eachindex(x1)
-        xi = param_getindex!(xcache,x,i)
-        data[i] = return_cache(k,xi)
+    function Arrays.return_cache(k::Arrays.ConfigMap{typeof($f)},x::GenericParamBlock)
+      xi = testitem(x)
+      fi = return_cache(k,xi)
+      data = Vector{typeof(fi)}(undef,length(x.data))
+      for i in eachindex(x.data)
+        data[i] = return_cache(k,x.data[i])
       end
       GenericParamBlock(data)
     end
-  end
-end
 
-function Arrays.return_cache(
-  k::Arrays.DualizeMap,
-  cfg::GenericParamBlock{<:Arrays.BlockConfig},
-  x::VectorBlock{<:GenericParamBlock}
-  )
-
-  cfg1 = testitem(cfg)
-  duals1 = cfg1.duals
-  touched = duals1.touched
-  nblocks = length(duals1.array)
-  j1 = findfirst(touched)
-  T = typeof(duals1.array[j1])
-  field_blocks = Vector{GenericParamBlock{T}}(undef,nblocks)
-  for j in 1:nblocks
-    if touched[j]
-      data = [param_getindex(cfg,i).duals.array[j] for i in param_eachindex(cfg)]
-      field_blocks[j] = GenericParamBlock(data)
+    function Arrays.return_cache(k::Arrays.ConfigMap{typeof($f)},x::VectorBlock{<:GenericParamBlock})
+      y = _unwrap(x)
+      c = return_cache(k,y) 
+      return y,c
     end
   end
-  ArrayBlock(field_blocks,touched)
 end
 
-function Arrays.evaluate!(
-  cache,
-  k::Arrays.DualizeMap,
-  cfg::GenericParamBlock{<:Arrays.BlockConfig},
-  x::VectorBlock{<:GenericParamBlock}
-  )
+for F in (:(ForwardDiff.GradientConfig),:(ForwardDiff.JacobianConfig))
+  @eval begin
+    function Arrays.testitem(a::LazyArray{A,<:GenericParamBlock{<:T}} where A) where {Tag,V,N,D,T<:$F{Tag,V,N,D}}
+      if length(a) > 0
+        first(a)::T
+      else
+        gi = testitem(a.maps)
+        ai = map(testitem,a.args)
+        plength = find_param_length(ai...)
+        x0 = zeros(V,N)
+        x0p = lazy_parameterise(x0,plength)
+        return_cache(gi,x0p)
+      end::T
+    end
 
-  for p in param_eachindex(cfg)
-    evaluate!(nothing,k,param_getindex(cfg,p),param_getindex(x,p))
+    function Arrays.return_value(k::DualizeMap,cfg::GenericParamBlock{<:$T},x::GenericParamBlock)
+      vi = return_value(k,testitem(cfg),testitem(x))
+      v = Vector{typeof(vi)}(undef,length(x.data))
+      fill!(v,vi)
+      GenericParamBlock(v)
+    end
   end
-  cache
 end
 
-function Arrays.return_cache(
-  ::Arrays.AutoDiffMap,
-  cfg::GenericParamBlock{<:Arrays.BlockConfig},
-  ydual::GenericParamBlock
-  )
+function Arrays.evaluate!(cache,k::DualizeMap,cfg::GenericParamBlock,x::GenericParamBlock)
+  for i in eachindex(x.data)
+    evaluate!(nothing,k,cfg.data[i],x.data[i])
+  end
+end
 
-  plength = param_length(cfg)
-  cfgi = testitem(cfg)
-  yidual = testitem(ydual)
-  ci = return_cache(Arrays.AutoDiffMap(),cfgi,yidual)
-  ri = evaluate!(ci,Arrays.AutoDiffMap(),cfgi,yidual)
-  c = Vector{typeof(ci)}(undef,plength)
-  data = Vector{typeof(ri)}(undef,plength)
-  for i in param_eachindex(cfg)
-    c[i] = return_cache(Arrays.AutoDiffMap(),param_getindex(cfg,i),param_getindex(ydual,i))
+function Arrays.return_cache(k::Arrays.AutoDiffMap,cfg::GenericParamBlock,ydual::GenericParamBlock)
+  ci = return_cache(k,testitem(cfg),testitem(ydual))
+  ri = evaluate!(ci,k,testitem(cfg),testitem(ydual))
+  c = Vector{typeof(ci)}(undef,length(ydual.data))
+  data = Vector{typeof(ri)}(undef,length(ydual.data))
+  for i in eachindex(ydual.data)
+    c[i] = return_cache(k,cfg.data[i],ydual.data[i])
   end
   GenericParamBlock(data),c
 end
 
 function Arrays.evaluate!(
   cache,
-  ::Arrays.AutoDiffMap,
-  cfg::GenericParamBlock{<:Arrays.BlockConfig},
+  k::Arrays.AutoDiffMap,
+  cfg::GenericParamBlock,
   ydual::GenericParamBlock
   )
 
   r,c = cache
-  for i in param_eachindex(cfg)
-    r.data[i] = evaluate!(c[i],Arrays.AutoDiffMap(),param_getindex(cfg,i),param_getindex(ydual,i))
-  end
-  r
-end
-
-function Arrays.return_cache(
-  ::Arrays.AutoDiffMap,
-  cfg::GenericParamBlock{<:Arrays.BlockConfig},
-  ydual::VectorBlock{<:GenericParamBlock}
-  )
-
-  plength = param_length(cfg)
-  cfg1 = testitem(cfg)
-  ydualcache = param_getindex(ydual,1)
-  ci = return_cache(Arrays.AutoDiffMap(),cfg1,ydualcache)
-  ri = evaluate!(ci,Arrays.AutoDiffMap(),cfg1,ydualcache)
-  ni,nj = size(ri.touched)
-  j1 = findfirst(ri.touched)
-  Tmat = typeof(ri.array[j1])
-  field_blocks = Matrix{GenericParamBlock{Tmat}}(undef,ni,nj)
-  for bj in 1:nj
-    for bi in 1:ni
-      if ri.touched[bi,bj]
-        field_blocks[bi,bj] = GenericParamBlock(Vector{Tmat}(undef,plength))
-      end
-    end
-  end
-  r = ArrayBlock(field_blocks,ri.touched)
-  c = Vector{typeof(ci)}(undef,plength)
-  for p in 1:plength
-    param_getindex!(ydualcache,ydual,p)
-    c[p] = return_cache(Arrays.AutoDiffMap(),param_getindex(cfg,p),ydualcache)
-    ri_p = evaluate!(c[p],Arrays.AutoDiffMap(),param_getindex(cfg,p),ydualcache)
-    for bj in 1:nj
-      for bi in 1:ni
-        if ri.touched[bi,bj]
-          r.array[bi,bj].data[p] = ri_p.array[bi,bj]
-        end
-      end
-    end
-  end
-  r,(c,ydualcache)
-end
-
-function Arrays.evaluate!(
-  cache,
-  ::Arrays.AutoDiffMap,
-  cfg::GenericParamBlock{<:Arrays.BlockConfig},
-  ydual::VectorBlock{<:GenericParamBlock}
-  )
-
-  r,(c,ydualcache) = cache
-  ni,nj = size(r.touched)
-  for p in param_eachindex(cfg)
-    param_getindex!(ydualcache,ydual,p)
-    ri_p = evaluate!(c[p],Arrays.AutoDiffMap(),param_getindex(cfg,p),ydualcache)
-    for bj in 1:nj
-      for bi in 1:ni
-        if r.touched[bi,bj]
-          r.array[bi,bj].data[p] = ri_p.array[bi,bj]
-        end
-      end
-    end
+  for i in eachindex(ydual.data)
+    r.data[i] = evaluate!(c[i],k,cfg.data[i],ydual.data[i])
   end
   r
 end
@@ -2449,4 +2276,39 @@ end
 
 function _test_item_values(h::ArrayBlock,f::ArrayBlock)
   _test_values(testitem(h),testitem(f))
+end
+
+function _unwrap(x::ArrayBlock{GenericParamBlock{A},N}) where {A,N}
+  cache = return_cache(_unwrap,x)
+  r = evaluate!(cache,_unwrap,x)
+  return r 
+end
+
+function Arrays.return_cache(
+  ::typeof(_unwrap),
+  x::ArrayBlock{GenericParamBlock{A},N}
+  ) where {A,N}
+
+  xi = testitem(x)
+  plength = param_length(xi)
+  ai = Array{A,N}(undef,size(x))
+  data = [ArrayBlock(copy(ai),x.touched) for _ in 1:plength]
+  GenericParamBlock(data)
+end
+
+function Arrays.evaluate!(
+  cache,
+  ::typeof(_unwrap),
+  x::ArrayBlock{GenericParamBlock{A},N}
+  ) where {A,N}
+  
+  for k in eachindex(cache.data)
+    ai = cache.data[k].data
+    for i in eachindex(x)
+      if x.touched[i]
+        ai[i] = param_getindex(x.data[i],k)
+      end
+    end
+  end
+  cache
 end
