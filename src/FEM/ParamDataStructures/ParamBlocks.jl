@@ -68,6 +68,11 @@ Base.copy(a::GenericParamBlock) = GenericParamBlock(copy(a.data))
 
 Base.similar(a::GenericParamBlock) = GenericParamBlock(similar(a.data))
 
+function Base.similar(a::GenericParamBlock{T},::Type{T′}) where {T,T′}
+  data′ = map(x -> similar(x,T′),a.data)
+  GenericParamBlock(data′)
+end
+
 function Base.copyto!(a::GenericParamBlock,b::GenericParamBlock)
   @check size(a) == size(b)
   for i in eachindex(a.data)
@@ -205,6 +210,11 @@ end
 Base.copy(a::TrivialParamBlock) = TrivialParamBlock(copy(a.data),a.plength)
 
 Base.similar(a::TrivialParamBlock) = TrivialParamBlock(similar(a.data),a.plength)
+
+function Base.similar(a::TrivialParamBlock{T},::Type{T′}) where {T,T′}
+  data′ = similar(a.data,T′)
+  TrivialParamBlock(data′,a.plength)
+end
 
 Base.copyto!(a::TrivialParamBlock,b::TrivialParamBlock) = copyto!(a.data,b.data)
 
@@ -1450,9 +1460,7 @@ for f in (:(ForwardDiff.gradient),:(ForwardDiff.jacobian))
     end
 
     function Arrays.return_cache(k::Arrays.ConfigMap{typeof($f)},x::VectorBlock{<:GenericParamBlock})
-      y = _unwrap(x)
-      c = return_cache(k,y) 
-      return y,c
+      return BlockParamConfig($f,k.tag,x)
     end
   end
 end
@@ -1472,7 +1480,7 @@ for F in (:(ForwardDiff.GradientConfig),:(ForwardDiff.JacobianConfig))
       end::T
     end
 
-    function Arrays.return_value(k::DualizeMap,cfg::GenericParamBlock{<:$T},x::GenericParamBlock)
+    function Arrays.return_value(k::DualizeMap,cfg::GenericParamBlock{<:$F},x::GenericParamBlock)
       vi = return_value(k,testitem(cfg),testitem(x))
       v = Vector{typeof(vi)}(undef,length(x.data))
       fill!(v,vi)
@@ -1510,6 +1518,93 @@ function Arrays.evaluate!(
     r.data[i] = evaluate!(c[i],k,cfg.data[i],ydual.data[i])
   end
   r
+end
+
+struct BlockParamConfig{C,T,V,N,D,O} <: ForwardDiff.AbstractConfig{N}
+  seeds::NTuple{N,ForwardDiff.Partials{N,V}}
+  duals::D
+  offsets::O
+  
+  function BlockParamConfig(
+    ::C,
+    f::F,
+    x::VectorBlock{<:GenericParamBlock{<:AbstractArray{V}}},
+    ::T = ForwardDiff.Tag(f,V)
+    ) where {C,F,V,T}
+
+    offsets,N = Arrays.block_offsets(x,0)
+    seeds = ForwardDiff.construct_seeds(ForwardDiff.Partials{N,V})
+    duals = similar(x,ForwardDiff.Dual{T,V,N})
+    D = typeof(duals)
+    O = typeof(offsets)
+    new{C,T,V,N,D,O}(seeds,duals,offsets)
+  end
+
+  function BlockParamConfig(
+    ::C,
+    f::F,
+    x::VectorBlock{<:VectorBlock{<:GenericParamBlock{<:AbstractArray{V}}}},
+    ::T = ForwardDiff.Tag(f,V)
+    ) where {C,F,V,T}
+
+    offsets,N = Arrays.block_offsets(x,0)
+    seeds = ForwardDiff.construct_seeds(ForwardDiff.Partials{N,V})
+    duals = similar(x,ForwardDiff.Dual{T,V,N})
+    D = typeof(duals)
+    O = typeof(offsets)
+    new{C,T,V,N,D,O}(seeds,duals,offsets)
+  end
+end
+
+function Arrays.evaluate!(cache,k::DualizeMap,cfg::BlockParamConfig,x)
+  xdual,seeds,offsets = cfg.duals,cfg.seeds,cfg.offsets
+  Arrays.seed_block!(xdual,x,seeds,offsets)
+  return xdual
+end
+
+function Arrays.return_cache(
+  ::AutoDiffMap,
+  cfg::BlockParamConfig{typeof(ForwardDiff.gradient),T},
+  ydual
+  ) where T
+
+  ydual isa Real || throw(ForwardDiff.GRAD_ERROR)
+  result = CachedArray(similar(cfg.duals,ForwardDiff.valtype(ydual)))
+  return result
+end
+
+function Arrays.evaluate!(
+  result,::AutoDiffMap,
+  cfg::BlockParamConfig{typeof(ForwardDiff.gradient),T},
+  ydual
+  ) where T
+
+  Arrays._setsize!(result,cfg.duals)
+  Arrays.extract_gradient_block!(T,result,ydual,cfg.offsets)
+  return result
+end
+
+function Arrays.return_cache(
+  ::AutoDiffMap,
+  cfg::BlockParamConfig{typeof(ForwardDiff.jacobian),T},
+  ydual
+  ) where T
+
+  ydual isa VectorBlock || throw(ForwardDiff.JACOBIAN_ERROR)
+  result = Arrays._alloc_jacobian(ydual,cfg.duals)
+  return result
+end
+
+function Arrays.evaluate!(
+  result,
+  ::AutoDiffMap,
+  cfg::BlockParamConfig{typeof(ForwardDiff.jacobian),T},
+  ydual
+  ) where T
+
+  Arrays._setsize!(result,ydual)
+  Arrays.extract_jacobian_block!(T,result,ydual,cfg.offsets)
+  return result
 end
 
 function Arrays.return_cache(k::CellData.ZeroVectorMap,a::TrivialParamBlock)
@@ -2278,37 +2373,72 @@ function _test_item_values(h::ArrayBlock,f::ArrayBlock)
   _test_values(testitem(h),testitem(f))
 end
 
-function _unwrap(x::ArrayBlock{GenericParamBlock{A},N}) where {A,N}
-  cache = return_cache(_unwrap,x)
-  r = evaluate!(cache,_unwrap,x)
-  return r 
+@inline function Arrays.block_offsets(x::GenericParamBlock,offset) 
+  Arrays.block_offsets(testitem(x),offset)
 end
 
-function Arrays.return_cache(
-  ::typeof(_unwrap),
-  x::ArrayBlock{GenericParamBlock{A},N}
-  ) where {A,N}
+function Arrays.seed_block!(
+  duals::GenericParamBlock,
+  x::GenericParamBlock, 
+  seeds::NTuple,
+  offset
+  ) 
 
-  xi = testitem(x)
-  plength = param_length(xi)
-  ai = Array{A,N}(undef,size(x))
-  data = [ArrayBlock(copy(ai),x.touched) for _ in 1:plength]
-  GenericParamBlock(data)
+  @check param_length(duals) == param_length(x)
+  for i in param_eachindex(duals)
+    Arrays.seed_block!(duals.data[i],x.data[i],seeds,offset)
+  end
+  return duals
 end
 
-function Arrays.evaluate!(
-  cache,
-  ::typeof(_unwrap),
-  x::ArrayBlock{GenericParamBlock{A},N}
-  ) where {A,N}
-  
-  for k in eachindex(cache.data)
-    ai = cache.data[k].data
-    for i in eachindex(x)
-      if x.touched[i]
-        ai[i] = param_getindex(x.data[i],k)
+for f in (:(Arrays.extract_gradient_block!),:(Arrays.extract_jacobian_block!))
+  @eval begin
+    function $f(
+      ::Type{T}, 
+      result::GenericParamBlock, 
+      dual::GenericParamBlock, 
+      offset
+      ) where T
+
+      @check param_length(dual) == param_length(result)
+      for i in param_eachindex(dual)
+        $f(T,result.data[i],dual.data[i],offset)
+      end
+      return result
+    end
+  end
+end
+
+function Arrays._alloc_jacobian(ydual::GenericParamBlock,xdual::GenericParamBlock)
+  @check param_length(ydual) == param_length(xdual)
+  ci = Arrays._alloc_jacobian(testitem(ydual),testitem(xdual))
+  c = Vector{typeof(ci)}(undef,param_length(ydual))
+  for i in param_eachindex(ydual)
+    c[i] = Arrays._alloc_jacobian(ydual.data[i],xdual.data[i])
+  end
+  GenericParamBlock(c)
+end
+
+function Arrays._setsize!(result::VectorBlock{<:GenericParamBlock},duals::VectorBlock{<:GenericParamBlock})
+  ni = size(result.array,1)
+  for i in 1:ni
+    if result.touched[i]
+      for k in param_eachindex(duals[i])
+        setsize!(result[i].data[k],(length(duals[i].data[k]),))
       end
     end
   end
-  cache
+end
+
+function Arrays._setsize!(result::MatrixBlock{<:GenericParamBlock},ydual::VectorBlock{<:GenericParamBlock})
+  ni,nj = size(result)
+  for i in 1:ni
+    for j in 1:nj
+      if result.touched[i,j]
+        for k in param_eachindex(ydual[i])
+          setsize!(result[i,j].data[k],(length(ydual[i].data[k]),length(ydual[j].data[k])))
+        end
+      end
+    end
+  end
 end
