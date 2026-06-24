@@ -553,9 +553,9 @@ function _size_cond(A::AbstractMatrix)
   length(A) > 1e5 && (size(A,1) > 1e2*size(A,2) || size(A,2) > 1e2*size(A,1))
 end
 
-function symcholesky(X::AbstractSparseMatrix)
+function symcholesky(X::AbstractSparseMatrix;kwargs...)
   issymmetric(X) && return cholesky(X;check=false)
-  @check symmetrise!(X)
+  @check symmetrise!(X;kwargs...)
   cholesky(X;check=false)
 end
 
