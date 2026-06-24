@@ -110,9 +110,6 @@ function Arrays.testvalue(a::GenericParamBlock{A}) where A
   v = testvalue(A)
   data = Vector{typeof(v)}(undef,param_length(a))
   fill!(data,v)
-  # for i in param_eachindex(a)
-  #   data[i] = copy(v)
-  # end
   GenericParamBlock(data)
 end
 
@@ -1893,56 +1890,6 @@ for S in (:ParamBlock,:AbstractArray)
           end
           ArrayBlock(a,t),b,zf,zg
         end
-
-        function Arrays.return_cache(
-          k::BroadcastingFieldOpMap,
-          f::ArrayBlock{<:$U,1},
-          g::ArrayBlock{<:$V,2}
-          )
-
-          fi,gi = _test_item_values(f,g)
-          ci = return_cache(k,fi,gi)
-          hi = evaluate!(ci,k,fi,gi)
-          @check size(g.array,1) == 1 || size(g.array,2) == 0
-          s = (size(f.array,1),size(g.array,2))
-          a = Array{typeof(hi),2}(undef,s)
-          b = Array{typeof(ci),2}(undef,s)
-          t = fill(false,s)
-          for j in 1:s[2]
-            for i in 1:s[1]
-              if f.touched[i] && g.touched[1,j]
-                t[i,j] = true
-                b[i,j] = return_cache(k,f.array[i],g.array[1,j])
-              end
-            end
-          end
-          ArrayBlock(a,t),b
-        end
-
-        function Arrays.return_cache(
-          k::BroadcastingFieldOpMap,
-          f::ArrayBlock{<:$U,2},
-          g::ArrayBlock{<:$V,1}
-          )
-
-          fi,gi = _test_item_values(f,g)
-          ci = return_cache(k,fi,gi)
-          hi = evaluate!(ci,k,fi,gi)
-          @check size(f.array,1) == 1 || size(f.array,2) == 0
-          s = (size(g.array,1),size(f.array,2))
-          a = Array{typeof(hi),2}(undef,s)
-          b = Array{typeof(ci),2}(undef,s)
-          t = fill(false,s)
-          for j in 1:s[2]
-            for i in 1:s[1]
-              if f.touched[1,j] && g.touched[i]
-                t[i,j] = true
-                b[i,j] = return_cache(k,f.array[1,j],g.array[i])
-              end
-            end
-          end
-          ArrayBlock(a,t),b
-        end
       end
     end
   end
@@ -2029,32 +1976,23 @@ end
 
 function Arrays.return_cache(k::Fields.ZeroBlockMap,h::ParamBlock,f::ParamBlock)
   @check param_length(h) == param_length(f)
+  c = return_cache(k,testitem(h),testitem(f))
+  lazy_parameterise(c,param_length(h))
+end
+
+function Arrays.evaluate!(c,k::Fields.ZeroBlockMap,h::ParamBlock,f::ParamBlock)
+  for i in param_eachindex(h)
+    evaluate!(param_getindex(c,i),k,param_getindex(h,i),param_getindex(f,i))
+  end
+  c
+end
+
+function Arrays.return_cache(k::Fields.ZeroBlockMap,h::ArrayBlock{<:ParamBlock},f::ArrayBlock) 
+  N = ndims(f)
   hi = testitem(h)
   fi = testitem(f)
   ci = return_cache(k,hi,fi)
-  ri = evaluate!(ci,k,hi,fi)
-  c = Vector{typeof(ci)}(undef,param_length(f))
-  data = Vector{typeof(ri)}(undef,param_length(f))
-  for i in param_eachindex(f)
-    c[i] = return_cache(k,param_getindex(h,i),param_getindex(f,i))
-  end
-  GenericParamBlock(data),c
-end
-
-function Arrays.evaluate!(cache::Tuple,k::Fields.ZeroBlockMap,h::ParamBlock,f::ParamBlock)
-  g,l = cache
-  for i in eachindex(g.data)
-    g.data[i] = evaluate!(l[i],k,param_getindex(h,i),param_getindex(f,i))
-  end
-  g
-end
-
-function Arrays.return_cache(k::Fields.ZeroBlockMap,h::ArrayBlock{<:ParamBlock},f::ArrayBlock{<:ParamBlock})
-  @check block_param_length(h) == block_param_length(f)
-  A = eltype(h)
-  N = ndims(f)
-  hi = testitem(h)
-  array = Array{A,N}(undef,size(f))
+  array = Array{typeof(ci),N}(undef,size(f))
   for i in eachindex(array)
     if f.touched[i]
       array[i] = return_cache(k,hi,f.array[i])
@@ -2071,31 +2009,15 @@ for T in (:AbstractArray,:Nothing)
     function Arrays.return_cache(k::Fields.ZeroBlockMap,h::$T,f::ParamBlock)
       return_cache(k,lazy_parameterise(h,param_length(f)),f)
     end
-    function Arrays.evaluate!(cache::Tuple,k::Fields.ZeroBlockMap,h::ParamBlock,f::$T)
+    function Arrays.evaluate!(cache,k::Fields.ZeroBlockMap,h::ParamBlock,f::$T)
       evaluate!(cache,k,h,lazy_parameterise(f,param_length(h)))
     end
-    function Arrays.evaluate!(cache::Tuple,k::Fields.ZeroBlockMap,h::$T,f::ParamBlock)
+    function Arrays.evaluate!(cache,k::Fields.ZeroBlockMap,h::$T,f::ParamBlock)
       evaluate!(cache,k,lazy_parameterise(h,param_length(f)),f)
     end
-    function Arrays.evaluate!(cache::Tuple,k::Fields.ZeroBlockMap,h::$T,f::AbstractArray)
-      plength = param_length(cache[1])
-      evaluate!(cache,k,block_lazy_parameterise(h,plength),lazy_parameterise(f,plength))
-    end
-    function Arrays.return_cache(k::Fields.ZeroBlockMap,h::ArrayBlock{<:ParamBlock},f::ArrayBlock{<:$T})
-      return_cache(k,h,block_lazy_parameterise(f,block_param_length(h)))
-    end
-    function Arrays.return_cache(k::Fields.ZeroBlockMap,h::ArrayBlock{<:$T},f::ArrayBlock{<:ParamBlock})
-      return_cache(k,block_lazy_parameterise(h,block_param_length(f)),f)
-    end
-    function Arrays.evaluate!(cache::Tuple,k::Fields.ZeroBlockMap,h::ArrayBlock{<:ParamBlock},f::ArrayBlock{<:$T})
-      evaluate!(cache,k,h,block_lazy_parameterise(f,block_param_length(h)))
-    end
-    function Arrays.evaluate!(cache::Tuple,k::Fields.ZeroBlockMap,h::ArrayBlock{<:$T},f::ArrayBlock{<:ParamBlock})
-      evaluate!(cache,k,block_lazy_parameterise(h,block_param_length(f)),f)
-    end
-    function Arrays.evaluate!(cache::Tuple,k::Fields.ZeroBlockMap,h::ArrayBlock{<:$T},f::ArrayBlock{<:AbstractArray})
-      plength = block_param_length(cache[1])
-      evaluate!(cache,k,block_lazy_parameterise(h,plength),block_lazy_parameterise(f,plength))
+    function Arrays.evaluate!(cache::ParamBlock,k::Fields.ZeroBlockMap,h::$T,f::AbstractArray)
+      plength = param_length(cache)
+      evaluate!(cache,k,lazy_parameterise(h,plength),lazy_parameterise(f,plength))
     end
   end
 end
@@ -2402,26 +2324,24 @@ function _test_values(_h,f::ParamBlock)
 end
 
 function _test_values(h::ArrayBlock{A,N},f::ArrayBlock{B,N}) where {A,B,N}
-  _test_value(a) = a 
-  _test_value(a::ParamBlock) = testvalue(a)
-
-  hi,fi = _test_values(testitem(h),testitem(f))
-  bhi = Array{typeof(hi),N}(undef,size(h.array))
-  bfi = Array{typeof(fi),N}(undef,size(f.array))
+  hi = testitem(h)
+  fi = testitem(f)
+  pl = find_param_length(hi,fi)
+  _hi_ref = _param_zero_like(hi,pl)
+  _fi_ref = _param_zero_like(fi,pl)
+  _hi_tv,_fi_tv = _test_values(_hi_ref,_fi_ref)
+  bh = Array{typeof(_hi_tv),N}(undef,size(h.array))
+  bf = Array{typeof(_fi_tv),N}(undef,size(f.array))
   for i in eachindex(h.array)
     if h.touched[i] && f.touched[i]
-      hi,fi = _test_values(h.array[i],f.array[i])
-      bhi[i] = hi
-      bfi[i] = fi
+      bh[i],bf[i] = _test_values(h.array[i],f.array[i])
     elseif h.touched[i]
-      hi = _test_value(h.array[i])
-      bhi[i] = hi
+      bh[i],bf[i] = _test_values(h.array[i],_fi_ref)
     elseif f.touched[i]
-      fi = _test_value(f.array[i])
-      bfi[i] = fi
+      bh[i],bf[i] = _test_values(_hi_ref,f.array[i])
     end
   end
-  ArrayBlock(bhi,h.touched),ArrayBlock(bfi,f.touched)
+  ArrayBlock(bh,h.touched),ArrayBlock(bf,f.touched)
 end
 
 function _test_values(h::ArrayBlock,f)
@@ -2436,24 +2356,20 @@ function _test_item_values(h::ArrayBlock,f::ArrayBlock)
   _test_values(testitem(h),testitem(f))
 end
 
-function block_param_length(a::ArrayBlock)
-  plength = param_length(testitem(a))
-  for i in eachindex(a.array)
-    if a.touched[i]
-      @check param_length(a.array[i]) == plength
-    end
-  end
-  return plength 
+function _param_zero_like(a,plength::Int)
+  testvalue(a)
 end
 
-function block_lazy_parameterise(a::ArrayBlock{A,N},plength::Integer) where {A,N}
-  array = Array{<:ParamBlock{A},N}(undef,size(a.array))
-  for i in eachindex(a.array)
-    if a.touched[i]
-      array[i] = lazy_parameterise(a.array[i],plength)
-    end
-  end
-  ArrayBlock(array,a.touched)
+function _param_zero_like(a::ParamBlock,plength::Int)
+  @check param_length(a) == plength
+  a
+end
+
+function _param_zero_like(a::ArrayBlock{A,N},plength::Int) where {A,N}
+  inner_zero = _param_zero_like(testitem(a),plength)
+  array = Array{typeof(inner_zero),N}(undef,size(a.array))
+  touched = fill(false,size(a.array))
+  ArrayBlock(array,touched)
 end
 
 @inline function Arrays.block_offsets(x::GenericParamBlock,offset) 

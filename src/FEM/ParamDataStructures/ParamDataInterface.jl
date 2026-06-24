@@ -95,6 +95,15 @@ function parameterise(a::AbstractParamData,plength::Integer)
   return a
 end
 
+param_length(a::ArrayBlock{<:AbstractParamData}) = param_length(testitem(a))
+
+get_param_data(a::ArrayBlock{<:AbstractParamData}) = a
+
+function parameterise(a::ArrayBlock{<:AbstractParamData},plength::Integer)
+  @check param_length(a) == plength
+  return a
+end
+
 """
     struct ParamNumber{T<:Number,A<:AbstractVector{T}} <: AbstractParamData{T,1}
       data::A
