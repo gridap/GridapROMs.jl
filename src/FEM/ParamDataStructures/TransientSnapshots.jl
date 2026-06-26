@@ -161,12 +161,6 @@ end
 get_param_data(s::StoredParamData) = s.param_data
 get_initial_param_data(s::StoredParamData) = s.param_data0
 
-function select_param_data(s::StoredParamData,prange)
-  pd = select_param_data(s.param_data,prange)
-  pd0 = map(d0 -> select_param_data(d0,prange),s.param_data0)
-  StoredParamData(pd,pd0)
-end
-
 function select_param_data(
   s::StoredParamData,prange,trange;
   nparams=Int(param_length(s.param_data)/length(trange))
@@ -230,8 +224,21 @@ function Snapshots(
   BlockSnapshots(array,i.touched,stored_data)
 end
 
+num_times(s::TransientBlockSnapshots) = num_times(get_realisation(s))
 get_param_data(s::TransientBlockSnapshots) = get_param_data(s.param_data)
 get_initial_param_data(s::TransientBlockSnapshots) = get_initial_param_data(s.param_data)
+
+function select_snapshots(s::TransientBlockSnapshots{N},pindex) where N
+  prange = _format_index(pindex)
+  trange = 1:num_times(s)
+  array = Array{Any,N}(undef,size(s))
+  for i in eachindex(s.touched)
+    if s.touched[i]
+      array[i] = select_snapshots(s[i],pindex)
+    end
+  end
+  return BlockSnapshots(array,s.touched,select_param_data(s.param_data,prange,trange))
+end
 
 function select_times(s::TransientBlockSnapshots{N},tindex) where N
   array = Array{Any,N}(undef,size(s))

@@ -36,20 +36,12 @@ struct GenericParamBlock{A} <: ParamBlock{A}
   data::Vector{A}
 end
 
-function Base.getindex(b::GenericParamBlock{A},i...) where A
-  iblock = first(i)
-  if all(i.==iblock)
-    b.data[iblock]
-  else
-    testvalue(A)
-  end
+function Base.getindex(b::GenericParamBlock{A},i::Integer) where A
+  b.data[i]
 end
 
-function Base.setindex!(b::GenericParamBlock{A},v,i...) where A
-  iblock = first(i)
-  if all(i.==iblock)
-    b.data[iblock] = v
-  end
+function Base.setindex!(b::GenericParamBlock{A},v,i::Integer) where A
+  b.data[i] = v 
 end
 
 get_param_data(b::GenericParamBlock) = b.data
@@ -178,20 +170,14 @@ function TrivialParamBlock(data::Any)
   TrivialParamBlock(data,plength)
 end
 
-function Base.getindex(b::TrivialParamBlock{A},i...) where A
-  iblock = first(i)
-  if all(i.==iblock)
-    b.data
-  else
-    testvalue(A)
-  end
+function Base.getindex(b::TrivialParamBlock{A},i::Integer) where A
+  @assert 1 <= i <= b.plength
+  b.data
 end
 
-function Base.setindex!(b::TrivialParamBlock{A},v,i...) where A
-  iblock = first(i)
-  if all(i.==iblock)
-    copyto!(b.data,v)
-  end
+function Base.setindex!(b::TrivialParamBlock{A},v,i::Integer) where A
+  @assert 1 <= i <= b.plength
+  copyto!(b.data,v)
 end
 
 get_param_data(b::TrivialParamBlock) = Fill(b.data,b.plength)
@@ -1992,10 +1978,11 @@ function Arrays.return_cache(k::Fields.ZeroBlockMap,h::ArrayBlock{<:ParamBlock},
   hi = testitem(h)
   fi = testitem(f)
   ci = return_cache(k,hi,fi)
-  array = Array{typeof(ci),N}(undef,size(f))
+  vi = evaluate!(ci,k,hi,fi)
+  array = Array{typeof(vi),N}(undef,size(f))
   for i in eachindex(array)
     if f.touched[i]
-      array[i] = return_cache(k,hi,f.array[i])
+      array[i] = evaluate!(ci,k,hi,f.array[i])
     end
   end
   ArrayBlock(array,f.touched)
@@ -2326,19 +2313,19 @@ end
 function _test_values(h::ArrayBlock{A,N},f::ArrayBlock{B,N}) where {A,B,N}
   hi = testitem(h)
   fi = testitem(f)
-  pl = find_param_length(hi,fi)
-  _hi_ref = _param_zero_like(hi,pl)
-  _fi_ref = _param_zero_like(fi,pl)
-  _hi_tv,_fi_tv = _test_values(_hi_ref,_fi_ref)
-  bh = Array{typeof(_hi_tv),N}(undef,size(h.array))
-  bf = Array{typeof(_fi_tv),N}(undef,size(f.array))
+  plength = find_param_length(hi,fi)
+  _hi = _param_zero_like(hi,plength)
+  _fi = _param_zero_like(fi,plength)
+  _htv,_ftv = _test_values(_hi,_fi)
+  bh = Array{typeof(_htv),N}(undef,size(h.array))
+  bf = Array{typeof(_ftv),N}(undef,size(f.array))
   for i in eachindex(h.array)
     if h.touched[i] && f.touched[i]
       bh[i],bf[i] = _test_values(h.array[i],f.array[i])
     elseif h.touched[i]
-      bh[i],bf[i] = _test_values(h.array[i],_fi_ref)
+      bh[i],bf[i] = _test_values(h.array[i],_fi)
     elseif f.touched[i]
-      bh[i],bf[i] = _test_values(_hi_ref,f.array[i])
+      bh[i],bf[i] = _test_values(_hi,f.array[i])
     end
   end
   ArrayBlock(bh,h.touched),ArrayBlock(bf,f.touched)

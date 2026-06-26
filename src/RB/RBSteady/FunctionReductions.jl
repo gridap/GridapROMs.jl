@@ -256,6 +256,7 @@ function _reduce_cell_field(
   degree=2*order
   ) where T
   
+  trian = get_triangulation(cf)
   reffe = ReferenceFE(lagrangian,Float64,order)
   qspace = QuadratureFESpace(trian,reffe;degree,vector_type=Vector{T})
   pqspace = parameterise(qspace,plength)
