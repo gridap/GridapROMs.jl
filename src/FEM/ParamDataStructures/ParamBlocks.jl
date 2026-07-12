@@ -932,32 +932,32 @@ function Arrays.evaluate!(cache,k::Broadcasting{typeof(*)},f::Number,g::TrivialP
   r
 end
 
-function Arrays.return_value(k::Broadcasting{typeof(*)},f::Number,g::GenericParamBlock)
+function Arrays.return_value(k::Broadcasting{typeof(*)},f::Number,g::ParamBlock)
   gi = testitem(g)
   hi = return_value(k,f,gi)
-  data = Vector{typeof(hi)}(undef,length(g.data))
-  for i in eachindex(g.data)
-    data[i] = return_value(k,f,g.data[i])
+  data = Vector{typeof(hi)}(undef,param_length(g))
+  for i in param_eachindex(g)
+    data[i] = return_value(k,f,param_getindex(g,i))
   end
   GenericParamBlock(data)
 end
 
-function Arrays.return_cache(k::Broadcasting{typeof(*)},f::Number,g::GenericParamBlock)
+function Arrays.return_cache(k::Broadcasting{typeof(*)},f::Number,g::ParamBlock)
   gi = testitem(g)
   ci = return_cache(k,f,gi)
   hi = evaluate!(ci,k,f,gi)
-  data = Vector{typeof(hi)}(undef,length(g.data))
-  c = Vector{typeof(ci)}(undef,length(g.data))
-  for i in eachindex(g.data)
-    c[i] = return_cache(k,f,g.data[i])
+  data = Vector{typeof(hi)}(undef,param_length(g))
+  c = Vector{typeof(ci)}(undef,param_length(g))
+  for i in param_eachindex(g)
+    c[i] = return_cache(k,f,param_getindex(g,i))
   end
   GenericParamBlock(data),c
 end
 
-function Arrays.evaluate!(cache,k::Broadcasting{typeof(*)},f::Number,g::GenericParamBlock)
+function Arrays.evaluate!(cache,k::Broadcasting{typeof(*)},f::Number,g::ParamBlock)
   r,c = cache
-  for i in eachindex(g.data)
-    r.data[i] = evaluate!(c[i],k,f,g.data[i])
+  for i in param_eachindex(g)
+    r.data[i] = evaluate!(c[i],k,f,param_getindex(g,i))
   end
   r
 end
@@ -1202,22 +1202,22 @@ end
 
 for T in (:Number,:AbstractArray)
   @eval begin
-    function Base.:*(a::$T,b::GenericParamBlock)
+    function Base.:*(a::$T,b::ParamBlock)
       bi = testitem(b)
       ci = a*bi
-      data = Vector{typeof(ci)}(undef,length(b.data))
-      for i in eachindex(b.data)
-        data[i] = a*b.data[i]
+      data = Vector{typeof(ci)}(undef,param_length(b))
+      for i in param_eachindex(b)
+        data[i] = a*param_getindex(b,i)
       end
       GenericParamBlock(data)
     end
 
-    function Base.:*(a::GenericParamBlock,b::$T)
+    function Base.:*(a::ParamBlock,b::$T)
       ai = testitem(a)
       ci = ai*b
-      data = Vector{typeof(ci)}(undef,length(a.data))
-      for i in eachindex(a.data)
-        data[i] = a.data[i]*b
+      data = Vector{typeof(ci)}(undef,param_length(a))
+      for i in param_eachindex(a)
+        data[i] = param_getindex(a,i)*b
       end
       GenericParamBlock(data)
     end
@@ -1259,9 +1259,9 @@ function Base.:*(a::ParamBlock,b::ParamBlock)
   GenericParamBlock(data)
 end
 
-function LinearAlgebra.rmul!(a::GenericParamBlock,β)
-  for i in eachindex(a.data)
-    rmul!(a.data[i],β)
+function LinearAlgebra.rmul!(a::ParamBlock,β)
+  for i in param_eachindex(a)
+    rmul!(param_getindex(a,i),β)
   end
 end
 
@@ -1272,7 +1272,7 @@ function LinearAlgebra.mul!(
   α::Number,β::Number
   )
 
-  for i in eachindex(c.data)
+  for i in param_eachindex(c)
     mul!(param_getindex(c,i),param_getindex(a,i),b,α,β)
   end
 end
@@ -1284,7 +1284,7 @@ function LinearAlgebra.mul!(
   α::Number,β::Number
   )
 
-  for i in eachindex(c.data)
+  for i in param_eachindex(c)
     mul!(param_getindex(c,i),a,param_getindex(b,i),α,β)
   end
 end
@@ -1296,43 +1296,43 @@ function LinearAlgebra.mul!(
   α::Number,β::Number
   )
 
-  for i in eachindex(c.data)
+  for i in param_eachindex(c)
     mul!(param_getindex(c,i),param_getindex(a,i),param_getindex(b,i),α,β)
   end
 end
 
 function Arrays.setsize_op!(::typeof(copy),a::AbstractArray,b::ParamBlock)
-  for i in eachindex(b.data)
+  for i in param_eachindex(b)
     Arrays.setsize_op!(copy,a,param_getindex(b,i))
   end
 end
 
 function Arrays.setsize_op!(::typeof(copy),a::ParamBlock,b::AbstractArray)
-  for i in eachindex(a.data)
+  for i in param_eachindex(a)
     Arrays.setsize_op!(copy,param_getindex(a,i),b)
   end
 end
 
 function Arrays.setsize_op!(::typeof(copy),a::ParamBlock,b::ParamBlock)
-  for i in eachindex(a.data)
+  for i in param_eachindex(a)
     Arrays.setsize_op!(copy,param_getindex(a,i),param_getindex(b,i))
   end
 end
 
 function Arrays.setsize_op!(::typeof(*),c::ParamBlock,a::AbstractArray,b::ParamBlock)
-  for i in eachindex(c.data)
+  for i in param_eachindex(c)
     Arrays.setsize_op!(*,param_getindex(c,i),a,param_getindex(b,i))
   end
 end
 
 function Arrays.setsize_op!(::typeof(*),c::ParamBlock,a::ParamBlock,b::AbstractArray)
-  for i in eachindex(c.data)
+  for i in param_eachindex(c)
     Arrays.setsize_op!(*,param_getindex(c,i),param_getindex(a,i),b)
   end
 end
 
 function Arrays.setsize_op!(::typeof(*),c::ParamBlock,a::ParamBlock,b::ParamBlock)
-  for i in eachindex(c.data)
+  for i in param_eachindex(c)
     Arrays.setsize_op!(*,param_getindex(c,i),param_getindex(a,i),param_getindex(b,i))
   end
 end
@@ -1432,17 +1432,17 @@ end
 
 for f in (:(ForwardDiff.gradient),:(ForwardDiff.jacobian))
   @eval begin
-    function Arrays.return_cache(k::Arrays.ConfigMap{typeof($f)},x::GenericParamBlock)
+    function Arrays.return_cache(k::Arrays.ConfigMap{typeof($f)},x::ParamBlock)
       xi = testitem(x)
       fi = return_cache(k,xi)
-      data = Vector{typeof(fi)}(undef,length(x.data))
-      for i in eachindex(x.data)
-        data[i] = return_cache(k,x.data[i])
+      data = Vector{typeof(fi)}(undef,param_length(x))
+      for i in param_eachindex(x)
+        data[i] = return_cache(k,param_getindex(x,i))
       end
       GenericParamBlock(data)
     end
 
-    function Arrays.return_cache(k::Arrays.ConfigMap{typeof($f)},x::VectorBlock{<:GenericParamBlock})
+    function Arrays.return_cache(k::Arrays.ConfigMap{typeof($f)},x::VectorBlock{<:ParamBlock})
       return BlockParamConfig($f,k.tag,x)
     end
   end
@@ -1450,7 +1450,7 @@ end
 
 for F in (:(ForwardDiff.GradientConfig),:(ForwardDiff.JacobianConfig))
   @eval begin
-    function Arrays.testitem(a::LazyArray{A,<:GenericParamBlock{<:T}} where A) where {Tag,V,N,D,T<:$F{Tag,V,N,D}}
+    function Arrays.testitem(a::LazyArray{A,<:ParamBlock{<:T}} where A) where {Tag,V,N,D,T<:$F{Tag,V,N,D}}
       if length(a) > 0
         first(a)::T
       else
@@ -1463,28 +1463,28 @@ for F in (:(ForwardDiff.GradientConfig),:(ForwardDiff.JacobianConfig))
       end::T
     end
 
-    function Arrays.return_value(k::DualizeMap,cfg::GenericParamBlock{<:$F},x::GenericParamBlock)
+    function Arrays.return_value(k::DualizeMap,cfg::ParamBlock{<:$F},x::ParamBlock)
       vi = return_value(k,testitem(cfg),testitem(x))
-      v = Vector{typeof(vi)}(undef,length(x.data))
+      v = Vector{typeof(vi)}(undef,param_length(x))
       fill!(v,vi)
       GenericParamBlock(v)
     end
   end
 end
 
-function Arrays.evaluate!(cache,k::DualizeMap,cfg::GenericParamBlock,x::GenericParamBlock)
-  for i in eachindex(x.data)
-    evaluate!(nothing,k,cfg.data[i],x.data[i])
+function Arrays.evaluate!(cache,k::DualizeMap,cfg::ParamBlock,x::ParamBlock)
+  for i in param_eachindex(x)
+    evaluate!(nothing,k,param_getindex(cfg,i),param_getindex(x,i))
   end
 end
 
-function Arrays.return_cache(k::Arrays.AutoDiffMap,cfg::GenericParamBlock,ydual::GenericParamBlock)
+function Arrays.return_cache(k::Arrays.AutoDiffMap,cfg::ParamBlock,ydual::ParamBlock)
   ci = return_cache(k,testitem(cfg),testitem(ydual))
   ri = evaluate!(ci,k,testitem(cfg),testitem(ydual))
-  c = Vector{typeof(ci)}(undef,length(ydual.data))
-  data = Vector{typeof(ri)}(undef,length(ydual.data))
-  for i in eachindex(ydual.data)
-    c[i] = return_cache(k,cfg.data[i],ydual.data[i])
+  c = Vector{typeof(ci)}(undef,param_length(ydual))
+  data = Vector{typeof(ri)}(undef,param_length(ydual))
+  for i in param_eachindex(ydual)
+    c[i] = return_cache(k,param_getindex(cfg,i),param_getindex(ydual,i))
   end
   GenericParamBlock(data),c
 end
@@ -1492,13 +1492,13 @@ end
 function Arrays.evaluate!(
   cache,
   k::Arrays.AutoDiffMap,
-  cfg::GenericParamBlock,
-  ydual::GenericParamBlock
+  cfg::ParamBlock,
+  ydual::ParamBlock
   )
 
   r,c = cache
-  for i in eachindex(ydual.data)
-    r.data[i] = evaluate!(c[i],k,cfg.data[i],ydual.data[i])
+  for i in param_eachindex(ydual)
+    r.data[i] = evaluate!(c[i],k,param_getindex(cfg,i),param_getindex(ydual,i))
   end
   r
 end
@@ -1511,7 +1511,7 @@ struct BlockParamConfig{C,T,V,N,D,O} <: ForwardDiff.AbstractConfig{N}
   function BlockParamConfig(
     ::C,
     f::F,
-    x::VectorBlock{<:GenericParamBlock{<:AbstractArray{V}}},
+    x::VectorBlock{<:ParamBlock{<:AbstractArray{V}}},
     ::T = ForwardDiff.Tag(f,V)
     ) where {C,F,V,T}
 
@@ -1526,7 +1526,7 @@ struct BlockParamConfig{C,T,V,N,D,O} <: ForwardDiff.AbstractConfig{N}
   function BlockParamConfig(
     ::C,
     f::F,
-    x::VectorBlock{<:VectorBlock{<:GenericParamBlock{<:AbstractArray{V}}}},
+    x::VectorBlock{<:VectorBlock{<:ParamBlock{<:AbstractArray{V}}}},
     ::T = ForwardDiff.Tag(f,V)
     ) where {C,F,V,T}
 
@@ -1602,7 +1602,7 @@ function Arrays.evaluate!(cache,k::CellData.ZeroVectorMap,a::TrivialParamBlock)
   r
 end
 
-function Arrays.return_cache(k::CellData.ZeroVectorMap,a::GenericParamBlock)
+function Arrays.return_cache(k::CellData.ZeroVectorMap,a::ParamBlock)
   ai = testitem(a)
   ci = return_cache(k,ai)
   vi = evaluate!(ci,k,ai)
@@ -1614,10 +1614,10 @@ function Arrays.return_cache(k::CellData.ZeroVectorMap,a::GenericParamBlock)
   GenericParamBlock(data),c
 end
 
-function Arrays.evaluate!(cache,k::CellData.ZeroVectorMap,a::GenericParamBlock)
+function Arrays.evaluate!(cache,k::CellData.ZeroVectorMap,a::ParamBlock)
   r,c = cache
-  for i in eachindex(ydual.data)
-    r.data[i] = evaluate!(c[i],k,a.data[i])
+  for i in param_eachindex(a)
+    r.data[i] = evaluate!(c[i],k,param_getindex(a,i))
   end
   r
 end
@@ -1634,9 +1634,9 @@ function Geometry._setempty_compress!(a::TrivialParamBlock)
   Geometry._setempty_compress!(a.data)
 end
 
-function Geometry._setempty_compress!(a::GenericParamBlock)
-  for i in eachindex(a.data)
-    Geometry._setempty_compress!(a.data[i])
+function Geometry._setempty_compress!(a::ParamBlock)
+  for i in param_eachindex(a)
+    Geometry._setempty_compress!(param_getindex(a,i))
   end
 end
 
@@ -1681,10 +1681,10 @@ function Geometry._similar_empty(val::TrivialParamBlock)
   TrivialParamBlock(Geometry._similar_empty(val.data),val.plength)
 end
 
-function Geometry._similar_empty(val::GenericParamBlock)
+function Geometry._similar_empty(val::ParamBlock)
   a = deepcopy(val)
   for i in param_eachindex(a)
-    a.data[i] = Geometry._similar_empty(val.data[i])
+    a.data[i] = Geometry._similar_empty(param_getindex(val,i))
   end
   a
 end
@@ -1710,22 +1710,22 @@ end
 
 # reference FEs
 
-function Arrays.return_cache(b::LagrangianDofBasis,f::GenericParamBlock)
+function Arrays.return_cache(b::LagrangianDofBasis,f::ParamBlock)
   fi = testitem(f)
   ci = return_cache(b,fi)
   ri = evaluate!(ci,b,fi)
-  c = Vector{typeof(ci)}(undef,length(f.data))
-  data = Vector{typeof(ri)}(undef,length(f.data))
-  for i in eachindex(f.data)
-    c[i] = return_cache(b,f.data[i])
+  c = Vector{typeof(ci)}(undef,param_length(f))
+  data = Vector{typeof(ri)}(undef,param_length(f))
+  for i in param_eachindex(f)
+    c[i] = return_cache(b,param_getindex(f,i))
   end
   GenericParamBlock(data),c
 end
 
-function Arrays.evaluate!(cache,b::LagrangianDofBasis,f::GenericParamBlock)
+function Arrays.evaluate!(cache,b::LagrangianDofBasis,f::ParamBlock)
   r,c = cache
-  for i in eachindex(f.data)
-    r.data[i] = evaluate!(c[i],b,f.data[i])
+  for i in param_eachindex(f)
+    r.data[i] = evaluate!(c[i],b,param_getindex(f,i))
   end
   r
 end
@@ -2359,20 +2359,32 @@ function _param_zero_like(a::ArrayBlock{A,N},plength::Int) where {A,N}
   ArrayBlock(array,touched)
 end
 
-@inline function Arrays.block_offsets(x::GenericParamBlock,offset) 
+@inline function Arrays.block_offsets(x::ParamBlock,offset) 
   Arrays.block_offsets(testitem(x),offset)
 end
 
 function Arrays.seed_block!(
-  duals::GenericParamBlock,
-  x::GenericParamBlock, 
+  duals::TrivialParamBlock,
+  x::TrivialParamBlock, 
+  seeds::NTuple,
+  offset
+  ) 
+
+  @check param_length(duals) == param_length(x)
+  Arrays.seed_block!(duals.data,x.data,seeds,offset)
+  return duals
+end
+
+function Arrays.seed_block!(
+  duals::ParamBlock,
+  x::ParamBlock, 
   seeds::NTuple,
   offset
   ) 
 
   @check param_length(duals) == param_length(x)
   for i in param_eachindex(duals)
-    Arrays.seed_block!(duals.data[i],x.data[i],seeds,offset)
+    Arrays.seed_block!(param_getindex(duals,i),param_getindex(x,i),seeds,offset)
   end
   return duals
 end
@@ -2381,48 +2393,64 @@ for f in (:(Arrays.extract_gradient_block!),:(Arrays.extract_jacobian_block!))
   @eval begin
     function $f(
       ::Type{T}, 
-      result::GenericParamBlock, 
-      dual::GenericParamBlock, 
+      result::TrivialParamBlock, 
+      dual::TrivialParamBlock, 
+      offset
+      ) where T
+
+      @check param_length(dual) == param_length(result)
+      $f(T,result.data,dual.data,offset)
+      return result
+    end
+
+    function $f(
+      ::Type{T}, 
+      result::ParamBlock, 
+      dual::ParamBlock, 
       offset
       ) where T
 
       @check param_length(dual) == param_length(result)
       for i in param_eachindex(dual)
-        $f(T,result.data[i],dual.data[i],offset)
+        $f(T,param_getindex(result,i),param_getindex(dual,i),offset)
       end
       return result
     end
   end
 end
 
-function Arrays._alloc_jacobian(ydual::GenericParamBlock,xdual::GenericParamBlock)
+function Arrays._alloc_jacobian(ydual::ParamBlock,xdual::ParamBlock)
   @check param_length(ydual) == param_length(xdual)
   ci = Arrays._alloc_jacobian(testitem(ydual),testitem(xdual))
   c = Vector{typeof(ci)}(undef,param_length(ydual))
   for i in param_eachindex(ydual)
-    c[i] = Arrays._alloc_jacobian(ydual.data[i],xdual.data[i])
+    c[i] = Arrays._alloc_jacobian(param_getindex(ydual,i),param_getindex(xdual,i))
   end
   GenericParamBlock(c)
 end
 
-function Arrays._setsize!(result::VectorBlock{<:GenericParamBlock},duals::VectorBlock{<:GenericParamBlock})
+function Arrays._setsize!(result::VectorBlock{<:ParamBlock},duals::VectorBlock{<:ParamBlock})
   ni = size(result.array,1)
   for i in 1:ni
     if result.touched[i]
       for k in param_eachindex(duals[i])
-        setsize!(result[i].data[k],(length(duals[i].data[k]),))
+        setsize!(param_getindex(result[i],k),(length(param_getindex(duals[i],k)),))
       end
     end
   end
 end
 
-function Arrays._setsize!(result::MatrixBlock{<:GenericParamBlock},ydual::VectorBlock{<:GenericParamBlock})
+function Arrays._setsize!(result::MatrixBlock{<:ParamBlock},ydual::VectorBlock{<:ParamBlock})
   ni,nj = size(result)
   for i in 1:ni
     for j in 1:nj
       if result.touched[i,j]
         for k in param_eachindex(ydual[i])
-          setsize!(result[i,j].data[k],(length(ydual[i].data[k]),length(ydual[j].data[k])))
+          setsize!(
+            param_getindex(result[i,j],k),
+            (length(param_getindex(ydual[i],k)),
+            length(param_getindex(ydual[j],k)))
+          )
         end
       end
     end
