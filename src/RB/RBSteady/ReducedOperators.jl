@@ -509,3 +509,16 @@ function get_local(op::LinearNonlinearRBOperator,μ::AbstractVector)
   opμ_nlinear = get_local(get_nonlinear_operator(op),μ)
   LinearNonlinearRBOperator(opμ_linear,opμ_nlinear)
 end
+
+# snapshots 
+
+function solution_snapshots(
+  solver::RBSolver,
+  op::RBOperator,
+  r::Realisation
+  )
+
+  x̂, = solve(solver,op,r)
+  i = get_dof_map(op)
+  Snapshots(_fe_data(x̂),i,r)
+end

@@ -75,6 +75,11 @@ struct TransientSnapshotsWithIC{T,N,I,R,A,B<:TransientSnapshots{T,N,I,R}} <: Tra
   snaps::B
 end
 
+function Snapshots(s::AbstractParamArray,s0::Tuple,r::AbstractRealisation)
+  i = VectorDofMap(innerlength(s))
+  Snapshots(s,s0,i,r)
+end
+
 function Snapshots(
   s::AbstractParamArray,
   s0::Tuple{Vararg{AbstractParamVector}},

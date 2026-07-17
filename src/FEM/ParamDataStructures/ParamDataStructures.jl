@@ -108,6 +108,9 @@ export GenericParamBlock
 export TrivialParamBlock
 include("ParamBlocks.jl")
 
+export VariableParamBlock
+include("VariableParamBlocks.jl")
+
 export AbstractParamArray
 export AbstractParamVector
 export AbstractParamMatrix

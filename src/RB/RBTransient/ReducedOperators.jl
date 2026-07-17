@@ -296,6 +296,20 @@ function ParamODEs.add_initial_conditions(
   add_initial_conditions(solver,get_nonlinear_operator(op),args...)
 end
 
+# snapshots 
+
+function RBSteady.solution_snapshots(
+  solver::RBSolver,
+  op::TransientRBOperator,
+  r::TransientRealisation,
+  args...
+  )
+
+  x̂, = solve(solver,op,r,args...)
+  i = get_dof_map(op)
+  Snapshots(_fe_data(x̂),i,r)
+end
+
 # utils
 
 function _reduce_vector(u::ConsecutiveParamVector,hr_ids::AbstractVector)

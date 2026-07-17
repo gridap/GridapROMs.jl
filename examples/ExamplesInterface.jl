@@ -241,72 +241,59 @@ end
 
 function _plot_solutions(dir,trian,uh,ûh,r::Realisation;field=1)
   T = eltype2(get_free_dof_values(uh))
-  nparams = num_params(r)
-  ptrian = num_point_dims(trian) < 3 ? trian : BoundaryTriangulation(get_background_model(trian))
-  for ip in 1:nparams
-    uhip = param_getindex(uh,ip)
-    ûhip = param_getindex(ûh,ip)
-    ehip = uhip - ûhip
-    uplot = T <: Complex ? abs2(uhip) : uhip
-    ûplot = T <: Complex ? abs2(ûhip) : ûhip
-    eplot = T <: Complex ? abs2(ehip) : ehip
-    fig = Makie.Figure()
-    Makie.plot(fig[1,1],ptrian,uplot)
-    Makie.plot(fig[1,2],ptrian,ûplot)
-    Makie.plot(fig[1,3],ptrian,eplot)
-    dir_param = joinpath(dir,"param$ip")
-    create_dir(dir_param)
-    Makie.save(joinpath(dir_param,"field_$(field).png"),fig)
+  fields = Pair{String}[]
+  for ip in 1:num_params(r)
+    uhip  = param_getindex(uh,ip)
+    ûhip  = param_getindex(ûh,ip)
+    ehip  = uhip - ûhip
+    if T <: Complex
+      push!(fields,"uh_param_$ip"  => abs2(uhip))
+      push!(fields,"ûh_param_$ip" => abs2(ûhip))
+      push!(fields,"eh_param_$ip"  => abs2(ehip))
+    else
+      push!(fields,"uh_param_$ip"  => uhip)
+      push!(fields,"ûh_param_$ip" => ûhip)
+      push!(fields,"eh_param_$ip"  => ehip)
+    end
   end
+  writevtk(trian,dir*"_field_$field",cellfields=fields)
 end
 
 function _plot_solutions(dir,trian,uh,ûh,r::TransientRealisation;field=1)
   T = eltype2(get_free_dof_values(uh))
+  fields = Pair{String}[]
   np = num_params(r)
-  nt = num_times(r)
-  ptrian = num_point_dims(trian) < 3 ? trian : BoundaryTriangulation(get_background_model(trian))
-  for ip in 1:np
-    dir_param = joinpath(dir,"param$ip")
-    create_dir(dir_param)
-    ufields = [param_getindex(uh,(it-1)*np+ip) for it in 1:nt]
-    ûfields = [param_getindex(ûh,(it-1)*np+ip) for it in 1:nt]
-    efields = [ufields[it]-ûfields[it] for it in 1:nt]
+  for it in 1:num_times(r), ip in 1:num_params(r)
+    uhipt  = param_getindex(uh,(it-1)*np+ip)
+    ûhipt  = param_getindex(ûh,(it-1)*np+ip)
+    ehipt  = uhipt - ûhipt
     if T <: Complex
-      ufields = abs2.(ufields)
-      ûfields = abs2.(ûfields)
-      efields = abs2.(efields)
-    end
-    it_obs = Makie.Observable(1)
-    uplot = Makie.lift(i->ufields[i],it_obs)
-    ûplot = Makie.lift(i->ûfields[i],it_obs)
-    eplot = Makie.lift(i->efields[i],it_obs)
-    fig = Makie.Figure()
-    Makie.plot(fig[1,1],ptrian,uplot)
-    Makie.plot(fig[1,2],ptrian,ûplot)
-    Makie.plot(fig[1,3],ptrian,eplot)
-    Makie.record(fig,joinpath(dir_param,"field_$(field).gif"),1:nt) do it
-      it_obs[] = it
+      push!(fields,"uh_param_$(ip)_$(it)"  => abs2(uhipt))
+      push!(fields,"ûh_param_$(ip)_$(it)" => abs2(ûhipt))
+      push!(fields,"eh_param_$(ip)_$(it)"  => abs2(ehipt))
+    else
+      push!(fields,"uh_param_$(ip)_$(it)"  => uhipt)
+      push!(fields,"ûh_param_$(ip)_$(it)" => ûhipt)
+      push!(fields,"eh_param_$(ip)_$(it)"  => ehipt)
     end
   end
+  writevtk(trian,dir*"_field_$field",cellfields=fields)
 end
 
 function plot_errors(dir,tolranks,perfs::AbstractVector{<:ROMPerformance})
   errs = map(get_error,perfs)
   n = length(first(errs))
   errvec = hcat(map(i -> getindex.(errs,i),1:n)...)
+  labvec = n==1 ? "Error" : hcat(["Error $i" for i in 1:n])
 
   file = joinpath(dir,"convergence.png")
-  fig = Makie.Figure()
-  ax = Makie.Axis(fig[1,1],xscale=log10,yscale=log10,xlabel="Tolerance",ylabel="Error",title="Average relative error")
-  Makie.lines!(ax,tolranks,tolranks,label="Tol.",linewidth=3)
-  
-  for i in 1:n
-    label = n==1 ? "Error" : "Error $i"
-    Makie.scatter!(ax,tolranks,errvec[:,i],label=label)
-  end
-  
-  Makie.axislegend(ax)
-  Makie.save(file,fig)
+  p = plot(tolranks,tolranks,lw=3,label="Tol.")
+  scatter!(tolranks,errvec,lw=3,label=labvec)
+  plot!(xscale=:log10,yscale=:log10)
+  xlabel!("Tolerance")
+  ylabel!("Error")
+  title!("Average relative error")
+  savefig(p,file)
 end
 
 # function run_offline(

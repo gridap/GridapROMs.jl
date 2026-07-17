@@ -315,18 +315,6 @@ end
 to_realisation(r::Realisation,μ) = Realisation([μ])
 to_param_array(r::Realisation,x) = param_cat(x)
 
-function solution_snapshots(
-  solver::RBSolver,
-  op::NonlinearOperator,
-  r::AbstractRealisation,
-  args...
-  )
-
-  x̂, = solve(solver,op,r,args...)
-  i = get_dof_map(op)
-  Snapshots(_fe_data(x̂),i,r)
-end
-
 # nonlinear solver
 
 function Algebra._solve_nr!(

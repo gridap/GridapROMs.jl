@@ -42,7 +42,12 @@ Subtypes:
 """
 abstract type Snapshots{T,N,I,R} <: AbstractSnapshots{T,N} end
 
-function Snapshots(s::AbstractArray,i::AbstractDofMap,r::AbstractRealisation)
+function Snapshots(s::AbstractParamArray,r::AbstractRealisation)
+  i = VectorDofMap(innerlength(s))
+  Snapshots(s,i,r)
+end
+
+function Snapshots(s::AbstractParamArray,i::AbstractDofMap,r::AbstractRealisation)
   @abstractmethod
 end
 

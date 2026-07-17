@@ -2,6 +2,10 @@ module ParamDataStructuresTests
 
 using Test
 using LinearAlgebra
+using Gridap
+using Gridap.Arrays
+using Gridap.Fields
+import Gridap.Fields: BroadcastingFieldOpMap
 using GridapROMs
 using GridapROMs.DofMaps
 using GridapROMs.ParamDataStructures
@@ -164,6 +168,291 @@ end
   # select a subset
   s2 = select_snapshots(s,1:2)
   @test num_params(s2) == 2
+end
+
+
+# ─── GenericParamBlock ────────────────────────────────────────────────────────
+
+@testset "GenericParamBlock basic interface" begin
+  n = 4
+  L = 3
+  vecs = [rand(n) for _ in 1:L]
+  b = GenericParamBlock(copy(vecs))
+
+  @test b isa GenericParamBlock
+  @test param_length(b) == L
+  for i in 1:L
+    @test param_getindex(b,i) == vecs[i]
+  end
+  @test testitem(b) == vecs[1]
+
+  b2 = copy(b)
+  @test b2 ≈ b
+  @test b2 == b
+  @test b2 !== b
+
+  # setindex! mutates in place
+  new_v = rand(n)
+  param_setindex!(b2,new_v,1)
+  @test param_getindex(b2,1) == new_v
+  @test b2 != b   # b is unchanged
+
+  # copyto!
+  b3 = copy(b)
+  src = GenericParamBlock([rand(n) for _ in 1:L])
+  copyto!(b3,src)
+  @test b3 ≈ src
+end
+
+@testset "GenericParamBlock BroadcastingFieldOpMap" begin
+  n = 5
+  L = 3
+  va = [rand(n) for _ in 1:L]
+  vb = [rand(n) for _ in 1:L]
+  a = GenericParamBlock(copy(va))
+  b = GenericParamBlock(copy(vb))
+
+  # (PB, PB) element-wise
+  k = BroadcastingFieldOpMap(+)
+  cache = return_cache(k,a,b)
+  c = evaluate!(cache,k,a,b)
+  @test c isa GenericParamBlock
+  @test param_length(c) == L
+  for i in 1:L
+    @test param_getindex(c,i) ≈ va[i] .+ vb[i]
+  end
+
+  # (PB, AbstractArray) broadcast with fixed array
+  arr = rand(n)
+  cache2 = return_cache(k,a,arr)
+  d = evaluate!(cache2,k,a,arr)
+  @test d isa GenericParamBlock
+  for i in 1:L
+    @test param_getindex(d,i) ≈ va[i] .+ arr
+  end
+end
+
+@testset "GenericParamBlock arithmetic" begin
+  n = 4
+  L = 3
+  vecs = [rand(n) for _ in 1:L]
+  a = GenericParamBlock(copy(vecs))
+
+  # scalar multiplication
+  c = 3.0 * a
+  @test c isa GenericParamBlock
+  for i in 1:L
+    @test param_getindex(c,i) ≈ 3.0 .* vecs[i]
+  end
+
+  # matrix-vector product: mul!(c, A, b, α, β)
+  m = 6
+  A = rand(m,n)
+  c_out = GenericParamBlock([zeros(m) for _ in 1:L])
+  mul!(c_out,A,a,1.0,0.0)
+  for i in 1:L
+    @test param_getindex(c_out,i) ≈ A * vecs[i]
+  end
+
+  # rmul!
+  expected = [2.0 .* v for v in vecs]
+  b2 = GenericParamBlock([copy(v) for v in vecs])
+  rmul!(b2,2.0)
+  for i in 1:L
+    @test param_getindex(b2,i) ≈ expected[i]
+  end
+end
+
+# ─── TrivialParamBlock ────────────────────────────────────────────────────────
+
+@testset "TrivialParamBlock basic interface" begin
+  v = rand(5)
+  L = 4
+  b = TrivialParamBlock(copy(v),L)
+
+  @test b isa TrivialParamBlock
+  @test param_length(b) == L
+  for i in 1:L
+    @test param_getindex(b,i) == v   # same value every time
+  end
+  @test testitem(b) == v
+
+  b2 = copy(b)
+  @test b2 ≈ b
+  @test b2 == b
+end
+
+# ─── VariableParamBlock (N=1, vector) ────────────────────────────────────────
+
+@testset "VariableParamBlock{A,1} basic interface" begin
+  n = 4
+  La = 3
+  vecs = [rand(n) for _ in 1:La]
+  b = VariableParamBlock(copy(vecs))
+
+  @test b isa VariableParamBlock
+  @test ndims(b.data) == 1
+  @test param_length(b) == La
+  for i in 1:La
+    @test param_getindex(b,i) == vecs[i]
+  end
+  @test testitem(b) == vecs[1]
+
+  b2 = copy(b)
+  @test b2 ≈ b
+  @test b2 == b
+  @test b2 !== b
+
+  # setindex!
+  new_v = rand(n)
+  param_setindex!(b2,new_v,1)
+  @test param_getindex(b2,1) == new_v
+  @test b2 != b
+
+  # similar preserves N=1
+  s = similar(b)
+  @test ndims(s.data) == 1
+  @test param_length(s) == La
+end
+
+@testset "VariableParamBlock{A,1} BroadcastingFieldOpMap (element-wise)" begin
+  n = 5
+  L = 3
+  va = [rand(n) for _ in 1:L]
+  vb = [rand(n) for _ in 1:L]
+  a = VariableParamBlock(copy(va))
+  b = VariableParamBlock(copy(vb))
+
+  # (VPB, VPB) → VPB{R,1}
+  k = BroadcastingFieldOpMap(+)
+  cache = return_cache(k,a,b)
+  c = evaluate!(cache,k,a,b)
+  @test c isa VariableParamBlock
+  @test ndims(c.data) == 1
+  @test param_length(c) == L
+  for i in 1:L
+    @test param_getindex(c,i) ≈ va[i] .+ vb[i]
+  end
+
+  # (VPB, AbstractArray) → VPB{R,1}
+  arr = rand(n)
+  cache2 = return_cache(k,a,arr)
+  d = evaluate!(cache2,k,a,arr)
+  @test d isa VariableParamBlock
+  @test ndims(d.data) == 1
+  for i in 1:L
+    @test param_getindex(d,i) ≈ va[i] .+ arr
+  end
+end
+
+@testset "VariableParamBlock{A,1} arithmetic" begin
+  n = 4
+  La = 3
+  vecs = [rand(n) for _ in 1:La]
+  a = VariableParamBlock(copy(vecs))
+
+  # scalar multiplication preserves N=1
+  c = 2.0 * a
+  @test c isa VariableParamBlock
+  @test ndims(c.data) == 1
+  for i in 1:La
+    @test param_getindex(c,i) ≈ 2.0 .* vecs[i]
+  end
+
+  # (VPB{Matrix}, VPB{Vector}) element-wise * (matrix-vector product per entry)
+  m = 5
+  mats = [rand(m,n) for _ in 1:La]
+  am = VariableParamBlock(copy(mats))
+  bv = VariableParamBlock([copy(v) for v in vecs])
+  d = am * bv
+  @test d isa VariableParamBlock
+  @test ndims(d.data) == 1
+  for i in 1:La
+    @test param_getindex(d,i) ≈ mats[i] * vecs[i]
+  end
+
+  # mul! (AbstractArray, VPB) → VPB{R,1}
+  m = 6
+  A = rand(m,n)
+  c_out = VariableParamBlock([zeros(m) for _ in 1:La])
+  mul!(c_out,A,a,1.0,0.0)
+  for i in 1:La
+    @test param_getindex(c_out,i) ≈ A * vecs[i]
+  end
+end
+
+# ─── VariableParamBlock tensor product (VPB + ParamBlock → N=2) ───────────────
+
+@testset "VariableParamBlock tensor product (VPB, GenericParamBlock → N=2)" begin
+  n = 4
+  La = 3
+  Lb = 2
+  va = [rand(n) for _ in 1:La]
+  vb = [rand(n) for _ in 1:Lb]
+  a = VariableParamBlock(copy(va))
+  b = GenericParamBlock(copy(vb))
+
+  # BroadcastingFieldOpMap (VPB, PB) → VPB{R,2}
+  k = BroadcastingFieldOpMap(+)
+  cache = return_cache(k,a,b)
+  c = evaluate!(cache,k,a,b)
+  @test c isa VariableParamBlock
+  @test ndims(c.data) == 2
+  @test size(c.data) == (La,Lb)
+  @test param_length(c) == La * Lb
+  for j in 1:Lb, i in 1:La
+    @test c.data[i,j] ≈ va[i] .+ vb[j]
+  end
+
+  # BroadcastingFieldOpMap (PB, VPB) → VPB{R,2}
+  cache2 = return_cache(k,b,a)
+  d = evaluate!(cache2,k,b,a)
+  @test d isa VariableParamBlock
+  @test ndims(d.data) == 2
+  @test size(d.data) == (Lb,La)
+  for j in 1:La, i in 1:Lb
+    @test d.data[i,j] ≈ vb[i] .+ va[j]
+  end
+
+  # * (VPB, PB) with matrix elements → VPB{R,2}
+  m = 3
+  mats_a = [rand(m,n) for _ in 1:La]
+  vecs_b = [rand(n) for _ in 1:Lb]
+  ma = VariableParamBlock(copy(mats_a))
+  pb = GenericParamBlock(copy(vecs_b))
+  r = ma * pb
+  @test r isa VariableParamBlock
+  @test ndims(r.data) == 2
+  @test size(r.data) == (La,Lb)
+  for j in 1:Lb, i in 1:La
+    @test r.data[i,j] ≈ mats_a[i] * vecs_b[j]
+  end
+end
+
+@testset "VariableParamBlock unary BroadcastingFieldOpMap and cache reuse" begin
+  n = 4
+  L = 3
+  vecs = [rand(n) for _ in 1:L]
+  b = VariableParamBlock(copy(vecs))
+
+  # unary BroadcastingFieldOpMap (e.g., -) preserves N and shape
+  k = BroadcastingFieldOpMap(-)
+  cache = return_cache(k,b)
+  c = evaluate!(cache,k,b)
+  @test c isa VariableParamBlock
+  @test ndims(c.data) == 1
+  for i in 1:L
+    @test param_getindex(c,i) ≈ -vecs[i]
+  end
+
+  # cache reuse on a fresh block of the same shape
+  vecs2 = [rand(n) for _ in 1:L]
+  b2 = VariableParamBlock(copy(vecs2))
+  cache2 = return_cache(k,b2)
+  c2 = evaluate!(cache2,k,b2)
+  for i in 1:L
+    @test param_getindex(c2,i) ≈ -vecs2[i]
+  end
 end
 
 end # module

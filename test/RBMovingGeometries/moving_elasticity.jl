@@ -108,17 +108,18 @@ function def_fe_operator(μ)
   C = (j->j⋅j')∘(∇(ϕh))
   invJt = inv∘∇(ϕh)
   ∇_I(a) = dot∘(invJt,∇(a))
+  ε_I(a) = Operation(symmetric_part)(∇_I(a))
   _n_Γ = push_normal∘(invJt,n_Γ)
   dJΓ = dJΓn∘(dJ,C,_n_Γ)
   ∫_Ω(a) = ∫(a*dJ)
   ∫_Γ(a) = ∫(a*dJΓ)
 
   a(μ,u,v,dΩ,dΓ) = (
-    ∫_Ω( ε(v)⊙(σ∘ε(u)) )*dΩ +
-    ∫_Γ( (γd/hd)*v⋅u - v⋅(_n_Γ⋅(σ∘ε(u))) - (_n_Γ⋅(σ∘ε(v)))⋅u )dΓ
+    ∫_Ω( ε_I(v)⊙(σ∘ε_I(u)) )*dΩ +
+    ∫_Γ( (γd/hd)*v⋅u - v⋅(_n_Γ⋅(σ∘ε_I(u))) - (_n_Γ⋅(σ∘ε_I(v)))⋅u )dΓ
   )
   l(μ,v,dΩ) = ∫_Ω(fμ(μ)⋅v)dΩ
-  res(μ,u,v,dΩ) = ∫_Ω( ε(v)⊙(σ∘ε(u)) )*dΩ - l(μ,v,dΩ)
+  res(μ,u,v,dΩ) = ∫_Ω( ε_I(v)⊙(σ∘ε_I(u)) )*dΩ - l(μ,v,dΩ)
 
   LinearParamOperator(res,a,pspace,trial,test,domains)
 end
@@ -134,17 +135,18 @@ function def_extended_fe_operator(μ)
   C = (j->j⋅j')∘(∇(ϕh))
   invJt = inv∘∇(ϕh)
   ∇_I(a) = dot∘(invJt,∇(a))
+  ε_I(a) = Operation(symmetric_part)(∇_I(a))
   _n_Γ = push_normal∘(invJt,n_Γ)
   dJΓ = dJΓn∘(dJ,C,_n_Γ)
   ∫_Ω(a) = ∫(a*dJ)
   ∫_Γ(a) = ∫(a*dJΓ)
 
   a(μ,u,v,dΩ,dΓ) = (
-    ∫_Ω( ε(v)⊙(σ∘ε(u)) )*dΩ +
-    ∫_Γ( (γd/hd)*v⋅u - v⋅(_n_Γ⋅(σ∘ε(u))) - (_n_Γ⋅(σ∘ε(v)))⋅u )dΓ
+    ∫_Ω( ε_I(v)⊙(σ∘ε_I(u)) )*dΩ +
+    ∫_Γ( (γd/hd)*v⋅u - v⋅(_n_Γ⋅(σ∘ε_I(u))) - (_n_Γ⋅(σ∘ε_I(v)))⋅u )dΓ
   )
   l(μ,v,dΩ) = ∫_Ω(fμ(μ)⋅v)dΩ
-  res(μ,u,v,dΩ) = ∫_Ω( ε(v)⊙(σ∘ε(u)) )*dΩ - l(μ,v,dΩ)
+  res(μ,u,v,dΩ) = ∫_Ω( ε_I(v)⊙(σ∘ε_I(u)) )*dΩ - l(μ,v,dΩ)
 
   testbg = FESpace(Ωbg,reffe,conformity=:H1,dirichlet_tags=[1,3,7])
   testext = DirectSumFESpace(testbg,test)

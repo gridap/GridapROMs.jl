@@ -144,7 +144,7 @@ function Geometry.move_contributions(
   cell_to_touched[scell_to_cell] .= true
   Ωa = Triangulation(model,cell_to_touched)
   acell_to_val = move_contributions(scell_to_val,strian,Ωa)
-  acell_to_val, Ωa
+  acell_to_val,Ωa
 end
 
 function Geometry.get_active_model(trian::ParamSubFacetTriangulation)
