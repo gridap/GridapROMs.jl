@@ -299,15 +299,17 @@ end
 # snapshots 
 
 function RBSteady.solution_snapshots(
-  solver::RBSolver,
+  solver::TransientRBSolver{A,B,<:SteadyReduction},
   op::TransientRBOperator,
   r::TransientRealisation,
   args...
-  )
+  ) where {A,B}
 
-  x̂, = solve(solver,op,r,args...)
+  fesolver = get_fe_solver(solver)
+  x̂,stats = solve(fesolver,op,r,args...) |> collect
   i = get_dof_map(op)
-  Snapshots(_fe_data(x̂),i,r)
+  snaps = Snapshots(_fe_data(x̂),i,r)
+  return snaps,stats
 end
 
 # utils

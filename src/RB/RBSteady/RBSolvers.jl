@@ -156,13 +156,9 @@ function solution_snapshots(
   )
 
   fesolver = get_fe_solver(solver)
-  dof_map = get_dof_map(feop)
-  values,stats = solve(fesolver,feop,r)
-  snaps = Snapshots(values,dof_map,r)
-  return snaps,stats
+  solution_snapshots(fesolver,feop,r,args...)
 end
 
-# not needed
 function solution_snapshots(
   fesolver::NonlinearSolver,
   op::ParamOperator,

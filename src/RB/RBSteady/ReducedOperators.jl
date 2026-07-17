@@ -515,10 +515,11 @@ end
 function solution_snapshots(
   solver::RBSolver,
   op::RBOperator,
-  r::Realisation
+  r::AbstractRealisation,
+  args...
   )
 
-  x̂, = solve(solver,op,r)
+  x̂, = solve(solver,op,r,args...)
   i = get_dof_map(op)
   Snapshots(_fe_data(x̂),i,r)
 end

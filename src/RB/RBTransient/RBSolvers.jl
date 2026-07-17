@@ -26,23 +26,6 @@ ParamODEs.TimeCombination(s::TransientRBSolver{<:ODESolver,B,<:SteadyReduction})
 RBSteady.num_jac_params(s::TransientRBSolver) = maximum(map(num_params,s.jacobian_reduction))
 
 function RBSteady.solution_snapshots(
-  solver::RBSolver,
-  feop::ODEParamOperator,
-  r::TransientRealisation,
-  args...
-  )
-
-  fesolver = get_fe_solver(solver)
-  sol = solve(fesolver,feop,r,args...)
-  values,stats = collect(sol)
-  initial_values = initial_conditions(sol)
-  i = get_dof_map(feop)
-  snaps = Snapshots(values,initial_values,i,r)
-  return snaps,stats
-end
-
-# not needed
-function RBSteady.solution_snapshots(
   fesolver::ODESolver,
   op::ODEParamOperator,
   r::TransientRealisation,
