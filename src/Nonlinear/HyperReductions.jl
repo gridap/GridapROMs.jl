@@ -29,9 +29,9 @@ Constructs a `NNHyperReduction` from a `Reduction` built with the same
 positional/keyword arguments accepted by [`Reduction`](@ref). An optional
 `nn_factory` keyword overrides the default built-in MLP training factory.
 """
-function NNHyperReduction(args...; nn_factory=build_mlp_factory(), kwargs...)
-  reduction = Reduction(args...; kwargs...)
-  NNHyperReduction(reduction, nn_factory)
+function NNHyperReduction(args...;nn_factory=build_mlp_factory(),kwargs...)
+  reduction = Reduction(args...;kwargs...)
+  NNHyperReduction(reduction,nn_factory)
 end
 
 get_reduction(r::NNHyperReduction) = r.reduction
@@ -60,11 +60,10 @@ end
 """
     NNOpRegression(; nparams=20, nn_factory=build_mlp_factory()) -> NNOpRegression
 """
-function NNOpRegression(; nparams::Int=20, nn_factory=build_mlp_factory())
-  NNOpRegression(nparams, nn_factory)
+function NNOpRegression(;nparams::Int=20,nn_factory=build_mlp_factory())
+  NNOpRegression(nparams,nn_factory)
 end
 
-# Override the default TrivialHyperReduction num_params (which returns 1)
 ParamDataStructures.num_params(r::NNOpRegression) = r.nparams
 nn_factory(r::NNOpRegression) = r.factory
 
@@ -116,17 +115,17 @@ function FESpaces.interpolate!(
   r::AbstractRealisation
   )
 
-  x   = _realisation_to_matrix(get_params(r))
-  out = a.model(x)   # (n_reduced × k)
-  _axpy_nn_output!(b̂, out)
+  x = matrix_of_params(r)
+  out = a.model(x) # (n_reduced × k)
+  _axpy_nn_output!(b̂,out)
   return b̂
 end
 
-function _axpy_nn_output!(b̂::ConsecutiveParamVector, out::AbstractMatrix)
-  axpy!(one(eltype2(b̂)), out, get_all_data(b̂))
+function _axpy_nn_output!(b̂::ConsecutiveParamVector,out::AbstractMatrix)
+  axpy!(one(eltype2(b̂)),out,get_all_data(b̂))
 end
 
-# --- HRProjection constructors for NNHyperReduction ---
+# HRProjection constructors for NNHyperReduction
 
 function HRProjection(
   red::NNHyperReduction,
@@ -135,10 +134,10 @@ function HRProjection(
   test::RBSpace
   )
 
-  basis      = projection(get_reduction(red), s)
-  proj_basis = project(test, basis)
-  interp     = Interpolation(red, basis, s)
-  return HRProjection(proj_basis, red, interp)
+  basis = projection(get_reduction(red),s)
+  proj_basis = project(test,basis)
+  interp = Interpolation(red,basis,s)
+  return HRProjection(proj_basis,red,interp)
 end
 
 function HRProjection(
@@ -149,10 +148,10 @@ function HRProjection(
   test::RBSpace
   )
 
-  basis      = projection(get_reduction(red), s)
-  proj_basis = project(test, basis, trial)
-  interp     = Interpolation(red, basis, s)
-  return HRProjection(proj_basis, red, interp)
+  basis = projection(get_reduction(red),s)
+  proj_basis = project(test,basis,trial)
+  interp = Interpolation(red,basis,s)
+  return HRProjection(proj_basis,red,interp)
 end
 
 function HRProjection(
@@ -162,11 +161,11 @@ function HRProjection(
   test::RBSpace
   )
 
-  T     = get_dof_value_type(test)
+  T = get_dof_value_type(test)
   nrows = num_reduced_dofs(test)
-  basis = ReducedProjection(zeros(T, nrows, 1))
+  basis = ReducedProjection(zeros(T,nrows,1))
   interp = Interpolation(red)
-  return HRProjection(basis, red, interp)
+  return HRProjection(basis,red,interp)
 end
 
 function HRProjection(
@@ -177,15 +176,15 @@ function HRProjection(
   test::RBSpace
   )
 
-  T     = get_dof_value_type(trial)
+  T = get_dof_value_type(trial)
   nrows = num_reduced_dofs(test)
   ncols = num_reduced_dofs(trial)
-  basis = ReducedProjection(zeros(T, nrows, 1, ncols))
+  basis = ReducedProjection(zeros(T,nrows,1,ncols))
   interp = Interpolation(red)
-  return HRProjection(basis, red, interp)
+  return HRProjection(basis,red,interp)
 end
 
-# --- HRProjection constructors for NNOpRegression ---
+# HRProjection constructors for NNOpRegression
 
 function HRProjection(
   red::NNOpRegression,
@@ -194,18 +193,18 @@ function HRProjection(
   test::RBSpace
   )
 
-  T         = get_dof_value_type(test)
+  T = get_dof_value_type(test)
   n_reduced = num_reduced_dofs(test)
-  basis     = ReducedProjection(zeros(T, n_reduced, 1))
+  basis = ReducedProjection(zeros(T,n_reduced,1))
 
-  r          = get_realisation(s)
-  snap_data  = get_all_data(get_param_data(s))   # (n_dofs × k)
-  test_basis = get_basis(test)                    # (n_dofs × n_reduced)
-  y_data     = test_basis' * snap_data            # (n_reduced × k)
-  y_train    = ConsecutiveParamArray(y_data)
+  r = get_realisation(s)
+  snap_data = get_all_data(get_param_data(s))  # (n_dofs × k)
+  test_basis = get_basis(test)                  # (n_dofs × n_reduced)
+  y_data = test_basis' * snap_data              # (n_reduced × k)
+  y_train = ConsecutiveParamArray(y_data)
 
-  model = nn_factory(red)(r, y_train)
-  NNOpProjection(basis, model)
+  model = nn_factory(red)(r,y_train)
+  NNOpProjection(basis,model)
 end
 
 function HRProjection(
@@ -215,10 +214,10 @@ function HRProjection(
   test::RBSpace
   )
 
-  T         = get_dof_value_type(test)
+  T = get_dof_value_type(test)
   n_reduced = num_reduced_dofs(test)
-  basis     = ReducedProjection(zeros(T, n_reduced, 1))
-  NNOpProjection(basis, _untrained_nn_model)
+  basis = ReducedProjection(zeros(T,n_reduced,1))
+  NNOpProjection(basis,_untrained_nn_model)
 end
 
 _untrained_nn_model(_) = error("NNOpProjection used without training (s=nothing was passed)")

@@ -24,7 +24,7 @@ Main types:
 - [`NNInterpolation`](@ref) — online interpolant produced by strategy 1
 - [`AbstractNNModel`](@ref) / [`NNModel`](@ref) — backend-agnostic wrappers
   for any callable (Flux chain, Lux closure, custom Julia function)
-- [`SimpleMLP`](@ref) — built-in MLP trained with ForwardDiff; no external
+- [`MLP`](@ref) — built-in MLP trained with ForwardDiff; no external
   NN library required for quick experiments
 
 Quick-start:
@@ -32,24 +32,24 @@ Quick-start:
     using GridapROMs.Nonlinear
 
     # Strategy 1: NN replaces EIM coefficient prediction
-    red = PODReduction(1e-4; nparams=100)
-    nn_res = NNHyperReduction(red)   # uses built-in MLP factory by default
+    red = PODReduction(1e-4;nparams=100)
+    nn_res = NNHyperReduction(red) # uses built-in MLP factory by default
     nn_jac = NNHyperReduction(red)
-    solver = RBSolver(fesolver, red, nn_res, nn_jac)
+    solver = RBSolver(fesolver,red,nn_res,nn_jac)
 
     # Strategy 2: NN predicts projected residual without assembly
     nn_reg = NNOpRegression(red)
-    solver = RBSolver(fesolver, red, nn_reg, nn_jac)
+    solver = RBSolver(fesolver,red,nn_reg,nn_jac)
 
     # Custom Flux factory (example)
     using Flux
-    my_factory = (r, coeff) -> begin
+    my_factory = (r,coeff) -> begin
       d = length(first(r)); n = prod(innersize(coeff))
-      chain = Chain(Dense(d, 64, tanh), Dense(64, n))
+      chain = Chain(Dense(d,64,tanh),Dense(64,n))
       # ... training loop with Flux optimiser ...
       NNModel(x -> chain(x))
     end
-    nn_res = NNHyperReduction(red; nn_factory=my_factory)
+    nn_res = NNHyperReduction(red;nn_factory=my_factory)
 """
 module Nonlinear
 
@@ -65,15 +65,15 @@ using GridapROMs.ParamDataStructures
 using GridapROMs.RBSteady
 
 import GridapROMs.RBSteady:
-  GenericHRProjection, get_at_domain, allocate_in_domain, get_dof_value_type,
-  get_reduction, get_basis, get_interpolation, projection_eltype,
-  HRProjection, Interpolation
+  GenericHRProjection,get_at_domain,allocate_in_domain,get_dof_value_type,
+  get_reduction,get_basis,get_interpolation,projection_eltype,
+  HRProjection,Interpolation
 import GridapROMs.ParamDataStructures: num_params
 import Gridap.FESpaces: interpolate!
 
 export AbstractNNModel
 export NNModel
-export SimpleMLP
+export MLP
 export train!
 export build_mlp_factory
 include("Models.jl")

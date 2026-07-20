@@ -1,5 +1,3 @@
-# --- NNInterpolation ---
-
 """
     struct NNInterpolation{M<:AbstractNNModel} <: Interpolation
 
@@ -13,16 +11,19 @@ struct NNInterpolation{M<:AbstractNNModel} <: Interpolation
   model::M
 end
 
-function FESpaces.interpolate!(cache::AbstractArray, a::NNInterpolation, r::AbstractRealisation)
-  x   = _realisation_to_matrix(get_params(r))
-  out = a.model(x)   # (n_modes × k)
-  n   = prod(innersize(cache))
-  k   = param_length(cache)
-  copyto!(reshape(get_all_data(cache), n, k), out)
+function FESpaces.interpolate!(
+  cache::AbstractArray,
+  a::NNInterpolation,
+  r::AbstractRealisation
+  )
+
+  x = matrix_of_params(r)
+  out = a.model(x) # (n_modes × k)
+  n = prod(innersize(cache))
+  k = param_length(cache)
+  copyto!(reshape(get_all_data(cache),n,k),out)
   cache
 end
-
-# --- Training constructor: offline phase for NNHyperReduction ---
 
 """
     Interpolation(red::NNHyperReduction, basis::Projection, s::Snapshots)
@@ -37,13 +38,18 @@ Offline training step for [`NNHyperReduction`](@ref):
 
 Returns an [`NNInterpolation`](@ref) ready for online use.
 """
-function Interpolation(red::NNHyperReduction, a::Projection, s::Snapshots)
-  inds, interp = empirical_interpolation(a)
-  factor       = lu(interp)
-  r            = get_realisation(s)
-  red_data     = get_at_domain(s, inds)
-  coeff        = parameterise(allocate_in_domain(a), r)
-  ldiv!(coeff, factor, red_data)
-  model = nn_factory(red)(r, coeff)
+function Interpolation(
+  red::NNHyperReduction,
+  a::Projection,
+  s::Snapshots
+  )
+
+  inds,interp = empirical_interpolation(a)
+  factor = lu(interp)
+  r = get_realisation(s)
+  red_data = get_at_domain(s,inds)
+  coeff = parameterise(allocate_in_domain(a),r)
+  ldiv!(coeff,factor,red_data)
+  model = nn_factory(red)(r,coeff)
   NNInterpolation(model)
 end
