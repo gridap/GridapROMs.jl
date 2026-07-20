@@ -1,3 +1,23 @@
+"""
+    struct NNProjection{A,N} <: HRProjection{…,NNRegression}
+      model::A
+      reduced_sizes::NTuple{N,Int}
+    end
+
+[`HRProjection`](@ref) for operator regression (`NNRegression` strategy). The
+`model` maps parameter matrices `(d×k)` directly to projected operator values,
+bypassing FE assembly during the online phase.
+
+`reduced_sizes` stores the output shape per parameter sample:
+- `(nrows, 1)` for a projected residual vector of length `nrows`
+- `(nrows, 1, ncols)` for a projected Jacobian matrix of size `nrows×ncols`
+
+The middle entry `1` is a dummy so that `N=2` (vector) and `N=3` (matrix) give
+distinct type parameter `N` while `last(reduced_sizes)` always returns the column
+count (1 for vectors, `ncols` for matrices).
+
+Constructed automatically by [`HRProjection(::NNRegression, …)`](@ref).
+"""
 struct NNProjection{A,N} <: HRProjection{ReducedProjection{AbstractArray{Number,N}},NNRegression}
   model::A
   reduced_sizes::NTuple{N,Int}
@@ -17,6 +37,8 @@ end
 RBSteady.get_interpolation(a::NNProjection) = EmptyInterpolation()
 RBSteady.projection_eltype(a::NNProjection) = eltype(get_weights(a.model))
 
+const NNHRProjection{A<:Projection} = HRProjection{A,<:NNHyperReduction}
+
 RBSteady.num_reduced_dofs(a::NNProjection) = 1
 RBSteady.num_reduced_dofs_left_projector(a::NNProjection) = first(a.reduced_sizes)
 RBSteady.num_reduced_dofs_right_projector(a::NNProjection) = last(a.reduced_sizes)
@@ -28,7 +50,7 @@ function FESpaces.interpolate!(
   r::AbstractRealisation
   )
 
-  b̂r = evaluate!(cache,a.model,r)
+  b̂r = evaluate!(cache,a.model,matrix_of_params(r))
   o = one(eltype2(b̂))
   _axpy!(o,b̂r,b̂)
   return b̂
@@ -40,6 +62,9 @@ function RBSteady.allocate_coefficient(a::NNProjection,r::AbstractRealisation)
 end
 
 """
+    const NNContribution = AffineContribution{<:NNProjection}
+
+[`AffineContribution`](@ref) backed by [`NNProjection`](@ref)s.
 """
 const NNContribution = AffineContribution{<:NNProjection}
 
@@ -80,7 +105,7 @@ function RBSteady.HRProjection(
   r = get_realisation(s)
   b = GalerkinProjectable(s)
   y = galerkin_projection(test,b)
-  model = TrainedNeuralNetwork(get_strategy(red),r,y)
+  model = TrainedNeuralNetwork(get_strategy(red),r,get_basis(y))
   return NNProjection(model,test)
 end
 
@@ -95,7 +120,7 @@ function RBSteady.HRProjection(
   r = get_realisation(s)
   A = GalerkinProjectable(s)
   y = galerkin_projection(test,A,trial)
-  model = TrainedNeuralNetwork(get_strategy(red),r,y)
+  model = TrainedNeuralNetwork(get_strategy(red),r,get_basis(y))
   return NNProjection(model,trial,test)
 end
 
@@ -136,8 +161,9 @@ function _axpy!(α,a::AbstractMatrix,b::AbstractParamVector)
   axpy!(α,a,get_all_data(b))
 end
 
-function _axpy!(α,a::AbstractMatrix,b::AbstractParamMatrix) 
-  s = innersize(b)
-  a′ = permutedims(reshape(a,s[1],s[3],s[2]),(1,3,2))
+function _axpy!(α,a::AbstractMatrix,b::AbstractParamMatrix)
+  nrows,ncols = innersize(b)
+  k = param_length(b)
+  a′ = reshape(a,nrows,ncols,k)
   axpy!(α,a′,get_all_data(b))
 end

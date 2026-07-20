@@ -20,12 +20,11 @@ Main types:
   types, passed to [`RBSolver`](@ref) as `residual_reduction` /
   `jacobian_reduction`
 - [`NNHRProjection`](@ref) — the resulting projection for strategy 1
-- [`NNProjection`](@ref) — the resulting projection for strategy 2
+- [`NNProjection`](@ref) / [`NNContribution`](@ref) — the resulting projection/contribution for strategy 2
 - [`NNInterpolation`](@ref) — online interpolant produced by strategy 1
-- [`NeuralNetwork`](@ref) / [`GenericNeuralNetwork`](@ref) — backend-agnostic wrappers
-  for any callable (Flux chain, Lux closure, custom Julia function)
-- [`MultiLayerPerceptron`](@ref) — built-in MultiLayerPerceptron trained with ForwardDiff; no external
-  NN library required for quick experiments
+- [`NNStrategy`](@ref) — bundles MLP architecture, optimiser, loss, and epoch count
+- [`NeuralNetwork`](@ref) / [`GenericNeuralNetwork`](@ref) / [`MultiLayerPerceptron`](@ref)
+  — NN model types; `GenericNeuralNetwork` wraps any callable (Flux chain, Lux closure)
 
 Quick-start:
 
@@ -33,23 +32,18 @@ Quick-start:
 
     # Strategy 1: NN replaces EIM coefficient prediction
     red = PODReduction(1e-4;nparams=100)
-    nn_res = NNHyperReduction(red) # uses built-in MultiLayerPerceptron factory by default
-    nn_jac = NNHyperReduction(red)
+    nn_res = NNHyperReduction(red)   # default MLP, tanh, Adam(1e-3), 1000 epochs
+    nn_jac = NNHyperReduction(red;layers=(128,128),epochs=2000)
     solver = RBSolver(fesolver,red,nn_res,nn_jac)
 
-    # Strategy 2: NN predicts projected residual without assembly
-    nn_reg = NNRegression(red)
+    # Strategy 2: NN predicts projected operator without assembly
+    nn_reg = NNRegression(;nparams=100,layers=(64,64))
     solver = RBSolver(fesolver,red,nn_reg,nn_jac)
 
-    # Custom Flux factory (example)
+    # Custom external model (e.g. Flux)
     using Flux
-    my_factory = (r,coeff) -> begin
-      d = length(first(r)); n = prod(innersize(coeff))
-      chain = Chain(Dense(d,64,tanh),Dense(64,n))
-      # ... training loop with Flux optimiser ...
-      GenericNeuralNetwork(x -> chain(x))
-    end
-    nn_res = NNHyperReduction(red;nn_factory=my_factory)
+    chain = Chain(Dense(d,64,tanh),Dense(64,n))
+    nn_res = NNHyperReduction(red;strategy=NNStrategy(type=GenericType()))
 """
 module Nonlinear
 
@@ -69,24 +63,26 @@ using GridapROMs.RBSteady
 
 import GridapROMs.RBSteady: get_at_domain
 
+export NNType, MLPType, GenericType
 export NNStrategy
 export NNRegression
 export NNHyperReduction
 export get_strategy
-export loss_mse,loss_mae
+export loss_mse, loss_mae
 include("ReductionMethods.jl")
 
 export NeuralNetwork
 export GenericNeuralNetwork
 export MultiLayerPerceptron
+export TrainedNeuralNetwork
 export train!
-export train_model
 include("Models.jl")
 
 export NNInterpolation
 include("Interpolations.jl")
 
 export NNProjection
+export NNContribution
 export NNHRProjection
 include("HyperReductions.jl")
 

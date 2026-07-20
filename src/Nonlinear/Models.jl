@@ -2,7 +2,7 @@
     abstract type NeuralNetwork <: Map end
 
 Abstract supertype for neural network models. Any concrete subtype must
-implement `(m::T)(x::AbstractMatrix) -> AbstractMatrix` where `x` is a
+implement `(a::T)(x::AbstractMatrix) -> AbstractMatrix` where `x` is a
 `(param_dim × batch_size)` matrix of parameters and the output is a
 `(output_dim × batch_size)` matrix of predictions.
 
@@ -17,18 +17,28 @@ function NeuralNetwork(strategy::NNStrategy,args...)
   @abstractmethod
 end
 
-function NeuralNetwork(strategy::NNStrategy{MLPType},r::AbstractRealisation,coeff::AbstractParamArray)
+function NeuralNetwork(strategy::NNStrategy{MLPType},r::AbstractRealisation,coeff)
   d = dimension(r)
-  n = _inlength(coeff)
+  y = _get_data(coeff)
+  n = size(y,1)
   layers = (d,strategy.layers...,n)
   MultiLayerPerceptron(layers;T=eltype(y))
 end
 
+"""
+    TrainedNeuralNetwork(strategy::NNStrategy, r::AbstractRealisation, coeff) -> NeuralNetwork
+
+Constructs a [`NeuralNetwork`](@ref) from `strategy` and immediately trains it on
+the `(r, coeff)` data pair. For `MLPType` strategies a [`MultiLayerPerceptron`](@ref)
+is built whose output dimension is inferred from `coeff`.
+"""
 function TrainedNeuralNetwork(strategy,args...)
   a = NeuralNetwork(strategy,args...)
   train!(a,strategy,args...)
   return a
 end
+
+get_weights(a::NeuralNetwork) = @abstractmethod
 
 """
     struct GenericNeuralNetwork{A} <: NeuralNetwork
@@ -43,12 +53,12 @@ struct GenericNeuralNetwork{A} <: NeuralNetwork
   model::A
 end
 
-function Arrays.return_cache(m::GenericNeuralNetwork,x::AbstractMatrix)
-  return_cache(m.model,x)
+function Arrays.return_cache(a::GenericNeuralNetwork,x::AbstractMatrix)
+  return_cache(a.model,x)
 end
 
-function Arrays.evaluate!(cache,m::GenericNeuralNetwork,x::AbstractMatrix)
-  evaluate!(cache,m.model,x)
+function Arrays.evaluate!(cache,a::GenericNeuralNetwork,x::AbstractMatrix)
+  evaluate!(cache,a.model,x)
 end
 
 """
@@ -61,11 +71,11 @@ end
 A minimal dense feed-forward network whose parameters are stored as a flat
 vector `θ` for ForwardDiff compatibility. Architecture is determined by
 `layers = (d, h₁, h₂, …, n)` where `d` is input dim and `n` is output dim.
-Hidden layers apply `activation`; the output layer is linear.
+Hidden layers apply `activation` (default: `tanh`); the output layer is linear.
 
-Use [`NNStrategy`](@ref) to construct and train one as part of
-[`NNHyperReduction`](@ref). For large networks or long training runs,
-prefer injecting a Flux/Lux model via [`GenericNeuralNetwork`](@ref).
+Use [`NNStrategy`](@ref) with `MLPType()` (the default) to build and train one
+automatically via [`TrainedNeuralNetwork`](@ref). For large networks or long
+training runs prefer injecting a Flux/Lux model via [`GenericNeuralNetwork`](@ref).
 """
 struct MultiLayerPerceptron{L,A<:AbstractVector} <: NeuralNetwork
   layers::NTuple{L,Int}
@@ -83,9 +93,11 @@ function MultiLayerPerceptron(layers::AbstractVector{Int},args...;kwargs...)
   MultiLayerPerceptron(Tuple(layers),args...;kwargs...)
 end
 
-function Arrays.return_cache(m::MultiLayerPerceptron,x::AbstractMatrix)
-  T = eltype(m.θ)
-  nin,nout, = m.layers
+get_weights(a::MultiLayerPerceptron) = a.θ
+
+function Arrays.return_cache(a::MultiLayerPerceptron,x::AbstractMatrix)
+  T = eltype(a.θ)
+  nin,nout, = a.layers
   h = CachedArray(similar(x,T))
   W = CachedArray(zeros(T,nout,nin))
   b = CachedArray(zeros(T,nout))
@@ -93,20 +105,20 @@ function Arrays.return_cache(m::MultiLayerPerceptron,x::AbstractMatrix)
   return (h,W,b,z)
 end
 
-function Arrays.evaluate!(cache,m::MultiLayerPerceptron{L},x::AbstractMatrix) where L
+function Arrays.evaluate!(cache,a::MultiLayerPerceptron{L},x::AbstractMatrix) where L
   h,W,b,z = cache 
   _init!(h,x)
 
   offset = 0
   for l in 1:L-1
-    nout = m.layers[l+1]
-    nin = m.layers[l]
+    nout = a.layers[l+1]
+    nin = a.layers[l]
     setsize!(W,(nout,nin))
     setsize!(b,(nout,))
     setsize!(z,(nout,size(x,2)))
 
-    _fill_weights!(W,b,m.θ,offset)
-    l < L-1 ? _apply_layer!(z,W,h,b,m.activation) : _apply_layer!(z,W,h,b)
+    _fill_weights!(W,b,a.θ,offset)
+    l < L-1 ? _apply_layer!(z,W,h,b,a.activation) : _apply_layer!(z,W,h,b)
 
     offset += nout * (nin + 1)
   end
@@ -114,9 +126,9 @@ function Arrays.evaluate!(cache,m::MultiLayerPerceptron{L},x::AbstractMatrix) wh
   return h.array 
 end
 
-function Arrays.return_cache(m::MultiLayerPerceptron,x::AbstractMatrix,θ::AbstractVector)
+function Arrays.return_cache(a::MultiLayerPerceptron,x::AbstractMatrix,θ::AbstractVector)
   T = eltype(θ)
-  nin,nout, = m.layers
+  nin,nout, = a.layers
   h = CachedArray(similar(x,T))
   W = CachedArray(zeros(T,nout,nin))
   b = CachedArray(zeros(T,nout))
@@ -124,20 +136,20 @@ function Arrays.return_cache(m::MultiLayerPerceptron,x::AbstractMatrix,θ::Abstr
   return (h,W,b,z)
 end
 
-function Arrays.evaluate!(cache,m::MultiLayerPerceptron{L},x::AbstractMatrix,θ::AbstractVector) where L
+function Arrays.evaluate!(cache,a::MultiLayerPerceptron{L},x::AbstractMatrix,θ::AbstractVector) where L
   h,W,b,z = cache 
   _init!(h,x)
 
   offset = 0
   for l in 1:L-1
-    nout = m.layers[l+1]
-    nin = m.layers[l]
+    nout = a.layers[l+1]
+    nin = a.layers[l]
     setsize!(W,(nout,nin))
     setsize!(b,(nout,))
     setsize!(z,(nout,size(x,2)))
 
     _fill_weights!(W,b,θ,offset)
-    l < L-1 ? _apply_layer!(z,W,h,b,m.activation) : _apply_layer!(z,W,h,b)
+    l < L-1 ? _apply_layer!(z,W,h,b,a.activation) : _apply_layer!(z,W,h,b)
 
     offset += nout * (nin + 1)
   end
@@ -146,44 +158,44 @@ function Arrays.evaluate!(cache,m::MultiLayerPerceptron{L},x::AbstractMatrix,θ:
 end
 
 """
-    train!(mlp::MultiLayerPerceptron, x::AbstractMatrix, y::AbstractMatrix, strategy::NNStrategy) -> MultiLayerPerceptron
+    train!(a::MultiLayerPerceptron, strategy::NNStrategy, x::AbstractMatrix, y::AbstractMatrix) -> MultiLayerPerceptron
 
-Trains `mlp` with the optimiser, loss, and epoch count from `strategy` using
+Trains `a` with the optimiser, loss, and epoch count from `strategy` using
 ForwardDiff for gradients. `x` is `(param_dim × n_samples)`, `y` is
-`(output_dim × n_samples)`. Updates `mlp.θ` in-place and returns `mlp`.
+`(output_dim × n_samples)`. Updates `a.θ` in-place and returns `a`.
 """
 function train!(
-  mlp::MultiLayerPerceptron,
+  a::MultiLayerPerceptron,
   strategy::NNStrategy,
   x::AbstractMatrix,
   y::AbstractMatrix
   )
 
-  opt_state = Optimisers.setup(strategy.optimiser,mlp.θ)
-  grad = similar(mlp.θ)
-  p = ForwardDiff.GradientConfig(nothing,mlp.θ).duals
-  cache = return_cache(mlp,x,p) 
-  ynn(p) = evaluate!(cache,mlp,x,p)
+  opt_state = Optimisers.setup(strategy.optimiser,a.θ)
+  grad = similar(a.θ)
+  p = ForwardDiff.GradientConfig(nothing,a.θ).duals
+  cache = return_cache(a,x,p) 
+  ynn(p) = evaluate!(cache,a,x,p)
   
   for _ in 1:strategy.epochs
-    ForwardDiff.gradient!(grad,p -> strategy.loss(ynn(p),y),mlp.θ)
-    opt_state,_ = Optimisers.update!(opt_state,mlp.θ,grad)
+    ForwardDiff.gradient!(grad,p -> strategy.loss(ynn(p),y),a.θ)
+    opt_state,_ = Optimisers.update!(opt_state,a.θ,grad)
   end
 
-  return mlp
+  return a
 end
 
 function train!(
-  mlp::MultiLayerPerceptron,
+  a::MultiLayerPerceptron,
   strategy::NNStrategy,
   r::AbstractRealisation,
-  coeff::AbstractParamArray
+  coeff
   )
 
   x = matrix_of_params(r)
   y = _get_data(coeff)
-  train!(mlp,strategy,x,y)
-  return mlp
+  train!(a,strategy,x,y)
+  return a
 end
 
 # utils
@@ -205,14 +217,10 @@ function matrix_of_params!(params,r::AbstractRealisation)
   params
 end
 
-_inlength(a) = innerlength(a)
-_inlength(a::AbstractParamMatrix) = innersize(a,1)*innersize(a,3)
-
 _get_data(a) = get_all_data(a)
-function _get_data(a::AbstractParamMatrix)
-  a′ = permutedims(get_all_data(a),(1,3,2))
-  reshape(a′,:,param_length(a))
-end
+_get_data(a::AbstractParamMatrix) = reshape(get_all_data(a),innerlength(a),:)
+_get_data(a::AbstractMatrix) = a
+_get_data(a::AbstractArray{T,3}) where T = reshape(a,:,size(a,3))
 
 function _init!(h,x)
   setsize!(h,size(x))

@@ -1,5 +1,5 @@
 """
-    struct NNInterpolation{M<:NeuralNetwork} <: Interpolation
+    struct NNInterpolation{A<:NeuralNetwork} <: Interpolation
 
 An [`Interpolation`](@ref) backed by a neural network model. During the
 online phase, `interpolate!` replaces the EIM linear solve with a NN forward
@@ -7,8 +7,8 @@ pass: `coeff[:, i] = model(μ_i)`.
 
 Constructed automatically by `Interpolation(red::NNHyperReduction, basis, s)`.
 """
-struct NNInterpolation{M<:NeuralNetwork} <: Interpolation
-  interpolation::M
+struct NNInterpolation{A<:NeuralNetwork} <: Interpolation
+  interpolation::A
 end
 
 function FESpaces.interpolate!(
@@ -18,7 +18,7 @@ function FESpaces.interpolate!(
   )
 
   x = matrix_of_params(r)
-  evaluate!(cache,a.model,x)
+  evaluate!(cache,a.interpolation,x)
   cache
 end
 
@@ -31,7 +31,7 @@ Offline training step for [`NNHyperReduction`](@ref):
 1. Runs empirical interpolation on `basis` to determine integration points
    and the EIM matrix
 2. Solves the EIM system for each snapshot to obtain coefficient vectors
-3. Trains the NN from `red.factory` on the `(parameter, coefficient)` pairs
+3. Trains a [`NeuralNetwork`](@ref) via `red.strategy` on the `(parameter, coefficient)` pairs
 
 Returns an [`NNInterpolation`](@ref) ready for online use.
 """
