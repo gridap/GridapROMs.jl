@@ -19,7 +19,7 @@ end
 
 function NeuralNetwork(strategy::NNStrategy{MLPType},r::AbstractRealisation,coeff::AbstractParamArray)
   d = dimension(r)
-  n = innerlength(coeff)
+  n = _inlength(coeff)
   layers = (d,strategy.layers...,n)
   MultiLayerPerceptron(layers;T=eltype(y))
 end
@@ -54,14 +54,14 @@ end
 """
     struct MultiLayerPerceptron{L,A<:AbstractVector} <: NeuralNetwork
       layers::NTuple{L,Int}
-      σ::Function
+      activation::Function
       θ::A
     end
 
 A minimal dense feed-forward network whose parameters are stored as a flat
 vector `θ` for ForwardDiff compatibility. Architecture is determined by
 `layers = (d, h₁, h₂, …, n)` where `d` is input dim and `n` is output dim.
-Hidden layers apply `σ`; the output layer is linear.
+Hidden layers apply `activation`; the output layer is linear.
 
 Use [`NNStrategy`](@ref) to construct and train one as part of
 [`NNHyperReduction`](@ref). For large networks or long training runs,
@@ -69,11 +69,11 @@ prefer injecting a Flux/Lux model via [`GenericNeuralNetwork`](@ref).
 """
 struct MultiLayerPerceptron{L,A<:AbstractVector} <: NeuralNetwork
   layers::NTuple{L,Int}
-  σ::Function
+  activation::Function
   θ::A
 end
 
-function MultiLayerPerceptron(layers::NTuple{L,Int}; activation::Function=tanh, T::Type=Float64) where L
+function MultiLayerPerceptron(layers::NTuple{L,Int};activation::Function=tanh,T::Type=Float64) where L
   nθ = sum(layers[i+1]*(layers[i]+1) for i in 1:L-1)
   θ = randn(T,nθ) .* T(0.01)
   MultiLayerPerceptron(layers,activation,θ)
@@ -106,7 +106,7 @@ function Arrays.evaluate!(cache,m::MultiLayerPerceptron{L},x::AbstractMatrix) wh
     setsize!(z,(nout,size(x,2)))
 
     _fill_weights!(W,b,m.θ,offset)
-    l < L-1 ? _apply_layer!(z,W,h,b,m.σ) : _apply_layer!(z,W,h,b)
+    l < L-1 ? _apply_layer!(z,W,h,b,m.activation) : _apply_layer!(z,W,h,b)
 
     offset += nout * (nin + 1)
   end
@@ -137,7 +137,7 @@ function Arrays.evaluate!(cache,m::MultiLayerPerceptron{L},x::AbstractMatrix,θ:
     setsize!(z,(nout,size(x,2)))
 
     _fill_weights!(W,b,θ,offset)
-    l < L-1 ? _apply_layer!(z,W,h,b,m.σ) : _apply_layer!(z,W,h,b)
+    l < L-1 ? _apply_layer!(z,W,h,b,m.activation) : _apply_layer!(z,W,h,b)
 
     offset += nout * (nin + 1)
   end
@@ -177,11 +177,11 @@ function train!(
   mlp::MultiLayerPerceptron,
   strategy::NNStrategy,
   r::AbstractRealisation,
-  coeff::ConsecutiveParamArray
+  coeff::AbstractParamArray
   )
 
   x = matrix_of_params(r)
-  y = get_all_data(coeff)
+  y = _get_data(coeff)
   train!(mlp,strategy,x,y)
   return mlp
 end
@@ -205,6 +205,15 @@ function matrix_of_params!(params,r::AbstractRealisation)
   params
 end
 
+_inlength(a) = innerlength(a)
+_inlength(a::AbstractParamMatrix) = innersize(a,1)*innersize(a,3)
+
+_get_data(a) = get_all_data(a)
+function _get_data(a::AbstractParamMatrix)
+  a′ = permutedims(get_all_data(a),(1,3,2))
+  reshape(a′,:,param_length(a))
+end
+
 function _init!(h,x)
   setsize!(h,size(x))
   copyto!(h.array,x)
@@ -222,12 +231,12 @@ function _fill_weights!(W,b,θ,offset)
   end
 end
 
-function _apply_layer!(z,W,h,b,σ=identity)
+function _apply_layer!(z,W,h,b,activation=identity)
   mul!(z.array,W.array,h.array)
   setsize!(h,size(z))
   @inbounds for i in axes(z,1)
     for j in axes(z,2)
-      h.array[i,j] = σ(z.array[i,j] + b.array[i])
+      h.array[i,j] = activation(z.array[i,j] + b.array[i])
     end
   end
   h

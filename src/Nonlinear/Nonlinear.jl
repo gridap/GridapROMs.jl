@@ -90,4 +90,6 @@ export NNProjection
 export NNHRProjection
 include("HyperReductions.jl")
 
+include("ReducedOperators.jl")
+
 end # module

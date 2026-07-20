@@ -30,7 +30,7 @@ function FESpaces.interpolate!(
 
   b̂r = evaluate!(cache,a.model,r)
   o = one(eltype2(b̂))
-  axpy!(o,b̂r,b̂)
+  _axpy!(o,b̂r,b̂)
   return b̂
 end
 
@@ -126,4 +126,18 @@ function RBSteady.HRProjection(
   proj_basis = project(test,basis,trial)
   interp = Interpolation(red,basis,s)
   return HRProjection(proj_basis,red,interp)
+end
+
+# utils 
+
+_axpy!(α,a,b) = @abstractmethod 
+
+function _axpy!(α,a::AbstractMatrix,b::AbstractParamVector) 
+  axpy!(α,a,get_all_data(b))
+end
+
+function _axpy!(α,a::AbstractMatrix,b::AbstractParamMatrix) 
+  s = innersize(b)
+  a′ = permutedims(reshape(a,s[1],s[3],s[2]),(1,3,2))
+  axpy!(α,a′,get_all_data(b))
 end
