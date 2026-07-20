@@ -55,27 +55,31 @@ module Nonlinear
 
 using ForwardDiff
 using LinearAlgebra
+using Optimisers
 
 using Gridap
 using Gridap.Algebra
+using Gridap.Arrays
 using Gridap.FESpaces
 using Gridap.Geometry
+using Gridap.Helpers
 
 using GridapROMs.ParamDataStructures
 using GridapROMs.RBSteady
 
-import GridapROMs.RBSteady:
-  GenericHRProjection,get_at_domain,allocate_in_domain,get_dof_value_type,
-  get_reduction,get_basis,get_interpolation,projection_eltype,
-  HRProjection,Interpolation
-import GridapROMs.ParamDataStructures: num_params
-import Gridap.FESpaces: interpolate!
+import GridapROMs.RBSteady: get_at_domain
+
+export NNStrategy
+export NNHyperReduction
+export get_strategy
+export loss_mse,loss_mae
+include("ReductionMethods.jl")
 
 export AbstractNNModel
 export NNModel
 export MLP
 export train!
-export build_mlp_factory
+export train_model
 include("Models.jl")
 
 export NNHRProjection
@@ -85,9 +89,7 @@ export NNOpContribution
 export NNInterpolation
 include("Interpolations.jl")
 
-export NNHyperReduction
 export NNOpRegression
-export nn_factory
 include("HyperReductions.jl")
 
 end # module

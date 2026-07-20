@@ -14,122 +14,119 @@ Wrap external Flux/Lux models with [`NNModel`](@ref):
 abstract type AbstractNNModel <: Map end
 
 """
-    struct NNModel{M} <: AbstractNNModel
-      model::M
+    struct NNModel{A} <: AbstractNNModel
+      model::A
     end
 
-Wraps any callable `M` (Flux chain, Lux closure, plain Julia function) as
+Wraps any callable `A` (Flux chain, Lux closure, plain Julia function) as
 an [`AbstractNNModel`](@ref). The wrapped callable must accept a
 `(d × k)` parameter matrix and return an `(n × k)` prediction matrix.
 """
-struct NNModel{M} <: AbstractNNModel
-  model::M
+struct NNModel{A} <: AbstractNNModel
+  model::A
 end
 
-function Gridap.return_cache(m::NNModel,x::AbstractMatrix)
+function Arrays.return_cache(m::NNModel,x::AbstractMatrix)
   return_cache(m.model,x)
 end
 
-function Gridap.evaluate!(cache,m::NNModel,x::AbstractMatrix)
+function Arrays.evaluate!(cache,m::NNModel,x::AbstractMatrix)
   evaluate!(cache,m.model,x)
 end
 
 """
-    struct MLP{P,S} <: AbstractNNModel
+    struct MLP{L,A<:AbstractVector} <: AbstractNNModel
+      layers::NTuple{L,Int}
+      σ::Function
+      θ::A
+    end
 
 A minimal dense feed-forward network whose parameters are stored as a flat
-vector `params` for ForwardDiff compatibility. Architecture is determined by
-`sizes = (d, h₁, h₂, …, n)` where `d` is input dim and `n` is output dim.
-Hidden layers use `tanh`; the output layer is linear.
+vector `θ` for ForwardDiff compatibility. Architecture is determined by
+`layers = (d, h₁, h₂, …, n)` where `d` is input dim and `n` is output dim.
+Hidden layers apply `σ`; the output layer is linear.
 
-Use [`build_mlp_factory`](@ref) to construct and train one as part of
-[`NNHyperReduction`](@ref).  For large networks or long training runs,
+Use [`NNStrategy`](@ref) to construct and train one as part of
+[`NNHyperReduction`](@ref). For large networks or long training runs,
 prefer injecting a Flux/Lux model via [`NNModel`](@ref).
 """
-struct MLP{P<:AbstractVector,S} <: AbstractNNModel
-  params::P
-  sizes::S    # NTuple{L,Int} with L = nlayers + 1
+struct MLP{L,A<:AbstractVector} <: AbstractNNModel
+  layers::NTuple{L,Int}
+  σ::Function
+  θ::A
 end
 
-function MLP(sizes::AbstractVector{Int};T::Type=Float64)
-  n_params = sum(sizes[i+1] * (sizes[i] + 1) for i in 1:length(sizes)-1)
-  params = randn(T,n_params) .* T(0.01)
-  MLP(params,Tuple(sizes))
+function MLP(layers::NTuple{L,Int}; activation::Function=tanh, T::Type=Float64) where {L}
+  nθ = sum(layers[i+1]*(layers[i]+1) for i in 1:L-1)
+  θ = randn(T,nθ) .* T(0.01)
+  MLP(layers,activation,θ)
 end
 
-function _mlp_forward(params::AbstractVector,sizes::Tuple,x::AbstractMatrix)
+function MLP(layers::AbstractVector{<:Int},args...;kwargs...)
+  MLP(Tuple(layers),args...;kwargs...)
+end
+
+function _mlp_forward(θ::AbstractVector,layers::Tuple,σ,x::AbstractMatrix)
   offset = 0
   h = x
-  nlayers = length(sizes) - 1
+  nlayers = length(layers) - 1
   for l in 1:nlayers
-    n_out = sizes[l+1]
-    n_in = sizes[l]
-    W = reshape(params[offset+1:offset+n_out*n_in],n_out,n_in)
+    n_out = layers[l+1]
+    n_in = layers[l]
+    W = reshape(θ[offset+1:offset+n_out*n_in],n_out,n_in)
     offset += n_out * n_in
-    b = params[offset+1:offset+n_out]
+    b = θ[offset+1:offset+n_out]
     offset += n_out
     z = W * h .+ b
-    h = l < nlayers ? tanh.(z) : z
+    h = l < nlayers ? σ.(z) : z
   end
   h
 end
 
-(m::MLP)(x::AbstractMatrix) = _mlp_forward(m.params,m.sizes,x)
+(m::MLP)(x::AbstractMatrix) = _mlp_forward(m.θ,m.layers,m.σ,x)
 
 """
-    train!(mlp::MLP, x::AbstractMatrix, y::AbstractMatrix;
-           epochs=1000, lr=1e-3) -> MLP
+    train!(mlp::MLP, x::AbstractMatrix, y::AbstractMatrix, strategy::NNStrategy) -> MLP
 
-Trains `mlp` with full-batch gradient descent using ForwardDiff for gradients.
-`x` is `(param_dim × n_samples)`, `y` is `(output_dim × n_samples)`.
-Returns `mlp` in-place.
+Trains `mlp` with the optimiser, loss, and epoch count from `strategy` using
+ForwardDiff for gradients. `x` is `(param_dim × n_samples)`, `y` is
+`(output_dim × n_samples)`. Updates `mlp.θ` in-place and returns `mlp`.
 """
 function train!(
   mlp::MLP,
   x::AbstractMatrix,
-  y::AbstractMatrix;
-  epochs::Int=1000,
-  lr::Real=1e-3
+  y::AbstractMatrix,
+  strategy::NNStrategy
   )
 
-  loss(p) = sum(abs2,_mlp_forward(p,mlp.sizes,x) .- y) / length(y)
-  grad = similar(mlp.params)
-  for _ in 1:epochs
-    ForwardDiff.gradient!(grad,loss,mlp.params)
-    mlp.params .-= lr .* grad
+  loss_fn = strategy.loss
+  σ = mlp.σ
+  opt_state = Optimisers.setup(strategy.optimiser,mlp.θ)
+  grad = similar(mlp.θ)
+  for _ in 1:strategy.epochs
+    ForwardDiff.gradient!(grad,p -> loss_fn(_mlp_forward(p,mlp.layers,σ,x),y),mlp.θ)
+    opt_state, _ = Optimisers.update!(opt_state,mlp.θ,grad)
   end
   mlp
 end
 
 """
-    build_mlp_factory(; hidden_sizes=[64,64], epochs=2000, lr=1e-3) -> Function
+    train_model(strategy::NNStrategy, r::AbstractRealisation, coeff::ConsecutiveParamArray)
+      -> NNModel
 
-Returns a factory `(r::Realisation, coeff::ConsecutiveParamArray) -> NNModel`
-that constructs and trains a [`MLP`](@ref) on the provided training
-data. Pass the result as `nn_factory` to [`NNHyperReduction`](@ref) or
-[`NNOpRegression`](@ref).
-
-For production use, replace this with a factory that wraps a Flux or Lux
-model for faster training and larger capacity.
+Builds a [`MLP`](@ref) whose input dimension is inferred from `r` and output
+dimension from `coeff`, trains it with `strategy`, and wraps the result in an
+[`NNModel`](@ref).
 """
-function build_mlp_factory(;
-  hidden_sizes::AbstractVector{Int}=[64,64],
-  epochs::Int=2000,
-  lr::Real=1e-3
-  )
-
-  function factory(r::Realisation,coeff::ConsecutiveParamArray)
-    d = length(first(r))
-    n = prod(innersize(coeff))
-    sizes = [d;hidden_sizes;n]
-    x = matrix_of_params(r)
-    y = reshape(get_all_data(coeff),n,param_length(coeff))
-    mlp = MLP(sizes;T=eltype(x))
-    train!(mlp,x,y;epochs,lr)
-    NNModel(mlp)
-  end
-
-  factory
+function train_model(strategy::NNStrategy,r::AbstractRealisation,coeff::ConsecutiveParamArray)
+  d = length(first(r))
+  n = prod(innersize(coeff))
+  layers = (d,strategy.layers...,n)
+  x = matrix_of_params(r)
+  y = reshape(get_all_data(coeff),n,param_length(coeff))
+  mlp = MLP(layers;T=eltype(x))
+  train!(mlp,x,y,strategy)
+  NNModel(mlp)
 end
 
 # utils

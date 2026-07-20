@@ -12,16 +12,13 @@ struct NNInterpolation{M<:AbstractNNModel} <: Interpolation
 end
 
 function FESpaces.interpolate!(
-  cache::AbstractArray,
+  cache::AbstractParamArray,
   a::NNInterpolation,
   r::AbstractRealisation
   )
 
   x = matrix_of_params(r)
-  out = a.model(x) # (n_modes × k)
-  n = prod(innersize(cache))
-  k = param_length(cache)
-  copyto!(reshape(get_all_data(cache),n,k),out)
+  evaluate!(cache,a.model,x)
   cache
 end
 
@@ -38,7 +35,7 @@ Offline training step for [`NNHyperReduction`](@ref):
 
 Returns an [`NNInterpolation`](@ref) ready for online use.
 """
-function Interpolation(
+function RBSteady.Interpolation(
   red::NNHyperReduction,
   a::Projection,
   s::Snapshots
@@ -50,6 +47,6 @@ function Interpolation(
   red_data = get_at_domain(s,inds)
   coeff = parameterise(allocate_in_domain(a),r)
   ldiv!(coeff,factor,red_data)
-  model = nn_factory(red)(r,coeff)
+  model = train_model(get_strategy(red),r,coeff)
   NNInterpolation(model)
 end

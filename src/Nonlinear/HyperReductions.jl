@@ -1,44 +1,8 @@
 """
-    struct NNHyperReduction{A} <: HyperReduction{A}
-      reduction::Reduction{A,EuclideanNorm}
-      factory::Function
-    end
-
-A hyper-reduction strategy that uses a neural network to predict EIM
-coefficients from parameter values. The offline phase:
-
-1. applies empirical interpolation on the snapshot basis to extract coefficients
-2. trains the NN via `factory(r, coeff)` on those `(μ, coefficient)` pairs
-
-The online phase calls the NN forward pass instead of assembling the FE
-operator on the reduced integration domain.
-
-`factory` should have the signature
-    factory(r::Realisation, coeff::ConsecutiveParamArray) -> AbstractNNModel
-Use [`build_mlp_factory`](@ref) to get a default built-in MLP factory.
-"""
-struct NNHyperReduction{A} <: HyperReduction{A}
-  reduction::Reduction{A,EuclideanNorm}
-  factory::Function
-end
-
-"""
-    NNHyperReduction(args...; nn_factory=build_mlp_factory(), kwargs...) -> NNHyperReduction
-
-Constructs a `NNHyperReduction` from a `Reduction` built with the same
-positional/keyword arguments accepted by [`Reduction`](@ref). An optional
-`nn_factory` keyword overrides the default built-in MLP training factory.
-"""
-function NNHyperReduction(args...;nn_factory=build_mlp_factory(),kwargs...)
-  reduction = Reduction(args...;kwargs...)
-  NNHyperReduction(reduction,nn_factory)
-end
-
-get_reduction(r::NNHyperReduction) = r.reduction
-nn_factory(r::NNHyperReduction) = r.factory
-
-"""
     struct NNOpRegression <: TrivialHyperReduction
+      nparams::Int
+      strategy::NNStrategy
+    end
 
 A hyper-reduction strategy for **operator regression**: the NN directly maps
 parameter values to the Galerkin-projected residual vector, bypassing FE
@@ -49,23 +13,23 @@ The offline phase projects the residual snapshots onto the test space and
 trains the NN to reproduce the projected vectors. The online phase calls
 the NN forward pass, producing the projected residual without any assembly.
 
-`factory` has the same signature as for [`NNHyperReduction`](@ref).
+`strategy` controls the MLP architecture and training.
 `nparams` controls how many parameter samples to use for NN training.
 """
 struct NNOpRegression <: TrivialHyperReduction
   nparams::Int
-  factory::Function
+  strategy::NNStrategy
 end
 
 """
-    NNOpRegression(; nparams=20, nn_factory=build_mlp_factory()) -> NNOpRegression
+    NNOpRegression(; nparams=20, strategy=NNStrategy()) -> NNOpRegression
 """
-function NNOpRegression(;nparams::Int=20,nn_factory=build_mlp_factory())
-  NNOpRegression(nparams,nn_factory)
+function NNOpRegression(;nparams::Int=20,strategy=NNStrategy())
+  NNOpRegression(nparams,strategy)
 end
 
 ParamDataStructures.num_params(r::NNOpRegression) = r.nparams
-nn_factory(r::NNOpRegression) = r.factory
+get_strategy(r::NNOpRegression) = r.strategy
 
 """
     const NNHRProjection{A} = HRProjection{A,<:NNHyperReduction}
@@ -97,9 +61,9 @@ struct NNOpProjection{A<:ReducedProjection,M} <: HRProjection{A,NNOpRegression}
   model::M
 end
 
-get_basis(a::NNOpProjection) = a.basis
-get_interpolation(a::NNOpProjection) = EmptyInterpolation()
-projection_eltype(a::NNOpProjection) = projection_eltype(get_basis(a))
+RBSteady.get_basis(a::NNOpProjection) = a.basis
+RBSteady.get_interpolation(a::NNOpProjection) = EmptyInterpolation()
+RBSteady.projection_eltype(a::NNOpProjection) = projection_eltype(get_basis(a))
 
 """
     const NNOpContribution = AffineContribution{<:NNOpProjection}
@@ -127,7 +91,7 @@ end
 
 # HRProjection constructors for NNHyperReduction
 
-function HRProjection(
+function RBSteady.HRProjection(
   red::NNHyperReduction,
   s::Snapshots,
   trian::Triangulation,
@@ -140,7 +104,7 @@ function HRProjection(
   return HRProjection(proj_basis,red,interp)
 end
 
-function HRProjection(
+function RBSteady.HRProjection(
   red::NNHyperReduction,
   s::Snapshots,
   trian::Triangulation,
@@ -154,7 +118,7 @@ function HRProjection(
   return HRProjection(proj_basis,red,interp)
 end
 
-function HRProjection(
+function RBSteady.HRProjection(
   red::NNHyperReduction,
   s::Nothing,
   trian::Triangulation,
@@ -168,7 +132,7 @@ function HRProjection(
   return HRProjection(basis,red,interp)
 end
 
-function HRProjection(
+function RBSteady.HRProjection(
   red::NNHyperReduction,
   s::Nothing,
   trian::Triangulation,
@@ -186,7 +150,7 @@ end
 
 # HRProjection constructors for NNOpRegression
 
-function HRProjection(
+function RBSteady.HRProjection(
   red::NNOpRegression,
   s::Snapshots,
   trian::Triangulation,
@@ -203,11 +167,11 @@ function HRProjection(
   y_data = test_basis' * snap_data              # (n_reduced × k)
   y_train = ConsecutiveParamArray(y_data)
 
-  model = nn_factory(red)(r,y_train)
+  model = train_model(get_strategy(red),r,y_train)
   NNOpProjection(basis,model)
 end
 
-function HRProjection(
+function RBSteady.HRProjection(
   red::NNOpRegression,
   s::Nothing,
   trian::Triangulation,
