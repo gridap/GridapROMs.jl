@@ -62,28 +62,39 @@ function MLP(layers::NTuple{L,Int}; activation::Function=tanh, T::Type=Float64) 
   MLP(layers,activation,θ)
 end
 
-function MLP(layers::AbstractVector{<:Int},args...;kwargs...)
+function MLP(layers::AbstractVector{Int},args...;kwargs...)
   MLP(Tuple(layers),args...;kwargs...)
 end
 
-function _mlp_forward(θ::AbstractVector,layers::Tuple,σ,x::AbstractMatrix)
-  offset = 0
-  h = x
-  nlayers = length(layers) - 1
-  for l in 1:nlayers
-    n_out = layers[l+1]
-    n_in = layers[l]
-    W = reshape(θ[offset+1:offset+n_out*n_in],n_out,n_in)
-    offset += n_out * n_in
-    b = θ[offset+1:offset+n_out]
-    offset += n_out
-    z = W * h .+ b
-    h = l < nlayers ? σ.(z) : z
-  end
-  h
+function Arrays.return_cache(m::MLP,x::AbstractMatrix)
+  nin,nout, = m.layers
+  h = CachedArray(similar(x))
+  W = CachedArray(zeros(nout,nin))
+  b = CachedArray(zeros(nout))
+  z = CachedArray(zeros(nout))
+  return (h,W,b,z)
 end
 
-(m::MLP)(x::AbstractMatrix) = _mlp_forward(m.θ,m.layers,m.σ,x)
+function Arrays.evaluate!(cache,m::MLP{L},x::AbstractMatrix) where {L}
+  h,W,b,z = cache 
+  _init!(h,x)
+
+  offset = 0
+  for l in 1:L-1
+    nout = m.layers[l+1]
+    nin = m.layers[l]
+    setsize!(W,nout,nin)
+    setsize!(b,nout)
+    setsize!(z,nout)
+
+    _fill_weights!(W,b,m.θ,offset)
+    l < L-1 ? _apply_layer!(z,W,h,b) : _apply_layer!(z,W,h,b,m.σ)
+
+    offset += nout * (nin + 1)
+  end
+
+  return h.array 
+end
 
 """
     train!(mlp::MLP, x::AbstractMatrix, y::AbstractMatrix, strategy::NNStrategy) -> MLP
@@ -94,20 +105,22 @@ ForwardDiff for gradients. `x` is `(param_dim × n_samples)`, `y` is
 """
 function train!(
   mlp::MLP,
+  strategy::NNStrategy,
   x::AbstractMatrix,
-  y::AbstractMatrix,
-  strategy::NNStrategy
+  y::AbstractMatrix
   )
 
-  loss_fn = strategy.loss
-  σ = mlp.σ
   opt_state = Optimisers.setup(strategy.optimiser,mlp.θ)
   grad = similar(mlp.θ)
+  cache = return_cache(mlp,x)
+  ynn(p) = evaluate!(cache,mlp,p)
+  
   for _ in 1:strategy.epochs
-    ForwardDiff.gradient!(grad,p -> loss_fn(_mlp_forward(p,mlp.layers,σ,x),y),mlp.θ)
+    ForwardDiff.gradient!(grad,p -> strategy.loss(ynn(p),y),mlp.θ)
     opt_state, _ = Optimisers.update!(opt_state,mlp.θ,grad)
   end
-  mlp
+
+  return mlp
 end
 
 """
@@ -119,14 +132,16 @@ dimension from `coeff`, trains it with `strategy`, and wraps the result in an
 [`NNModel`](@ref).
 """
 function train_model(strategy::NNStrategy,r::AbstractRealisation,coeff::ConsecutiveParamArray)
-  d = length(first(r))
-  n = prod(innersize(coeff))
+  d = dimension(r)
+  n = innerlength(coeff)
   layers = (d,strategy.layers...,n)
+
   x = matrix_of_params(r)
-  y = reshape(get_all_data(coeff),n,param_length(coeff))
-  mlp = MLP(layers;T=eltype(x))
-  train!(mlp,x,y,strategy)
-  NNModel(mlp)
+  y = get_all_data(coeff)
+  mlp = MLP(layers;T=eltype(y))
+  train!(mlp,strategy,x,y)
+
+  return NNModel(mlp)
 end
 
 # utils
@@ -146,4 +161,30 @@ function matrix_of_params!(params,r::AbstractRealisation)
     params[:,i] = μ.params[i]
   end
   params
+end
+
+function _init!(h,x)
+  setsize!(h,size(x))
+  copyto!(h.array,x)
+end
+
+function _fill_weights!(W,b,θ,offset)
+  Wa = W.array 
+  ba = b.array
+  nout,nin = size(W)
+  @inbounds for i in 1:nout 
+    for j in 1:nin
+      Wa[i,j] = θ[offset + (j-1)*nout + i]
+    end
+    ba[i] = θ[offset + nout * (nin + 1) + i]
+  end
+end
+
+function _apply_layer!(z,W,h,b,σ=identity)
+  mul!(z.array,W.array,h.array)
+  setsize!(h,size(z))
+  @inbounds for i in axes(z,1)
+    h.array[i] = σ(z.array[i] + b.array[i])
+  end
+  h
 end

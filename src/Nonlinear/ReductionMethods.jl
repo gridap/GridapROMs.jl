@@ -34,6 +34,7 @@ function NNStrategy(;
   loss=loss_mse,
   epochs::Int=1000
   )
+
   NNStrategy(Tuple(layers),optimiser,loss,epochs)
 end
 
@@ -66,11 +67,11 @@ positional/keyword arguments accepted by [`Reduction`](@ref). An optional
 """
 function NNHyperReduction(
   args...;
-  layers::AbstractVector{Int}=[64,64],
-  lr::Real=1e-3,
+  layers=(64,64),
+  lr=1e-3,
   optimiser=Optimisers.Adam(lr),
   loss=loss_mse,
-  epochs::Int=1000,
+  epochs=1000,
   strategy=NNStrategy(;layers,lr,optimiser,loss,epochs),
   kwargs...
   )

@@ -21,10 +21,17 @@ struct NNOpRegression <: TrivialHyperReduction
   strategy::NNStrategy
 end
 
-"""
-    NNOpRegression(; nparams=20, strategy=NNStrategy()) -> NNOpRegression
-"""
-function NNOpRegression(;nparams::Int=20,strategy=NNStrategy())
+function NNOpRegression(
+  ;
+  nparams::Int=20,
+  layers=(64,64),
+  lr=1e-3,
+  optimiser=Optimisers.Adam(lr),
+  loss=loss_mse,
+  epochs=1000,
+  strategy=NNStrategy(;layers,lr,optimiser,loss,epochs)
+  )
+
   NNOpRegression(nparams,strategy)
 end
 

@@ -8,7 +8,7 @@ pass: `coeff[:, i] = model(μ_i)`.
 Constructed automatically by `Interpolation(red::NNHyperReduction, basis, s)`.
 """
 struct NNInterpolation{M<:AbstractNNModel} <: Interpolation
-  model::M
+  interpolation::M
 end
 
 function FESpaces.interpolate!(
