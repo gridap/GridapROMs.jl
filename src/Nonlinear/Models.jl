@@ -56,7 +56,7 @@ struct MLP{L,A<:AbstractVector} <: AbstractNNModel
   θ::A
 end
 
-function MLP(layers::NTuple{L,Int}; activation::Function=tanh, T::Type=Float64) where {L}
+function MLP(layers::NTuple{L,Int}; activation::Function=tanh, T::Type=Float64) where L
   nθ = sum(layers[i+1]*(layers[i]+1) for i in 1:L-1)
   θ = randn(T,nθ) .* T(0.01)
   MLP(layers,activation,θ)
@@ -67,15 +67,16 @@ function MLP(layers::AbstractVector{Int},args...;kwargs...)
 end
 
 function Arrays.return_cache(m::MLP,x::AbstractMatrix)
+  T = eltype(m.θ)
   nin,nout, = m.layers
-  h = CachedArray(similar(x))
-  W = CachedArray(zeros(nout,nin))
-  b = CachedArray(zeros(nout))
-  z = CachedArray(zeros(nout))
+  h = CachedArray(similar(x,T))
+  W = CachedArray(zeros(T,nout,nin))
+  b = CachedArray(zeros(T,nout))
+  z = CachedArray(zeros(T,nout,size(x,2)))
   return (h,W,b,z)
 end
 
-function Arrays.evaluate!(cache,m::MLP{L},x::AbstractMatrix) where {L}
+function Arrays.evaluate!(cache,m::MLP{L},x::AbstractMatrix) where L
   h,W,b,z = cache 
   _init!(h,x)
 
@@ -83,12 +84,43 @@ function Arrays.evaluate!(cache,m::MLP{L},x::AbstractMatrix) where {L}
   for l in 1:L-1
     nout = m.layers[l+1]
     nin = m.layers[l]
-    setsize!(W,nout,nin)
-    setsize!(b,nout)
-    setsize!(z,nout)
+    setsize!(W,(nout,nin))
+    setsize!(b,(nout,))
+    setsize!(z,(nout,size(x,2)))
 
     _fill_weights!(W,b,m.θ,offset)
-    l < L-1 ? _apply_layer!(z,W,h,b) : _apply_layer!(z,W,h,b,m.σ)
+    l < L-1 ? _apply_layer!(z,W,h,b,m.σ) : _apply_layer!(z,W,h,b)
+
+    offset += nout * (nin + 1)
+  end
+
+  return h.array 
+end
+
+function Arrays.return_cache(m::MLP,x::AbstractMatrix,θ::AbstractVector)
+  T = eltype(θ)
+  nin,nout, = m.layers
+  h = CachedArray(similar(x,T))
+  W = CachedArray(zeros(T,nout,nin))
+  b = CachedArray(zeros(T,nout))
+  z = CachedArray(zeros(T,nout,size(x,2)))
+  return (h,W,b,z)
+end
+
+function Arrays.evaluate!(cache,m::MLP{L},x::AbstractMatrix,θ::AbstractVector) where L
+  h,W,b,z = cache 
+  _init!(h,x)
+
+  offset = 0
+  for l in 1:L-1
+    nout = m.layers[l+1]
+    nin = m.layers[l]
+    setsize!(W,(nout,nin))
+    setsize!(b,(nout,))
+    setsize!(z,(nout,size(x,2)))
+
+    _fill_weights!(W,b,θ,offset)
+    l < L-1 ? _apply_layer!(z,W,h,b,m.σ) : _apply_layer!(z,W,h,b)
 
     offset += nout * (nin + 1)
   end
@@ -112,12 +144,13 @@ function train!(
 
   opt_state = Optimisers.setup(strategy.optimiser,mlp.θ)
   grad = similar(mlp.θ)
-  cache = return_cache(mlp,x)
-  ynn(p) = evaluate!(cache,mlp,p)
+  p = ForwardDiff.GradientConfig(nothing,mlp.θ).duals
+  cache = return_cache(mlp,x,p) 
+  ynn(p) = evaluate!(cache,mlp,x,p)
   
   for _ in 1:strategy.epochs
     ForwardDiff.gradient!(grad,p -> strategy.loss(ynn(p),y),mlp.θ)
-    opt_state, _ = Optimisers.update!(opt_state,mlp.θ,grad)
+    opt_state,_ = Optimisers.update!(opt_state,mlp.θ,grad)
   end
 
   return mlp
@@ -176,7 +209,7 @@ function _fill_weights!(W,b,θ,offset)
     for j in 1:nin
       Wa[i,j] = θ[offset + (j-1)*nout + i]
     end
-    ba[i] = θ[offset + nout * (nin + 1) + i]
+    ba[i] = θ[offset + nout*nin + i]
   end
 end
 
@@ -184,7 +217,9 @@ function _apply_layer!(z,W,h,b,σ=identity)
   mul!(z.array,W.array,h.array)
   setsize!(h,size(z))
   @inbounds for i in axes(z,1)
-    h.array[i] = σ(z.array[i] + b.array[i])
+    for j in axes(z,2)
+      h.array[i,j] = σ(z.array[i,j] + b.array[i])
+    end
   end
   h
 end

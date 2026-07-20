@@ -10,17 +10,17 @@ Two complementary strategies are provided:
    linear POD basis and replaces only the EIM coefficient prediction step with
    a neural network.  Drop-in replacement for `RBFHyperReduction`.
 
-2. **NN operator regression** (`NNOpRegression`): bypasses FE assembly
+2. **NN operator regression** (`NNRegression`): bypasses FE assembly
    entirely during the online phase.  The NN is trained to predict the
    Galerkin-projected residual from parameter values directly.
 
 Main types:
 
-- [`NNHyperReduction`](@ref) / [`NNOpRegression`](@ref) — reduction strategy
+- [`NNHyperReduction`](@ref) / [`NNRegression`](@ref) — reduction strategy
   types, passed to [`RBSolver`](@ref) as `residual_reduction` /
   `jacobian_reduction`
 - [`NNHRProjection`](@ref) — the resulting projection for strategy 1
-- [`NNOpProjection`](@ref) — the resulting projection for strategy 2
+- [`NNProjection`](@ref) — the resulting projection for strategy 2
 - [`NNInterpolation`](@ref) — online interpolant produced by strategy 1
 - [`AbstractNNModel`](@ref) / [`NNModel`](@ref) — backend-agnostic wrappers
   for any callable (Flux chain, Lux closure, custom Julia function)
@@ -38,7 +38,7 @@ Quick-start:
     solver = RBSolver(fesolver,red,nn_res,nn_jac)
 
     # Strategy 2: NN predicts projected residual without assembly
-    nn_reg = NNOpRegression(red)
+    nn_reg = NNRegression(red)
     solver = RBSolver(fesolver,red,nn_reg,nn_jac)
 
     # Custom Flux factory (example)
@@ -84,12 +84,12 @@ include("Models.jl")
 
 export NNHRProjection
 export NNContribution
-export NNOpProjection
+export NNProjection
 export NNOpContribution
 export NNInterpolation
 include("Interpolations.jl")
 
-export NNOpRegression
+export NNRegression
 include("HyperReductions.jl")
 
 end # module
