@@ -1,41 +1,58 @@
 """
-    abstract type AbstractNNModel <: Map end
+    abstract type NeuralNetwork <: Map end
 
 Abstract supertype for neural network models. Any concrete subtype must
 implement `(m::T)(x::AbstractMatrix) -> AbstractMatrix` where `x` is a
 `(param_dim × batch_size)` matrix of parameters and the output is a
 `(output_dim × batch_size)` matrix of predictions.
 
-Wrap external Flux/Lux models with [`NNModel`](@ref):
+Wrap external Flux/Lux models with [`GenericNeuralNetwork`](@ref):
 
-    model = NNModel(flux_chain)     # Flux
-    model = NNModel(p -> lux_apply(chain, p, ps, st))  # Lux closure
+    model = GenericNeuralNetwork(flux_chain)     # Flux
+    model = GenericNeuralNetwork(p -> lux_apply(chain, p, ps, st))  # Lux closure
 """
-abstract type AbstractNNModel <: Map end
+abstract type NeuralNetwork <: Map end
+
+function NeuralNetwork(strategy::NNStrategy,args...)
+  @abstractmethod
+end
+
+function NeuralNetwork(strategy::NNStrategy{MLPType},r::AbstractRealisation,coeff::AbstractParamArray)
+  d = dimension(r)
+  n = innerlength(coeff)
+  layers = (d,strategy.layers...,n)
+  MultiLayerPerceptron(layers;T=eltype(y))
+end
+
+function TrainedNeuralNetwork(strategy,args...)
+  a = NeuralNetwork(strategy,args...)
+  train!(a,strategy,args...)
+  return a
+end
 
 """
-    struct NNModel{A} <: AbstractNNModel
+    struct GenericNeuralNetwork{A} <: NeuralNetwork
       model::A
     end
 
 Wraps any callable `A` (Flux chain, Lux closure, plain Julia function) as
-an [`AbstractNNModel`](@ref). The wrapped callable must accept a
+an [`NeuralNetwork`](@ref). The wrapped callable must accept a
 `(d × k)` parameter matrix and return an `(n × k)` prediction matrix.
 """
-struct NNModel{A} <: AbstractNNModel
+struct GenericNeuralNetwork{A} <: NeuralNetwork
   model::A
 end
 
-function Arrays.return_cache(m::NNModel,x::AbstractMatrix)
+function Arrays.return_cache(m::GenericNeuralNetwork,x::AbstractMatrix)
   return_cache(m.model,x)
 end
 
-function Arrays.evaluate!(cache,m::NNModel,x::AbstractMatrix)
+function Arrays.evaluate!(cache,m::GenericNeuralNetwork,x::AbstractMatrix)
   evaluate!(cache,m.model,x)
 end
 
 """
-    struct MLP{L,A<:AbstractVector} <: AbstractNNModel
+    struct MultiLayerPerceptron{L,A<:AbstractVector} <: NeuralNetwork
       layers::NTuple{L,Int}
       σ::Function
       θ::A
@@ -48,25 +65,25 @@ Hidden layers apply `σ`; the output layer is linear.
 
 Use [`NNStrategy`](@ref) to construct and train one as part of
 [`NNHyperReduction`](@ref). For large networks or long training runs,
-prefer injecting a Flux/Lux model via [`NNModel`](@ref).
+prefer injecting a Flux/Lux model via [`GenericNeuralNetwork`](@ref).
 """
-struct MLP{L,A<:AbstractVector} <: AbstractNNModel
+struct MultiLayerPerceptron{L,A<:AbstractVector} <: NeuralNetwork
   layers::NTuple{L,Int}
   σ::Function
   θ::A
 end
 
-function MLP(layers::NTuple{L,Int}; activation::Function=tanh, T::Type=Float64) where L
+function MultiLayerPerceptron(layers::NTuple{L,Int}; activation::Function=tanh, T::Type=Float64) where L
   nθ = sum(layers[i+1]*(layers[i]+1) for i in 1:L-1)
   θ = randn(T,nθ) .* T(0.01)
-  MLP(layers,activation,θ)
+  MultiLayerPerceptron(layers,activation,θ)
 end
 
-function MLP(layers::AbstractVector{Int},args...;kwargs...)
-  MLP(Tuple(layers),args...;kwargs...)
+function MultiLayerPerceptron(layers::AbstractVector{Int},args...;kwargs...)
+  MultiLayerPerceptron(Tuple(layers),args...;kwargs...)
 end
 
-function Arrays.return_cache(m::MLP,x::AbstractMatrix)
+function Arrays.return_cache(m::MultiLayerPerceptron,x::AbstractMatrix)
   T = eltype(m.θ)
   nin,nout, = m.layers
   h = CachedArray(similar(x,T))
@@ -76,7 +93,7 @@ function Arrays.return_cache(m::MLP,x::AbstractMatrix)
   return (h,W,b,z)
 end
 
-function Arrays.evaluate!(cache,m::MLP{L},x::AbstractMatrix) where L
+function Arrays.evaluate!(cache,m::MultiLayerPerceptron{L},x::AbstractMatrix) where L
   h,W,b,z = cache 
   _init!(h,x)
 
@@ -97,7 +114,7 @@ function Arrays.evaluate!(cache,m::MLP{L},x::AbstractMatrix) where L
   return h.array 
 end
 
-function Arrays.return_cache(m::MLP,x::AbstractMatrix,θ::AbstractVector)
+function Arrays.return_cache(m::MultiLayerPerceptron,x::AbstractMatrix,θ::AbstractVector)
   T = eltype(θ)
   nin,nout, = m.layers
   h = CachedArray(similar(x,T))
@@ -107,7 +124,7 @@ function Arrays.return_cache(m::MLP,x::AbstractMatrix,θ::AbstractVector)
   return (h,W,b,z)
 end
 
-function Arrays.evaluate!(cache,m::MLP{L},x::AbstractMatrix,θ::AbstractVector) where L
+function Arrays.evaluate!(cache,m::MultiLayerPerceptron{L},x::AbstractMatrix,θ::AbstractVector) where L
   h,W,b,z = cache 
   _init!(h,x)
 
@@ -129,14 +146,14 @@ function Arrays.evaluate!(cache,m::MLP{L},x::AbstractMatrix,θ::AbstractVector) 
 end
 
 """
-    train!(mlp::MLP, x::AbstractMatrix, y::AbstractMatrix, strategy::NNStrategy) -> MLP
+    train!(mlp::MultiLayerPerceptron, x::AbstractMatrix, y::AbstractMatrix, strategy::NNStrategy) -> MultiLayerPerceptron
 
 Trains `mlp` with the optimiser, loss, and epoch count from `strategy` using
 ForwardDiff for gradients. `x` is `(param_dim × n_samples)`, `y` is
 `(output_dim × n_samples)`. Updates `mlp.θ` in-place and returns `mlp`.
 """
 function train!(
-  mlp::MLP,
+  mlp::MultiLayerPerceptron,
   strategy::NNStrategy,
   x::AbstractMatrix,
   y::AbstractMatrix
@@ -156,25 +173,17 @@ function train!(
   return mlp
 end
 
-"""
-    train_model(strategy::NNStrategy, r::AbstractRealisation, coeff::ConsecutiveParamArray)
-      -> NNModel
-
-Builds a [`MLP`](@ref) whose input dimension is inferred from `r` and output
-dimension from `coeff`, trains it with `strategy`, and wraps the result in an
-[`NNModel`](@ref).
-"""
-function train_model(strategy::NNStrategy,r::AbstractRealisation,coeff::ConsecutiveParamArray)
-  d = dimension(r)
-  n = innerlength(coeff)
-  layers = (d,strategy.layers...,n)
+function train!(
+  mlp::MultiLayerPerceptron,
+  strategy::NNStrategy,
+  r::AbstractRealisation,
+  coeff::ConsecutiveParamArray
+  )
 
   x = matrix_of_params(r)
   y = get_all_data(coeff)
-  mlp = MLP(layers;T=eltype(y))
   train!(mlp,strategy,x,y)
-
-  return NNModel(mlp)
+  return mlp
 end
 
 # utils

@@ -22,9 +22,9 @@ Main types:
 - [`NNHRProjection`](@ref) — the resulting projection for strategy 1
 - [`NNProjection`](@ref) — the resulting projection for strategy 2
 - [`NNInterpolation`](@ref) — online interpolant produced by strategy 1
-- [`AbstractNNModel`](@ref) / [`NNModel`](@ref) — backend-agnostic wrappers
+- [`NeuralNetwork`](@ref) / [`GenericNeuralNetwork`](@ref) — backend-agnostic wrappers
   for any callable (Flux chain, Lux closure, custom Julia function)
-- [`MLP`](@ref) — built-in MLP trained with ForwardDiff; no external
+- [`MultiLayerPerceptron`](@ref) — built-in MultiLayerPerceptron trained with ForwardDiff; no external
   NN library required for quick experiments
 
 Quick-start:
@@ -33,7 +33,7 @@ Quick-start:
 
     # Strategy 1: NN replaces EIM coefficient prediction
     red = PODReduction(1e-4;nparams=100)
-    nn_res = NNHyperReduction(red) # uses built-in MLP factory by default
+    nn_res = NNHyperReduction(red) # uses built-in MultiLayerPerceptron factory by default
     nn_jac = NNHyperReduction(red)
     solver = RBSolver(fesolver,red,nn_res,nn_jac)
 
@@ -47,7 +47,7 @@ Quick-start:
       d = length(first(r)); n = prod(innersize(coeff))
       chain = Chain(Dense(d,64,tanh),Dense(64,n))
       # ... training loop with Flux optimiser ...
-      NNModel(x -> chain(x))
+      GenericNeuralNetwork(x -> chain(x))
     end
     nn_res = NNHyperReduction(red;nn_factory=my_factory)
 """
@@ -70,26 +70,24 @@ using GridapROMs.RBSteady
 import GridapROMs.RBSteady: get_at_domain
 
 export NNStrategy
+export NNRegression
 export NNHyperReduction
 export get_strategy
 export loss_mse,loss_mae
 include("ReductionMethods.jl")
 
-export AbstractNNModel
-export NNModel
-export MLP
+export NeuralNetwork
+export GenericNeuralNetwork
+export MultiLayerPerceptron
 export train!
 export train_model
 include("Models.jl")
 
-export NNHRProjection
-export NNContribution
-export NNProjection
-export NNOpContribution
 export NNInterpolation
 include("Interpolations.jl")
 
-export NNRegression
+export NNProjection
+export NNHRProjection
 include("HyperReductions.jl")
 
 end # module

@@ -1,5 +1,5 @@
 """
-    struct NNInterpolation{M<:AbstractNNModel} <: Interpolation
+    struct NNInterpolation{M<:NeuralNetwork} <: Interpolation
 
 An [`Interpolation`](@ref) backed by a neural network model. During the
 online phase, `interpolate!` replaces the EIM linear solve with a NN forward
@@ -7,7 +7,7 @@ pass: `coeff[:, i] = model(μ_i)`.
 
 Constructed automatically by `Interpolation(red::NNHyperReduction, basis, s)`.
 """
-struct NNInterpolation{M<:AbstractNNModel} <: Interpolation
+struct NNInterpolation{M<:NeuralNetwork} <: Interpolation
   interpolation::M
 end
 
@@ -47,6 +47,6 @@ function RBSteady.Interpolation(
   red_data = get_at_domain(s,inds)
   coeff = parameterise(allocate_in_domain(a),r)
   ldiv!(coeff,factor,red_data)
-  model = train_model(get_strategy(red),r,coeff)
+  model = TrainedNeuralNetwork(get_strategy(red),r,coeff)
   NNInterpolation(model)
 end
