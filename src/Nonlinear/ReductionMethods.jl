@@ -93,7 +93,7 @@ struct NNOperatorReduction <: AbstractNNHyperReduction{NoReductionStyle}
 end
 
 function NNOperatorReduction(
-  ;
+  args...;
   nparams::Int=20,
   type=MLPType(),
   layers=(64,64),
@@ -106,7 +106,8 @@ function NNOperatorReduction(
   lr_schedule=nothing,
   patience=0,
   val_fraction=0.1,
-  strategy=NNStrategy(;type,layers,lr,optimiser,loss,epochs,weight_decay,batch_size,lr_schedule,patience,val_fraction)
+  strategy=NNStrategy(;type,layers,lr,optimiser,loss,epochs,weight_decay,batch_size,lr_schedule,patience,val_fraction),
+  kwargs...
   )
 
   NNOperatorReduction(nparams,strategy)
@@ -169,8 +170,9 @@ get_strategy(r::NNHyperReduction) = r.strategy
 # utils 
 
 function loss_mse(ŷ,y)
+  @check length(ŷ) == length(y)
   s = 0.0
-  @inbounds for i in eachindex(ŷ,y)
+  @inbounds for i in eachindex(y)
     d = ŷ[i] - y[i]
     s += d * d
   end
@@ -178,8 +180,9 @@ function loss_mse(ŷ,y)
 end
 
 function loss_mae(ŷ,y)
+  @check length(ŷ) == length(y)
   s = 0.0
-  @inbounds for i in eachindex(ŷ,y)
+  @inbounds for i in eachindex(y)
     s += abs(ŷ[i] - y[i])
   end
   s / length(y)

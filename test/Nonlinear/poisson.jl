@@ -71,14 +71,11 @@ perf = eval_performance(rbsolver,rbop,x,x̂,festats,rbstats)
 
 # 
 
-res_reduction_2 = NNOperatorReduction(tol;nparams_res,sketch,compression)
-jac_reduction_2 = NNOperatorReduction(tol;nparams_jac,sketch,compression)
+res_reduction_2 = NNOperatorReduction(tol;nparams=nparams_res)
+jac_reduction_2 = NNOperatorReduction(tol;nparams=nparams_jac)
 rbsolver_2 = RBSolver(fesolver,state_reduction,res_reduction_2,jac_reduction_2)
 
-feop_2 = LinearParamOperator(res,stiffness,pspace,trial,test,domains)
-fesnaps_2, = solution_snapshots(rbsolver_2,feop_2)
-rbop_2 = reduced_operator(rbsolver_2,feop_2,fesnaps_2)
+rbop_2 = reduced_operator(rbsolver_2,feop,fesnaps)
 
 x̂_2,rbstats_2 = solve(rbsolver_2,rbop_2,μon)
-x_2,festats_2 = solution_snapshots(rbsolver_2,feop_2,μon)
-perf_2 = eval_performance(rbsolver_2,rbop_2,x_2,x̂_2,festats_2,rbstats_2)
+perf_2 = eval_performance(rbsolver_2,rbop_2,x,x̂_2,festats,rbstats_2)

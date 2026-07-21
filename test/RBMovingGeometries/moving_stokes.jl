@@ -1,4 +1,4 @@
-# module MovingStokes
+module MovingStokes
 
 using DrWatson
 using Gridap
@@ -175,77 +175,4 @@ end
 
 println(perf)
 
-# ─── minimal reproduction of the Int32/Int64 error ────────────────────────────
-# Replicates x̂,rbstats = solve(gsolver,rbopi,μi) at moving_stokes.jl:143,
-# tracing only the leaf calls in GridapROMs before the Gridap testitem failure.
-
-gsolver_rep = change_context(rbsolver)
-k_rep, = get_clusters(rbop.test)
-μi_rep = first(cluster(μon,k_rep))
-feopi_rep = def_fe_operator(μi_rep)
-rbopi_rep = change_operator(get_local(rbop,first(μi_rep)),feopi_rep)
-
-# solve(gsolver,rbopi,μi) → parameterise + allocate
-nlop_rep = parameterise(rbopi_rep,μi_rep)
-x̂_rep = zero_free_values(get_trial(rbopi_rep)(μi_rep))
-
-# solve!(x̂,fesolver,nlop,syscache) → residual!(b,nlop,x̂)
-#   → residual!(b,rbopi,μi,x̂,paramcache)  [ReducedOperators.jl:182]
-paramcache_rep = nlop_rep.paramcache
-uh_rep = EvaluationFunction(paramcache_rep.trial,x̂_rep)
-test_rep = get_test(rbopi_rep)
-v_rep = get_fe_basis(test_rep)
-dc_rep = get_res(rbopi_rep)(μi_rep,uh_rep,v_rep)
-
-# collect_cell_hr_vector [HRAssemblers.jl:19-33]
-strian_rep = first(get_domains_res(rbopi_rep))
-rhs_strian_rep = get_interpolation(RBSteady.get_rhs(rbopi_rep)[strian_rep])
-scell_vec_rep = get_contribution(dc_rep,strian_rep)
-cell_vec_rep,trian_rep2 = move_contributions(scell_vec_rep,strian_rep)
-# move_contributions(arr,strian) is a no-op (returns (arr,strian) unchanged)
-# so trian_rep2 === strian_rep
-
-# attach_constraints_rows(test,cell_vec,trian) [FESpaceInterface.jl:361]
-# ConstraintStyle(test_rep) == Constrained() because MultiFieldRBSpace wraps AgFEMSpaces
-# → attach_constraints_rows(test,cell_vec,trian,::Constrained) [FESpaceInterface.jl:369]
-# → get_cell_constraints(test,trian)              [FESpaceInterface.jl:370]
-# → get_cell_fe_data(get_cell_constraints,test,trian) [FESpaceInterface.jl:325-326]
-
-# unroll get_cell_fe_data(fun,f,ttrian) [FESpaceInterface.jl:20-30]
-trian_rep2 = strian_rep
-sface_to_data_rep = get_cell_constraints(test_rep)   # unary: constraints on test's own trian
-strian_inner_rep  = get_triangulation(test_rep)       # the source triangulation (e.g. Ωact)
-D_rep      = num_cell_dims(strian_inner_rep)
-sglue_rep  = get_glue(strian_inner_rep,Val(D_rep))    # FaceToFaceGlue for source space
-tglue_rep  = get_glue(trian_rep2,Val(D_rep))          # FaceToFaceGlue for target (HR) trian
-# trian_rep2 is a ChildTriangulation whose get_glue calls
-#   view(parent_glue, child.cell_to_parent_cell)
-# which builds tface_to_mface = lazy_map(Reindex(parent.tface_to_mface), Int64_ids)
-# eltype declared as Int32 (from parent), but Int64_ids come from findall(::Vector{Bool})
-
-# unroll get_cell_fe_data(fun,sface_to_data,sglue,tglue) [FESpaceInterface.jl:33-38]
-mface_to_sface_rep  = sglue_rep.mface_to_tface
-tface_to_mface_rep  = tglue_rep.tface_to_mface   # LazyArray{…,Int32} whose elements are Int64
-mface_to_data_rep   = extend(sface_to_data_rep,mface_to_sface_rep)
-# ↓ this is FESpaceInterface.jl:37 — crashes because
-#   lazy_map calls testitem(tface_to_mface_rep)
-#   testitem does first(tface_to_mface_rep)::Int32 but first() returns Int64
-tface_to_data_rep   = lazy_map(Reindex(mface_to_data_rep),tface_to_mface_rep)
-
-tglue_rep  = get_glue(trian_rep2.parent,Val(D_rep)) 
-testitem(tglue_rep.tface_to_mface)
-
-a = AppendedArray([1,2],Int32[3,4])
-av = lazy_map(Reindex(a),[3,4])
-testitem(av)
-
-cache = array_cache(av)
-getindex!(cache,av,2)
-
-b = AppendedArray(Int32[1,2],Int32[3,4])
-bv = lazy_map(Reindex(b),[3,4])
-bcache = array_cache(bv)
-
-fi = map(testitem,([3,4],))
-T = return_type(Reindex(a), fi...)
-lazy_map(Reindex(a),T,[3,4])
+end 

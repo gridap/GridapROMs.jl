@@ -50,7 +50,7 @@ function FESpaces.interpolate!(
 
   o = one(eltype2(b̂))
   coeff = interpolate!(cache,get_interpolation(a),x)
-  mul!(b̂,a,coeff,o,o)
+  _mul!(b̂,a,coeff,o,o)
   return b̂
 end
 
@@ -97,7 +97,8 @@ function RBSteady.HRProjection(
   r = get_realisation(s)
   b = GalerkinProjectable(s)
   y = galerkin_projection(test,b)
-  model = TrainedNeuralNetwork(get_strategy(red),r,get_basis(y))
+  ϕ = get_basis(y)
+  model = TrainedNeuralNetwork(get_strategy(red),r,ϕ)
   return NNOperator(model,test)
 end
 
@@ -112,7 +113,8 @@ function RBSteady.HRProjection(
   r = get_realisation(s)
   A = GalerkinProjectable(s)
   y = galerkin_projection(test,A,trial)
-  model = TrainedNeuralNetwork(get_strategy(red),r,get_basis(y))
+  ϕ = permutedims(get_basis(y),(1,3,2))
+  model = TrainedNeuralNetwork(get_strategy(red),r,ϕ)
   return NNOperator(model,trial,test)
 end
 
@@ -156,4 +158,10 @@ function _axpy!(α,a::AbstractMatrix,b::AbstractParamMatrix)
   k = param_length(b)
   a′ = reshape(a,nrows,ncols,k)
   axpy!(α,a′,get_all_data(b))
+end
+
+_mul!(a,b,c,α,β) = @abstractmethod 
+
+function _mul!(a::AbstractParamArray,b,c::AbstractMatrix,α,β) 
+  mul!(get_all_data(a),b,c,α,β)
 end
