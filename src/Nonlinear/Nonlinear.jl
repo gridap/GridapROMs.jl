@@ -59,17 +59,25 @@ using Gridap.FESpaces
 using Gridap.Geometry
 using Gridap.Helpers
 
+using Clustering
+
 using GridapROMs.ParamDataStructures
+using GridapROMs.ParamODEs
 using GridapROMs.RBSteady
+using GridapROMs.RBTransient
 
 import GridapROMs.Utils: get_contributions
 import GridapROMs.RBSteady: allocate_coefficient,allocate_hyper_reduction,get_at_domain
+import GridapROMs.RBSteady: get_label,compute_clusters
+import GridapROMs.RBTransient: get_at_kron_domain,get_at_seq_domain,get_time_combination
 
 export GenericType
 export MLPType
 export NNStrategy
 export NNOperatorReduction
 export NNHyperReduction
+export HighDimNNOperatorReduction
+export HighDimNNHyperReduction
 export get_strategy
 export loss_mse
 export loss_mae
@@ -88,6 +96,7 @@ include("Interpolations.jl")
 export NNOperator
 export NNContribution
 export NNHRProjection
+export LocalNNHRProjection
 include("HyperReductions.jl")
 
 include("ReducedOperators.jl")

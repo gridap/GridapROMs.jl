@@ -35,6 +35,11 @@ function SteadyReduction(args...;kwargs...)
   SteadyReduction(reduction)
 end
 
+function SteadyReduction(supr_op::Function,args...;supr_tol=1e-2,kwargs...)
+  reduction = SteadyReduction(args...;kwargs...)
+  SupremizerReduction(reduction,supr_op,supr_tol)
+end
+
 RBSteady.ReductionStyle(r::SteadyReduction) = ReductionStyle(r.reduction)
 RBSteady.NormStyle(r::SteadyReduction) = NormStyle(r.reduction)
 ParamDataStructures.num_params(r::SteadyReduction) = num_params(r.reduction)

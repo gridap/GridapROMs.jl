@@ -323,7 +323,8 @@ function _cluster(s::BlockSnapshots{N},inds::AbstractVector) where N
       array[i] = _cluster(s[i],inds)
     end
   end
-  return BlockSnapshots(array,s.touched,s.param_data)
+  pdata = _cluster(s.param_data,inds)
+  return BlockSnapshots(array,s.touched,pdata)
 end
 
 function _cluster(a::ConsecutiveParamArray{T,N},inds::AbstractVector) where {T,N}
@@ -341,12 +342,12 @@ function _cluster(a::AbstractParamArray,inds::AbstractVector)
   ParamArray(data)
 end
 
-function _cluster(a::BlockParamArray,labels::AbstractVector)
-  mortar(map(ai -> _cluster(ai,labels),blocks(a)))
+function _cluster(a::BlockParamArray,inds::AbstractVector)
+  mortar(map(ai -> _cluster(ai,inds),blocks(a)))
 end
 
-function _cluster(a::RBParamVector,labels::AbstractVector)
-  data = _cluster(a.data,labels)
-  fe_data = _cluster(a.fe_data,labels)
+function _cluster(a::RBParamVector,inds::AbstractVector)
+  data = _cluster(a.data,inds)
+  fe_data = _cluster(a.fe_data,inds)
   RBParamVector(data,fe_data)
 end

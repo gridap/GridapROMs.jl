@@ -76,3 +76,9 @@ function RBSteady._cluster(s::TransientSnapshotsWithIC,inds::AbstractVector)
   snaps = RBSteady._cluster(s.snaps,inds)
   TransientSnapshotsWithIC(initial_param_data,snaps)
 end
+
+function RBSteady._cluster(a::StoredParamData,inds::AbstractVector)
+  param_data = RBSteady._cluster(a.param_data,inds)
+  param_data0 = map(d0 -> RBSteady._cluster(d0,inds),a.param_data0)
+  StoredParamData(param_data,param_data0)
+end

@@ -170,6 +170,7 @@ function select_param_data(
   s::StoredParamData,prange,trange;
   nparams=Int(param_length(s.param_data)/length(trange))
   )
+  
   pd = select_param_data(s.param_data,prange,trange;nparams=nparams)
   StoredParamData(pd,s.param_data0)
 end
