@@ -13,28 +13,28 @@ Wrap external Flux/Lux models with [`GenericNeuralNetwork`](@ref):
 """
 abstract type NeuralNetwork <: Map end
 
-function NeuralNetwork(strategy::NNStrategy,args...)
+function NeuralNetwork(s::NNStrategy,args...)
   @abstractmethod
 end
 
-function NeuralNetwork(strategy::NNStrategy{MLPType},r::AbstractRealisation,coeff)
+function NeuralNetwork(s::NNStrategy{MLPType},r::AbstractRealisation,coeff)
   d = dimension(r)
   y = _get_data(coeff)
   n = size(y,1)
-  layers = (d,strategy.layers...,n)
+  layers = (d,s.layers...,n)
   MultiLayerPerceptron(layers;T=eltype(y))
 end
 
 """
-    TrainedNeuralNetwork(strategy::NNStrategy, r::AbstractRealisation, coeff) -> NeuralNetwork
+    TrainedNeuralNetwork(s::NNStrategy, r::AbstractRealisation, coeff) -> NeuralNetwork
 
-Constructs a [`NeuralNetwork`](@ref) from `strategy` and immediately trains it on
+Constructs a [`NeuralNetwork`](@ref) from `s` and immediately trains it on
 the `(r, coeff)` data pair. For `MLPType` strategies a [`MultiLayerPerceptron`](@ref)
 is built whose output dimension is inferred from `coeff`.
 """
-function TrainedNeuralNetwork(strategy,args...)
-  a = NeuralNetwork(strategy,args...)
-  train!(a,strategy,args...)
+function TrainedNeuralNetwork(s,args...)
+  a = NeuralNetwork(s,args...)
+  train!(a,s,args...)
   return a
 end
 
@@ -158,28 +158,84 @@ function Arrays.evaluate!(cache,a::MultiLayerPerceptron{L},x::AbstractMatrix,θ:
 end
 
 """
-    train!(a::MultiLayerPerceptron, strategy::NNStrategy, x::AbstractMatrix, y::AbstractMatrix) -> MultiLayerPerceptron
+    train!(a::MultiLayerPerceptron, s::NNStrategy, x::AbstractMatrix, y::AbstractMatrix) -> MultiLayerPerceptron
 
-Trains `a` with the optimiser, loss, and epoch count from `strategy` using
-ForwardDiff for gradients. `x` is `(param_dim × n_samples)`, `y` is
-`(output_dim × n_samples)`. Updates `a.θ` in-place and returns `a`.
+Trains `a` using the hyperparameters in `s` with ForwardDiff for gradients.
+`x` is `(param_dim × n_samples)`, `y` is `(output_dim × n_samples)`. Updates
+`a.θ` in-place and returns `a`.
+
+- Mini-batching: when `s.batch_size > 0` samples are shuffled and looped
+  each epoch; the last incomplete batch is dropped.
+- LR scheduling: when `s.lr_schedule` is not `nothing`, it is called as
+  `lr_schedule(epoch, total_epochs)` and applied via `Optimisers.adjust!`.
+- Early stopping: when `s.patience > 0`, a `s.val_fraction`
+  fraction of samples is held out; training stops when the validation loss fails
+  to improve for `patience` consecutive epochs.
 """
 function train!(
   a::MultiLayerPerceptron,
-  strategy::NNStrategy,
+  s::NNStrategy,
   x::AbstractMatrix,
   y::AbstractMatrix
   )
 
-  opt_state = Optimisers.setup(strategy.optimiser,a.θ)
+  k = size(x,2)
+  early_stop = s.patience > 0
+
+  if early_stop
+    n_val = max(1,round(Int,k*s.val_fraction))
+    n_tr = k - n_val
+    @check n_tr > 0 "val_fraction=$(s.val_fraction) leaves no training samples"
+    perm0 = randperm(k)
+    x_tr = view(x,:,perm0[1:n_tr])
+    y_tr = view(y,:,perm0[1:n_tr])
+    x_val = view(x,:,perm0[n_tr+1:k])
+    y_val = view(y,:,perm0[n_tr+1:k])
+  else
+    x_tr,y_tr = x,y
+    n_tr = k
+  end
+
+  bs = s.batch_size == 0 ? n_tr : min(s.batch_size,n_tr)
+  full_batch = bs == n_tr
+
+  opt_state = Optimisers.setup(s.optimiser,a.θ)
   grad = similar(a.θ)
-  p = ForwardDiff.GradientConfig(nothing,a.θ).duals
-  cache = return_cache(a,x,p) 
-  ynn(p) = evaluate!(cache,a,x,p)
-  
-  for _ in 1:strategy.epochs
-    ForwardDiff.gradient!(grad,p -> strategy.loss(ynn(p),y),a.θ)
-    opt_state,_ = Optimisers.update!(opt_state,a.θ,grad)
+  cfg = ForwardDiff.GradientConfig(nothing,a.θ)
+  cache = return_cache(a,full_batch ? x_tr : x_tr[:,1:bs],cfg.duals)
+  cache_val = early_stop ? return_cache(a,x_val) : nothing
+
+  ynn(p) = evaluate!(cache,a,x_tr,p)
+  ynn_b(x,p) = evaluate!(cache,a,x,p)
+
+  best_val = typemax(Float64)
+  patience_count = 0
+
+  for epoch in 1:s.epochs
+    _adjust_lr!(opt_state,s,epoch)
+    if full_batch
+      ForwardDiff.gradient!(grad,p -> s.loss(ynn(p),y_tr),a.θ,cfg)
+      opt_state,_ = Optimisers.update!(opt_state,a.θ,grad)
+    else
+      perm = randperm(n_tr)
+      for start in 1:bs:(n_tr-bs+1)
+        idx = view(perm,start:start+bs-1)
+        xb = view(x_tr,:,idx)
+        yb = view(y_tr,:,idx)
+        ForwardDiff.gradient!(grad,p -> s.loss(ynn_b(xb,p),yb),a.θ,cfg)
+        opt_state,_ = Optimisers.update!(opt_state,a.θ,grad)
+      end
+    end
+    if early_stop
+      val_loss = s.loss(evaluate!(cache_val,a,x_val),y_val)
+      if val_loss < best_val
+        best_val = val_loss
+        patience_count = 0
+      else
+        patience_count += 1
+        patience_count >= s.patience && break
+      end
+    end
   end
 
   return a
@@ -187,14 +243,14 @@ end
 
 function train!(
   a::MultiLayerPerceptron,
-  strategy::NNStrategy,
+  s::NNStrategy,
   r::AbstractRealisation,
   coeff
   )
 
   x = matrix_of_params(r)
   y = _get_data(coeff)
-  train!(a,strategy,x,y)
+  train!(a,s,x,y)
   return a
 end
 
@@ -248,4 +304,9 @@ function _apply_layer!(z,W,h,b,activation=identity)
     end
   end
   h
+end
+
+function _adjust_lr!(state,s::NNStrategy,epoch::Int)
+  isnothing(s.lr_schedule) && return
+  Optimisers.adjust!(state,s.lr_schedule(epoch,s.epochs))
 end

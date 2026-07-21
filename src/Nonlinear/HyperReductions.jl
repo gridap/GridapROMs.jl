@@ -1,10 +1,10 @@
 """
-    struct NNProjection{A,N} <: HRProjection{…,NNRegression}
+    struct NNOperator{A,N} <: HRProjection{…,NNOperatorReduction}
       model::A
       reduced_sizes::NTuple{N,Int}
     end
 
-[`HRProjection`](@ref) for operator regression (`NNRegression` strategy). The
+[`HRProjection`](@ref) for operator regression (`NNOperatorReduction` strategy). The
 `model` maps parameter matrices `(d×k)` directly to projected operator values,
 bypassing FE assembly during the online phase.
 
@@ -16,37 +16,35 @@ The middle entry `1` is a dummy so that `N=2` (vector) and `N=3` (matrix) give
 distinct type parameter `N` while `last(reduced_sizes)` always returns the column
 count (1 for vectors, `ncols` for matrices).
 
-Constructed automatically by [`HRProjection(::NNRegression, …)`](@ref).
+Constructed automatically by [`HRProjection(::NNOperatorReduction, …)`](@ref).
 """
-struct NNProjection{A,N} <: HRProjection{ReducedProjection{AbstractArray{Number,N}},NNRegression}
+struct NNOperator{A,N} <: HRProjection{ReducedProjection{AbstractArray{Number,N}},NNOperatorReduction}
   model::A
   reduced_sizes::NTuple{N,Int}
 end
 
-function NNProjection(model::NeuralNetwork,test::RBSpace) 
+function NNOperator(model::NeuralNetwork,test::RBSpace) 
   nrows = num_reduced_dofs(test)
-  NNProjection(model,(nrows,1))
+  NNOperator(model,(nrows,1))
 end
 
-function NNProjection(model::NeuralNetwork,trial::RBSpace,test::RBSpace) 
+function NNOperator(model::NeuralNetwork,trial::RBSpace,test::RBSpace) 
   nrows = num_reduced_dofs(test)
   ncols = num_reduced_dofs(trial)
-  NNProjection(model,(nrows,1,ncols))
+  NNOperator(model,(nrows,1,ncols))
 end
 
-RBSteady.get_interpolation(a::NNProjection) = EmptyInterpolation()
-RBSteady.projection_eltype(a::NNProjection) = eltype(get_weights(a.model))
+RBSteady.get_interpolation(a::NNOperator) = EmptyInterpolation()
+RBSteady.projection_eltype(a::NNOperator) = eltype(get_weights(a.model))
 
-const NNHRProjection{A<:Projection} = HRProjection{A,<:NNHyperReduction}
-
-RBSteady.num_reduced_dofs(a::NNProjection) = 1
-RBSteady.num_reduced_dofs_left_projector(a::NNProjection) = first(a.reduced_sizes)
-RBSteady.num_reduced_dofs_right_projector(a::NNProjection) = last(a.reduced_sizes)
+RBSteady.num_reduced_dofs(a::NNOperator) = 1
+RBSteady.num_reduced_dofs_left_projector(a::NNOperator) = first(a.reduced_sizes)
+RBSteady.num_reduced_dofs_right_projector(a::NNOperator) = last(a.reduced_sizes)
 
 function FESpaces.interpolate!(
   b̂::AbstractArray,
   cache,
-  a::NNProjection,
+  a::NNOperator,
   r::AbstractRealisation
   )
 
@@ -56,28 +54,30 @@ function FESpaces.interpolate!(
   return b̂
 end
 
-function RBSteady.allocate_coefficient(a::NNProjection,r::AbstractRealisation)
+function RBSteady.allocate_coefficient(a::NNOperator,r::AbstractRealisation)
   x = matrix_of_params(r)
   return_cache(a.model,x)
 end
 
-"""
-    const NNContribution = AffineContribution{<:NNProjection}
+const NNHRProjection{A<:Projection} = HRProjection{A,<:NNHyperReduction}
 
-[`AffineContribution`](@ref) backed by [`NNProjection`](@ref)s.
 """
-const NNContribution = AffineContribution{<:NNProjection}
+    const NNContribution = AffineContribution{<:NNOperator}
+
+[`AffineContribution`](@ref) backed by [`NNOperator`](@ref)s.
+"""
+const NNContribution = AffineContribution{<:NNOperator}
 
 function FESpaces.interpolate!(
   hypred::AbstractArray,
-  coeff::AbstractArray,
+  cache,
   a::NNContribution,
   r::AbstractRealisation
   )
 
   fill!(hypred,zero(eltype(hypred)))
   for aval in get_contributions(a)
-    interpolate!(hypred,coeff,aval,r)
+    interpolate!(hypred,cache,aval,r)
   end
   return hypred
 end
@@ -93,10 +93,8 @@ function RBSteady.allocate_hypred_cache(a::NNContribution,args...)
   return HRParamArray(fecache,coeffs,hypred)
 end
 
-# HRProjection constructors for NNRegression
-
 function RBSteady.HRProjection(
-  red::NNRegression,
+  red::NNOperatorReduction,
   s::Snapshots,
   trian::Triangulation,
   test::RBSpace
@@ -106,11 +104,11 @@ function RBSteady.HRProjection(
   b = GalerkinProjectable(s)
   y = galerkin_projection(test,b)
   model = TrainedNeuralNetwork(get_strategy(red),r,get_basis(y))
-  return NNProjection(model,test)
+  return NNOperator(model,test)
 end
 
 function RBSteady.HRProjection(
-  red::NNRegression,
+  red::NNOperatorReduction,
   s::Snapshots,
   trian::Triangulation,
   trial::RBSpace,
@@ -121,10 +119,8 @@ function RBSteady.HRProjection(
   A = GalerkinProjectable(s)
   y = galerkin_projection(test,A,trial)
   model = TrainedNeuralNetwork(get_strategy(red),r,get_basis(y))
-  return NNProjection(model,trial,test)
+  return NNOperator(model,trial,test)
 end
-
-# HRProjection constructors for NNHyperReduction
 
 function RBSteady.HRProjection(
   red::NNHyperReduction,
