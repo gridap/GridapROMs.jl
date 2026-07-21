@@ -1,24 +1,6 @@
-"""
-    struct NNOperator{A,N} <: HRProjection{…,NNOperatorReduction}
-      model::A
-      reduced_sizes::NTuple{N,Int}
-    end
+const NNHRProjection{A<:Projection,B<:AbstractNNHyperReduction} = HRProjection{A,B}
 
-[`HRProjection`](@ref) for operator regression (`NNOperatorReduction` strategy). The
-`model` maps parameter matrices `(d×k)` directly to projected operator values,
-bypassing FE assembly during the online phase.
-
-`reduced_sizes` stores the output shape per parameter sample:
-- `(nrows, 1)` for a projected residual vector of length `nrows`
-- `(nrows, 1, ncols)` for a projected Jacobian matrix of size `nrows×ncols`
-
-The middle entry `1` is a dummy so that `N=2` (vector) and `N=3` (matrix) give
-distinct type parameter `N` while `last(reduced_sizes)` always returns the column
-count (1 for vectors, `ncols` for matrices).
-
-Constructed automatically by [`HRProjection(::NNOperatorReduction, …)`](@ref).
-"""
-struct NNOperator{A,N} <: HRProjection{ReducedProjection{AbstractArray{Number,N}},NNOperatorReduction}
+struct NNOperator{A,N} <: NNHRProjection{ReducedProjection{AbstractArray{Number,N}},NNOperatorReduction}
   model::A
   reduced_sizes::NTuple{N,Int}
 end
@@ -59,14 +41,26 @@ function RBSteady.allocate_coefficient(a::NNOperator,r::AbstractRealisation)
   return_cache(a.model,x)
 end
 
-const NNHRProjection{A<:Projection} = HRProjection{A,<:NNHyperReduction}
+function FESpaces.interpolate!(
+  b̂::AbstractArray,
+  cache,
+  a::NNHRProjection{<:Projection,<:NNHyperReduction},
+  x::Any
+  )
 
-"""
-    const NNContribution = AffineContribution{<:NNOperator}
+  o = one(eltype2(b̂))
+  coeff = interpolate!(cache,get_interpolation(a),x)
+  mul!(b̂,a,coeff,o,o)
+  return b̂
+end
 
-[`AffineContribution`](@ref) backed by [`NNOperator`](@ref)s.
-"""
-const NNContribution = AffineContribution{<:NNOperator}
+function RBSteady.allocate_coefficient(a::NNHRProjection{<:Projection,<:NNHyperReduction},r::AbstractRealisation)
+  x = matrix_of_params(r)
+  i = get_interpolation(a)
+  return_cache(i.interpolation,x)
+end
+
+const NNContribution = AffineContribution{<:NNHRProjection}
 
 function FESpaces.interpolate!(
   hypred::AbstractArray,

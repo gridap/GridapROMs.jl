@@ -96,34 +96,11 @@ end
 get_weights(a::MultiLayerPerceptron) = a.θ
 
 function Arrays.return_cache(a::MultiLayerPerceptron,x::AbstractMatrix)
-  T = eltype(a.θ)
-  nin,nout, = a.layers
-  h = CachedArray(similar(x,T))
-  W = CachedArray(zeros(T,nout,nin))
-  b = CachedArray(zeros(T,nout))
-  z = CachedArray(zeros(T,nout,size(x,2)))
-  return (h,W,b,z)
+  return_cache(a,x,a.θ)
 end
 
-function Arrays.evaluate!(cache,a::MultiLayerPerceptron{L},x::AbstractMatrix) where L
-  h,W,b,z = cache 
-  _init!(h,x)
-
-  offset = 0
-  for l in 1:L-1
-    nout = a.layers[l+1]
-    nin = a.layers[l]
-    setsize!(W,(nout,nin))
-    setsize!(b,(nout,))
-    setsize!(z,(nout,size(x,2)))
-
-    _fill_weights!(W,b,a.θ,offset)
-    l < L-1 ? _apply_layer!(z,W,h,b,a.activation) : _apply_layer!(z,W,h,b)
-
-    offset += nout * (nin + 1)
-  end
-
-  return h.array 
+function Arrays.evaluate!(cache,a::MultiLayerPerceptron,x::AbstractMatrix) 
+  evaluate!(cache,a,x,a.θ)
 end
 
 function Arrays.return_cache(a::MultiLayerPerceptron,x::AbstractMatrix,θ::AbstractVector)

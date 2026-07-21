@@ -6,7 +6,7 @@ function Algebra.residual!(
   paramcache
   ) where {O,T,A}
 
-  fill!(b,zero(eltype(b)))
+  fill!(b.hypred,zero(eltype(b.hypred)))
   interpolate!(b,op.rhs,r)
 end
 
@@ -18,6 +18,6 @@ function Algebra.jacobian!(
   paramcache
   ) where {O,T,B}
 
-  fill!(A,zero(eltype(A)))
+  fill!(A.hypred,zero(eltype(A.hypred)))
   interpolate!(A,op.lhs,r)
 end

@@ -215,6 +215,7 @@ function LinearAlgebra.mul!(
   α::Number,
   β::Number
   )
+
   mul!(x,get_basis(b),y,α,β)
 end
 
@@ -225,6 +226,7 @@ function LinearAlgebra.mul!(
   α::Number,
   β::Number
   )
+  
   mul!(x.data,get_basis(b),y.data,α,β)
 end
 

@@ -12,14 +12,13 @@ struct NNInterpolation{A<:NeuralNetwork} <: Interpolation
 end
 
 function FESpaces.interpolate!(
-  cache::AbstractParamArray,
+  cache,
   a::NNInterpolation,
   r::AbstractRealisation
   )
 
   x = matrix_of_params(r)
   evaluate!(cache,a.interpolation,x)
-  cache
 end
 
 """

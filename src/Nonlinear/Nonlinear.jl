@@ -62,7 +62,8 @@ using Gridap.Helpers
 using GridapROMs.ParamDataStructures
 using GridapROMs.RBSteady
 
-import GridapROMs.RBSteady: get_at_domain
+import GridapROMs.Utils: get_contributions
+import GridapROMs.RBSteady: allocate_coefficient,allocate_hyper_reduction,get_at_domain
 
 export GenericType
 export MLPType

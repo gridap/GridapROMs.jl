@@ -87,7 +87,7 @@ the NN forward pass, producing the projected residual without any assembly.
 `strategy` controls the MultiLayerPerceptron architecture and training.
 `nparams` controls how many parameter samples to use for NN training.
 """
-struct NNOperatorReduction <: AbstractNNHyperReduction{NoReduction}
+struct NNOperatorReduction <: AbstractNNHyperReduction{NoReductionStyle}
   nparams::Int
   strategy::NNStrategy
 end
