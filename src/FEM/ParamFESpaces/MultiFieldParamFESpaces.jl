@@ -32,6 +32,16 @@ end
 
 function MultiField._restrict_to_field(
   f,
+  ::Union{<:ConsecutiveMultiFieldStyle,<:BlockMultiFieldStyle},
+  free_values::BlockParamVector,
+  field
+  )
+
+  blocks(free_values)[field]
+end
+
+function MultiField._restrict_to_field(
+  f,
   mfs::BlockMultiFieldStyle{NB,SB,P},
   free_values::BlockParamVector,
   field
@@ -57,6 +67,7 @@ function FESpaces.interpolate!(
   free_values::AbstractParamVector,
   f::MultiFieldFESpace
   )
+
   blocks = SingleFieldParamFEFunction[]
   for (field,(U,object)) in enumerate(zip(f.spaces,objects))
     free_values_i = restrict_to_field(f,free_values,field)

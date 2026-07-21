@@ -84,8 +84,10 @@ end
 
 const TransientRBFInterpolation{A} = RBFInterpolation{A}
 
-for (T,f) in zip((:KroneckerProjection,:SequentialProjection),
-                 (:get_at_kron_domain,:get_at_seq_domain))
+for (T,f) in zip(
+  (:KroneckerProjection,:SequentialProjection),
+  (:get_at_kron_domain,:get_at_seq_domain)
+  )
   @eval begin
     function RBSteady.Interpolation(
       red::HighDimRBFHyperReduction,
@@ -102,6 +104,22 @@ for (T,f) in zip((:KroneckerProjection,:SequentialProjection),
       ldiv!(coeff,factor,red_data)
       interp = Interpolator(r,coeff,strategy)
       RBFInterpolation(interp)
+    end
+
+    function RBSteady.Interpolation(
+      red::HighDimNNHyperReduction,
+      a::$T,
+      s::TransientSnapshots
+      )
+
+      inds,interp = empirical_interpolation(a)
+      factor = lu(interp)
+      r = get_params(get_realisation(s))
+      red_data = $f(s,inds...)
+      coeff = parameterise(allocate_in_domain(a),r)
+      ldiv!(coeff,factor,red_data)
+      model = TrainedNeuralNetwork(get_strategy(red),r,coeff)
+      NNInterpolation(model)
     end
   end
 end

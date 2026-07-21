@@ -26,8 +26,6 @@ include("RB/RBTransient/RBTransient.jl")
 
 include("Distributed/Distributed.jl")
 
-include("Nonlinear/Nonlinear.jl")
-
 include("Exports.jl")
 
 end

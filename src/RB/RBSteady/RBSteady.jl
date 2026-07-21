@@ -10,9 +10,12 @@ small system for new parameter values.  Main building blocks:
 
 - **Reduction methods** (`ReductionMethods.jl`) — `PODReduction` (SVD-based),
   `TTSVDReduction` (tensor-train SVD), `GreedyReduction`, `SupremizerReduction`,
-  `MDEIMHyperReduction`, `SOPTHyperReduction`, `RBFHyperReduction`, 
-  and composites.  Rank/tolerance criteria are expressed via
+  `MDEIMHyperReduction`, `SOPTHyperReduction`, `RBFHyperReduction`,
+  `NNHyperReduction` (NN-based EIM coefficient prediction),
+  `NNOperatorReduction` (full operator regression), `LocalHyperReduction`
+  (cluster-local variants), and composites.  Rank/tolerance criteria expressed via
   `SearchSVDRank`, `FixedSVDRank`, `LRApproxRank`, `TTSVDRanks`.
+  NN training controlled by `NNStrategy`.
 
 - **Bases construction** (`BasesConstruction.jl`) — `tpod` (truncated POD),
   `ttsvd` (tensor-train SVD), `gram_schmidt` / `orth_complement!`, `orth_projection`.
@@ -26,10 +29,16 @@ small system for new parameter values.  Main building blocks:
   `reduced_subspace`, `reduced_basis`.
 
 - **Hyper-reduction** (`HyperReductions.jl`) — `HRProjection` hierarchy
-  (`MDEIMProjection`, `RBFProjection`, `BlockHRProjection`) together with
-  `IntegrationDomain` (DEIM-style reduced integration), `Interpolation`
-  (`GreedyInterpolation`, `RBFInterpolation`), and `reduced_triangulation` /
-  `reduced_jacobian` / `reduced_residual` / `reduced_weak_form`.
+  (`MDEIMProjection`, `RBFProjection`, `NNHRProjection`, `BlockHRProjection`)
+  together with `IntegrationDomain` (DEIM-style reduced integration),
+  `Interpolation` (`GreedyInterpolation`, `RBFInterpolation`, `NNInterpolation`),
+  `NNOperator` (NN operator regression projection), `NNContribution`,
+  and `reduced_triangulation` / `reduced_jacobian` / `reduced_residual` /
+  `reduced_weak_form`.
+
+- **Neural network models** (`NonlinearModels.jl`) — `MultiLayerPerceptron`,
+  `GenericNeuralNetwork`, `TrainedNeuralNetwork`; minimal ForwardDiff-based
+  training loop with mini-batching, LR scheduling, and early stopping.
 
 - **Reduced operators** (`ReducedOperators.jl`) — `GenericRBOperator`,
   `LinearNonlinearRBOperator`; `reduced_operator`.
@@ -54,8 +63,10 @@ module RBSteady
 using BlockArrays
 using Clustering
 using DrWatson
+using ForwardDiff
 using LinearAlgebra
 using LowRankApprox
+using Optimisers
 using Random
 using Serialization
 using SparseArrays
@@ -122,10 +133,25 @@ export AffineHyperReduction
 export MDEIMHyperReduction
 export SOPTHyperReduction
 export RBFHyperReduction
+export GenericNNType
+export MLPType
+export NNStrategy
+export NNOperatorReduction
+export NNHyperReduction
 export LocalHyperReduction
 export AdaptiveReduction
 export get_reduction
+export get_strategy
+export loss_mse
+export loss_mae
 include("ReductionMethods.jl")
+
+export NeuralNetwork
+export GenericNeuralNetwork
+export MultiLayerPerceptron
+export TrainedNeuralNetwork
+export train!
+include("NonlinearModels.jl")
 
 export galerkin_projection
 export galerkin_projection!
@@ -223,6 +249,7 @@ export EmptyInterpolation
 export FullInterpolation
 export GreedyInterpolation
 export RBFInterpolation
+export NNInterpolation
 export BlockInterpolation
 export move_interpolation
 include("Interpolations.jl")
@@ -231,6 +258,9 @@ export HRProjection
 export HRVecProjection
 export HRMatProjection
 export BlockHRProjection
+export NNHRProjection
+export NNOperator
+export NNContribution
 export AffineContribution
 export get_style
 export get_interpolation

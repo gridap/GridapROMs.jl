@@ -14,7 +14,8 @@ function MultiField._restrict_to_field(
   ::ConsecutiveMultiFieldExtensionStyle,
   free_values,
   field
-)
+  )
+
   U = f.spaces
   offsets = MultiField._compute_field_offsets(U)
   pini = offsets[field] + 1
@@ -57,6 +58,7 @@ end
 struct BlockMultiFieldExtensionStyle{NB,SB,P} <: MultiFieldStyle end
 
 BlockMultiFieldExtensionStyle() = BlockMultiFieldExtensionStyle{0,0,0}()
+
 function BlockMultiFieldExtensionStyle(NB::Integer,SB::Tuple,P::Tuple)
   @check length(SB) == NB
   @check sum(SB) == length(P)
@@ -110,7 +112,8 @@ function MultiField._restrict_to_field(
   ::BlockMultiFieldExtensionStyle,
   free_values,
   field
-)
+  )
+
   U = f.spaces
   offsets = MultiField._compute_field_offsets(U)
   pini = offsets[field] + 1
@@ -123,7 +126,8 @@ function MultiField._restrict_to_field(
   mfs::BlockMultiFieldExtensionStyle{NB,SB,P},
   free_values::BlockVector,
   field
-) where {NB,SB,P}
+  ) where {NB,SB,P}
+
   @check blocklength(free_values) == NB
   U = f.spaces
 
@@ -143,6 +147,7 @@ function MultiField.compute_field_offsets(
   f::MultiFieldFESpace,
   ::BlockMultiFieldExtensionStyle{NB,SB,P}
   ) where {NB,SB,P}
+
   U = f.spaces
   block_ranges  = MultiField.get_block_ranges(NB,SB,P)
   block_offsets = vcat(map(range-> MultiField._compute_field_offsets(U[range]),block_ranges)...)
@@ -181,7 +186,8 @@ function BlockExtensionSparseMatrixAssembler(
   matrix_builder,
   vector_builder,
   strategy=FESpaces.DefaultAssemblyStrategy()
-)
+  )
+
   msg = "BlockSparseMatrixAssembler: trial and test spaces must have BlockMultiFieldExtensionStyle"
   @assert isa(MultiFieldStyle(trial),BlockMultiFieldExtensionStyle) msg
   @assert isa(MultiFieldStyle(test),BlockMultiFieldExtensionStyle) msg
@@ -217,7 +223,8 @@ function FESpaces.SparseMatrixAssembler(
   trial::MultiFieldFESpace{<:BlockMultiFieldExtensionStyle},
   test ::MultiFieldFESpace{<:BlockMultiFieldExtensionStyle},
   strategy::AssemblyStrategy=DefaultAssemblyStrategy()
-)
+  )
+  
   BlockExtensionSparseMatrixAssembler(
     trial,test,SparseMatrixBuilder(mat),ArrayBuilder(vec),strategy
   )

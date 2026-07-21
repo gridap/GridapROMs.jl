@@ -2,7 +2,6 @@ using Gridap
 using GridapROMs
 
 using GridapROMs.RBSteady
-using GridapROMs.Nonlinear
 
 method=:pod
 compression=:global
