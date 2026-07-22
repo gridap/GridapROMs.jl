@@ -413,7 +413,7 @@ function _restrict_to_fields(
   fast_getindex(A,row_ini:row_end,col_ini:col_end)
 end
 
-fast_getindex(A::AbstractMatrix,rows::AbstractUnitRange,cols::AbstractUnitRange) = A[rows,cols]
+fast_getindex(A::AbstractMatrix,rows::AbstractUnitRange,cols::AbstractUnitRange) = view(A,rows,cols)
 
 function fast_getindex(A::SparseMatrixCSC{Tv,Ti},rows::AbstractUnitRange,cols::AbstractUnitRange{Int}) where {Tv,Ti}
   m = length(rows)

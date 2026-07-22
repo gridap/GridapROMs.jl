@@ -47,10 +47,11 @@ function RBSteady.residual_snapshots(
   )
 
   c = TimeCombination(solver)
+  bodeop = RBSteady._convert_to_block(odeop)
   sres = select_snapshots(s,RBSteady.res_params(solver))
   rres = get_realisation(sres)
-  b = spacetime_residual(c,odeop,sres)
-  ib = get_dof_map(odeop,b)
+  b = spacetime_residual(c,bodeop,sres)
+  ib = get_dof_map(bodeop,b)
   return Snapshots(b,ib,rres)
 end
 
@@ -72,13 +73,14 @@ function RBSteady.jacobian_snapshots(
   )
 
   c = TimeCombination(solver)
+  bodeop = RBSteady._convert_to_block(odeop)
   sjac = select_snapshots(s,RBSteady.jac_params(solver))
   rjac = get_realisation(sjac)
-  A = spacetime_jacobian(c,odeop,sjac)
+  A = spacetime_jacobian(c,bodeop,sjac)
   jac_reduction = RBSteady.get_jacobian_reduction(solver)
   sA = ()
   for (reda,a) in zip(jac_reduction,A)
-    ia = get_sparse_dof_map(odeop,a)
+    ia = get_sparse_dof_map(bodeop,a)
     sa = Snapshots(a,ia,rjac)
     sA = (sA...,select_snapshots(sa,1:num_params(reda)))
   end
@@ -168,6 +170,11 @@ get_time_order(::ODESolver) = @abstractmethod
 get_time_order(::ThetaMethod) = 1
 get_time_order(::GeneralizedAlpha1) = 1
 get_time_order(::GeneralizedAlpha2) = 2
+
+function RBSteady._set_to_block(feop::TransientParamFEOperator,U,V) 
+  assem = SparseMatrixAssembler(U,V)
+  typeof(feop)(feop.res,feop.jac,feop.tpspace,assem,U,V,feop.domains,feop.order)
+end
 
 _permutelastdims(x::AbstractParamVector;kwargs...) = @notimplemented
 

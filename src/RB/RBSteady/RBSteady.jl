@@ -109,6 +109,18 @@ import PartitionedArrays: tuple_of_arrays
 import RadialBasisFunctions: Interpolator, AbstractRadialBasis, PHS, MonomialBasis, _build_collocation_matrix!
 import Statistics: mean
 
+export GenericNNType
+export MLPType
+export NNStrategy
+export NeuralNetwork
+export GenericNeuralNetwork
+export MultiLayerPerceptron
+export TrainedNeuralNetwork
+export train!
+export loss_mse
+export loss_mae
+include("NonlinearModels.jl")
+
 export ReductionStyle
 export NoReductionStyle
 export SearchSVDRank
@@ -133,25 +145,13 @@ export AffineHyperReduction
 export MDEIMHyperReduction
 export SOPTHyperReduction
 export RBFHyperReduction
-export GenericNNType
-export MLPType
-export NNStrategy
 export NNOperatorReduction
 export NNHyperReduction
 export LocalHyperReduction
 export AdaptiveReduction
 export get_reduction
 export get_strategy
-export loss_mse
-export loss_mae
 include("ReductionMethods.jl")
-
-export NeuralNetwork
-export GenericNeuralNetwork
-export MultiLayerPerceptron
-export TrainedNeuralNetwork
-export train!
-include("NonlinearModels.jl")
 
 export galerkin_projection
 export galerkin_projection!

@@ -321,12 +321,8 @@ function NNOperator(model::NeuralNetwork,trial::RBSpace,test::RBSpace)
 end
 
 get_basis(a::NNOperator) = a.bias
+get_style(a::NNOperator) = NNOperatorReduction()
 get_interpolation(a::NNOperator) = EmptyInterpolation()
-projection_eltype(a::NNOperator) = eltype(get_weights(a.model))
-
-num_reduced_dofs(a::NNOperator) = 1
-num_reduced_dofs_left_projector(a::NNOperator) = first(a.reduced_sizes)
-num_reduced_dofs_right_projector(a::NNOperator) = last(a.reduced_sizes)
 
 function FESpaces.interpolate!(
   b̂::AbstractArray,
