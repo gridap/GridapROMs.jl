@@ -641,43 +641,47 @@ function get_basis(a::BlockProjection{A,N}) where {A,N}
 end
 
 function num_fe_dofs(a::BlockProjection)
-  dofs = zeros(Int,length(a))
+  dofs = 0
   for i in eachindex(a)
     if a.touched[i]
-      dofs[i] = num_fe_dofs(a[i])
+      dofs += num_fe_dofs(a[i])
     end
   end
   return dofs
 end
 
 function num_reduced_dofs(a::BlockProjection)
-  dofs = zeros(Int,size(a))
+  dofs = 0
   for i in eachindex(a)
     if a.touched[i]
-      dofs[i] = num_reduced_dofs(a[i])
+      dofs += num_reduced_dofs(a[i])
     end
   end
   return dofs
 end
 
-function to_fe_blocks(x,a::BlockProjection)
-  ids = pushfirst!(num_fe_dofs(a),1)
-  to_blocks(x,cumsum(ids))
+for (f,g) in zip((:to_fe_blocks,:to_reduced_blocks),(:num_fe_dofs,:num_reduced_dofs))
+  @eval begin
+    function $f(x::Union{BlockVector,BlockParamVector},a::BlockProjection)
+      x
+    end
+
+    function $f(x,a::BlockProjection)
+      ids = map($g,a.array)
+      pushfirst!(ids,1)
+      to_blocks(x,cumsum(ids))
+    end
+  end
 end
 
-function to_reduced_blocks(x,a::BlockProjection)
-  ids = pushfirst!(num_reduced_dofs(a),1)
-  to_blocks(x,cumsum(ids))
+function to_blocks(x::AbstractVector,o)
+  n = length(o)-1
+  mortar(map(i -> view(x,o[i]:o[i+1]-1),1:n))
 end
 
-function to_blocks(x::AbstractVector,offsets)
-  n = length(offsets)-1
-  mortar(map(i -> view(x,offsets[i]:offsets[i+1]-1),1:n))
-end
-
-function to_blocks(x::AbstractParamVector,offsets)
-  n = length(offsets)-1
-  mortar(map(i -> get_param_entry(x,offsets[i]:offsets[i+1]-1),1:n))
+function to_blocks(x::AbstractParamVector,o)
+  n = length(o)-1
+  mortar(map(i -> get_param_entry(x,o[i]:o[i+1]-1),1:n))
 end
 
 for (f,g) in zip((:(Algebra.allocate_in_domain),:(Algebra.allocate_in_range)),(:to_fe_blocks,:to_reduced_blocks))
@@ -687,23 +691,20 @@ for (f,g) in zip((:(Algebra.allocate_in_domain),:(Algebra.allocate_in_range)),(:
       mortar(map($f,a.array))
     end
 
-    function $f(a::BlockProjection,x::Union{BlockVector,BlockParamVector})
+    function $f(a::BlockProjection,x::BlockVector)
       @check length(a) == blocklength(x)
       @notimplementedif !all(a.touched)
       mortar(map(i -> $f(a[Block(i)],x[Block(i)]),eachindex(a)))
     end
 
-    function $f(a::BlockProjection,x::AbstractVector)
-      $f(a,$g(x,a))
-    end
-
-    function $f(a::BlockProjection,x::AbstractParamVector)
-      $f(a,$g(x,a))
-    end
+    # function $f(a::BlockProjection,x::AbstractVector{<:Number})
+    #   $f(a,$g(x,a))
+    # end
   end
 end
 
 for (f,g) in zip((:project!,:inv_project!),(:to_fe_blocks,:to_reduced_blocks))
+  ginv = g == :to_fe_blocks ? :to_reduced_blocks : :to_fe_blocks
   @eval begin
     function $f(
       y::Union{BlockArray,BlockParamArray},
@@ -719,15 +720,24 @@ for (f,g) in zip((:project!,:inv_project!),(:to_fe_blocks,:to_reduced_blocks))
     end
 
     function $f(
-      y::Union{BlockArray,BlockParamArray},
+      y::Union{AbstractArray,AbstractParamArray},
       a::BlockProjection,
       x::Union{AbstractArray,AbstractParamArray}
       )
 
-      $f(y,a,$g(x,a))
+      $f($ginv(y,a),a,$g(x,a))
     end
   end
 end
+
+# function inv_project!(y::AbstractParamVector,a::BlockProjection,x̂::Union{BlockArray,BlockParamArray})
+#   fe_offsets = cumsum(pushfirst!(num_fe_dofs(a),1))
+#   for i in eachindex(a)
+#     a.touched[i] || continue
+#     yi = get_param_entry(y,fe_offsets[i]:fe_offsets[i+1]-1)
+#     inv_project!(yi,a[i],x̂[Block(i)])
+#   end
+# end
 
 function galerkin_projection(
   proj_left::BlockProjection{A,1},

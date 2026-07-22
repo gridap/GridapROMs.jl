@@ -617,20 +617,47 @@ function allocate_in_space_range(a::Projection,x̂::V) where V<:AbstractParamVec
   return parameterise(x,param_length(x̂))
 end
 
+function num_fe_dofs_space(a::BlockProjection)
+  dofs = 0
+  for i in eachindex(a)
+    if a.touched[i]
+      dofs += num_fe_dofs_space(a[i])
+    end
+  end
+  return dofs
+end
+
+function num_reduced_dofs_space(a::BlockProjection)
+  dofs = 0
+  for i in eachindex(a)
+    if a.touched[i]
+      dofs += num_reduced_dofs_space(a[i])
+    end
+  end
+  return dofs
+end
+
 for (f,g) in zip((:allocate_in_space_domain,:allocate_in_space_range),(:to_fe_blocks,:to_reduced_blocks))
   @eval begin
+    function $f(a::BlockProjection)
+      @notimplementedif !all(a.touched)
+      mortar(map($f,a.array))
+    end
+
     function $f(a::BlockProjection,x::BlockVector)
       @check length(a) == blocklength(x)
+      @notimplementedif !all(a.touched)
       mortar(map(i -> $f(a[Block(i)],x[Block(i)]),eachindex(a)))
     end
 
-    function $f(a::BlockProjection,x::AbstractVector)
-      $f(a,$g(x,a))
-    end
+    # function $f(a::BlockProjection,x::AbstractVector{<:Number})
+    #   $f(a,$g(x,a))
+    # end
   end
 end
 
 for (f,g) in zip((:space_project!,:inv_space_project!),(:to_fe_blocks,:to_reduced_blocks))
+  ginv = g == :to_fe_blocks ? :to_reduced_blocks : :to_fe_blocks
   @eval begin
     function $f(
       y::Union{BlockArray,BlockParamArray},
@@ -647,15 +674,24 @@ for (f,g) in zip((:space_project!,:inv_space_project!),(:to_fe_blocks,:to_reduce
     end
 
     function $f(
-      y::Union{BlockArray,BlockParamArray},
+      y::Union{AbstractArray,AbstractParamArray},
       a::BlockProjection,
       x::Union{AbstractArray,AbstractParamArray}
       )
 
-      $f(y,a,$g(x,a))
+      $f($ginv(y,a),a,$g(x,a))
     end
   end
 end
+
+# function inv_space_project!(y::AbstractParamVector,a::BlockProjection,x̂::Union{BlockArray,BlockParamArray})
+#   fe_offsets = cumsum(pushfirst!(map(num_fe_dofs_space,a.array),1))
+#   for i in eachindex(a)
+#     a.touched[i] || continue
+#     yi = get_param_entry(y,fe_offsets[i]:fe_offsets[i+1]-1)
+#     inv_space_project!(yi,a[i],x̂[Block(i)])
+#   end
+# end
 
 # utils 
 
