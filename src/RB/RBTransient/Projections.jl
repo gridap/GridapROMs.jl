@@ -637,7 +637,27 @@ function num_reduced_dofs_space(a::BlockProjection)
   return dofs
 end
 
-for (f,g) in zip((:allocate_in_space_domain,:allocate_in_space_range),(:to_fe_blocks,:to_reduced_blocks))
+function to_fe_blocks_space(x::Union{BlockVector,BlockParamVector},a::BlockProjection,args...)
+  x
+end
+
+function to_fe_blocks_space(x,a::BlockProjection,args...)
+  ids = map(num_fe_dofs_space,a.array)
+  pushfirst!(ids,1)
+  RBSteady.to_blocks(x,cumsum(ids),args...)
+end
+
+function to_reduced_blocks_space(x::Union{BlockVector,BlockParamVector},a::BlockProjection,args...)
+  x
+end
+
+function to_reduced_blocks_space(x,a::BlockProjection,args...)
+  ids = map(num_reduced_dofs_space,a.array)
+  pushfirst!(ids,1)
+  RBSteady.to_blocks(x,cumsum(ids),args...)
+end
+
+for (f,g) in zip((:allocate_in_space_domain,:allocate_in_space_range),(:to_fe_blocks_space,:to_reduced_blocks_space))
   @eval begin
     function $f(a::BlockProjection)
       @notimplementedif !all(a.touched)
@@ -652,8 +672,8 @@ for (f,g) in zip((:allocate_in_space_domain,:allocate_in_space_range),(:to_fe_bl
   end
 end
 
-for (f,g) in zip((:space_project!,:inv_space_project!),(:to_fe_blocks,:to_reduced_blocks))
-  ginv = g == :to_fe_blocks ? :to_reduced_blocks : :to_fe_blocks
+for (f,g) in zip((:space_project!,:inv_space_project!),(:to_fe_blocks_space,:to_reduced_blocks_space))
+  ginv = g == :to_fe_blocks_space ? :to_reduced_blocks_space : :to_fe_blocks_space
   @eval begin
     function $f(
       y::Union{BlockArray,BlockParamArray},

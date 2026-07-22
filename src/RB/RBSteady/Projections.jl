@@ -662,26 +662,26 @@ end
 
 for (f,g) in zip((:to_fe_blocks,:to_reduced_blocks),(:num_fe_dofs,:num_reduced_dofs))
   @eval begin
-    function $f(x::Union{BlockVector,BlockParamVector},a::BlockProjection)
+    function $f(x::Union{BlockVector,BlockParamVector},a::BlockProjection,args...)
       x
     end
 
-    function $f(x,a::BlockProjection)
+    function $f(x,a::BlockProjection,args...)
       ids = map($g,a.array)
       pushfirst!(ids,1)
-      to_blocks(x,cumsum(ids))
+      to_blocks(x,cumsum(ids),args...)
     end
   end
 end
 
-function to_blocks(x::AbstractVector,o)
+function to_blocks(x::AbstractVector,o,f=identity)
   n = length(o)-1
-  mortar(map(i -> view(x,o[i]:o[i+1]-1),1:n))
+  mortar(map(i -> f(view(x,o[i]:o[i+1]-1)),1:n))
 end
 
-function to_blocks(x::AbstractParamVector,o)
+function to_blocks(x::AbstractParamVector,o,f=identity)
   n = length(o)-1
-  mortar(map(i -> get_param_entry(x,o[i]:o[i+1]-1),1:n))
+  mortar(map(i -> f(get_param_entry(x,o[i]:o[i+1]-1)),1:n))
 end
 
 for (f,g) in zip((:(Algebra.allocate_in_domain),:(Algebra.allocate_in_range)),(:to_fe_blocks,:to_reduced_blocks))

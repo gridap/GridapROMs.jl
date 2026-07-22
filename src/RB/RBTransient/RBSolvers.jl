@@ -174,7 +174,9 @@ function _setup(U,u0)
 end
 
 function _setup(U::MultiFieldRBSpace,u0::ConsecutiveParamVector)
-  to_fe_blocks(u0,get_reduced_subspace(U))
+  f(a) = a
+  f(a::ConsecutiveParamArray) = ConsecutiveParamArray(collect(get_all_data(a)))
+  to_fe_blocks_space(u0,get_reduced_subspace(U),f)
 end
 
 _permutelastdims(x::AbstractParamVector;kwargs...) = @notimplemented
