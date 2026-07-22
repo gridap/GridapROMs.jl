@@ -222,6 +222,8 @@ export projection_eltype
 export union_bases
 export get_norm_matrix
 export enrich!
+export to_fe_blocks
+export to_reduced_blocks
 include("Projections.jl")
 
 export RBSpace

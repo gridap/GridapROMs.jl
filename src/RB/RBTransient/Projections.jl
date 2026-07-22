@@ -617,16 +617,20 @@ function allocate_in_space_range(a::Projection,x̂::V) where V<:AbstractParamVec
   return parameterise(x,param_length(x̂))
 end
 
-for f in (:allocate_in_space_domain,:allocate_in_space_range)
+for (f,g) in zip((:allocate_in_space_domain,:allocate_in_space_range),(:to_fe_blocks,:to_reduced_blocks))
   @eval begin
-    function $f(a::BlockProjection,x::Union{BlockVector,BlockParamVector})
+    function $f(a::BlockProjection,x::BlockVector)
       @check length(a) == blocklength(x)
       mortar(map(i -> $f(a[Block(i)],x[Block(i)]),eachindex(a)))
+    end
+
+    function $f(a::BlockProjection,x::AbstractVector)
+      $f(a,$g(x,a))
     end
   end
 end
 
-for f in (:space_project!,:inv_space_project!)
+for (f,g) in zip((:space_project!,:inv_space_project!),(:to_fe_blocks,:to_reduced_blocks))
   @eval begin
     function $f(
       y::Union{BlockArray,BlockParamArray},
@@ -640,6 +644,15 @@ for f in (:space_project!,:inv_space_project!)
           $f(yi,a[i],x[Block(i)])
         end
       end
+    end
+
+    function $f(
+      y::Union{BlockArray,BlockParamArray},
+      a::BlockProjection,
+      x::Union{AbstractArray,AbstractParamArray}
+      )
+
+      $f(y,a,$g(x,a))
     end
   end
 end

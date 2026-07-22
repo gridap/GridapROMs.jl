@@ -339,6 +339,11 @@ end
 
 # utils
 
+function RBSteady._convert_to_block(feop::TransientParamFEOperator,U,V) 
+  assem = SparseMatrixAssembler(U,V)
+  typeof(feop)(feop.res,feop.jacs,feop.constant_forms,feop.tpspace,assem,U,V,feop.domains,feop.order)
+end
+
 function _reduce_vector(u::ConsecutiveParamVector,hr_ids::AbstractVector)
   ConsecutiveParamArray(view(u.data,:,hr_ids))
 end

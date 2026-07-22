@@ -36,8 +36,9 @@ function reduced_operator(
   s::AbstractSnapshots
   )
 
-  red_trial,red_test = reduced_spaces(solver,feop,s)
-  reduced_operator(solver,feop,red_trial,red_test,s)
+  feop′ = _setup(feop)
+  red_trial,red_test = reduced_spaces(solver,feop′,s)
+  reduced_operator(solver,feop′,red_trial,red_test,s)
 end
 
 function reduced_operator(
@@ -550,4 +551,34 @@ function solution_snapshots(
   x̂, = solve(solver,op,r,args...)
   i = get_dof_map(op)
   Snapshots(_fe_data(x̂),i,r)
+end
+
+
+# utils 
+
+function _setup(op)
+  V = get_test(op)
+  U = get_trial(op)
+  _convert_to_block(op,V,U)
+end
+
+function _convert_to_block(op,V,U)
+  op
+end
+
+function _convert_to_block(op::ParamOperator,V::T,U::T) where T<:MultiFieldFESpace{ConsecutiveMultiFieldStyle}
+  Vb = _convert_to_block(V)
+  Ub = _convert_to_block(U)
+  feop = get_fe_operator(op)
+  feopb = _convert_to_block(feop,Ub,Vb)
+  typeof(op)(feopb)
+end
+
+function _convert_to_block(V::MultiFieldFESpace)
+  MultiFieldFESpace(V.spaces;style=BlockMultiFieldStyle())
+end
+
+function _convert_to_block(feop::ParamFEOperator,U,V) 
+  assem = SparseMatrixAssembler(U,V)
+  typeof(feop)(feop.res,feop.jac,feop.pspace,assem,U,V,feop.domains)
 end

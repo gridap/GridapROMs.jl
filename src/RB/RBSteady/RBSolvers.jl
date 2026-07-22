@@ -233,12 +233,11 @@ function jacobian_snapshots(
   s::AbstractSnapshots
   )
 
-  bop = _convert_to_block(op)
   sjac = select_snapshots(s,jac_params(solver))
   us_jac = get_param_data(sjac)
   r_jac = get_realisation(sjac)
-  A = Algebra.jacobian(bop,r_jac,us_jac)
-  iA = get_sparse_dof_map(bop,A)
+  A = Algebra.jacobian(op,r_jac,us_jac)
+  iA = get_sparse_dof_map(op,A)
   return Snapshots(A,iA,r_jac)
 end
 
@@ -248,13 +247,12 @@ function jacobian_snapshots(
   s::AbstractSnapshots
   )
 
-  bop = _convert_to_block(op)
   sjac = select_snapshots(s,jac_params(solver))
   us_jac = get_param_data(sjac) |> similar
   fill!(us_jac,zero(eltype2(us_jac)))
   r_jac = get_realisation(sjac)
-  A = Algebra.jacobian(bop,r_jac,us_jac)
-  iA = get_sparse_dof_map(bop,A)
+  A = Algebra.jacobian(op,r_jac,us_jac)
+  iA = get_sparse_dof_map(op,A)
   return Snapshots(A,iA,r_jac)
 end
 
@@ -366,33 +364,4 @@ end
 function change_tols!(log::ConvergenceLog)
   log.tols.rtol = 1e-5
   log
-end
-
-# utils 
-
-function _convert_to_block(op)
-  V = get_test(op)
-  U = get_trial(op)
-  _convert_to_block(op,V,U)
-end
-
-function _convert_to_block(op,V,U)
-  op
-end
-
-function _convert_to_block(op,V::T,U::T) where T<:MultiFieldFESpace{ConsecutiveMultiFieldStyle}
-  Vb = _convert_to_block(V)
-  Ub = _convert_to_block(U)
-  feop = get_fe_operator(op)
-  feopb = _set_to_block(feop,Ub,Vb)
-  typeof(op)(feopb)
-end
-
-function _convert_to_block(V::MultiFieldFESpace)
-  MultiFieldFESpace(V.spaces;style=BlockMultiFieldStyle())
-end
-
-function _set_to_block(feop::ParamFEOperator,U,V) 
-  assem = SparseMatrixAssembler(U,V)
-  typeof(feop)(feop.res,feop.jac,feop.pspace,assem,U,V,feop.domains)
 end

@@ -660,7 +660,27 @@ function num_reduced_dofs(a::BlockProjection)
   return dofs
 end
 
-for f in (:(Algebra.allocate_in_domain),:(Algebra.allocate_in_range))
+function to_fe_blocks(x,a::BlockProjection)
+  ids = pushfirst!(num_fe_dofs(a),1)
+  to_blocks(x,cumsum(ids))
+end
+
+function to_reduced_blocks(x,a::BlockProjection)
+  ids = pushfirst!(num_reduced_dofs(a),1)
+  to_blocks(x,cumsum(ids))
+end
+
+function to_blocks(x::AbstractVector,offsets)
+  n = length(offsets)-1
+  mortar(map(i -> view(x,offsets[i]:offsets[i+1]-1),1:n))
+end
+
+function to_blocks(x::AbstractParamVector,offsets)
+  n = length(offsets)-1
+  mortar(map(i -> get_param_entry(x,offsets[i]:offsets[i+1]-1),1:n))
+end
+
+for (f,g) in zip((:(Algebra.allocate_in_domain),:(Algebra.allocate_in_range)),(:to_fe_blocks,:to_reduced_blocks))
   @eval begin
     function $f(a::BlockProjection)
       @notimplementedif !all(a.touched)
@@ -672,10 +692,18 @@ for f in (:(Algebra.allocate_in_domain),:(Algebra.allocate_in_range))
       @notimplementedif !all(a.touched)
       mortar(map(i -> $f(a[Block(i)],x[Block(i)]),eachindex(a)))
     end
+
+    function $f(a::BlockProjection,x::AbstractVector)
+      $f(a,$g(x,a))
+    end
+
+    function $f(a::BlockProjection,x::AbstractParamVector)
+      $f(a,$g(x,a))
+    end
   end
 end
 
-for f in (:project!,:inv_project!)
+for (f,g) in zip((:project!,:inv_project!),(:to_fe_blocks,:to_reduced_blocks))
   @eval begin
     function $f(
       y::Union{BlockArray,BlockParamArray},
@@ -688,6 +716,15 @@ for f in (:project!,:inv_project!)
           $f(blocks(y)[i],a[i],blocks(x)[i])
         end
       end
+    end
+
+    function $f(
+      y::Union{BlockArray,BlockParamArray},
+      a::BlockProjection,
+      x::Union{AbstractArray,AbstractParamArray}
+      )
+
+      $f(y,a,$g(x,a))
     end
   end
 end
