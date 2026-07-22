@@ -9,7 +9,7 @@ function Algebra.solve(
   params = get_params(r)
   us0 = ()
   for uh0 in uhs0
-    u0 = get_free_dof_values(uh0(params))
+    u0 = _setup(trial,get_free_dof_values(uh0(params)))
     û0 = project(trial,u0)
     us0 = (us0...,RBParamVector(û0,u0))
   end

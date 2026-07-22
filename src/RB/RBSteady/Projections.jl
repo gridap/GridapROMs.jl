@@ -696,10 +696,6 @@ for (f,g) in zip((:(Algebra.allocate_in_domain),:(Algebra.allocate_in_range)),(:
       @notimplementedif !all(a.touched)
       mortar(map(i -> $f(a[Block(i)],x[Block(i)]),eachindex(a)))
     end
-
-    # function $f(a::BlockProjection,x::AbstractVector{<:Number})
-    #   $f(a,$g(x,a))
-    # end
   end
 end
 
@@ -729,15 +725,6 @@ for (f,g) in zip((:project!,:inv_project!),(:to_fe_blocks,:to_reduced_blocks))
     end
   end
 end
-
-# function inv_project!(y::AbstractParamVector,a::BlockProjection,x̂::Union{BlockArray,BlockParamArray})
-#   fe_offsets = cumsum(pushfirst!(num_fe_dofs(a),1))
-#   for i in eachindex(a)
-#     a.touched[i] || continue
-#     yi = get_param_entry(y,fe_offsets[i]:fe_offsets[i+1]-1)
-#     inv_project!(yi,a[i],x̂[Block(i)])
-#   end
-# end
 
 function galerkin_projection(
   proj_left::BlockProjection{A,1},

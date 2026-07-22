@@ -649,10 +649,6 @@ for (f,g) in zip((:allocate_in_space_domain,:allocate_in_space_range),(:to_fe_bl
       @notimplementedif !all(a.touched)
       mortar(map(i -> $f(a[Block(i)],x[Block(i)]),eachindex(a)))
     end
-
-    # function $f(a::BlockProjection,x::AbstractVector{<:Number})
-    #   $f(a,$g(x,a))
-    # end
   end
 end
 
@@ -683,15 +679,6 @@ for (f,g) in zip((:space_project!,:inv_space_project!),(:to_fe_blocks,:to_reduce
     end
   end
 end
-
-# function inv_space_project!(y::AbstractParamVector,a::BlockProjection,x̂::Union{BlockArray,BlockParamArray})
-#   fe_offsets = cumsum(pushfirst!(map(num_fe_dofs_space,a.array),1))
-#   for i in eachindex(a)
-#     a.touched[i] || continue
-#     yi = get_param_entry(y,fe_offsets[i]:fe_offsets[i+1]-1)
-#     inv_space_project!(yi,a[i],x̂[Block(i)])
-#   end
-# end
 
 # utils 
 

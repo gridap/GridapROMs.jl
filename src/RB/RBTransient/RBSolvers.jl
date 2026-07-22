@@ -129,7 +129,7 @@ function Algebra.solve(
   params = get_params(r)
   us0 = ()
   for uh0 in uhs0
-    u0 = get_free_dof_values(uh0(params))
+    u0 = _setup(trial,get_free_dof_values(uh0(params)))
     û0 = space_project(trial,u0)
     us0 = (us0...,RBParamVector(û0,u0))
   end
@@ -168,6 +168,14 @@ get_time_order(::ODESolver) = @abstractmethod
 get_time_order(::ThetaMethod) = 1
 get_time_order(::GeneralizedAlpha1) = 1
 get_time_order(::GeneralizedAlpha2) = 2
+
+function _setup(U,u0)
+  u0
+end
+
+function _setup(U::MultiFieldRBSpace,u0::ConsecutiveParamVector)
+  to_fe_blocks(u0,get_reduced_subspace(U))
+end
 
 _permutelastdims(x::AbstractParamVector;kwargs...) = @notimplemented
 

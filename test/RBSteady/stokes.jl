@@ -55,8 +55,8 @@ function main(
   reffe_p = ReferenceFE(lagrangian,Float64,order-1)
   test_p = TestFESpace(Ω,reffe_p;conformity=:H1)
   trial_p = ParamTrialFESpace(test_p)
-  test = MultiFieldFESpace([test_u,test_p])
-  trial = MultiFieldFESpace([trial_u,trial_p])
+  test = MultiFieldFESpace([test_u,test_p];style=BlockMultiFieldStyle())
+  trial = MultiFieldFESpace([trial_u,trial_p];style=BlockMultiFieldStyle())
 
   energy((du,dp),(v,q)) = ∫(du⋅v)dΩ + ∫(∇(v)⊙∇(du))dΩ + ∫(dp*q)dΩ
   coupling((du,dp),(v,q)) = method == :pod ? ∫(dp*(∇⋅(v)))dΩ : ∫(dp*∂₁(v))dΩ + ∫(dp*∂₂(v))dΩ
@@ -177,22 +177,31 @@ fesnaps, = solution_snapshots(rbsolver,feop,xh0μ)
 rbop = reduced_operator(rbsolver,feop,fesnaps)
 
 μon = realisation(feop;nparams=10,sampling=:uniform)
-x̂,rbstats = solve(fesolver,rbop,μon,xh0μ)
+x̂,rbstats = collect(solve(fesolver,rbop,μon,xh0μ))
 x,festats = solution_snapshots(rbsolver,feop,μon,xh0μ)
 perf = eval_performance(rbsolver,rbop,x,x̂,festats,rbstats)
 
 x0 = get_free_dof_values(xh0μ(μon.params))
 
+using BlockArrays
 using Gridap.MultiField
 using Gridap.FESpaces
 using GridapROMs.RBSteady
 
 # leaf of stacktrace: restrict_to_field(MultiFieldFESpace, RBParamVector, i)
-let Uts = rbop.trial(μon)
-  proj = get_reduced_subspace(Uts)
-  V = get_fe_space(Uts)
-  x_fe = get_free_dof_values(xh0μ(μon.params))
-  x̂ = allocate_in_domain(proj, x_fe)
-  fv = RBParamVector(x̂, x_fe)
-  restrict_to_field(V, fv, 1)
-end
+Uts = rbop.trial(μon)
+proj = get_reduced_subspace(Uts)
+V = get_fe_space(Uts)
+x_fe = get_free_dof_values(xh0μ(μon.params))
+x̂ = allocate_in_domain(proj, x_fe)
+fv = RBParamVector(x̂, x_fe)
+# restrict_to_field(V, fv, 1)
+i = 1
+data_i = blocks(fv.data)[i]
+fe_data_i = MultiField.restrict_to_field(V,fv.fe_data,i)
+
+using GridapROMs.RBTransient
+y = get_free_dof_values(xh0μ(μon.params))
+y0 = RBTransient._setup(rbop.trial,y)
+û0 = project(rbop.trial,y0)
+x̂ = allocate_in_domain(rbop.trial.subspace,y0)
