@@ -494,7 +494,7 @@ for (f,g) in zip((:gram_schmidt,:gram_schmidt!),(:pivoted_qr,:pivoted_qr!))
       r = findlast(abs.(diag(C.R)) .> tol)
       Qr = C.Q[:,1:r]
       Rr = _truncate_row!(C.R,r)
-      Base.invpermutecols!(Rr,C.jpvt)
+      invpermutecols!(Rr,C.jpvt)
       return Qr,Rr
     end
   end
@@ -629,11 +629,10 @@ function _truncate_row!(A::AbstractMatrix,rank)
   reshape(v,rank,:)
 end
 
-permutecols!(a::AbstractMatrix,p::AbstractVector{<:Integer}) =
-    _permute!(a,p,Base.swapcols!)
-permuterows!(a::AbstractMatrix,p::AbstractVector{<:Integer}) =
-    _permute!(a,p,Base.swaprows!)
-@inline function _permute!(a::AbstractMatrix,p::AbstractVector{<:Integer},swapfun!::F) where {F}
+permutecols!(a::AbstractMatrix,p::AbstractVector{<:Integer}) = _permute!(a,p,Base.swapcols!)
+permuterows!(a::AbstractMatrix,p::AbstractVector{<:Integer}) = _permute!(a,p,Base.swaprows!)
+
+@inline function _permute!(a::AbstractMatrix,p::AbstractVector{<:Integer},swapfun!) 
   Base.require_one_based_indexing(a,p)
   p .= .-p
   for i in 1:length(p)
@@ -649,12 +648,10 @@ permuterows!(a::AbstractMatrix,p::AbstractVector{<:Integer}) =
   a
 end
 
-invpermutecols!(a::AbstractMatrix,p::AbstractVector{<:Integer}) =
-    _invpermute!(a,p,Base.swapcols!)
-invpermuterows!(a::AbstractMatrix,p::AbstractVector{<:Integer}) =
-    _invpermute!(a,p,Base.swaprows!)
+invpermutecols!(a::AbstractMatrix,p::AbstractVector{<:Integer}) = _invpermute!(a,p,Base.swapcols!)
+invpermuterows!(a::AbstractMatrix,p::AbstractVector{<:Integer}) = _invpermute!(a,p,Base.swaprows!)
 
-@inline function _invpermute!(a::AbstractMatrix,p::AbstractVector{<:Integer},swapfun!::F) where {F}
+@inline function _invpermute!(a::AbstractMatrix,p::AbstractVector{<:Integer},swapfun!) 
   Base.require_one_based_indexing(a,p)
   p .= .-p
   for i in 1:length(p)

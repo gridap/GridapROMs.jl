@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.10' # Needs to be lowest supported version
+          - '1.12' # Lowest version allowed in CI workflows
         os:
           - ubuntu-latest
         arch:
