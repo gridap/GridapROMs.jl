@@ -173,7 +173,7 @@ get_time_order(::GeneralizedAlpha2) = 2
 
 function RBSteady._set_to_block(feop::TransientParamFEOperator,U,V) 
   assem = SparseMatrixAssembler(U,V)
-  typeof(feop)(feop.res,feop.jac,feop.tpspace,assem,U,V,feop.domains,feop.order)
+  typeof(feop)(feop.res,feop.jacs,feop.constant_forms,feop.tpspace,assem,U,V,feop.domains,feop.order)
 end
 
 _permutelastdims(x::AbstractParamVector;kwargs...) = @notimplemented

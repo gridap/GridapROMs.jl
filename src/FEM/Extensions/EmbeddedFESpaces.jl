@@ -183,6 +183,7 @@ function gather_extended_free_and_dirichlet_values!(
   f::SingleFieldFESpace,
   bg_cell_vals
   )
+
   gather_free_and_dirichlet_values!(bg_fv,bg_dv,get_bg_space(f),bg_cell_vals)
 end
 
@@ -638,6 +639,7 @@ function _bg_vals_from_vals!(
   fv::ConsecutiveParamVector,
   dv::ConsecutiveParamVector
   )
+
   _bg_vals_from_vals!(bg_fv,bg_dv,get_emb_space(f),fv,dv)
 end
 

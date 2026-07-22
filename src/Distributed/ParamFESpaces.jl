@@ -44,6 +44,7 @@ function ParamFESpaces.HomogeneousTrialParamFESpace(
   f::DistributedSingleFieldFESpace,
   args...
   )
+
   spaces = map(f.spaces) do s
     HomogeneousTrialParamFESpace(s,args...)
   end
@@ -91,6 +92,7 @@ function Arrays.evaluate!(
   space::DistributedFESpace,
   x::AbstractRealisation
   )
+
   map(local_views(spacex),local_views(space)) do spacex,space
     Arrays.evaluate!(spacex,space,x)
   end
@@ -133,6 +135,7 @@ for T in (:AbstractRealisation,:Nothing)
       x::$T,
       y::$S
       )
+
       map(local_views(spacex),local_views(space)) do spacex,space
         Arrays.evaluate!(spacex,space,x,y)
       end
@@ -206,6 +209,7 @@ function ParamDataStructures.parameterise(
   a::GridapDistributed.DistributedSparseMatrixAssembler,
   plength::Int
   )
+
   assems = map(local_views(a)) do assem
     parameterise(assem,plength)
   end
@@ -247,6 +251,7 @@ function DofMaps.get_sparse_dof_map(
   test::DistributedFESpace,
   A::PSparseMatrix
   )
+
   map(local_views(trial),local_views(test),local_views(A)) do trial,test,A
     get_sparse_dof_map(trial,test,A)
   end
@@ -273,6 +278,7 @@ function DofMaps.get_sparse_dof_map(
   trial::DistributedMultiFieldFESpace,
   test::DistributedMultiFieldFESpace
   )
+
   ntest = num_fields(test)
   ntrial = num_fields(trial)
   array = map(Iterators.product(1:ntest,1:ntrial)) do (i,j)

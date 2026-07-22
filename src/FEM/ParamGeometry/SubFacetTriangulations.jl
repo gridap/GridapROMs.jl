@@ -101,6 +101,7 @@ struct ParamSubFacetTriangulation{Dc,Dp,T,A} <: Triangulation{Dc,Dp}
   function ParamSubFacetTriangulation(
     subfacets::ParamSubFacetData{Dp,T},bgmodel::DiscreteModel
     ) where {Dp,T}
+
     Dc = Dp-1
     subgrid = UnstructuredGrid(subfacets)
     A = typeof(bgmodel)
@@ -137,6 +138,7 @@ function Geometry.move_contributions(
   scell_to_val::AbstractArray,
   strian::ParamSubFacetTriangulation
   )
+
   model = get_background_model(strian)
   ncells = num_cells(model)
   cell_to_touched = fill(false,ncells)

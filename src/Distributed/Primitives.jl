@@ -3,6 +3,7 @@ function PartitionedArrays.allocate_gather_impl(
   destination,
   ::Type{T}
   ) where T<:AbstractParamVector
+
   l = map(innerlength,snd)
   l_dest = gather(l;destination)
   S = eltype2(T)
@@ -35,6 +36,7 @@ function PartitionedArrays.allocate_scatter_impl(
   source,
   ::Type{T}
   ) where T<:AbstractParamVector
+
   S = eltype2(T)
   counts,plength = map(snd) do snd
     innerlength(snd),param_length(snd)
@@ -112,6 +114,7 @@ function PartitionedArrays.allocate_exchange_impl(
   graph,
   ::Type{T}
   ) where T<:AbstractParamVector
+
   S = eltype2(T)
   n_snd,plength = map(snd) do snd
     innerlength(snd),param_length(snd)
@@ -136,6 +139,7 @@ function PartitionedArrays.allocate_gather_impl(
   destination,
   ::Type{T}
   ) where T<:AbstractMatrix
+
   l = map(innerlength,snd)
   l_dest = gather(l;destination)
   S = eltype(T)
@@ -166,6 +170,7 @@ function PartitionedArrays.allocate_scatter_impl(
   source,
   ::Type{T}
   ) where T<:AbstractMatrix
+
   S = eltype(T)
   counts,plength = map(snd) do snd
     size(snd,1),_get_plength(snd)
@@ -181,6 +186,7 @@ function PartitionedArrays.allocate_exchange_impl(
   graph,
   ::Type{T}
   ) where T<:AbstractMatrix
+
   S = eltype(T)
   n_snd,plength = map(snd) do snd
     map(x->size(x,1),snd),_get_plength(snd)

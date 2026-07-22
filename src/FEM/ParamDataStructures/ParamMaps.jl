@@ -166,6 +166,7 @@ function Arrays.return_cache(
   indices::AbstractVector,
   values::Union{ParamBlock,AbstractParamVector}
   )
+
   v = testitem(values)
   c = return_cache(k,indices,v)
   a = evaluate!(c,k,indices,v)
@@ -183,6 +184,7 @@ function Arrays.evaluate!(
   indices::AbstractVector,
   values::Union{ParamBlock,AbstractParamVector}
   )
+
   c,data = cache
   @inbounds for i = param_eachindex(values)
     vi = evaluate!(c[i],k,indices,param_getindex(values,i))

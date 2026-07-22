@@ -72,6 +72,7 @@ function tucker(
   A::AbstractArray,
   X::AbstractSparseMatrix...
   )
+
   tucker(red,A,X)
 end
 
@@ -80,6 +81,7 @@ function tucker(
   A::AbstractArray{T,N},
   X::NTuple{M}
   ) where {T,N,M}
+
   @assert length(red) == N-1
   @assert M ≤ N
   bases = Vector{Matrix{T}}(undef,N-1)
@@ -96,6 +98,7 @@ function tucker(
   A::TransientSnapshots{T,N},
   X::NTuple{M}
   ) where {T,N,M}
+
   @assert length(red) == N-1
   @assert M ≤ N
   nparams = num_params(A)

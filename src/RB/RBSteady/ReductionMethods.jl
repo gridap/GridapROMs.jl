@@ -61,6 +61,7 @@ function LRApproxRank(
   sketch=:sprn,
   kwargs...
   )
+
   opts = LRAOptions(;rtol=tol,maxdet_tol,sketch_randn_niter,sketch)
   return LRApproxRank(opts)
 end
@@ -342,6 +343,7 @@ function Reduction(
   ncentroids=10,
   kwargs...
   )
+
   if compression==:global
     PODReduction(red_style,args...;kwargs...)
   else
@@ -355,6 +357,7 @@ function Reduction(
   ncentroids=10,
   kwargs...
   )
+
   if compression==:global
     TTSVDReduction(red_style,args...;kwargs...)
   else

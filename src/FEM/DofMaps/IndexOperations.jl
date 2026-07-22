@@ -88,6 +88,7 @@ function sparsify_split_indices(
   fcols::AbstractArray,
   a::AbstractSparseMatrix
   )
+
   @assert length(frows) == length(fcols)
   sids = similar(frows)
   fill!(sids,zero(eltype(sids)))

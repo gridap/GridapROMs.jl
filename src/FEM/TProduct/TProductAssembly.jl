@@ -130,6 +130,7 @@ function FESpaces.assemble_vector!(
   a::TProductSparseMatrixAssembler,
   vecdata::Vector
   )
+
   map(assemble_vector!,get_factors(b),a.assems_1d,vecdata)
 end
 
@@ -138,6 +139,7 @@ function FESpaces.assemble_vector_add!(
   a::TProductSparseMatrixAssembler,
   vecdata::Vector
   )
+
   map(assemble_vector_add!,get_factors(b),a.assems_1d,vecdata)
 end
 
@@ -156,6 +158,7 @@ function FESpaces.assemble_matrix!(
   a::TProductSparseMatrixAssembler,
   matdata::Vector
   )
+
   map(assemble_matrix!,get_factors(A),a.assems_1d,matdata)
 end
 
@@ -164,6 +167,7 @@ function FESpaces.assemble_matrix_add!(
   a::TProductSparseMatrixAssembler,
   matdata::Vector
   )
+
   map(assemble_matrix_add!,get_factors(A),a.assems_1d,matdata)
 end
 
@@ -176,6 +180,7 @@ function FESpaces.allocate_vector(
   a::TProductSparseMatrixAssembler,
   vecdata::GenericTProductDiffEval
   )
+
   vecs_1d = map(allocate_vector,a.assems_1d,vecdata.f)
   gradvecs_1d = map(allocate_vector,a.assems_1d,vecdata.g)
   return tproduct_array(vecdata.op,vecs_1d,gradvecs_1d,vecdata.summation)
@@ -186,6 +191,7 @@ function FESpaces.assemble_vector!(
   a::TProductSparseMatrixAssembler,
   vecdata::GenericTProductDiffEval
   )
+
   map(assemble_vector!,get_arrays_1d(b),a.assems_1d,vecdata.f)
   map(assemble_vector!,get_gradients_1d(b),a.assems_1d,vecdata.g)
 end
@@ -195,6 +201,7 @@ function FESpaces.assemble_vector_add!(
   a::TProductSparseMatrixAssembler,
   vecdata::GenericTProductDiffEval
   )
+
   map(assemble_vector_add!,get_arrays_1d(b),a.assems_1d,vecdata.f)
   map(assemble_vector_add!,get_gradients_1d(b),a.assems_1d,vecdata.g)
 end
@@ -203,6 +210,7 @@ function FESpaces.assemble_vector(
   a::TProductSparseMatrixAssembler,
   vecdata::GenericTProductDiffEval
   )
+
   vecs_1d = map(assemble_vector,a.assems_1d,vecdata.f)
   gradvecs_1d = map(assemble_vector,a.assems_1d,vecdata.g)
   return tproduct_array(vecdata.op,vecs_1d,gradvecs_1d,vecdata.summation)
@@ -212,6 +220,7 @@ function FESpaces.allocate_matrix(
   a::TProductSparseMatrixAssembler,
   matdata::GenericTProductDiffEval
   )
+
   mats_1d = map(allocate_matrix,a.assems_1d,matdata.f)
   gradmats_1d = map(allocate_matrix,a.assems_1d,matdata.g)
   return tproduct_array(matdata.op,mats_1d,gradmats_1d,matdata.summation)
@@ -222,6 +231,7 @@ function FESpaces.assemble_matrix!(
   a::TProductSparseMatrixAssembler,
   matdata::GenericTProductDiffEval
   )
+
   map(assemble_matrix!,get_arrays_1d(A),a.assems_1d,matdata.f)
   map(assemble_matrix!,get_gradients_1d(A),a.assems_1d,matdata.g)
 end
@@ -231,6 +241,7 @@ function FESpaces.assemble_matrix_add!(
   a::TProductSparseMatrixAssembler,
   matdata::GenericTProductDiffEval
   )
+
   map(assemble_matrix_add!,get_arrays_1d(A),a.assems_1d,matdata.f)
   map(assemble_matrix_add!,get_gradients_1d(A),a.assems_1d,matdata.g)
 end
@@ -239,6 +250,7 @@ function FESpaces.assemble_matrix(
   a::TProductSparseMatrixAssembler,
   matdata::GenericTProductDiffEval
   )
+
   mats_1d = map(assemble_matrix,a.assems_1d,matdata.f)
   gradmats_1d = map(assemble_matrix,a.assems_1d,matdata.g)
   return tproduct_array(matdata.op,mats_1d,gradmats_1d,matdata.summation)
@@ -256,6 +268,7 @@ function TProductBlockSparseMatrixAssembler(
   trial::MultiFieldFESpace,
   test::MultiFieldFESpace
   )
+
   assems_1d = map(eachindex(test.spaces[1].spaces_1d)) do d
     trials_d = map(f->_remove_trial(f).spaces_1d[d],trial.spaces)
     tests_d = map(f->f.spaces_1d[d],test.spaces)

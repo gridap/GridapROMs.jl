@@ -55,6 +55,7 @@ function BlockArrays._BlockArray(
   data::AbstractArray{<:AbstractParamArray,N},
   axes::NTuple{N,AbstractUnitRange{Int}}
   ) where N
+
   @assert all(param_length(d)==param_length(first(data)) for d in data)
   BlockParamArray(data,axes)
 end
@@ -112,6 +113,7 @@ end
   A::BlockParamArray{T,N},
   i::BlockIndex{N}
   ) where {T,N}
+
   @boundscheck blockcheckbounds(A,Block(i.I))
   @inbounds bl = A.data[i.I...]
   @boundscheck checkbounds(bl,i.α...)
@@ -145,6 +147,7 @@ end
   v,
   i::BlockIndex{N}
   ) where {T,N}
+
   @boundscheck blockcheckbounds(A,Block(i.I))
   @inbounds bl = A.data[i.I...]
   @boundscheck checkbounds(bl,i.α...)
@@ -180,6 +183,7 @@ function Base.similar(
   A::BlockParamArray{T,N},
   ::Type{S}
   ) where {T,T′,N,S<:AbstractArray{T′,N}}
+
   A′ = map(1:blocklength(A)) do i
     ai = blocks(A)[i]
     similar(ai,S)
@@ -192,6 +196,7 @@ function Base.similar(
   ::Type{S},
   axes::Vararg{BlockArrays.AbstractBlockedUnitRange}
   ) where {T,T′,N,S<:AbstractArray{T′,N}}
+
   A′ = map(1:blocklength(A)) do i
     ai = blocks(A)[i]
     axi = map(ax -> blocks(ax)[i],axes)

@@ -16,6 +16,7 @@ function ParamDataStructures.Snapshots(
   i::AbstractArray,
   r::TransientRealisation
   )
+
   data = map(local_views(s),local_views(i),local_views.(s0)...) do s,i,s0...
     Snapshots(s,s0,i,r)
   end

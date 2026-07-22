@@ -222,6 +222,7 @@ function HighDimHyperReduction(
   hypred_strategy=:mdeim,
   kwargs...
   )
+
   if hypred_strategy in (:no,:none,:nohr)
     return HighDimNoHyperReduction(combination)
   elseif hypred_strategy == :affine
@@ -247,6 +248,7 @@ function HighDimHyperReduction(
   reduction::HighDimReduction,
   args...;kwargs...
   )
+
   red_style = ReductionStyle(reduction)
   HighDimHyperReduction(combination,red_style;kwargs...)
 end
@@ -255,6 +257,7 @@ function HighDimHyperReduction(
   reduction::HighDimReduction,
   combination::TimeCombination;kwargs...
   )
+
   red_style = ReductionStyle(reduction)
   HighDimMDEIMHyperReduction(combination,red_style;kwargs...)
 end
@@ -264,6 +267,7 @@ function HighDimHyperReduction(
   reduction::SupremizerReduction,
   args...;kwargs...
   )
+
   HighDimHyperReduction(combination,get_reduction(reduction),args...;kwargs...)
 end
 

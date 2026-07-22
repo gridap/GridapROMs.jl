@@ -72,6 +72,7 @@ struct GenericTProductCellField{DS<:DomainStyle,A,B} <: TProductCellField
     single_fields::A,
     trian::B
     ) where {A<:Vector{<:CellField},B<:TProductTriangulation}
+
     @assert length(single_fields) > 0
     domain_style = DomainStyle(first(single_fields))
     @check all(DomainStyle(sf)==domain_style for sf in single_fields)
@@ -151,6 +152,7 @@ function GenericTProductDiffEval(
   f::Vector{DomainContribution},
   g::Vector{DomainContribution}
   )
+
   s = _block_operation(nothing,testitem(first(f)),testitem(first(g)))
   op′ = _block_operation(op,testitem(first(f)),testitem(first(g)))
   GenericTProductDiffEval(op′,f,g,s)
@@ -199,6 +201,7 @@ function TProductFEBasis(
   basis::Vector{<:MultiField.MultiFieldCellField},
   trian::TProductTriangulation
   )
+
   b1 = testitem(basis)
   DS = DomainStyle(b1)
   BS = BasisStyle(first(b1))
@@ -290,6 +293,7 @@ function Arrays.return_cache(
   α::GradientTProductCellField,
   β::GradientTProductCellField
   )
+
   cache = return_cache(k,get_data(α),get_data(β))
   diff_cache = return_cache(k,get_diff_data(α),get_diff_data(β))
   return cache,diff_cache
@@ -301,6 +305,7 @@ function Arrays.evaluate!(
   α::GradientTProductCellField,
   β::GradientTProductCellField
   )
+
   cache,diff_cache = _cache
   αβ = evaluate!(cache,k,get_data(α),get_data(β))
   dαβ = evaluate!(diff_cache,k,get_diff_data(α),get_diff_data(β))
@@ -373,6 +378,7 @@ function _add_tp_cell_data(
   a::AbstractVector{<:DomainContribution},
   b::GenericTProductDiffEval
   )
+
   a1 = testitem(a[1])
   b1 = testitem(b.f[1])
   summation = _block_operation(f,a1,b1,b.summation)
@@ -388,6 +394,7 @@ function _add_tp_cell_data(
   a::GenericTProductDiffEval,
   b::AbstractVector{<:DomainContribution}
   )
+
   a1 = testitem(a.f[1])
   b1 = testitem(b[1])
   summation = _block_operation(f,a1,b1,a.summation)
@@ -403,6 +410,7 @@ function _add_tp_cell_data(
   a::GenericTProductDiffEval{Oa},
   b::GenericTProductDiffEval{Ob}
   ) where {Oa,Ob}
+
   af1,ag1 = testitem(a.f[1]),testitem(a.g[1])
   bf1,bg1 = testitem(b.f[1]),testitem(b.g[1])
   bf = _is_different_block(af1,bf1)
@@ -481,6 +489,7 @@ function _block_operation(
   b1::ArrayBlock{A,N},
   fprev::ArrayBlock{B,N}
   ) where {A,B,N}
+
   @check size(a1) == size(b1)
   overlap = CartesianIndex{N}[]
   for ib in findall(b1.touched)
@@ -499,6 +508,7 @@ function _disjoint_block_operation(
   b1::ArrayBlock{A,N},
   fprev::ArrayBlock{B,N}
   ) where {A,B,N}
+
   @check size(a1) == size(b1)
   touched_a = findall(a1.touched)
   touched_b = findall(b1.touched)

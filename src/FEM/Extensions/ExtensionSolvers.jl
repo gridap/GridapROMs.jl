@@ -83,6 +83,7 @@ function extend_solution(
   f::MultiFieldFESpace,
   u::Union{BlockVector,BlockParamVector}
   )
+
   uh_bg = map(extend_solution,ext.extension,f.spaces,blocks(u))
   mortar(uh_bg)
 end

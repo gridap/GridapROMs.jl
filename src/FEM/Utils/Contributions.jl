@@ -14,6 +14,7 @@ struct Contribution{V}
     values::Tuple{Vararg{V}},
     trians::Tuple{Vararg{Triangulation}}
     ) where V
+
     @check length(values) == length(trians)
     @check !any([t === first(trians) for t = trians[2:end]])
     new{V}(values,trians)

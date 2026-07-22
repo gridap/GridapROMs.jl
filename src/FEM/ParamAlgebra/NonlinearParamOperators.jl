@@ -117,6 +117,7 @@ function update_paramcache!(
   nlop::NonlinearParamOperator,
   μ::AbstractRealisation
   )
+
   @abstractmethod
 end
 
@@ -136,6 +137,7 @@ function update_paramcache!(
   nlop::NonlinearParamOperator,
   μ::AbstractRealisation
   )
+
   c.trial = evaluate!(c.trial,c.ptrial,μ)
   c
 end

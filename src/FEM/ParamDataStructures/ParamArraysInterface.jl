@@ -272,6 +272,7 @@ function Geometry.pos_neg_data(
   ipos_to_val::AbstractArray{<:AbstractParamArray{<:Number}},
   i_to_iposneg::PosNegPartition
   )
+
   nineg = length(i_to_iposneg.ineg_to_i)
   val = testitem(ipos_to_val)
   zs = 0 .* size(val)

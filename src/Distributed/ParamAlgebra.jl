@@ -78,6 +78,7 @@ struct DistributedParamCounterCOO{A,B,C,D} <: GridapType
     test_dofs_gids_prange::PRange,
     trial_dofs_gids_prange::PRange
     )
+
     A = typeof(par_strategy)
     B = typeof(counters)
     C = typeof(test_dofs_gids_prange)
@@ -108,6 +109,7 @@ end
 function GridapDistributed.local_views(
   a::DistributedParamCounterCOO,test_dofs_gids_prange,trial_dofs_gids_prange
   )
+
   @check test_dofs_gids_prange === a.test_dofs_gids_prange
   @check trial_dofs_gids_prange === a.trial_dofs_gids_prange
   a.counters
@@ -134,6 +136,7 @@ struct DistributedParamAllocationCOO{A,B,C,D} <: GridapType
     test_dofs_gids_prange::PRange,
     trial_dofs_gids_prange::PRange
     )
+
     A = typeof(par_strategy)
     B = typeof(allocs)
     C = typeof(test_dofs_gids_prange)

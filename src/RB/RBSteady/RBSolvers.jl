@@ -212,6 +212,7 @@ function residual_snapshots(
   op::ParamOperator{LinearNonlinearParamEq},
   args...
   )
+
   res_lin = residual_snapshots(solver,get_linear_operator(op),args...)
   res_nlin = residual_snapshots(solver,get_nonlinear_operator(op),args...)
   return (res_lin,res_nlin)

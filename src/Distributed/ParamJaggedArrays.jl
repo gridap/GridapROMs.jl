@@ -76,6 +76,7 @@ struct ParamJaggedArray{T,Ti,A} <: AbstractVector{A}
     a::A,
     ptrs::AbstractVector
     ) where {T,Ti,A<:ConsecutiveParamVector{T}}
+
     data = get_all_data(a)
     new{T,Ti,A}(data,convert(Vector{Ti},ptrs),A)
   end
@@ -84,6 +85,7 @@ struct ParamJaggedArray{T,Ti,A} <: AbstractVector{A}
     data::A,
     ptrs::AbstractVector
     ) where {T,Ti,A<:AbstractMatrix{T}}
+
     new{T,Ti,A}(data,convert(Vector{Ti},ptrs),A)
   end
 end
@@ -185,6 +187,7 @@ function Base.getindex(
   a::ParamJaggedArray{T,Ti,<:ConsecutiveParamVector},
   i::Int
   ) where {T,Ti}
+
   data = view(a.data,a.ptrs[i]:a.ptrs[i+1]-1,:)
   ConsecutiveParamArray(data)
 end

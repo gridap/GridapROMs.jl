@@ -14,6 +14,7 @@ struct ParamVectorWithEntryRemoved{T,A} <: ParamVector{T}
     a::A,
     index::Integer
     ) where {T,A<:ConsecutiveParamVector{T}}
+
     @assert 1 <= index <= innerlength(a)
     new{T,A}(a,index)
   end
@@ -54,6 +55,7 @@ struct ParamVectorWithEntryInserted{T,A} <: ParamVector{T}
     index::Integer,
     value::Vector{T}
     ) where {T,A<:ConsecutiveParamVector{T}}
+
     @assert 1 <= index <= innerlength(a)+1
     new{T,A}(a,index,value)
   end
@@ -64,6 +66,7 @@ function Arrays.VectorWithEntryInserted(
   index::Int,
   value::AbstractVector
   )
+
   ParamVectorWithEntryInserted(a,index,value)
 end
 

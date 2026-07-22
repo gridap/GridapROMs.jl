@@ -31,6 +31,7 @@ function RBSteady.project!(
   a::TransientProjection,
   x::ConsecutiveParamVector
   )
+
   nt = num_times(a)
   @check Int(param_length(x) / param_length(x̂)) == nt
   np = param_length(x̂)
@@ -47,6 +48,7 @@ function RBSteady.inv_project!(
   a::TransientProjection,
   x̂::ConsecutiveParamVector
   )
+
   nt = num_times(a)
   @check Int(param_length(x) / param_length(x̂)) == nt
   np = param_length(x̂)
@@ -62,6 +64,7 @@ function Algebra.allocate_in_domain(
   a::TransientProjection,
   x::V
   ) where V<:AbstractParamVector
+
   x̂ = allocate_vector(eltype(V),num_reduced_dofs(a))
   nt = num_times(a)
   np = Int(param_length(x) / nt)
@@ -72,6 +75,7 @@ function Algebra.allocate_in_range(
   a::TransientProjection,
   x̂::V
   ) where V<:AbstractParamVector
+
   x = allocate_vector(eltype(V),num_space_dofs(a))
   nt = num_times(a)
   npt = param_length(x̂) * nt
@@ -139,6 +143,7 @@ function RBSteady.project!(
   a::KroneckerProjection,
   x::AbstractVector{<:Number}
   )
+
   ns = num_reduced_dofs(a.projection_space)
   nt = num_reduced_dofs(a.projection_time)
   X̂ = reshape(x̂,ns,nt)
@@ -157,6 +162,7 @@ function RBSteady.inv_project!(
   a::KroneckerProjection,
   x̂::AbstractVector{<:Number}
   )
+
   Ns = num_fe_dofs(a.projection_space)
   Nt = num_fe_dofs(a.projection_time)
   X = reshape(x,Ns,Nt)
@@ -300,6 +306,7 @@ function RBSteady.projection(
   s::TransientSnapshots,
   X::MatrixOrTensor
   )
+
   proj = projection(get_reduction(red),s,X)
   SequentialProjection(proj)
 end
@@ -397,6 +404,7 @@ function RBSteady.project!(
   a::SequentialProjection,
   x::AbstractVector{<:Number}
   )
+
   project!(x̂,a.projection,x)
 end
 
@@ -405,10 +413,23 @@ function RBSteady.inv_project!(
   a::SequentialProjection,
   x̂::AbstractVector{<:Number}
   )
+
   inv_project!(x,a.projection,x̂)
 end
 
 # multfield interface
+
+function RBSteady.enrich!(
+  red::SupremizerReduction{A,<:HighDimReduction},
+  a::BlockProjection,
+  norm_matrix::BlockRankTensor,
+  supr_matrix::BlockRankTensor;
+  kwargs...
+  ) where A
+
+  red′ = SupremizerReduction(red.reduction.reduction,red.supr_op,red.supr_tol)
+  enrich!(red′,a,norm_matrix,supr_matrix;kwargs...)
+end
 
 function RBSteady.enrich!(
   red::SupremizerReduction{A,<:KroneckerReduction},
@@ -435,18 +456,6 @@ function RBSteady.enrich!(
   end
   a[1] = KroneckerProjection(a_primal_space,a_primal_time)
   return
-end
-
-function RBSteady.enrich!(
-  red::SupremizerReduction{A,<:SequentialReduction},
-  a::BlockProjection,
-  norm_matrix::BlockRankTensor,
-  supr_matrix::BlockRankTensor;
-  kwargs...
-  ) where A
-
-  red′ = SupremizerReduction(red.reduction.reduction,red.supr_op,red.supr_tol)
-  enrich!(red′,a,norm_matrix,supr_matrix;kwargs...)
 end
 
 """
@@ -637,5 +646,6 @@ end
 
 # utils 
 
+RBSteady._proj_type(r::SteadyReduction,args...) = RBSteady._proj_type(r.reduction,args...)
 RBSteady._proj_type(::KroneckerReduction,args...) = KroneckerProjection
 RBSteady._proj_type(::SequentialReduction,args...) = SequentialProjection

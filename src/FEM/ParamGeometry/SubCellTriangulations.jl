@@ -59,6 +59,7 @@ struct ParamSubCellTriangulation{Dc,Dp,T,A} <: Triangulation{Dc,Dp}
   function ParamSubCellTriangulation(
     subcells::ParamSubCellData{Dc,Dp,T},bgmodel::DiscreteModel
     ) where {Dc,Dp,T}
+
     subgrid = UnstructuredGrid(subcells)
     A = typeof(bgmodel)
     new{Dc,Dp,T,A}(subcells,bgmodel,subgrid)
@@ -98,6 +99,7 @@ function Geometry.move_contributions(
   scell_to_val::AbstractArray,
   strian::ParamSubCellTriangulation
   )
+
   model = get_background_model(strian)
   ncells = num_cells(model)
   cell_to_touched = fill(false,ncells)

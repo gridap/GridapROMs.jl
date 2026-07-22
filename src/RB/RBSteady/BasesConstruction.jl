@@ -96,6 +96,7 @@ function tpod(
   L::AbstractSparseMatrix,
   p::AbstractVector{Int}
   )
+
   XA = _forward_cholesky(A,L,p)
   Ũr,Sr,Vr = truncated_svd(red_style,XA)
   Ur = _backward_cholesky(Ũr,L,p)
@@ -120,6 +121,7 @@ function method_of_snapshots(
   L::AbstractSparseMatrix,
   p::AbstractVector
   )
+
   tpod(red_style,A,L,p)
 end
 
@@ -136,6 +138,7 @@ function method_of_snapshots_row(
   L::AbstractSparseMatrix,
   p::AbstractVector{Int}
   )
+
   XA = _forward_cholesky(A,L,p)
   AXA = XA'*XA
   _,Sr,Vr = truncated_svd(red_style,AXA;issquare=true)
@@ -157,6 +160,7 @@ function method_of_snapshots_col(
   L::AbstractSparseMatrix,
   p::AbstractVector{Int}
   )
+
   XA = _forward_cholesky(A,L,p)
   AXA = XA*XA'
   Ũr,Sr,_ = truncated_svd(red_style,AXA;issquare=true)
@@ -178,6 +182,7 @@ function ttsvd_loop(
   A::AbstractArray{T,3},
   X::AbstractSparseMatrix
   ) where T
+
   prev_rank = size(A,1)
   cur_size = size(A,2)
   A′ = reshape(A,prev_rank*cur_size,:)
@@ -196,6 +201,7 @@ function matching_ttsvd_loop(
   A::AbstractArray{T,3},
   X::AbstractSparseMatrix
   ) where T
+
   prev_rank = size(A,1)
   cur_size = size(A,2)
   A′ = reshape(A,prev_rank*cur_size,:)
@@ -507,6 +513,7 @@ end
 function LowRankApprox.psvdfact(
   A::AbstractMatOrLinOp{T},opts::LRAOptions=LRAOptions(T);args...
   ) where T<:Number
+
   opts = isempty(args) ? opts : copy(opts; args...)
   m,n = size(A)
   if m >= n

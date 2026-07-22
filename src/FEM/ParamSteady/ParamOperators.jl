@@ -292,6 +292,7 @@ function ParamAlgebra.allocate_paramcache(
   op::LinearNonlinearParamOperator,
   μ::AbstractRealisation
   )
+
   op_nlin = get_nonlinear_operator(op)
   allocate_paramcache(op_nlin,μ)
 end
@@ -300,6 +301,7 @@ function ParamAlgebra.allocate_systemcache(
   op::LinearNonlinearParamOperator,
   u::AbstractVector
   )
+
   op_nlin = get_nonlinear_operator(op)
   allocate_systemcache(op_nlin,u)
 end
@@ -318,6 +320,7 @@ function ParamDataStructures.parameterise(
   op::LinearNonlinearParamOperator,
   μ::AbstractRealisation
   )
+
   op_lin = parameterise(get_linear_operator(op),μ)
   op_nlin = parameterise(get_nonlinear_operator(op),μ)
   syscache_lin = allocate_systemcache(op_lin)

@@ -159,6 +159,7 @@ function _same_background_space(
   space::AbstractTrialFESpace,
   complementary::AbstractTrialFESpace
   )
+
   _same_background_space(get_fe_space(space),get_fe_space(complementary))
 end
 

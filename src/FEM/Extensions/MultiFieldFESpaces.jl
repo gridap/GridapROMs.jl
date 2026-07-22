@@ -79,6 +79,7 @@ function BlockMultiFieldExtensionStyle(
   ::BlockMultiFieldExtensionStyle{NB,SB,P},
   spaces
   ) where {NB,SB,P}
+
   @check length(spaces) == sum(SB)
   return BlockMultiFieldExtensionStyle(NB,SB,P)
 end
@@ -102,6 +103,7 @@ function FESpaces.get_free_dof_ids(
   f::MultiFieldFESpace,
   ::BlockMultiFieldExtensionStyle{NB,SB,P}
   ) where {NB,SB,P}
+
   block_ranges   = MultiField.get_block_ranges(NB,SB,P)
   block_num_dofs = map(range->sum(map(num_free_dofs,f.spaces[range])),block_ranges)
   return BlockArrays.blockedrange(block_num_dofs)

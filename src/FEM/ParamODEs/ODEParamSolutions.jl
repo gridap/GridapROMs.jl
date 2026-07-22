@@ -146,6 +146,7 @@ function _collect_solutions!(
   ui::ConsecutiveParamVector,
   it::Int
   )
+
   _collect_solutions!(get_all_data(sols),ui,it)
 end
 

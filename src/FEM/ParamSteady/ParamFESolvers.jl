@@ -6,6 +6,7 @@ for S in (:NonlinearSolver,:LinearSolver)
       op::JointParamOperator,
       r::Realisation
       )
+
       nlop = parameterise(op,r)
       syscache = allocate_systemcache(nlop,u)
       t = @timed solve!(u,solver,nlop,syscache)
@@ -19,6 +20,7 @@ for S in (:NonlinearSolver,:LinearSolver)
       op::SplitParamOperator,
       r::Realisation
       )
+
       solve!(u,solver,set_domains(op),r)
     end
   end

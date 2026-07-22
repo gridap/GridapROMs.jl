@@ -50,6 +50,7 @@ function param_getindex(
   pindex::Integer,
   tindex::Integer
   ) where {T,N}
+
   view(get_all_data(s),_ncolons(Val{N-2}())...,pindex,tindex)
 end
 

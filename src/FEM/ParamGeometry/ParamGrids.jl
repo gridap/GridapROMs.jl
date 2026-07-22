@@ -62,6 +62,7 @@ function _mapped_grid(
   grid::Grid,
   phys_map::AbstractVector{<:GenericParamBlock}
   )
+
   @assert length(phys_map) == num_cells(grid)
   plength = param_length(testitem(phys_map))
 
@@ -106,6 +107,7 @@ end
 function mapped_grid(
   style::GridMapStyle,trian::BodyFittedTriangulation,phys_map::AbstractVector
   )
+
   model = get_background_model(trian)
   grid = mapped_grid(style,trian.grid,phys_map)
   BodyFittedTriangulation(model,grid,trian.tface_to_mface)
@@ -114,6 +116,7 @@ end
 function mapped_grid(
   style::GridMapStyle,trian::BoundaryTriangulation,phys_map::AbstractVector
   )
+
   ttrian = mapped_grid(style,trian.trian,phys_map)
   BoundaryTriangulation(ttrian,trian.glue)
 end
@@ -238,6 +241,7 @@ function Geometry.UnstructuredGrid(
   node_coordinates::ParamBlock{<:Vector{<:Point}},
   args...;kwargs...
   )
+
   ParamUnstructuredGrid(node_coordinates,args...;kwargs...)
 end
 

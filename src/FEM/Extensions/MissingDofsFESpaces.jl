@@ -51,6 +51,7 @@ function FESpaces.scatter_free_and_dirichlet_values(
   free_values,
   dirichlet_values
   )
+
   @check eltype(free_values) == eltype(dirichlet_values) """\n
   The entries stored in free_values and dirichlet_values should be of the same type.
 
@@ -68,6 +69,7 @@ function FESpaces.gather_free_and_dirichlet_values!(
   f::MissingDofsFESpace,
   cell_vals
   )
+
   cell_dofs = get_cell_dof_ids(f)
   cache_vals = array_cache(cell_vals)
   cache_dofs = array_cache(cell_dofs)

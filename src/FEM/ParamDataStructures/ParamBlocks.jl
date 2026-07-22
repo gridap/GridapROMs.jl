@@ -828,6 +828,7 @@ function Arrays.evaluate!(
   h::ParamBlock,
   f::ParamBlock
   )
+
   g,l = cache
   for i in param_eachindex(f)
     g.data[i] = evaluate!(l[i],param_getindex(k,i),param_getindex(h,i),param_getindex(f,i))
@@ -1692,6 +1693,7 @@ end
 function Geometry.pos_neg_data(
   ipos_to_val::AbstractArray{<:ParamBlock},i_to_iposneg::PosNegPartition
   )
+
   nineg = length(i_to_iposneg.ineg_to_i)
   val = testitem(ipos_to_val)
   void = Geometry._similar_empty(val)
@@ -1702,6 +1704,7 @@ end
 function Geometry.pos_neg_data(
   ipos_to_val::AbstractArray{<:ParamBlock{<:Field}},i_to_iposneg::PosNegPartition
   )
+
   nineg = length(i_to_iposneg.ineg_to_i)
   ipos_to_v = lazy_map(VoidFieldMap(false),ipos_to_val)
   ineg_to_v = Fill(VoidField(testitem(ipos_to_val),true),nineg)
@@ -1737,6 +1740,7 @@ function Arrays.return_value(
   f::ArrayBlock{A,N},
   h::ParamBlock
   ) where {A,N}
+
   fi = testitem(f)
   fix = return_value(k,fi,h)
   g = Array{typeof(fix),N}(undef,size(f.array))
@@ -1753,6 +1757,7 @@ function Arrays.return_cache(
   f::ArrayBlock{A,N},
   h::ParamBlock
   ) where {A,N}
+
   fi = testitem(f)
   li = return_cache(k,fi,h)
   fix = evaluate!(li,k,fi,h)
@@ -1782,6 +1787,7 @@ function Arrays.return_value(
   h::ParamBlock,
   f::ArrayBlock{A,N}
   ) where {A,N}
+
   fi = testitem(f)
   fix = return_value(k,h,fi)
   g = Array{typeof(fix),N}(undef,size(f.array))
@@ -1798,6 +1804,7 @@ function Arrays.return_cache(
   h::ParamBlock,
   f::ArrayBlock{A,N}
   ) where {A,N}
+
   fi = testitem(f)
   li = return_cache(k,h,fi)
   fix = evaluate!(li,k,h,fi)
@@ -1946,6 +1953,7 @@ for A in (:ArrayBlock,:ParamBlock)
               c::$C,
               d::$D
               )
+
               ctup,m,(ca,cb,cc,cd) = cache
               ea = evaluate!(ca,m,a)
               eb = evaluate!(cb,m,b)

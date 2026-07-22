@@ -42,6 +42,7 @@ function _split_cartesian_descriptor(desc::CartesianDescriptor{D}) where D
   function _compute_1d_desc(
     o=first(origin.data),s=first(sizes),p=first(partition),m=cmap,i=first(isperiodic)
     )
+
     CartesianDescriptor(Point(o),(s,),(p,);map=m,isperiodic=(i,))
   end
   descs = map(_compute_1d_desc,origin.data,sizes,partition,Fill(cmap,D),isperiodic)
@@ -146,6 +147,7 @@ function TProductTriangulation(
   trian::Triangulation,
   trians_1d::AbstractVector{<:Triangulation}
   )
+
   model = get_background_model(trian)
   models_1d = map(get_background_model,trians_1d)
   tpmodel = TProductDiscreteModel(model,models_1d)

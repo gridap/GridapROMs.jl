@@ -142,6 +142,7 @@ function Base.similar(
   ::Type{<:AbstractArray{T′}},
   dims::Dims{N}
   ) where {T,T′,N}
+
   data′ = similar(get_all_data(A),T′,dims...)
   TrivialParamArray(data′,param_length(A))
 end
@@ -167,6 +168,7 @@ function get_param_entry!(
   A::TrivialParamArray{T,N},
   i::Vararg{Integer,N}
   ) where {T,N}
+
   entry = getindex(get_all_data(A),i...)
   fill!(v,entry)
 end
@@ -258,6 +260,7 @@ function Base.similar(
   A::ConsecutiveParamArray{T,N},
   ::Type{<:AbstractArray{T′,N}}
   ) where {T,T′,N}
+
   data′ = similar(get_all_data(A),T′)
   ConsecutiveParamArray(data′)
 end
@@ -267,6 +270,7 @@ function Base.similar(
   ::Type{<:AbstractArray{T′}},
   dims::Dims{N}
   ) where {T,T′,N}
+
   pdims = (dims...,param_length(A))
   data′ = similar(get_all_data(A),T′,pdims...)
   ConsecutiveParamArray(data′)
@@ -355,6 +359,7 @@ function get_param_entry!(
   A::ConsecutiveParamArray{T,N},
   i::Vararg{Integer,N}
   ) where {T,N}
+
   data = get_all_data(A)
   for j in eachindex(v)
     @inbounds v[j] = data[i...,j]
@@ -615,6 +620,7 @@ function Base.similar(
   A::GenericParamMatrix{T,N},
   ::Type{<:AbstractMatrix{T′}}
   ) where {T,T′,N}
+
   data′ = similar(get_all_data(A),T′)
   ptrs = get_ptrs(A)
   nrows = get_nrows(A)
@@ -682,6 +688,7 @@ function get_param_entry!(
   i::Integer,
   j::Integer
   ) where T
+
   for k in eachindex(v)
     @inbounds v[k] = A[k][i,j]
   end

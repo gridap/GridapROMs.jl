@@ -268,6 +268,7 @@ function _get_fe_odof_basis(
   cell_dof::AbstractArray{<:Union{Dof,AbstractArray{<:Dof}}},
   dof_to_odof
   )
+
   map(_get_fe_odof_basis,cell_dof,dof_to_odof)
 end
 
@@ -286,6 +287,7 @@ function _get_fe_odof_basis(
   dof::LagrangianDofBasis{P,V},
   dof_to_odof
   ) where {P,V<:MultiValue}
+
   odof_to_node = similar(dof.dof_to_node)
   odof_to_comp = similar(dof.dof_to_comp)
   node_and_comp_to_odof = similar(dof.node_and_comp_to_dof)

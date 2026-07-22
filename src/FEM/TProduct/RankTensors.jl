@@ -222,6 +222,7 @@ function tproduct_array(
   gradients_1d::Vector{<:BlockArray},
   s::ArrayBlock
   )
+
   s_blocks = blocksize(first(arrays_1d))
   arrays = map(CartesianIndices(s_blocks)) do i
     iblock = Block(Tuple(i))

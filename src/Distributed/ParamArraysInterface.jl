@@ -76,6 +76,7 @@ function PartitionedArrays.default_local_values(
   V::ConsecutiveParamVector{T},
   indices
   ) where T
+
   data = zeros(T,local_length(indices),param_length(V))
   for k in 1:length(I)
     for l in param_eachindex(V)
@@ -173,6 +174,7 @@ end
 function ParamDataStructures.parameterise(
   a::PartitionedArrays.VectorAssemblyCache,plength::Integer
   )
+
   ParamVectorAssemblyCache(
     a.neighbors_snd,
     a.neighbors_rcv,
@@ -242,6 +244,7 @@ end
 function ParamDataStructures.parameterise(
   a::PartitionedArrays.JaggedArrayAssemblyCache,plength::Integer
   )
+
   ParamJaggedArrayAssemblyCache(parameterise(a.cache,plength))
 end
 

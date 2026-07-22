@@ -53,6 +53,7 @@ function Utils.compute_relative_error(
   extsol,
   extsol_approx
   )
+
   solver = remove_extension(extsolver)
   trial = get_trial(feop)
   sol,sol_approx = remove_extension(trial,extsol,extsol_approx)

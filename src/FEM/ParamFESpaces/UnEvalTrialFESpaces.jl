@@ -65,6 +65,7 @@ function FESpaces.scatter_free_and_dirichlet_values(
   free_values,
   dirichlet_values
   )
+
   scatter_free_and_dirichlet_values(f.space,free_values,dirichlet_values)
 end
 function FESpaces.gather_free_and_dirichlet_values!(
@@ -73,6 +74,7 @@ function FESpaces.gather_free_and_dirichlet_values!(
   f::UnEvalTrialFESpace,
   cell_vals
   )
+
   gather_free_and_dirichlet_values!(free_values,dirichlet_values,f.space,cell_vals)
 end
 

@@ -82,6 +82,7 @@ function PartitionedArrays.allocate_local_values(
   ::Type{T},
   indices
   ) where T
+
   n_own = own_length(indices)
   n_ghost = ghost_length(indices)
   own_values = similar(values.own_values,T,n_own)
@@ -95,6 +96,7 @@ function GridapDistributed.change_ghost(
   a::PVector,
   ids::PRange
   )
+
   values = map(own_values(a),partition(ids)) do own_vals,ids
     ghost_vals = fill(zero(eltype(a)),ghost_length(ids))
     perm = PartitionedArrays.local_permutation(ids)

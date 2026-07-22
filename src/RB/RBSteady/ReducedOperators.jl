@@ -457,6 +457,7 @@ struct LinearNonlinearRBOperator{A<:RBOperator,B<:RBOperator,T} <: RBOperator{Li
     op_linear::RBOperator{OL,T},
     op_nonlinear::RBOperator{ON,T}
     ) where {OL,ON,T}
+
     A = typeof(op_linear)
     B = typeof(op_nonlinear)
     new{A,B,T}(op_linear,op_nonlinear)
@@ -478,6 +479,7 @@ function ParamAlgebra.allocate_paramcache(
   op::LinearNonlinearRBOperator,
   μ::AbstractRealisation
   )
+
   op_nlin = get_nonlinear_operator(op)
   allocate_paramcache(op_nlin,μ)
 end
@@ -486,6 +488,7 @@ function ParamAlgebra.allocate_systemcache(
   op::LinearNonlinearRBOperator,
   u::AbstractVector
   )
+
   op_nlin = get_nonlinear_operator(op)
   allocate_systemcache(op_nlin,u)
 end
@@ -504,6 +507,7 @@ function ParamDataStructures.parameterise(
   op::LinearNonlinearRBOperator,
   μ::AbstractRealisation
   )
+
   op_lin = parameterise(get_linear_operator(op),μ)
   op_nlin = parameterise(get_nonlinear_operator(op),μ)
   syscache_lin = allocate_systemcache(op_lin)
