@@ -1,6 +1,6 @@
 using DrWatson
 using Gridap
-using Makie
+using Plots
 using Serialization
 using Test
 
