@@ -354,10 +354,13 @@ function Algebra._solve_nr!(
   return x
 end
 
+_get_param(op::NonlinearParamOperator) = @notimplemented
+_get_param(op::GenericParamNonlinearOperator) = op.μ
+
 _get_trial(op) = @notimplemented
 
 function _get_trial(op::LinNonlinParamOperator)
-  μ = op.op_nonlinear.μ
+  μ = _get_param(op.op_nonlinear)
   evaluate(get_trial(op.op_nonlinear.op),μ)
 end
 

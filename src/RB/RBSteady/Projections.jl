@@ -684,7 +684,7 @@ function to_blocks(x::AbstractParamVector,o,f=identity)
   mortar(map(i -> f(get_param_entry(x,o[i]:o[i+1]-1)),1:n))
 end
 
-for (f,g) in zip((:(Algebra.allocate_in_domain),:(Algebra.allocate_in_range)),(:to_fe_blocks,:to_reduced_blocks))
+for f in (:(Algebra.allocate_in_domain),:(Algebra.allocate_in_range))
   @eval begin
     function $f(a::BlockProjection)
       @notimplementedif !all(a.touched)
@@ -692,6 +692,12 @@ for (f,g) in zip((:(Algebra.allocate_in_domain),:(Algebra.allocate_in_range)),(:
     end
 
     function $f(a::BlockProjection,x::BlockVector)
+      @check length(a) == blocklength(x)
+      @notimplementedif !all(a.touched)
+      mortar(map(i -> $f(a[Block(i)],x[Block(i)]),eachindex(a)))
+    end
+
+    function $f(a::BlockProjection,x::BlockParamVector)
       @check length(a) == blocklength(x)
       @notimplementedif !all(a.touched)
       mortar(map(i -> $f(a[Block(i)],x[Block(i)]),eachindex(a)))

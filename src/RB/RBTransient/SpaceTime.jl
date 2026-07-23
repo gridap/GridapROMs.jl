@@ -140,7 +140,7 @@ function ParamODEs.zero_time_combination!(
   zero_time_combination!(map(_fe_data,usx),c,map(_fe_data,us0))
 end
 
-# utils 
+# utils
 
 const SpaceTimeLinearSolver{A<:ODESolver} = SpaceTimeSolver{A,<:LinearSolver}
 
@@ -262,7 +262,7 @@ function _st_solve_nr!(
   RBSteady.change_tols!(log)
 
   nlop = get_nonlinear_operator(op)
-  trial = _get_trial(op)
+  trial = RBSteady._get_trial(op)
 
   res = norm(b)
   done = LinearSolvers.init!(log,res)
@@ -320,7 +320,5 @@ function _update_paramcache!(nlop::LinNonlinParamOperator,r::TransientRealisatio
   _update_paramcache!(nlop.op_nonlinear,r)
 end
 
-function _get_trial(op::LinNonlinParamOperator)
-  r = op.op_nonlinear.r
-  evaluate(get_trial(op.op_nonlinear.op),r)
-end
+RBSteady._get_param(op::ParamStageOperator) = op.r
+RBSteady._get_param(op::SpaceTimeParamOperator) = op.r

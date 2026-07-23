@@ -18,12 +18,15 @@ and provides methods to project and reconstruct space–time snapshot vectors.
 """
 abstract type TransientProjection <: Projection end
 
+get_projection_space(a::Projection) = a
+get_projection_time(a::Projection) = @notimplemented
 get_projection_space(a::TransientProjection) = @abstractmethod
 get_projection_time(a::TransientProjection) = @abstractmethod
-get_basis_space(a::TransientProjection) = get_basis(get_projection_space(a))
-get_basis_time(a::TransientProjection) = get_basis(get_projection_time(a))
-ParamDataStructures.num_space_dofs(a::TransientProjection) = num_fe_dofs(get_projection_space(a))
-ParamDataStructures.num_times(a::TransientProjection) = num_fe_dofs(get_projection_time(a))
+
+get_basis_space(a::Projection) = get_basis(get_projection_space(a))
+get_basis_time(a::Projection) = get_basis(get_projection_time(a))
+ParamDataStructures.num_space_dofs(a::Projection) = num_fe_dofs(get_projection_space(a))
+ParamDataStructures.num_times(a::Projection) = num_fe_dofs(get_projection_time(a))
 RBSteady.num_fe_dofs(a::TransientProjection) = num_space_dofs(a)*num_times(a)
 
 function RBSteady.project!(

@@ -91,7 +91,6 @@ function main(
   tf = 10*dt
   tdomain = t0:dt:tf
 
-  state_reduction = SteadyReduction(coupling,tol,energy;nparams,sketch=:sprn)
   fesolver = ThetaMethod(NewtonSolver(LUSolver();rtol=1e-10,maxiter=20,verbose=true),dt,θ)
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jacs=(nparams_jac,nparams_jac),hypred_strategy)
 
@@ -114,9 +113,8 @@ function main(
   println(perf)
 end
 
-# for method in (:pod,:ttsvd), compression in (:local,:global), hypred_strategy in (:mdeim,:sopt,:none)
-#   main(method,compression,hypred_strategy)
-# end
-main(:pod,:global,:mdeim)
+for method in (:pod,:ttsvd), compression in (:local,:global), hypred_strategy in (:mdeim,:sopt,:none)
+  main(method,compression,hypred_strategy)
+end
 
 end
