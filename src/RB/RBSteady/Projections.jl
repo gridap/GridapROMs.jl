@@ -696,6 +696,12 @@ for (f,g) in zip((:(Algebra.allocate_in_domain),:(Algebra.allocate_in_range)),(:
       @notimplementedif !all(a.touched)
       mortar(map(i -> $f(a[Block(i)],x[Block(i)]),eachindex(a)))
     end
+
+    function $f(a::BlockProjection,x::BlockParamVector)
+      @check length(a) == blocklength(x)
+      @notimplementedif !all(a.touched)
+      mortar(map(i -> $f(a[Block(i)],x[Block(i)]),eachindex(a)))
+    end
   end
 end
 
