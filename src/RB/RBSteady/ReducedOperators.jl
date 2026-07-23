@@ -443,25 +443,32 @@ function Algebra.jacobian!(
 end
 
 """
-    struct LinearNonlinearRBOperator{A<:RBOperator,B<:RBOperator,T} <: RBOperator{LinearNonlinearParamEq,T}
-      op_linear::A
-      op_nonlinear::B
+    struct LinearNonlinearRBOperator{O,T} <: RBOperator{O,T}
+      op_linear::RBOperator
+      op_nonlinear::RBOperator
     end
 
 Extends the concept of [`GenericRBOperator`](@ref) to accommodate the linear/nonlinear
 splitting of terms in nonlinear applications
 """
-struct LinearNonlinearRBOperator{A<:RBOperator,B<:RBOperator,T} <: RBOperator{LinearNonlinearParamEq,T}
-  op_linear::A
-  op_nonlinear::B
+struct LinearNonlinearRBOperator{O,T} <: RBOperator{O,T}
+  op_linear::RBOperator
+  op_nonlinear::RBOperator
+
   function LinearNonlinearRBOperator(
     op_linear::RBOperator{OL,T},
     op_nonlinear::RBOperator{ON,T}
     ) where {OL,ON,T}
 
-    A = typeof(op_linear)
-    B = typeof(op_nonlinear)
-    new{A,B,T}(op_linear,op_nonlinear)
+    new{LinearNonlinearParamEq,T}(op_linear,op_nonlinear)
+  end
+
+  function LinearNonlinearRBOperator(
+    op_linear::RBOperator{OL,T},
+    op_nonlinear::RBOperator{ON,T}
+    ) where {OL<:ODEParamOperatorType,ON<:ODEParamOperatorType,T}
+
+    new{LinearNonlinearParamODE,T}(op_linear,op_nonlinear)
   end
 end
 
@@ -521,8 +528,6 @@ function change_operator(op::LinearNonlinearRBOperator,op′::LinearNonlinearPar
   LinearNonlinearRBOperator(op_lin′,op_nlin′)
 end
 
-const LinearNonlinearGenericRBOperator{T} = LinearNonlinearRBOperator{<:GenericRBOperator,<:GenericRBOperator,T}
-
 # local
 
 function get_local(op::RBOperator,μ::AbstractVector)
@@ -560,6 +565,12 @@ function _setup(op)
   V = get_test(op)
   U = get_trial(op)
   _convert_to_block(op,V,U)
+end
+
+function _setup(op::LinearNonlinearParamOperator)
+  op_lin = _setup(get_linear_operator(op))
+  op_nlin = _setup(get_nonlinear_operator(op))
+  LinearNonlinearParamOperator(op_lin,op_nlin)
 end
 
 function _convert_to_block(op,V,U)

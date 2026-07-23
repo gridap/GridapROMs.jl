@@ -2440,10 +2440,9 @@ end
 function Arrays._setsize!(result::VectorBlock{<:ParamBlock},duals::VectorBlock{<:ParamBlock})
   ni = size(result.array,1)
   for i in 1:ni
-    if result.touched[i]
-      for k in param_eachindex(duals[i])
-        setsize!(param_getindex(result[i],k),(length(param_getindex(duals[i],k)),))
-      end
+    !(result.touched[i] && duals.touched[i]) && continue
+    for k in param_eachindex(duals[i])
+      setsize!(param_getindex(result[i],k),(length(param_getindex(duals[i],k)),))
     end
   end
 end
@@ -2452,14 +2451,13 @@ function Arrays._setsize!(result::MatrixBlock{<:ParamBlock},ydual::VectorBlock{<
   ni,nj = size(result)
   for i in 1:ni
     for j in 1:nj
-      if result.touched[i,j]
-        for k in param_eachindex(ydual[i])
-          setsize!(
-            param_getindex(result[i,j],k),
-            (length(param_getindex(ydual[i],k)),
-            length(param_getindex(ydual[j],k)))
-          )
-        end
+      !(result.touched[i,j] && ydual.touched[i] && ydual.touched[j]) && continue
+      for k in param_eachindex(ydual[i])
+        setsize!(
+          param_getindex(result[i,j],k),
+          (length(param_getindex(ydual[i],k)),
+          length(param_getindex(ydual[j],k)))
+        )
       end
     end
   end

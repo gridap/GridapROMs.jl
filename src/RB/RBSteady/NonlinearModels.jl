@@ -371,3 +371,351 @@ function _adjust_lr!(state,s::NNStrategy,epoch::Int)
   isnothing(s.lr_schedule) && return
   Optimisers.adjust!(state,s.lr_schedule(epoch,s.epochs))
 end
+
+# ===== Nonlinear reduced spaces: auto-encoders and auto-decoders ============
+
+struct AutoEncoderType <: NNType end
+struct VariationalAutoEncoderType <: NNType end
+struct AutoDecoderType <: NNType end
+
+# Differentiable MLP forward pass using weight layout of MultiLayerPerceptron.
+# Allocating but ForwardDiff-transparent; used during training only.
+function _mlp_apply(
+  layers::NTuple{L,Int}, activation::Function, θ::AbstractVector, x::AbstractMatrix
+) where L
+  T = eltype(θ)
+  h = T === eltype(x) ? x : T.(x)
+  offset = 0
+  for l in 1:L-1
+    nout = layers[l+1]; nin = layers[l]
+    W = reshape(view(θ, offset+1:offset+nout*nin), nout, nin)
+    b = view(θ, offset+nout*nin+1:offset+nout*(nin+1))
+    z = W * h .+ b
+    h = l < L-1 ? activation.(z) : z
+    offset += nout*(nin+1)
+  end
+  h
+end
+
+"""
+    AutoEncoder{E,D} <: NeuralNetwork
+
+Encoder–decoder pair for unsupervised dimensionality reduction. Both
+sub-networks are [`MultiLayerPerceptron`](@ref)s with parameters stored as a
+flat vector for ForwardDiff-based joint training.
+
+`evaluate!(cache, ae, z)` applies the **decoder** (latent → high-dim). Use
+[`encode`](@ref) for the encoder direction (high-dim → latent).
+
+**Convolutional variants**: wrap a Lux/Flux CNN chain in
+[`GenericNeuralNetwork`](@ref) and supply a custom `train!` using
+`Lux.Training.single_train_step!` with `AutoZygote`.
+
+Build and train in one call via [`TrainedNeuralNetwork`](@ref):
+
+    s = NNStrategy(type=AutoEncoderType(), layers=(128,64,16))
+    ae = TrainedNeuralNetwork(s, r, snapshots)
+
+where `s.layers = (h₁, h₂, …, latent_dim)` defines the encoder hidden widths;
+the decoder mirrors them symmetrically.
+"""
+struct AutoEncoder{E<:MultiLayerPerceptron,D<:MultiLayerPerceptron} <: NeuralNetwork
+  encoder::E
+  decoder::D
+end
+
+function AutoEncoder(enc_layers, dec_layers; activation::Function=tanh, T::Type=Float64)
+  AutoEncoder(
+    MultiLayerPerceptron(Tuple(enc_layers); activation, T),
+    MultiLayerPerceptron(Tuple(dec_layers); activation, T),
+  )
+end
+
+function NeuralNetwork(s::NNStrategy{AutoEncoderType}, ::AbstractRealisation, coeff)
+  y = _get_data(coeff); n_h = size(y,1); T = eltype(y)
+  enc_layers = (n_h, s.layers...)
+  dec_layers = (last(s.layers), reverse(s.layers[1:end-1])..., n_h)
+  AutoEncoder(enc_layers, dec_layers; T)
+end
+
+function Arrays.return_cache(a::AutoEncoder, z::AbstractMatrix)
+  return_cache(a.decoder, z)
+end
+
+function Arrays.evaluate!(cache, a::AutoEncoder, z::AbstractMatrix)
+  evaluate!(cache, a.decoder, z, a.decoder.θ)
+end
+
+function encode(a::AutoEncoder, X::AbstractMatrix)
+  cache = return_cache(a.encoder, X)
+  evaluate!(cache, a.encoder, X, a.encoder.θ)
+end
+
+function decode(a::AutoEncoder, Z::AbstractMatrix)
+  cache = return_cache(a.decoder, Z)
+  evaluate!(cache, a.decoder, Z, a.decoder.θ)
+end
+
+"""
+    train!(ae::AutoEncoder, s::NNStrategy, X::AbstractMatrix) -> AutoEncoder
+
+Train `ae` on the snapshot matrix `X` (`n_h × k`) by minimising the
+reconstruction loss `s.loss(decoder(encoder(X)), X)`. Encoder and decoder
+parameters are optimised jointly via ForwardDiff. Supports mini-batching,
+LR scheduling, and early stopping from `s`.
+"""
+function train!(a::AutoEncoder, s::NNStrategy, X::AbstractMatrix)
+  nθe = length(a.encoder.θ); nθd = length(a.decoder.θ)
+  θ = vcat(a.encoder.θ, a.decoder.θ)
+  k = size(X,2)
+  early_stop = s.patience > 0
+
+  if early_stop
+    n_val = max(1, round(Int, k*s.val_fraction)); n_tr = k - n_val
+    @check n_tr > 0 "val_fraction=$(s.val_fraction) leaves no training samples"
+    perm0 = randperm(k)
+    X_tr = view(X,:,perm0[1:n_tr]); X_val = view(X,:,perm0[n_tr+1:k])
+  else
+    X_tr = X; n_tr = k; X_val = nothing
+  end
+  bs = s.batch_size == 0 ? n_tr : min(s.batch_size, n_tr); full = bs == n_tr
+
+  function recon_loss(p, Xb)
+    pe = view(p,1:nθe); pd = view(p,nθe+1:nθe+nθd)
+    Z = _mlp_apply(a.encoder.layers, a.encoder.activation, pe, Xb)
+    X̂ = _mlp_apply(a.decoder.layers, a.decoder.activation, pd, Z)
+    s.loss(X̂, Xb)
+  end
+
+  opt_state = Optimisers.setup(s.optimiser, θ)
+  grad = similar(θ); best_val = typemax(Float64); patience_count = 0
+
+  for epoch in 1:s.epochs
+    _adjust_lr!(opt_state, s, epoch)
+    if full
+      ForwardDiff.gradient!(grad, p -> recon_loss(p, X_tr), θ)
+      opt_state,_ = Optimisers.update!(opt_state, θ, grad)
+    else
+      perm = randperm(n_tr)
+      for start in 1:bs:(n_tr-bs+1)
+        Xb = view(X_tr, :, view(perm, start:start+bs-1))
+        ForwardDiff.gradient!(grad, p -> recon_loss(p, Xb), θ)
+        opt_state,_ = Optimisers.update!(opt_state, θ, grad)
+      end
+    end
+    if early_stop
+      val = recon_loss(θ, X_val)
+      if val < best_val; best_val = val; patience_count = 0
+      else; patience_count += 1; patience_count >= s.patience && break
+      end
+    end
+  end
+
+  copyto!(a.encoder.θ, view(θ, 1:nθe))
+  copyto!(a.decoder.θ, view(θ, nθe+1:nθe+nθd))
+  a
+end
+
+function train!(a::AutoEncoder, s::NNStrategy, ::AbstractRealisation, coeff)
+  train!(a, s, _get_data(coeff))
+end
+
+"""
+    VariationalAutoEncoder{E,D} <: NeuralNetwork
+
+VAE with reparameterisation trick. The encoder outputs `[μ; log σ²]` (2 ×
+latent_dim values per sample); during training a latent sample
+`z = μ + ε·exp(log σ²/2)` with ε ~ N(0,I) is passed to the decoder.
+
+Training loss: `recon_loss + β · KL`, where
+`KL = -½ mean(1 + log σ² - μ² - σ²)`.
+
+`NNStrategy` interpretation: `layers = (h₁, …, h_{L-1}, latent_dim)`;
+the encoder hidden widths are `(h₁, …, h_{L-1})` and the decoder mirrors them.
+`β` controls the KL weight (keyword to `NeuralNetwork`/`TrainedNeuralNetwork`).
+
+**Convolutional variants**: use `GenericNeuralNetwork` wrapping a Lux/Flux CNN.
+"""
+struct VariationalAutoEncoder{E<:MultiLayerPerceptron,D<:MultiLayerPerceptron} <: NeuralNetwork
+  encoder::E
+  decoder::D
+  β::Float64
+end
+
+function VariationalAutoEncoder(enc_layers, dec_layers; β=1.0, activation::Function=tanh, T::Type=Float64)
+  VariationalAutoEncoder(
+    MultiLayerPerceptron(Tuple(enc_layers); activation, T),
+    MultiLayerPerceptron(Tuple(dec_layers); activation, T),
+    Float64(β),
+  )
+end
+
+function NeuralNetwork(s::NNStrategy{VariationalAutoEncoderType}, ::AbstractRealisation, coeff; β=1.0)
+  y = _get_data(coeff); n_h = size(y,1); T = eltype(y)
+  latent_dim = last(s.layers)
+  hidden = s.layers[1:end-1]
+  enc_layers = (n_h, hidden..., 2*latent_dim)
+  dec_layers = (latent_dim, reverse(hidden)..., n_h)
+  VariationalAutoEncoder(enc_layers, dec_layers; β, T)
+end
+
+function Arrays.return_cache(a::VariationalAutoEncoder, z::AbstractMatrix)
+  return_cache(a.decoder, z)
+end
+
+function Arrays.evaluate!(cache, a::VariationalAutoEncoder, z::AbstractMatrix)
+  evaluate!(cache, a.decoder, z, a.decoder.θ)
+end
+
+function encode(a::VariationalAutoEncoder, X::AbstractMatrix)
+  latent_dim = a.decoder.layers[1]
+  cache = return_cache(a.encoder, X)
+  enc_out = evaluate!(cache, a.encoder, X, a.encoder.θ)
+  μ = enc_out[1:latent_dim, :]
+  log_var = enc_out[latent_dim+1:end, :]
+  ε = randn(eltype(a.encoder.θ), latent_dim, size(X,2))
+  z = μ .+ ε .* exp.(log_var ./ 2)
+  (μ, log_var, z)
+end
+
+function train!(a::VariationalAutoEncoder, s::NNStrategy, X::AbstractMatrix)
+  nθe = length(a.encoder.θ); nθd = length(a.decoder.θ)
+  θ = vcat(a.encoder.θ, a.decoder.θ)
+  k = size(X,2); latent_dim = a.decoder.layers[1]
+  opt_state = Optimisers.setup(s.optimiser, θ)
+  grad = similar(θ); best_val = typemax(Float64); patience_count = 0
+  early_stop = s.patience > 0
+
+  function vae_loss(p, ε)
+    pe = view(p,1:nθe); pd = view(p,nθe+1:nθe+nθd)
+    enc_out = _mlp_apply(a.encoder.layers, a.encoder.activation, pe, X)
+    μ = enc_out[1:latent_dim, :]; log_var = enc_out[latent_dim+1:end, :]
+    z = μ .+ ε .* exp.(log_var ./ 2)
+    X̂ = _mlp_apply(a.decoder.layers, a.decoder.activation, pd, z)
+    recon = s.loss(X̂, X)
+    kl = -sum(1 .+ log_var .- μ .^ 2 .- exp.(log_var)) / (2*k)
+    recon + a.β * kl
+  end
+
+  for epoch in 1:s.epochs
+    _adjust_lr!(opt_state, s, epoch)
+    ε = randn(eltype(θ), latent_dim, k)
+    ForwardDiff.gradient!(grad, p -> vae_loss(p, ε), θ)
+    opt_state,_ = Optimisers.update!(opt_state, θ, grad)
+    if early_stop
+      val = vae_loss(θ, randn(eltype(θ), latent_dim, k))
+      if val < best_val; best_val = val; patience_count = 0
+      else; patience_count += 1; patience_count >= s.patience && break
+      end
+    end
+  end
+
+  copyto!(a.encoder.θ, view(θ, 1:nθe))
+  copyto!(a.decoder.θ, view(θ, nθe+1:nθe+nθd))
+  a
+end
+
+function train!(a::VariationalAutoEncoder, s::NNStrategy, ::AbstractRealisation, coeff)
+  train!(a, s, _get_data(coeff))
+end
+
+"""
+    AutoDecoder{D,A} <: NeuralNetwork
+
+Decoder-only model (Park et al., 2019). Per-sample latent codes are stored in
+`latent_codes` (`latent_dim × n_train`) and optimised **jointly** with the
+decoder parameters during training. Inference for unseen samples requires
+fitting a latent code via [`infer_latent`](@ref).
+
+`evaluate!` applies the decoder (`latent_dim × k → n_h × k`).
+
+`NNStrategy` interpretation: `layers = (h₁, …, latent_dim)` defines the
+decoder from last to first (i.e. decoder layers are
+`(latent_dim, reverse(h₁,…,h_{L-1})…, n_h)`).
+"""
+struct AutoDecoder{D<:MultiLayerPerceptron,A<:AbstractMatrix} <: NeuralNetwork
+  decoder::D
+  latent_codes::A
+end
+
+function AutoDecoder(dec_layers, n_train::Int; activation::Function=tanh, T::Type=Float64)
+  d = MultiLayerPerceptron(Tuple(dec_layers); activation, T)
+  latent_dim = first(dec_layers)
+  Z = randn(T, latent_dim, n_train) .* T(0.01)
+  AutoDecoder(d, Z)
+end
+
+function NeuralNetwork(s::NNStrategy{AutoDecoderType}, ::AbstractRealisation, coeff)
+  y = _get_data(coeff); n_h = size(y,1); k = size(y,2); T = eltype(y)
+  latent_dim = last(s.layers)
+  dec_layers = (latent_dim, reverse(s.layers[1:end-1])..., n_h)
+  AutoDecoder(dec_layers, k; T)
+end
+
+function Arrays.return_cache(a::AutoDecoder, z::AbstractMatrix)
+  return_cache(a.decoder, z)
+end
+
+function Arrays.evaluate!(cache, a::AutoDecoder, z::AbstractMatrix)
+  evaluate!(cache, a.decoder, z, a.decoder.θ)
+end
+
+"""
+    train!(ad::AutoDecoder, s::NNStrategy, X::AbstractMatrix) -> AutoDecoder
+
+Jointly optimise decoder parameters and all latent codes to minimise
+`s.loss(decoder(Z), X)`. After training, `ad.latent_codes[:,i]` is the
+learned latent representation of snapshot `X[:,i]`.
+"""
+function train!(a::AutoDecoder, s::NNStrategy, X::AbstractMatrix)
+  nθd = length(a.decoder.θ); latent_dim, k = size(a.latent_codes)
+  @check size(X,2) == k "AutoDecoder.latent_codes columns must match number of snapshots"
+  θ = vcat(a.decoder.θ, vec(a.latent_codes))
+  opt_state = Optimisers.setup(s.optimiser, θ)
+  grad = similar(θ)
+
+  function recon_loss(p)
+    pd = view(p, 1:nθd)
+    Z = reshape(view(p, nθd+1:nθd+latent_dim*k), latent_dim, k)
+    X̂ = _mlp_apply(a.decoder.layers, a.decoder.activation, pd, Z)
+    s.loss(X̂, X)
+  end
+
+  for epoch in 1:s.epochs
+    _adjust_lr!(opt_state, s, epoch)
+    ForwardDiff.gradient!(grad, recon_loss, θ)
+    opt_state,_ = Optimisers.update!(opt_state, θ, grad)
+  end
+
+  copyto!(a.decoder.θ, view(θ, 1:nθd))
+  copyto!(vec(a.latent_codes), view(θ, nθd+1:nθd+latent_dim*k))
+  a
+end
+
+function train!(a::AutoDecoder, s::NNStrategy, ::AbstractRealisation, coeff)
+  train!(a, s, _get_data(coeff))
+end
+
+"""
+    infer_latent(a::AutoDecoder, x_target::AbstractVector, s::NNStrategy) -> AbstractVector
+
+Fit a latent code `z` for an unseen snapshot `x_target` by minimising
+`s.loss(decoder(z), x_target)` with the decoder weights fixed. Uses the
+optimiser and epoch count from `s`.
+"""
+function infer_latent(a::AutoDecoder, x_target::AbstractVector, s::NNStrategy)
+  T = eltype(a.decoder.θ); latent_dim = size(a.latent_codes, 1)
+  z = randn(T, latent_dim) .* T(0.01)
+  X_t = reshape(x_target, :, 1)
+  opt_state = Optimisers.setup(s.optimiser, z)
+  grad = similar(z)
+  for epoch in 1:s.epochs
+    _adjust_lr!(opt_state, s, epoch)
+    ForwardDiff.gradient!(grad, z_ -> begin
+      X̂ = _mlp_apply(a.decoder.layers, a.decoder.activation, a.decoder.θ, reshape(z_, :, 1))
+      s.loss(X̂, X_t)
+    end, z)
+    opt_state,_ = Optimisers.update!(opt_state, z, grad)
+  end
+  z
+end

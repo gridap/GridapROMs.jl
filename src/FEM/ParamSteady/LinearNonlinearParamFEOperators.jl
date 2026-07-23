@@ -47,6 +47,10 @@ function FESpaces.get_trial(op::LinearNonlinearParamFEOperator)
   get_trial(op.op_nonlinear)
 end
 
+function get_param_space(op::LinearNonlinearParamFEOperator)
+  get_param_space(op.op_nonlinear)
+end
+
 function ParamDataStructures.realisation(op::LinearNonlinearParamFEOperator;kwargs...)
   realisation(op.op_nonlinear;kwargs...)
 end

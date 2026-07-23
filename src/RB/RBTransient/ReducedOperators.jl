@@ -306,20 +306,7 @@ function Algebra.jacobian!(
   interpolate!(A,op.lhs,r)
 end
 
-const TransientLinearNonlinearRBOperator{A<:TransientRBOperator,B<:TransientRBOperator} = LinearNonlinearRBOperator{A,B}
-
-function get_order(op::TransientLinearNonlinearRBOperator)
-  max(get_order(get_linear_operator(op)),get_order(get_nonlinear_operator(op)))
-end
-
-function ParamODEs.add_initial_conditions(
-  solver::ODESolver,
-  op::TransientLinearNonlinearRBOperator,
-  args...
-  )
-  
-  add_initial_conditions(solver,get_nonlinear_operator(op),args...)
-end
+const TransientLinearNonlinearRBOperator{T} = LinearNonlinearRBOperator{LinearNonlinearParamODE,T}
 
 # snapshots 
 
@@ -339,7 +326,18 @@ end
 
 # utils
 
-function RBSteady._convert_to_block(feop::TransientParamFEOperator,U,V) 
+function _setup(op::LinearNonlinearODEParamOperator)
+  op_lin = _setup(get_linear_operator(op))
+  op_nlin = _setup(get_nonlinear_operator(op))
+  LinearNonlinearTransientParamOperator(op_lin,op_nlin)
+end
+
+function _convert_to_block(feop::TransientParamFEOperator,U,V) 
+  assem = SparseMatrixAssembler(U,V)
+  typeof(feop)(feop.res,feop.jacs,feop.tpspace,assem,U,V,feop.domains,feop.order)
+end
+
+function _convert_to_block(feop::TransientParamFEOperator{LinearParamODE},U,V) 
   assem = SparseMatrixAssembler(U,V)
   typeof(feop)(feop.res,feop.jacs,feop.constant_forms,feop.tpspace,assem,U,V,feop.domains,feop.order)
 end
@@ -357,7 +355,6 @@ function _reduce_vector(u::RBParamVector,hr_ids::AbstractVector)
 end
 
 function _reduce_trial(trial::TrialParamFESpace,hr_ids::AbstractVector)
-  dv = trial.dirichlet_values
   dv′ = _reduce_vector(trial.dirichlet_values,hr_ids)
   trial′ = TrialParamFESpace(dv′,trial.space)
   return trial′

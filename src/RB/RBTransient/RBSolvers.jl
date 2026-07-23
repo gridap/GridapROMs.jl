@@ -100,7 +100,7 @@ function Algebra.solve(
   solver::GlobalRBSolver,
   op::NonlinearOperator,
   r::TransientRealisation,
-  us0::Tuple{Vararg{AbstractVector}}
+  us0::Tuple{Vararg{RBParamVector}}
   )
 
   trial = get_trial(op)(r)
@@ -122,21 +122,32 @@ function Algebra.solve(
   solver::GlobalRBSolver,
   op::NonlinearOperator,
   r::TransientRealisation,
-  uhs0::Tuple{Vararg{Function}}
+  us0::Tuple{Vararg{AbstractVector}}
   )
 
   trial = get_trial(op)
-  params = get_params(r)
-  us0 = ()
-  for uh0 in uhs0
-    u0 = _setup(trial,get_free_dof_values(uh0(params)))
+  us0′ = ()
+  for u0 in us0
+    u0 = _setup(trial,u0)
     û0 = space_project(trial,u0)
-    us0 = (us0...,RBParamVector(û0,u0))
+    us0′ = (us0′...,RBParamVector(û0,u0))
   end
-  if length(us0) < get_order(op) + 1
+  if length(us0′) < get_order(op) + 1
     fesolver = get_fe_solver(solver)
-    us0 = add_initial_conditions(fesolver,op,r,us0)
+    us0′ = add_initial_conditions(fesolver,op,r,us0′)
   end
+  solve(solver,op,r,us0′)
+end
+
+function Algebra.solve(
+  solver::GlobalRBSolver,
+  op::NonlinearOperator,
+  r::TransientRealisation,
+  uhs0::Tuple{Vararg{Function}}
+  )
+
+  params = get_params(r)
+  us0 = map(uh0 -> get_free_dof_values(uh0(params)),uhs0)
   solve(solver,op,r,us0)
 end
 

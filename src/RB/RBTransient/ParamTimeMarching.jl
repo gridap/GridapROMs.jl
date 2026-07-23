@@ -2,16 +2,16 @@ function Algebra.solve(
   solver::ODESolver,
   op::TransientRBOperator,
   r::TransientRealisation,
-  uhs0::Tuple{Vararg{Function}}
+  us0::Tuple{Vararg{AbstractVector}}
   )
 
   trial = get_trial(op)
   params = get_params(r)
   us0 = ()
-  for uh0 in uhs0
-    u0 = _setup(trial,get_free_dof_values(uh0(params)))
-    û0 = project(trial,u0)
-    us0 = (us0...,RBParamVector(û0,u0))
+  for u0 in us0
+    u0 = _setup(trial,u0)
+    û0 = project(trial,u0)
+    us0 = (us0...,RBParamVector(û0,u0))
   end
   solve(solver,op,r,us0)
 end
