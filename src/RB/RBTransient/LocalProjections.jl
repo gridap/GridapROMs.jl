@@ -77,8 +77,20 @@ function RBSteady._cluster(s::TransientSnapshotsWithIC,inds::AbstractVector)
   TransientSnapshotsWithIC(initial_param_data,snaps)
 end
 
-function RBSteady._cluster(a::StoredParamData,inds::AbstractVector)
-  param_data = RBSteady._cluster(a.param_data,inds)
+function RBSteady._cluster(s::TransientBlockSnapshots{N},inds::AbstractVector) where N
+  array = Array{Any,N}(undef,size(s))
+  for i in eachindex(s)
+    if s.touched[i]
+      array[i] = RBSteady._cluster(s[i],inds)
+    end
+  end
+  nt = num_times(get_realisation(s))
+  pdata = RBSteady._cluster(s.param_data,inds,nt)
+  return BlockSnapshots(array,s.touched,pdata)
+end
+
+function RBSteady._cluster(a::StoredParamData,inds::AbstractVector,nt::Int)
+  param_data = ParamDataStructures.select_param_data(a.param_data,inds,1:nt)
   param_data0 = map(d0 -> RBSteady._cluster(d0,inds),a.param_data0)
   StoredParamData(param_data,param_data0)
 end
