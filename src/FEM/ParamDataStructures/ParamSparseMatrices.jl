@@ -110,6 +110,16 @@ struct ConsecutiveParamSparseMatrixCSC{Tv,Ti<:Integer,A<:AbstractMatrix{Tv}} <: 
   data::A
 end
 
+function ConsecutiveParamSparseMatrixCSC(
+  m::Integer,
+  n::Integer,
+  colptr::Vector{Ti},
+  rowval::Vector{Ti},
+  data::A
+  ) where {Tv,Ti<:Integer,A<:AbstractMatrix{Tv}}
+  ConsecutiveParamSparseMatrixCSC(Int(m),Int(n),colptr,rowval,data)
+end
+
 param_length(A::ConsecutiveParamSparseMatrixCSC) = size(A.data,2)
 get_all_data(A::ConsecutiveParamSparseMatrixCSC) = A.data
 

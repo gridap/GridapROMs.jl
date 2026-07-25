@@ -2,6 +2,7 @@ module ParamDataStructuresTests
 
 using Test
 using LinearAlgebra
+using SparseArrays
 using Gridap
 using Gridap.Arrays
 using Gridap.Fields
@@ -113,6 +114,18 @@ end
   @test A[2,2] == data[:,:,2]
   # off-diagonal must be zero
   @test iszero(A[1,2])
+end
+
+@testset "ConsecutiveParamSparseMatrixCSC accepts Integer dimensions" begin
+  m = Int32(2)
+  n = Int32(3)
+  colptr = Int32[1,2,3,4]
+  rowval = Int32[1,2,1]
+  data = reshape([1.0,2.0,3.0],3,1)
+  A = ConsecutiveParamSparseMatrixCSC(m,n,colptr,rowval,data)
+  @test A isa ConsecutiveParamSparseMatrixCSC{Float64,Int32}
+  @test innersize(A) == (2,3)
+  @test nnz(A) == 3
 end
 
 @testset "ConsecutiveParamArray arithmetic" begin
