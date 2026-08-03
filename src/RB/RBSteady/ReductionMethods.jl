@@ -652,6 +652,22 @@ end
 get_reduction(r::NNHyperReduction) = r.reduction
 get_strategy(r::NNHyperReduction) = r.strategy
 
+abstract type NeuralOpReduction <: Reduction{NoReductionStyle,EuclideanNorm} end
+
+Base.@kwdef struct DeepONetStrategy
+  epochs::Int = 20000
+  batch_size::Int = 0
+  step_x::Int = 10
+  step_t::Int = 5
+  m_sensors::Int = 100
+  p_latent::Int = 64
+  hidden::Int = 64
+end
+
+struct DeepONetReduction <: NeuralOpReduction
+  strategy::DeepONetStrategy
+end
+
 """
     struct AdaptiveReduction{A,B,R<:DirectReduction{A,B}} <: GreedyReduction{A,B}
       reduction::R

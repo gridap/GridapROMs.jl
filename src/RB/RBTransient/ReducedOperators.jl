@@ -11,6 +11,17 @@ function RBSteady.reduced_operator(
   LinearNonlinearRBOperator(red_op_lin,red_op_nlin)
 end
 
+function RBSteady.reduced_operator(
+  solver::NeuralOpSolver,
+  feop::ODEParamOperator,
+  s::AbstractSnapshots
+  )
+  
+  reduction = RBSteady.get_state_reduction(solver)
+  ps,st,max_u = train_neural_operator(reduction,feop,s)
+  NeuralRBOperator(feop,ps,st,reduction.strategy,max_u)
+end
+
 function RBSteady.RBOperator(
   odeop::ODEParamOperator,
   trial::RBSpace,

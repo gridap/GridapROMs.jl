@@ -70,6 +70,12 @@ using Optimisers
 using Random
 using Serialization
 using SparseArrays
+using Lux
+using Reactant
+using Enzyme
+using NeuralOperators
+using MLUtils
+using Optimisers
 
 using Gridap
 using Gridap.Algebra
@@ -119,6 +125,7 @@ export TrainedNeuralNetwork
 export train!
 export loss_mse
 export loss_mae
+export matrix_of_params
 include("NonlinearModels.jl")
 
 export ReductionStyle
@@ -151,7 +158,17 @@ export LocalHyperReduction
 export AdaptiveReduction
 export get_reduction
 export get_strategy
+export DeepONetStrategy
+export DeepONetReduction
 include("ReductionMethods.jl")
+
+export train_neural_operator
+export train_deeponet!
+export get_coords_with_order
+export resolve_batch_size
+export XDEV
+export CDEV
+include("NeuralOperatorTraining.jl")
 
 export galerkin_projection
 export galerkin_projection!
@@ -182,6 +199,7 @@ export get_fe_solver
 export solution_snapshots
 export residual_snapshots
 export jacobian_snapshots
+export NeuralOpSolver
 include("RBSolvers.jl")
 
 export reduction
@@ -297,6 +315,7 @@ include("LocalHyperReductions.jl")
 export RBOperator
 export GenericRBOperator
 export LinearNonlinearRBOperator
+export NeuralRBOperator
 export reduced_operator
 export change_operator
 include("ReducedOperators.jl")
@@ -340,5 +359,7 @@ export online_label
 include("PostProcess.jl")
 
 include("Extensions.jl")
+
+include("NeuralOperatorSolver.jl")
 
 end # module

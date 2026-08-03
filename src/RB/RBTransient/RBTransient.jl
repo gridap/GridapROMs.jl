@@ -49,6 +49,12 @@ using DrWatson
 using LinearAlgebra
 using SparseArrays
 using Serialization
+using NeuralOperators
+using Lux
+using MLUtils
+using Random
+using Optimisers
+
 
 using Gridap
 using Gridap.Algebra
@@ -170,5 +176,7 @@ include("ParamTimeMarching.jl")
 include("PostProcess.jl")
 
 include("Extensions.jl")
+
+include("NeuralOperatorTraining.jl")
 
 end # module

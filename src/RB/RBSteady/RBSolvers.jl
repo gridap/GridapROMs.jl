@@ -56,7 +56,7 @@ function RBSolver(
   residual_reduction,
   jacobian_reduction
   )
-  
+
   GlobalRBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
 end
 
@@ -72,7 +72,7 @@ function RBSolver(
   residual_reduction,
   jacobian_reduction
   )
-  
+
   LocalRBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
 end
 
@@ -99,6 +99,12 @@ function RBSolver(
 
   reduction = Reduction(style;nparams)
   RBSolver(fesolver,reduction,args...;kwargs...)
+end
+
+const NeuralOpSolver{A,C<:NeuralOpReduction} = GlobalRBSolver{A,C,Nothing,Nothing}
+
+function NeuralOpSolver(fesolver::GridapType,reduction::NeuralOpReduction)
+  RBSolver(fesolver,GlobalContext(),reduction,nothing,nothing)
 end
 
 """

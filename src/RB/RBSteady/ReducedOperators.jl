@@ -103,6 +103,17 @@ function reduced_operator(
   LinearNonlinearRBOperator(red_op_lin,red_op_nlin)
 end
 
+function reduced_operator(
+  solver::NeuralOpSolver,
+  feop::ParamOperator,
+  s::AbstractSnapshots
+  )
+  
+  reduction = get_state_reduction(solver)
+  ps,st,max_u = train_neural_operator(reduction,feop,s)
+  NeuralRBOperator(feop,ps,st,reduction.strategy,max_u)
+end
+
 """
     abstract type RBOperator{O,T} <: ParamOperator{O,T} end
 
@@ -527,6 +538,29 @@ function change_operator(op::LinearNonlinearRBOperator,op′::LinearNonlinearPar
   op_nlin′ = change_operator(get_nonlinear_operator(op),get_nonlinear_operator(op′))
   LinearNonlinearRBOperator(op_lin′,op_nlin′)
 end
+
+"""
+    struct NeuralRBOperator{O,T,M,S,C,U} <: RBOperator{O,T}
+      op::ParamOperator{O,T}
+      model_weights::M
+      model_states::S
+      strategy::Strat
+      max_u::U
+    end
+
+Reduced operator for Neural Operators. It replaces the Galerkin 
+matrices (lhs, rhs) with the trained weights and states,
+along with the model configuration and normalization factors.
+"""
+struct NeuralRBOperator{O,T,M,S,Strat,U} <: RBOperator{O,T}
+  op::ParamOperator{O,T}
+  model_weights::M
+  model_states::S
+  strategy::Strat
+  max_u::U
+end
+
+ParamSteady.get_fe_operator(op::NeuralRBOperator) = op.op
 
 # local
 
