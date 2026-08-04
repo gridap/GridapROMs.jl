@@ -141,7 +141,7 @@ function _get_cell_odof_info(
   ncells = desc.partition
   cells = CartesianIndices(ncells)
   pcells = view(cells,cell_to_parent_cell)
-  onodes = LinearIndices(orders .* ncells .+ 1 .- periodic)
+  onodes = LinearIndices(orders .* ncells .+ 1)
 
   dofs_to_odofs = get_dof_to_odof(fe_dof_basis,cell_dofs_ids,pcells,onodes,orders,periodic)
   cell_odof_ids = lazy_map(DofsToODofs(fe_dof_basis,dofs_to_odofs,orders),pcells)
@@ -189,16 +189,15 @@ function get_dof_to_odof(
   o = one(eltype(V))
   odofs = zeros(eltype(V),ndofs)
   for (icell,cell) in enumerate(cells)
-    first_new_node = orders .* (Tuple(cell) .- 1) .+ 1
-    onodes_range = map(enumerate(first_new_node)) do (i,ni)
-      ni:(ni+orders[i]-periodic[i]*_is_edge(cell,cells,i))
-    end
-    onodes_cell = view(onodes,onodes_range...)
+    # onodes_range = _onode_and_periodic_info!(periodic_edges,orders,cell,periodic)
+    onodes_cell,periodic_cell = _onode_and_periodic_info(onodes,orders,cell,periodic)
+    # onodes_cell = view(onodes,onodes_range...)
     cell_dofs = getindex!(cache,cell_dofs_ids,icell)
     for node in 1:length(onodes_cell)
       comp_to_idof = fe_dof_basis.node_and_comp_to_dof[node]
       i_onode = node_to_i_onode[node]
       onode = onodes_cell[i_onode]
+      periodic_cell[onode] && continue
       for comp in 1:ncomps
         idof = comp_to_idof[comp]
         dof = cell_dofs[idof]
@@ -211,6 +210,7 @@ function get_dof_to_odof(
   nfree = 0
   ndiri = 0
   for (i,odof) in enumerate(odofs)
+    isperiodic_odof[odof] && continue
     if odof > 0
       nfree += 1
       odofs[i] = nfree
@@ -221,6 +221,7 @@ function get_dof_to_odof(
   end
 
   node_and_comps_to_odof = _get_node_and_comps_to_odof(fe_dof_basis,odofs,onodes)
+  _add_periodicity!(node_and_comps_to_odof,periodic)
   return node_and_comps_to_odof
 end
 
@@ -349,4 +350,24 @@ cubic_polytope(::Val{1}) = SEGMENT
 cubic_polytope(::Val{2}) = QUAD
 cubic_polytope(::Val{3}) = HEX
 
-_is_edge(cell::CartesianIndex,cells,i) = cell.I[i] == size(cells,i)
+function _onode_and_periodic_info!(periodic_cell,onodes,orders,cell,periodic)
+  fill!(periodic_cell,false)
+  first_new_node = orders .* (Tuple(cell) .- 1) .+ 1
+  onodes_range = ()
+  for (i,ni) in enumerate(first_new_node)
+    onodes_range = (onodes_range...,ni:(ni+orders[i]))
+    if periodic[i] && cell.I[i] == 1
+      selectdim(periodic_cell,i,:) .= true
+    end
+  end
+  onodes_cell = view(onodes,onodes_range...)
+  return onodes_cell,periodic_cell
+end
+
+function _add_periodicity!(node_and_comps_to_odof,periodic)
+  for d in eachindex(periodic)
+    !periodic[d] && continue
+    nd = size(node_and_comps_to_odof,d)
+    selectdim(node_and_comps_to_odof,d,1) .= selectdim(node_and_comps_to_odof,d,nd) 
+  end
+end
