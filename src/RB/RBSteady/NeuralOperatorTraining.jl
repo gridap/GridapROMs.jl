@@ -59,6 +59,27 @@ function _is_periodic_node(inode,nodes)
   end
 end
 
+# Build model
+
+function build_lux_chain(layers::Tuple,activation)
+  lux_layers = []
+  for i in 1:(length(layers)-1)
+    if i < length(layers) - 1
+      push!(lux_layers, Lux.Dense(layers[i] => layers[i+1], activation))
+    else
+      # last layer (no activation)
+      push!(lux_layers, Lux.Dense(layers[i] => layers[i+1]))
+    end
+  end
+  Lux.Chain(lux_layers...)
+end
+
+function build_model(model::DeepONet)
+  branch_net = build_lux_chain(model.branch_layers, model.activation)
+  trunk_net  = build_lux_chain(model.trunk_layers, model.activation)
+  NeuralOperators.DeepONet(branch_net, trunk_net)
+end
+
 # Training loop
 
 function train_deeponet!(train_state,dataloader,x_data_dev; epochs=5000)
@@ -151,23 +172,7 @@ function train_neural_operator(
   end
 
   # Building the DeepONet
-  deepONet = NeuralOperators.DeepONet(
-    # Branch Net
-    Lux.Chain(
-      Lux.Dense(param_dim => strategy.hidden,Lux.tanh),
-      Lux.Dense(strategy.hidden => strategy.hidden,Lux.tanh),
-      Lux.Dense(strategy.hidden => strategy.hidden,Lux.tanh),
-      Lux.Dense(strategy.hidden => strategy.p_latent)
-    ),
-    # Trunk Net
-    Lux.Chain(
-      Lux.Dense(D_phys => strategy.hidden,Lux.tanh),
-      Lux.Dense(strategy.hidden => strategy.hidden,Lux.tanh),
-      Lux.Dense(strategy.hidden => strategy.hidden,Lux.tanh),
-      Lux.Dense(strategy.hidden => strategy.hidden,Lux.tanh),
-      Lux.Dense(strategy.hidden => strategy.p_latent)
-    )
-  )
+  deepONet = build_model(strategy.model)
 
   # Dataloader and setup
   bs = resolve_batch_size(strategy.batch_size,n_samples)
@@ -190,6 +195,8 @@ function train_neural_operator(
   # Executing the pipeline
   ps_trained,st_trained =
     train_deeponet!(train_state,dataloader,x_data_dev; epochs=strategy.epochs)
+    
+  st_test = Lux.testmode(st_trained) |> CDEV
 
-  return ps_trained |> CDEV,st_trained |> CDEV,Float32(max_u)
+  return deepONet, ps_trained |> CDEV, st_test, Float32(max_u)
 end

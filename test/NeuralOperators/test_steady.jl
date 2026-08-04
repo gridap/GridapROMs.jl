@@ -26,7 +26,6 @@ order = 2
 reffe = ReferenceFE(lagrangian,Float64,order)
 V_standard = TestFESpace(Ωₕ,reffe; dirichlet_tags=[1,2])
 
-# CRUCIAL: Wrap the test space in OrderedFESpace for Neural Operators
 V = OrderedFESpace(V_standard)
 U = ParamTrialFESpace(V,gₚ)
 
@@ -57,14 +56,19 @@ println("Snapshots generated. Shape: ",size(get_all_data(s)))
 # ===================================================================
 # 2. NEURAL OPERATOR SETUP
 # ===================================================================
+model = DeepONet(
+  branch_layers = (1, 32, 32, 16),
+  trunk_layers  = (1, 32, 32, 16),
+  activation    = tanh
+)
+
 strategy = DeepONetStrategy(
+  model = model,
   epochs = 10,
   batch_size = 0,
   step_x = 1,
   step_t = 1,
-  m_sensors = 1,
-  p_latent = 16,
-  hidden = 32
+  m_sensors = 1
 )
 
 reduction = DeepONetReduction(strategy)

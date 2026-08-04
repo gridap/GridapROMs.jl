@@ -18,8 +18,8 @@ function RBSteady.reduced_operator(
   )
   
   reduction = RBSteady.get_state_reduction(solver)
-  ps,st,max_u = train_neural_operator(reduction,feop,s)
-  NeuralRBOperator(feop,ps,st,reduction.strategy,max_u)
+  model,ps,st,max_u = train_neural_operator(reduction,feop,s)
+  NeuralRBOperator(feop,model,ps,st,max_u)
 end
 
 function RBSteady.RBOperator(

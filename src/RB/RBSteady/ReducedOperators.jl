@@ -110,8 +110,8 @@ function reduced_operator(
   )
   
   reduction = get_state_reduction(solver)
-  ps,st,max_u = train_neural_operator(reduction,feop,s)
-  NeuralRBOperator(feop,ps,st,reduction.strategy,max_u)
+  model,ps,st,max_u = train_neural_operator(reduction,feop,s)
+  NeuralRBOperator(feop,model,ps,st,max_u)
 end
 
 """
@@ -552,11 +552,11 @@ Reduced operator for Neural Operators. It replaces the Galerkin
 matrices (lhs, rhs) with the trained weights and states,
 along with the model configuration and normalization factors.
 """
-struct NeuralRBOperator{O,T,M,S,Strat,U} <: RBOperator{O,T}
+struct NeuralRBOperator{O,T,Mod,M,S,U} <: RBOperator{O,T}
   op::ParamOperator{O,T}
+  model::Mod
   model_weights::M
   model_states::S
-  strategy::Strat
   max_u::U
 end
 

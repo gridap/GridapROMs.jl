@@ -719,3 +719,22 @@ function infer_latent(a::AutoDecoder, x_target::AbstractVector, s::NNStrategy)
   end
   z
 end
+
+"""
+    struct DeepONet{F}
+      branch_layers::Tuple{Vararg{Int}}
+      trunk_layers::Tuple{Vararg{Int}}
+      activation::F
+    end
+
+Architectural configuration for a DeepONet network.
+"""
+struct DeepONet{F}
+  branch_layers::Tuple{Vararg{Int}}
+  trunk_layers::Tuple{Vararg{Int}}
+  activation::F
+end
+
+function DeepONet(;branch_layers,trunk_layers,activation=tanh)
+  DeepONet(Tuple(branch_layers),Tuple(trunk_layers),activation)
+end

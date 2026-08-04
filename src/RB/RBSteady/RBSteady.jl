@@ -73,7 +73,6 @@ using SparseArrays
 using Lux
 using Reactant
 using Enzyme
-using NeuralOperators
 using MLUtils
 using Optimisers
 
@@ -114,6 +113,7 @@ import LowRankApprox: getcols,qr!,svd!,psvdrank
 import PartitionedArrays: tuple_of_arrays
 import RadialBasisFunctions: Interpolator, AbstractRadialBasis, PHS, MonomialBasis, _build_collocation_matrix!
 import Statistics: mean
+import NeuralOperators
 
 export GenericNNType
 export MLPType
@@ -126,6 +126,7 @@ export train!
 export loss_mse
 export loss_mae
 export matrix_of_params
+export DeepONet
 include("NonlinearModels.jl")
 
 export ReductionStyle
@@ -168,6 +169,7 @@ export get_coords_with_order
 export resolve_batch_size
 export XDEV
 export CDEV
+export build_model
 include("NeuralOperatorTraining.jl")
 
 export galerkin_projection

@@ -49,7 +49,6 @@ using DrWatson
 using LinearAlgebra
 using SparseArrays
 using Serialization
-using NeuralOperators
 using Lux
 using MLUtils
 using Random
@@ -93,6 +92,7 @@ import Gridap.ReferenceFEs: get_order
 import GridapROMs.ParamDataStructures: GenericTransientRealisation, TransientRealisationAt
 import GridapROMs.RBSteady: num_centroids,get_lhs,get_rhs,_get_label,_data,_fe_data,_setup,_convert_to_block
 import RadialBasisFunctions: Interpolator, AbstractRadialBasis, PHS
+import NeuralOperators
 
 export HighDimReduction
 export SteadyReduction

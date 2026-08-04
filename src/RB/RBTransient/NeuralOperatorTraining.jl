@@ -74,21 +74,7 @@ function RBSteady.train_neural_operator(
 
   # DeepONet architecture
   # Input of the Trunk Net is D_phys + 1
-  deepONet = NeuralOperators.DeepONet(
-    Lux.Chain(
-      Lux.Dense(param_dim => strategy.hidden,Lux.tanh),
-      Lux.Dense(strategy.hidden => strategy.hidden,Lux.tanh),
-      Lux.Dense(strategy.hidden => strategy.hidden,Lux.tanh),
-      Lux.Dense(strategy.hidden => strategy.p_latent)
-    ),
-    Lux.Chain(
-      Lux.Dense(D_phys + 1 => strategy.hidden,Lux.tanh),
-      Lux.Dense(strategy.hidden => strategy.hidden,Lux.tanh),
-      Lux.Dense(strategy.hidden => strategy.hidden,Lux.tanh),
-      Lux.Dense(strategy.hidden => strategy.hidden,Lux.tanh),
-      Lux.Dense(strategy.hidden => strategy.p_latent)
-    )
-  )
+  deepONet = build_model(strategy.model)
 
   # Dataloader and Lux setup
   bs = resolve_batch_size(strategy.batch_size,n_samples)
@@ -108,5 +94,7 @@ function RBSteady.train_neural_operator(
   ps_trained,st_trained =
     train_deeponet!(train_state,dataloader,x_data_dev; epochs=strategy.epochs)
 
-  return ps_trained |> CDEV,st_trained |> CDEV,Float32(max_u)
+  st_test = Lux.testmode(st_trained) |> CDEV
+  
+  return deepONet, ps_trained |> CDEV, st_test, Float32(max_u)
 end

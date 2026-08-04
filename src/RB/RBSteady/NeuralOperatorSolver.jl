@@ -1,5 +1,5 @@
 function Algebra.solve(solver::NeuralOpSolver,op::NeuralRBOperator,r::Realisation)
-  strategy = op.strategy
+  deepONet = op.model
   ps = op.model_weights
   st = op.model_states
   max_u = op.max_u
@@ -7,8 +7,6 @@ function Algebra.solve(solver::NeuralOpSolver,op::NeuralRBOperator,r::Realisatio
   # Branch Input (Parameters extraction)
   params_matrix = Float32.(matrix_of_params(r))
   f_in = params_matrix
-
-  param_dim = size(params_matrix,1)
   n_samples = size(params_matrix,2)
 
   # Trunk Input (Coordinates extraction)
@@ -26,23 +24,6 @@ function Algebra.solve(solver::NeuralOpSolver,op::NeuralRBOperator,r::Realisatio
     end
   end
   x_in = x_test
-
-  # Reconstruct Model Architecture
-  deepONet = NeuralOperators.DeepONet(
-    Lux.Chain(
-      Lux.Dense(param_dim => strategy.hidden,Lux.tanh),
-      Lux.Dense(strategy.hidden => strategy.hidden,Lux.tanh),
-      Lux.Dense(strategy.hidden => strategy.hidden,Lux.tanh),
-      Lux.Dense(strategy.hidden => strategy.p_latent)
-    ),
-    Lux.Chain(
-      Lux.Dense(D_phys => strategy.hidden,Lux.tanh),
-      Lux.Dense(strategy.hidden => strategy.hidden,Lux.tanh),
-      Lux.Dense(strategy.hidden => strategy.hidden,Lux.tanh),
-      Lux.Dense(strategy.hidden => strategy.hidden,Lux.tanh),
-      Lux.Dense(strategy.hidden => strategy.p_latent)
-    )
-  )
 
   # Inference Execution
   t = @timed begin
