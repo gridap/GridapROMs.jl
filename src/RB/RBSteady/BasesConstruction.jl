@@ -519,7 +519,11 @@ function LowRankApprox.psvdfact(
   if m >= n
     V = idfact(:n,A,opts)
     Q,R = qr!(getcols(:n,A,V[:sk]))
-    Ũ,σ,Ṽ = svd!(R*V)
+    RV = R*V
+    if !all(isfinite,RV) || any(iszero,size(RV))
+      println("DEBUG psvdfact: size(A)=",(m,n)," size(RV)=",size(RV)," any_nan=",any(isnan,RV)," any_inf=",any(isinf,RV)," extrema=",isempty(RV) ? nothing : extrema(RV))
+    end
+    Ũ,σ,Ṽ = svd!(RV)
     isempty(σ) && return _empty_decomposition(A)
     k = psvdrank(σ,opts)
     if k < V[:k]
