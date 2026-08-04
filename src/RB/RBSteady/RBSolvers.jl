@@ -365,6 +365,6 @@ function _get_trial(op::LinNonlinParamOperator)
 end
 
 function change_tols!(log::ConvergenceLog)
-  log.tols.rtol = 1e-5
+  log.tols.rtol = 1e-6
   log
 end

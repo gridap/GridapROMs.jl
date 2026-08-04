@@ -143,7 +143,7 @@ function _get_cell_odof_info(
   pcells = view(cells,cell_to_parent_cell)
   onodes = LinearIndices(orders .* ncells .+ 1 .- periodic)
 
-  dofs_to_odofs = get_dof_to_odof(fe_dof_basis,cell_dofs_ids,pcells,onodes,orders)
+  dofs_to_odofs = get_dof_to_odof(fe_dof_basis,cell_dofs_ids,pcells,onodes,orders,periodic)
   cell_odof_ids = lazy_map(DofsToODofs(fe_dof_basis,dofs_to_odofs,orders),pcells)
   return OTable(cell_odof_ids)
 end
@@ -175,7 +175,8 @@ function get_dof_to_odof(
   cell_dofs_ids::AbstractArray,
   cells::AbstractArray{CartesianIndex{D}},
   onodes::LinearIndices{D},
-  orders::NTuple{D,Int}
+  orders::NTuple{D,Int},
+  periodic::NTuple{D,Bool}
   ) where {D,P,V}
 
   cache = array_cache(cell_dofs_ids)
@@ -190,7 +191,7 @@ function get_dof_to_odof(
   for (icell,cell) in enumerate(cells)
     first_new_node = orders .* (Tuple(cell) .- 1) .+ 1
     onodes_range = map(enumerate(first_new_node)) do (i,ni)
-      ni:ni+orders[i]
+      ni:(ni+orders[i]-periodic[i]*_is_edge(cell,cells,i))
     end
     onodes_cell = view(onodes,onodes_range...)
     cell_dofs = getindex!(cache,cell_dofs_ids,icell)
@@ -347,3 +348,5 @@ cubic_polytope(::Val{d}) where d = @abstractmethod
 cubic_polytope(::Val{1}) = SEGMENT
 cubic_polytope(::Val{2}) = QUAD
 cubic_polytope(::Val{3}) = HEX
+
+_is_edge(cell::CartesianIndex,cells,i) = cell.I[i] == size(cells,i)
