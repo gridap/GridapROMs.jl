@@ -141,9 +141,9 @@ function _get_cell_odof_info(
   ncells = desc.partition
   cells = CartesianIndices(ncells)
   pcells = view(cells,cell_to_parent_cell)
-  onodes = LinearIndices(orders .* ncells .+ 1 .- periodic)
+  onodes = LinearIndices(orders .* ncells .+ 1)
 
-  dofs_to_odofs = get_dof_to_odof(fe_dof_basis,cell_dofs_ids,pcells,onodes,orders)
+  dofs_to_odofs = get_dof_to_odof(fe_dof_basis,cell_dofs_ids,pcells,onodes,orders,periodic)
   cell_odof_ids = lazy_map(DofsToODofs(fe_dof_basis,dofs_to_odofs,orders),pcells)
   return OTable(cell_odof_ids)
 end
@@ -175,7 +175,8 @@ function get_dof_to_odof(
   cell_dofs_ids::AbstractArray,
   cells::AbstractArray{CartesianIndex{D}},
   onodes::LinearIndices{D},
-  orders::NTuple{D,Int}
+  orders::NTuple{D,Int},
+  periodic::NTuple{D,Bool}
   ) where {D,P,V}
 
   cache = array_cache(cell_dofs_ids)
@@ -187,17 +188,15 @@ function get_dof_to_odof(
 
   o = one(eltype(V))
   odofs = zeros(eltype(V),ndofs)
+  periodic_cell = falses(orders.+1)
   for (icell,cell) in enumerate(cells)
-    first_new_node = orders .* (Tuple(cell) .- 1) .+ 1
-    onodes_range = map(enumerate(first_new_node)) do (i,ni)
-      ni:ni+orders[i]
-    end
-    onodes_cell = view(onodes,onodes_range...)
+    onodes_cell = _fetch_from_cell!(periodic_cell,onodes,orders,cell,periodic)
     cell_dofs = getindex!(cache,cell_dofs_ids,icell)
     for node in 1:length(onodes_cell)
       comp_to_idof = fe_dof_basis.node_and_comp_to_dof[node]
       i_onode = node_to_i_onode[node]
       onode = onodes_cell[i_onode]
+      periodic_cell[i_onode] && continue
       for comp in 1:ncomps
         idof = comp_to_idof[comp]
         dof = cell_dofs[idof]
@@ -207,49 +206,43 @@ function get_dof_to_odof(
     end
   end
 
-  nfree = 0
-  ndiri = 0
-  for (i,odof) in enumerate(odofs)
-    if odof > 0
-      nfree += 1
-      odofs[i] = nfree
-    else
-      ndiri -= 1
-      odofs[i] = ndiri
-    end
-  end
-
-  node_and_comps_to_odof = _get_node_and_comps_to_odof(fe_dof_basis,odofs,onodes)
+  _posneg_cumsum!(odofs)
+  node_and_comps_to_odof = _get_node_and_comps_to_odof(fe_dof_basis,odofs,onodes,periodic)
   return node_and_comps_to_odof
 end
 
 function _get_node_and_comps_to_odof(
   ::LagrangianDofBasis{P,V},
   vec_odofs,
-  onodes
+  onodes,
+  periodic
   ) where {P,V}
 
-  reshape(vec_odofs,size(onodes))
+  node_and_comps_to_odof = reshape(vec_odofs,size(onodes))
+  _add_periodicity!(node_and_comps_to_odof,periodic)
+  return node_and_comps_to_odof
 end
 
 function _get_node_and_comps_to_odof(
   ::LagrangianDofBasis{P,V},
   vec_odofs,
-  onodes
+  onodes,
+  periodic
   ) where {P,V<:MultiValue}
 
   nnodes = length(onodes)
   ncomps = num_components(V)
-  odofs = zeros(V,size(onodes))
+  node_and_comps_to_odof = zeros(V,size(onodes))
   m = zero(Mutable(V))
   for onode in 1:nnodes
     for comp in 1:ncomps
       odof = onode + (comp-1)*nnodes
       m[comp] = vec_odofs[odof]
     end
-    odofs[onode] = m
+    node_and_comps_to_odof[onode] = m
   end
-  return odofs
+  _add_periodicity!(node_and_comps_to_odof,periodic)
+  return node_and_comps_to_odof
 end
 
 function cell_ovalue_to_value(f::OrderedFESpace,cv)
@@ -347,3 +340,49 @@ cubic_polytope(::Val{d}) where d = @abstractmethod
 cubic_polytope(::Val{1}) = SEGMENT
 cubic_polytope(::Val{2}) = QUAD
 cubic_polytope(::Val{3}) = HEX
+
+function _fetch_from_cell!(periodic_cell,onodes,orders,cell,periodic)
+  fill!(periodic_cell,false)
+  D = length(orders)
+  first_new_node = orders .* (Tuple(cell) .- 1) .+ 1
+  onodes_range = ()
+  @inbounds for (i,ni) in enumerate(first_new_node)
+    onodes_range = (onodes_range...,ni:(ni+orders[i]))
+    if periodic[i] && all(cell.I[setdiff(1:D,i)] .== 1) 
+      selectdim(periodic_cell,D,i) .= true
+    end
+  end
+  onodes_cell = view(onodes,onodes_range...)
+  return onodes_cell
+end
+
+function _posneg_cumsum!(a)
+  pos = 0
+  neg = 0
+  for i in eachindex(a)
+    x = a[i]
+    if x == 0
+      continue
+    elseif x > 0
+      pos += 1
+      a[i] = pos
+    else
+      neg -= 1
+      a[i] = neg
+    end
+  end
+  return a
+end
+
+function _add_periodicity!(a,periodic::NTuple{D,Bool}) where D
+  for d in 1:D
+    !periodic[d] || continue
+    first_face = selectdim(a,d,1)
+    last_face = selectdim(a,d,size(a,d))
+    for i in CartesianIndices(first_face)
+      if iszero(first_face[i])
+        first_face[i] = last_face[i]
+      end
+    end
+  end
+end

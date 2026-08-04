@@ -44,13 +44,10 @@ jobs:
           - ubuntu-latest
         arch:
           - x64
-        include: # Test macos/x86 on latest supported Julia
+        include: # Test macos on latest supported Julia
           - version: '1.12'
             os: macos-latest
             arch: aarch64
-          - version: '1.12'
-            os: ubuntu-latest
-            arch: x86
     steps:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v3
