@@ -16,8 +16,16 @@ function resolve_batch_size(batch_config::Int,total_samples::Int)
   return batch_config <= 0 ? total_samples : min(batch_config,total_samples)
 end
 
-# Coordinate Extraction
+function compute_zscore_stats(data::AbstractMatrix)
+  μ = mean(data, dims=2)
+  σ = std(data, dims=2)
+  # Avoid dividing by zero if a feature is constant
+  σ[σ .== 0] .= 1.0f0
+  return (μ=Float32.(μ), σ=Float32.(σ))
+end
 
+# Coordinate Extraction
+#=
 function get_coords_with_order(space::SingleFieldFESpace)
   orders = get_polynomial_orders(space)
   trian = get_triangulation(space)
@@ -48,6 +56,40 @@ function get_coords_with_order(
     end
   end
   return coords
+end
+=#
+
+function get_coords_with_order(V::SingleFieldFESpace)
+  # Retrieve the underlying triangulation and its physical dimensionality (1D, 2D, 3D)
+  trian = get_triangulation(V)
+  D_phys = length(get_node_coordinates(trian)[1])
+  
+  # Get the exact number of free DoFs (automatically excluding Dirichlet boundaries)
+  N_dofs = num_free_dofs(V)
+
+  # Initialize the tensor that will feed the Trunk Net: shape (D_phys, N_dofs)
+  x_raw = zeros(Float32, D_phys, N_dofs)
+  
+  # Extract coordinates dimension by dimension. This avoids TypeErrors 
+  # when interpolating a physical vector (Point) into a purely scalar FESpace.
+  for d in 1:D_phys
+    # Define a scalar spatial function for the d-th physical dimension
+    coord_d(x) = x[d]
+    
+    # Interpolate the coordinate field over the entire FESpace.
+    # This maps the physical space to the algebraic DoF numbering.
+    coord_fn = interpolate_everywhere(coord_d, V)
+    
+    # Extract only the values corresponding to the free DoFs
+    free_coords = get_free_dof_values(coord_fn)
+    
+    # Populate the corresponding row in our Trunk Net input tensor
+    for i in 1:N_dofs
+      x_raw[d, i] = Float32(free_coords[i])
+    end
+  end
+  
+  return x_raw
 end
 
 function _is_periodic_node(inode,nodes)
@@ -140,11 +182,11 @@ function train_neural_operator(
   target_data = Float32.(get_all_data(s))
 
   realisation = get_realisation(s)
-  params_matrix = Float32.(matrix_of_params(realisation))
-
-  param_dim = size(params_matrix,1)
-  n_samples = size(params_matrix,2)
-  N_dofs = size(target_data,1)
+  raw_params = Float32.(matrix_of_params(realisation))
+  n_samples = size(raw_params, 2)
+  
+  f_in_list = [Float32.(strategy.branch_sampler(raw_params[:, i])) for i in 1:n_samples]
+  params_matrix = reduce(hcat, f_in_list)
 
   # normalization
   max_u = maximum(abs.(target_data))
@@ -157,11 +199,15 @@ function train_neural_operator(
   if !(V isa OrderedFESpace || (V isa TrialFESpace && V.space isa OrderedFESpace))
     @warn "The FE space is not an OrderedFESpace. The order of the extracted coordinates might not match the DoF order in target_data. Training results might be incorrect."
   end
-  coords_raw = get_coords_with_order(V)
+  #=coords_raw = get_coords_with_order(V)
+  D_phys = ndims(coords_raw)
+  
+  interior_indices = ntuple(d -> 2:(size(coords_raw, d) - 1), D_phys)
+  coords_interior = coords_raw[interior_indices...]
 
   # Flattening coordinates into a 1D vector
-  coords_vec = vec(coords_raw)
-  D_phys = length(coords_vec[1]) # Physical dimension of the problem (1,2 or 3)
+  coords_vec = vec(coords_interior)
+  
 
   # Converting the vector of point in a Float32 Matrix of shape (D_phys,N_dofs)
   x_train = zeros(Float32,D_phys,N_dofs)
@@ -170,6 +216,15 @@ function train_neural_operator(
       x_train[d,i] = Float32(coords_vec[i][d])
     end
   end
+  =#
+  x_train = get_coords_with_order(V)
+  
+  # Input normalization
+  branch_stats = compute_zscore_stats(params_matrix)
+  params_matrix = (params_matrix .- branch_stats.μ) ./ branch_stats.σ
+  
+  trunk_stats = compute_zscore_stats(x_train)
+  x_train = (x_train .- trunk_stats.μ) ./ trunk_stats.σ
 
   # Building the DeepONet
   deepONet = build_model(strategy.model)
@@ -189,7 +244,7 @@ function train_neural_operator(
   Random.seed!(rng,42)
   ps,st = Lux.setup(rng,deepONet) |> XDEV
 
-  opt = Optimisers.Adam(0.001f0)
+  opt = Optimisers.Adam(strategy.lr)
   train_state = Lux.Training.TrainState(deepONet,ps,st,opt)
 
   # Executing the pipeline
@@ -198,5 +253,5 @@ function train_neural_operator(
     
   st_test = Lux.testmode(st_trained) |> CDEV
 
-  return deepONet, ps_trained |> CDEV, st_test, Float32(max_u)
+  return deepONet, ps_trained |> CDEV, st_test, branch_stats, trunk_stats, Float32(max_u)
 end

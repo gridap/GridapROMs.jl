@@ -178,5 +178,6 @@ include("PostProcess.jl")
 include("Extensions.jl")
 
 include("NeuralOperatorTraining.jl")
+include("NeuralOperatorSolver.jl")
 
 end # module

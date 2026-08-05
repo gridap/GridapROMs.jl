@@ -112,7 +112,7 @@ import GridapROMs.TProduct: get_factor
 import LowRankApprox: getcols,qr!,svd!,psvdrank
 import PartitionedArrays: tuple_of_arrays
 import RadialBasisFunctions: Interpolator, AbstractRadialBasis, PHS, MonomialBasis, _build_collocation_matrix!
-import Statistics: mean
+import Statistics: mean, std
 import NeuralOperators
 
 export GenericNNType
@@ -170,6 +170,7 @@ export resolve_batch_size
 export XDEV
 export CDEV
 export build_model
+export compute_zscore_stats
 include("NeuralOperatorTraining.jl")
 
 export galerkin_projection

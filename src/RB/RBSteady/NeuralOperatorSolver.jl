@@ -3,18 +3,26 @@ function Algebra.solve(solver::NeuralOpSolver,op::NeuralRBOperator,r::Realisatio
   ps = op.model_weights
   st = op.model_states
   max_u = op.max_u
-
+  strategy = solver.state_reduction.strategy
+  
   # Branch Input (Parameters extraction)
-  params_matrix = Float32.(matrix_of_params(r))
-  f_in = params_matrix
-  n_samples = size(params_matrix,2)
+  raw_params = Float32.(matrix_of_params(r))
+  n_samples = size(raw_params, 2)
+
+  f_in_list = [Float32.(strategy.branch_sampler(raw_params[:, i])) for i in 1:n_samples]
+  params_matrix = reduce(hcat, f_in_list)
+  
+  f_in = (params_matrix .- op.branch_stats.μ) ./ op.branch_stats.σ
 
   # Trunk Input (Coordinates extraction)
   V = get_test(op.op)
+  #=
   coords_raw = RBSteady.get_coords_with_order(V)
-  coords_vec = vec(coords_raw)
+  D_phys = ndims(coords_raw)
+  interior_indices = ntuple(d -> 2:(size(coords_raw, d) - 1), D_phys)
+  coords_interior = coords_raw[interior_indices...]
+  coords_vec = vec(coords_interior)
 
-  D_phys = length(coords_vec[1])
   N_dofs = length(coords_vec)
 
   x_test = zeros(Float32,D_phys,N_dofs)
@@ -23,7 +31,10 @@ function Algebra.solve(solver::NeuralOpSolver,op::NeuralRBOperator,r::Realisatio
       x_test[d, i] = Float32(coords_vec[i][d])
     end
   end
-  x_in = x_test
+  x_in = (x_test .- op.trunk_stats.μ) ./ op.trunk_stats.σ
+  =#
+  x_test = RBSteady.get_coords_with_order(V)
+  x_in = (x_test .- op.trunk_stats.μ) ./ op.trunk_stats.σ
 
   # Inference Execution
   t = @timed begin
