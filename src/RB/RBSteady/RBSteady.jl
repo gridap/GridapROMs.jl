@@ -178,6 +178,7 @@ export XDEV
 export CDEV
 export build_model
 export compute_zscore_stats
+export resolve_model
 include("NeuralOperatorTraining.jl")
 
 export galerkin_projection

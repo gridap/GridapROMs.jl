@@ -17,11 +17,24 @@ function resolve_batch_size(batch_config::Int,total_samples::Int)
 end
 
 function compute_zscore_stats(data::AbstractMatrix)
-  μ = mean(data, dims=2)
-  σ = std(data, dims=2)
+  μ = mean(data,dims=2)
+  σ = std(data,dims=2)
   # Avoid dividing by zero if a feature is constant
   σ[σ .== 0] .= 1.0f0
-  return (μ=Float32.(μ), σ=Float32.(σ))
+  return (μ=Float32.(μ),σ=Float32.(σ))
+end
+
+resolve_model(model::DeepONet,n_branch_in::Int,n_trunk_in::Int) = model
+
+function resolve_model(config::AutoDeepONet,n_branch_in::Int,n_trunk_in::Int)
+  # Generating hidden layers (ex. 3 layer of 64)
+  hidden = ntuple(_ -> config.width,config.depth)
+  
+  # Last layer of Branch and Trunk nets must have same dimension (width) for dot product
+  branch_layers = (n_branch_in,hidden...,config.width)
+  trunk_layers  = (n_trunk_in,hidden...,config.width)
+  
+  DeepONet(branch_layers,trunk_layers,config.activation)
 end
 
 # Coordinate Extraction
@@ -57,18 +70,27 @@ function get_coords_with_order(
   end
   return coords
 end
+
+function _is_periodic_node(inode,nodes)
+    try
+        nodes[inode]
+        return false
+    catch
+        return true
+    end
+end
 =#
 
 function get_coords_with_order(V::SingleFieldFESpace)
-  # Retrieve the underlying triangulation and its physical dimensionality (1D, 2D, 3D)
+  # Retrieve the underlying triangulation and its physical dimensionality (1D,2D,3D)
   trian = get_triangulation(V)
   D_phys = length(get_node_coordinates(trian)[1])
   
   # Get the exact number of free DoFs (automatically excluding Dirichlet boundaries)
   N_dofs = num_free_dofs(V)
 
-  # Initialize the tensor that will feed the Trunk Net: shape (D_phys, N_dofs)
-  x_raw = zeros(Float32, D_phys, N_dofs)
+  # Initialize the tensor that will feed the Trunk Net: shape (D_phys,N_dofs)
+  x_raw = zeros(Float32,D_phys,N_dofs)
   
   # Extract coordinates dimension by dimension. This avoids TypeErrors 
   # when interpolating a physical vector (Point) into a purely scalar FESpace.
@@ -78,27 +100,18 @@ function get_coords_with_order(V::SingleFieldFESpace)
     
     # Interpolate the coordinate field over the entire FESpace.
     # This maps the physical space to the algebraic DoF numbering.
-    coord_fn = interpolate_everywhere(coord_d, V)
+    coord_fn = interpolate_everywhere(coord_d,V)
     
     # Extract only the values corresponding to the free DoFs
     free_coords = get_free_dof_values(coord_fn)
     
     # Populate the corresponding row in our Trunk Net input tensor
     for i in 1:N_dofs
-      x_raw[d, i] = Float32(free_coords[i])
+      x_raw[d,i] = Float32(free_coords[i])
     end
   end
   
   return x_raw
-end
-
-function _is_periodic_node(inode,nodes)
-  try
-    nodes[inode]
-    return false
-  catch
-    return true
-  end
 end
 
 # Build model
@@ -107,19 +120,19 @@ function build_lux_chain(layers::Tuple,activation)
   lux_layers = []
   for i in 1:(length(layers)-1)
     if i < length(layers) - 1
-      push!(lux_layers, Lux.Dense(layers[i] => layers[i+1], activation))
+      push!(lux_layers,Lux.Dense(layers[i] => layers[i+1],activation))
     else
       # last layer (no activation)
-      push!(lux_layers, Lux.Dense(layers[i] => layers[i+1]))
+      push!(lux_layers,Lux.Dense(layers[i] => layers[i+1]))
     end
   end
   Lux.Chain(lux_layers...)
 end
 
 function build_model(model::DeepONet)
-  branch_net = build_lux_chain(model.branch_layers, model.activation)
-  trunk_net  = build_lux_chain(model.trunk_layers, model.activation)
-  NeuralOperators.DeepONet(branch_net, trunk_net)
+  branch_net = build_lux_chain(model.branch_layers,model.activation)
+  trunk_net  = build_lux_chain(model.trunk_layers,model.activation)
+  NeuralOperators.DeepONet(branch_net,trunk_net)
 end
 
 # Training loop
@@ -180,17 +193,17 @@ function train_neural_operator(
   # Data extraction
   # RBSteady => get_all_data(s) is 2D: (N_dofs,N_samples)
   target_data_full = Float32.(get_all_data(s))
-  N_dofs = size(target_data_full, 1)
+  N_dofs = size(target_data_full,1)
   
   idx_x = 1:strategy.step_x:N_dofs
   target_data = target_data_full[idx_x,:]
 
   realisation = get_realisation(s)
   raw_params = Float32.(matrix_of_params(realisation))
-  n_samples = size(raw_params, 2)
+  n_samples = size(raw_params,2)
   
-  f_in_list = [Float32.(strategy.branch_sampler(raw_params[:, i])) for i in 1:n_samples]
-  params_matrix = reduce(hcat, f_in_list)
+  f_in_list = [Float32.(strategy.branch_sampler(raw_params[:,i])) for i in 1:n_samples]
+  params_matrix = reduce(hcat,f_in_list)
 
   # normalization
   max_u = maximum(abs.(target_data))
@@ -206,7 +219,7 @@ function train_neural_operator(
   #=coords_raw = get_coords_with_order(V)
   D_phys = ndims(coords_raw)
   
-  interior_indices = ntuple(d -> 2:(size(coords_raw, d) - 1), D_phys)
+  interior_indices = ntuple(d -> 2:(size(coords_raw,d) - 1),D_phys)
   coords_interior = coords_raw[interior_indices...]
 
   # Flattening coordinates into a 1D vector
@@ -221,8 +234,13 @@ function train_neural_operator(
     end
   end
   =#
-  x_train_full = get_coords_with_order(V) # shape: (D_phys, full_N_dofs)
+  
+  x_train_full = get_coords_with_order(V) # shape: (D_phys,full_N_dofs)
   x_train = x_train_full[:,idx_x]
+  
+  # Data dimension
+  n_branch_in = size(params_matrix,1)
+  n_trunk_in  = size(x_train,1)
   
   # Input normalization
   branch_stats = compute_zscore_stats(params_matrix)
@@ -230,9 +248,11 @@ function train_neural_operator(
   
   trunk_stats = compute_zscore_stats(x_train)
   x_train = (x_train .- trunk_stats.μ) ./ trunk_stats.σ
+  
 
   # Building the DeepONet
-  deepONet = build_model(strategy.model)
+  model_def = resolve_model(strategy.model,n_branch_in,n_trunk_in)
+  deepONet = build_model(model_def)
 
   # Dataloader and setup
   bs = resolve_batch_size(strategy.batch_size,n_samples)
@@ -260,5 +280,5 @@ function train_neural_operator(
     
   st_test = Lux.testmode(st_trained) |> CDEV
 
-  return deepONet, ps_trained |> CDEV, st_test, branch_stats, trunk_stats, Float32(max_u)
+  return deepONet,ps_trained |> CDEV,st_test,branch_stats,trunk_stats,Float32(max_u)
 end

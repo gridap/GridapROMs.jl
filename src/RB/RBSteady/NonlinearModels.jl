@@ -738,3 +738,16 @@ end
 function DeepONet(;branch_layers,trunk_layers,activation=tanh)
   DeepONet(Tuple(branch_layers),Tuple(trunk_layers),activation)
 end
+
+"""
+  AutoDeepONet
+
+Automatic builder for DeepONet.
+Automatic inference of the input dimensions for the Branch and the Trunk Net
+based on the problem.
+"""
+Base.@kwdef struct AutoDeepONet{F}
+  width::Int = 64
+  depth::Int = 3
+  activation::F = tanh
+end

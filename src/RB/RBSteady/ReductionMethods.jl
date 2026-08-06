@@ -655,7 +655,7 @@ get_strategy(r::NNHyperReduction) = r.strategy
 abstract type NeuralOpReduction <: Reduction{NoReductionStyle,EuclideanNorm} end
 
 Base.@kwdef struct DeepONetStrategy{M,S}
-  model::M
+  model::M = AutoDeepONet()
   epochs::Int = 20000
   batch_size::Int = 0
   step_x::Int = 1

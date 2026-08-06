@@ -69,6 +69,10 @@ function RBSteady.train_neural_operator(
     end
   end
 
+  # Data dimension
+  n_branch_in = size(params_matrix,1)
+  n_trunk_in  = size(x_train,1)
+  
   # Normalization
   max_u = maximum(abs.(u_train))
   u_train ./= max_u
@@ -81,7 +85,8 @@ function RBSteady.train_neural_operator(
 
   # DeepONet architecture
   # Input of the Trunk Net is D_phys + 1
-  deepONet = build_model(strategy.model)
+  model_def = resolve_model(strategy.model, n_branch_in, n_trunk_in)
+  deepONet = build_model(model_def)
 
   # Dataloader and Lux setup
   bs = resolve_batch_size(strategy.batch_size,n_samples)
