@@ -72,8 +72,7 @@ model = DeepONet(
 strategy = DeepONetStrategy(
   model      = model,
   epochs     = 20000,
-  batch_size = 32,
-  lr         = 1e-4,
+  batch_size = 32
 )
 
 reduction = DeepONetReduction(strategy)

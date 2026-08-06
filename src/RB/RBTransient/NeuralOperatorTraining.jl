@@ -93,13 +93,15 @@ function RBSteady.train_neural_operator(
   rng = Random.default_rng()
   Random.seed!(rng,42)
   ps,st = Lux.setup(rng,deepONet) |> XDEV
+  
+  initial_lr = get_initial_lr(strategy.lr_scheduler)
 
-  opt = Optimisers.Adam(0.001f0)
+  opt = Optimisers.Adam(initial_lr)
   train_state = Lux.Training.TrainState(deepONet,ps,st,opt)
 
   # Training execution defined in RBSteady
   ps_trained,st_trained =
-    train_deeponet!(train_state,dataloader,x_data_dev; epochs=strategy.epochs)
+    train_deeponet!(train_state,dataloader,x_data_dev,strategy.lr_scheduler; max_epochs=strategy.epochs)
 
   st_test = Lux.testmode(st_trained) |> CDEV
   

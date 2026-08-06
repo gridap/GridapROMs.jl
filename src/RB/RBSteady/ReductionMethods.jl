@@ -654,14 +654,14 @@ get_strategy(r::NNHyperReduction) = r.strategy
 
 abstract type NeuralOpReduction <: Reduction{NoReductionStyle,EuclideanNorm} end
 
-Base.@kwdef struct DeepONetStrategy{M}
+Base.@kwdef struct DeepONetStrategy{M,S}
   model::M
   epochs::Int = 20000
   batch_size::Int = 0
-  lr::Float64 = 1e-4
-  step_x::Int = 10
-  step_t::Int = 5
+  step_x::Int = 1
+  step_t::Int = 1
   branch_sampler::Function = identity
+  lr_scheduler::S = CosineAnnealing()
 end
 
 struct DeepONetReduction <: NeuralOpReduction

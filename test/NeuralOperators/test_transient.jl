@@ -91,7 +91,7 @@ strategy = DeepONetStrategy(
   batch_size = 0,
   step_x = 1,
   step_t = 1,
-  m_sensors = 1
+  lr_scheduler  = CosineAnnealing(lr_max=1f-3, lr_min=1f-5)
 )
 
 reduction = DeepONetReduction(strategy)

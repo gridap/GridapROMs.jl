@@ -124,13 +124,13 @@ end
 
 # Training loop
 
-function train_deeponet!(train_state,dataloader,x_data_dev; epochs=5000)
+function train_deeponet!(train_state,dataloader,x_data_dev,lr_scheduler; max_epochs=5000)
   @info "Starting Training on Reactant Device (First epoch compiles XLA...)"
   t_start = time()
   t_start_fast = time()
 
   Reactant.with_config(; dot_general_precision=PrecisionConfig.HIGH) do
-    for epoch = 1:epochs
+    for epoch = 1:max_epochs
       local current_loss = 0.0f0
 
       for (f_batch,u_batch) in dataloader
@@ -147,7 +147,7 @@ function train_deeponet!(train_state,dataloader,x_data_dev; epochs=5000)
       end
       current_loss /= length(dataloader)
 
-      # TODO: lr_scheduler
+      step_scheduler!(lr_scheduler,train_state.optimizer_state,epoch,max_epochs,current_loss)
 
       if epoch == 1
         comp_mins = round((time() - t_start) / 60,digits=2)
@@ -156,7 +156,7 @@ function train_deeponet!(train_state,dataloader,x_data_dev; epochs=5000)
       elseif epoch % 500 == 0
         elapsed_fast = time() - t_start_fast
         time_per_epoch = elapsed_fast / (epoch - 1)
-        eta_seconds = time_per_epoch * (epochs - epoch)
+        eta_seconds = time_per_epoch * (max_epochs - epoch)
         println(
           "Epoch: $epoch \t Loss: $(Float32(current_loss)) \t ETA: $(format_eta(eta_seconds))"
         )
@@ -179,7 +179,11 @@ function train_neural_operator(
 
   # Data extraction
   # RBSteady => get_all_data(s) is 2D: (N_dofs,N_samples)
-  target_data = Float32.(get_all_data(s))
+  target_data_full = Float32.(get_all_data(s))
+  N_dofs = size(target_data_full, 1)
+  
+  idx_x = 1:strategy.step_x:N_dofs
+  target_data = target_data_full[idx_x,:]
 
   realisation = get_realisation(s)
   raw_params = Float32.(matrix_of_params(realisation))
@@ -217,7 +221,8 @@ function train_neural_operator(
     end
   end
   =#
-  x_train = get_coords_with_order(V)
+  x_train_full = get_coords_with_order(V) # shape: (D_phys, full_N_dofs)
+  x_train = x_train_full[:,idx_x]
   
   # Input normalization
   branch_stats = compute_zscore_stats(params_matrix)
@@ -243,13 +248,15 @@ function train_neural_operator(
   rng = Random.default_rng()
   Random.seed!(rng,42)
   ps,st = Lux.setup(rng,deepONet) |> XDEV
+  
+  initial_lr = get_initial_lr(strategy.lr_scheduler)
 
-  opt = Optimisers.Adam(strategy.lr)
+  opt = Optimisers.Adam(initial_lr)
   train_state = Lux.Training.TrainState(deepONet,ps,st,opt)
 
   # Executing the pipeline
   ps_trained,st_trained =
-    train_deeponet!(train_state,dataloader,x_data_dev; epochs=strategy.epochs)
+    train_deeponet!(train_state,dataloader,x_data_dev,strategy.lr_scheduler; max_epochs=strategy.epochs)
     
   st_test = Lux.testmode(st_trained) |> CDEV
 

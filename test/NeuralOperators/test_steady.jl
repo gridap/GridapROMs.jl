@@ -68,7 +68,7 @@ strategy = DeepONetStrategy(
   batch_size = 0,
   step_x = 1,
   step_t = 1,
-  m_sensors = 1
+  lr_scheduler  = ReduceLROnPlateau(patience=2, factor=0.5f0, start_lr=1f-3)
 )
 
 reduction = DeepONetReduction(strategy)

@@ -129,6 +129,13 @@ export matrix_of_params
 export DeepONet
 include("NonlinearModels.jl")
 
+export AbstractLRScheduler
+export CosineAnnealing
+export ReduceLROnPlateau
+export step_scheduler!
+export get_initial_lr
+include("LRSchedulers.jl")
+
 export ReductionStyle
 export NoReductionStyle
 export SearchSVDRank

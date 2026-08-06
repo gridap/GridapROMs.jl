@@ -13,7 +13,7 @@ println("=== DEEPONET TRANSIENT TEST (1D GAUSSIAN PULSE) ===")
 # ===================================================================
 # 1. PHYSICS & FEM SETUP
 # ===================================================================
-L, nx = 3.0, 200
+L, nx = 3.0, 600
 t0, tf, dt = 0.0, 1.0, 0.02
 c = 1.0
 θ = 0.5
@@ -58,7 +58,7 @@ fe_solver = ThetaMethod(LUSolver(), dt, θ)
 println("\nGenerating Training and Testing Datasets...")
 
 # Campioniamo i parametri scalari
-p_train = realisation(D_p; nparams=50, sampling=:halton)
+p_train = realisation(D_p; nparams=100, sampling=:halton)
 p_test  = realisation(D_p; nparams=10, sampling=:halton)
 
 # Uniamo parametri e tempo nelle realizzazioni Transient
@@ -84,20 +84,20 @@ x_sensors = range(-L, L, length=m_sensors)
 # IL SAMPLER: Mappa lo scalare σ nella campionatura della curva Gaussiana iniziale
 branch_sampler_func = (σ) -> [(1 / √(2 * π * σ[1])) * exp(-x^2 / (2 * σ[1])) for x in x_sensors]
 
-don_model = DeepONet(
+model = DeepONet(
   branch_layers = (m_sensors, 64, 64, 32), # 100 Sensori (Input del Sampler)
   trunk_layers  = (2, 64, 64, 32),         # 2 Input (Coordinata 'x' + Tempo 't')
-  activation    = Lux.gelu
+  activation    = tanh
 )
 
 strategy = DeepONetStrategy(
-  model          = don_model,
+  model          = model,
   epochs         = 10000,
   batch_size     = 32,
-  lr             = 1e-4,
   step_x         = 2,  # Sub-campionamento spaziale
   step_t         = 2,  # Sub-campionamento temporale
-  branch_sampler = branch_sampler_func
+  branch_sampler = branch_sampler_func,
+  lr_scheduler      = ReduceLROnPlateau(patience=500, factor=0.5f0, start_lr=1e-3)
 )
 
 reduction = DeepONetReduction(strategy)
