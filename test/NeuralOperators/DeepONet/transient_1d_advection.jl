@@ -97,7 +97,7 @@ strategy = DeepONetStrategy(
   step_x         = 2,  # Sub-campionamento spaziale
   step_t         = 2,  # Sub-campionamento temporale
   branch_sampler = branch_sampler_func,
-  lr_scheduler      = ReduceLROnPlateau(patience=500, factor=0.5f0, start_lr=1e-3)
+  lr_scheduler   = ReduceLROnPlateau(patience=500, factor=0.5f0, start_lr=1e-3)
 )
 
 reduction = DeepONetReduction(strategy)

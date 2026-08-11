@@ -37,6 +37,16 @@ function resolve_model(config::AutoDeepONet,n_branch_in::Int,n_trunk_in::Int)
   DeepONet(branch_layers,trunk_layers,config.activation)
 end
 
+resolve_model(model::NOMAD,n_sensors_in::Int,n_coords_in::Int) = model
+
+function resolve_model(config::AutoNOMAD,n_sensors_in::Int,n_coords_in::Int)
+  # Layer's dimension (ex. input = n_sensors_in + n_coords_in)
+  hidden = ntuple(_ -> config.width,config.depth)
+  layers = (n_sensors_in + n_coords_in,hidden...,1) # Scalar output
+  
+  NOMAD(layers,config.activation)
+end
+
 # Coordinate Extraction
 #=
 function get_coords_with_order(space::SingleFieldFESpace)
@@ -135,9 +145,14 @@ function build_model(model::DeepONet)
   NeuralOperators.DeepONet(branch_net,trunk_net)
 end
 
+function build_model(model::NOMAD)
+  decoder_net = build_lux_chain(model.layers,model.activation)
+  NeuralOperators.NOMAD(decoder_net)
+end
+
 # Training loop
 
-function train_deeponet!(train_state,dataloader,x_data_dev,lr_scheduler; max_epochs=5000)
+function train_deeponet!(train_state,dataloader,x_data_dev,lr_scheduler;max_epochs)
   @info "Starting Training on Reactant Device (First epoch compiles XLA...)"
   t_start = time()
   t_start_fast = time()
@@ -177,6 +192,51 @@ function train_deeponet!(train_state,dataloader,x_data_dev,lr_scheduler; max_epo
     end
   end
 
+  @info "Training Completed in $(round((time() - t_start) / 60,digits=2)) minutes"
+  return train_state.parameters,train_state.states
+end
+
+function train_nomad!(train_state,dataloader,lr_scheduler;max_epochs)
+  @info "Starting NOMAD Training on Reactant Device (First epoch compiles XLA...)"
+  t_start = time()
+  t_start_fast = time()
+  
+  Reactant.with_config(; dot_general_precision=PrecisionConfig.HIGH) do
+    for epoch in 1:max_epochs
+      local current_loss = 0.0f0
+      
+      for (uy_batch,v_batch) in dataloader
+        # Single concatenated tensor (Sensors + Coordinates)
+        batch_dev = (uy_batch |> XDEV, v_batch |> XDEV)
+        
+        _,loss_val,_,train_state = Lux.Training.single_train_step!(
+            AutoEnzyme(),
+            MSELoss(),
+            batch_dev,
+            train_state;
+            return_gradients=Val(false)
+        )
+        current_loss += Float32(loss_val)
+      end
+      current_loss /= length(dataloader)
+      
+      step_scheduler!(lr_scheduler,train_state.optimizer_state,epoch,max_epochs,current_loss)
+      
+      if epoch == 1
+        comp_mins = round((time() - t_start) / 60,digits=2)
+        t_start_fast = time()
+        @info "Compilation finished in $comp_mins min. Fast training started."
+      elseif epoch % 500 == 0
+        elapsed_fast = time() - t_start_fast
+        time_per_epoch = elapsed_fast / (epoch - 1)
+        eta_seconds = time_per_epoch * (max_epochs - epoch)
+        println(
+          "Epoch: $epoch \t Loss: $(Float32(current_loss)) \t ETA: $(format_eta(eta_seconds))"
+        )
+      end
+    end
+  end
+  
   @info "Training Completed in $(round((time() - t_start) / 60,digits=2)) minutes"
   return train_state.parameters,train_state.states
 end
@@ -276,9 +336,110 @@ function train_neural_operator(
 
   # Executing the pipeline
   ps_trained,st_trained =
-    train_deeponet!(train_state,dataloader,x_data_dev,strategy.lr_scheduler; max_epochs=strategy.epochs)
+    train_deeponet!(train_state,dataloader,x_data_dev,strategy.lr_scheduler;max_epochs=strategy.epochs)
     
   st_test = Lux.testmode(st_trained) |> CDEV
+  
+  norm_stats = (branch = branch_stats,trunk = trunk_stats)
 
-  return deepONet,ps_trained |> CDEV,st_test,branch_stats,trunk_stats,Float32(max_u)
+  return deepONet,ps_trained |> CDEV,st_test,norm_stats,Float32(max_u)
+end
+
+function train_neural_operator(
+    red::NOMADReduction,
+    feop::ParamOperator,
+    s::AbstractSnapshots
+)
+  strategy = red.strategy
+  
+  # Data extraction
+  # RBSteady => get_all_data(s) is 2D: (N_dofs,N_samples)
+  target_data_full = Float32.(get_all_data(s))
+  N_dofs = size(target_data_full,1)
+  
+  idx_x = 1:strategy.step_x:N_dofs
+  N_x_red = length(idx_x)
+  
+  realisation = get_realisation(s)
+  raw_params = Float32.(matrix_of_params(realisation))
+  n_samples = size(raw_params,2)
+  
+  # Sensors extraction (like branch input in DeepONet)
+  f_in_list = [Float32.(strategy.branch_sampler(raw_params[:,i])) for i in 1:n_samples]
+  params_matrix = reduce(hcat,f_in_list)
+  n_sensors = size(params_matrix,1)
+  
+  # DoF coordinates extraction (like trunk input in DeepONet)
+  V = get_test(feop)
+  if !(V isa OrderedFESpace || (V isa TrialFESpace && V.space isa OrderedFESpace))
+    @warn "The FE space is not an OrderedFESpace. The order of the extracted coordinates might not match the DoF order in target_data. Training results might be incorrect."
+  end
+  
+  x_train_full = get_coords_with_order(V) # shape: (D_phys,full_N_dofs)
+  x_red = x_train_full[:,idx_x]
+  D_phys = size(x_red,1)
+  
+  # Flattening for NOMAD
+  N_tot = N_x_red * n_samples
+  
+  u_in  = zeros(Float32,n_sensors,N_tot)
+  y_in  = zeros(Float32,D_phys,N_tot)
+  v_out = zeros(Float32,1,N_tot)
+  
+  col_idx = 1
+  for i in 1:n_samples
+    sensor_vals = params_matrix[:,i]
+    for (x_idx_reduced,x_idx_full) in enumerate(idx_x)
+      u_in[:,col_idx]  .= sensor_vals
+      y_in[:,col_idx]  .= x_red[:,x_idx_reduced]
+      v_out[1,col_idx]  = target_data_full[x_idx_full,i]
+      col_idx += 1
+    end
+  end
+  
+  # normalization
+  max_u = maximum(abs.(v_out))
+  v_out ./= max_u
+  
+  u_in_stats = compute_zscore_stats(u_in)
+  u_in = (u_in .- u_in_stats.μ) ./ u_in_stats.σ
+  
+  y_in_stats = compute_zscore_stats(y_in)
+  y_in = (y_in .- y_in_stats.μ) ./ y_in_stats.σ
+  
+  # sensors and coordinates combined into a single feature matrix
+  uy_in = vcat(u_in, y_in)
+  
+  # Building the NOMAD model
+  model_def = resolve_model(strategy.model,n_sensors,D_phys)
+  nomad_net = build_model(model_def)
+  
+  # DataLoader and Lux setup
+  bs = resolve_batch_size(strategy.batch_size, N_tot)
+  dataloader = MLUtils.DataLoader(
+    (uy_in, v_out);
+    batchsize=bs,
+    shuffle=true,
+    partial=false
+  )
+
+  rng = Random.default_rng()
+  Random.seed!(rng, 42)
+  ps,st = Lux.setup(rng, nomad_net) |> XDEV
+  
+  initial_lr = get_initial_lr(strategy.lr_scheduler)
+  opt = Optimisers.Adam(initial_lr)
+  train_state = Lux.Training.TrainState(nomad_net,ps,st,opt)
+  
+  # Running the pipeline
+  ps_trained,st_trained = train_nomad!(
+    train_state,dataloader,strategy.lr_scheduler;max_epochs=strategy.epochs
+  )
+    
+  st_test = Lux.testmode(st_trained) |> CDEV
+  
+  # norm_stats
+  norm_stats = (u_in = u_in_stats, y_in = y_in_stats)
+
+  return nomad_net,ps_trained |> CDEV,st_test,norm_stats,Float32(max_u)
 end

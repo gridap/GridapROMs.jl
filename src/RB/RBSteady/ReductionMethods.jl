@@ -668,6 +668,20 @@ struct DeepONetReduction <: NeuralOpReduction
   strategy::DeepONetStrategy
 end
 
+Base.@kwdef struct NOMADStrategy{M,S}
+  model::M = AutoNOMAD()
+  epochs::Int = 20000
+  batch_size::Int = 0
+  step_x::Int = 1
+  step_t::Int = 1
+  branch_sampler::Function = identity
+  lr_scheduler::S = CosineAnnealing()
+end
+
+struct NOMADReduction <: NeuralOpReduction
+  strategy::NOMADStrategy
+end
+
 """
     struct AdaptiveReduction{A,B,R<:DirectReduction{A,B}} <: GreedyReduction{A,B}
       reduction::R

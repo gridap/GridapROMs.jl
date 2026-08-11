@@ -127,6 +127,9 @@ export loss_mse
 export loss_mae
 export matrix_of_params
 export DeepONet
+export AutoDeepONet
+export NOMAD
+export AutoNOMAD
 include("NonlinearModels.jl")
 
 export AbstractLRScheduler
@@ -168,10 +171,13 @@ export get_reduction
 export get_strategy
 export DeepONetStrategy
 export DeepONetReduction
+export NOMADStrategy
+export NOMADReduction
 include("ReductionMethods.jl")
 
 export train_neural_operator
 export train_deeponet!
+export train_nomad!
 export get_coords_with_order
 export resolve_batch_size
 export XDEV

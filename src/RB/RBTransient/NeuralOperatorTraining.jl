@@ -14,9 +14,9 @@ function RBSteady.train_neural_operator(
   # Extract the spatial parameters
   param_realisation = get_params(realisation)
   raw_params = Float32.(matrix_of_params(param_realisation))
-  n_samples = size(raw_params, 2)
+  n_samples = size(raw_params,2)
   
-  f_in_list = [Float32.(strategy.branch_sampler(raw_params[:, i])) for i in 1:n_samples]
+  f_in_list = [Float32.(strategy.branch_sampler(raw_params[:,i])) for i in 1:n_samples]
   params_matrix = reduce(hcat,f_in_list)
 
   # Time grid
@@ -40,19 +40,19 @@ function RBSteady.train_neural_operator(
     @warn "The FE space is not an OrderedFESpace. The order of the extracted coordinates might not match the DoF order in target_data. Training results might be incorrect."
   end
 
-  coords_raw = get_coords_with_order(V) # Shape: (D_phys, N_dofs)
+  coords_raw = get_coords_with_order(V) # Shape: (D_phys,N_dofs)
   D_phys = size(coords_raw,1)
 
-  # Spatio-Temporal coordinate matrix (D_phys + 1 for time, N_points)
+  # Spatio-Temporal coordinate matrix (D_phys + 1 for time,N_points)
   x_train = zeros(Float32,D_phys + 1,N_points)
   col = 1
   for t_idx in idx_t
     t_val = t_grid[t_idx]
     for x_idx in idx_x
       # Copy all the physical dimensions of the spatial point
-      x_train[1:D_phys, col] .= coords_raw[:, x_idx]
+      x_train[1:D_phys,col] .= coords_raw[:,x_idx]
       # Adding time as last coordinate
-      x_train[D_phys+1, col] = t_val
+      x_train[D_phys+1,col] = t_val
       col += 1
     end
   end
@@ -85,7 +85,7 @@ function RBSteady.train_neural_operator(
 
   # DeepONet architecture
   # Input of the Trunk Net is D_phys + 1
-  model_def = resolve_model(strategy.model, n_branch_in, n_trunk_in)
+  model_def = resolve_model(strategy.model,n_branch_in,n_trunk_in)
   deepONet = build_model(model_def)
 
   # Dataloader and Lux setup
@@ -110,5 +110,130 @@ function RBSteady.train_neural_operator(
 
   st_test = Lux.testmode(st_trained) |> CDEV
   
-  return deepONet, ps_trained |> CDEV, st_test, branch_stats, trunk_stats, Float32(max_u)
+  norm_stats = (branch = branch_stats,trunk = trunk_stats)
+  
+  return deepONet,ps_trained |> CDEV,st_test,norm_stats,Float32(max_u)
+end
+
+function RBSteady.train_neural_operator(
+  red::NOMADReduction,
+  feop::ODEParamOperator,
+  s::AbstractSnapshots
+)
+
+  strategy = red.strategy
+
+  # Data extraction
+  target_data = Float32.(get_all_data(s))  # shape (N_dofs,N_samples,N_time)
+  realisation = get_realisation(s)
+
+  # Extract the spatial parameters (sensors or Branch input)
+  param_realisation = get_params(realisation)
+  raw_params = Float32.(matrix_of_params(param_realisation))
+  n_samples = size(raw_params,2)
+  
+  f_in_list = [Float32.(strategy.branch_sampler(raw_params[:,i])) for i in 1:n_samples]
+  params_matrix = reduce(hcat,f_in_list)
+  n_sensors = size(params_matrix,1)
+
+  # Time grid
+  t_grid = Float32.(get_times(realisation))
+
+  N_dofs = size(target_data,1)
+  N_time = size(target_data,3)
+
+  # Subsampling indices
+  idx_x = 1:strategy.step_x:N_dofs
+  idx_t = 1:strategy.step_t:N_time
+  N_x_red = length(idx_x)
+  N_t_red = length(idx_t)
+  
+  # Computing total number of points
+  N_points = N_x_red * N_t_red
+  N_tot = N_points * n_samples
+
+  # Coordinates extraction (Trunk input)
+  V = get_test(feop)
+  if !(V isa OrderedFESpace || (V isa TrialFESpace && V.space isa OrderedFESpace))
+    @warn "The FE space is not an OrderedFESpace. The order of the extracted coordinates might not match the DoF order in target_data. Training results might be incorrect."
+  end
+
+  coords_raw = get_coords_with_order(V) # Shape: (D_phys,N_dofs)
+  x_red = coords_raw[:,idx_x]
+  D_phys = size(x_red,1)
+
+  # Flattening for NOMAD
+  u_in  = zeros(Float32,n_sensors,N_tot)
+  y_in  = zeros(Float32,D_phys + 1,N_tot)  # D_phys + 1 for time
+  v_out = zeros(Float32,1,N_tot)
+
+  col = 1
+  for sample_idx in 1:n_samples
+    sensor_vals = params_matrix[:,sample_idx]
+    
+    for t_idx in idx_t
+      t_val = t_grid[t_idx]
+      
+      for (x_idx_reduced,x_idx_full) in enumerate(idx_x)
+        # Replicating the sensor for that sample
+        u_in[:,col] .= sensor_vals
+        
+        # Space-time coordinates
+        y_in[1:D_phys,col] .= x_red[:,x_idx_reduced]
+        y_in[D_phys+1,col]   = t_val
+        
+        # Ground truth extraction from the 3D snapshot
+        v_out[1,col] = target_data[x_idx_full,sample_idx,t_idx]
+        
+        col += 1
+      end
+    end
+  end
+
+  # Normalization (z-score and Max)
+  max_u = maximum(abs.(v_out))
+  v_out ./= max_u
+  
+  u_in_stats = compute_zscore_stats(u_in)
+  u_in = (u_in .- u_in_stats.μ) ./ u_in_stats.σ
+  
+  y_in_stats = compute_zscore_stats(y_in)
+  y_in = (y_in .- y_in_stats.μ) ./ y_in_stats.σ
+  
+  # Concatenation
+  uy_in = vcat(u_in, y_in)
+
+  # Building the NOMAD model
+  # The network input is: sensors + (physical coordinates + 1 for time)
+  model_def = resolve_model(strategy.model,n_sensors,D_phys + 1)
+  nomad_net = build_model(model_def)
+
+  # Dataloader and Lux setup
+  bs = resolve_batch_size(strategy.batch_size,N_tot)
+  dataloader = MLUtils.DataLoader(
+    (uy_in,v_out); 
+    batchsize=bs,
+    shuffle=true,
+    partial=false
+  )
+
+  rng = Random.default_rng()
+  Random.seed!(rng,42)
+  ps,st = Lux.setup(rng,nomad_net) |> XDEV
+  
+  initial_lr = get_initial_lr(strategy.lr_scheduler)
+  opt = Optimisers.Adam(initial_lr)
+  train_state = Lux.Training.TrainState(nomad_net,ps,st,opt)
+
+  # Running the pipeline
+  ps_trained,st_trained = train_nomad!(
+    train_state,dataloader,strategy.lr_scheduler; max_epochs=strategy.epochs
+  )
+
+  st_test = Lux.testmode(st_trained) |> CDEV
+  
+  # norm_stats
+  norm_stats = (u_in = u_in_stats,y_in = y_in_stats)
+  
+  return nomad_net,ps_trained |> CDEV,st_test,norm_stats,Float32(max_u)
 end

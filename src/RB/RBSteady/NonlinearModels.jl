@@ -751,3 +751,32 @@ Base.@kwdef struct AutoDeepONet{F}
   depth::Int = 3
   activation::F = tanh
 end
+
+"""
+    struct NOMAD{F}
+      layers::Tuple{Vararg{Int}}
+      activation::F
+    end
+
+Architectural configuration for a NOMAD network.
+"""
+struct NOMAD{F}
+  layers::Tuple{Vararg{Int}}
+  activation::F
+end
+
+function NOMAD(; layers,activation=tanh)
+  NOMAD(Tuple(layers),activation)
+end
+
+"""
+  AutoNOMAD
+
+Automatic builder for NOMAD.
+Automatic inference of the input dimensions based on the problem.
+"""
+Base.@kwdef struct AutoNOMAD{F}
+  width::Int = 64
+  depth::Int = 3
+  activation::F = tanh
+end

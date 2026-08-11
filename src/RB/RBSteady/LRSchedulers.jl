@@ -50,8 +50,8 @@ formula and updates the optimiser state in-place via `Optimisers.adjust!`.
 """
 function step_scheduler!(scheduler::CosineAnnealing,opt_state,epoch::Int,total_epochs::Int,_)
   t = min(epoch,total_epochs)
-  cos_val = cos(Float32(π) * (Float32(t) / Float32(total_epochs)))
-  new_lr = scheduler.lr_min + 0.5f0 * (scheduler.lr_max - scheduler.lr_min) * (1.0f0 + cos_val)
+  cos_val = cos(π * (t / total_epochs))
+  new_lr = scheduler.lr_min + 0.5f0 * (scheduler.lr_max - scheduler.lr_min) * (1.0f0 + Float32(cos_val))
   
   Optimisers.adjust!(opt_state,new_lr)
 end
