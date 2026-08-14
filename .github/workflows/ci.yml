@@ -33,6 +33,7 @@ jobs:
   test: # Main CI tests
     name: Tests ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ matrix.timeout || 60 }}
     env:
       DO_COVERAGE: ${{ matrix.version == '1.12' && matrix.os == 'ubuntu-latest' && matrix.arch == 'x64' }}
     strategy:
@@ -48,6 +49,7 @@ jobs:
           - version: '1.12'
             os: macos-latest
             arch: aarch64
+            timeout: 180
     steps:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v3

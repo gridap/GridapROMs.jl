@@ -577,12 +577,34 @@ function symmetrise!(A::AbstractMatrix;atol=1e-12,rtol=1e-8)
     !isapprox(A[i,j],A[j,i];atol,rtol) && return false
   end
 
-  @inbounds for j in 1:n
-    for i in 1:j-1
-      s = (A[i,j] + A[j,i]) / 2
-      A[i,j] = s
-      A[j,i] = s
+  @inbounds for j in 1:n, i in 1:j-1
+    s = (A[i,j] + A[j,i]) / 2
+    A[i,j] = s
+    A[j,i] = s
+  end
+
+  return true
+end
+
+function symmetrise!(A::BlockMatrix;atol=1e-12,rtol=1e-8)
+  axes(A,1) == axes(A,2) || return false
+
+  for k in 1:blocksize(A,1), l in 1:k-1
+    Akl = blocks(A)[k,l]
+    Alk = blocks(A)[l,k]
+    size(Akl) == reverse(size(Alk)) || return false
+    @inbounds for j in axes(Akl,2), i in axes(Akl,1)
+      !isapprox(Akl[i,j],Alk[j,i];atol,rtol) && return false
     end
+    @inbounds for j in axes(Akl,2), i in axes(Akl,1)
+      s = (Akl[i,j] + Alk[j,i]) / 2
+      Akl[i,j] = s
+      Alk[j,i] = s
+    end
+  end
+
+  for i in 1:blocksize(A,1)
+    symmetrise!(blocks(A)[i,i];atol,rtol)
   end
 
   return true
