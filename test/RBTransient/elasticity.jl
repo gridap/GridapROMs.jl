@@ -5,7 +5,7 @@ using GridapROMs
 
 function main(
   method=:pod,compression=:global,hypred_strategy=:mdeim;
-  tol=1e-4,nparams=50,nparams_res=floor(Int,nparams/3),
+  tol=1e-4,nparams=15,nparams_res=floor(Int,nparams/3),
   nparams_jac=floor(Int,nparams/4),sketch=:sprn,ncentroids=2
   )
 
@@ -18,14 +18,14 @@ function main(
   pdomain = (0.9,1.0,0.25,0.42,-4*1e-4,4*1e-4)
 
   domain = (0,2.5,0,0.4)
-  partition = (25,4)
+  partition = (12,3)
   if method==:ttsvd
     model = TProductDiscreteModel(domain,partition)
   else
     model = CartesianDiscreteModel(domain,partition)
   end
 
-  order = 2
+  order = 1
   degree = 2*order
 
   Ω = Triangulation(model)

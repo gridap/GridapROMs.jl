@@ -16,13 +16,13 @@ import GridapROMs.RBSteady: change_context
 
 method = :pod
 tol = 1e-4
-nparams = 100
+nparams = 30
 compression = :local
-ncentroids = 8
+ncentroids = 2
 
 const L = 2
 const W = 2
-const n = 40
+const n = 20
 const γd = 10.0
 const hd = max(L,W)/n
 

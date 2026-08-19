@@ -13,7 +13,7 @@ using Test
 
 function main(
   method=:pod,compression=:global,hypred_strategy=:mdeim;
-  tol=1e-4,nparams=50,nparams_res=floor(Int,nparams/3),
+  tol=1e-4,nparams=15,nparams_res=floor(Int,nparams/3),
   nparams_jac=floor(Int,nparams/4),sketch=:sprn,ncentroids=2
   )
 

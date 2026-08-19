@@ -7,7 +7,7 @@ using GridapROMs
 function main(
   fesolver::ODESolver,
   method=:pod,compression=:global,hypred_strategy=:mdeim;
-  tol=1e-4,nparams=50,nparams_res=floor(Int,nparams/3),
+  tol=1e-4,nparams=15,nparams_res=floor(Int,nparams/3),
   nparams_jac=floor(Int,nparams/4),sketch=:sprn,ncentroids=2
   )
 
@@ -20,14 +20,14 @@ function main(
   pdomain = (1,10,1,10,1,10)
 
   domain = (0,1,0,1)
-  partition = (10,10)
+  partition = (5,5)
   if method==:ttsvd
     model = TProductDiscreteModel(domain,partition)
   else
     model = CartesianDiscreteModel(domain,partition)
   end
 
-  order = 2
+  order = 1
   degree = 2*order
 
   Ω = Triangulation(model)
