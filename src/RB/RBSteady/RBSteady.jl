@@ -175,18 +175,6 @@ export NOMADStrategy
 export NOMADReduction
 include("ReductionMethods.jl")
 
-export train_neural_operator
-export train_deeponet!
-export train_nomad!
-export get_coords_with_order
-export resolve_batch_size
-export XDEV
-export CDEV
-export build_model
-export compute_zscore_stats
-export resolve_model
-include("NeuralOperatorTraining.jl")
-
 export galerkin_projection
 export galerkin_projection!
 include("GalerkinProjections.jl")
@@ -336,6 +324,18 @@ export NeuralRBOperator
 export reduced_operator
 export change_operator
 include("ReducedOperators.jl")
+
+export train_neural_operator
+export train_deeponet!
+export train_nomad!
+export get_coords_with_order
+export resolve_batch_size
+export XDEV
+export CDEV
+export build_model
+export compute_zscore_stats
+export resolve_model
+include("NeuralOperatorTraining.jl")
 
 export ROMPerformance
 export eval_performance

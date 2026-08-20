@@ -407,3 +407,18 @@ function _make_hr_uh_from_us(
   hr_us,hr_trial = _reduce_arguments(us,trial,hr_param_time_ids)
   ODEs._make_uh_from_us(odeop,hr_us,hr_trial)
 end
+
+# Neural Operators fine-tuning
+
+function RBSteady.reduced_operator(
+  solver::NeuralOpSolver,
+  feop::ODEParamOperator,
+  s::AbstractSnapshots,
+  pretrained_op::NeuralRBOperator;
+  update_stats::Bool = false
+)
+
+  reduction = RBSteady.get_state_reduction(solver)
+  model,ps,st,norm_stats,max_u = train_neural_operator(reduction,feop,s,pretrained_op;update_stats=update_stats)
+  NeuralRBOperator(feop,model,ps,st,norm_stats,max_u)
+end

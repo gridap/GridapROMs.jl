@@ -207,7 +207,7 @@ function train_nomad!(train_state,dataloader,lr_scheduler;max_epochs)
       
       for (uy_batch,v_batch) in dataloader
         # Single concatenated tensor (Sensors + Coordinates)
-        batch_dev = (uy_batch |> XDEV, v_batch |> XDEV)
+        batch_dev = (uy_batch |> XDEV,v_batch |> XDEV)
         
         _,loss_val,_,train_state = Lux.Training.single_train_step!(
             AutoEnzyme(),
@@ -346,6 +346,96 @@ function train_neural_operator(
 end
 
 function train_neural_operator(
+  red::DeepONetReduction,
+  feop::ParamOperator,
+  s::AbstractSnapshots,
+  pretrained_op::NeuralRBOperator;
+  update_stats::Bool = false
+)
+  strategy = red.strategy
+
+  # Data extraction
+  # RBSteady => get_all_data(s) is 2D: (N_dofs,N_samples)
+  target_data_full = Float32.(get_all_data(s))
+  N_dofs = size(target_data_full,1)
+  
+  idx_x = 1:strategy.step_x:N_dofs
+  target_data = target_data_full[idx_x,:]
+
+  realisation = get_realisation(s)
+  raw_params = Float32.(matrix_of_params(realisation))
+  n_samples = size(raw_params,2)
+  
+  f_in_list = [Float32.(strategy.branch_sampler(raw_params[:,i])) for i in 1:n_samples]
+  params_matrix = reduce(hcat,f_in_list)
+
+  V = get_test(feop)
+  if !(V isa OrderedFESpace || (V isa TrialFESpace && V.space isa OrderedFESpace))
+    @warn "The FE space is not an OrderedFESpace. The order of the extracted coordinates might not match the DoF order in target_data. Training results might be incorrect."
+  end
+  
+  x_train_full = get_coords_with_order(V)
+  x_train = x_train_full[:,idx_x]
+  
+  n_branch_in = size(params_matrix,1)
+  n_trunk_in  = size(x_train,1)
+  
+  # Dimensions check for fine-tuning
+  expected_branch_in = length(pretrained_op.norm_stats.branch.μ)
+  expected_trunk_in  = length(pretrained_op.norm_stats.trunk.μ)
+  @assert n_branch_in == expected_branch_in "Branch dimension mismatch: expected $expected_branch_in, got $n_branch_in. Check branch_sampler."
+  @assert n_trunk_in == expected_trunk_in "Trunk dimension mismatch: expected $expected_trunk_in, got $n_trunk_in."
+
+  # Normalization setup
+  if update_stats
+    @info "Recomputing the normalization statistics."
+    max_u = maximum(abs.(target_data))
+    branch_stats = compute_zscore_stats(params_matrix)
+    trunk_stats = compute_zscore_stats(x_train)
+  else
+    @info "Inheriting the normalization statistics from the pre-trained model."
+    max_u = pretrained_op.max_u
+    branch_stats = pretrained_op.norm_stats.branch
+    trunk_stats = pretrained_op.norm_stats.trunk
+  end
+
+  # Normalization
+  target_data ./= max_u
+  params_matrix = (params_matrix .- branch_stats.μ) ./ branch_stats.σ
+  x_train = (x_train .- trunk_stats.μ) ./ trunk_stats.σ
+  
+  # Pretrained-model
+  deepONet = pretrained_op.model
+  ps = pretrained_op.model_weights |> XDEV
+  st = pretrained_op.model_states |> XDEV
+
+  # Dataloader and optimization setup
+  bs = resolve_batch_size(strategy.batch_size,n_samples)
+  dataloader = MLUtils.DataLoader(
+    (params_matrix,target_data);
+    batchsize=bs,
+    shuffle=true,
+    partial=false
+  )
+
+  x_data_dev = x_train |> XDEV
+  
+  initial_lr = get_initial_lr(strategy.lr_scheduler)
+  opt = Optimisers.Adam(initial_lr) # New LR
+  train_state = Lux.Training.TrainState(deepONet,ps,st,opt)
+
+  # Training
+  ps_trained,st_trained = train_deeponet!(
+    train_state,dataloader,x_data_dev,strategy.lr_scheduler;max_epochs=strategy.epochs
+  )
+    
+  st_test = Lux.testmode(st_trained) |> CDEV
+  norm_stats = (branch = branch_stats,trunk = trunk_stats)
+
+  return deepONet,ps_trained |> CDEV,st_test,norm_stats,Float32(max_u)
+end
+
+function train_neural_operator(
     red::NOMADReduction,
     feop::ParamOperator,
     s::AbstractSnapshots
@@ -408,24 +498,24 @@ function train_neural_operator(
   y_in = (y_in .- y_in_stats.μ) ./ y_in_stats.σ
   
   # sensors and coordinates combined into a single feature matrix
-  uy_in = vcat(u_in, y_in)
+  uy_in = vcat(u_in,y_in)
   
   # Building the NOMAD model
   model_def = resolve_model(strategy.model,n_sensors,D_phys)
   nomad_net = build_model(model_def)
   
   # DataLoader and Lux setup
-  bs = resolve_batch_size(strategy.batch_size, N_tot)
+  bs = resolve_batch_size(strategy.batch_size,N_tot)
   dataloader = MLUtils.DataLoader(
-    (uy_in, v_out);
+    (uy_in,v_out);
     batchsize=bs,
     shuffle=true,
     partial=false
   )
 
   rng = Random.default_rng()
-  Random.seed!(rng, 42)
-  ps,st = Lux.setup(rng, nomad_net) |> XDEV
+  Random.seed!(rng,42)
+  ps,st = Lux.setup(rng,nomad_net) |> XDEV
   
   initial_lr = get_initial_lr(strategy.lr_scheduler)
   opt = Optimisers.Adam(initial_lr)
@@ -439,7 +529,112 @@ function train_neural_operator(
   st_test = Lux.testmode(st_trained) |> CDEV
   
   # norm_stats
-  norm_stats = (u_in = u_in_stats, y_in = y_in_stats)
+  norm_stats = (u_in = u_in_stats,y_in = y_in_stats)
+
+  return nomad_net,ps_trained |> CDEV,st_test,norm_stats,Float32(max_u)
+end
+
+function train_neural_operator(
+    red::NOMADReduction,
+    feop::ParamOperator,
+    s::AbstractSnapshots,
+    pretrained_op::NeuralRBOperator;
+    update_stats::Bool = false
+)
+  strategy = red.strategy
+  
+  # Data extraction
+  target_data_full = Float32.(get_all_data(s))
+  N_dofs = size(target_data_full,1)
+  
+  idx_x = 1:strategy.step_x:N_dofs
+  N_x_red = length(idx_x)
+  
+  realisation = get_realisation(s)
+  raw_params = Float32.(matrix_of_params(realisation))
+  n_samples = size(raw_params,2)
+  
+  f_in_list = [Float32.(strategy.branch_sampler(raw_params[:,i])) for i in 1:n_samples]
+  params_matrix = reduce(hcat,f_in_list)
+  n_sensors = size(params_matrix,1)
+  
+  V = get_test(feop)
+  if !(V isa OrderedFESpace || (V isa TrialFESpace && V.space isa OrderedFESpace))
+    @warn "The FE space is not an OrderedFESpace. The order of the extracted coordinates might not match the DoF order in target_data. Training results might be incorrect."
+  end
+  
+  x_train_full = get_coords_with_order(V) 
+  x_red = x_train_full[:,idx_x]
+  D_phys = size(x_red,1)
+  
+  # Flattening for NOMAD
+  N_tot = N_x_red * n_samples
+  
+  u_in  = zeros(Float32,n_sensors,N_tot)
+  y_in  = zeros(Float32,D_phys,N_tot)
+  v_out = zeros(Float32,1,N_tot)
+  
+  col_idx = 1
+  for i in 1:n_samples
+    sensor_vals = params_matrix[:,i]
+    for (x_idx_reduced,x_idx_full) in enumerate(idx_x)
+      u_in[:,col_idx]  .= sensor_vals
+      y_in[:,col_idx]  .= x_red[:,x_idx_reduced]
+      v_out[1,col_idx]  = target_data_full[x_idx_full,i]
+      col_idx += 1
+    end
+  end
+  
+  # Dimensions check for fine-tuning
+  expected_u_in = length(pretrained_op.norm_stats.u_in.μ)
+  expected_y_in = length(pretrained_op.norm_stats.y_in.μ)
+  @assert n_sensors == expected_u_in "Sensors input dimension mismatch: expected $expected_u_in, got $n_sensors."
+  @assert D_phys == expected_y_in "Coords input dimension mismatch: expected $expected_y_in, got $D_phys."
+
+  # Normalization
+  if update_stats
+    @info "Aggiornamento delle statistiche di normalizzazione (Transfer Learning)."
+    max_u = maximum(abs.(v_out))
+    u_in_stats = compute_zscore_stats(u_in)
+    y_in_stats = compute_zscore_stats(y_in)
+  else
+    @info "Eredito le statistiche di normalizzazione dal modello pre-addestrato (Continual Learning)."
+    max_u = pretrained_op.max_u
+    u_in_stats = pretrained_op.norm_stats.u_in
+    y_in_stats = pretrained_op.norm_stats.y_in
+  end
+
+  v_out ./= max_u
+  u_in = (u_in .- u_in_stats.μ) ./ u_in_stats.σ
+  y_in = (y_in .- y_in_stats.μ) ./ y_in_stats.σ
+  
+  uy_in = vcat(u_in,y_in)
+  
+  # Pretrained model
+  nomad_net = pretrained_op.model
+  ps = pretrained_op.model_weights |> XDEV
+  st = pretrained_op.model_states |> XDEV
+  
+  # Dataloader and optimization setup
+  bs = resolve_batch_size(strategy.batch_size,N_tot)
+  dataloader = MLUtils.DataLoader(
+    (uy_in,v_out);
+    batchsize=bs,
+    shuffle=true,
+    partial=false
+  )
+
+  initial_lr = get_initial_lr(strategy.lr_scheduler)
+  opt = Optimisers.Adam(initial_lr)
+  train_state = Lux.Training.TrainState(nomad_net,ps,st,opt)
+  
+  # Training
+  ps_trained,st_trained = train_nomad!(
+    train_state,dataloader,strategy.lr_scheduler;max_epochs=strategy.epochs
+  )
+    
+  st_test = Lux.testmode(st_trained) |> CDEV
+  norm_stats = (u_in = u_in_stats,y_in = y_in_stats)
 
   return nomad_net,ps_trained |> CDEV,st_test,norm_stats,Float32(max_u)
 end

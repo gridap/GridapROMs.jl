@@ -628,3 +628,29 @@ function _convert_to_block(feop::ParamFEOperator,U,V)
   assem = SparseMatrixAssembler(U,V)
   typeof(feop)(feop.res,feop.jac,feop.pspace,assem,U,V,feop.domains)
 end
+
+# Neural Operators fine-tuning
+
+function reduced_operator(
+  solver::NeuralOpSolver,
+  feop::ParamOperator,
+  s::AbstractSnapshots,
+  pretrained_op::NeuralRBOperator;
+  update_stats::Bool = false
+)
+
+  reduction = get_state_reduction(solver)
+  model,ps,st,norm_stats,max_u = train_neural_operator(reduction,feop,s,pretrained_op;update_stats=update_stats)
+  NeuralRBOperator(feop,model,ps,st,norm_stats,max_u)
+end
+
+function reduced_operator(
+    solver::NeuralOpSolver,
+    s::AbstractSnapshots,
+    pretrained_op::NeuralRBOperator;
+    update_stats::Bool = false
+)
+
+  feop = pretrained_op.op
+  reduced_operator(solver,feop,s,pretrained_op;update_stats=update_stats)
+end
