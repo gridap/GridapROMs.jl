@@ -59,7 +59,7 @@ function Algebra.solve(
   dummy_red_data = ConsecutiveParamArray(zeros(Float64,1,n_samples))
 
   x̂ = RBParamVector(dummy_red_data,fe_data)
-  stats = CostTracker(t,nruns=n_samples,name="NeuralOperator Inference")
+  stats = CostTracker(t,nruns=n_samples,name="DeepONet Inference")
 
   return x̂,stats
 end

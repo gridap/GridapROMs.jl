@@ -652,34 +652,42 @@ end
 get_reduction(r::NNHyperReduction) = r.reduction
 get_strategy(r::NNHyperReduction) = r.strategy
 
-abstract type NeuralOpReduction <: Reduction{NoReductionStyle,EuclideanNorm} end
+#@enum VerbosityLevel begin
+#    VERBOSITY_NONE = 0
+#    VERBOSITY_LOW  = 1
+#    VERBOSITY_HIGH = 2
+#end
 
-Base.@kwdef struct DeepONetStrategy{M,S}
-  model::M = AutoDeepONet()
+Base.@kwdef struct NeuralOpStrategy{M,S}
+  model::M
   epochs::Int = 20000
   batch_size::Int = 0
   step_x::Int = 1
   step_t::Int = 1
   branch_sampler::Function = identity
   lr_scheduler::S = CosineAnnealing()
+  #verbose::VerbosityLevel = VERBOSITY_LOW
+  #print_every::Int = 500
 end
 
-struct DeepONetReduction <: NeuralOpReduction
-  strategy::DeepONetStrategy
+struct NeuralOpReduction{M,S} <: Reduction{NoReductionStyle,EuclideanNorm}
+  strategy::NeuralOpStrategy{M,S}
 end
 
-Base.@kwdef struct NOMADStrategy{M,S}
-  model::M = AutoNOMAD()
-  epochs::Int = 20000
-  batch_size::Int = 0
-  step_x::Int = 1
-  step_t::Int = 1
-  branch_sampler::Function = identity
-  lr_scheduler::S = CosineAnnealing()
+const DeepONetModels = Union{DeepONet,AutoDeepONet}
+const DeepONetReduction{M<:DeepONetModels,S} = NeuralOpReduction{M,S}
+
+DeepONetReduction(s::NeuralOpStrategy{<:DeepONetModels}) = NeuralOpReduction(s)
+function DeepONetReduction(; model = AutoDeepONet(),kwargs...)
+  NeuralOpReduction(NeuralOpStrategy(; model=model,kwargs...))
 end
 
-struct NOMADReduction <: NeuralOpReduction
-  strategy::NOMADStrategy
+const NOMADModels = Union{NOMAD,AutoNOMAD}
+const NOMADReduction{M<:NOMADModels,S} = NeuralOpReduction{M,S}
+
+NOMADReduction(s::NeuralOpStrategy{<:NOMADModels}) = NeuralOpReduction(s)
+function NOMADReduction(; model = AutoNOMAD(),kwargs...)
+  NeuralOpReduction(NeuralOpStrategy(; model=model,kwargs...))
 end
 
 """

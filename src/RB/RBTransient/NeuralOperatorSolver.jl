@@ -77,7 +77,7 @@ function Algebra.solve(
 
   x̂ = RBParamVector(dummy_red_data,fe_data)
   # x̂ = (fe_data = fe_data,)
-  stats = CostTracker(t,nruns=n_samples,name="NeuralOperator Transient Inference")
+  stats = CostTracker(t,nruns=n_samples,name="DeepONet Transient Inference")
 
   return x̂,stats
 end

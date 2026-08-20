@@ -1,7 +1,7 @@
 # Helpers and Devices
 
-const CDEV = cpu_device()
-const XDEV = reactant_device(;force=true)
+const CDEV = Lux.cpu_device()
+const XDEV = Lux.reactant_device(;force=true)
 
 function format_eta(eta_seconds::Real)
   eta_sec = round(Int,eta_seconds)
@@ -193,7 +193,9 @@ end
 # Training loop
 
 function train_deeponet!(train_state,dataloader,x_data_dev,lr_scheduler;max_epochs)
-  @info "Starting Training on Reactant Device (First epoch compiles XLA...)"
+  #if verbose >= VERBOSITY_LOW
+    @info "Starting Training on Reactant Device (First epoch compiles XLA...)"
+  #end
   t_start = time()
   t_start_fast = time()
 
@@ -205,8 +207,8 @@ function train_deeponet!(train_state,dataloader,x_data_dev,lr_scheduler;max_epoc
         batch_dev = ((f_batch |> XDEV,x_data_dev),u_batch |> XDEV)
 
         _,loss_val,_,train_state = Lux.Training.single_train_step!(
-          AutoEnzyme(),
-          MSELoss(),
+          Lux.AutoEnzyme(),
+          Lux.MSELoss(),
           batch_dev,
           train_state;
           return_gradients=Val(false)
@@ -253,8 +255,8 @@ function train_nomad!(train_state,dataloader,lr_scheduler;max_epochs)
         )
         
         _,loss_val,_,train_state = Lux.Training.single_train_step!(
-            AutoEnzyme(),
-            MSELoss(),
+            Lux.AutoEnzyme(),
+            Lux.MSELoss(),
             batch_dev,
             train_state;
             return_gradients=Val(false)

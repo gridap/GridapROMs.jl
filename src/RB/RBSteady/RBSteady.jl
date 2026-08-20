@@ -70,11 +70,8 @@ using Optimisers
 using Random
 using Serialization
 using SparseArrays
-using Lux
 using Reactant
 using Enzyme
-using MLUtils
-using Optimisers
 
 using Gridap
 using Gridap.Algebra
@@ -113,6 +110,8 @@ import LowRankApprox: getcols,qr!,svd!,psvdrank
 import PartitionedArrays: tuple_of_arrays
 import RadialBasisFunctions: Interpolator, AbstractRadialBasis, PHS, MonomialBasis, _build_collocation_matrix!
 import Statistics: mean, std
+import MLUtils
+import Lux
 
 export GenericNNType
 export MLPType
@@ -168,9 +167,8 @@ export LocalHyperReduction
 export AdaptiveReduction
 export get_reduction
 export get_strategy
-export DeepONetStrategy
+export NeuralOpStrategy
 export DeepONetReduction
-export NOMADStrategy
 export NOMADReduction
 include("ReductionMethods.jl")
 

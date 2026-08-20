@@ -4,6 +4,8 @@ using Test
 using Gridap
 using GridapROMs
 using GridapROMs.RBSteady
+using Lux
+using Optimisers
 
 @testset "Formatting and Utils" begin
   # format_eta
@@ -73,7 +75,15 @@ end
   # AutoNOMAD
   config_nomad = AutoNOMAD(width=64, depth=3)
   model_nomad = RBSteady.resolve_model(config_nomad, 10, 3)
-  @test model_nomad.layers == (13, 64, 64, 64, 1)
+  @test model_nomad.approximator_layers == (10, 64, 64, 64, 64)
+  @test model_nomad.decoder_layers == (67, 64, 64, 64, 1)
+
+  # Explicit Models dispatch
+  explicit_don = DeepONet(branch_layers=(5, 10), trunk_layers=(2, 10), activation=tanh)
+  @test RBSteady.resolve_model(explicit_don, 5, 2) === explicit_don
+
+  explicit_nomad = NOMAD(approximator_layers=(10, 10), decoder_layers=(13, 1), activation=tanh)
+  @test RBSteady.resolve_model(explicit_nomad, 10, 3) === explicit_nomad
 
   # build_lux_chain
   chain = RBSteady.build_lux_chain((2, 10, 10, 1), tanh)
@@ -86,13 +96,27 @@ end
   @test chain.layers[1].activation === tanh
   @test chain.layers[2].activation === tanh
   @test chain.layers[3].activation === identity
+end
+
+@testset "Explicit Lux Constructors" begin
+  # LuxDeepONet and LuxNOMAD
+  branch_net = Lux.Dense(5 => 10)
+  trunk_net = Lux.Dense(2 => 10)
+  lux_don = RBSteady.LuxDeepONet(branch_net, trunk_net)
   
-  # build_model (NeuralOperators.jl wrappers)
-  lux_don = RBSteady.build_model(model_don)
-  @test lux_don isa NeuralOperators.DeepONet
+  @test lux_don isa Lux.Chain
+  @test hasproperty(lux_don.layers, :layer_1)
+  @test lux_don.layers.layer_1 isa Lux.Parallel
+  @test lux_don.layers.layer_1.connection == *
   
-  lux_nomad = RBSteady.build_model(model_nomad)
-  @test lux_nomad isa NeuralOperators.NOMAD
+  approx_net = Lux.Dense(10 => 10)
+  dec_net = Lux.Dense(13 => 1)
+  lux_nomad = RBSteady.LuxNOMAD(approx_net, dec_net)
+  
+  @test lux_nomad isa Lux.Chain
+  @test lux_nomad.layers.layer_1 isa Lux.Parallel
+  @test lux_nomad.layers.layer_1.connection == vcat
+  @test lux_nomad.layers.layer_2 === dec_net
 end
 
 @testset "Coordinate Extraction with OrderedFESpace" begin
