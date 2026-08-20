@@ -122,6 +122,59 @@ function get_cell_odof_ids(space::SingleFieldFESpace)
   _get_cell_odof_info(model,fe_dof_basis,cell_dofs_ids,cell_to_parent_cell,orders)
 end
 
+"""
+    get_dof_perm(f::SingleFieldFESpace) -> Vector{Int}
+
+Returns a permutation `p` of length `num_free_dofs(f)`, `p[dof]` being the
+lexicographic rank of the free dof `dof` (in `f`'s own, native numbering), i.e.
+the free-dof id `dof` would be assigned if `f` were wrapped in an
+[`OrderedFESpace`](@ref). Computed directly from `f`, without constructing an
+`OrderedFESpace` (and therefore without touching `f`'s assembly, dirichlet
+values, etc). For an already lexicographically-ordered space (e.g. the `space`
+field of an `OrderedFESpace`), this is the identity permutation.
+
+This is used to make [`get_sparse_dof_map`](@ref) work for plain (unordered)
+`TProductFESpace`s, by mapping their native dof ids to the lexicographic ranks
+the tensor-product sparsity decomposition assumes, without requiring `f` itself
+to be reordered.
+"""
+function get_dof_perm(f::SingleFieldFESpace)
+  cell_odofs = get_cell_odof_ids(f)
+  cell_dofs = get_cell_dof_ids(f)
+  ncells = length(cell_dofs)
+  odof_to_dof = zeros(Int,num_free_dofs(f))
+  oddof_to_ddof = zeros(Int,num_dirichlet_dofs(f))
+  get_bg_dof_to_dof!(odof_to_dof,oddof_to_ddof,cell_odofs,cell_dofs,1:ncells)
+  invperm(odof_to_dof)
+end
+
+# `get_cell_odof_ids` assumes its input `cell_dof_ids` is in Gridap's native local
+# order (it's re-permuted alongside `f`'s `fe_dof_basis` in lockstep). An
+# `OrderedFESpace`'s `cell_dof_ids` is already lex-local-ordered, so re-running the
+# generic path on it does not reduce to the identity: it double-applies the local
+# permutation. Since an `OrderedFESpace`'s free dofs are lex-ordered by
+# construction, short-circuit to the identity instead.
+get_dof_perm(f::OrderedFESpace) = Base.OneTo(num_free_dofs(f))
+
+# To get an FESpace whose free dofs are *actually* relabeled to lexicographic
+# rank (e.g. so that two independently-assembled matrices share the same dof
+# numbering, making their `SparseMatrixDofMap`s literally comparable) without
+# paying for `OrderedFESpace`'s local reordering/assembler overrides, combine
+# `get_dof_perm` with Gridap's own `Gridap.FESpaces.reindex_free_dof_ids`:
+#
+#   space′ = Gridap.FESpaces.reindex_free_dof_ids(space,get_dof_perm(space))
+#
+# Gridap's `reindex_free_and_dirichlet_dof_ids` (for `UnconstrainedFESpace`)
+# does exactly the value-relabeling-only trick this comment describes: it
+# builds `lazy_map(Broadcasting(PosNegReindex(free_dof_ids,dir_dof_ids)),
+# get_cell_dof_ids(space))`, i.e. relabels each cell's dof *values* while
+# preserving their *positions* — safe for assembly, since Gridap's assembler
+# only requires `get_cell_dof_ids(f)[cell][li]` and the cell-local element
+# matrix `vs[li,lj]` to refer to the same local basis function at position
+# `li`, independent of which value labels it. It returns a genuine
+# `UnconstrainedFESpace`, so `get_dof_perm` (generic path) applies to it
+# unchanged and correctly reduces to the identity.
+
 # utils
 
 function _get_cell_odof_info(model::DiscreteModel,args...)

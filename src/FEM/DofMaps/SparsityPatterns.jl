@@ -132,33 +132,46 @@ Output:
   the number of components. In particular, the component axis has a length equal to
   `num_components(Tu)⋅num_components(Tv)`
 """
-function get_d_sparse_dofs_to_full_dofs(Tu,Tv,a::TProductSparsity)
+function get_d_sparse_dofs_to_full_dofs(
+  Tu,Tv,a::TProductSparsity;
+  row_perm=nothing,col_perm=nothing,row_perm_1d=nothing,col_perm_1d=nothing
+  )
+
   I,J, = findnz(a)
   nrows = num_rows(a)
   ncols = num_cols(a)
-  get_d_sparse_dofs_to_full_dofs(Tu,Tv,a,I,J,nrows,ncols)
+  get_d_sparse_dofs_to_full_dofs(Tu,Tv,a,I,J,nrows,ncols,row_perm,col_perm,row_perm_1d,col_perm_1d)
 end
 
 function get_d_sparse_dofs_to_full_dofs(
-  ::Type{<:Real},::Type{<:Real},a::TProductSparsity,I,J,nrows,ncols
+  ::Type{<:Real},::Type{<:Real},a::TProductSparsity,I,J,nrows,ncols,
+  row_perm,col_perm,row_perm_1d,col_perm_1d
   )
 
-  _scalar_d_sparse_dofs_to_full_dofs(a,I,J,nrows,ncols)
+  _scalar_d_sparse_dofs_to_full_dofs(a,I,J,nrows,ncols,row_perm,col_perm,row_perm_1d,col_perm_1d)
 end
 
 function get_d_sparse_dofs_to_full_dofs(
-  ::Type{Tu},::Type{Tv},a::TProductSparsity,I,J,nrows,ncols
+  ::Type{Tu},::Type{Tv},a::TProductSparsity,I,J,nrows,ncols,
+  row_perm,col_perm,row_perm_1d,col_perm_1d
   ) where {Tu,Tv}
 
-  _multivalue_d_sparse_dofs_to_full_dofs(a,I,J,nrows,ncols,num_components(Tu),num_components(Tv))
+  _multivalue_d_sparse_dofs_to_full_dofs(
+    a,I,J,nrows,ncols,num_components(Tu),num_components(Tv),row_perm,col_perm,row_perm_1d,col_perm_1d)
 end
 
-function _scalar_d_sparse_dofs_to_full_dofs(a::TProductSparsity,I,J,nrows,ncols)
+function _scalar_d_sparse_dofs_to_full_dofs(
+  a::TProductSparsity,I,J,nrows,ncols,
+  row_perm=nothing,col_perm=nothing,row_perm_1d=nothing,col_perm_1d=nothing
+  )
+
   nnz_sizes = univariate_nnz(a)
   rows = univariate_num_rows(a)
   cols = univariate_num_cols(a)
 
   i,j, = univariate_findnz(a)
+  i = _permute_1d_dofs(i,row_perm_1d)
+  j = _permute_1d_dofs(j,col_perm_1d)
   d_to_nz_pairs = map((id,jd)->map(CartesianIndex,id,jd),i,j)
 
   D = length(a.sparsities_1d)
@@ -166,8 +179,10 @@ function _scalar_d_sparse_dofs_to_full_dofs(a::TProductSparsity,I,J,nrows,ncols)
   dsd2fd = zeros(Int,nnz_sizes...)
 
   for k in eachindex(I)
-    rows_1d = _index_to_d_indices(I[k],rows)
-    cols_1d = _index_to_d_indices(J[k],cols)
+    Ik = _permute_dof(I[k],row_perm)
+    Jk = _permute_dof(J[k],col_perm)
+    rows_1d = _index_to_d_indices(Ik,rows)
+    cols_1d = _index_to_d_indices(Jk,cols)
     _row_col_pair_to_nz_index!(cache,rows_1d,cols_1d,d_to_nz_pairs)
     dsd2fd[cache...] = I[k]+(J[k]-1)*nrows
   end
@@ -182,7 +197,11 @@ function _multivalue_d_sparse_dofs_to_full_dofs(
   nrows,
   ncols,
   ncomps_col,
-  ncomps_row
+  ncomps_row,
+  row_perm=nothing,
+  col_perm=nothing,
+  row_perm_1d=nothing,
+  col_perm_1d=nothing
   )
 
   nnz_sizes = univariate_nnz(a)
@@ -193,6 +212,8 @@ function _multivalue_d_sparse_dofs_to_full_dofs(
   ncomps = ncomps_row*ncomps_col
 
   i,j, = univariate_findnz(a)
+  i = _permute_1d_dofs(i,row_perm_1d)
+  j = _permute_1d_dofs(j,col_perm_1d)
   d_to_nz_pairs = map((id,jd)->map(CartesianIndex,id,jd),i,j)
 
   D = length(a.sparsities_1d)
@@ -200,8 +221,10 @@ function _multivalue_d_sparse_dofs_to_full_dofs(
   dsd2fd = zeros(Int,nnz_sizes...,ncomps)
 
   for k in eachindex(I)
-    I_node,I_comp = _fast_and_slow_index(I[k],nrows_no_comps)
-    J_node,J_comp = _fast_and_slow_index(J[k],ncols_no_comps)
+    Ik = _permute_dof(I[k],row_perm)
+    Jk = _permute_dof(J[k],col_perm)
+    I_node,I_comp = _fast_and_slow_index(Ik,nrows_no_comps)
+    J_node,J_comp = _fast_and_slow_index(Jk,ncols_no_comps)
     comp = I_comp+(J_comp-1)*ncomps_row
     rows_1d = _index_to_d_indices(I_node,rows_no_comps)
     cols_1d = _index_to_d_indices(J_node,cols_no_comps)
@@ -244,7 +267,6 @@ function trivial_symbolic_loop_matrix!(A,cellidsrows,cellidscols)
 
   touch! = FESpaces.TouchEntriesMap()
   touch_cache = return_cache(touch!,A,mat1,rows1,cols1)
-  caches = touch_cache,rows_cache,cols_cache
 
   for cell in 1:length(cellidscols)
     rows = getindex!(rows_cache,cellidsrows,cell)
@@ -295,3 +317,14 @@ function _index_to_d_indices(i::Integer,sD::NTuple{D,Integer}) where D
   i′ = fast_index(i,nD_minus_1)
   (_index_to_d_indices(i′,sD_minus_1)...,iD)
 end
+
+# `_index_to_d_indices` assumes the dof numbering it decomposes is already a dense
+# lexicographic (Cartesian) numbering over the D 1D axes. When `U`/`V` are not
+# `OrderedFESpace`s, this doesn't hold for their native dof ids, so `row_perm`/
+# `col_perm` (from `get_dof_perm`) translate native ids to their lexicographic
+# rank before decomposition; `nothing` means the numbering is already lex-ordered.
+_permute_dof(dof,::Nothing) = dof
+_permute_dof(dof,perm::AbstractVector) = perm[dof]
+
+_permute_1d_dofs(ids::Vector,::Nothing) = ids
+_permute_1d_dofs(ids::Vector,perms::Vector) = map((idsd,permd)->permd[idsd],ids,perms)

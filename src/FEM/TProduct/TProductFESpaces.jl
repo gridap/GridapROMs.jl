@@ -155,6 +155,28 @@ function DofMaps.get_sparsity(U::TProductFESpace,V::TProductFESpace,A::AbstractS
   return TProductSparsity(sparsity,sparsities_1d)
 end
 
+# `U.space`/`V.space` (and their `spaces_1d`) need not be `OrderedFESpace`s: their
+# native dof ids are translated to lexicographic rank via `get_dof_perm` before the
+# tensor-product sparsity decomposition. For already-ordered spaces this permutation
+# is the identity, so this works uniformly whether or not `OrderedFESpace` is used.
+function DofMaps.get_sparse_dof_map(a::TProductSparsity,U::TProductFESpace,V::TProductFESpace)
+  Tu = get_dof_eltype(U)
+  Tv = get_dof_eltype(V)
+  try
+    row_perm = DofMaps.get_dof_perm(V.space)
+    col_perm = DofMaps.get_dof_perm(U.space)
+    row_perm_1d = map(DofMaps.get_dof_perm,V.spaces_1d)
+    col_perm_1d = map(DofMaps.get_dof_perm,U.spaces_1d)
+    full_ids = DofMaps.get_d_sparse_dofs_to_full_dofs(Tu,Tv,a;row_perm,col_perm,row_perm_1d,col_perm_1d)
+    sparse_ids = sparsify_indices(full_ids)
+    SparseMatrixDofMap(sparse_ids,full_ids,a)
+  catch
+    @warn "Could not build sparse tensor-product dof mapping. Must represent the
+    jacobian using a linear dof map"
+    get_sparse_dof_map(a.sparsity,U,V)
+  end
+end
+
 function DofMaps.get_dof_map(V::TProductFESpace)
   T = get_dof_eltype(V)
   dof_map = get_dof_map(V.space)
@@ -334,35 +356,7 @@ function _get_cell_dof_comp_ids(space,cell_dof_ids,comp)
     end
   end
   Table(data,ptrs)
-  # T = eltype(cell_dof_ids)
-  # ncells = length(cell_dof_ids)
-  # new_cell_ids = Vector{T}(undef,ncells)
-  # cache_cell_dof_ids = array_cache(cell_dof_ids)
-  # @inbounds for icell in 1:ncells
-  #   cell_dofs = getindex!(cache_cell_dof_ids,cell_dof_ids,icell)
-  #   ids_comp = findall(map(cd->cd ∈ dofs,cell_dofs))
-  #   new_cell_ids[icell] = cell_dofs[ids_comp]
-  # end
-  # return Table(new_cell_ids)
 end
-
-# function _get_comp_to_dofs(space,dof)
-#   b = testitem(get_data(dof))
-#   ldof_to_comp = get_dof_to_comp(b)
-#   cell_dof_ids = get_cell_dof_ids(space)
-#   ndofs = num_free_dofs(space)+num_dirichlet_dofs(space)
-#   dof_to_comp = zeros(eltype(ldof_to_comp),ndofs)
-#   @inbounds for dofs_cell in cell_dof_ids
-#     for (ldof,dof) in enumerate(dofs_cell)
-#       if dof > 0
-#         dof_to_comp[dof] = ldof_to_comp[ldof]
-#       else
-#         dof_to_comp[-dof] = ldof_to_comp[ldof]
-#       end
-#     end
-#   end
-#   return dof_to_comp
-# end
 
 get_dof_to_comp(b) = @abstractmethod
 get_dof_to_comp(b::LagrangianDofBasis) = b.dof_to_comp

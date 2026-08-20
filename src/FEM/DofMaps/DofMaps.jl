@@ -143,6 +143,7 @@ export add_ordered_entries!
 include("OrderingMaps.jl")
 
 export OrderedFESpace
+export get_dof_perm
 include("OrderedFESpaces.jl")
 
 end # module
