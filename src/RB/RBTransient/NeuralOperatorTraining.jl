@@ -314,9 +314,6 @@ function RBSteady.train_neural_operator(
   
   y_in_stats = compute_zscore_stats(y_in)
   y_in = (y_in .- y_in_stats.μ) ./ y_in_stats.σ
-  
-  # Concatenation
-  uy_in = vcat(u_in,y_in)
 
   # Building the NOMAD model
   # The network input is: sensors + (physical coordinates + 1 for time)
@@ -326,7 +323,7 @@ function RBSteady.train_neural_operator(
   # Dataloader and Lux setup
   bs = resolve_batch_size(strategy.batch_size,N_tot)
   dataloader = MLUtils.DataLoader(
-    (uy_in,v_out); 
+    ((u_in,y_in),v_out);
     batchsize=bs,
     shuffle=true,
     partial=false
@@ -420,8 +417,8 @@ function RBSteady.train_neural_operator(
   # Dimensionality Check
   expected_u_in = length(pretrained_op.norm_stats.u_in.μ)
   expected_y_in = length(pretrained_op.norm_stats.y_in.μ)
-  @assert n_sensors == expected_u_in "Sensors input dimension mismatch: expected $expected_u_in, got $n_sensors."
-  @assert D_phys + 1 == expected_y_in "Coords (Space+Time) input dimension mismatch: expected $expected_y_in, got $(D_phys + 1)."
+  @assert n_sensors == expected_u_in "Sensors input dimension mismatch: expected $expected_u_in,got $n_sensors."
+  @assert D_phys + 1 == expected_y_in "Coords (Space+Time) input dimension mismatch: expected $expected_y_in,got $(D_phys + 1)."
 
   # Normalization setup
   if update_stats
@@ -439,8 +436,6 @@ function RBSteady.train_neural_operator(
   v_out ./= max_u
   u_in = (u_in .- u_in_stats.μ) ./ u_in_stats.σ
   y_in = (y_in .- y_in_stats.μ) ./ y_in_stats.σ
-  
-  uy_in = vcat(u_in,y_in)
 
   # Pretrained Network
   nomad_net = pretrained_op.model
@@ -450,7 +445,7 @@ function RBSteady.train_neural_operator(
   # Dataloader and Optimizer setup
   bs = resolve_batch_size(strategy.batch_size,N_tot)
   dataloader = MLUtils.DataLoader(
-    (uy_in,v_out); 
+    ((u_in,y_in),v_out);
     batchsize=bs,
     shuffle=true,
     partial=false

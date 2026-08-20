@@ -754,26 +754,30 @@ end
 
 """
     struct NOMAD{F}
-      layers::Tuple{Vararg{Int}}
+      approximator_layers::Tuple{Vararg{Int}}
+      decoder_layers::Tuple{Vararg{Int}}
       activation::F
     end
 
 Architectural configuration for a NOMAD network.
 """
 struct NOMAD{F}
-  layers::Tuple{Vararg{Int}}
+  approximator_layers::Tuple{Vararg{Int}}
+  decoder_layers::Tuple{Vararg{Int}}
   activation::F
 end
 
-function NOMAD(; layers,activation=tanh)
-  NOMAD(Tuple(layers),activation)
+function NOMAD(; approximator_layers, decoder_layers, activation=tanh)
+  NOMAD(Tuple(approximator_layers), Tuple(decoder_layers), activation)
 end
 
 """
   AutoNOMAD
 
 Automatic builder for NOMAD.
-Automatic inference of the input dimensions based on the problem.
+Automatically infers the input dimensions based on the problem.
+Requires defining the width and depth for both the Approximator (encoder)
+and the Decoder, as well as the latent space dimension.
 """
 Base.@kwdef struct AutoNOMAD{F}
   width::Int = 64

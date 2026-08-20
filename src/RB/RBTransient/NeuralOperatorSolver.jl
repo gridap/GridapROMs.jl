@@ -138,13 +138,10 @@ function Algebra.solve(
   # Normalization
   u_in = (u_in .- u_in_stats.μ) ./ u_in_stats.σ
   y_in = (y_in .- y_in_stats.μ) ./ y_in_stats.σ
-  
-  # Concatenation
-  uy_in = vcat(u_in, y_in)
 
   # Inference
   t = @timed begin
-    pred_cpu,_ = nomad_net(uy_in,ps,st)
+    pred_cpu,_ = nomad_net((u_in,y_in),ps,st)
   end
 
   # Denormalization

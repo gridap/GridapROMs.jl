@@ -39,12 +39,18 @@ end
 
 resolve_model(model::NOMAD,n_sensors_in::Int,n_coords_in::Int) = model
 
+# Resolve AutoNOMAD dimensions with symmetric sub-networks
 function resolve_model(config::AutoNOMAD,n_sensors_in::Int,n_coords_in::Int)
-  # Layer's dimension (ex. input = n_sensors_in + n_coords_in)
+  # Shared hidden layer structure
   hidden = ntuple(_ -> config.width,config.depth)
-  layers = (n_sensors_in + n_coords_in,hidden...,1) # Scalar output
   
-  NOMAD(layers,config.activation)
+  # Approximator: from n_sensors_in to a latent space of size 'width'
+  approximator_layers = (n_sensors_in,hidden...,config.width)
+  
+  # Decoder: from (latent space + n_coords_in) to 1 (scalar output)
+  decoder_layers = (config.width + n_coords_in,hidden...,1)
+  
+  NOMAD(approximator_layers,decoder_layers,config.activation)
 end
 
 # Coordinate Extraction
@@ -139,15 +145,49 @@ function build_lux_chain(layers::Tuple,activation)
   Lux.Chain(lux_layers...)
 end
 
+# Create a DeepONet layers
+function LuxDeepONet(branch_net,trunk_net)
+  Lux.Chain(
+    # Process inputs (u,y) independently,then matrix-multiply them
+    Lux.Parallel(
+      *; 
+      # Branch: process 'u' -> shape (Features,Batch)
+      # then transpose (adjoint) -> shape (Batch,Features)
+      branch = Lux.Chain(branch_net,Lux.WrappedFunction(adjoint)),
+      
+      # Trunk: process 'y' -> shape (Features,Points)
+      trunk = trunk_net
+    ),
+    # The '*' gives (Batch,Points). 
+    # Final transpose (adjoint) -> target shape: (Points,Batch)
+    Lux.WrappedFunction(adjoint)
+  )
+end
+
 function build_model(model::DeepONet)
   branch_net = build_lux_chain(model.branch_layers,model.activation)
   trunk_net  = build_lux_chain(model.trunk_layers,model.activation)
-  NeuralOperators.DeepONet(branch_net,trunk_net)
+  LuxDeepONet(branch_net,trunk_net)
+end
+
+function LuxNOMAD(approximator_net,decoder_net)
+  Lux.Chain(
+    # Apply approximator to 'u',pass 'y' untouched,and concatenate them (vcat)
+    Lux.Parallel(
+      vcat; 
+      approximator = approximator_net,
+      y_pass_through = Lux.NoOpLayer()
+    ),
+    # Pass the concatenated vector [approximator(u); y] to the decoder
+    decoder_net
+  )
 end
 
 function build_model(model::NOMAD)
-  decoder_net = build_lux_chain(model.layers,model.activation)
-  NeuralOperators.NOMAD(decoder_net)
+  approximator_net = build_lux_chain(model.approximator_layers,model.activation)
+  decoder_net = build_lux_chain(model.decoder_layers,model.activation)
+  
+  LuxNOMAD(approximator_net,decoder_net)
 end
 
 # Training loop
@@ -205,9 +245,12 @@ function train_nomad!(train_state,dataloader,lr_scheduler;max_epochs)
     for epoch in 1:max_epochs
       local current_loss = 0.0f0
       
-      for (uy_batch,v_batch) in dataloader
+      for ((u_batch,y_batch),v_batch) in dataloader
         # Single concatenated tensor (Sensors + Coordinates)
-        batch_dev = (uy_batch |> XDEV,v_batch |> XDEV)
+        batch_dev = (
+          (u_batch |> XDEV,y_batch |> XDEV),
+          v_batch |> XDEV
+        )
         
         _,loss_val,_,train_state = Lux.Training.single_train_step!(
             AutoEnzyme(),
@@ -383,8 +426,8 @@ function train_neural_operator(
   # Dimensions check for fine-tuning
   expected_branch_in = length(pretrained_op.norm_stats.branch.μ)
   expected_trunk_in  = length(pretrained_op.norm_stats.trunk.μ)
-  @assert n_branch_in == expected_branch_in "Branch dimension mismatch: expected $expected_branch_in, got $n_branch_in. Check branch_sampler."
-  @assert n_trunk_in == expected_trunk_in "Trunk dimension mismatch: expected $expected_trunk_in, got $n_trunk_in."
+  @assert n_branch_in == expected_branch_in "Branch dimension mismatch: expected $expected_branch_in,got $n_branch_in. Check branch_sampler."
+  @assert n_trunk_in == expected_trunk_in "Trunk dimension mismatch: expected $expected_trunk_in,got $n_trunk_in."
 
   # Normalization setup
   if update_stats
@@ -497,9 +540,6 @@ function train_neural_operator(
   y_in_stats = compute_zscore_stats(y_in)
   y_in = (y_in .- y_in_stats.μ) ./ y_in_stats.σ
   
-  # sensors and coordinates combined into a single feature matrix
-  uy_in = vcat(u_in,y_in)
-  
   # Building the NOMAD model
   model_def = resolve_model(strategy.model,n_sensors,D_phys)
   nomad_net = build_model(model_def)
@@ -507,7 +547,7 @@ function train_neural_operator(
   # DataLoader and Lux setup
   bs = resolve_batch_size(strategy.batch_size,N_tot)
   dataloader = MLUtils.DataLoader(
-    (uy_in,v_out);
+    ((u_in,y_in),v_out);
     batchsize=bs,
     shuffle=true,
     partial=false
@@ -608,8 +648,6 @@ function train_neural_operator(
   u_in = (u_in .- u_in_stats.μ) ./ u_in_stats.σ
   y_in = (y_in .- y_in_stats.μ) ./ y_in_stats.σ
   
-  uy_in = vcat(u_in,y_in)
-  
   # Pretrained model
   nomad_net = pretrained_op.model
   ps = pretrained_op.model_weights |> XDEV
@@ -618,7 +656,7 @@ function train_neural_operator(
   # Dataloader and optimization setup
   bs = resolve_batch_size(strategy.batch_size,N_tot)
   dataloader = MLUtils.DataLoader(
-    (uy_in,v_out);
+    ((u_in,y_in),v_out);
     batchsize=bs,
     shuffle=true,
     partial=false
