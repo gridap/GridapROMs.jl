@@ -652,12 +652,6 @@ end
 get_reduction(r::NNHyperReduction) = r.reduction
 get_strategy(r::NNHyperReduction) = r.strategy
 
-#@enum VerbosityLevel begin
-#    VERBOSITY_NONE = 0
-#    VERBOSITY_LOW  = 1
-#    VERBOSITY_HIGH = 2
-#end
-
 Base.@kwdef struct NeuralOpStrategy{M,S}
   model::M
   epochs::Int = 20000
@@ -666,8 +660,8 @@ Base.@kwdef struct NeuralOpStrategy{M,S}
   step_t::Int = 1
   branch_sampler::Function = identity
   lr_scheduler::S = CosineAnnealing()
-  #verbose::VerbosityLevel = VERBOSITY_LOW
-  #print_every::Int = 500
+  verbose::Bool = true
+  print_every::Int = 500
 end
 
 struct NeuralOpReduction{M,S} <: Reduction{NoReductionStyle,EuclideanNorm}

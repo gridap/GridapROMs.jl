@@ -37,7 +37,7 @@ function RBSteady.train_neural_operator(
 
   # Safety check for proper spatial mapping
   if !(V isa OrderedFESpace || (V isa TrialFESpace && V.space isa OrderedFESpace))
-    @warn "The FE space is not an OrderedFESpace. The order of the extracted coordinates might not match the DoF order in target_data. Training results might be incorrect."
+    throw(ArgumentError("The FE space MUST be an OrderedFESpace. Standard FESpaces do not guarantee DoF ordering, which would silently corrupt the neural operator training mapping."))
   end
 
   coords_raw = get_coords_with_order(V) # Shape: (D_phys,N_dofs)
@@ -103,10 +103,13 @@ function RBSteady.train_neural_operator(
 
   opt = Optimisers.Adam(initial_lr)
   train_state = Lux.Training.TrainState(deepONet,ps,st,opt)
+  
+  # Verbosity level setup
+  logger = TrainingLog("DeepONet",strategy.epochs;verbose=strategy.verbose,print_every=strategy.print_every)
 
   # Training execution defined in RBSteady
   ps_trained,st_trained =
-    train_deeponet!(train_state,dataloader,x_data_dev,strategy.lr_scheduler; max_epochs=strategy.epochs)
+    train_deeponet!(train_state,dataloader,x_data_dev,strategy.lr_scheduler;logger=logger)
 
   st_test = Lux.testmode(st_trained) |> CDEV
   
@@ -150,7 +153,7 @@ function RBSteady.train_neural_operator(
   V = get_test(feop)
 
   if !(V isa OrderedFESpace || (V isa TrialFESpace && V.space isa OrderedFESpace))
-    @warn "The FE space is not an OrderedFESpace. The order of the extracted coordinates might not match the DoF order in target_data. Training results might be incorrect."
+    throw(ArgumentError("The FE space MUST be an OrderedFESpace. Standard FESpaces do not guarantee DoF ordering, which would silently corrupt the neural operator training mapping."))
   end
 
   coords_raw = get_coords_with_order(V) 
@@ -189,12 +192,12 @@ function RBSteady.train_neural_operator(
 
   # Normalization setup
   if update_stats
-    @info "Updating the normalization statistics."
+    strategy.verbose && @info "Updating the normalization statistics."
     max_u = maximum(abs.(u_train))
     branch_stats = compute_zscore_stats(params_matrix)
     trunk_stats = compute_zscore_stats(x_train)
   else
-    @info "Keeping the normalization statistics from the pre-trained model."
+    strategy.verbose && @info "Keeping the normalization statistics from the pre-trained model."
     max_u = pretrained_op.max_u
     branch_stats = pretrained_op.norm_stats.branch
     trunk_stats = pretrained_op.norm_stats.trunk
@@ -218,10 +221,13 @@ function RBSteady.train_neural_operator(
   initial_lr = get_initial_lr(strategy.lr_scheduler)
   opt = Optimisers.Adam(initial_lr)
   train_state = Lux.Training.TrainState(deepONet,ps,st,opt)
+  
+  # Verbosity level setup
+  logger = TrainingLog("DeepONet",strategy.epochs;verbose=strategy.verbose,print_every=strategy.print_every)
 
   # Training
   ps_trained,st_trained = train_deeponet!(
-    train_state,dataloader,x_data_dev,strategy.lr_scheduler; max_epochs=strategy.epochs
+    train_state,dataloader,x_data_dev,strategy.lr_scheduler;logger=logger
   )
 
   st_test = Lux.testmode(st_trained) |> CDEV
@@ -270,7 +276,7 @@ function RBSteady.train_neural_operator(
   # Coordinates extraction (Trunk input)
   V = get_test(feop)
   if !(V isa OrderedFESpace || (V isa TrialFESpace && V.space isa OrderedFESpace))
-    @warn "The FE space is not an OrderedFESpace. The order of the extracted coordinates might not match the DoF order in target_data. Training results might be incorrect."
+    throw(ArgumentError("The FE space MUST be an OrderedFESpace. Standard FESpaces do not guarantee DoF ordering, which would silently corrupt the neural operator training mapping."))
   end
 
   coords_raw = get_coords_with_order(V) # Shape: (D_phys,N_dofs)
@@ -336,10 +342,13 @@ function RBSteady.train_neural_operator(
   initial_lr = get_initial_lr(strategy.lr_scheduler)
   opt = Optimisers.Adam(initial_lr)
   train_state = Lux.Training.TrainState(nomad_net,ps,st,opt)
+  
+  # Verbosity level setup
+  logger = TrainingLog("NOMAD",strategy.epochs;verbose=strategy.verbose,print_every=strategy.print_every)
 
   # Running the pipeline
   ps_trained,st_trained = train_nomad!(
-    train_state,dataloader,strategy.lr_scheduler; max_epochs=strategy.epochs
+    train_state,dataloader,strategy.lr_scheduler;logger=logger
   )
 
   st_test = Lux.testmode(st_trained) |> CDEV
@@ -388,7 +397,7 @@ function RBSteady.train_neural_operator(
 
   V = get_test(feop)
   if !(V isa OrderedFESpace || (V isa TrialFESpace && V.space isa OrderedFESpace))
-    @warn "The FE space is not an OrderedFESpace. The order of the extracted coordinates might not match the DoF order in target_data. Training results might be incorrect."
+    throw(ArgumentError("The FE space MUST be an OrderedFESpace. Standard FESpaces do not guarantee DoF ordering, which would silently corrupt the neural operator training mapping."))
   end
 
   coords_raw = get_coords_with_order(V) 
@@ -422,12 +431,12 @@ function RBSteady.train_neural_operator(
 
   # Normalization setup
   if update_stats
-    @info "Updating the normalization statistics."
+    strategy.verbose && @info "Updating the normalization statistics."
     max_u = maximum(abs.(v_out))
     u_in_stats = compute_zscore_stats(u_in)
     y_in_stats = compute_zscore_stats(y_in)
   else
-    @info "Keeping the normalization statistics from the pre-trained model."
+    strategy.verbose && @info "Keeping the normalization statistics from the pre-trained model."
     max_u = pretrained_op.max_u
     u_in_stats = pretrained_op.norm_stats.u_in
     y_in_stats = pretrained_op.norm_stats.y_in
@@ -454,10 +463,13 @@ function RBSteady.train_neural_operator(
   initial_lr = get_initial_lr(strategy.lr_scheduler)
   opt = Optimisers.Adam(initial_lr)
   train_state = Lux.Training.TrainState(nomad_net,ps,st,opt)
+  
+  # Verbosity level setup
+  logger = TrainingLog("NOMAD",strategy.epochs;verbose=strategy.verbose,print_every=strategy.print_every)
 
   # Training
   ps_trained,st_trained = train_nomad!(
-    train_state,dataloader,strategy.lr_scheduler; max_epochs=strategy.epochs
+    train_state,dataloader,strategy.lr_scheduler;logger=logger
   )
 
   st_test = Lux.testmode(st_trained) |> CDEV

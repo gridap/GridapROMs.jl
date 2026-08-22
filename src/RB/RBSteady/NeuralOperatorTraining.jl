@@ -192,15 +192,11 @@ end
 
 # Training loop
 
-function train_deeponet!(train_state,dataloader,x_data_dev,lr_scheduler;max_epochs)
-  #if verbose >= VERBOSITY_LOW
-    @info "Starting Training on Reactant Device (First epoch compiles XLA...)"
-  #end
-  t_start = time()
-  t_start_fast = time()
+function train_deeponet!(train_state,dataloader,x_data_dev,lr_scheduler;logger::TrainingLog)
+  init!(logger)
 
   Reactant.with_config(; dot_general_precision=PrecisionConfig.HIGH) do
-    for epoch = 1:max_epochs
+    for epoch = 1:logger.max_epochs
       local current_loss = 0.0f0
 
       for (f_batch,u_batch) in dataloader
@@ -217,34 +213,21 @@ function train_deeponet!(train_state,dataloader,x_data_dev,lr_scheduler;max_epoc
       end
       current_loss /= length(dataloader)
 
-      step_scheduler!(lr_scheduler,train_state.optimizer_state,epoch,max_epochs,current_loss)
+      step_scheduler!(lr_scheduler,train_state.optimizer_state,epoch,logger.max_epochs,current_loss;verbose=logger.verbose)
 
-      if epoch == 1
-        comp_mins = round((time() - t_start) / 60,digits=2)
-        t_start_fast = time()
-        @info "Compilation finished in $comp_mins min. Fast training started."
-      elseif epoch % 500 == 0
-        elapsed_fast = time() - t_start_fast
-        time_per_epoch = elapsed_fast / (epoch - 1)
-        eta_seconds = time_per_epoch * (max_epochs - epoch)
-        println(
-          "Epoch: $epoch \t Loss: $(Float32(current_loss)) \t ETA: $(format_eta(eta_seconds))"
-        )
-      end
+      update!(logger, epoch, current_loss)
     end
   end
 
-  @info "Training Completed in $(round((time() - t_start) / 60,digits=2)) minutes"
+  finalize!(logger)
   return train_state.parameters,train_state.states
 end
 
-function train_nomad!(train_state,dataloader,lr_scheduler;max_epochs)
-  @info "Starting NOMAD Training on Reactant Device (First epoch compiles XLA...)"
-  t_start = time()
-  t_start_fast = time()
+function train_nomad!(train_state,dataloader,lr_scheduler;logger::TrainingLog)
+  init!(logger)
   
   Reactant.with_config(; dot_general_precision=PrecisionConfig.HIGH) do
-    for epoch in 1:max_epochs
+    for epoch in 1:logger.max_epochs
       local current_loss = 0.0f0
       
       for ((u_batch,y_batch),v_batch) in dataloader
@@ -265,24 +248,13 @@ function train_nomad!(train_state,dataloader,lr_scheduler;max_epochs)
       end
       current_loss /= length(dataloader)
       
-      step_scheduler!(lr_scheduler,train_state.optimizer_state,epoch,max_epochs,current_loss)
+      step_scheduler!(lr_scheduler,train_state.optimizer_state,epoch,logger.max_epochs,current_loss;verbose=logger.verbose)
       
-      if epoch == 1
-        comp_mins = round((time() - t_start) / 60,digits=2)
-        t_start_fast = time()
-        @info "Compilation finished in $comp_mins min. Fast training started."
-      elseif epoch % 500 == 0
-        elapsed_fast = time() - t_start_fast
-        time_per_epoch = elapsed_fast / (epoch - 1)
-        eta_seconds = time_per_epoch * (max_epochs - epoch)
-        println(
-          "Epoch: $epoch \t Loss: $(Float32(current_loss)) \t ETA: $(format_eta(eta_seconds))"
-        )
-      end
+      update!(logger, epoch, current_loss)
     end
   end
   
-  @info "Training Completed in $(round((time() - t_start) / 60,digits=2)) minutes"
+  finalize!(logger)
   return train_state.parameters,train_state.states
 end
 
@@ -319,7 +291,7 @@ function train_neural_operator(
 
   # Safety check for proper spatial mapping
   if !(V isa OrderedFESpace || (V isa TrialFESpace && V.space isa OrderedFESpace))
-    @warn "The FE space is not an OrderedFESpace. The order of the extracted coordinates might not match the DoF order in target_data. Training results might be incorrect."
+    throw(ArgumentError("The FE space MUST be an OrderedFESpace. Standard FESpaces do not guarantee DoF ordering, which would silently corrupt the neural operator training mapping."))
   end
   #=coords_raw = get_coords_with_order(V)
   D_phys = ndims(coords_raw)
@@ -378,10 +350,13 @@ function train_neural_operator(
 
   opt = Optimisers.Adam(initial_lr)
   train_state = Lux.Training.TrainState(deepONet,ps,st,opt)
+  
+  # Verbosity level setup
+  logger = TrainingLog("DeepONet",strategy.epochs;verbose=strategy.verbose,print_every=strategy.print_every)
 
   # Executing the pipeline
   ps_trained,st_trained =
-    train_deeponet!(train_state,dataloader,x_data_dev,strategy.lr_scheduler;max_epochs=strategy.epochs)
+    train_deeponet!(train_state,dataloader,x_data_dev,strategy.lr_scheduler;logger=logger)
     
   st_test = Lux.testmode(st_trained) |> CDEV
   
@@ -416,7 +391,7 @@ function train_neural_operator(
 
   V = get_test(feop)
   if !(V isa OrderedFESpace || (V isa TrialFESpace && V.space isa OrderedFESpace))
-    @warn "The FE space is not an OrderedFESpace. The order of the extracted coordinates might not match the DoF order in target_data. Training results might be incorrect."
+    throw(ArgumentError("The FE space MUST be an OrderedFESpace. Standard FESpaces do not guarantee DoF ordering, which would silently corrupt the neural operator training mapping."))
   end
   
   x_train_full = get_coords_with_order(V)
@@ -433,12 +408,12 @@ function train_neural_operator(
 
   # Normalization setup
   if update_stats
-    @info "Recomputing the normalization statistics."
+    strategy.verbose && @info "Recomputing the normalization statistics."
     max_u = maximum(abs.(target_data))
     branch_stats = compute_zscore_stats(params_matrix)
     trunk_stats = compute_zscore_stats(x_train)
   else
-    @info "Inheriting the normalization statistics from the pre-trained model."
+    strategy.verbose && @info "Inheriting the normalization statistics from the pre-trained model."
     max_u = pretrained_op.max_u
     branch_stats = pretrained_op.norm_stats.branch
     trunk_stats = pretrained_op.norm_stats.trunk
@@ -468,10 +443,13 @@ function train_neural_operator(
   initial_lr = get_initial_lr(strategy.lr_scheduler)
   opt = Optimisers.Adam(initial_lr) # New LR
   train_state = Lux.Training.TrainState(deepONet,ps,st,opt)
+  
+  # Verbosity level setup
+  logger = TrainingLog("DeepONet",strategy.epochs;verbose=strategy.verbose,print_every=strategy.print_every)
 
   # Training
   ps_trained,st_trained = train_deeponet!(
-    train_state,dataloader,x_data_dev,strategy.lr_scheduler;max_epochs=strategy.epochs
+    train_state,dataloader,x_data_dev,strategy.lr_scheduler;logger=logger
   )
     
   st_test = Lux.testmode(st_trained) |> CDEV
@@ -507,7 +485,7 @@ function train_neural_operator(
   # DoF coordinates extraction (like trunk input in DeepONet)
   V = get_test(feop)
   if !(V isa OrderedFESpace || (V isa TrialFESpace && V.space isa OrderedFESpace))
-    @warn "The FE space is not an OrderedFESpace. The order of the extracted coordinates might not match the DoF order in target_data. Training results might be incorrect."
+    throw(ArgumentError("The FE space MUST be an OrderedFESpace. Standard FESpaces do not guarantee DoF ordering, which would silently corrupt the neural operator training mapping."))
   end
   
   x_train_full = get_coords_with_order(V) # shape: (D_phys,full_N_dofs)
@@ -563,9 +541,12 @@ function train_neural_operator(
   opt = Optimisers.Adam(initial_lr)
   train_state = Lux.Training.TrainState(nomad_net,ps,st,opt)
   
+  # Verbosity level setup
+  logger = TrainingLog("NOMAD",strategy.epochs;verbose=strategy.verbose,print_every=strategy.print_every)
+  
   # Running the pipeline
   ps_trained,st_trained = train_nomad!(
-    train_state,dataloader,strategy.lr_scheduler;max_epochs=strategy.epochs
+    train_state,dataloader,strategy.lr_scheduler;logger=logger
   )
     
   st_test = Lux.testmode(st_trained) |> CDEV
@@ -602,7 +583,7 @@ function train_neural_operator(
   
   V = get_test(feop)
   if !(V isa OrderedFESpace || (V isa TrialFESpace && V.space isa OrderedFESpace))
-    @warn "The FE space is not an OrderedFESpace. The order of the extracted coordinates might not match the DoF order in target_data. Training results might be incorrect."
+    throw(ArgumentError("The FE space MUST be an OrderedFESpace. Standard FESpaces do not guarantee DoF ordering, which would silently corrupt the neural operator training mapping."))
   end
   
   x_train_full = get_coords_with_order(V) 
@@ -635,12 +616,12 @@ function train_neural_operator(
 
   # Normalization
   if update_stats
-    @info "Aggiornamento delle statistiche di normalizzazione (Transfer Learning)."
+    strategy.verbose && @info "Recomputing the normalization statistics."
     max_u = maximum(abs.(v_out))
     u_in_stats = compute_zscore_stats(u_in)
     y_in_stats = compute_zscore_stats(y_in)
   else
-    @info "Eredito le statistiche di normalizzazione dal modello pre-addestrato (Continual Learning)."
+    strategy.verbose && @info "Inheriting the normalization statistics from the pre-trained model."
     max_u = pretrained_op.max_u
     u_in_stats = pretrained_op.norm_stats.u_in
     y_in_stats = pretrained_op.norm_stats.y_in
@@ -668,9 +649,12 @@ function train_neural_operator(
   opt = Optimisers.Adam(initial_lr)
   train_state = Lux.Training.TrainState(nomad_net,ps,st,opt)
   
+  # Verbosity level setup
+  logger = TrainingLog("NOMAD",strategy.epochs;verbose=strategy.verbose,print_every=strategy.print_every)
+
   # Training
   ps_trained,st_trained = train_nomad!(
-    train_state,dataloader,strategy.lr_scheduler;max_epochs=strategy.epochs
+    train_state,dataloader,strategy.lr_scheduler;logger=logger
   )
     
   st_test = Lux.testmode(st_trained) |> CDEV

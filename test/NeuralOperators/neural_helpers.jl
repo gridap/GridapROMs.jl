@@ -14,21 +14,21 @@ using Optimisers
   @test RBSteady.format_eta(3665) == "01:01:05"
   
   # batch_size resolution
-  @test RBSteady.resolve_batch_size(0, 100) == 100
-  @test RBSteady.resolve_batch_size(-5, 100) == 100
-  @test RBSteady.resolve_batch_size(32, 100) == 32
+  @test RBSteady.resolve_batch_size(0,100) == 100
+  @test RBSteady.resolve_batch_size(-5,100) == 100
+  @test RBSteady.resolve_batch_size(32,100) == 32
 end
 
 @testset "Z-Score stats computation" begin
-  data = Float32[1 2 3; 4 5 6] # 2 features, 3 samples
+  data = Float32[1 2 3; 4 5 6] # 2 features,3 samples
   stats = RBSteady.compute_zscore_stats(data)
   
-  @test size(stats.μ) == (2, 1)
-  @test size(stats.σ) == (2, 1)
+  @test size(stats.μ) == (2,1)
+  @test size(stats.σ) == (2,1)
   @test stats.μ[1] ≈ 2.0f0
   
   # Array of ones => dev = 0 converted to 1
-  data_const = ones(Float32, 2, 10)
+  data_const = ones(Float32,2,10)
   stats_const = RBSteady.compute_zscore_stats(data_const)
   @test all(stats_const.μ .≈ 1.0f0)
   @test all(stats_const.σ .== 1.0f0) # Forced to 1.0
@@ -36,57 +36,57 @@ end
 
 @testset "Learning Rate Schedulers" begin
   # CosineAnnealing
-  ca = CosineAnnealing(lr_max=1.0f0, lr_min=0.0f0)
+  ca = CosineAnnealing(lr_max=1.0f0,lr_min=0.0f0)
   @test get_initial_lr(ca) == 1.0f0
   
-  opt_state = Optimisers.setup(Adam(1.0f0), [1.0f0])
-  # Half training (50/100), cos(pi/2) = 0, lr = 0.5
-  RBSteady.step_scheduler!(ca, opt_state, 50, 100, 1.0f0)
+  opt_state = Optimisers.setup(Adam(1.0f0),[1.0f0])
+  # Half training (50/100),cos(pi/2) = 0,lr = 0.5
+  RBSteady.step_scheduler!(ca,opt_state,50,100,1.0f0)
   @test opt_state.rule.eta ≈ 0.5f0
   
   # ReduceLROnPlateau
-  plat = ReduceLROnPlateau(patience=2, factor=0.5f0, min_lr=0.1f0, start_lr=1.0f0)
+  plat = ReduceLROnPlateau(patience=2,factor=0.5f0,min_lr=0.1f0,start_lr=1.0f0)
   @test get_initial_lr(plat) == 1.0f0
   
-  opt_state_plat = Optimisers.setup(Adam(1.0f0), [1.0f0])
+  opt_state_plat = Optimisers.setup(Adam(1.0f0),[1.0f0])
   
   # Epoch 1: improvement
-  RBSteady.step_scheduler!(plat, opt_state_plat, 1, 100, 0.5f0)
+  RBSteady.step_scheduler!(plat,opt_state_plat,1,100,0.5f0)
   @test plat.wait == 0
   
   # Epoch 2: No improvement
-  RBSteady.step_scheduler!(plat, opt_state_plat, 2, 100, 0.6f0)
+  RBSteady.step_scheduler!(plat,opt_state_plat,2,100,0.6f0)
   @test plat.wait == 1
   @test opt_state_plat.rule.eta == 1.0f0 # No drop yet
   
-  # Epoch 3: Patience limit reached, drop lr by half
-  RBSteady.step_scheduler!(plat, opt_state_plat, 3, 100, 0.6f0)
+  # Epoch 3: Patience limit reached,drop lr by half
+  RBSteady.step_scheduler!(plat,opt_state_plat,3,100,0.6f0)
   @test opt_state_plat.rule.eta ≈ 0.5f0
   @test plat.wait == 0 # Patience resetted 
 end
 
 @testset "Model Resolution and Arch Building" begin
   # AutoDeepONet
-  config_don = AutoDeepONet(width=32, depth=2)
-  model_don = RBSteady.resolve_model(config_don, 5, 2)
-  @test model_don.branch_layers == (5, 32, 32, 32)
-  @test model_don.trunk_layers == (2, 32, 32, 32)
+  config_don = AutoDeepONet(width=32,depth=2)
+  model_don = RBSteady.resolve_model(config_don,5,2)
+  @test model_don.branch_layers == (5,32,32,32)
+  @test model_don.trunk_layers == (2,32,32,32)
   
   # AutoNOMAD
-  config_nomad = AutoNOMAD(width=64, depth=3)
-  model_nomad = RBSteady.resolve_model(config_nomad, 10, 3)
-  @test model_nomad.approximator_layers == (10, 64, 64, 64, 64)
-  @test model_nomad.decoder_layers == (67, 64, 64, 64, 1)
+  config_nomad = AutoNOMAD(width=64,depth=3)
+  model_nomad = RBSteady.resolve_model(config_nomad,10,3)
+  @test model_nomad.approximator_layers == (10,64,64,64,64)
+  @test model_nomad.decoder_layers == (67,64,64,64,1)
 
   # Explicit Models dispatch
-  explicit_don = DeepONet(branch_layers=(5, 10), trunk_layers=(2, 10), activation=tanh)
-  @test RBSteady.resolve_model(explicit_don, 5, 2) === explicit_don
+  explicit_don = DeepONet(branch_layers=(5,10),trunk_layers=(2,10),activation=tanh)
+  @test RBSteady.resolve_model(explicit_don,5,2) === explicit_don
 
-  explicit_nomad = NOMAD(approximator_layers=(10, 10), decoder_layers=(13, 1), activation=tanh)
-  @test RBSteady.resolve_model(explicit_nomad, 10, 3) === explicit_nomad
+  explicit_nomad = NOMAD(approximator_layers=(10,10),decoder_layers=(13,1),activation=tanh)
+  @test RBSteady.resolve_model(explicit_nomad,10,3) === explicit_nomad
 
   # build_lux_chain
-  chain = RBSteady.build_lux_chain((2, 10, 10, 1), tanh)
+  chain = RBSteady.build_lux_chain((2,10,10,1),tanh)
   @test chain isa Lux.Chain
   @test length(chain.layers) == 3
   
@@ -102,16 +102,16 @@ end
   # LuxDeepONet and LuxNOMAD
   branch_net = Lux.Dense(5 => 10)
   trunk_net = Lux.Dense(2 => 10)
-  lux_don = RBSteady.LuxDeepONet(branch_net, trunk_net)
+  lux_don = RBSteady.LuxDeepONet(branch_net,trunk_net)
   
   @test lux_don isa Lux.Chain
-  @test hasproperty(lux_don.layers, :layer_1)
+  @test hasproperty(lux_don.layers,:layer_1)
   @test lux_don.layers.layer_1 isa Lux.Parallel
   @test lux_don.layers.layer_1.connection == *
   
   approx_net = Lux.Dense(10 => 10)
   dec_net = Lux.Dense(13 => 1)
-  lux_nomad = RBSteady.LuxNOMAD(approx_net, dec_net)
+  lux_nomad = RBSteady.LuxNOMAD(approx_net,dec_net)
   
   @test lux_nomad isa Lux.Chain
   @test lux_nomad.layers.layer_1 isa Lux.Parallel
@@ -120,21 +120,32 @@ end
 end
 
 @testset "Coordinate Extraction with OrderedFESpace" begin
-  # Small 1D mesh: domain (0, 1) with 2 elements -> Nodes: 0.0, 0.5, 1.0
-  model = CartesianDiscreteModel((0.0, 1.0), (2,))
-  reffe = ReferenceFE(lagrangian, Float64, 1)
+  # Small 1D mesh: domain (0,1) with 2 elements -> Nodes: 0.0,0.5,1.0
+  model = CartesianDiscreteModel((0.0,1.0),(2,))
+  reffe = ReferenceFE(lagrangian,Float64,1)
   
   # Space with no boundary conditions -> 3 Free DoFs
-  V_std = FESpace(model, reffe)
+  V_std = FESpace(model,reffe)
   V = OrderedFESpace(V_std)
   
   coords = RBSteady.get_coords_with_order(V)
   
-  @test size(coords) == (1, 3) # (D_phys, N_dofs)
+  @test size(coords) == (1,3) # (D_phys,N_dofs)
   
   expected_coords = Float32[0.0 0.5 1.0]
   
   @test sort(vec(coords)) ≈ sort(vec(expected_coords))
+end
+
+# Dummy Scheduler to test interface fallback
+struct DummyScheduler <: RBSteady.AbstractLRScheduler end
+
+@testset "AbstractLRScheduler Interface Fallbacks" begin
+  dummy = DummyScheduler()
+  
+  # Should throw ErrorException if methods are not implemented
+  @test_throws ErrorException RBSteady.get_initial_lr(dummy)
+  @test_throws ErrorException RBSteady.step_scheduler!(dummy,nothing,1,10,0.5f0)
 end
 
 end # module

@@ -2,17 +2,9 @@ abstract type AbstractLRScheduler end
 
 # Helpers
 
-"""
-  get_initial_lr(s::AbstractLRScheduler)
-Returns the initial learning rate to setup the optimiser.
-"""
 get_initial_lr(s::AbstractLRScheduler) = error("get_initial_lr not implemented for $(typeof(s))")
 
-"""
-  step_scheduler!(s::AbstractLRScheduler, opt_state, epoch::Int, loss)
-Updates the learning rate of the optimiser.
-"""
-step_scheduler!(s::AbstractLRScheduler,opt_state,epoch::Int,total_epochs::Int,loss) = error("step_scheduler! not implemented")
+step_scheduler!(s::AbstractLRScheduler,opt_state,epoch::Int,total_epochs::Int,loss;verbose::Bool=false) = error("step_scheduler! not implemented")
 
 """
   CosineAnnealing
@@ -34,21 +26,7 @@ CosineAnnealing(;lr_max=0.001f0,lr_min=1f-6) = CosineAnnealing(lr_max,lr_min)
   
 get_initial_lr(s::CosineAnnealing) = s.lr_max
 
-"""
-  step_scheduler!(scheduler::CosineAnnealing,opt_state,epoch::Int,_)
-
-Calculates the new learning rate for the current `epoch` using the Cosine Annealing
-formula and updates the optimiser state in-place via `Optimisers.adjust!`.
-
-# Arguments
-- `scheduler::CosineAnnealing`: The initialized scheduler instance.
-- `opt_state`: The current state of the Optimisers.jl optimiser.
-- `epoch::Int`: The current training epoch.
-- `total_epochs::Int`: Max number of epochs of the training.
-- `_`: The current training loss (ignored in this time-based scheduler, but
-  required to maintain a unified interface via Multiple Dispatch).
-"""
-function step_scheduler!(scheduler::CosineAnnealing,opt_state,epoch::Int,total_epochs::Int,_)
+function step_scheduler!(scheduler::CosineAnnealing,opt_state,epoch::Int,total_epochs::Int,_loss;verbose::Bool=false)
   t = min(epoch,total_epochs)
   cos_val = cos(π * (t / total_epochs))
   new_lr = scheduler.lr_min + 0.5f0 * (scheduler.lr_max - scheduler.lr_min) * (1.0f0 + Float32(cos_val))
@@ -80,19 +58,7 @@ ReduceLROnPlateau(;
 
 get_initial_lr(s::ReduceLROnPlateau) = s.current_lr
 
-"""
-    step_scheduler!(scheduler::ReduceLROnPlateau, opt_state, _, current_loss)
-
-Dispatches the plateau logic. Updates `opt_state`.
-
-# Arguments
-- `scheduler::ReduceLROnPlateau`: The initialized scheduler instance.
-- `opt_state`: The current state of the Optimisers.jl optimiser.
-- `_::Int`: The current training epoch (required to maintain a unified interface).
-- `_::Int`: Max number of epochs of the training (required to maintain a unified interface).
-- `current_loss`: The current training loss.
-"""
-function step_scheduler!(scheduler::ReduceLROnPlateau,opt_state,_::Int,_::Int,current_loss)
+function step_scheduler!(scheduler::ReduceLROnPlateau,opt_state,_epoch::Int,_total_epochs::Int,current_loss;verbose::Bool=false)
   if current_loss < scheduler.best_loss
     scheduler.best_loss = current_loss
     scheduler.wait = 0
@@ -103,7 +69,7 @@ function step_scheduler!(scheduler::ReduceLROnPlateau,opt_state,_::Int,_::Int,cu
   if scheduler.wait >= scheduler.patience
     new_lr = max(scheduler.current_lr * scheduler.factor,scheduler.min_lr)
     if new_lr < scheduler.current_lr
-      @info "Plateau reached: LR decreased from $(scheduler.current_lr) to $new_lr"
+      verbose && @info "Plateau reached: LR decreased from $(scheduler.current_lr) to $new_lr"
       scheduler.current_lr = new_lr
       Optimisers.adjust!(opt_state,new_lr)
     end

@@ -137,6 +137,13 @@ export step_scheduler!
 export get_initial_lr
 include("LRSchedulers.jl")
 
+export VerbosityLevel
+export VERBOSITY_NONE
+export VERBOSITY_LOW
+export VERBOSITY_HIGH
+export TrainingLog
+include("TrainingLogs.jl")
+
 export ReductionStyle
 export NoReductionStyle
 export SearchSVDRank
