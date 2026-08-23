@@ -53,50 +53,6 @@ function resolve_model(config::AutoNOMAD,n_sensors_in::Int,n_coords_in::Int)
   NOMAD(approximator_layers,decoder_layers,config.activation)
 end
 
-# Coordinate Extraction
-#=
-function get_coords_with_order(space::SingleFieldFESpace)
-  orders = get_polynomial_orders(space)
-  trian = get_triangulation(space)
-  model = get_background_model(trian)
-  get_coords_with_order(model,orders)
-end
-
-function get_coords_with_order(
-  model::CartesianDiscreteModel{D},
-  orders::NTuple{D,Int}
-) where {D}
-  desc = get_cartesian_descriptor(model)
-  periodic = desc.isperiodic
-  ncells = desc.partition
-  sizes = desc.sizes
-  x0 = desc.origin
-  cells = CartesianIndices(ncells)
-  nodes = CartesianIndices(orders .* ncells .+ 1 .- periodic)
-  coords = Array{NTuple{D,Float64}}(undef,size(nodes))
-  for cell in cells
-    first_new_node = orders .* (Tuple(cell) .- 1) .+ 1
-    nodes_range = map(enumerate(first_new_node)) do (i,ni)
-      ni:(ni+orders[i])
-    end
-    for inode in Iterators.product(nodes_range...)
-      _is_periodic_node(inode,nodes) && continue
-      coords[inode...] = ntuple(d -> x0[d] + (inode[d]-1)*sizes[d],Val{D}())
-    end
-  end
-  return coords
-end
-
-function _is_periodic_node(inode,nodes)
-    try
-        nodes[inode]
-        return false
-    catch
-        return true
-    end
-end
-=#
-
 function get_coords_with_order(V::SingleFieldFESpace)
   # Retrieve the underlying triangulation and its physical dimensionality (1D,2D,3D)
   trian = get_triangulation(V)
@@ -293,24 +249,6 @@ function train_neural_operator(
   if !(V isa OrderedFESpace || (V isa TrialFESpace && V.space isa OrderedFESpace))
     throw(ArgumentError("The FE space MUST be an OrderedFESpace. Standard FESpaces do not guarantee DoF ordering, which would silently corrupt the neural operator training mapping."))
   end
-  #=coords_raw = get_coords_with_order(V)
-  D_phys = ndims(coords_raw)
-  
-  interior_indices = ntuple(d -> 2:(size(coords_raw,d) - 1),D_phys)
-  coords_interior = coords_raw[interior_indices...]
-
-  # Flattening coordinates into a 1D vector
-  coords_vec = vec(coords_interior)
-  
-
-  # Converting the vector of point in a Float32 Matrix of shape (D_phys,N_dofs)
-  x_train = zeros(Float32,D_phys,N_dofs)
-  for i = 1:N_dofs
-    for d = 1:D_phys
-      x_train[d,i] = Float32(coords_vec[i][d])
-    end
-  end
-  =#
   
   x_train_full = get_coords_with_order(V) # shape: (D_phys,full_N_dofs)
   x_train = x_train_full[:,idx_x]

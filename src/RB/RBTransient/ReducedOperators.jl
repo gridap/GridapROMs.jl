@@ -11,6 +11,18 @@ function RBSteady.reduced_operator(
   LinearNonlinearRBOperator(red_op_lin,red_op_nlin)
 end
 
+"""
+    RBSteady.reduced_operator(
+      solver::NeuralOpSolver,
+      feop::ODEParamOperator,
+      s::AbstractSnapshots
+    )
+
+Executes the **Offline Phase** for Neural Operators on transient (time-dependent) problems.
+It extracts the parameters, spatial coordinates, and the time grid from the snapshots `s` and the operator `feop` to build spatiotemporal input tensors. 
+
+The resulting `NeuralRBOperator` contains a neural network trained to predict the physical field dynamically across the provided time steps.
+"""
 function RBSteady.reduced_operator(
   solver::NeuralOpSolver,
   feop::ODEParamOperator,
@@ -410,6 +422,19 @@ end
 
 # Neural Operators fine-tuning
 
+"""
+    RBSteady.reduced_operator(
+      solver::NeuralOpSolver,
+      feop::ODEParamOperator,
+      s::AbstractSnapshots,
+      pretrained_op::NeuralRBOperator;
+      update_stats::Bool = false
+    )
+
+Performs **Fine-Tuning (Continual or Transfer Learning)** on a previously trained Neural Operator for **transient (time-dependent) problems**. 
+
+It extends the steady-state fine-tuning logic to accommodate spatiotemporal datasets. For a detailed explanation of the arguments, keyword arguments, and the `update_stats` behavior, please refer to the documentation of the steady-state `reduced_operator` fine-tuning method.
+"""
 function RBSteady.reduced_operator(
   solver::NeuralOpSolver,
   feop::ODEParamOperator,

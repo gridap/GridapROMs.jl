@@ -36,6 +36,11 @@ space–time reduced-basis problems, while
 [`TransientIntegrationDomain`](@ref) provides the corresponding reduced
 integration domain.
 
+## Transient Neural Operators
+
+The space-time setting extends the Neural Operator capabilities of [`RBSteady`](@ref) to transient problems. 
+The `reduced_operator` function builds spatiotemporal tensors by combining physical coordinates and time grids, allowing DeepONet and NOMAD architectures to predict dynamic fields.
+
 ## Full API
 
 ```@autodocs

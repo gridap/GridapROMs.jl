@@ -7,15 +7,17 @@ get_initial_lr(s::AbstractLRScheduler) = error("get_initial_lr not implemented f
 step_scheduler!(s::AbstractLRScheduler,opt_state,epoch::Int,total_epochs::Int,loss;verbose::Bool=false) = error("step_scheduler! not implemented")
 
 """
-  CosineAnnealing
+    mutable struct CosineAnnealing <: AbstractLRScheduler
+      lr_max::Float32
+      lr_min::Float32
+    end
 
-A learning rate scheduler that implements the Cosine Annealing decay schedule.
-It decreases the learning rate from a maximum value
-to a minimum value following the shape of a half-cosine wave.
+A learning rate scheduler that implements a Cosine Annealing decay schedule.
+It smoothly decreases the learning rate from a maximum value down to a minimum value, following the shape of a half-cosine wave.
 
 # Fields / Keyword Arguments
-- `lr_max::Float32`: The initial, maximum learning rate (default: `0.001f0`).
-- `lr_min::Float32`: The final, minimum learning rate (default: `1e-6f0`).
+- `lr_max::Float32`: The initial, peak learning rate (default: `0.001f0`).
+- `lr_min::Float32`: The final, minimum learning rate at the end of training (default: `1e-6f0`).
 """
 mutable struct CosineAnnealing <: AbstractLRScheduler
   lr_max::Float32
@@ -35,10 +37,22 @@ function step_scheduler!(scheduler::CosineAnnealing,opt_state,epoch::Int,total_e
 end
 
 """
-  ReduceLROnPlateau
+    mutable struct ReduceLROnPlateau <: AbstractLRScheduler
+      patience::Int
+      factor::Float32
+      min_lr::Float32
+      wait::Int
+      best_loss::Float32
+      current_lr::Float32
+    end
 
-Dynamic learning rate scheduler. Reduces the learning rate by a `factor`
-when the loss has stopped improving for a given `patience` (number of epochs).
+A dynamic learning rate scheduler that reduces the learning rate by a multiplicative `factor` when the training loss has stopped improving for a specified number of epochs (`patience`).
+
+# Keyword Arguments
+- `patience::Int`: Number of epochs to wait without loss improvement before reducing the learning rate (default: `100`).
+- `factor::Float32`: The multiplicative factor applied to the learning rate upon plateauing (default: `0.5f0`).
+- `min_lr::Float32`: The absolute minimum learning rate boundary. The scheduler will not decay below this value (default: `1e-6f0`).
+- `start_lr::Float32`: The initial learning rate at the beginning of the training (default: `0.001f0`).
 """
 mutable struct ReduceLROnPlateau <: AbstractLRScheduler
   patience::Int

@@ -24,23 +24,7 @@ function Algebra.solve(
 
   # Trunk Input (Coordinates extraction)
   V = get_test(op.op)
-  #=
-  coords_raw = RBSteady.get_coords_with_order(V)
-  D_phys = ndims(coords_raw)
-  interior_indices = ntuple(d -> 2:(size(coords_raw,d) - 1),D_phys)
-  coords_interior = coords_raw[interior_indices...]
-  coords_vec = vec(coords_interior)
 
-  N_dofs = length(coords_vec)
-
-  x_test = zeros(Float32,D_phys,N_dofs)
-  for i = 1:N_dofs
-    for d = 1:D_phys
-      x_test[d,i] = Float32(coords_vec[i][d])
-    end
-  end
-  x_in = (x_test .- trunk_stats.μ) ./ trunk_stats.σ
-  =#
   x_test = RBSteady.get_coords_with_order(V)
   x_in = (x_test .- trunk_stats.μ) ./ trunk_stats.σ
 

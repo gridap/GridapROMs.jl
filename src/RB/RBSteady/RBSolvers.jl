@@ -103,6 +103,34 @@ end
 
 const NeuralOpSolver{A,C<:NeuralOpReduction} = GlobalRBSolver{A,C,Nothing,Nothing}
 
+"""
+    NeuralOpSolver(fesolver::GridapType, reduction::NeuralOpReduction)
+
+Initializes the Reduced Basis Solver for Neural Operators.
+
+# Arguments
+- `fesolver`: The high-fidelity standard Gridap solver (e.g., `LUSolver()`). In the context of Reduced Order Models, the neural operator acts as a surrogate for this specific full-order solver. This reference defines the underlying high-fidelity model being approximated.
+- `reduction::NeuralOpReduction`: The configured neural reduction strategy (e.g., `DeepONetReduction` or `NOMADReduction`).
+
+# Examples
+
+**Minimal Default Initialization:**
+```julia
+# Uses AutoDeepONet with default hyperparameters (20000 epochs, full-batch, etc.)
+solver = NeuralOpSolver(LUSolver(), DeepONetReduction())
+```
+**Custom Initialization:**
+```julia
+using Lux
+
+strategy = NeuralOpStrategy(
+  model = AutoDeepONet(width=128, depth=4, activation=Lux.gelu), 
+  epochs = 1000
+)
+reduction = DeepONetReduction(strategy)
+solver = NeuralOpSolver(ThetaMethod(LUSolver(), dt, θ), reduction)
+```
+"""
 function NeuralOpSolver(fesolver::GridapType,reduction::NeuralOpReduction)
   RBSolver(fesolver,GlobalContext(),reduction,nothing,nothing)
 end
