@@ -21,7 +21,7 @@ function main(
 
   domain = (0,1,0,1)
   partition = (5,5)
-  model = CartesianDiscreteModel(domain,partition)
+  model = method==:ttsvd ? TProductDiscreteModel(domain,partition) : CartesianDiscreteModel(domain,partition)
 
   order = 1
   degree = 2*order
@@ -59,11 +59,7 @@ function main(
   domains = FEDomains(trian_res,(trian_stiffness,trian_mass))
 
   reffe = ReferenceFE(lagrangian,Float64,order)
-  if method == :ttsvd
-    test = TProductFESpace(Ω,reffe;conformity=:H1,dirichlet_tags=[1,3,7])
-  else
-    test = TestFESpace(Ω,reffe;conformity=:H1,dirichlet_tags=[1,3,7])
-  end
+  test = TestFESpace(Ω,reffe;conformity=:H1,dirichlet_tags=[1,3,7])
   trial = TransientTrialParamFESpace(test,gμt)
 
   uh0μ(μ) = interpolate_everywhere(u0μ(μ),trial(μ,t0))

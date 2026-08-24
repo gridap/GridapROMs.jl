@@ -12,8 +12,8 @@ using GridapROMs.ParamODEs
 using GridapROMs.RBSteady
 using GridapROMs.RBTransient
 
-import GridapROMs.RBTransient: get_time_combination, time_enrichment, get_time_order,
-  get_domain_style, get_indices_time, get_integration_domain_space
+import GridapROMs.RBTransient: get_time_combination,time_enrichment,get_time_order,
+  get_domain_style,get_indices_time,get_integration_domain_space
 
 function _make_realisation(np=3,nt=4)
   params = Realisation([[i*0.1,i*0.2] for i in 1:np])
@@ -196,7 +196,7 @@ end
 
 # ─── TransientRBSolver construction ───────────────────────────────────────────
 
-@testset "RBSolver(ODESolver, Reduction) builds a TransientRBSolver" begin
+@testset "RBSolver(ODESolver,Reduction) builds a TransientRBSolver" begin
   fesolver = ThetaMethod(LUSolver(),0.1,0.5)
   red      = HighDimReduction(1e-2;dim=2)
   solver   = RBSolver(fesolver,red;nparams_res=5,nparams_jacs=(5,5))

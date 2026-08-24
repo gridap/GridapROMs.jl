@@ -52,6 +52,10 @@ import Base:+,-
 import FillArrays: Fill,fill
 import Gridap.ReferenceFEs: get_order
 
+export TProductDiscreteModel
+export TProductTriangulation
+include("TProductGeometry.jl")
+
 export TProductFESpace
 export LexicographicFESpace
 include("TProductFESpaces.jl")

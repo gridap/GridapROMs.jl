@@ -18,6 +18,8 @@ end
 @publish DofMaps get_sparse_dof_map
 @publish DofMaps flatten
 
+@publish TProduct TProductDiscreteModel
+@publish TProduct TProductTriangulation
 @publish TProduct TProductFESpace
 @publish TProduct LexicographicFESpace
 

@@ -16,7 +16,7 @@ using GridapROMs.ParamODEs
 using GridapROMs.RBSteady
 using GridapROMs.RBTransient
 
-import GridapROMs.ParamODEs: from_stencil!, to_stencil!, allocate_spacetime_residual
+import GridapROMs.ParamODEs: from_stencil!,to_stencil!,allocate_spacetime_residual
 
 cpa(data::Matrix) = ConsecutiveParamArray(data)
 
@@ -80,7 +80,7 @@ end
   dt = 0.1; θ = 0.5
   np = 1; nt = 3; ndof = 1
   u_data  = reshape(Float64[1.0,3.0,6.0],1,3)
-  u0_data = reshape(Float64[0.0],  1,1)
+  u0_data = reshape(Float64[0.0], 1,1)
 
   u  = cpa(u_data);  u0 = cpa(u0_data)
 
@@ -124,8 +124,8 @@ end
   αf = 0.5; αm = 0.5; γ = 0.5
   np = 1; nt = 3; ndof = 1
   u_data  = reshape(Float64[1.0,3.0,6.0],1,3)
-  u0_data = reshape(Float64[0.0],   1,1)
-  v0_data = reshape(Float64[0.0],   1,1)
+  u0_data = reshape(Float64[0.0],  1,1)
+  v0_data = reshape(Float64[0.0],  1,1)
 
   u  = cpa(u_data);  u0 = cpa(u0_data);  v0 = cpa(v0_data)
   c  = GenAlpha1Combination(dt,αf,αm,γ)

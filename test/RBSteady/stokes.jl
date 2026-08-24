@@ -24,7 +24,7 @@ function main(
 
   domain = (0,1,0,1)
   partition = (8,8)
-  model = CartesianDiscreteModel(domain,partition)
+  model = method==:ttsvd ? TProductDiscreteModel(domain,partition) : CartesianDiscreteModel(domain,partition)
 
   order = 2
   degree = 2*order
@@ -47,13 +47,8 @@ function main(
 
   reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
   reffe_p = ReferenceFE(lagrangian,Float64,order-1)
-  if method == :ttsvd
-    test_u = TProductFESpace(Ω,reffe_u;conformity=:H1,dirichlet_tags=[1,2,3,4,5,6,7])
-    test_p = TProductFESpace(Ω,reffe_p;conformity=:H1)
-  else
-    test_u = TestFESpace(Ω,reffe_u;conformity=:H1,dirichlet_tags=[1,2,3,4,5,6,7])
-    test_p = TestFESpace(Ω,reffe_p;conformity=:H1)
-  end
+  test_u = TestFESpace(Ω,reffe_u;conformity=:H1,dirichlet_tags=[1,2,3,4,5,6,7])
+  test_p = TestFESpace(Ω,reffe_p;conformity=:H1)
   trial_u = ParamTrialFESpace(test_u,gμ)
   trial_p = ParamTrialFESpace(test_p)
   test = MultiFieldFESpace([test_u,test_p])
