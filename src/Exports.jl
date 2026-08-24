@@ -12,15 +12,12 @@ end
 @publish Utils ∂₃
 @publish Utils FEDomains
 
-@publish DofMaps OrderedFESpace
 @publish DofMaps slow_index
 @publish DofMaps fast_index
 @publish DofMaps get_dof_map
-@publish DofMaps get_dof_map_with_diri
 @publish DofMaps get_sparse_dof_map
 @publish DofMaps flatten
 
-@publish TProduct TProductDiscreteModel
 @publish TProduct TProductFESpace
 
 @publish ParamGeometry PhysicalMap

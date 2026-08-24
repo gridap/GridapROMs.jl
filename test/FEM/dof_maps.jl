@@ -100,7 +100,7 @@ end
   @test size(sp.matrix,2) == num_free_dofs(U)
 end
 
-# ─── get_dof_map / get_dof_map_with_diri ─────────────────────────────────────
+# ─── get_dof_map ─────────────────────────────────────
 
 @testset "get_dof_map for SingleFieldFESpace" begin
   # For a plain FESpace, get_dof_map returns a 1D VectorDofMap over free DOFs
@@ -143,16 +143,6 @@ end
   for j in 1:9
     @test dma[j] == data[dm[j]]
   end
-end
-
-# ─── OrderedFESpace ───────────────────────────────────────────────────────────
-
-@testset "OrderedFESpace wraps an FESpace" begin
-  V = make_space_2d(;dirichlet=false)
-  Vord = OrderedFESpace(V)
-  @test Vord isa OrderedFESpace
-  # free DOF count must be preserved
-  @test num_free_dofs(Vord) == num_free_dofs(V)
 end
 
 end # module

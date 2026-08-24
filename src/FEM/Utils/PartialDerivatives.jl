@@ -41,3 +41,4 @@ struct Component{N} <: Function end
 (f::Component{N})(v::MultiValue) where N = Component{N}(v)
 Component{N}(v::MultiValue) where N = @notimplemented
 Component{N}(v::MultiValue{Tuple{D}}) where {N,D} = v[N]
+Component{N}(v::MultiValue{Tuple{D,D}}) where {N,D} = v[N,N]

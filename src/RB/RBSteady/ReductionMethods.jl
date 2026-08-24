@@ -117,40 +117,7 @@ Base.iterate(r::TTSVDRanks,state...) = iterate(r.style,state...)
 Base.lastindex(r::TTSVDRanks) = lastindex(r.style)
 Base.repeat(r::ReductionStyle,D::Int) = TTSVDRanks(fill(r,D))
 
-"""
-    abstract type NormStyle end
-
-Subtypes:
-
-- [`EuclideanNorm`](@ref)
-- [`EnergyNorm`](@ref)
-"""
-abstract type NormStyle end
-
-get_norm(n::NormStyle) = @abstractmethod
-
-"""
-    struct EuclideanNorm <: NormStyle end
-
-Trait indicating that the reduction algorithm will produce a basis orthogonal in
-the euclidean norm
-"""
-struct EuclideanNorm <: NormStyle end
-
-"""
-    struct EnergyNorm <: NormStyle
-      norm_op::Function
-    end
-
-Trait indicating that the reduction algorithm will produce a basis orthogonal in
-the norm specified by `norm_op`. Note: `norm_op` should represent a symmetric,
-positive definite bilinear form (matrix)
-"""
-struct EnergyNorm <: NormStyle
-  norm_op::Function
-end
-
-get_norm(n::EnergyNorm) = n.norm_op
+include("EnergyNorms.jl")
 
 """
     abstract type Reduction{A<:ReductionStyle,B<:NormStyle} end

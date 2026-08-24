@@ -360,10 +360,6 @@ function _cache(rows::AbstractVector{<:Integer})
   CachedArray(similar(rows,Int32))
 end
 
-function _cache(rows::OIdsToIds)
-  _cache(rows.indices)
-end
-
 function _cache(rows::VectorBlock)
   ai = _cache(testitem(rows))
   array = Vector{typeof(ai)}(undef,length(rows))
@@ -377,10 +373,6 @@ end
 
 function _cache(rows::AbstractVector{<:Integer},cols::AbstractVector{<:Integer})
   CachedArray(similar(rows,Int32,length(rows)*length(cols)))
-end
-
-function _cache(rows::OIdsToIds,cols::OIdsToIds)
-  _cache(rows.indices,cols.indices)
 end
 
 function _cache(rows::VectorBlock,cols::VectorBlock)
@@ -412,19 +404,6 @@ function _evaluate!(a,cellrows,rows)
   a 
 end
 
-function _evaluate!(a,cellrows::OIdsToIds,rows)
-  fill!(a,zero(eltype(a)))
-  for (irow,row) in enumerate(rows)
-    for (_icellrow,cellrow) in enumerate(cellrows)
-      if row == cellrow
-        icellrow = cellrows.terms[_icellrow] 
-        a[icellrow] = irow
-      end
-    end
-  end
-  a 
-end
-
 function _evaluate!(a::VectorBlock,cellrows::VectorBlock,rows)
   for i in eachindex(a)
     if a.touched[i]
@@ -443,25 +422,6 @@ function _evaluate!(a,cellrows,cellcols,rows,cols)
     for (icellrow,cellrow) in enumerate(cellrows)
       for (icellcol,cellcol) in enumerate(cellcols)
         if row == cellrow && col == cellcol
-          icellrowcol = icellrow + (icellcol-1)*ncellrows
-          a[icellrowcol] = irowcol
-        end
-      end
-    end
-  end
-  a 
-end
-
-function _evaluate!(a,cellrows::OIdsToIds,cellcols::OIdsToIds,rows,cols)
-  fill!(a,zero(eltype(a)))
-  ncellrows = length(cellrows)
-  for (irowcol,rowcol) in enumerate(zip(rows,cols))
-    row,col = rowcol
-    for (_icellrow,cellrow) in enumerate(cellrows)
-      for (_icellcol,cellcol) in enumerate(cellcols)
-        if row == cellrow && col == cellcol
-          icellrow = cellrows.terms[_icellrow] 
-          icellcol = cellcols.terms[_icellcol]
           icellrowcol = icellrow + (icellcol-1)*ncellrows
           a[icellrowcol] = irowcol
         end

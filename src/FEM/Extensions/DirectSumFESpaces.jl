@@ -173,10 +173,6 @@ function DofMaps.get_dof_map(f::DirectSumFESpace)
   get_dof_map(get_bg_space(f))
 end
 
-function DofMaps.get_dof_map_with_diri(f::DirectSumFESpace)
-  get_dof_map_with_diri(get_bg_space(f))
-end
-
 function DofMaps.get_sparsity(
   U::DirectSumFESpace{S,<:TProductFESpace},
   V::DirectSumFESpace{S,<:TProductFESpace},

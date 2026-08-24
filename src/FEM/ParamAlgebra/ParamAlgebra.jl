@@ -39,7 +39,6 @@ using GridapROMs.ParamDataStructures
 
 import ArraysOfArrays: innersize
 import Gridap.ODEs: jacobian_add!
-import GridapROMs.DofMaps: OIdsToIds, add_ordered_entries!
 import UnPack: @unpack
 
 include("ParamAlgebraInterfaces.jl")

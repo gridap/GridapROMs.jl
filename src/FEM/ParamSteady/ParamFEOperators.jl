@@ -60,41 +60,6 @@ Utils.get_domains_jac(op::ParamFEOperator) = get_domains_jac(get_domains(op))
 DofMaps.get_dof_map(op::ParamFEOperator,args...) = get_dof_map(get_trial(op),args...)
 DofMaps.get_sparse_dof_map(op::ParamFEOperator,args...) = get_sparse_dof_map(get_trial(op),get_test(op),args...)
 
-# used to build a (norm) matrix directly from the FE operator, instead of
-# unpacking the trial and test spaces
-function FESpaces.assemble_matrix(op::ParamFEOperator,form::Function)
-  test = get_test(op)
-  _assemble_matrix(form,test)
-end
-
-function _assemble_matrix(f,V::SingleFieldFESpace)
-  assemble_matrix(f,V,V)
-end
-
-function _assemble_matrix(f,V::TProductFESpace)
-  a = TProductSparseMatrixAssembler(V,V)
-  v = get_tp_fe_basis(V)
-  u = get_tp_trial_fe_basis(V)
-  assemble_matrix(a,collect_cell_matrix(V,V,f(u,v)))
-end
-
-function _assemble_matrix(f,V::MultiFieldFESpace)
-  _assemble_matrix(f,V.spaces)
-end
-
-function _assemble_matrix(f,spaces::Vector{<:SingleFieldFESpace})
-  V = MultiFieldFESpace(spaces,style=BlockMultiFieldStyle())
-  assemble_matrix(f,V,V)
-end
-
-function _assemble_matrix(f,spaces::Vector{<:TProductFESpace})
-  V = MultiFieldFESpace(spaces,style=BlockMultiFieldStyle())
-  a = TProductBlockSparseMatrixAssembler(V,V)
-  v = get_tp_fe_basis(V)
-  u = get_tp_trial_fe_basis(V)
-  assemble_matrix(a,collect_cell_matrix(V,V,f(u,v)))
-end
-
 """
     struct ParamFEOpFromWeakForm{O<:UnEvalOperatorType,T<:TriangulationStyle} <: ParamFEOperator{O,T}
       res::Function

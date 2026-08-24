@@ -161,37 +161,6 @@ for T in (:ParamReindex,:PosNegParamReindex)
   end
 end
 
-function Arrays.return_cache(
-  k::OReindex,
-  indices::AbstractVector,
-  values::Union{ParamBlock,AbstractParamVector}
-  )
-
-  v = testitem(values)
-  c = return_cache(k,indices,v)
-  a = evaluate!(c,k,indices,v)
-  data = local_parameterise(a,param_length(values))
-  cache = Vector{typeof(c)}(undef,param_length(values))
-  for i = param_eachindex(values)
-    cache[i] = return_cache(k,indices,param_getindex(values,i))
-  end
-  cache,data
-end
-
-function Arrays.evaluate!(
-  cache,
-  k::OReindex,
-  indices::AbstractVector,
-  values::Union{ParamBlock,AbstractParamVector}
-  )
-
-  c,data = cache
-  @inbounds for i = param_eachindex(values)
-    vi = evaluate!(c[i],k,indices,param_getindex(values,i))
-    param_setindex!(data,vi,i)
-  end
-  data
-end
 
 struct FetchParam <: Map
   index::Int

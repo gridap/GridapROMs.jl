@@ -434,7 +434,7 @@ function complementary_space(space::EmbeddedFESpace)
   EmbeddedFESpace(cspace,bg_space,fdof_to_bg_fdofs,ddof_to_bg_ddofs,[])
 end
 
-function get_dofs_at_cells(cell_dof_ids::Union{Table,OTable},cells)
+function get_dofs_at_cells(cell_dof_ids::Table,cells)
   nfree = max(0,maximum(cell_dof_ids.data))
   ndiri = abs(min(0,minimum(cell_dof_ids.data)))
   ftouched = zeros(Bool,nfree)
@@ -508,35 +508,6 @@ function get_ccell_unshared_dof_ids(
   return Table(ext_fddata,ext_cell_dof_ids.ptrs)
 end
 
-function get_ccell_unshared_dof_ids(
-  bg_cell_dof_ids::OTable,
-  shared_fdofs,
-  shared_ddofs,
-  ext_cell_to_bg_cells
-  )
-
-  get_idof_correction(a::Table) = (_idof,p) -> _idof
-  get_idof_correction(a::OTable) = (_idof,p) -> a.terms.data[p]
-  correct_idof = get_idof_correction(bg_cell_dof_ids)
-
-  _cell_dof_ids = get_ccell_unshared_dof_ids(
-    bg_cell_dof_ids.values,
-    shared_fdofs,
-    shared_ddofs,
-    ext_cell_to_bg_cells
-    )
-  data = similar(_cell_dof_ids.data)
-  for ext_cell in 1:length(ext_cell_to_bg_cells)
-    pini = _cell_dof_ids.ptrs[ext_cell]
-    pend = _cell_dof_ids.ptrs[ext_cell+1]-1
-    for (_idof,p) in enumerate(pini:pend)
-      idof = bg_cell_dof_ids.terms.data[p]
-      data[pini+idof-1] = _cell_dof_ids.data[p]
-    end
-  end
-  return Table(data,_cell_dof_ids.ptrs)
-end
-
 function _sort!(dof_data::AbstractVector,dof_to_idof_data::Table)
   for dof in 2:length(dof_to_idof_data) # we start from 2 so we skip the idofs of the zero dofs
     pini = dof_to_idof_data.ptrs[dof]
@@ -561,7 +532,7 @@ end
 function _get_dof_to_bg_dof!(
   fdof_to_bg_fdof,
   ddof_to_bg_ddof,
-  bg_cell_ids::Union{Table,OTable},
+  bg_cell_ids::Table,
   cell_ids::AbstractArray,
   cell_to_bg_cell::AbstractVector
   )
@@ -574,38 +545,6 @@ function _get_dof_to_bg_dof!(
     for (ldof,dof) in enumerate(dofs)
       iszero(dof) && continue
       bg_dof = bg_dofs[ldof]
-      if dof > 0
-        @check bg_dof > 0
-        fdof_to_bg_fdof[dof] = bg_dof
-      else
-        @check bg_dof < 0
-        ddof_to_bg_ddof[-dof] = bg_dof
-      end
-    end
-  end
-  fdof_to_bg_fdof,ddof_to_bg_ddof
-end
-
-function _get_dof_to_bg_dof!(
-  fdof_to_bg_fdof,
-  ddof_to_bg_ddof,
-  bg_cell_ids::OTable,
-  cell_ids::AbstractArray,
-  cell_to_bg_cell::AbstractVector
-  )
-
-  oldof_to_ldof = DofMaps.get_local_ordering(bg_cell_ids)
-  bg_cache = array_cache(bg_cell_ids)
-  cache = array_cache(cell_ids)
-  ocache = array_cache(oldof_to_ldof)
-  for (cell,bg_cell) in enumerate(cell_to_bg_cell)
-    bg_odofs = getindex!(bg_cache,bg_cell_ids,bg_cell)
-    dofs = getindex!(cache,cell_ids,cell)
-    ldofs = getindex!(ocache,oldof_to_ldof,cell)
-    lodofs = invperm(ldofs)
-    for (oldof,dof) in enumerate(dofs)
-      iszero(dof) && continue
-      bg_dof = bg_odofs[lodofs[oldof]]
       if dof > 0
         @check bg_dof > 0
         fdof_to_bg_fdof[dof] = bg_dof

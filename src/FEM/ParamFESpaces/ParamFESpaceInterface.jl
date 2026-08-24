@@ -5,7 +5,6 @@ get_dirichlet_cells(f::FESpaceWithConstantFixed) = get_dirichlet_cells(f.space)
 get_dirichlet_cells(f::ZeroMeanFESpace) = get_dirichlet_cells(f.space)
 get_dirichlet_cells(f::TrialFESpace) = get_dirichlet_cells(f.space)
 get_dirichlet_cells(f::TProductFESpace) = get_dirichlet_cells(f.space)
-get_dirichlet_cells(f::OrderedFESpace) = get_dirichlet_cells(f.space)
 
 ParamDataStructures.param_length(f::FESpace) = 0
 
@@ -469,96 +468,6 @@ function FESpaces._setup_mdof_to_val!(
 
 end
 
-# ordered spaces
-
-get_fe_space2(pf::SingleFieldParamFESpace{<:OrderedFESpace}) = get_fe_space(get_fe_space(pf))
-
-function FESpaces.FEFunction(
-  pf::SingleFieldParamFESpace{<:OrderedFESpace{<:ZeroMeanFESpace}},
-  free_values::AbstractParamVector,
-  dirichlet_values::AbstractParamVector
-  )
-
-  f = get_fe_space2(pf)
-  pf′ = remove_layer(pf)
-  c = FESpaces._compute_new_fixedval(
-    free_values,
-    dirichlet_values,
-    f.vol_i,
-    f.vol,
-    f.space.dof_to_fix
-  )
-  fv = free_values + c
-  dv = dirichlet_values + c
-  FEFunction(pf′,fv,dv)
-end
-
-function FESpaces.EvaluationFunction(
-  pf::SingleFieldParamFESpace{<:OrderedFESpace{<:ZeroMeanFESpace}},
-  free_values::AbstractParamVector
-  )
-
-  pf′ = remove_layer(pf)
-  FEFunction(pf′,free_values)
-end
-
-function FESpaces.scatter_free_and_dirichlet_values(
-  of::OrderedFESpace{<:FESpaceWithConstantFixed{FESpaces.FixConstant}},
-  fv::AbstractParamVector,
-  dv::AbstractParamVector
-  )
-
-  @assert innerlength(dv) == 1
-  f = get_fe_space(of)
-  of′ = remove_layer(of)
-  _dv = similar(dv,eltype(dv),0)
-  _fv = ParamVectorWithEntryInserted(fv,f.dof_to_fix,get_param_entry(dv,1))
-  scatter_free_and_dirichlet_values(of′,_fv,_dv)
-end
-
-function FESpaces.scatter_free_and_dirichlet_values(
-  of::OrderedFESpace{<:FESpaceWithConstantFixed{FESpaces.DoNotFixConstant}},
-  fv::AbstractParamVector,
-  dv::AbstractParamVector
-  )
-
-  @assert innerlength(dv) == 0
-  of′ = remove_layer(of)
-  scatter_free_and_dirichlet_values(of′,fv,dv)
-end
-
-function FESpaces.gather_free_and_dirichlet_values(
-  pf::SingleFieldParamFESpace{<:OrderedFESpace{<:FESpaceWithConstantFixed{T}}},
-  cv
-  ) where T<:FESpaces.FixConstant
-
-  f = get_fe_space(pf)
-  _fv,_dv = zero_free_and_dirichlet_values(f.space)
-  @assert length(_dv) == 0
-  pfv = parameterise(_fv,param_length(pf))
-  pdv = parameterise(_dv,param_length(pf))
-  gather_free_and_dirichlet_values!(pfv,pdv,f.space,cv)
-
-  fv = ParamVectorWithEntryRemoved(pfv,f.dof_to_fix)
-  dv = get_param_entry(pfv,f.dof_to_fix:f.dof_to_fix)
-  (fv,dv)
-end
-
-function FESpaces.gather_free_and_dirichlet_values!(
-  fv::AbstractParamVector,
-  dv::AbstractParamVector,
-  f::OrderedFESpace{<:FESpaceWithConstantFixed{T}},
-  cv
-  ) where T<:FESpaces.FixConstant
-
-  @assert innerlength(dv) == 1
-  _dv = similar(dv,eltype(dv),0)
-  _fv = ParamVectorWithEntryInserted(fv,f.dof_to_fix,zeros(eltype2(fv),param_length(fv)))
-  gather_free_and_dirichlet_values!(_fv,_dv,f,cv)
-  dv.data[1,:] = _fv.value
-  (fv,dv)
-end
-
 # agfem
 
 function AgFEM._setup_agfem_constraints(
@@ -589,5 +498,3 @@ end
 
 remove_layer(f::SingleFieldFESpace) = @abstractmethod
 remove_layer(f::SingleFieldParamFESpace{<:UnconstrainedFESpace}) = f
-remove_layer(f::SingleFieldParamFESpace{<:OrderedFESpace{<:UnconstrainedFESpace}}) = f
-remove_layer(f::OrderedFESpace) = OrderedFESpace(f.space.space,f.cell_odofs_ids,f.bg_odofs_to_act_odofs)

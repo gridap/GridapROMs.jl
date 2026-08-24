@@ -2,18 +2,15 @@
     struct TProductFESpace{S} <: SingleFieldFESpace
       space::S
       spaces_1d::Vector{<:SingleFieldFESpace}
-      trian::TProductTriangulation
     end
 
 A `SingleFieldFESpace` on a tensor product mesh, storing the D-dimensional
-[`OrderedFESpace`](@ref) `space` and a vector of `D` 1D `OrderedFESpace`s
-`spaces_1d`. The [`TProductTriangulation`](@ref) `trian` is stored explicitly
-to ensure compatibility with `MultiField` scenarios.
+`space` and a vector of `D` 1D `spaces_1d`. Neither is reordered: their native
+(Gridap-assigned) dof numbering is mapped to lexicographic rank on demand via
+[`DofMaps.get_dof_perm`](@ref) wherever a tensor/Cartesian structure is needed
+(`get_dof_map`, `get_sparse_dof_map`).
 
 All standard `SingleFieldFESpace` interface methods are delegated to `space`.
-The 1D spaces are used exclusively for tensor product assembly via
-[`TProductSparseMatrixAssembler`](@ref) and basis extraction via
-[`get_tp_fe_basis`](@ref) / [`get_tp_trial_fe_basis`](@ref).
 
 The preferred construction path is via [`TensorProductReferenceFE`](@ref):
 
@@ -34,71 +31,27 @@ V  = FESpace(Ω,(lagrangian,Float64,1);conformity=:H1,dirichlet_tags="boundary")
 struct TProductFESpace{S} <: SingleFieldFESpace
   space::S
   spaces_1d::Vector{<:SingleFieldFESpace}
-  trian::TProductTriangulation
-end
-
-function FESpaces.FESpace(
-  trian::TProductTriangulation,
-  reffe::Tuple{<:ReferenceFEName,Any,Any};kwargs...
-  )
-
-  TProductFESpace(trian,reffe;kwargs...)
 end
 
 function TProductFESpace(
-  trian::TProductTriangulation,
+  trian::Triangulation,
   reffe::Tuple{<:ReferenceFEName,Any,Any};
   kwargs...
   )
-
-  basis,reffe_args,reffe_kwargs = reffe
-  T,order = reffe_args
 
   model = get_background_model(trian)
-  space = OrderedFESpace(model.model,reffe;kwargs...)
-  cell_reffes_1d = map(model->ReferenceFE(model,basis,eltype(T),order;reffe_kwargs...),model.models_1d)
-  spaces_1d = univariate_spaces(model,cell_reffes_1d;kwargs...)
-
-  TProductFESpace(space,spaces_1d,trian)
-end
-
-function TProductFESpace(
-  space::FESpace,
-  tptrian::TProductTriangulation,
-  reffe::Tuple{<:ReferenceFEName,Any,Any};
-  kwargs...
-  )
+  _space = FESpace(trian,reffe;kwargs...)
+  space = reindex_free_dof_ids(_space,get_dof_perm(_space))
 
   basis,reffe_args,reffe_kwargs = reffe
   T,order = reffe_args
-
-  model = get_background_model(tptrian)
-  cell_reffes_1d = map(model->ReferenceFE(model,basis,eltype(T),order;reffe_kwargs...),model.models_1d)
+  models_1d = univariate_models(model)
+  cell_reffes_1d = map(models_1d) do model_1d
+    ReferenceFE(model_1d,basis,eltype(T),order;reffe_kwargs...)
+  end 
   spaces_1d = univariate_spaces(model,cell_reffes_1d;kwargs...)
 
-  TProductFESpace(space,spaces_1d,tptrian)
-end
-
-function univariate_spaces(
-  model::TProductDiscreteModel,
-  cell_reffes;
-  dirichlet_tags=Int[],
-  dirichlet_masks=nothing,
-  conformity=nothing,
-  vector_type=nothing,
-  kwargs...
-  )
-
-  if !isnothing(dirichlet_masks)
-    for mask in dirichlet_masks
-      !(all(mask) || !any(mask)) && _throw_tp_error()
-    end
-  end
-
-  diri_tags_1d = get_1d_tags(model,dirichlet_tags)
-  map(model.models_1d,cell_reffes,diri_tags_1d) do model,cell_reffe,tags
-    OrderedFESpace(model,cell_reffe;dirichlet_tags=tags,conformity,vector_type)
-  end
+  TProductFESpace(space,spaces_1d)
 end
 
 FESpaces.get_triangulation(f::TProductFESpace) = get_triangulation(f.space)
@@ -155,19 +108,11 @@ function DofMaps.get_sparsity(U::TProductFESpace,V::TProductFESpace,A::AbstractS
   return TProductSparsity(sparsity,sparsities_1d)
 end
 
-# `U.space`/`V.space` (and their `spaces_1d`) need not be `OrderedFESpace`s: their
-# native dof ids are translated to lexicographic rank via `get_dof_perm` before the
-# tensor-product sparsity decomposition. For already-ordered spaces this permutation
-# is the identity, so this works uniformly whether or not `OrderedFESpace` is used.
 function DofMaps.get_sparse_dof_map(a::TProductSparsity,U::TProductFESpace,V::TProductFESpace)
   Tu = get_dof_eltype(U)
   Tv = get_dof_eltype(V)
   try
-    row_perm = DofMaps.get_dof_perm(V.space)
-    col_perm = DofMaps.get_dof_perm(U.space)
-    row_perm_1d = map(DofMaps.get_dof_perm,V.spaces_1d)
-    col_perm_1d = map(DofMaps.get_dof_perm,U.spaces_1d)
-    full_ids = DofMaps.get_d_sparse_dofs_to_full_dofs(Tu,Tv,a;row_perm,col_perm,row_perm_1d,col_perm_1d)
+    full_ids = DofMaps.get_d_sparse_dofs_to_full_dofs(Tu,Tv,a)
     sparse_ids = sparsify_indices(full_ids)
     SparseMatrixDofMap(sparse_ids,full_ids,a)
   catch
@@ -200,50 +145,6 @@ function get_tp_dof_map(::Type{T},spaces_1d,dof_map) where T<:MultiValue
   reshape(dof_map,nnodes_1d...,ncomps)
 end
 
-function DofMaps.get_dof_map_with_diri(V::TProductFESpace)
-  T = get_dof_eltype(V)
-  get_dof_map_with_diri(T,V)
-end
-
-function DofMaps.get_dof_map_with_diri(::Type{T},V::TProductFESpace) where T
-  trian = get_triangulation(V)
-  model = get_background_model(trian)
-  cell_dof_ids = get_cell_dof_ids(V)
-  order = get_polynomial_order(V)
-  dof_map = _get_dof_map_with_diri(model,cell_dof_ids,order)
-  get_tp_dof_map_with_diri(T,V.spaces_1d,dof_map)
-end
-
-function DofMaps.get_dof_map_with_diri(::Type{T},V::TProductFESpace) where T<:MultiValue
-  trian = get_triangulation(V)
-  model = get_background_model(trian)
-  cell_dof_ids = get_cell_dof_ids(V)
-  order = get_polynomial_order(V)
-
-  D = num_cell_dims(model)
-  Ti = eltype(eltype(cell_dof_ids))
-  ncomps = num_indep_components(T)
-  dof_maps = Vector{Array{Ti,D}}(undef,ncomps)
-  for comp in 1:ncomps
-    cell_dof_comp_ids = _get_cell_dof_comp_ids(V,cell_dof_ids,comp)
-    dof_maps[comp] = _get_dof_map_with_diri(model,cell_dof_comp_ids,order)
-  end
-  dof_map = stack(dof_maps;dims=D+1)
-
-  get_tp_dof_map_with_diri(T,V.spaces_1d,dof_map)
-end
-
-function get_tp_dof_map_with_diri(::Type{T},spaces_1d,dof_map) where T
-  nnodes_1d = map(s -> num_free_dofs(s)+num_dirichlet_dofs(s),spaces_1d)
-  reshape(dof_map,nnodes_1d...)
-end
-
-function get_tp_dof_map_with_diri(::Type{T},spaces_1d,dof_map) where T<:MultiValue
-  nnodes_1d = map(s -> num_free_dofs(s)+num_dirichlet_dofs(s),spaces_1d)
-  ncomps = Int(length(dof_map)/prod(nnodes_1d))
-  reshape(dof_map,nnodes_1d...,ncomps)
-end
-
 for F in (:(DofMaps.get_bg_dof_to_dof),:(DofMaps.get_dof_to_bg_dof))
   for T in (:SingleFieldFESpace,:FESpaceWithLinearConstraints)
     @eval begin
@@ -254,109 +155,118 @@ for F in (:(DofMaps.get_bg_dof_to_dof),:(DofMaps.get_dof_to_bg_dof))
   end
 end
 
-get_tp_triangulation(f::TProductFESpace) = f.trian
-
-"""
-    get_tp_fe_basis(f::TProductFESpace) -> TProductFEBasis
-"""
-function get_tp_fe_basis(f::TProductFESpace)
-  basis = map(get_fe_basis,f.spaces_1d)
-  trian = get_tp_triangulation(f)
-  TProductFEBasis(basis,trian)
-end
-
-"""
-    get_tp_trial_fe_basis(f::TProductFESpace) -> TProductFEBasis
-"""
-function get_tp_trial_fe_basis(f::TProductFESpace)
-  basis = map(get_trial_fe_basis,f.spaces_1d)
-  trian = get_tp_triangulation(f)
-  TProductFEBasis(basis,trian)
-end
-
-get_tp_trial_fe_basis(f::TrialFESpace{<:TProductFESpace}) = get_tp_trial_fe_basis(f.space)
-
-# multi field
-
-_remove_trial(f::SingleFieldFESpace) = _remove_trial(f.space)
-_remove_trial(f::TProductFESpace) = f
-
-function get_tp_triangulation(f::MultiFieldFESpace)
-  s1 = _remove_trial(first(f.spaces))
-  trian = get_tp_triangulation(s1)
-  @check all(map(i->trian===get_tp_triangulation(_remove_trial(i)),f.spaces))
-  trian
-end
-
-function get_tp_fe_basis(f::MultiFieldFESpace)
-  D = length(_remove_trial(f[1]).spaces_1d)
-  basis = map(1:D) do d
-    sfd = map(sf -> _remove_trial(sf).spaces_1d[d],f.spaces)
-    mfd = MultiFieldFESpace(sfd)
-    get_fe_basis(mfd)
-  end
-  trian = get_tp_triangulation(f)
-  TProductFEBasis(basis,trian)
-end
-
-function get_tp_trial_fe_basis(f::MultiFieldFESpace)
-  D = length(_remove_trial(f[1]).spaces_1d)
-  basis = map(1:D) do d
-    sfd = map(sf -> _remove_trial(sf).spaces_1d[d],f.spaces)
-    mfd = MultiFieldFESpace(sfd)
-    get_trial_fe_basis(mfd)
-  end
-  trian = get_tp_triangulation(f)
-  TProductFEBasis(basis,trian)
-end
-
 # utils
 
-function _get_dof_map_with_diri(model::CartesianDiscreteModel,cell_dof_ids,order)
-  desc = get_cartesian_descriptor(model)
-  periodic = desc.isperiodic
-  ncells = desc.partition
-  ndofs = order .* ncells .+ 1 .- periodic
+"""
+    univariate_models(model::CartesianDiscreteModel) -> Vector{<:CartesianDiscreteModel}
 
-  cache_cell_dof_ids = array_cache(cell_dof_ids)
-  dof_ids = LinearIndices(ndofs)
-  fddof_map = zeros(eltype(eltype(cell_dof_ids)),ndofs)
-  touched_dof = zeros(Bool,ndofs)
+Splits `model` into its `D` 1D `CartesianDiscreteModel` factors. Cached on
+the identity of `model`, so that two `TProductFESpace`s built on the same
+background `model` (e.g. a velocity and a pressure space in a Stokes problem)
+end up sharing the exact same 1D models, and are therefore mutually
+compatible for cross-field integration (e.g. a divergence coupling term).
+"""
+function univariate_models(model::CartesianDiscreteModel)
+  get!(_univariate_models_cache,model) do
+    desc = get_cartesian_descriptor(model)
+    descs_1d = _split_cartesian_descriptor(desc)
+    map(CartesianDiscreteModel,descs_1d)
+  end
+end
 
-  for (icell,cell) in enumerate(CartesianIndices(ncells))
-    first_new_dof  = order .* (Tuple(cell) .- 1) .+ 1
-    dofs_range = map(i -> i:i+order,first_new_dof)
-    dofs = view(dof_ids,dofs_range...)
-    cell_dofs = getindex!(cache_cell_dof_ids,cell_dof_ids,icell)
-    for (idof,dof) in enumerate(cell_dofs)
-      i = dofs[idof]
-      touched_dof[i] && continue
-      fddof_map[i] = dof
+const _univariate_models_cache = IdDict{CartesianDiscreteModel,Vector}()
+
+function univariate_spaces(
+  model::CartesianDiscreteModel,
+  cell_reffes;
+  dirichlet_tags=Int[],
+  dirichlet_masks=nothing,
+  conformity=nothing,
+  vector_type=nothing,
+  kwargs...
+  )
+
+  if !isnothing(dirichlet_masks)
+    for mask in dirichlet_masks
+      !(all(mask) || !any(mask)) && _throw_tp_error()
     end
   end
 
-  return fddof_map
+  models_1d = univariate_models(model)
+  diri_tags_1d = _get_1d_tags(model,dirichlet_tags)
+  map(models_1d,cell_reffes,diri_tags_1d) do model,cell_reffe,tags
+    space = FESpace(model,cell_reffe;dirichlet_tags=tags,conformity,vector_type)
+    reindex_free_dof_ids(space,get_dof_perm(space))
+  end
 end
 
-function _get_cell_dof_comp_ids(space,cell_dof_ids,comp)
-  dof = get_fe_dof_basis(space)
-  b = testitem(get_data(dof))
-  ldof_to_comp = get_dof_to_comp(b)
-  ldofs = findall(ldof_to_comp .== comp)
-  ptrs = similar(cell_dof_ids.ptrs)
-  fill!(ptrs,length(ldofs))
-  length_to_ptrs!(ptrs)
-  data = similar(cell_dof_ids.data,ptrs[end]-1)
-  for i in 1:length(ptrs)-1
-    pini = ptrs[i]
-    pend = ptrs[i+1]-1
-    _pini = cell_dof_ids.ptrs[i]
-    for (k,pk) in enumerate(pini:pend)
-      data[pk] = cell_dof_ids.data[_pini+ldofs[k]-1]
+function _throw_tp_error()
+  msg = """
+  The assigned boundary does not satisfy the tensor product condition:
+  it should occupy the whole side of the domain, rather than a side's portion. Try
+  imposing the Dirichlet condition weakly, e.g. with Nitsche's penalty method
+  """
+
+  @assert false msg
+end
+
+function _split_cartesian_descriptor(desc::CartesianDescriptor{D}) where D
+  origin,sizes,partition,cmap,isperiodic = desc.origin,desc.sizes,desc.partition,desc.map,desc.isperiodic
+  function _compute_1d_desc(
+    o=first(origin.data),s=first(sizes),p=first(partition),m=cmap,i=first(isperiodic)
+    )
+
+    CartesianDescriptor(Point(o),(s,),(p,);map=m,isperiodic=(i,))
+  end
+  descs = map(_compute_1d_desc,origin.data,sizes,partition,Fill(cmap,D),isperiodic)
+  return descs
+end
+
+function _d_to_lower_dim_entities(coords::AbstractArray{VectorValue{D,T},D}) where {D,T}
+  entities = Vector{Array{VectorValue{D,T},D-1}}[]
+  for d = 1:D
+    range = axes(coords,d)
+    bottom = selectdim(coords,d,first(range))
+    top = selectdim(coords,d,last(range))
+    push!(entities,[bottom,top])
+  end
+  return entities
+end
+
+_get_interior(entity::AbstractVector) = entity[2:end-1]
+_get_interior(entity::AbstractMatrix) = entity[2:end-1,2:end-1]
+
+function _check_tp_label_condition(intset,entity)
+  interior = _get_interior(entity)
+  for i in intset
+    if i ∈ interior
+      return _throw_tp_error()
     end
   end
-  Table(data,ptrs)
+  return true
 end
 
-get_dof_to_comp(b) = @abstractmethod
-get_dof_to_comp(b::LagrangianDofBasis) = b.dof_to_comp
+function _get_1d_tags(model::CartesianDiscreteModel{D},tags) where D
+  nodes = get_node_coordinates(model)
+  labeling = get_face_labeling(model)
+  face_to_tag = get_face_tag_index(labeling,tags,0)
+
+  d_to_entities = _d_to_lower_dim_entities(nodes)
+  nodes_in_tag = nodes[findall(!iszero,face_to_tag)]
+
+  map(1:D) do d
+    d_tags = Int8[]
+    if !isempty(tags)
+      entities = d_to_entities[d]
+      for (tag1d,entity1d) in enumerate(entities)
+        iset = intersect(nodes_in_tag,entity1d)
+        if iset == vec(entity1d)
+          push!(d_tags,tag1d)
+        else
+          _check_tp_label_condition(iset,entity1d)
+        end
+      end
+    end
+    d_tags
+  end
+end

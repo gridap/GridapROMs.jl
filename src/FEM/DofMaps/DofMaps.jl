@@ -26,20 +26,12 @@ reduced-basis and tensor-product machinery.  Main components:
 
 - **DOF-map builders** (`DofMapsBuilders.jl`) — high-level constructors that
   extract DOF maps from Gridap FE spaces and embedded meshes:
-  `get_dof_map`, `get_dof_map_with_diri`, `get_sparse_dof_map`, and the
-  background-cell / background-DOF mapping helpers for `GridapEmbedded` spaces.
+  `get_dof_map`, `get_sparse_dof_map`, the background-cell / background-DOF
+  mapping helpers for `GridapEmbedded` spaces.
 
 - **DOF-map arrays** (`DofMapArrays.jl`) — `DofMapArray` wraps a flat data
   array with a `DofMap`, so that indexing and broadcasting automatically apply
   the map.
-
-- **Ordering maps** (`OrderingMaps.jl`) — `OIdsToIds`, `DofsToODofs`, `OReindex`,
-  `OTable`, `add_ordered_entries!`: translate between original and reordered DOF
-  indices for the `OrderedFESpace` construction.
-
-- **`OrderedFESpace`** (`OrderedFESpaces.jl`) — wraps a Gridap `FESpace` with a
-  permutation that places DOFs in a cache-friendly order (e.g., Cuthill–McKee),
-  used by the tensor-product assembler.
 
 Depends only on `Utils` within GridapROMs; used by `TProduct`, `ParamFESpaces`,
 `Extensions`, and `RBSteady`.
@@ -117,7 +109,6 @@ export change_dof_map
 include("DofMapsInterface.jl")
 
 export get_dof_map
-export get_dof_map_with_diri
 export get_sparse_dof_map
 export get_cell_to_bg_cell
 export get_bg_cell_to_cell
@@ -130,20 +121,10 @@ export get_fdof_to_bg_fdof
 export get_bg_ddof_to_ddof
 export get_ddof_to_bg_ddof
 export get_dof_to_cells
+export get_dof_perm
 include("DofMapsBuilders.jl")
 
 export DofMapArray
 include("DofMapArrays.jl")
-
-export OIdsToIds
-export DofsToODofs
-export OReindex
-export OTable
-export add_ordered_entries!
-include("OrderingMaps.jl")
-
-export OrderedFESpace
-export get_dof_perm
-include("OrderedFESpaces.jl")
 
 end # module

@@ -54,27 +54,6 @@ end
   Algebra._add_entries!(cache,combine,A,vs,is,js)
 end
 
-@inline function Algebra.add_entries!(
-  cache,
-  combine::Function,
-  A,
-  vs::ParamBlock,
-  is::OIdsToIds
-  )
-  add_ordered_entries!(cache,combine,A,vs,is)
-end
-
-@inline function Algebra.add_entries!(
-  cache,
-  combine::Function,
-  A,
-  vs::ParamBlock,
-  is::OIdsToIds,
-  js::OIdsToIds
-  )
-  add_ordered_entries!(cache,combine,A,vs,is,js)
-end
-
 @inline function Algebra._add_entries!(
   vij,combine::Function,A,vs::ParamBlock,is,js
   )
@@ -92,25 +71,6 @@ end
   A
 end
 
-@inline function add_ordered_entries!(
-  vij,combine::Function,A,vs::ParamBlock,is::OIdsToIds,js::OIdsToIds
-  )
-
-  for (lj,j) in enumerate(js)
-    if j>0
-      ljp = js.terms[lj]
-      for (li,i) in enumerate(is)
-        if i>0
-          lip = is.terms[li]
-          get_param_entry!(vij,vs,lip,ljp)
-          add_entry!(combine,A,vij,i,j)
-        end
-      end
-    end
-  end
-  A
-end
-
 @inline function Algebra._add_entries!(
   vi,combine::Function,A,vs::ParamBlock,is
   )
@@ -118,20 +78,6 @@ end
   for (li,i) in enumerate(is)
     if i>0
       get_param_entry!(vi,vs,li)
-      add_entry!(combine,A,vi,i)
-    end
-  end
-  A
-end
-
-@inline function add_ordered_entries!(
-  vi,combine::Function,A,vs::ParamBlock,is::OIdsToIds
-  )
-
-  for (li,i) in enumerate(is)
-    if i>0
-      lip = is.terms[li]
-      get_param_entry!(vi,vs,lip)
       add_entry!(combine,A,vi,i)
     end
   end

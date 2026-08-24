@@ -7,27 +7,10 @@ Cartesian meshes. The key idea is that a D-dimensional Cartesian domain
 tensor product of D 1D meshes, allowing bilinear forms to be assembled as
 rank tensors of 1D matrices rather than full D-dimensional sparse matrices.
 
-## Geometry
-
-- [`TProductDiscreteModel`](@ref): D-dimensional `CartesianDiscreteModel`
-  together with its D 1D factor models.
-- [`TProductTriangulation`](@ref): triangulation on a `TProductDiscreteModel`.
-- [`TProductMeasure`](@ref): quadrature measure composed of D 1D measures.
-
 ## FE spaces
 
-- [`TensorProductReferenceFE`](@ref): a `ReferenceFE` that carries the 1D
-  factor reffes and triggers `TProductFESpace` construction via the standard
-  `FESpace(model,reffe;kwargs...)` interface.
-- [`TProductFESpace`](@ref): wraps an `OrderedFESpace` and D 1D
-  `OrderedFESpace`s.
-
-## Cell data
-
-- [`TProductFEBasis`](@ref): FE basis in separated form; supports `gradient`
-  and `PartialDerivative`.
-- [`GenericTProductCellField`](@ref),
-  [`GenericTProductDiffCellField`](@ref): cell fields in separated form.
+- [`TProductFESpace`](@ref): wraps a (dof-reindexed) `space` and a vector of
+  `D` 1D (dof-reindexed) `spaces_1d`, all plain Gridap `FESpace`s.
 
 ## Rank tensors
 
@@ -35,11 +18,9 @@ rank tensors of 1D matrices rather than full D-dimensional sparse matrices.
 - [`GenericRankTensor`](@ref): ``\\sum_{k=1}^K a_1^k \\otimes \\cdots \\otimes a_D^k``.
 - [`BlockRankTensor`](@ref): multi-field variant.
 
-## Assembly
-
-- [`TProductSparseMatrixAssembler`](@ref): assembles 1D matrices and packs
-  them into an [`AbstractRankTensor`](@ref).
-- [`TProductBlockSparseMatrixAssembler`](@ref): multi-field variant.
+1D matrices are assembled directly on `spaces_1d` with Gridap's own
+`assemble_matrix`, then packed into an `AbstractRankTensor` via
+`tproduct_array` — no dedicated tensor-product assembler is needed.
 """
 module TProduct
 
@@ -70,14 +51,7 @@ import Base:+,-
 import FillArrays: Fill,fill
 import Gridap.ReferenceFEs: get_order
 
-export TProductDiscreteModel
-export TProductTriangulation
-export TProductMeasure
-include("TProductGeometry.jl")
-
 export TProductFESpace
-export get_tp_fe_basis
-export get_tp_trial_fe_basis
 include("TProductFESpaces.jl")
 
 export AbstractRankTensor
@@ -88,12 +62,7 @@ export MatrixOrTensor
 export get_factors
 export get_decomposition
 export get_crossnorm
+export tproduct_array
 include("RankTensors.jl")
-
-include("TProductCellData.jl")
-
-export TProductSparseMatrixAssembler
-export TProductBlockSparseMatrixAssembler
-include("TProductAssembly.jl")
 
 end # module
