@@ -39,7 +39,8 @@ function Algebra.solve(
   # Data Packaging for GridapROMs
   fe_data = ConsecutiveParamArray(Float64.(pred_cpu))
 
-  # Dummy low-dimensional projection
+  # RBParamVector requires a reduced-data component; neural operators
+  # directly predict the FE solution, so this component is empty/dummy.
   dummy_red_data = ConsecutiveParamArray(zeros(Float64,1,n_samples))
 
   x̂ = RBParamVector(dummy_red_data,fe_data)

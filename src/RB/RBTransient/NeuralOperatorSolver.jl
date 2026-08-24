@@ -72,11 +72,9 @@ function Algebra.solve(
 
   # Wrap in GridapROMs types
   fe_data = ConsecutiveParamArray(pred_3d)
-  # dummy_red_data = ConsecutiveParamArray(zeros(Float64,1,n_samples,N_time))
   dummy_red_data = ConsecutiveParamArray(zeros(Float64,1,n_samples))
 
   x̂ = RBParamVector(dummy_red_data,fe_data)
-  # x̂ = (fe_data = fe_data,)
   stats = CostTracker(t,nruns=n_samples,name="DeepONet Transient Inference")
 
   return x̂,stats
