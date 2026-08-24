@@ -752,6 +752,10 @@ struct NeuralOpReduction{M,S} <: Reduction{NoReductionStyle,EuclideanNorm}
   strategy::NeuralOpStrategy{M,S}
 end
 
+ReductionStyle(r::NeuralOpReduction) = NoReductionStyle()
+NormStyle(r::NeuralOpReduction) = EuclideanNorm()
+ParamDataStructures.num_params(r::NeuralOpReduction) = 1 # Dummy value
+
 """
     const DeepONetReduction{M<:AbstractDeepONet,S} = NeuralOpReduction{M,S}
 
