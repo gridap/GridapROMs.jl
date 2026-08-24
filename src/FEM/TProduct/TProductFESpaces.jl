@@ -49,6 +49,15 @@ function FESpaces.FESpace(
   TProductFESpace(trian,reffe;kwargs...)
 end
 
+function FESpaces.FESpace(
+  trian::TProductTriangulation,
+  reffe::Tuple{<:ReferenceFEName,Any,Any};
+  kwargs...
+  )
+
+  TProductFESpace(trian,reffe;kwargs...)
+end
+
 function TProductFESpace(
   trian::TProductTriangulation,
   reffe::LagrangianRefFE;
