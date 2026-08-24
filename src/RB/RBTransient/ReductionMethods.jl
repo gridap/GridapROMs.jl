@@ -1,5 +1,5 @@
 """
-    abstract type HighDimReduction{A<:ReductionStyle,B<:NormStyle} <: Reduction{A,B} end
+    abstract type HighDimReduction{A<:ReductionStyle,B<:AssembleOperator} <: Reduction{A,B} end
 
 Abstract supertype for reduction methods in high-order (e.g. transient)
 parametric problems.
@@ -15,7 +15,7 @@ Concrete subtypes:
 Use the generic constructor `HighDimReduction(args...; kwargs...)` to dispatch
 to the appropriate subtype based on the arguments.
 """
-abstract type HighDimReduction{A<:ReductionStyle,B<:NormStyle} <: Reduction{A,B} end
+abstract type HighDimReduction{A<:ReductionStyle,B<:AssembleOperator} <: Reduction{A,B} end
 
 """
     struct SteadyReduction{A,B} <: HighDimReduction{A,B}
@@ -35,9 +35,9 @@ function SteadyReduction(args...;kwargs...)
   SteadyReduction(reduction)
 end
 
-function SteadyReduction(supr_op::Function,args...;supr_tol=1e-2,kwargs...)
+function SteadyReduction(coupling::AssembleOperator,args...;supr_tol=1e-2,kwargs...)
   reduction = SteadyReduction(args...;kwargs...)
-  SupremizerReduction(reduction,supr_op,supr_tol)
+  SupremizerReduction(reduction,coupling,supr_tol)
 end
 
 RBSteady.ReductionStyle(r::SteadyReduction) = ReductionStyle(r.reduction)
@@ -135,9 +135,9 @@ function HighDimReduction(tolrank::Union{Vector{Int},Vector{Float64}},args...;kw
   SequentialReduction(reduction)
 end
 
-function HighDimReduction(supr_op::Function,args...;supr_tol=1e-2,kwargs...)
+function HighDimReduction(coupling::AssembleOperator,args...;supr_tol=1e-2,kwargs...)
   reduction = HighDimReduction(args...;kwargs...)
-  SupremizerReduction(reduction,supr_op,supr_tol)
+  SupremizerReduction(reduction,coupling,supr_tol)
 end
 
 @doc raw"""

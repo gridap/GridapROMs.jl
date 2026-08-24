@@ -860,7 +860,7 @@ function set_params(red::LocalReduction;kwargs...)
 end
 
 function set_params(red::SupremizerReduction;kwargs...)
-  SupremizerReduction(set_params(red.reduction;kwargs...),red.supr_op,red.supr_tol)
+  SupremizerReduction(set_params(red.reduction;kwargs...),red.coupling,red.supr_tol)
 end
 
 function set_params(red::TrivialHyperReduction;nparams::Int)

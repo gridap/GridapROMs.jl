@@ -69,7 +69,7 @@ Base.getindex(a::Rank1Tensor,d::Integer) = get_factors(a)[d]
 Base.setindex!(a::Rank1Tensor,v,d::Integer) = (get_factors(a)[d]=v)
 
 function LinearAlgebra.cholesky(a::Rank1Tensor)
-  symcholesky.(get_factors(a))
+  cholesky.(get_factors(a))
 end
 
 @doc raw"""
@@ -113,89 +113,6 @@ function LinearAlgebra.cholesky(a::GenericRankTensor{D,K}) where {D,K}
 end
 
 """
-    tproduct_array(arrays_1d::Vector{<:AbstractArray}) -> Rank1Tensor
-    tproduct_array(op,arrays_1d::Vector{<:AbstractArray},gradients_1d::Vector{<:AbstractArray},args...) -> GenericRankTensor
-
-Returns a [`AbstractRankTensor`](@ref) storing the arrays `arrays_1d` (usually matrices)
-arising from an integration routine on D 1-d triangulations whose tensor product
-gives a D-dimensional triangulation. In the absence of the field `gradients_1d`,
-the output is a [`Rank1Tensor`](@ref); when provided, the output is a [`GenericRankTensor`](@ref)
-
-    tproduct_array(arrays_1d::Vector{<:BlockArray}) -> BlockRankTensor
-    tproduct_array(op,arrays_1d::Vector{<:BlockArray},gradients_1d::Vector{<:BlockArray},args...) -> BlockRankTensor
-
-Generalization of the previous functions to multi-field scenarios
-"""
-function tproduct_array(arrays_1d::Vector{<:AbstractArray})
-  Rank1Tensor(arrays_1d)
-end
-
-function tproduct_array(
-  ::Nothing,
-  arrays_1d::Vector{<:AbstractArray},
-  gradients_1d::Vector{<:AbstractArray},
-  summation=nothing
-  )
-
-  tproduct_array(arrays_1d)
-end
-
-function tproduct_array(
-  ::typeof(gradient),
-  arrays_1d::Vector{<:AbstractArray},
-  gradients_1d::Vector{<:AbstractArray},
-  summation=nothing
-  )
-
-  decompositions = _find_decompositions(summation,arrays_1d,gradients_1d)
-  GenericRankTensor(decompositions)
-end
-
-function tproduct_array(
-  ::PartialDerivative{N},
-  arrays_1d::Vector{<:AbstractArray},
-  gradients_1d::Vector{<:AbstractArray},
-  args...
-  ) where N
-
-  arrays_1d[N] = gradients_1d[N]
-  Rank1Tensor(arrays_1d)
-end
-
-function tproduct_array(
-  ::Utils.Divergence,
-  arrays_1d::Vector{<:AbstractArray},
-  gradients_1d::Vector{<:AbstractArray},
-  args...
-  )
-
-  decompositions = _find_decompositions(nothing,arrays_1d,gradients_1d)
-  GenericRankTensor(decompositions)
-end
-
-function _find_decompositions(::Nothing,arrays_1d,gradients_1d)
-  @check length(arrays_1d) == length(gradients_1d)
-  inds = LinearIndices(arrays_1d)
-  d = map(inds) do i
-    di = copy(arrays_1d)
-    di[i] = gradients_1d[i]
-    return Rank1Tensor(di)
-  end
-  return d
-end
-
-function _find_decompositions(::typeof(+),arrays_1d,gradients_1d)
-  @check length(arrays_1d) == length(gradients_1d)
-  inds = LinearIndices(arrays_1d)
-  d = map(inds) do i
-    di = copy(arrays_1d)
-    di[i] += gradients_1d[i]
-    return Rank1Tensor(di)
-  end
-  return d
-end
-
-"""
     struct BlockRankTensor{A<:AbstractRankTensor,N} <: AbstractArray{A,N}
       array::Array{A,N}
     end
@@ -204,35 +121,6 @@ Multi-field version of a [`AbstractRankTensor`](@ref)
 """
 struct BlockRankTensor{A<:AbstractRankTensor,N} <: AbstractArray{A,N}
   array::Array{A,N}
-end
-
-function tproduct_array(arrays_1d::Vector{<:BlockArray})
-  s_blocks = blocksize(first(arrays_1d))
-  arrays = map(CartesianIndices(s_blocks)) do i
-    iblock = Block(Tuple(i))
-    arrays_1d_i = getindex.(arrays_1d,iblock)
-    tproduct_array(arrays_1d_i)
-  end
-  BlockRankTensor(arrays)
-end
-
-function tproduct_array(
-  op::ArrayBlock,
-  arrays_1d::Vector{<:BlockArray},
-  gradients_1d::Vector{<:BlockArray},
-  s::ArrayBlock
-  )
-
-  s_blocks = blocksize(first(arrays_1d))
-  arrays = map(CartesianIndices(s_blocks)) do i
-    iblock = Block(Tuple(i))
-    arrays_1d_i = getindex.(arrays_1d,iblock)
-    gradients_1d_i = getindex.(gradients_1d,iblock)
-    op_i = op[Tuple(i)...]
-    s_i = s[Tuple(i)...]
-    tproduct_array(op_i,arrays_1d_i,gradients_1d_i,s_i)
-  end
-  BlockRankTensor(arrays)
 end
 
 Base.size(a::BlockRankTensor) = size(a.array)
@@ -300,31 +188,15 @@ function Utils.induced_norm(a::AbstractArray{T,D′},X::AbstractRankTensor{D}) w
   sqrtreal(sum(induced_norm(ai,X)^2 for ai in eachslice(a,dims=D′)))
 end
 
-# helpers for in-place assembly of gradient tensors
-
-"""
-    get_arrays_1d(a::GenericRankTensor{D,D}) -> Vector
-
-For a gradient-assembled `GenericRankTensor` built by `tproduct_array(gradient,arrays,grads)`,
-recovers the original `arrays_1d` (mass-like factors) as a vector of length D.
-"""
-function get_arrays_1d(a::GenericRankTensor{D,D}) where D
-  map(1:D) do d
-    k = d == 1 ? 2 : 1
-    get_factor(a,d,k)
+function _find_decompositions(arrays_1d,gradients_1d)
+  @check length(arrays_1d) == length(gradients_1d)
+  inds = LinearIndices(arrays_1d)
+  d = map(inds) do i
+    di = copy(arrays_1d)
+    di[i] = gradients_1d[i]
+    return Rank1Tensor(di)
   end
-end
-
-"""
-    get_gradients_1d(a::GenericRankTensor{D,D}) -> Vector
-
-For a gradient-assembled `GenericRankTensor` built by `tproduct_array(gradient,arrays,grads)`,
-recovers the original `gradients_1d` (stiffness-like factors) as a vector of length D.
-"""
-function get_gradients_1d(a::GenericRankTensor{D,D}) where D
-  map(1:D) do d
-    get_factor(a,d,d)
-  end
+  return d
 end
 
 # to global array - should try avoiding using these functions

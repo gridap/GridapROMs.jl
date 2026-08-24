@@ -219,13 +219,3 @@ end
 
 (f::DirectSumTrialFESpace)(μ) = evaluate(f,μ)
 (f::DirectSumTrialFESpace)(μ,t) = evaluate(f,μ,t)
-
-# utils 
-
-function ParamSteady._assemble_matrix(f,V::DirectSumFESpace)
-  ParamSteady._assemble_matrix(f,get_bg_space(V))
-end
-
-function ParamSteady._assemble_matrix(f,spaces::Vector{<:DirectSumFESpace})
-  ParamSteady._assemble_matrix(f,get_bg_space.(spaces))
-end

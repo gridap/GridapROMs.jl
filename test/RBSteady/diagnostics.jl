@@ -59,13 +59,13 @@ function main(
   test = MultiFieldFESpace([test_u,test_p];style=BlockMultiFieldStyle())
   trial = MultiFieldFESpace([trial_u,trial_p];style=BlockMultiFieldStyle())
 
-  energy = SpaceForm(X -> energy_norm(X,[h1_norm,l2_norm]))
-  supr_coupling = SpaceForm(coupling)
+  energy = BlockOperator((H1(),L2()))
+  coupling = DivCoupling()
 
   if method == :pod
-    state_reduction = SupremizerReduction(supr_coupling,tol,energy;nparams,sketch,compression,ncentroids)
+    state_reduction = SupremizerReduction(coupling,tol,energy;nparams,sketch,compression,ncentroids)
   elseif method == :ttsvd
-    state_reduction = SupremizerReduction(supr_coupling,fill(tol,3),energy;nparams,sketch,compression,ncentroids)
+    state_reduction = SupremizerReduction(coupling,fill(tol,3),energy;nparams,sketch,compression,ncentroids)
   end
 
   fesolver = LUSolver()

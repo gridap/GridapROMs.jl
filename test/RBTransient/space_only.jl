@@ -23,11 +23,7 @@ pdomain = (1,10,1,10,1,10)
 
 domain = (0,1,0,1)
 partition = (8,8)
-if method==:ttsvd
-  model = TProductDiscreteModel(domain,partition)
-else
-  model = CartesianDiscreteModel(domain,partition)
-end
+model = CartesianDiscreteModel(domain,partition)
 
 order = 1
 degree = 2*order
@@ -62,15 +58,17 @@ trian_stiffness = (Ω,)
 trian_mass = (Ω,)
 domains = FEDomains(trian_res,(trian_stiffness,trian_mass))
 
-energy(du,v) = ∫(v*du)dΩ + ∫(∇(v)⋅∇(du))dΩ
-
-reffe = ReferenceFE(lagrangian,Float64,order)
-test = TestFESpace(Ω,reffe;conformity=:H1,dirichlet_tags=[1,3,7])
+if method == :ttsvd
+  test = TProductFESpace(Ω,(lagrangian,(Float64,order),(;));conformity=:H1,dirichlet_tags=[1,3,7])
+else
+  reffe = ReferenceFE(lagrangian,Float64,order)
+  test = TestFESpace(Ω,reffe;conformity=:H1,dirichlet_tags=[1,3,7])
+end
 trial = TransientTrialParamFESpace(test,gμt)
 
 uh0μ(μ) = interpolate_everywhere(u0μ(μ),trial(μ,t0))
 
-state_reduction = SteadyReduction(tol,energy;nparams,sketch,compression,ncentroids)
+state_reduction = SteadyReduction(tol,H1();nparams,sketch,compression,ncentroids)
 
 θ = 0.5
 dt = 0.01

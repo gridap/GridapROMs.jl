@@ -823,11 +823,11 @@ function enrich!(
 end
 
 function enrich!(
-  ::SupremizerReduction{A,<:TTSVDReduction},
+  ::SupremizerReduction{A,B,<:TTSVDReduction},
   a::BlockProjection,
   norm_matrix::BlockRankTensor,
   supr_matrix::BlockRankTensor
-  ) where A
+  ) where {A,B}
 
   @check a.touched[1] "Primal field not defined"
   a_primal,a_dual... = a.array

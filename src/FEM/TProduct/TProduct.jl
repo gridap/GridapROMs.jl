@@ -19,8 +19,9 @@ rank tensors of 1D matrices rather than full D-dimensional sparse matrices.
 - [`BlockRankTensor`](@ref): multi-field variant.
 
 1D matrices are assembled directly on `spaces_1d` with Gridap's own
-`assemble_matrix`, then packed into an `AbstractRankTensor` via
-`tproduct_array` — no dedicated tensor-product assembler is needed.
+`assemble_matrix`, then packed into an `AbstractRankTensor` (`Rank1Tensor`/
+`GenericRankTensor`) directly — no dedicated tensor-product assembler is
+needed.
 """
 module TProduct
 
@@ -62,7 +63,6 @@ export MatrixOrTensor
 export get_factors
 export get_decomposition
 export get_crossnorm
-export tproduct_array
 include("RankTensors.jl")
 
 end # module

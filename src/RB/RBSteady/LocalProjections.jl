@@ -102,11 +102,11 @@ function get_local(a::RBSpace,μ::AbstractVector)
 end
 
 function enrich!(
-  red::SupremizerReduction{A,<:LocalReduction},
+  red::SupremizerReduction{A,B,<:LocalReduction},
   a::BlockProjection,
   norm_matrix::BlockMatrix,
   supr_matrix::BlockMatrix
-  ) where A
+  ) where {A,B}
 
   @check a.touched[1] "Primal field not defined"
   a_primal,a_dual... = a.array
@@ -129,11 +129,11 @@ function enrich!(
 end
 
 function enrich!(
-  red::SupremizerReduction{A,<:LocalReduction},
+  red::SupremizerReduction{A,B,<:LocalReduction},
   a::BlockProjection,
   norm_matrix::BlockRankTensor,
   supr_matrix::BlockRankTensor
-  ) where A
+  ) where {A,B}
 
   @check a.touched[1] "Primal field not defined"
   a_primal,a_dual... = a.array

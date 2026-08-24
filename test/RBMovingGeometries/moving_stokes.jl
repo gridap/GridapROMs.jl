@@ -55,8 +55,8 @@ dΩbg = Measure(Ωbg,degree)
 dΩ = Measure(Ω,degree)
 dΓ = Measure(Γ,degree)
 
-energy((du,dp),(v,q)) = ∫(du⋅v)dΩ + ∫(dp*q)dΩ + ∫(∇(v)⊙∇(du))dΩ + ∫((γd/hd)*du⋅v)dΓ
-coupling((du,dp),(v,q)) = ∫(dp*(∇⋅(v)))dΩ
+energy = BlockOperator((NitscheH1(Γ,γd,hd),L2()))
+coupling = DivCoupling()
 
 n_Γ = get_normal_vector(Γ)
 strategy = AggregateAllCutCells()

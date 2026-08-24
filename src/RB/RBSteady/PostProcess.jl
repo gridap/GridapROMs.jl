@@ -296,13 +296,13 @@ function Utils.compute_relative_error(solver::RBSolver,feop,sol,sol_approx)
   compute_relative_error(norm_style,feop,sol,sol_approx)
 end
 
-function Utils.compute_relative_error(norm_style::EnergyNorm,feop,sol,sol_approx)
-  X = assemble_matrix(feop,get_norm(norm_style))
-  compute_relative_error(sol,sol_approx,X)
-end
-
 function Utils.compute_relative_error(norm_style::EuclideanNorm,feop,sol,sol_approx)
   compute_relative_error(sol,sol_approx)
+end
+
+function Utils.compute_relative_error(norm_style::AssembleOperator,feop,sol,sol_approx)
+  X = assemble_operator(norm_style,feop)
+  compute_relative_error(sol,sol_approx,X)
 end
 
 function Utils.compute_relative_error(

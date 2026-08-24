@@ -37,7 +37,7 @@ function reduced_basis(
 end
 
 function reduced_basis(
-  red::Reduction,
+  red::Reduction{<:ReductionStyle,EuclideanNorm},
   feop::ParamOperator,
   s::AbstractSnapshots
   )
@@ -46,12 +46,12 @@ function reduced_basis(
 end
 
 function reduced_basis(
-  red::Reduction{<:ReductionStyle,EnergyNorm},
+  red::Reduction,
   feop::ParamOperator,
   s::AbstractSnapshots
   )
 
-  norm_matrix = assemble_matrix(feop,get_norm(red))
+  norm_matrix = assemble_operator(NormStyle(red),feop)
   reduced_basis(red,s,norm_matrix)
 end
 
@@ -61,8 +61,8 @@ function reduced_basis(
   s::AbstractSnapshots
   )
 
-  norm_matrix = assemble_matrix(feop,get_norm(red))
-  supr_matrix = assemble_matrix(feop,get_supr(red))
+  norm_matrix = assemble_operator(NormStyle(red),feop)
+  supr_matrix = assemble_operator(CouplingStyle(red),feop)
   basis = reduced_basis(get_reduction(red),s,norm_matrix)
   enrich!(red,basis,norm_matrix,supr_matrix)
   return basis

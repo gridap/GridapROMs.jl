@@ -113,7 +113,7 @@ function update_reduction(red::LocalReduction,tolrank)
 end
 
 function update_reduction(red::SupremizerReduction,tolrank)
-  SupremizerReduction(update_reduction(red.reduction,tolrank),red.supr_op,red.supr_tol)
+  SupremizerReduction(update_reduction(red.reduction,tolrank),red.coupling,red.supr_tol)
 end
 
 function update_reduction(red::MDEIMHyperReduction,tolrank)

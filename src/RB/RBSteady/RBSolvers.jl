@@ -68,7 +68,7 @@ end
 
 function RBSolver(
   fesolver,
-  state_reduction::Union{LocalReduction,SupremizerReduction{A,<:LocalReduction} where A},
+  state_reduction::Union{LocalReduction,SupremizerReduction{A,B,<:LocalReduction} where {A,B}},
   residual_reduction,
   jacobian_reduction
   )

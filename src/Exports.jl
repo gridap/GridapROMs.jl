@@ -77,6 +77,21 @@ using GridapROMs.ParamODEs: ∂ₚt,∂ₚtt; export ∂ₚt,∂ₚtt
 @publish Extensions extend_solution
 using GridapROMs.Extensions: ⊕; export ⊕
 
+@publish RBSteady AssembleOperator
+@publish RBSteady assemble_operator
+@publish RBSteady NormStyle
+@publish RBSteady ℓ2
+@publish RBSteady EuclideanNorm
+@publish RBSteady L2
+@publish RBSteady H1
+@publish RBSteady NitscheH1
+@publish RBSteady CouplingStyle
+@publish RBSteady DivCoupling
+@publish RBSteady BlockOperator
+@publish RBSteady l2_norm
+@publish RBSteady h1_norm
+@publish RBSteady div_coupling
+
 @publish RBSteady Reduction
 @publish RBSteady PODReduction
 @publish RBSteady TTSVDReduction

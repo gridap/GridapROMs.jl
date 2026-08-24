@@ -52,7 +52,7 @@ dΩbg = Measure(Ωbg,degree)
 dΩ = Measure(Ω,degree)
 dΓ = Measure(Γ,degree)
 
-energy(du,v) = method==:ttsvd ? ∫(v⋅du)dΩbg + ∫(∇(v)⊙∇(du))dΩbg : ∫(v⋅du)dΩ + ∫(∇(v)⊙∇(du))dΩ + ∫((γd/hd)*v⋅du)dΓ
+energy = NitscheH1(Γ,γd,hd)
 
 n_Γ = get_normal_vector(Γ)
 strategy = AggregateAllCutCells()

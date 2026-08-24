@@ -24,11 +24,7 @@ function main(
 
   domain = (0,1,0,1)
   partition = (8,8)
-  if method==:ttsvd
-    model = TProductDiscreteModel(domain,partition)
-  else
-    model = CartesianDiscreteModel(domain,partition)
-  end
+  model = CartesianDiscreteModel(domain,partition)
 
   order = 2
   degree = 2*order
@@ -49,17 +45,22 @@ function main(
   trian_stiffness = (Ω,)
   domains = FEDomains(trian_res,trian_stiffness)
 
-  reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
-  test_u = TestFESpace(Ω,reffe_u;conformity=:H1,dirichlet_tags=[1,2,3,4,5,6,7])
+  if method == :ttsvd
+    test_u = TProductFESpace(Ω,(lagrangian,(VectorValue{2,Float64},order),(;));conformity=:H1,dirichlet_tags=[1,2,3,4,5,6,7])
+    test_p = TProductFESpace(Ω,(lagrangian,(Float64,order-1),(;));conformity=:H1)
+  else
+    reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
+    test_u = TestFESpace(Ω,reffe_u;conformity=:H1,dirichlet_tags=[1,2,3,4,5,6,7])
+    reffe_p = ReferenceFE(lagrangian,Float64,order-1)
+    test_p = TestFESpace(Ω,reffe_p;conformity=:H1)
+  end
   trial_u = ParamTrialFESpace(test_u,gμ)
-  reffe_p = ReferenceFE(lagrangian,Float64,order-1)
-  test_p = TestFESpace(Ω,reffe_p;conformity=:H1)
   trial_p = ParamTrialFESpace(test_p)
   test = MultiFieldFESpace([test_u,test_p])
   trial = MultiFieldFESpace([trial_u,trial_p])
 
-  energy((du,dp),(v,q)) = ∫(du⋅v)dΩ + ∫(∇(v)⊙∇(du))dΩ + ∫(dp*q)dΩ
-  coupling((du,dp),(v,q)) = method == :pod ? ∫(dp*(∇⋅(v)))dΩ : ∫(dp*∂₁(v))dΩ + ∫(dp*∂₂(v))dΩ
+  energy = BlockOperator((H1(),L2()))
+  coupling = DivCoupling()
 
   if method == :pod
     state_reduction = SupremizerReduction(coupling,tol,energy;nparams,sketch,compression,ncentroids)

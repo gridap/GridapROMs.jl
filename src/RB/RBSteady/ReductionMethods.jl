@@ -120,10 +120,11 @@ Base.repeat(r::ReductionStyle,D::Int) = TTSVDRanks(fill(r,D))
 include("EnergyNorms.jl")
 
 """
-    abstract type Reduction{A<:ReductionStyle,B<:NormStyle} end
+    abstract type Reduction{A<:ReductionStyle,B<:AssembleOperator} end
 
-Type indicating the reduction strategy to employ, and the information regarding
-the norm with respect to which the reduction should occur.
+Type indicating the reduction strategy to employ, and the [`AssembleOperator`](@ref)
+(e.g. [`EuclideanNorm`](@ref), [`L2`](@ref), [`H1`](@ref), or a [`BlockOperator`](@ref)
+of these) with respect to which the reduction should occur.
 
 Subtypes:
 
@@ -134,7 +135,7 @@ Subtypes:
 - [`HyperReduction`](@ref)
 - [`HighDimReduction`](@ref)
 """
-abstract type Reduction{A<:ReductionStyle,B<:NormStyle} end
+abstract type Reduction{A<:ReductionStyle,B<:AssembleOperator} end
 
 struct NoReduction <: Reduction{NoReductionStyle,EuclideanNorm} end
 
@@ -155,7 +156,6 @@ get_reduction(r::Reduction) = r
 ReductionStyle(r::Reduction) = @abstractmethod
 NormStyle(r::Reduction) = @abstractmethod
 ParamDataStructures.num_params(r::Reduction) = @abstractmethod
-get_norm(r::Reduction) = get_norm(NormStyle(r))
 
 """
     struct PODReduction{A,B} <: DirectReduction{A,B}
@@ -173,14 +173,9 @@ struct PODReduction{A,B} <: DirectReduction{A,B}
   nparams::Int
 end
 
-function PODReduction(red_style::ReductionStyle,norm_style::NormStyle=EuclideanNorm();nparams=50)
+function PODReduction(red_style::ReductionStyle,norm_style::AssembleOperator=EuclideanNorm();nparams=50)
   nparams = max(1,nparams)
   PODReduction(red_style,norm_style,nparams)
-end
-
-function PODReduction(red_style::ReductionStyle,norm_op::Function;kwargs...)
-  norm_style = EnergyNorm(norm_op)
-  PODReduction(red_style,norm_style;kwargs...)
 end
 
 function PODReduction(tolrank::Union{Float64,Int},args...;nparams=50,kwargs...)
@@ -208,13 +203,8 @@ struct TTSVDReduction{B} <: DirectReduction{TTSVDRanks,B}
   nparams::Int
 end
 
-function TTSVDReduction(red_style::ReductionStyle,norm_style::NormStyle=EuclideanNorm();nparams=50)
+function TTSVDReduction(red_style::ReductionStyle,norm_style::AssembleOperator=EuclideanNorm();nparams=50)
   TTSVDReduction(red_style,norm_style,nparams)
-end
-
-function TTSVDReduction(red_style::ReductionStyle,norm_op::Function;nparams=50,kwargs...)
-  norm_style = EnergyNorm(norm_op)
-  TTSVDReduction(red_style,norm_style;nparams)
 end
 
 function TTSVDReduction(tolrank,args...;nparams=50,kwargs...)
@@ -264,37 +254,38 @@ NormStyle(r::LocalReduction) = NormStyle(get_reduction(r))
 ParamDataStructures.num_params(r::LocalReduction) = num_params(get_reduction(r))
 
 """
-    struct SupremizerReduction{A,R<:Reduction{A,EnergyNorm}} <: Reduction{A,EnergyNorm}
+    struct SupremizerReduction{A,B,R<:Reduction{A,B}} <: Reduction{A,B}
       reduction::R
-      supr_op::Function
+      coupling::AssembleOperator
       supr_tol::Float64
     end
 
 Wrapper for reduction methods `reduction` that require an additional step of
 stabilization, by means of a supremizer enrichment. Check [this](https://doi.org/10.1002/nme.4772)
 for more details in a steady setting, and [this](https://doi.org/10.1137/22M1509114) for
-more details in a transient setting. The fields `supr_op` and `supr_tol` (which
+more details in a transient setting. The fields `coupling` and `supr_tol` (which
 is only needed only in transient applications) are respectively the supremizing
-operator and the tolerance involved in the enrichment. For a saddle point problem
-with a Jacobian of the form
+operator (a [`CouplingStyle`](@ref), e.g. [`DivCoupling`](@ref), or a
+[`BlockOperator`](@ref) of these) and the tolerance involved in the enrichment.
+For a saddle point problem with a Jacobian of the form
 
 [ A   Bᵀ
   B   0 ]
 
 this operator is given by the bilinear form representing the matrix Bᵀ.
 """
-struct SupremizerReduction{A,R<:Reduction{A,EnergyNorm}} <: Reduction{A,EnergyNorm}
+struct SupremizerReduction{A,B,R<:Reduction{A,B}} <: Reduction{A,B}
   reduction::R
-  supr_op::Function
+  coupling::AssembleOperator
   supr_tol::Float64
 end
 
-function SupremizerReduction(supr_op::Function,args...;supr_tol=1e-2,kwargs...)
+function SupremizerReduction(coupling::AssembleOperator,args...;supr_tol=1e-2,kwargs...)
   reduction = Reduction(args...;kwargs...)
-  SupremizerReduction(reduction,supr_op,supr_tol)
+  SupremizerReduction(reduction,coupling,supr_tol)
 end
 
-get_supr(r::SupremizerReduction) = r.supr_op
+CouplingStyle(r::SupremizerReduction) = r.coupling
 get_supr_tol(r::SupremizerReduction) = r.supr_tol
 
 get_reduction(r::SupremizerReduction) = r.reduction
@@ -349,8 +340,8 @@ function Reduction(reduction::Reduction,args...;kwargs...)
   reduction
 end
 
-function Reduction(supr_op::Function,args...;kwargs...)
-  SupremizerReduction(supr_op,args...;kwargs...)
+function Reduction(coupling::AssembleOperator,args...;kwargs...)
+  SupremizerReduction(coupling,args...;kwargs...)
 end
 
 """

@@ -21,11 +21,11 @@ function RBSteady.get_local(a::SequentialProjection,μ::AbstractVector)
 end
 
 function RBSteady.enrich!(
-  red::SupremizerReduction{A,<:LocalReduction{B,C,<:KroneckerReduction}},
+  red::SupremizerReduction{A,D,<:LocalReduction{B,C,<:KroneckerReduction}},
   a::BlockProjection,
   norm_matrix::BlockMatrix,
   supr_matrix::BlockMatrix
-  ) where {A,B,C}
+  ) where {A,B,C,D}
 
   @check a.touched[1] "Primal field not defined"
   tol = RBSteady.get_supr_tol(red)
@@ -53,14 +53,14 @@ function RBSteady.enrich!(
 end
 
 function RBSteady.enrich!(
-  red::SupremizerReduction{A,<:LocalReduction{B,C,<:SequentialReduction}},
+  red::SupremizerReduction{A,D,<:LocalReduction{B,C,<:SequentialReduction}},
   a::BlockProjection,
   norm_matrix::BlockRankTensor,
   supr_matrix::BlockRankTensor;
   kwargs...
-  ) where {A,B,C}
+  ) where {A,B,C,D}
 
-  red′ = SupremizerReduction(LocalReduction(red.reduction.reduction.reduction),red.supr_op,red.supr_tol)
+  red′ = SupremizerReduction(LocalReduction(red.reduction.reduction.reduction),red.coupling,red.supr_tol)
   enrich!(red′,a,norm_matrix,supr_matrix;kwargs...)
 end
 

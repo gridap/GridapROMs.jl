@@ -14,7 +14,10 @@ using GridapROMs.RBSteady
   @test FixedSVDRank(5) isa FixedSVDRank
   @test TTSVDRanks([1e-3,1e-3]) isa TTSVDRanks
   @test EuclideanNorm() isa EuclideanNorm
-  @test EnergyNorm(x -> x) isa EnergyNorm
+  @test L2() isa NormStyle
+  @test H1() isa NormStyle
+  @test DivCoupling() isa CouplingStyle
+  @test BlockOperator((H1(),L2())) isa AssembleOperator
 end
 
 # ─── truncated POD ────────────────────────────────────────────────────────────

@@ -19,11 +19,7 @@ function main(
 
   domain = (0,1,0,1)
   partition = (5,5)
-  if method==:ttsvd
-    model = TProductDiscreteModel(domain,partition)
-  else
-    model = CartesianDiscreteModel(domain,partition)
-  end
+  model = CartesianDiscreteModel(domain,partition)
 
   order = 1
   degree = 2*order
@@ -58,18 +54,20 @@ function main(
   trian_mass = (Ω,)
   domains = FEDomains(trian_res,(trian_stiffness,trian_mass))
 
-  energy(du,v) = ∫(v*du)dΩ + ∫(∇(v)⋅∇(du))dΩ
-
-  reffe = ReferenceFE(lagrangian,Float64,order)
-  test = TestFESpace(Ω,reffe;conformity=:H1,dirichlet_tags=[1,3,7])
+  if method == :ttsvd
+    test = TProductFESpace(Ω,(lagrangian,(Float64,order),(;));conformity=:H1,dirichlet_tags=[1,3,7])
+  else
+    reffe = ReferenceFE(lagrangian,Float64,order)
+    test = TestFESpace(Ω,reffe;conformity=:H1,dirichlet_tags=[1,3,7])
+  end
   trial = TransientTrialParamFESpace(test,gμt)
 
   uh0μ(μ) = interpolate_everywhere(u0μ(μ),trial(μ,t0))
 
   if method == :pod
-    state_reduction = HighDimReduction(tol,energy;nparams,sketch,compression,ncentroids)
+    state_reduction = HighDimReduction(tol,H1();nparams,sketch,compression,ncentroids)
   elseif method == :ttsvd
-    state_reduction = HighDimReduction(fill(tol,3),energy;nparams,sketch,compression,ncentroids)
+    state_reduction = HighDimReduction(fill(tol,3),H1();nparams,sketch,compression,ncentroids)
   end
 
   θ = 0.5

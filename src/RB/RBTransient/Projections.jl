@@ -423,23 +423,23 @@ end
 # multfield interface
 
 function RBSteady.enrich!(
-  red::SupremizerReduction{A,<:HighDimReduction},
+  red::SupremizerReduction{A,B,<:HighDimReduction},
   a::BlockProjection,
   norm_matrix::BlockRankTensor,
   supr_matrix::BlockRankTensor;
   kwargs...
-  ) where A
+  ) where {A,B}
 
-  red′ = SupremizerReduction(red.reduction.reduction,red.supr_op,red.supr_tol)
+  red′ = SupremizerReduction(red.reduction.reduction,red.coupling,red.supr_tol)
   enrich!(red′,a,norm_matrix,supr_matrix;kwargs...)
 end
 
 function RBSteady.enrich!(
-  red::SupremizerReduction{A,<:KroneckerReduction},
+  red::SupremizerReduction{A,B,<:KroneckerReduction},
   a::BlockProjection,
   norm_matrix::BlockMatrix,
   supr_matrix::BlockMatrix
-  ) where A
+  ) where {A,B}
 
   @check a.touched[1] "Primal field not defined"
   tol = RBSteady.get_supr_tol(red)
