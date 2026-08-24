@@ -95,6 +95,18 @@ function Geometry.Triangulation(model::TProductDiscreteModel;kwargs...)
   TProductTriangulation(model,trian,trians_1d)
 end
 
+for f in (:(Geometry.BoundaryTriangulation),:(Geometry.SkeletonTriangulation),:(Geometry.InterfaceTriangulation))
+  @eval begin
+    function $f(model::TProductDiscreteModel,args...;kwargs...)
+      $f(model.model,args...;kwargs...)
+    end
+  end
+end
+
+function CellData.Measure(trian::TProductTriangulation,args...;kwargs...)
+  Measure(trian.trian,args...;kwargs...)
+end
+
 # utils 
 
 function _throw_tp_error()
