@@ -1,15 +1,18 @@
 abstract type AssembleOperator end
 
-function assemble_operator(a::AssembleOperator,U::FESpace,V::FESpace)
+function _assemble_operator(a::AssembleOperator,U::FESpace,V::FESpace)
   @abstractmethod
 end
 
-function assemble_operator(a::AssembleOperator,feop::Union{ParamFEOperator,ParamOperator})
-  assemble_operator(a,get_trial(feop),get_test(feop))
+function _assemble_operator(a::AssembleOperator,U::DirectSumFESpace,V::DirectSumFESpace)
+  _assemble_operator(a,get_bg_space(U),get_bg_space(V))
 end
 
-function assemble_operator(a::AssembleOperator,U::DirectSumFESpace,V::DirectSumFESpace)
-  assemble_operator(a,get_bg_space(U),get_bg_space(V))
+function assemble_operator(a::AssembleOperator,feop)
+  _unwrap(f) = f 
+  _unwrap(f::UnEvalTrialFESpace) = _unwrap(f.space)
+  _unwrap(f::MultiFieldFESpace) = MultiFieldFESpace(map(_unwrap,f.spaces);style=MultiFieldStyle(f))
+  _assemble_operator(a,_unwrap(get_trial(feop)),get_test(feop))
 end
 
 """
@@ -35,30 +38,28 @@ const EuclideanNorm = ℓ2
 """
     struct NitscheH1 <: NormStyle
       trian::Triangulation
-      γd::Float64
-      hd::Float64
+      γ::Float64
+      h::Float64
     end
 
 H1 norm with an added Nitsche boundary penalty term, for spaces with weakly
 imposed Dirichlet BCs (e.g. on a cut/aggregated embedded mesh):
 
-`∫(v⋅u)dΩ + ∫(∇(v)⊙∇(u))dΩ + ∫((γd/hd)*v⋅u)dΓ`
+`∫(v⋅u)dΩ + ∫(∇(v)⊙∇(u))dΩ + ∫((γ/h)*v⋅u)dΓ`
 
 where `dΓ` is built from `trian`.
 """
 struct NitscheH1 <: NormStyle
   trian::Triangulation
-  γd::Float64
-  hd::Float64
+  γ::Float64
+  h::Float64
 end
 
-function assemble_operator(op::NitscheH1,U::SingleFieldFESpace,V::SingleFieldFESpace)
-  Uu,Vv = _unwrap_space(U),_unwrap_space(V)
-  h1form = get_h1_form(Uu,Vv)
-  degree = 2*max(get_polynomial_order(Uu),get_polynomial_order(Vv))
+function _assemble_operator(op::NitscheH1,U::SingleFieldFESpace,V::SingleFieldFESpace)
+  h1form = get_h1_form(U,V)
+  degree = 2*max(get_polynomial_order(U),get_polynomial_order(V))
   dΓ = Measure(op.trian,degree)
-  γdhd = op.γd/op.hd
-  form(u,v) = h1form(u,v) + ∫(γdhd*(v⋅u))dΓ
+  form(u,v) = h1form(u,v) + ∫((op.γ/op.h)*(v⋅u))dΓ
   assemble_matrix(form,U,V)
 end
 
@@ -94,47 +95,48 @@ end
 
 Base.length(op::BlockOperator) = length(op.op)
 
-# `get_trial(feop)` is typically an `UnEvalTrialFESpace` (aliased
-# `ParamTrialFESpace`/`TransientTrialParamFESpace`) wrapping the actual space
-# (e.g. a `TProductFESpace`) in its `.space` field. Unwrap it so that the
-# `TProductFESpace`-specific l2_norm/h1_norm/div_coupling dispatches (which
-# require an exact type match) are not silently skipped in favor of the
-# generic dense fallback.
-_unwrap_space(f::SingleFieldFESpace) = f
-_unwrap_space(f::UnEvalTrialFESpace) = _unwrap_space(f.space)
+"""
+    const BlockNorm = BlockOperator
+"""
+const BlockNorm = BlockOperator
 
-function assemble_operator(::L2,U::SingleFieldFESpace,V::SingleFieldFESpace)
-  l2_norm(_unwrap_space(U),_unwrap_space(V))
+"""
+    const BlockCoupling = BlockOperator
+"""
+const BlockCoupling = BlockOperator
+
+function _assemble_operator(::L2,U::SingleFieldFESpace,V::SingleFieldFESpace)
+  l2_norm(U,V)
 end
 
-function assemble_operator(::H1,U::SingleFieldFESpace,V::SingleFieldFESpace)
-  h1_norm(_unwrap_space(U),_unwrap_space(V))
+function _assemble_operator(::H1,U::SingleFieldFESpace,V::SingleFieldFESpace)
+  h1_norm(U,V)
 end
 
-function assemble_operator(::DivCoupling,U::SingleFieldFESpace,V::SingleFieldFESpace)
-  div_coupling(_unwrap_space(U),_unwrap_space(V))
+function _assemble_operator(::DivCoupling,U::SingleFieldFESpace,V::SingleFieldFESpace)
+  div_coupling(U,V)
 end
 
-function assemble_operator(op::NormStyle,X::MultiFieldFESpace,Y::MultiFieldFESpace)
+function _assemble_operator(op::NormStyle,X::MultiFieldFESpace,Y::MultiFieldFESpace)
   bop = BlockOperator(ntuple(_ -> op,Val{length(X)}()))
-  assemble_operator(bop,X,Y)
+  _assemble_operator(bop,X,Y)
 end
 
-function assemble_operator(op::CouplingStyle,X::MultiFieldFESpace,Y::MultiFieldFESpace)
+function _assemble_operator(op::CouplingStyle,X::MultiFieldFESpace,Y::MultiFieldFESpace)
   bop = BlockOperator(ntuple(_ -> op,Val{length(X)-1}()))
-  assemble_operator(bop,X,Y)
+  _assemble_operator(bop,X,Y)
 end
 
-function assemble_operator(op::BlockOperator{<:Tuple{Vararg{NormStyle}}},X::MultiFieldFESpace,Y::MultiFieldFESpace)
+function _assemble_operator(op::BlockOperator{<:Tuple{Vararg{NormStyle}}},X::MultiFieldFESpace,Y::MultiFieldFESpace)
   @check length(op) == length(X) == length(Y) "Wrong length of norms or MultiFieldFESpaces"
-  map(assemble_operator,op.op,X.spaces,Y.spaces) |> _energy_mortar
+  map(_assemble_operator,op.op,X.spaces,Y.spaces) |> _energy_mortar
 end
 
-function assemble_operator(op::BlockOperator{<:Tuple{Vararg{CouplingStyle}}},X::MultiFieldFESpace,Y::MultiFieldFESpace)
+function _assemble_operator(op::BlockOperator{<:Tuple{Vararg{CouplingStyle}}},X::MultiFieldFESpace,Y::MultiFieldFESpace)
   @check length(op)+1 == length(X) == length(Y) "Wrong length of couplings or MultiFieldFESpaces"
   V, = Y.spaces
   Us = X.spaces[2:end]
-  map((o,U) -> assemble_operator(o,U,V),op.op,Us) |> _coupling_mortar
+  map((o,U) -> _assemble_operator(o,U,V),op.op,Us) |> _coupling_mortar
 end
 
 for (f,g) in zip((:l2_norm,:h1_norm,:div_coupling),(:get_l2_form,:get_h1_form,:get_div_coupling_form))
@@ -164,15 +166,23 @@ end
 function h1_norm(U::TProductFESpace,V::TProductFESpace)
   mass_1d = map(_mass_1d,U.spaces_1d,V.spaces_1d)
   stiff_1d = map(_stiffness_1d,U.spaces_1d,V.spaces_1d)
-  seminorm = TProduct._find_decompositions(mass_1d,stiff_1d)
-  GenericRankTensor(vcat(Rank1Tensor(mass_1d),seminorm))
+  inds = LinearIndices(mass_1d)
+  map(inds) do i
+    di = copy(mass_1d)
+    di[i] += stiff_1d[i]
+    Rank1Tensor(di)
+  end |> GenericRankTensor
 end
 
 function div_coupling(U::TProductFESpace,V::TProductFESpace)
   mass_1d = map(_mass_1d,U.spaces_1d,V.spaces_1d)
   deriv_1d = map(_deriv_1d,U.spaces_1d,V.spaces_1d)
-  decompositions = TProduct._find_decompositions(mass_1d,deriv_1d)
-  GenericRankTensor(decompositions)
+  inds = LinearIndices(mass_1d)
+  map(inds) do i
+    di = copy(mass_1d)
+    di[i] = deriv_1d[i]
+    Rank1Tensor(di)
+  end |> GenericRankTensor
 end
 
 # utils
@@ -203,25 +213,6 @@ function _deriv_1d(U::SingleFieldFESpace,V::SingleFieldFESpace)
   assemble_matrix((u,v) -> ∫(u*(∇(v)⋅v̂))dΩ,U,V)
 end
 
-_row_sizes(a::AbstractRankTensor{D}) where D = ntuple(d -> size(get_factor(a,d,1),1),Val{D}())
-_col_sizes(a::AbstractRankTensor{D}) where D = ntuple(d -> size(get_factor(a,d,1),2),Val{D}())
-
-function _zero_rank_tensor(row_sizes::NTuple{D,Int},col_sizes::NTuple{D,Int},K::Integer) where D
-  factors = collect(map((nr,nc) -> spzeros(Float64,nr,nc),row_sizes,col_sizes))
-  K == 1 ? Rank1Tensor(factors) : GenericRankTensor([Rank1Tensor(factors) for _ in 1:K])
-end
-
-# pads a Rank1Tensor/GenericRankTensor up to rank K with zero-valued
-# decompositions, so that heterogeneous per-field norms (e.g. h1_norm on one
-# field, l2_norm on another) can share a single concrete AbstractRankTensor
-# type across all the blocks of one BlockRankTensor
-_pad_to_rank(a::GenericRankTensor,K::Integer) = a
-function _pad_to_rank(a::Rank1Tensor,K::Integer)
-  K == 1 && return a
-  zero_decomp = Rank1Tensor(zero.(get_factors(a)))
-  GenericRankTensor(vcat(a,fill(zero_decomp,K-1)))
-end
-
 function _energy_mortar(a::AbstractVector{<:AbstractSparseMatrix})
   nfields = length(a)
   T = typeof(first(a))
@@ -230,18 +221,6 @@ function _energy_mortar(a::AbstractVector{<:AbstractSparseMatrix})
     blocks[i,j] = i == j ? a[i] : spzeros(size(a[i],1),size(a[j],1))
   end
   mortar(blocks)
-end
-
-function _energy_mortar(a::AbstractVector{<:AbstractRankTensor})
-  nfields = length(a)
-  K = maximum(rank,a)
-  diag = map(x -> _pad_to_rank(x,K),a)
-  A = typeof(first(diag))
-  blocks = Matrix{A}(undef,nfields,nfields)
-  for j in 1:nfields, i in 1:nfields
-    blocks[i,j] = i == j ? diag[i] : _zero_rank_tensor(_row_sizes(diag[i]),_row_sizes(diag[j]),K)
-  end
-  BlockRankTensor(blocks)
 end
 
 function _coupling_mortar(a::AbstractVector{<:AbstractSparseMatrix})
@@ -260,6 +239,68 @@ function _coupling_mortar(a::AbstractVector{<:AbstractSparseMatrix})
     end
   end
   mortar(blocks)
+end
+
+_row_sizes(a::AbstractRankTensor{D}) where D = ntuple(d -> size(get_factor(a,d,1),1),Val{D}())
+_col_sizes(a::AbstractRankTensor{D}) where D = ntuple(d -> size(get_factor(a,d,1),2),Val{D}())
+
+const TrivialRankTensor{D} = AbstractRankTensor{D,1}
+
+function _zero_rank_tensor(row_sizes::NTuple{D,Int},col_sizes::NTuple{D,Int}) where D
+  factors = collect(map((nr,nc) -> spzeros(Float64,nr,nc),row_sizes,col_sizes))
+  Rank1Tensor(factors)
+end
+
+function _zero_rank_tensor(row_sizes::NTuple{D,Int},col_sizes::NTuple{D,Int},K::Integer) where D
+  factors = collect(map((nr,nc) -> spzeros(Float64,nr,nc),row_sizes,col_sizes))
+  GenericRankTensor([Rank1Tensor(factors) for _ in 1:K])
+end
+
+_pad_to_rank(a::GenericRankTensor,K::Integer) = a
+
+function _pad_to_rank(a::Rank1Tensor,K::Integer)
+  zero_decomp = Rank1Tensor(zero.(get_factors(a)))
+  GenericRankTensor(vcat(a,fill(zero_decomp,K-1)))
+end
+
+function _energy_mortar(a::AbstractVector{<:TrivialRankTensor})
+  nfields = length(a)
+  A = typeof(first(a))
+  blocks = Matrix{A}(undef,nfields,nfields)
+  for j in 1:nfields, i in 1:nfields
+    blocks[i,j] = i == j ? a[i] : _zero_rank_tensor(_row_sizes(a[i]),_row_sizes(a[j]))
+  end
+  BlockRankTensor(blocks)
+end
+
+function _energy_mortar(a::AbstractVector{<:AbstractRankTensor})
+  nfields = length(a)
+  K = maximum(rank,a)
+  diag = map(x -> _pad_to_rank(x,K),a)
+  A = typeof(first(diag))
+  blocks = Matrix{A}(undef,nfields,nfields)
+  for j in 1:nfields, i in 1:nfields
+    blocks[i,j] = i == j ? diag[i] : _zero_rank_tensor(_row_sizes(diag[i]),_row_sizes(diag[j]),K)
+  end
+  BlockRankTensor(blocks)
+end
+
+function _coupling_mortar(a::AbstractVector{<:TrivialRankTensor})
+  ndual = length(a)
+  nfields = ndual+1
+  A = typeof(first(a))
+  primal_sizes = _row_sizes(first(a))
+  dual_sizes = map(_col_sizes,a)
+  blocks = Matrix{A}(undef,nfields,nfields)
+  blocks[1,1] = _zero_rank_tensor(primal_sizes,primal_sizes)
+  for i in 1:ndual
+    blocks[1,i+1] = a[i]
+    blocks[i+1,1] = _zero_rank_tensor(dual_sizes[i],primal_sizes)
+    for j in 1:ndual
+      blocks[i+1,j+1] = _zero_rank_tensor(dual_sizes[i],dual_sizes[j])
+    end
+  end
+  BlockRankTensor(blocks)
 end
 
 function _coupling_mortar(a::AbstractVector{<:AbstractRankTensor})

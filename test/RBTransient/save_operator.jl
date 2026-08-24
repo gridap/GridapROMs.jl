@@ -64,13 +64,13 @@ function main(
   domains_lin = FEDomains(trian_res,(trian_jac,trian_jac_t))
   domains_nlin = FEDomains(trian_res,(trian_jac,))
 
+  reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
+  reffe_p = ReferenceFE(lagrangian,Float64,order-1)
   if method == :ttsvd
-    test_u = TProductFESpace(Ω,(lagrangian,(VectorValue{2,Float64},order),(;));conformity=:H1,dirichlet_tags=[1,2,3,4,5,6,7])
-    test_p = TProductFESpace(Ω,(lagrangian,(Float64,order-1),(;));conformity=:H1)
+    test_u = TProductFESpace(Ω,reffe_u;conformity=:H1,dirichlet_tags=[1,2,3,4,5,6,7])
+    test_p = TProductFESpace(Ω,reffe_p;conformity=:H1)
   else
-    reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
     test_u = TestFESpace(Ω,reffe_u;conformity=:H1,dirichlet_tags=[1,2,3,4,5,6,7])
-    reffe_p = ReferenceFE(lagrangian,Float64,order-1)
     test_p = TestFESpace(Ω,reffe_p;conformity=:H1)
   end
   trial_u = TransientTrialParamFESpace(test_u,gμt)
@@ -80,7 +80,7 @@ function main(
 
   xh0μ(μ) = interpolate_everywhere([u0μ(μ),p0μ(μ)],trial(μ,t0))
 
-  energy = BlockOperator((H1(),L2()))
+  energy = BlockNorm((H1(),L2()))
   coupling = DivCoupling()
   if method == :pod
     state_reduction = HighDimReduction(coupling,tol,energy;nparams,sketch,compression,ncentroids)

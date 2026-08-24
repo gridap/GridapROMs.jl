@@ -55,7 +55,7 @@ dΩbg = Measure(Ωbg,degree)
 dΩ = Measure(Ω,degree)
 dΓ = Measure(Γ,degree)
 
-energy = BlockOperator((NitscheH1(Γ,γd,hd),L2()))
+energy = BlockNorm((NitscheH1(Γ,γd,hd),L2()))
 coupling = DivCoupling()
 
 n_Γ = get_normal_vector(Γ)

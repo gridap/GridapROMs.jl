@@ -58,10 +58,10 @@ function main(
   trian_mass = (Ω,)
   domains = FEDomains(trian_res,(trian_stiffness,trian_mass))
 
+  reffe = ReferenceFE(lagrangian,Float64,order)
   if method == :ttsvd
-    test = TProductFESpace(Ω,(lagrangian,(Float64,order),(;));conformity=:H1,dirichlet_tags=[1,3,7])
+    test = TProductFESpace(Ω,reffe;conformity=:H1,dirichlet_tags=[1,3,7])
   else
-    reffe = ReferenceFE(lagrangian,Float64,order)
     test = TestFESpace(Ω,reffe;conformity=:H1,dirichlet_tags=[1,3,7])
   end
   trial = TransientTrialParamFESpace(test,gμt)

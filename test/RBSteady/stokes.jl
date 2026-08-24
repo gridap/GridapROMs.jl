@@ -45,13 +45,13 @@ function main(
   trian_stiffness = (Ω,)
   domains = FEDomains(trian_res,trian_stiffness)
 
+  reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
+  reffe_p = ReferenceFE(lagrangian,Float64,order-1)
   if method == :ttsvd
-    test_u = TProductFESpace(Ω,(lagrangian,(VectorValue{2,Float64},order),(;));conformity=:H1,dirichlet_tags=[1,2,3,4,5,6,7])
-    test_p = TProductFESpace(Ω,(lagrangian,(Float64,order-1),(;));conformity=:H1)
+    test_u = TProductFESpace(Ω,reffe_u;conformity=:H1,dirichlet_tags=[1,2,3,4,5,6,7])
+    test_p = TProductFESpace(Ω,reffe_p;conformity=:H1)
   else
-    reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
     test_u = TestFESpace(Ω,reffe_u;conformity=:H1,dirichlet_tags=[1,2,3,4,5,6,7])
-    reffe_p = ReferenceFE(lagrangian,Float64,order-1)
     test_p = TestFESpace(Ω,reffe_p;conformity=:H1)
   end
   trial_u = ParamTrialFESpace(test_u,gμ)
@@ -59,7 +59,7 @@ function main(
   test = MultiFieldFESpace([test_u,test_p])
   trial = MultiFieldFESpace([trial_u,trial_p])
 
-  energy = BlockOperator((H1(),L2()))
+  energy = BlockNorm((H1(),L2()))
   coupling = DivCoupling()
 
   if method == :pod

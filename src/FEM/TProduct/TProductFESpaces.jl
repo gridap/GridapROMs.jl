@@ -35,6 +35,17 @@ end
 
 function TProductFESpace(
   trian::Triangulation,
+  reffe::LagrangianRefFE;
+  kwargs...
+  )
+
+  T = return_type(get_prebasis(reffe))
+  order = get_order(reffe)
+  TProductFESpace(trian,(lagrangian,(T,order),NamedTuple());kwargs...)
+end
+
+function TProductFESpace(
+  trian::Triangulation,
   reffe::Tuple{<:ReferenceFEName,Any,Any};
   kwargs...
   )

@@ -188,17 +188,6 @@ function Utils.induced_norm(a::AbstractArray{T,D′},X::AbstractRankTensor{D}) w
   sqrtreal(sum(induced_norm(ai,X)^2 for ai in eachslice(a,dims=D′)))
 end
 
-function _find_decompositions(arrays_1d,gradients_1d)
-  @check length(arrays_1d) == length(gradients_1d)
-  inds = LinearIndices(arrays_1d)
-  d = map(inds) do i
-    di = copy(arrays_1d)
-    di[i] = gradients_1d[i]
-    return Rank1Tensor(di)
-  end
-  return d
-end
-
 # to global array - should try avoiding using these functions
 
 function LinearAlgebra.kron(a::AbstractRankTensor{D,1}) where D

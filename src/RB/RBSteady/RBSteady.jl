@@ -138,6 +138,8 @@ export NitscheH1
 export CouplingStyle
 export DivCoupling
 export BlockOperator
+export BlockNorm
+export BlockCoupling
 export l2_norm
 export h1_norm
 export div_coupling
