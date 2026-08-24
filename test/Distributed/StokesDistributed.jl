@@ -13,6 +13,7 @@ using GridapPETSc
 
 using GridapROMs
 using GridapROMs.ParamAlgebra
+using GridapROMs.ParamDataStructures
 
 using GridapSolvers
 using GridapSolvers.LinearSolvers
@@ -122,7 +123,9 @@ function main(distribute,np)
     part_block_snaps = local_views(block_part_snaps)
     mktempdir() do dir
       map(linear_indices(part_block_snaps),part_block_snaps) do i,s
-        @test all(isfinite,get_all_data(s))
+        for (touched,blk) in zip(s.touched,s.array)
+          touched && @test all(isfinite,get_all_data(blk))
+        end
         save(dir,s;label="part_$i")
       end
     end

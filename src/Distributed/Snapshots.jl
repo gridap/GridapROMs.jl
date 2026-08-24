@@ -80,17 +80,19 @@ PartitionedArrays.ghost_values(s::DistributedSnapshots) = own_values(s.snaps)
 
 # multi-field interface
 
-struct DistributedBlockSnapshots{N} <: AbstractSnapshots{DistributedSnapshots,N}
+struct DistributedBlockSnapshots{N,B} <: AbstractSnapshots{DistributedSnapshots,N}
   array::AbstractArray{<:Any,N}
   touched::Array{Bool,N}
+  param_data::B
 
   function DistributedBlockSnapshots(
     array::AbstractArray{<:Any,N},
-    touched::Array{Bool,N}
-    ) where N
+    touched::Array{Bool,N},
+    param_data::B
+    ) where {N,B}
 
     @check size(array) == size(touched)
-    new{N}(array,touched)
+    new{N,B}(array,touched,param_data)
   end
 end
 
@@ -108,7 +110,7 @@ function ParamDataStructures.Snapshots(
       array[j] = Snapshots(dataj,i[j],r)
     end
   end
-  DistributedBlockSnapshots(array,i.touched)
+  DistributedBlockSnapshots(array,i.touched,data)
 end
 
 function ParamDataStructures.Snapshots(
@@ -127,7 +129,7 @@ function ParamDataStructures.Snapshots(
     end
   end
 
-  DistributedBlockSnapshots(array,i.touched)
+  DistributedBlockSnapshots(array,i.touched,data)
 end
 
 function ParamDataStructures.Snapshots(
@@ -150,7 +152,8 @@ function ParamDataStructures.Snapshots(
     end
   end
 
-  DistributedBlockSnapshots(array,i.touched)
+  stored_data = StoredParamData(data,data0)
+  DistributedBlockSnapshots(array,i.touched,stored_data)
 end
 
 function ParamDataStructures.Snapshots(
@@ -171,8 +174,13 @@ function ParamDataStructures.Snapshots(
     end
   end
 
-  DistributedBlockSnapshots(array,i.touched)
+  stored_data = StoredParamData(data,data0)
+  DistributedBlockSnapshots(array,i.touched,stored_data)
 end
+
+blocks(s::DistributedBlockSnapshots) = s.array
+
+Base.size(s::DistributedBlockSnapshots) = size(s.array)
 
 function Base.show(io::IO,k::MIME"text/plain",s::DistributedBlockSnapshots)
   vals = local_views(first(blocks(s)))

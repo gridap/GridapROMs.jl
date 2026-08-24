@@ -13,11 +13,11 @@ in parallel.  Key components:
   implements the full `AbstractParamArray` interface for these types.
 
 - **Sparse utilities** — `ParamSparseUtils.jl` provides distributed sparse
-  matrix/vector assembly helpers (CSR row-pointer arithmetic, assembly caches)
+  matrix/vector assembly helpers (CSR row-pointer arithmetic,assembly caches)
   compatible with `ParamArray` entries.
 
 - **Primitives** — `Primitives.jl` contains low-level MPI-aware operations
-  (scatter/gather, consistent local-size queries) reused by the higher-level
+  (scatter/gather,consistent local-size queries) reused by the higher-level
   components.
 
 - **Distributed algebra** — `ParamAlgebra.jl` extends `ParamBuilder` /
@@ -70,13 +70,13 @@ using GridapROMs.ParamODEs
 using GridapROMs.RBSteady
 
 import ArraysOfArrays: innersize
-import BlockArrays: BlockVector, BlockMatrix, BlockArray, mortar, blocks
-import Gridap.Helpers: @abstractmethod, @check, @notimplemented
-import GridapDistributed: BlockPMatrix, BlockPVector, BlockPArray, DistributedFESpace, DistributedSingleFieldFESpace, DistributedMultiFieldFESpace, to_parray_of_arrays
-import GridapROMs.DofMaps: range_2d, range_1d
-import GridapROMs.ParamAlgebra: ParamBuilder, ParamCounter
+import BlockArrays: BlockVector,BlockMatrix,BlockArray,mortar,blocks
+import Gridap.Helpers: @abstractmethod,@check,@notimplemented
+import GridapDistributed: BlockPMatrix,BlockPVector,BlockPArray,DistributedFESpace,DistributedSingleFieldFESpace,DistributedMultiFieldFESpace,to_parray_of_arrays
+import GridapROMs.DofMaps: range_2d,range_1d
+import GridapROMs.ParamAlgebra: ParamBuilder,ParamCounter
 import MPI
-import PartitionedArrays: VectorAssemblyCache, length_to_ptrs!, rewind_ptrs!, getany
+import PartitionedArrays: VectorAssemblyCache,length_to_ptrs!,rewind_ptrs!,getany
 
 include("OwnAndGhostParamVectors.jl")
 

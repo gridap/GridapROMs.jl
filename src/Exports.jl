@@ -19,6 +19,7 @@ end
 @publish DofMaps flatten
 
 @publish TProduct TProductFESpace
+@publish TProduct LexicographicFESpace
 
 @publish ParamGeometry PhysicalMap
 @publish ParamGeometry DisplacementMap

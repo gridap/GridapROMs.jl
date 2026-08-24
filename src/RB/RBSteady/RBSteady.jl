@@ -183,12 +183,6 @@ export orth_complement!
 export orth_projection
 include("BasesConstruction.jl")
 
-export QuadratureFESpace
-export ReducedCellField
-export reduce_function
-export reduce_cell_field
-include("FunctionReductions.jl")
-
 export Projection
 export PODProjection
 export TTSVDProjection
