@@ -53,6 +53,7 @@ import FillArrays: Fill,fill
 import Gridap.ReferenceFEs: get_order
 
 export TProductFESpace
+export LexicographicFESpace
 include("TProductFESpaces.jl")
 
 export AbstractRankTensor

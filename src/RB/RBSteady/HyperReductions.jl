@@ -283,118 +283,6 @@ function HRProjection(
   return HRProjection(proj_basis,red,interp)
 end
 
-const NNHRProjection{A<:Projection,B<:AbstractNNHyperReduction} = HRProjection{A,B}
-
-function FESpaces.interpolate!(
-  b̂::AbstractArray,
-  cache,
-  a::NNHRProjection{<:Projection,<:NNHyperReduction},
-  r::AbstractRealisation
-  )
-
-  o = one(eltype2(b̂))
-  x = matrix_of_params(r)
-  i = get_interpolation(a)
-  coeff = evaluate!(cache,i.interpolation,x)
-  mul!(b̂,a,coeff,o,o)
-  return b̂
-end
-
-struct NNOperator{A,B} <: NNHRProjection{B,NNOperatorReduction}
-  model::A
-  bias::B
-end
-
-function NNOperator(model::NeuralNetwork,test::RBSpace) 
-  T = get_dof_value_type(test)
-  nrows = num_reduced_dofs(test)
-  basis = ReducedProjection(zeros(T,nrows,1))
-  NNOperator(model,basis)
-end
-
-function NNOperator(model::NeuralNetwork,trial::RBSpace,test::RBSpace) 
-  T = get_dof_value_type(trial)
-  nrows = num_reduced_dofs(test)
-  ncols = num_reduced_dofs(trial)
-  basis = ReducedProjection(zeros(T,nrows,1,ncols))
-  NNOperator(model,basis)
-end
-
-get_basis(a::NNOperator) = a.bias
-get_style(a::NNOperator) = NNOperatorReduction()
-get_interpolation(a::NNOperator) = EmptyInterpolation()
-
-function FESpaces.interpolate!(
-  b̂::AbstractArray,
-  cache,
-  a::NNOperator,
-  r::AbstractRealisation
-  )
-
-  b̂r = evaluate!(cache,a.model,matrix_of_params(r))
-  o = one(eltype2(b̂))
-  _axpy!(o,b̂r,b̂)
-  return b̂
-end
-
-function HRProjection(
-  red::NNOperatorReduction,
-  s::Snapshots,
-  trian::Triangulation,
-  test::RBSpace
-  )
-
-  r = get_realisation(s)
-  b = GalerkinProjectable(s)
-  y = galerkin_projection(test,b)
-  ϕ = get_basis(y)
-  model = TrainedNeuralNetwork(get_strategy(red),r,ϕ)
-  return NNOperator(model,test)
-end
-
-function HRProjection(
-  red::NNOperatorReduction,
-  s::Snapshots,
-  trian::Triangulation,
-  trial::RBSpace,
-  test::RBSpace
-  )
-
-  r = get_realisation(s)
-  A = GalerkinProjectable(s)
-  y = galerkin_projection(test,A,trial)
-  ϕ = permutedims(get_basis(y),(1,3,2))
-  model = TrainedNeuralNetwork(get_strategy(red),r,ϕ)
-  return NNOperator(model,trial,test)
-end
-
-function HRProjection(
-  red::NNHyperReduction,
-  s::Snapshots,
-  trian::Triangulation,
-  test::RBSpace
-  )
-
-  basis = projection(get_reduction(red),s)
-  proj_basis = project(test,basis)
-  interp = Interpolation(red,basis,s)
-  return HRProjection(proj_basis,red,interp)
-end
-
-function HRProjection(
-  red::NNHyperReduction,
-  s::Snapshots,
-  trian::Triangulation,
-  trial::RBSpace,
-  test::RBSpace
-  )
-
-  basis = projection(get_reduction(red),s)
-  proj_basis = project(test,basis,trial)
-  interp = Interpolation(red,basis,s)
-  return HRProjection(proj_basis,red,interp)
-end
-
 function allocate_coefficient(a::HRProjection)
   T = projection_eltype(a)
   n = num_reduced_dofs(a)
@@ -425,17 +313,6 @@ for f in (:allocate_coefficient,:allocate_hyper_reduction)
   @eval $f(a::HRProjection,r::AbstractRealisation) = parameterise($f(a),num_params(r))
 end
 
-function allocate_coefficient(a::NNOperator,r::AbstractRealisation)
-  x = matrix_of_params(r)
-  return_cache(a.model,x)
-end
-
-function allocate_coefficient(a::NNHRProjection{<:Projection,<:NNHyperReduction},r::AbstractRealisation)
-  x = matrix_of_params(r)
-  i = get_interpolation(a)
-  return_cache(i.interpolation,x)
-end
-
 """
     const AffineContribution{V<:HRProjection} = Contribution{V}
 
@@ -463,18 +340,10 @@ const SOPTContribution = AffineContribution{<:SOPTProjection}
 """
 const RBFContribution = AffineContribution{<:RBFProjection}
 
-"""
-"""
-const NNContribution = AffineContribution{<:NNHRProjection}
-
 function allocate_coefficient(a::AffineContribution,args...)
   contribution(get_domains(a)) do trian
     allocate_coefficient(a[trian],args...)
   end
-end
-
-function allocate_coefficient(a::NNContribution,args...)
-  allocate_coefficient(first(get_contributions(a)),args...)
 end
 
 function allocate_hyper_reduction(a::AffineContribution,args...)
@@ -484,13 +353,6 @@ end
 function allocate_hypred_cache(a,args...)
   fecache = allocate_coefficient(a,args...)
   coeffs = allocate_coefficient(a,args...)
-  hypred = allocate_hyper_reduction(a,args...)
-  return HRParamArray(fecache,coeffs,hypred)
-end
-
-function allocate_hypred_cache(a::NNContribution,args...)
-  fecache = allocate_coefficient(a,args...)
-  coeffs = fecache
   hypred = allocate_hyper_reduction(a,args...)
   return HRParamArray(fecache,coeffs,hypred)
 end
@@ -521,20 +383,6 @@ function FESpaces.interpolate!(
   fill!(hypred,zero(eltype(hypred)))
   for (aval,cval) in zip(get_contributions(a),get_contributions(coeff))
     interpolate!(hypred,cval,aval,r)
-  end
-  return hypred
-end
-
-function FESpaces.interpolate!(
-  hypred::AbstractArray,
-  cache,
-  a::NNContribution,
-  r::AbstractRealisation
-  )
-
-  fill!(hypred,zero(eltype(hypred)))
-  for aval in get_contributions(a)
-    interpolate!(hypred,cache,aval,r)
   end
   return hypred
 end
@@ -808,22 +656,6 @@ function allocate_hyper_reduction(a::BlockHRProjection{N}) where N
   return mortar(block_cache)
 end
 
-function allocate_coefficient(
-  a::BlockHRProjection{N,<:Any,<:AbstractNNHyperReduction},
-  r::AbstractRealisation
-  ) where N
-
-  i0 = findfirst(a.touched)
-  A = typeof(allocate_coefficient(a.array[i0],r))
-  block_cache = Array{A,N}(undef,size(a))
-  for i in eachindex(a)
-    if a.touched[i]
-      block_cache[i] = allocate_coefficient(a.array[i],r)
-    end
-  end
-  return ArrayBlock(block_cache,a.touched)
-end
-
 function reduced_form(
   red::Reduction,
   s::BlockSnapshots,
@@ -859,21 +691,5 @@ function reduced_form(
   red_trian = reduced_triangulation(trian,hyper_red)
 
   return hyper_red,red_trian
-end
-
-
-# utils 
-
-_axpy!(α,a,b) = @abstractmethod 
-
-function _axpy!(α,a::AbstractMatrix,b::AbstractParamVector) 
-  axpy!(α,a,get_all_data(b))
-end
-
-function _axpy!(α,a::AbstractMatrix,b::AbstractParamMatrix)
-  nrows,ncols = innersize(b)
-  k = param_length(b)
-  a′ = reshape(a,nrows,ncols,k)
-  axpy!(α,a′,get_all_data(b))
 end
 

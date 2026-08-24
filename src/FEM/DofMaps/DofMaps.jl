@@ -121,7 +121,6 @@ export get_fdof_to_bg_fdof
 export get_bg_ddof_to_ddof
 export get_ddof_to_bg_ddof
 export get_dof_to_cells
-export get_dof_perm
 include("DofMapsBuilders.jl")
 
 export DofMapArray

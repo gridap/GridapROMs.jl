@@ -1,3 +1,11 @@
+function LexicographicFESpace(args...;kwargs...)
+  LexicographicFESpace(FESpace(args...;kwargs...))
+end
+
+function LexicographicFESpace(f::FESpace)
+  reindex_free_dof_ids(f,:coordinates;by=p->Tuple(p)[end:-1:1])
+end
+
 """
     struct TProductFESpace{S} <: SingleFieldFESpace
       space::S
@@ -6,9 +14,8 @@
 
 A `SingleFieldFESpace` on a tensor product mesh, storing the D-dimensional
 `space` and a vector of `D` 1D `spaces_1d`. Neither is reordered: their native
-(Gridap-assigned) dof numbering is mapped to lexicographic rank on demand via
-[`DofMaps.get_dof_perm`](@ref) wherever a tensor/Cartesian structure is needed
-(`get_dof_map`, `get_sparse_dof_map`).
+(Gridap-assigned) dof numbering is mapped to lexicographic rank wherever a 
+tensor/Cartesian structure is needed (`get_dof_map`, `get_sparse_dof_map`).
 
 All standard `SingleFieldFESpace` interface methods are delegated to `space`.
 
@@ -51,8 +58,7 @@ function TProductFESpace(
   )
 
   model = get_background_model(trian)
-  _space = FESpace(trian,reffe;kwargs...)
-  space = reindex_free_dof_ids(_space,get_dof_perm(_space))
+  space = LexicographicFESpace(trian,reffe;kwargs...)
 
   basis,reffe_args,reffe_kwargs = reffe
   T,order = reffe_args
@@ -178,10 +184,10 @@ end up sharing the exact same 1D models, and are therefore mutually
 compatible for cross-field integration (e.g. a divergence coupling term).
 """
 function univariate_models(model::CartesianDiscreteModel)
-  get!(_univariate_models_cache,model) do
-    desc = get_cartesian_descriptor(model)
-    descs_1d = _split_cartesian_descriptor(desc)
-    map(CartesianDiscreteModel,descs_1d)
+  desc = get_cartesian_descriptor(model)
+  descs_1d = _split_cartesian_descriptor(desc)
+  map(descs_1d) do desc
+    map(CartesianDiscreteModel,desc)
   end
 end
 
@@ -206,8 +212,7 @@ function univariate_spaces(
   models_1d = univariate_models(model)
   diri_tags_1d = _get_1d_tags(model,dirichlet_tags)
   map(models_1d,cell_reffes,diri_tags_1d) do model,cell_reffe,tags
-    space = FESpace(model,cell_reffe;dirichlet_tags=tags,conformity,vector_type)
-    reindex_free_dof_ids(space,get_dof_perm(space))
+    LexicographicFESpace(model,cell_reffe;dirichlet_tags=tags,conformity,vector_type)
   end
 end
 

@@ -31,24 +31,7 @@ function ParamDataStructures.parameterise(
   plength::Int
   ) where {R,C}
 
-  matrix_builder = get_matrix_builder(a)
-  vector_builder = get_vector_builder(a)
-  rows = FESpaces.get_rows(a)
-  cols = FESpaces.get_cols(a)
-  strategy = FESpaces.get_assembly_strategy(a)
-  NBr,SBr,Pr = R
-  NBc,SBc,Pc = C
-  block_idx = CartesianIndices((NBr,NBc))
-  block_assemblers = map(block_idx) do idx
-    assem = GenericSparseMatrixAssembler(
-      matrix_builder[idx[1],idx[2]],
-      vector_builder[idx[1]],
-      rows[idx[1]],
-      cols[idx[2]],
-      strategy[idx[1],idx[2]]
-      )
-    parameterise(assem,plength)
-  end
+  block_assemblers = map(assem -> parameterise(assem,plength),a.block_assemblers)
   MultiField.BlockSparseMatrixAssembler{R,C}(block_assemblers)
 end
 

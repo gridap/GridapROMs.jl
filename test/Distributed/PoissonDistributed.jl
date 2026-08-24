@@ -82,8 +82,4 @@ function main(distribute,parts)
   end
 end
 
-with_mpi() do distribute
-  main(distribute,(2,2))
-end
-
 end # module

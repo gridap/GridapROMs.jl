@@ -1,5 +1,60 @@
 # GridapROMs.jl Release Notes
 
+## Release: v0.1.5
+
+### Breaking changes
+
+#### Energy norms rewritten as `AssembleOperator`s
+
+The old norm-function/`norm_op`-based API (`get_norm()`) has been replaced by
+a new `src/RB/RBSteady/EnergyNorms.jl` module built around a proper type
+hierarchy:
+
+- `abstract type AssembleOperator end`, with `NormStyle` (`ℓ2`/`EuclideanNorm`,
+  `L2`, `H1`, `NitscheH1`) and `CouplingStyle` (`DivCoupling`) subtypes —
+  all empty (or near-empty) structs, no longer function-valued.
+- `BlockOperator`, aliased as `BlockNorm`/`BlockCoupling` for readability, for
+  per-field composition in multi-field/saddle-point problems (e.g. Stokes,
+  Navier-Stokes supremizer enrichment).
+- `assemble_operator(a::AssembleOperator, feop)` is the single public
+  entry point; `l2_norm`/`h1_norm`/`div_coupling` remain as direct helpers.
+
+Reduction constructors (`PODReduction`, `TTSVDReduction`, ...) now take an
+`AssembleOperator` (`norm`/`coupling` keywords) instead of a `norm_op`
+function.
+
+#### `TProduct` simplification
+
+`TProductAssembly.jl`, `TProductCellData.jl`, `TProductGeometry.jl`, and the
+`OrderedFESpace`/`OrderingMaps` machinery have been removed in favor of a
+leaner `TProductFESpace`/`RankTensor` design (`Rank1Tensor`,
+`GenericRankTensor`, `BlockRankTensor`). `TProductFESpace` now accepts a
+concrete, polytope-supplied `reffe` directly — the same one you would pass to
+a plain `TestFESpace` — in addition to the existing tuple form, so no ad-hoc
+reffe construction is required for `:ttsvd` runs.
+
+### New features
+
+#### Distributed (MPI) test suite
+
+`test/Distributed/` now provides shared driver modules
+(`PoissonDistributed.jl`, `StokesDistributed.jl`, each exposing a
+`main(distribute, parts)` function) with two thin runners apiece:
+
+- `test/Distributed/debug/` — runs under `PartitionedArrays.with_debug`
+  (single-process simulated partitioning, no real MPI required) and is
+  included by default from `test/runtests.jl`.
+- `test/Distributed/mpi/` — runs under `PartitionedArrays.with_mpi` and must
+  be launched through `mpiexecjl`, mirroring the pattern used by
+  `GridapSolvers.jl`. The entry point is `test/runtests_mpi.jl`:
+
+  ```
+  mpiexecjl -n 4 julia --project=. test/runtests_mpi.jl
+  ```
+
+  which spawns each `Distributed/mpi/*.jl` file as its own `MPI.mpiexec()`
+  subprocess.
+
 ## Release: v0.1.3
 
 ### New features

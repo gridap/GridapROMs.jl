@@ -223,50 +223,6 @@ function get_at_domain(data::AbstractArray,rows::AbstractVector{<:Integer})
   ConsecutiveParamArray(datav)
 end
 
-# nonlinear 
-
-"""
-    struct NNInterpolation{A<:NeuralNetwork} <: Interpolation
-
-An [`Interpolation`](@ref) backed by a neural network model. During the
-online phase, `interpolate!` replaces the EIM linear solve with a NN forward
-pass: `coeff[:, i] = model(μ_i)`.
-
-Constructed automatically by `Interpolation(red::NNHyperReduction, basis, s)`.
-"""
-struct NNInterpolation{A<:NeuralNetwork} <: Interpolation
-  interpolation::A
-end
-
-"""
-    Interpolation(red::NNHyperReduction, basis::Projection, s::Snapshots)
-      -> NNInterpolation
-
-Offline training step for [`NNHyperReduction`](@ref):
-
-1. Runs empirical interpolation on `basis` to determine integration points
-   and the EIM matrix
-2. Solves the EIM system for each snapshot to obtain coefficient vectors
-3. Trains a [`NeuralNetwork`](@ref) via `red.strategy` on the `(parameter, coefficient)` pairs
-
-Returns an [`NNInterpolation`](@ref) ready for online use.
-"""
-function Interpolation(
-  red::NNHyperReduction,
-  a::Projection,
-  s::Snapshots
-  )
-
-  inds,interp = empirical_interpolation(a)
-  factor = lu(interp)
-  r = get_realisation(s)
-  red_data = get_at_domain(s,inds)
-  coeff = parameterise(allocate_in_domain(a),r)
-  ldiv!(coeff,factor,red_data)
-  model = TrainedNeuralNetwork(get_strategy(red),r,coeff)
-  NNInterpolation(model)
-end
-
 # multi field
 
 struct BlockInterpolation{N} <: Interpolation

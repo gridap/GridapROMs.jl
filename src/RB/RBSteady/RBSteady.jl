@@ -11,11 +11,8 @@ small system for new parameter values.  Main building blocks:
 - **Reduction methods** (`ReductionMethods.jl`) — `PODReduction` (SVD-based),
   `TTSVDReduction` (tensor-train SVD), `GreedyReduction`, `SupremizerReduction`,
   `MDEIMHyperReduction`, `SOPTHyperReduction`, `RBFHyperReduction`,
-  `NNHyperReduction` (NN-based EIM coefficient prediction),
-  `NNOperatorReduction` (full operator regression), `LocalHyperReduction`
-  (cluster-local variants), and composites.  Rank/tolerance criteria expressed via
-  `SearchSVDRank`, `FixedSVDRank`, `LRApproxRank`, `TTSVDRanks`.
-  NN training controlled by `NNStrategy`.
+  `LocalHyperReduction` (cluster-local variants), and composites.  Rank/tolerance
+  criteria expressed via `SearchSVDRank`, `FixedSVDRank`, `LRApproxRank`, `TTSVDRanks`.
 
 - **Bases construction** (`BasesConstruction.jl`) — `tpod` (truncated POD),
   `ttsvd` (tensor-train SVD), `gram_schmidt` / `orth_complement!`, `orth_projection`.
@@ -29,16 +26,11 @@ small system for new parameter values.  Main building blocks:
   `reduced_subspace`, `reduced_basis`.
 
 - **Hyper-reduction** (`HyperReductions.jl`) — `HRProjection` hierarchy
-  (`MDEIMProjection`, `RBFProjection`, `NNHRProjection`, `BlockHRProjection`)
+  (`MDEIMProjection`, `RBFProjection`, `BlockHRProjection`)
   together with `IntegrationDomain` (DEIM-style reduced integration),
-  `Interpolation` (`GreedyInterpolation`, `RBFInterpolation`, `NNInterpolation`),
-  `NNOperator` (NN operator regression projection), `NNContribution`,
+  `Interpolation` (`GreedyInterpolation`, `RBFInterpolation`),
   and `reduced_triangulation` / `reduced_jacobian` / `reduced_residual` /
   `reduced_weak_form`.
-
-- **Neural network models** (`NonlinearModels.jl`) — `MultiLayerPerceptron`,
-  `GenericNeuralNetwork`, `TrainedNeuralNetwork`; minimal ForwardDiff-based
-  training loop with mini-batching, LR scheduling, and early stopping.
 
 - **Reduced operators** (`ReducedOperators.jl`) — `GenericRBOperator`,
   `LinearNonlinearRBOperator`; `reduced_operator`.
@@ -63,10 +55,8 @@ module RBSteady
 using BlockArrays
 using Clustering
 using DrWatson
-using ForwardDiff
 using LinearAlgebra
 using LowRankApprox
-using Optimisers
 using Random
 using Serialization
 using SparseArrays
@@ -109,18 +99,6 @@ import PartitionedArrays: tuple_of_arrays
 import RadialBasisFunctions: Interpolator, AbstractRadialBasis, PHS, MonomialBasis, _build_collocation_matrix!
 import Statistics: mean
 
-export GenericNNType
-export MLPType
-export NNStrategy
-export NeuralNetwork
-export GenericNeuralNetwork
-export MultiLayerPerceptron
-export TrainedNeuralNetwork
-export train!
-export loss_mse
-export loss_mae
-include("NonlinearModels.jl")
-
 export ReductionStyle
 export NoReductionStyle
 export SearchSVDRank
@@ -158,8 +136,6 @@ export AffineHyperReduction
 export MDEIMHyperReduction
 export SOPTHyperReduction
 export RBFHyperReduction
-export NNOperatorReduction
-export NNHyperReduction
 export LocalHyperReduction
 export AdaptiveReduction
 export get_reduction
@@ -264,7 +240,6 @@ export EmptyInterpolation
 export FullInterpolation
 export GreedyInterpolation
 export RBFInterpolation
-export NNInterpolation
 export BlockInterpolation
 export move_interpolation
 include("Interpolations.jl")
@@ -273,9 +248,6 @@ export HRProjection
 export HRVecProjection
 export HRMatProjection
 export BlockHRProjection
-export NNHRProjection
-export NNOperator
-export NNContribution
 export AffineContribution
 export get_style
 export get_interpolation

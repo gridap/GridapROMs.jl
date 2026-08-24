@@ -1,3 +1,5 @@
+module StokesDistributed
+
 using DrWatson
 
 using Gridap
@@ -17,6 +19,7 @@ using GridapSolvers.LinearSolvers
 using GridapSolvers.BlockSolvers
 
 using PartitionedArrays
+using Test
 
 function petsc_asm_setup(ksp)
   rtol = PetscScalar(1.e-9)
@@ -56,17 +59,7 @@ function add_labels!(labels)
   add_tag_from_tags!(labels,"walls",[1,2,3,4,5,7,8])
 end
 
-np = (2,2)
-nc = (4,4)
-domain = (0,1,0,1)
-parts = with_mpi() do distribute
-  distribute(LinearIndices((prod(np),)))
-end
-
-model = CartesianDiscreteModel(parts,np,domain,nc)
-map(add_labels!,local_views(get_face_labeling(model)))
-
-function main(parts,model)
+function solve_problem(parts,model)
   pspace = ParamSpace((0,1,0,1))
 
   # Weak formulation
@@ -114,13 +107,27 @@ function main(parts,model)
   build_snapshots(solver,op,μ)
 end
 
-petsc_options = "-ksp_monitor -ksp_error_if_not_converged true -ksp_converged_reason"
+function main(distribute,np)
+  nc = (4,4)
+  domain = (0,1,0,1)
+  parts = distribute(LinearIndices((prod(np),)))
 
-GridapPETSc.with(;args=split(petsc_options)) do
-  block_part_snaps = main(parts,model)
-  part_block_snaps = local_views(block_part_snaps)
-  map(linear_indices(part_block_snaps),part_block_snaps) do i,s
-    save(pwd(),s;label="part_$i")
+  model = CartesianDiscreteModel(parts,np,domain,nc)
+  map(add_labels!,local_views(get_face_labeling(model)))
+
+  petsc_options = "-ksp_monitor -ksp_error_if_not_converged true -ksp_converged_reason"
+
+  GridapPETSc.with(;args=split(petsc_options)) do
+    block_part_snaps = solve_problem(parts,model)
+    part_block_snaps = local_views(block_part_snaps)
+    mktempdir() do dir
+      map(linear_indices(part_block_snaps),part_block_snaps) do i,s
+        @test all(isfinite,get_all_data(s))
+        save(dir,s;label="part_$i")
+      end
+    end
+    GridapPETSc.gridap_petsc_gc()
   end
-  GridapPETSc.gridap_petsc_gc()
 end
+
+end # module
