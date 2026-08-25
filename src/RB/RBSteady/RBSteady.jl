@@ -133,15 +133,8 @@ include("NonlinearModels.jl")
 export AbstractLRScheduler
 export CosineAnnealing
 export ReduceLROnPlateau
-export step_scheduler!
-export get_initial_lr
 include("LRSchedulers.jl")
 
-export VerbosityLevel
-export VERBOSITY_NONE
-export VERBOSITY_LOW
-export VERBOSITY_HIGH
-export TrainingLog
 include("TrainingLogs.jl")
 
 export ReductionStyle
@@ -330,15 +323,6 @@ export change_operator
 include("ReducedOperators.jl")
 
 export train_neural_operator
-export train_deeponet!
-export train_nomad!
-export get_coords_with_order
-export resolve_batch_size
-export XDEV
-export CDEV
-export build_model
-export compute_zscore_stats
-export resolve_model
 include("NeuralOperatorTraining.jl")
 
 export ROMPerformance

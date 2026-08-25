@@ -25,7 +25,7 @@ function Algebra.solve(
   # Trunk Input (Coordinates extraction)
   V = get_test(op.op)
 
-  x_test = RBSteady.get_coords_with_order(V)
+  x_test = get_coords_with_order(V)
   x_in = (x_test .- trunk_stats.μ) ./ trunk_stats.σ
 
   # Inference Execution
@@ -75,7 +75,7 @@ function Algebra.solve(
 
   # Coordinates extraction
   V = get_test(op.op)
-  x_test = RBSteady.get_coords_with_order(V)
+  x_test = get_coords_with_order(V)
   D_phys = size(x_test,1)
   N_dofs = size(x_test,2)
 

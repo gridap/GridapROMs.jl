@@ -37,7 +37,7 @@ end
 @testset "Learning Rate Schedulers" begin
   # CosineAnnealing
   ca = CosineAnnealing(lr_max=1.0f0,lr_min=0.0f0)
-  @test get_initial_lr(ca) == 1.0f0
+  @test RBSteady.get_initial_lr(ca) == 1.0f0
   
   opt_state = Optimisers.setup(Adam(1.0f0),[1.0f0])
   # Half training (50/100),cos(pi/2) = 0,lr = 0.5
@@ -46,7 +46,7 @@ end
   
   # ReduceLROnPlateau
   plat = ReduceLROnPlateau(patience=2,factor=0.5f0,min_lr=0.1f0,start_lr=1.0f0)
-  @test get_initial_lr(plat) == 1.0f0
+  @test RBSteady.get_initial_lr(plat) == 1.0f0
   
   opt_state_plat = Optimisers.setup(Adam(1.0f0),[1.0f0])
   
