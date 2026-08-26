@@ -51,7 +51,7 @@ jobs:
             arch: aarch64
             timeout: 180
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: julia-actions/setup-julia@v3
         with:
           version: ${{ matrix.version }}
