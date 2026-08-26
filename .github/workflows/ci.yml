@@ -64,7 +64,7 @@ jobs:
 
       - uses: julia-actions/julia-processcoverage@v1
         if: ${{ env.DO_COVERAGE }}
-      - uses: codecov/codecov-action@v6
+      - uses: codecov/codecov-action@v7
         if: ${{ env.DO_COVERAGE }}
         with:
           verbose: true
