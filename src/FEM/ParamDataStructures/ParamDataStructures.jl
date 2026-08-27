@@ -49,7 +49,7 @@ using Gridap.Helpers
 using GridapROMs.Utils
 using GridapROMs.DofMaps
 
-import ArraysOfArrays: front_tuple,innersize,_ncolons
+import ArraysOfArrays: innersize,_ncolons
 import Base:+,-,*,/,\,^
 import Distributions: Uniform,Normal
 import FillArrays: Fill
