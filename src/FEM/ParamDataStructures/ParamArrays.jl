@@ -231,7 +231,7 @@ end
 
 Base.size(A::ConsecutiveParamArray{T,N}) where {T,N} = tfill(param_length(A),Val{N}())
 
-innersize(A::ConsecutiveParamArray{T,N}) where {T,N} = front_tuple(size(get_all_data(A)),Val{N}())
+innersize(A::ConsecutiveParamArray{T,N}) where {T,N} = Base.front(size(get_all_data(A)))
 
 Base.@propagate_inbounds function Base.getindex(A::ConsecutiveParamArray{T,N},i::Vararg{Integer,N}) where {T,N}
   @boundscheck checkbounds(A,i...)
