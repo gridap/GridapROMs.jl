@@ -113,6 +113,7 @@ export EuclideanNorm
 export L2
 export H1
 export NitscheH1
+export EnergyNorm
 export CouplingStyle
 export DivCoupling
 export BlockOperator

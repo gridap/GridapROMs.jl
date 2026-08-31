@@ -88,6 +88,7 @@ using GridapROMs.Extensions: ⊕; export ⊕
 @publish RBSteady L2
 @publish RBSteady H1
 @publish RBSteady NitscheH1
+@publish RBSteady EnergyNorm
 @publish RBSteady CouplingStyle
 @publish RBSteady DivCoupling
 @publish RBSteady BlockOperator

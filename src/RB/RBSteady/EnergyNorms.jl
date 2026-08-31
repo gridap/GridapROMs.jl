@@ -63,6 +63,18 @@ function _assemble_operator(op::NitscheH1,U::SingleFieldFESpace,V::SingleFieldFE
   assemble_matrix(form,U,V)
 end
 
+struct EnergyNorm{F<:Function} <: NormStyle
+  form::F
+end
+
+for T in (:SingleFieldFESpace,:MultiFieldFESpace)
+  @eval begin
+    function _assemble_operator(op::EnergyNorm,U::$T,V::$T) 
+      assemble_matrix(op.form,U,V)
+    end
+  end
+end
+
 """
     abstract type CouplingStyle <: AssembleOperator end
 
