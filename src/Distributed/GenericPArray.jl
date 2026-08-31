@@ -44,6 +44,10 @@ GridapDistributed.local_views(a::GenericPArray) = partition(a)
 PartitionedArrays.partition(a::GenericPArray) = a.array_partition
 Base.axes(a::GenericPArray) = (PRange(a.index_partition),a.unpartitioned_axes...)
 
+function PartitionedArrays.own_values(a::AbstractArray{<:Any,N},i) where N
+  view(a,own_to_local(i),_ncolons(Val{N-1}())...)
+end
+
 function PartitionedArrays.local_values(a::GenericPArray)
   partition(a)
 end
@@ -52,8 +56,20 @@ function PartitionedArrays.own_values(a::GenericPArray)
   map(own_values,partition(a),partition(axes(a,1)))
 end
 
+function PartitionedArrays.own_values(a::GenericPMatrix)
+  map(partition(a),partition(axes(a,1))) do la,ra
+    view(la,own_to_local(ra),:)
+  end
+end
+
 function PartitionedArrays.ghost_values(a::GenericPArray)
   map(ghost_values,partition(a),partition(axes(a,1)))
+end
+
+function PartitionedArrays.ghost_values(a::GenericPMatrix)
+  map(partition(a),partition(axes(a,1))) do la,ra
+    view(la,ghost_to_local(ra),:)
+  end
 end
 
 Base.size(a::GenericPArray) = length.(axes(a))
@@ -97,6 +113,22 @@ function consistent!(a::GenericPArray)
   t = assemble!(insert,partition(a),cache)
   @async begin
     wait(t)
+    a
+  end
+end
+
+function consistent!(a::GenericPMatrix)
+  ncols = size(a,2)
+  # Build a 1D cache once from col 1 (same structure for all columns)
+  col1 = map(la -> view(la,:,1),partition(a))
+  cache1d = PartitionedArrays.p_vector_cache(col1,partition(axes(a,1)))
+  cache1d_rev = map(reverse,cache1d)
+  insert(a,b) = b
+  @async begin
+    for j in 1:ncols
+      colj = map(la -> view(la,:,j),partition(a))
+      wait(assemble!(insert,colj,cache1d_rev))
+    end
     a
   end
 end
@@ -265,18 +297,17 @@ function LinearAlgebra.norm(a::GenericPArray,p::Real=2)
   reduce(+,contibs;init=zero(eltype(contibs)))^(1/p)
 end
 
-function Base.:*(a::PSparseMatrix,b::GenericPArray)
+function Base.:*(a::PSparseMatrix,b::GenericPMatrix)
   Ta = eltype(a)
   Tb = eltype(b)
   T = typeof(zero(Ta)*zero(Tb)+zero(Ta)*zero(Tb))
   N = ndims(b)
-  paxis,uaxes... = axes(a)
-  c = GenericPArray{Array{T,N}}(undef,partition(paxis),uaxes...)
+  c = GenericPArray{Array{T,N}}(undef,partition(axes(a,1)),axes(b,2))
   mul!(c,a,b)
   c
 end
 
-function Base.:*(a::GenericPMatrix,b::GenericPVector)
+function Base.:*(a::GenericPMatrix,b::AbstractVector)
   Ta = eltype(a)
   Tb = eltype(b)
   T = typeof(zero(Ta)*zero(Tb)+zero(Ta)*zero(Tb))
@@ -284,16 +315,15 @@ function Base.:*(a::GenericPMatrix,b::GenericPVector)
   mul!(c,a,b,one(T),zero(T))
 end
 
-function Base.:*(a::GenericPMatrix,b::GenericPMatrix)
+function Base.:*(a::GenericPMatrix,b::AbstractMatrix)
   Ta = eltype(a)
   Tb = eltype(b)
   T = typeof(zero(Ta)*zero(Tb)+zero(Ta)*zero(Tb))
-  _,uaxes... = axes(b)
-  c = GenericPArray{Matrix{T}}(undef,partition(axes(a,1)),uaxes...)
+  c = GenericPArray{Matrix{T}}(undef,partition(axes(a,1)),axes(b,2))
   mul!(c,a,b,one(T),zero(T))
 end
 
-function Base.:*(at::Transpose{T,<:GenericPMatrix} where T,b::GenericPVector)
+function Base.:*(at::Adjoint{T,<:GenericPMatrix} where T,b::GenericPVector)
   a = at.parent
   G = map(partition(a),partition(b),partition(axes(a,1)),partition(axes(b,1))) do la,lb,ra,rb
     ao = view(la,own_to_local(ra),:)
@@ -303,7 +333,7 @@ function Base.:*(at::Transpose{T,<:GenericPMatrix} where T,b::GenericPVector)
   reduce(+,G)
 end
 
-function Base.:*(at::Transpose{T,<:GenericPMatrix} where T,b::GenericPMatrix)
+function Base.:*(at::Adjoint{T,<:GenericPMatrix} where T,b::GenericPMatrix)
   a = at.parent
   G = map(partition(a),partition(b),partition(axes(a,1)),partition(axes(b,1))) do la,lb,ra,rb
     ao = view(la,own_to_local(ra),:)
@@ -380,6 +410,38 @@ function LinearAlgebra.mul!(
       β != 0 ? rmul!(co,β) : fill!(co,zero(eltype(co)))
     end
     mul!(co,ao,lb,α,1)
+  end
+  c
+end
+
+function LinearAlgebra.mul!(
+  c::GenericPVector,
+  a::GenericPMatrix,
+  b::AbstractVector{<:Number},
+  α::Number,
+  β::Number
+  )
+
+  map(partition(c),partition(a),partition(axes(a,1))) do lc,la,ra
+    co = view(lc,own_to_local(ra))
+    ao = view(la,own_to_local(ra),:)
+    mul!(co,ao,b,α,β)
+  end
+  c
+end
+
+function LinearAlgebra.mul!(
+  c::GenericPMatrix,
+  a::GenericPMatrix,
+  b::AbstractMatrix{<:Number},
+  α::Number,
+  β::Number
+  )
+
+  map(partition(c),partition(a),partition(axes(a,1))) do lc,la,ra
+    co = view(lc,own_to_local(ra),:)
+    ao = view(la,own_to_local(ra),:)
+    mul!(co,ao,b,α,β)
   end
   c
 end

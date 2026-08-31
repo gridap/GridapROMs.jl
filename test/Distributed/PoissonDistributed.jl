@@ -145,11 +145,8 @@ function get_mesh(parts,np)
 end
 
 parts = (2,2)
-# mat = Ref{PSparseMatrix}()
-# nrm = Ref{PSparseMatrix}()
-# vec = Ref{PVector}()
-# slt = Ref{PVector}()
-# snp = Ref{DistributedSnapshots}()
+snp = Ref{DistributedSnapshots}()
+nrm = Ref{PSparseMatrix}()
 basis = Ref{AbstractMatrix}()
 with_debug() do distribute
   ranks = distribute(LinearIndices((prod(parts),)))
@@ -176,21 +173,13 @@ with_debug() do distribute
   b = get_vector(syscache)
   x = allocate_in_domain(A); fill!(x,0.0)
   solve!(x,LUSolver(),nlop,syscache)
-  # mat[] = A
-  # nrm[] = X
-  # vec[] = b 
-  # slt[] = x
-  # snp[] = Snapshots(x,get_dof_map(trial),μ)
   snaps = Snapshots(x,get_dof_map(trial),μ)
   @test isa(snaps,DistributedSnapshots)
+  snp[] = snaps
+  nrm[] = X
   U,_,_ = tpod(LRApproxRank(1e-4),snaps,X)
   basis[] = U
 end
 
-# xsnp = nrm[] * snp[]
-# @test isa(xsnp,DistributedSnapshots)
-# @test num_params(xsnp) == num_params(snp[])
-
-# ysnp = nrm[] \ snp[]
-# @test isa(ysnp,DistributedSnapshots)
-# @test num_params(ysnp) == num_params(snp[])
+Xb = nrm[]*basis[]
+bXb = basis[]'*Xb
