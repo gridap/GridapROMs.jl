@@ -83,3 +83,114 @@ function main(distribute,parts)
 end
 
 end # module
+
+using Gridap
+using GridapROMs
+using GridapPETSc
+using Gridap.Algebra
+using Gridap.FESpaces
+using GridapDistributed
+using GridapROMs.ParamAlgebra
+using GridapROMs.Distributed
+using GridapROMs.RBSteady
+using PartitionedArrays
+using Test
+
+sol(μ) = x -> μ[1]*x[1] + x[2]
+f(μ) = x -> -Δ(sol(μ))(x)
+fμ(μ) = parameterise(f,μ)
+solμ(μ) = parameterise(sol,μ)
+
+pspace = ParamSpace((1,2))
+μ = Realisation([[1.0],[2.0]])
+
+function test_solver(solver,op,dΩ)
+  test = get_test(op)
+  trial = get_trial(op)
+  y = zero_free_values(trial(μ))
+  nlop = parameterise(op,μ)
+  syscache = allocate_systemcache(nlop,y)
+  A = get_matrix(syscache)
+  x = allocate_in_domain(A); fill!(x,0.0)
+  solve!(x,solver,nlop,syscache)
+
+  μi = first(μ)
+  xi = param_getindex(x,1)
+  Ui = TrialFESpace(test,sol(μi))
+  uhi = FEFunction(Ui,xi)
+  uh = interpolate(sol(μi),Ui)
+
+  eh = uh - uhi
+  @test sqrt(sum(∫(eh*eh)*dΩ)) < 1.0e-6
+
+  return x
+end
+
+function get_mesh(parts,np)
+  Dc = length(np)
+  if Dc == 2
+    domain = (0,1,0,1)
+    nc = (8,8)
+  else
+    @assert Dc == 3
+    domain = (0,1,0,1,0,1)
+    nc = (8,8,8)
+  end
+  if prod(np) == 1
+    model = CartesianDiscreteModel(domain,nc)
+  else
+    model = CartesianDiscreteModel(parts,np,domain,nc)
+  end
+  return model
+end
+
+parts = (2,2)
+# mat = Ref{PSparseMatrix}()
+# nrm = Ref{PSparseMatrix}()
+# vec = Ref{PVector}()
+# slt = Ref{PVector}()
+# snp = Ref{DistributedSnapshots}()
+basis = Ref{AbstractMatrix}()
+with_debug() do distribute
+  ranks = distribute(LinearIndices((prod(parts),)))
+
+  model = get_mesh(ranks,parts)
+
+  order  = 1
+  degree = order*2 + 1
+  reffe  = ReferenceFE(lagrangian,Float64,order)
+  test = TestFESpace(model,reffe;conformity=:H1,dirichlet_tags="boundary")
+  trial = ParamTrialFESpace(test,solμ)
+
+  Ω = Triangulation(model)
+  dΩ = Measure(Ω,degree)
+  a(μ,u,v) = ∫( ∇(v)⋅∇(u) )dΩ
+  l(μ,u,v) = a(μ,u,v) - ∫( v*fμ(μ) )dΩ
+  op = LinearParamOperator(l,a,pspace,trial,test)
+  X = assemble_matrix((u,v) -> ∫( ∇(v)⋅∇(u) )dΩ,trial,test)
+
+  y = zero_free_values(trial(μ))
+  nlop = parameterise(op,μ)
+  syscache = allocate_systemcache(nlop,y)
+  A = get_matrix(syscache)
+  b = get_vector(syscache)
+  x = allocate_in_domain(A); fill!(x,0.0)
+  solve!(x,LUSolver(),nlop,syscache)
+  # mat[] = A
+  # nrm[] = X
+  # vec[] = b 
+  # slt[] = x
+  # snp[] = Snapshots(x,get_dof_map(trial),μ)
+  snaps = Snapshots(x,get_dof_map(trial),μ)
+  @test isa(snaps,DistributedSnapshots)
+  U,_,_ = tpod(LRApproxRank(1e-4),snaps,X)
+  basis[] = U
+end
+
+# xsnp = nrm[] * snp[]
+# @test isa(xsnp,DistributedSnapshots)
+# @test num_params(xsnp) == num_params(snp[])
+
+# ysnp = nrm[] \ snp[]
+# @test isa(ysnp,DistributedSnapshots)
+# @test num_params(ysnp) == num_params(snp[])

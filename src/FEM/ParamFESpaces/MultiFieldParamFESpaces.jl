@@ -141,6 +141,12 @@ function ParamDataStructures.param_length(f::MultiFieldParamFESpace)
   plengths[1]
 end
 
+function ParamDataStructures.param_getindex(f::MultiFieldParamFESpace,index::Integer)
+  fi = map(s -> param_getindex(s,index),f.spaces)
+  style = f.multi_field_style
+  MultiFieldFESpace(fi;style)
+end
+
 get_vector_type2(f::MultiFieldParamFESpace) = get_vector_type2(first(f.spaces))
 
 function FESpaces.zero_free_values(f::MultiFieldParamFESpace)

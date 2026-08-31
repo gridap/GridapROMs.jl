@@ -185,52 +185,15 @@ function assemble_hr_array_add!(A,_cellvals,celldofs,icells)
   A
 end
 
-"""
-    _HR_ASSEMBLY_CACHE
-
-Memoizes the `(add!,add_cache,vals_cache,dofs_cache)` tuple built by
-[`_assemble_hr_array_add!`](@ref), keyed by the identity of `celldofs` (which,
-for a given triangulation of a given [`RBOperator`](@ref), is offline data
-that never changes across online calls) and by `param_length(A)` (since the
-scratch buffers allocated by `AddHREntriesMap`'s cache are sized to the
-online parameter batch size).
-
-`celldofs` and the shape of `cellvals` are the only two things these caches
-actually depend on: `A`, `cellvals` themselves are rebuilt at every single
-online `residual!`/`jacobian!` call (a fresh weak-form evaluation `res(r,uh,v)`
-each time), but their *type* and per-cell *shape* are fixed for a given
-operator, so the caches built off them are safe to reuse verbatim on a
-different, same-shaped instance (`getindex!` never stores anything about
-which array it was built from, it is just a scratch buffer overwritten every
-call, exactly as when reusing a single cache across different cell indices
-`i`). Rebuilding these caches from scratch on every call is the dominant cost
-of hyper-reduced assembly (bigger than the actual numerical accumulation
-loop, since the MDEIM-selected cell sets are tiny), so this cache turns a
-per-call cost into an amortized one for the common "solve many times with
-the same operator" workflow.
-
-Keyed with a plain (strong) `IdDict`, since `celldofs` is typically an
-immutable `LazyArray` and cannot be used as a `WeakKeyDict` key (Julia
-requires a mutable, finalizable object for that). Each entry is a handful of
-small buffers sized to the number of MDEIM dofs, so the retained memory
-across, e.g., a sweep building many `RBOperator`s in one session, is bounded
-and small; entries are never explicitly evicted.
-"""
-const _HR_ASSEMBLY_CACHE = IdDict{Any,Dict{Int,Any}}()
-
 function _assemble_hr_array_add!(A,cellvals,celldofs)
   if length(cellvals) > 0
-    nparams = param_length(A)
-    perkey = get!(() -> Dict{Int,Any}(),_HR_ASSEMBLY_CACHE,celldofs)
-    caches = get!(perkey,nparams) do
-      dofs_cache = array_cache(celldofs)
-      vals_cache = array_cache(cellvals)
-      vals1 = getindex!(vals_cache,cellvals,1)
-      rows1 = getindex!(dofs_cache,celldofs,1)
-      add! = AddHREntriesMap(+)
-      add_cache = return_cache(add!,A,vals1,rows1)
-      (add!,add_cache,vals_cache,dofs_cache)
-    end
+    dofs_cache = array_cache(celldofs)
+    vals_cache = array_cache(cellvals)
+    vals1 = getindex!(vals_cache,cellvals,1)
+    rows1 = getindex!(dofs_cache,celldofs,1)
+    add! = AddHREntriesMap(+)
+    add_cache = return_cache(add!,A,vals1,rows1)
+    caches = add!,add_cache,vals_cache,dofs_cache
     _numeric_loop_hr_array!(A,caches,cellvals,celldofs)
   end
   A

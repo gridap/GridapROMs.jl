@@ -219,3 +219,18 @@ function to_parray_of_blocksnaps(a::AbstractArray{<:DebugArray{<:Snapshots}},tou
     BlockSnapshots(array,touched,nothing)
   end
 end
+
+# linear algebra 
+
+_gettr(a) = a
+_gettr(a::DistributedSnapshots) = a.snaps 
+
+for S in (:PSparseMatrix,:GenericPArray,:DistributedSnapshots), T in (:PSparseMatrix,:GenericPArray,:DistributedSnapshots)
+  !(S == :DistributedSnapshots || T == :DistributedSnapshots) && continue
+  @eval begin
+    Base.:*(a::$S,b::$T) = _gettr(a) * _gettr(b)
+    Base.:*(a::Transpose{<:Any,<:$S},b::$T) = _gettr(a.parent)' * _gettr(b)
+    Base.:*(a::$S,b::Transpose{<:Any,<:$T}) = _gettr(a) * _gettr(b.parent)'
+    Base.:*(a::Transpose{<:Any,<:$S},b::Transpose{<:Any,<:$T}) = _gettr(a.parent)' * _gettr(b.parent)'
+  end
+end

@@ -100,4 +100,6 @@ include("GenericPArray.jl")
 export DistributedSnapshots
 include("Snapshots.jl")
 
+include("BasesConstruction.jl")
+
 end
