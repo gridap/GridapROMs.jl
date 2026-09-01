@@ -20,19 +20,19 @@ function ParamDataStructures.Snapshots(
   data = map(local_views(s),local_views(i),local_views.(s0)...) do s,i,s0...
     Snapshots(s,s0,i,r)
   end
-  snaps = GenericPArray(data,row_partition(s))
+  snaps = GenericPArray(data,flat_row_partition(s))
   DistributedSnapshots(snaps)
 end
 
-struct DistributedSnapshots{T,N,I,R,A,B} <: Snapshots{T,N,I,R}
+struct DistributedSnapshots{T,N,I,R,A} <: Snapshots{T,N,I,R}
   snaps::A
-  function DistributedSnapshots(snaps::GenericPArray{B}) where {T,N,I,R,B<:Snapshots{T,N,I,R}}
+  function DistributedSnapshots(snaps::GenericPArray{<:Snapshots{T,N,I,R}}) where {T,N,I,R}
     A = typeof(snaps)
-    new{T,N,I,R,A,B}(snaps)
+    new{T,N,I,R,A}(snaps)
   end
 end
 
-const DistributedTransientSnapshots{T,N,I,R,A} = DistributedSnapshots{T,N,I,R,A,<:TransientSnapshots}
+const DistributedTransientSnapshots{T,N,I,R<:TransientRealisation,A} = DistributedSnapshots{T,N,I,R,A}
 
 Base.size(s::DistributedSnapshots) = size(s.snaps)
 Base.axes(s::DistributedSnapshots) = axes(s.snaps)
@@ -90,12 +90,25 @@ GridapDistributed.local_views(s::DistributedSnapshots) = local_views(s.snaps)
 PartitionedArrays.partition(s::DistributedSnapshots) = partition(s.snaps)
 PartitionedArrays.local_values(s::DistributedSnapshots) = local_values(s.snaps)
 PartitionedArrays.own_values(s::DistributedSnapshots) = own_values(s.snaps)
-PartitionedArrays.ghost_values(s::DistributedSnapshots) = own_values(s.snaps)
+PartitionedArrays.ghost_values(s::DistributedSnapshots) = ghost_values(s.snaps)
 
-row_partition(a::PVector) = a.index_partition
-row_partition(a::PSparseMatrix) = a.row_partition
-row_partition(a::GenericPArray) = a.index_partition
-row_partition(a::DistributedSnapshots) = row_partition(a.snaps)
+# sparse interface
+
+const DistributedSparseSnapshots{T,N,I<:AbstractSparseDofMap,R,A} = DistributedSnapshots{T,N,I,R,A}
+
+function DofMaps.recast(a::GenericPArray,i::AbstractArray{<:AbstractSparseDofMap})
+  data = map(local_views(a),local_views(i)) do a,i
+    recast(a,i)
+  end
+  PSparseMatrix(data,row_partition(a),col_partition(a))
+end
+
+function ParamDataStructures.get_param_data(s::DistributedSparseSnapshots)
+  data = map(local_views(s)) do s
+    get_param_data(s)
+  end
+  PSparseMatrix(data,row_partition(s),col_partition(s))
+end
 
 # multi-field interface
 
@@ -240,6 +253,34 @@ function to_parray_of_blocksnaps(a::AbstractArray{<:DebugArray{<:Snapshots}},tou
     BlockSnapshots(array,touched,nothing)
   end
 end
+
+# index handling for sparse matrix snapshots
+
+const NZIndexPartition = Range1D
+
+function flat_row_partition(a::PSparseMatrix)
+  map(local_views(a.row_partition),local_views(a.col_partition)) do lrows,lcols
+    NZIndexPartition(lrows,lcols)
+  end
+end
+
+flat_row_partition(a) = local_views(row_partition(a))
+
+row_partition(a) = a
+row_partition(a::PVector) = a.index_partition
+row_partition(a::PSparseMatrix) = a.row_partition
+row_partition(a::GenericPArray) = row_partition(a.index_partition)
+row_partition(a::DistributedSnapshots) = row_partition(a.snaps)
+row_partition(a::NZIndexPartition) = a.parent.axis1
+row_partition(a::AbstractArray{<:NZIndexPartition}) = map(row_partition,local_views(a))
+
+col_partition(a) = a
+col_partition(a::PVector) = @notimplemented
+col_partition(a::PSparseMatrix) = a.col_partition
+col_partition(a::GenericPArray) = col_partition(a.index_partition)
+col_partition(a::DistributedSnapshots) = col_partition(a.snaps)
+col_partition(a::NZIndexPartition) = a.parent.axis2
+col_partition(a::AbstractArray{<:NZIndexPartition}) = map(col_partition,local_views(a))
 
 # linear algebra 
 
