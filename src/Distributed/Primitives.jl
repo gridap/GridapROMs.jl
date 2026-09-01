@@ -58,7 +58,7 @@ function PartitionedArrays.assemble_impl!(
   buffer_snd = map(vector_partition,cache) do values,cache
     local_indices_snd = cache.local_indices_snd
     for (p,lid) in enumerate(local_indices_snd.data)
-      for i in param_eachindex(values)
+      for i in _param_eachindex(values)
         cache.buffer_snd.data[p,i] = _getindex(values,lid,i)
       end
     end
@@ -75,7 +75,7 @@ function PartitionedArrays.assemble_impl!(
     map(vector_partition,cache) do values,cache
       local_indices_rcv = cache.local_indices_rcv
       for (p,lid) in enumerate(local_indices_rcv.data)
-        for i in param_eachindex(values)
+        for i in _param_eachindex(values)
           v = f(_getindex(values,lid,i),cache.buffer_rcv.data[p,i])
           _setindex!(values,v,lid,i)
         end
@@ -203,7 +203,7 @@ function PartitionedArrays.allocate_exchange_impl(
   rcv
 end
 
-for T in (:AbstractMatrix,:ConsecutiveParamVector)
+for T in (:AbstractMatrix,:ConsecutiveParamVector,:ParamJaggedArray)
   @eval begin
     function PartitionedArrays.exchange_impl!(rcv,snd,graph,::Type{<:$T})
       @assert PartitionedArrays.is_consistent(graph)
@@ -294,9 +294,14 @@ end
 
 # utils
 
+_param_eachindex(a) = 1:_get_plength(a)
+
+_get_plength(a::AbstractMatrix) = size(a,2)
 _get_plength(a::AbstractParamArray) = param_length(a)
 _get_plength(a::ParamJaggedArray) = param_length(a)
-_get_plength(a::AbstractMatrix) = size(a,2)
+
+_getindex(a::AbstractMatrix,i,j) = a[i,j]
+_setindex!(a::AbstractMatrix,v,i,j) = (a[i,j] = v)
 
 _getindex(a::ConsecutiveParamVector,i,j) = a.data[i,j]
 _setindex!(a::ConsecutiveParamVector,v,i,j) = (a.data[i,j] = v)

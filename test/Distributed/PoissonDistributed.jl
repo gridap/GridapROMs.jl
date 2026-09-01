@@ -93,6 +93,7 @@ using GridapDistributed
 using GridapROMs.ParamAlgebra
 using GridapROMs.Distributed
 using GridapROMs.RBSteady
+using GridapROMs.ParamSteady
 using PartitionedArrays
 using Test
 
@@ -148,6 +149,7 @@ parts = (2,2)
 snp = Ref{DistributedSnapshots}()
 nrm = Ref{PSparseMatrix}()
 basis = Ref{AbstractMatrix}()
+feop = Ref{GenericParamOperator}()
 with_debug() do distribute
   ranks = distribute(LinearIndices((prod(parts),)))
 
@@ -177,9 +179,12 @@ with_debug() do distribute
   @test isa(snaps,DistributedSnapshots)
   snp[] = snaps
   nrm[] = X
-  U,_,_ = tpod(LRApproxRank(1e-4),snaps,X)
-  basis[] = U
+  # U,_,_ = tpod(LRApproxRank(1e-4),snaps,X)
+  # basis[] = U
+  feop[] = op
 end
 
-Xb = nrm[]*basis[]
-bXb = basis[]'*Xb
+# Xb = nrm[]*basis[]
+# bXb = basis[]'*Xb
+red = PODReduction(1e-4,H1())
+rbspace = reduced_spaces(red,feop[],snp[])

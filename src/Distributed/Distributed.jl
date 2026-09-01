@@ -69,12 +69,13 @@ using GridapROMs.ParamSteady
 using GridapROMs.ParamODEs
 using GridapROMs.RBSteady
 
-import ArraysOfArrays: innersize
+import ArraysOfArrays: innersize,_ncolons
 import BlockArrays: BlockVector,BlockMatrix,BlockArray,mortar,blocks
-import Gridap.Helpers: @abstractmethod,@check,@notimplemented
+import Gridap.Helpers: @abstractmethod,@check,@notimplemented,@notimplementedif
 import GridapDistributed: BlockPMatrix,BlockPVector,BlockPArray,DistributedFESpace,DistributedSingleFieldFESpace,DistributedMultiFieldFESpace,to_parray_of_arrays
 import GridapROMs.DofMaps: range_2d,range_1d
 import GridapROMs.ParamAlgebra: ParamBuilder,ParamCounter
+import GridapROMs.RBSteady: get_l2_form,get_h1_form,get_div_coupling_form,l2_norm,h1_norm,div_coupling,_assemble_operator,_unwrap,_meas,_energy_mortar,_coupling_mortar
 import MPI
 import PartitionedArrays: VectorAssemblyCache,length_to_ptrs!,rewind_ptrs!,getany
 
@@ -100,6 +101,10 @@ include("GenericPArray.jl")
 export DistributedSnapshots
 include("Snapshots.jl")
 
+include("EnergyNorms.jl")
+
 include("BasesConstruction.jl")
+
+include("Projections.jl")
 
 end

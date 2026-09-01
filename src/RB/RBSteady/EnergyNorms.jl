@@ -9,9 +9,6 @@ function _assemble_operator(a::AssembleOperator,U::DirectSumFESpace,V::DirectSum
 end
 
 function assemble_operator(a::AssembleOperator,feop)
-  _unwrap(f) = f 
-  _unwrap(f::UnEvalTrialFESpace) = _unwrap(f.space)
-  _unwrap(f::MultiFieldFESpace) = MultiFieldFESpace(map(_unwrap,f.spaces);style=MultiFieldStyle(f))
   _assemble_operator(a,_unwrap(get_trial(feop)),get_test(feop))
 end
 
@@ -198,6 +195,10 @@ function div_coupling(U::TProductFESpace,V::TProductFESpace)
 end
 
 # utils
+
+_unwrap(f) = f 
+_unwrap(f::UnEvalTrialFESpace) = _unwrap(f.space)
+_unwrap(f::MultiFieldFESpace) = MultiFieldFESpace(map(_unwrap,f.spaces);style=MultiFieldStyle(f))
 
 function _meas(V::FESpace,Q::FESpace)
   Ωv = get_triangulation(V)

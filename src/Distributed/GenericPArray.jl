@@ -28,6 +28,7 @@ struct GenericPArray{V,A,B,C,D,T,N} <: AbstractArray{T,N}
     cache=PartitionedArrays.p_vector_cache(array_partition,index_partition)
     ) where {T,N}
 
+    @notimplementedif N > 2 "For now only generic partitioned vectors/matrices are supported."
     V = eltype(array_partition)
     A = typeof(array_partition)
     B = typeof(index_partition)
@@ -43,6 +44,7 @@ const GenericPMatrix{V,A,B,C,D,T} = GenericPArray{V,A,B,C,D,T,2}
 GridapDistributed.local_views(a::GenericPArray) = partition(a)
 PartitionedArrays.partition(a::GenericPArray) = a.array_partition
 Base.axes(a::GenericPArray) = (PRange(a.index_partition),a.unpartitioned_axes...)
+Base.size(a::GenericPArray) = length.(axes(a))
 
 function PartitionedArrays.own_values(a::AbstractArray{<:Any,N},i) where N
   view(a,own_to_local(i),_ncolons(Val{N-1}())...)
@@ -56,24 +58,9 @@ function PartitionedArrays.own_values(a::GenericPArray)
   map(own_values,partition(a),partition(axes(a,1)))
 end
 
-function PartitionedArrays.own_values(a::GenericPMatrix)
-  map(partition(a),partition(axes(a,1))) do la,ra
-    view(la,own_to_local(ra),:)
-  end
-end
-
 function PartitionedArrays.ghost_values(a::GenericPArray)
   map(ghost_values,partition(a),partition(axes(a,1)))
 end
-
-function PartitionedArrays.ghost_values(a::GenericPMatrix)
-  map(partition(a),partition(axes(a,1))) do la,ra
-    view(la,ghost_to_local(ra),:)
-  end
-end
-
-Base.size(a::GenericPArray) = length.(axes(a))
-Base.IndexStyle(::Type{<:GenericPArray}) = IndexLinear()
 
 function Base.getindex(a::GenericPArray,gid::Int)
   PartitionedArrays.scalar_indexing_action(a)
@@ -113,22 +100,6 @@ function consistent!(a::GenericPArray)
   t = assemble!(insert,partition(a),cache)
   @async begin
     wait(t)
-    a
-  end
-end
-
-function consistent!(a::GenericPMatrix)
-  ncols = size(a,2)
-  # Build a 1D cache once from col 1 (same structure for all columns)
-  col1 = map(la -> view(la,:,1),partition(a))
-  cache1d = PartitionedArrays.p_vector_cache(col1,partition(axes(a,1)))
-  cache1d_rev = map(reverse,cache1d)
-  insert(a,b) = b
-  @async begin
-    for j in 1:ncols
-      colj = map(la -> view(la,:,j),partition(a))
-      wait(assemble!(insert,colj,cache1d_rev))
-    end
     a
   end
 end

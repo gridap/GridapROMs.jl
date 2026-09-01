@@ -347,3 +347,5 @@ function ParamODEs._collect_solutions!(
     ParamODEs._collect_solutions!(sols.data,ui,it)
   end
 end
+
+Utils.get_polynomial_order(f::DistributedFESpace) = get_polynomial_order(getany(local_views(f)))
