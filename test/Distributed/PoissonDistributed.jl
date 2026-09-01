@@ -146,6 +146,8 @@ function get_mesh(parts,np)
 end
 
 red = PODReduction(1e-4,H1(),nparams=2)
+res_red = PODReduction(1e-4,nparams=2)
+jac_red = PODReduction(1e-4,nparams=2)
 rbsolver = RBSolver(LUSolver(),red,nparams_jac=2,nparams_res=2)
 
 parts = (2,2)
@@ -187,5 +189,8 @@ with_debug() do distribute
   feop[] = op
   red_trial,red_test = reduced_spaces(red,op,snaps)
   jacs = jacobian_snapshots(rbsolver,op,snaps)
+  ress = residual_snapshots(rbsolver,op,snaps)
+  # red_jac = reduced_jacobian(jac_red,red_trial,red_test,jacs)
+  # red_res = reduced_residual(res_red,red_test,ress)
   snp[] = jacs
 end

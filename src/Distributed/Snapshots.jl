@@ -1,13 +1,17 @@
-for T in (:PVector,:PSparseMatrix)
-  @eval begin
-    function ParamDataStructures.Snapshots(s::$T,i::AbstractArray,r::AbstractRealisation)
-      data = map(local_views(s),local_views(i)) do s,i
-        Snapshots(s,i,r)
-      end
-      snaps = GenericPArray(data,row_partition(s))
-      DistributedSnapshots(snaps)
-    end
+function ParamDataStructures.Snapshots(s::PVector,i::AbstractArray,r::AbstractRealisation)
+  data = map(local_views(s),local_views(i)) do s,i
+    Snapshots(s,i,r)
   end
+  snaps = GenericPArray(data,flat_row_partition(s))
+  DistributedSnapshots(snaps)
+end
+
+function ParamDataStructures.Snapshots(s::PSparseMatrix,i::AbstractArray,r::AbstractRealisation)
+  data = map(own_values(s),local_views(i)) do s,i
+    Snapshots(s,i,r)
+  end
+  snaps = GenericPArray(data,flat_row_partition(s))
+  DistributedSnapshots(snaps)
 end
 
 function ParamDataStructures.Snapshots(
@@ -256,11 +260,36 @@ end
 
 # index handling for sparse matrix snapshots
 
-const NZIndexPartition = Range1D
+struct NZIndexPartition{I<:AbstractLocalIndices,R<:AbstractLocalIndices,C<:AbstractLocalIndices} <: AbstractLocalIndices
+  nz::I
+  row::R
+  col::C
+end
+
+PartitionedArrays.part_id(a::NZIndexPartition) = part_id(a.nz)
+PartitionedArrays.local_to_global(a::NZIndexPartition) = local_to_global(a.nz)
+PartitionedArrays.local_to_owner(a::NZIndexPartition) = local_to_owner(a.nz)
+PartitionedArrays.own_to_global(a::NZIndexPartition) = own_to_global(a.nz)
+PartitionedArrays.ghost_to_global(a::NZIndexPartition) = ghost_to_global(a.nz)
+PartitionedArrays.ghost_to_owner(a::NZIndexPartition) = ghost_to_owner(a.nz)
+PartitionedArrays.own_to_local(a::NZIndexPartition) = own_to_local(a.nz)
+PartitionedArrays.ghost_to_local(a::NZIndexPartition) = ghost_to_local(a.nz)
+PartitionedArrays.global_to_own(a::NZIndexPartition) = global_to_own(a.nz)
+PartitionedArrays.global_to_local(a::NZIndexPartition) = global_to_local(a.nz)
+PartitionedArrays.global_to_ghost(a::NZIndexPartition) = global_to_ghost(a.nz)
+PartitionedArrays.own_length(a::NZIndexPartition) = own_length(a.nz)
+PartitionedArrays.assembly_cache(a::NZIndexPartition) = PartitionedArrays.assembly_cache(a.nz)
 
 function flat_row_partition(a::PSparseMatrix)
-  map(local_views(a.row_partition),local_views(a.col_partition)) do lrows,lcols
-    NZIndexPartition(lrows,lcols)
+  nnz_own = map(own_values(a)) do aown
+    inv_rows, = aown.inv_indices
+    rv = rowvals(aown.parent)
+    count(i -> inv_rows[i] > 0,rv)
+  end
+  n_nz_global = reduce(+,nnz_own,init=0)
+  nz_part = variable_partition(nnz_own,n_nz_global)
+  map(nz_part,local_views(a.row_partition),local_views(a.col_partition)) do nzidx,lrow,lcol
+    NZIndexPartition(nzidx,lrow,lcol)
   end
 end
 
@@ -271,7 +300,7 @@ row_partition(a::PVector) = a.index_partition
 row_partition(a::PSparseMatrix) = a.row_partition
 row_partition(a::GenericPArray) = row_partition(a.index_partition)
 row_partition(a::DistributedSnapshots) = row_partition(a.snaps)
-row_partition(a::NZIndexPartition) = a.parent.axis1
+row_partition(a::NZIndexPartition) = a.row
 row_partition(a::AbstractArray{<:NZIndexPartition}) = map(row_partition,local_views(a))
 
 col_partition(a) = a
@@ -279,7 +308,7 @@ col_partition(a::PVector) = @notimplemented
 col_partition(a::PSparseMatrix) = a.col_partition
 col_partition(a::GenericPArray) = col_partition(a.index_partition)
 col_partition(a::DistributedSnapshots) = col_partition(a.snaps)
-col_partition(a::NZIndexPartition) = a.parent.axis2
+col_partition(a::NZIndexPartition) = a.col
 col_partition(a::AbstractArray{<:NZIndexPartition}) = map(col_partition,local_views(a))
 
 # linear algebra 
