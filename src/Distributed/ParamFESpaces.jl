@@ -252,8 +252,11 @@ function DofMaps.get_sparse_dof_map(
   A::PSparseMatrix
   )
 
-  map(local_views(trial),local_views(test),local_views(A)) do trial,test,A
-    get_sparse_dof_map(trial,test,A)
+  map(local_views(trial),local_views(test),local_views(A)) do trial,test,Aloc
+    # local matrix has own rows but local (own+ghost) DOFs in the spaces,
+    # so sizes don't match the check in SparsityPattern(U,V,A). Build
+    # SparsityPattern directly to bypass the check.
+    get_sparse_dof_map(SparsityPattern(Aloc),trial,test)
   end
 end
 
@@ -294,14 +297,10 @@ function DofMaps.get_sparse_dof_map(
   A::AbstractMatrix
   )
 
-  restr_to_fields(A::AbstractMatrix,i,j) = @notimplemented
-  restr_to_fields(A::BlockMatrix,i,j) = A.blocks[i,j]
-  restr_to_fields(A::ConsecutiveParamSparseMatrix,i,j) = restr_to_fields(testitem(A),i,j)
-
   ntest = num_fields(test)
   ntrial = num_fields(trial)
   array,touched = map(Iterators.product(1:ntest,1:ntrial)) do (i,j)
-    Aij = restr_to_fields(A,i,j)
+    Aij = DofMaps.restr_to_fields(A,i,j)
     t = getany(map(x -> !iszero(x),local_views(Aij)))
     v = get_sparse_dof_map(trial[j],test[i],Aij)
     v,t

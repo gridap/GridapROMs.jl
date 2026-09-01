@@ -314,6 +314,20 @@ function Base.:*(at::Adjoint{T,<:GenericPMatrix} where T,b::GenericPMatrix)
   reduce(+,G)
 end
 
+function _with_ghost_structure(b::GenericPArray{V,A,B,C,D,T,N}, new_idx_partition) where {V,A,B,C,D,T,N}
+  new_parts = map(partition(b), new_idx_partition, partition(axes(b,1))) do lb, ra, rb
+    n_local = local_length(ra)
+    new_lb = N == 1 ? similar(lb, n_local) : similar(lb, n_local, size(lb,2))
+    if N == 1
+      new_lb[own_to_local(ra)] .= lb[own_to_local(rb)]
+    else
+      new_lb[own_to_local(ra),:] .= lb[own_to_local(rb),:]
+    end
+    new_lb
+  end
+  GenericPArray(new_parts, new_idx_partition, b.unpartitioned_axes)
+end
+
 function LinearAlgebra.mul!(
   c::GenericPArray,
   a::PSparseMatrix,
@@ -324,7 +338,11 @@ function LinearAlgebra.mul!(
 
   @boundscheck @assert PartitionedArrays.matching_own_indices(axes(c,1),axes(a,1))
   @boundscheck @assert PartitionedArrays.matching_own_indices(axes(a,2),axes(b,1))
-  @boundscheck @assert PartitionedArrays.matching_ghost_indices(axes(a,2),axes(b,1))
+  # Ghost DOF orderings may differ between a's col partition and b's row partition
+  # (same DOF set, different discovery order). Reconcile b to a's ghost structure.
+  if !PartitionedArrays.matching_ghost_indices(axes(a,2),axes(b,1))
+    b = _with_ghost_structure(b, partition(axes(a,2)))
+  end
   # Start the exchange
   t = consistent!(b)
   # Meanwhile, process the owned blocks

@@ -145,6 +145,9 @@ function get_mesh(parts,np)
   return model
 end
 
+red = PODReduction(1e-4,H1(),nparams=2)
+rbsolver = RBSolver(LUSolver(),red,nparams_jac=2,nparams_res=2)
+
 parts = (2,2)
 snp = Ref{DistributedSnapshots}()
 nrm = Ref{PSparseMatrix}()
@@ -177,14 +180,12 @@ with_debug() do distribute
   solve!(x,LUSolver(),nlop,syscache)
   snaps = Snapshots(x,get_dof_map(trial),μ)
   @test isa(snaps,DistributedSnapshots)
-  snp[] = snaps
+  # snp[] = snaps
   nrm[] = X
-  # U,_,_ = tpod(LRApproxRank(1e-4),snaps,X)
-  # basis[] = U
+  # # U,_,_ = tpod(LRApproxRank(1e-4),snaps,X)
+  # # basis[] = U
   feop[] = op
+  red_trial,red_test = reduced_spaces(red,op,snaps)
+  jacs = jacobian_snapshots(rbsolver,op,snaps)
+  snp[] = jacs
 end
-
-# Xb = nrm[]*basis[]
-# bXb = basis[]'*Xb
-red = PODReduction(1e-4,H1())
-rbspace = reduced_spaces(red,feop[],snp[])

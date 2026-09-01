@@ -365,10 +365,6 @@ function _get_sparse_dof_map(
   A::AbstractMatrix
   )
 
-  restr_to_fields(A::AbstractMatrix{<:Number},i,j) = _restrict_to_fields(A,test,trial,i,j)
-  restr_to_fields(A::BlockMatrix{<:Number},i,j) = A.blocks[i,j]
-  restr_to_fields(A::AbstractMatrix{<:AbstractMatrix},i,j) = restr_to_fields(testitem(A),i,j)
-
   ntest = num_fields(test)
   ntrial = num_fields(trial)
   array,touched = map(Iterators.product(1:ntest,1:ntrial)) do (i,j)
@@ -385,6 +381,10 @@ function _get_sparse_dof_map(f::FESpace,g::FESpace,A::Contribution)
     _get_sparse_dof_map(f,g,A[trian])
   end
 end
+
+restr_to_fields(A::AbstractMatrix{<:Number},i,j) = _restrict_to_fields(A,test,trial,i,j)
+restr_to_fields(A::BlockMatrix{<:Number},i,j) = A.blocks[i,j]
+restr_to_fields(A::AbstractMatrix{<:AbstractMatrix},i,j) = restr_to_fields(testitem(A),i,j)
 
 function _restrict_to_fields(
   A::AbstractMatrix{<:Number},

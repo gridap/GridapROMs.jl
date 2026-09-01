@@ -4,7 +4,7 @@ for T in (:PVector,:PSparseMatrix)
       data = map(local_views(s),local_views(i)) do s,i
         Snapshots(s,i,r)
       end
-      snaps = GenericPArray(data,s.index_partition)
+      snaps = GenericPArray(data,row_partition(s))
       DistributedSnapshots(snaps)
     end
   end
@@ -20,7 +20,7 @@ function ParamDataStructures.Snapshots(
   data = map(local_views(s),local_views(i),local_views.(s0)...) do s,i,s0...
     Snapshots(s,s0,i,r)
   end
-  snaps = GenericPArray(data,s.index_partition)
+  snaps = GenericPArray(data,row_partition(s))
   DistributedSnapshots(snaps)
 end
 
@@ -31,8 +31,6 @@ struct DistributedSnapshots{T,N,I,R,A,B} <: Snapshots{T,N,I,R}
     new{T,N,I,R,A,B}(snaps)
   end
 end
-
-const DistributedSteadySnapshots{T,N,I,R,A} = DistributedSnapshots{T,N,I,R,A,<:SteadySnapshots}
 
 const DistributedTransientSnapshots{T,N,I,R,A} = DistributedSnapshots{T,N,I,R,A,<:TransientSnapshots}
 
@@ -52,6 +50,20 @@ end
 
 ParamDataStructures.get_realisation(s::DistributedSnapshots) = get_realisation(getany(local_views(s)))
 
+function ParamDataStructures.get_all_data(s::DistributedSnapshots)
+  data = map(local_views(s)) do s
+    get_all_data(s)
+  end
+  GenericPArray(data,row_partition(s))
+end
+
+function ParamDataStructures.get_param_data(s::DistributedSnapshots)
+  data = map(local_views(s)) do s
+    get_param_data(s)
+  end
+  PVector(data,row_partition(s))
+end
+
 function DofMaps.get_dof_map(s::DistributedSnapshots)
   map(local_views(s)) do s
     get_dof_map(s)
@@ -59,16 +71,18 @@ function DofMaps.get_dof_map(s::DistributedSnapshots)
 end
 
 function ParamDataStructures.select_snapshots(s::DistributedSnapshots,pindex)
-  snaps = map(local_views(s)) do s
+  data = map(local_views(s)) do s
     select_snapshots(s,pindex)
   end
+  snaps = GenericPArray(data,row_partition(s))
   DistributedSnapshots(snaps)
 end
 
 function ParamDataStructures.select_times(s::DistributedTransientSnapshots,tindex)
-  snaps = map(local_views(s)) do s
+  data = map(local_views(s)) do s
     select_times(s,tindex)
   end
+  snaps = GenericPArray(data,row_partition(s))
   DistributedSnapshots(snaps)
 end
 
@@ -77,6 +91,11 @@ PartitionedArrays.partition(s::DistributedSnapshots) = partition(s.snaps)
 PartitionedArrays.local_values(s::DistributedSnapshots) = local_values(s.snaps)
 PartitionedArrays.own_values(s::DistributedSnapshots) = own_values(s.snaps)
 PartitionedArrays.ghost_values(s::DistributedSnapshots) = own_values(s.snaps)
+
+row_partition(a::PVector) = a.index_partition
+row_partition(a::PSparseMatrix) = a.row_partition
+row_partition(a::GenericPArray) = a.index_partition
+row_partition(a::DistributedSnapshots) = row_partition(a.snaps)
 
 # multi-field interface
 
@@ -95,6 +114,8 @@ struct DistributedBlockSnapshots{N,B} <: AbstractSnapshots{DistributedSnapshots,
     new{N,B}(array,touched,param_data)
   end
 end
+
+const DistributedTransientBlockSnapshots{N} = DistributedBlockSnapshots{N,<:StoredParamData}
 
 function ParamDataStructures.Snapshots(
   data::BlockPArray{V,T,N},
