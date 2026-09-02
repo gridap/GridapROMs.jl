@@ -208,11 +208,6 @@ function recast(a::AbstractMatrix,A::SparseMatrixCSC)
   ConsecutiveParamSparseMatrixCSC(A.m,A.n,A.colptr,A.rowval,a)
 end
 
-function recast(a::AbstractMatrix,A::ConsecutiveParamSparseMatrixCSC)
-  @check size(a,1) == nnz(A)
-  ConsecutiveParamSparseMatrixCSC(A.m,A.n,A.colptr,A.rowval,a)
-end
-
 """
     struct GenericParamSparseMatrixCSC{Tv,Ti<:Integer} <: ParamSparseMatrixCSC{Tv,Ti}
       m::Int64
@@ -457,11 +452,6 @@ function Base.copyto!(A::ConsecutiveParamSparseMatrixCSR,B::ConsecutiveParamSpar
 end
 
 function recast(a::AbstractMatrix,A::SparseMatrixCSR{Bi}) where Bi
-  @check size(a,1) == nnz(A)
-  ConsecutiveParamSparseMatrixCSR{Bi}(A.m,A.n,A.rowptr,A.colval,a)
-end
-
-function recast(a::AbstractMatrix,A::ConsecutiveParamSparseMatrixCSR{Bi}) where Bi
   @check size(a,1) == nnz(A)
   ConsecutiveParamSparseMatrixCSR{Bi}(A.m,A.n,A.rowptr,A.colval,a)
 end

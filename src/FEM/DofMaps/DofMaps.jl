@@ -77,8 +77,6 @@ export group_labels
 export group_ilabels
 export get_group_to_labels
 export get_group_to_ilabels
-export inverse_table
-export common_table
 include("IndexOperations.jl")
 
 export Range2D

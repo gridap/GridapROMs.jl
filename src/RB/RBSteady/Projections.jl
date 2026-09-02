@@ -539,7 +539,7 @@ function union_bases(a::NormedProjection,b::AbstractArray,args...)
 end
 
 function galerkin_projection(proj_left::NormedProjection,a::Projection)
-  galerkin_projection(proj_left.projection,get_projection(a))
+  galerkin_projection(get_projection(proj_left),get_projection(a))
 end
 
 function galerkin_projection(
