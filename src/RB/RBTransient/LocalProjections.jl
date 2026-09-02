@@ -40,7 +40,7 @@ function RBSteady.enrich!(
       a_dual_i = local_vals(a_dual[i])
       dij_space = get_basis_space(a_dual_i[j])
       C_primal_dual_i = supr_matrix[Block(1,i+1)]
-      supr_space_i = H_primal \ (C_primal_dual_i * dij_space)
+      supr_space_i = supremizers(H_primal,C_primal_dual_i,dij_space)
       pj_space = union_bases(pj_space,supr_space_i,H_primal)
 
       dij_time = get_basis_time(a_dual_i[j])

@@ -1,24 +1,11 @@
-function RBSteady.HRProjection(
-  red::HighDimHyperReduction,
-  s::Snapshots,
-  trian::Triangulation,
-  trial::RBSpace,
-  test::RBSpace
-  )
-
+function RBSteady.HRProjection(red::HighDimHyperReduction,s,trian,trial,test)
   basis = projection(get_reduction(red),s)
   proj_basis = project(test,basis,trial,get_time_combination(red))
   interp = Interpolation(red,basis,trian,trial,test)
   return HRProjection(proj_basis,red,interp)
 end
 
-function RBSteady.HRProjection(
-  red::HighDimNoHyperReduction,
-  s::Snapshots,
-  trian::Triangulation,
-  test::RBSpace
-  )
-
+function RBSteady.HRProjection(red::HighDimNoHyperReduction,s,trian,test)
   T = get_dof_value_type(test)
   nrows = num_reduced_dofs(test)
   basis = ReducedProjection(zeros(T,nrows,1))
@@ -26,14 +13,7 @@ function RBSteady.HRProjection(
   return HRProjection(basis,red,interp)
 end
 
-function RBSteady.HRProjection(
-  red::HighDimNoHyperReduction,
-  s::Snapshots,
-  trian::Triangulation,
-  trial::RBSpace,
-  test::RBSpace
-  )
-
+function RBSteady.HRProjection(red::HighDimNoHyperReduction,s,trian,trial,test)
   T = get_dof_value_type(trial)
   nrows = num_reduced_dofs(test)
   ncols = num_reduced_dofs(trial)
@@ -42,54 +22,28 @@ function RBSteady.HRProjection(
   return HRProjection(basis,red,interp)
 end
 
-function RBSteady.HRProjection(
-  red::HighDimAffineHyperReduction,
-  s::Snapshots,
-  trian::Triangulation,
-  test::RBSpace
-  )
-
+function RBSteady.HRProjection(red::HighDimAffineHyperReduction,s,trian,test)
   basis = GalerkinProjectable(s)
   proj_basis = project(test,basis)
   interp = Interpolation(red)
   return HRProjection(proj_basis,red,interp)
 end
 
-function RBSteady.HRProjection(
-  red::HighDimAffineHyperReduction,
-  s::Snapshots,
-  trian::Triangulation,
-  trial::RBSpace,
-  test::RBSpace
-  )
-
+function RBSteady.HRProjection(red::HighDimAffineHyperReduction,s,trian,trial,test)
   basis = GalerkinProjectable(s)
   proj_basis = project(test,basis,trial,get_time_combination(red))
   interp = Interpolation(red)
   return HRProjection(proj_basis,red,interp)
 end
 
-function RBSteady.HRProjection(
-  red::HighDimRBFHyperReduction,
-  s::Snapshots,
-  trian::Triangulation,
-  test::RBSpace
-  )
-
+function RBSteady.HRProjection(red::HighDimRBFHyperReduction,s,trian,test)
   basis = projection(get_reduction(red),s)
   proj_basis = project(test,basis)
   interp = Interpolation(red,basis,s)
   return HRProjection(proj_basis,red,interp)
 end
 
-function RBSteady.HRProjection(
-  red::HighDimRBFHyperReduction,
-  s::Snapshots,
-  trian::Triangulation,
-  trial::RBSpace,
-  test::RBSpace
-  )
-
+function RBSteady.HRProjection(red::HighDimRBFHyperReduction,s,trian,trial,test)
   basis = projection(get_reduction(red),s)
   proj_basis = project(test,basis,trial,get_time_combination(red))
   interp = Interpolation(red,basis,s)

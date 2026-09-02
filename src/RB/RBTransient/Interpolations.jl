@@ -26,7 +26,7 @@ end
 const TransientGreedyInterpolation{A,B} = GreedyInterpolation{A,B}
 
 for (T,f) in zip((:HighDimMDEIMHyperReduction,:HighDimSOPTHyperReduction),
-                 (:empirical_interpolation,:s_opt))
+                 (:DEIM,:SOPT))
   @eval begin
     function RBSteady.Interpolation(
       red::$T,
@@ -96,7 +96,7 @@ for (T,f) in zip(
       )
 
       strategy = RBSteady.interp_strategy(red)
-      inds,interp = empirical_interpolation(a)
+      inds,interp = DEIM(a)
       factor = lu(interp)
       r = get_params(get_realisation(s))
       red_data = $f(s,inds...)

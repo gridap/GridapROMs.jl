@@ -88,29 +88,108 @@ const DistributedRBSpace = RBSpace{DistributedFESpace}
 const DistributedSingleFieldRBSpace = RBSpace{DistributedSingleFieldFESpace}
 const DistributedMultiFieldRBSpace = RBSpace{DistributedMultiFieldFESpace}
 
+# projections (distributed)
+
+function RBSteady.Projection(basis::GenericPArray,s::DistributedSnapshots)
+  projections = map(partition(basis),partition(axes(basis,1))) do lb,rp
+    PODProjection(copy(view(lb,own_to_local(rp),:)))
+  end
+  DistributedProjection(projections)
+end
+
+RBSteady.num_reduced_dofs(a::DistributedProjection) = num_reduced_dofs(getany(a.projections))
+RBSteady.projection_eltype(a::DistributedProjection) = projection_eltype(getany(a.projections))
+
+function RBSteady.galerkin_projection(a::DistributedProjection,b::DistributedProjection)
+  G = map(a.projections,b.projections) do ai,bi
+    galerkin_projection(get_basis(ai),get_basis(bi))
+  end
+  b̂ = reduce(+,G)
+  return ReducedProjection(b̂)
+end
+
+function RBSteady.galerkin_projection(a::DistributedProjection,b::DistributedProjection,c::DistributedProjection)
+  G = map(a.projections,b.projections,c.projections) do ai,bi,ci
+    galerkin_projection(get_basis(ai),get_basis(bi),get_basis(ci))
+  end
+  b̂ = reduce(+,G)
+  return ReducedProjection(b̂)
+end
+
 # hyper-reduction
 
-function RBSteady.HRProjection(
-  red::Reduction,
-  s::DistributedSnapshots,
-  trian::DistributedTriangulation,
-  test::DistributedRBSpace
-  )
+struct DistributedInterpolation{A} <: Interpolation
+  interps::A
+end
 
-  map(local_views(s),local_views(trian),local_views(test)) do s,trian,test
-    HRProjection(red,s,trian,test)
+GridapDistributed.local_views(a::DistributedInterpolation) = local_views(a.interps)
+
+function RBSteady.reduced_triangulation(trian::DistributedTriangulation,a::HRProjection)
+  reduced_triangulation(trian,get_interpolation(a))
+end
+
+function RBSteady.reduced_triangulation(trian::DistributedTriangulation,a::DistributedInterpolation)
+  model = get_background_model(trian)
+  trians = map(local_views(trian),local_views(a)) do ti,ai
+    reduced_triangulation(ti,ai)
+  end
+  DistributedTriangulation(trians,model)
+end
+
+function RBSteady.reduced_triangulation(trian::DistributedTriangulation,a::RBSteady.EmptyInterpolation)
+  model = get_background_model(trian)
+  trians = map(local_views(trian)) do ti
+    reduced_triangulation(ti,a)
+  end
+  DistributedTriangulation(trians,model)
+end
+
+function RBSteady.Interpolation(red::RBSteady.NoHyperReduction,trian::DistributedTriangulation)
+  interps = map(local_views(trian)) do ti
+    RBSteady.Interpolation(red,ti)
+  end
+  DistributedInterpolation(interps)
+end
+
+for (T,f) in zip((:MDEIMHyperReduction,:SOPTHyperReduction),(:DEIM,:SOPT))
+  @eval begin
+    function RBSteady.Interpolation(
+      red::RBSteady.$T,
+      basis::DistributedProjection,
+      trian::DistributedTriangulation,
+      test::DistributedRBSpace
+      )
+
+      interps = map(basis.projections,local_views(trian),local_views(test)) do bi,ti,testi
+        RBSteady.Interpolation(red,bi,ti,testi)
+      end
+      DistributedInterpolation(interps)
+    end
+
+    function RBSteady.Interpolation(
+      red::RBSteady.$T,
+      basis::DistributedProjection,
+      trian::DistributedTriangulation,
+      trial::DistributedRBSpace,
+      test::DistributedRBSpace
+      )
+
+      interps = map(basis.projections,local_views(trian),local_views(trial),local_views(test)) do bi,ti,triali,testi
+        RBSteady.Interpolation(red,bi,ti,triali,testi)
+      end
+      DistributedInterpolation(interps)
+    end
   end
 end
 
-function RBSteady.HRProjection(
-  red::Reduction,
-  s::DistributedSnapshots,
-  trian::DistributedTriangulation,
-  trial::DistributedRBSpace,
-  test::DistributedRBSpace
+function RBSteady.Interpolation(
+  red::RBSteady.RBFHyperReduction,
+  basis::DistributedProjection,
+  s::DistributedSnapshots
   )
 
-  map(local_views(s),local_views(trian),local_views(trial),local_views(test)) do s,trian,trial,test
-    HRProjection(red,s,trian,trial,test)
+  interps = map(basis.projections,local_views(s)) do bi,si
+    RBSteady.Interpolation(red,bi,si)
   end
+  DistributedInterpolation(interps)
 end

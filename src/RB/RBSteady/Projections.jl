@@ -162,7 +162,7 @@ function galerkin_projection(a::Projection,b::Projection,c::Projection,args...)
 end
 
 """
-    empirical_interpolation(a::Projection) -> (AbstractVector,AbstractMatrix)
+    DEIM(a::Projection) -> (AbstractVector,AbstractMatrix)
 
 Computes the EIM of `a`. The outputs are:
 
@@ -170,15 +170,15 @@ Computes the EIM of `a`. The outputs are:
 - a matrix `Φi = view(Φ,i)`, where `Φ = get_basis(a)`. This quantity represents
   the restricted basis on the set of interpolation rows `i`
 """
-empirical_interpolation(a::Projection) = @abstractmethod
+DEIM(a::Projection) = @abstractmethod
 
 """
-    s_opt(a::Projection) -> (AbstractVector,AbstractMatrix)
+    SOPT(a::Projection) -> (AbstractVector,AbstractMatrix)
 
 Computes the S-OPT hyper-reduction of `a`. Check [this](https://arxiv.org/abs/2203.16494)
 reference for more information
 """
-s_opt(a::Projection) = @abstractmethod
+SOPT(a::Projection) = @abstractmethod
 
 """
     union_bases(a::Projection,b::Projection,args...) -> Projection
@@ -366,7 +366,7 @@ function union_bases(a::PODProjection,basis_b::AbstractMatrix,args...)
   PODProjection(basis_ab)
 end
 
-for f in (:empirical_interpolation,:s_opt)
+for f in (:DEIM,:SOPT)
   @eval begin
     $f(a::PODProjection) = $f(get_basis(a))
   end
@@ -462,7 +462,7 @@ function projection_eltype(a::TTSVDProjection)
   promote_type(map(eltype,get_cores(a))...)
 end
 
-for f in (:empirical_interpolation,:s_opt)
+for f in (:DEIM,:SOPT)
   @eval begin
     function $f(a::TTSVDProjection)
       cores = get_cores(a)
@@ -552,7 +552,7 @@ function galerkin_projection(
   galerkin_projection(get_projection(proj_left),get_projection(a),get_projection(proj_right),args...)
 end
 
-for f in (:empirical_interpolation,:s_opt)
+for f in (:DEIM,:SOPT)
   @eval begin
     $f(a::NormedProjection) = $f(a.projection)
   end
@@ -815,7 +815,7 @@ function enrich!(
   for i = eachindex(a_dual)
     dual_i = get_basis(a_dual[i])
     C_primal_dual_i = supr_matrix[Block(1,i+1)]
-    supr_i = H_primal \ (C_primal_dual_i * dual_i)
+    supr_i = supremizers(H_primal,C_primal_dual_i,dual_i)
     a_primal = union_bases(a_primal,supr_i,H_primal)
   end
   a[1] = a_primal
@@ -836,11 +836,18 @@ function enrich!(
   for i = eachindex(a_dual)
     dual_i = get_cores(a_dual[i])
     C_primal_dual_i = supr_matrix[Block(1,i+1)]
-    supr_i = tt_supremizer(H_primal,C_primal_dual_i,dual_i)
+    supr_i = tt_supremizers(H_primal,C_primal_dual_i,dual_i)
     a_primal = union_bases(a_primal,supr_i,X_primal)
   end
   a[1] = a_primal
   return
+end
+
+function supremizers(f::Factorization,C::AbstractMatrix,ϕ::AbstractMatrix)
+  supr = similar(ϕ,size(C,1),size(ϕ,2))
+  mul!(supr,C,ϕ)
+  ldiv!(f,supr)
+  return supr
 end
 
 # galerkin projections

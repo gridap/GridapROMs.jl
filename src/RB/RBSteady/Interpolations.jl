@@ -61,7 +61,7 @@ struct GreedyInterpolation{A,B<:IntegrationDomain} <: Interpolation
   domain::B
 end
 
-for (T,f) in zip((:MDEIMHyperReduction,:SOPTHyperReduction),(:empirical_interpolation,:s_opt))
+for (T,f) in zip((:MDEIMHyperReduction,:SOPTHyperReduction),(:DEIM,:SOPT))
   @eval begin
     function Interpolation(
       red::$T,
@@ -114,7 +114,7 @@ end
 
 function Interpolation(red::RBFHyperReduction,a::Projection,s::Snapshots)
   strategy = interp_strategy(red)
-  inds,interp = empirical_interpolation(a)
+  inds,interp = DEIM(a)
   factor = lu(interp)
   r = get_realisation(s)
   red_data = get_at_domain(s,inds)

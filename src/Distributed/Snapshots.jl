@@ -116,7 +116,7 @@ end
 
 # multi-field interface
 
-struct DistributedBlockSnapshots{N,B} <: ParamDataStructures.AbstractBlockSnapshots{DistributedSnapshots,N}
+struct DistributedBlockSnapshots{N,B} <: AbstractBlockSnapshots{DistributedSnapshots,N}
   array::AbstractArray{<:Any,N}
   touched::Array{Bool,N}
   param_data::B

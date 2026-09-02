@@ -119,7 +119,7 @@ function enrich!(
       a_dual_i_loc = local_vals(a_dual[i])
       dij = get_basis(a_dual_i_loc[j])
       C_primal_dual_i = supr_matrix[Block(1,i+1)]
-      supr_i = H_primal \ (C_primal_dual_i * dij)
+      supr_i = supremizers(H_primal,C_primal_dual_i,dij)
       pj = union_bases(pj,supr_i,H_primal)
     end
     a_primal_loc[j] = pj
@@ -146,7 +146,7 @@ function enrich!(
       a_dual_i_loc = local_vals(a_dual[i])
       dij = get_cores(a_dual_i_loc[j])
       C_primal_dual_i = supr_matrix[Block(1,i+1)]
-      supr_ij = tt_supremizer(H_primal,C_primal_dual_i,dij)
+      supr_ij = tt_supremizers(H_primal,C_primal_dual_i,dij)
       pj = union_bases(pj,supr_ij,X_primal)
     end
     a_primal_loc[j] = pj

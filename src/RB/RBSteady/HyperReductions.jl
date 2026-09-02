@@ -142,13 +142,7 @@ get_style(a::GenericHRProjection) = a.style
 get_interpolation(a::GenericHRProjection) = a.interpolation
 projection_eltype(a::GenericHRProjection) = projection_eltype(get_basis(a))
 
-function HRProjection(
-  red::Reduction,
-  s::Nothing,
-  trian::Triangulation,
-  test::RBSpace
-  )
-
+function HRProjection(red::Reduction,s::Nothing,trian,test)
   T = get_dof_value_type(test)
   nrows = num_reduced_dofs(test)
   basis = ReducedProjection(zeros(T,nrows,1))
@@ -156,14 +150,7 @@ function HRProjection(
   return HRProjection(basis,red,interp)
 end
 
-function HRProjection(
-  red::Reduction,
-  s::Nothing,
-  trian::Triangulation,
-  trial::RBSpace,
-  test::RBSpace
-  )
-
+function HRProjection(red::Reduction,s::Nothing,trian,trial,test)
   T = get_dof_value_type(trial)
   nrows = num_reduced_dofs(test)
   ncols = num_reduced_dofs(trial)
@@ -172,40 +159,21 @@ function HRProjection(
   return HRProjection(basis,red,interp)
 end
 
-function HRProjection(
-  red::Reduction,
-  s::Snapshots,
-  trian::Triangulation,
-  test::RBSpace
-  )
-
+function HRProjection(red::Reduction,s,trian,test)
   basis = projection(get_reduction(red),s)
   proj_basis = project(test,basis)
   interp = Interpolation(red,basis,trian,test)
   return HRProjection(proj_basis,red,interp)
 end
 
-function HRProjection(
-  red::Reduction,
-  s::Snapshots,
-  trian::Triangulation,
-  trial::RBSpace,
-  test::RBSpace
-  )
-
+function HRProjection(red::Reduction,s,trian,trial,test)
   basis = projection(get_reduction(red),s)
   proj_basis = project(test,basis,trial)
   interp = Interpolation(red,basis,trian,trial,test)
   return HRProjection(proj_basis,red,interp)
 end
 
-function HRProjection(
-  red::NoHyperReduction,
-  s::Snapshots,
-  trian::Triangulation,
-  test::RBSpace
-  )
-
+function HRProjection(red::NoHyperReduction,s,trian,test)
   T = get_dof_value_type(test)
   nrows = num_reduced_dofs(test)
   basis = ReducedProjection(zeros(T,nrows,1))
@@ -213,14 +181,7 @@ function HRProjection(
   return HRProjection(basis,red,interp)
 end
 
-function HRProjection(
-  red::NoHyperReduction,
-  s::Snapshots,
-  trian::Triangulation,
-  trial::RBSpace,
-  test::RBSpace
-  )
-
+function HRProjection(red::NoHyperReduction,s,trian,trial,test)
   T = get_dof_value_type(trial)
   nrows = num_reduced_dofs(test)
   ncols = num_reduced_dofs(trial)
@@ -229,54 +190,28 @@ function HRProjection(
   return HRProjection(basis,red,interp)
 end
 
-function HRProjection(
-  red::AffineHyperReduction,
-  s::Snapshots,
-  trian::Triangulation,
-  test::RBSpace
-  )
-
+function HRProjection(red::AffineHyperReduction,s,trian,test)
   basis = GalerkinProjectable(s)
   proj_basis = project(test,basis)
   interp = Interpolation(red)
   return HRProjection(proj_basis,red,interp)
 end
 
-function HRProjection(
-  red::AffineHyperReduction,
-  s::Snapshots,
-  trian::Triangulation,
-  trial::RBSpace,
-  test::RBSpace
-  )
-
+function HRProjection(red::AffineHyperReduction,s,trian,trial,test)
   basis = GalerkinProjectable(s)
   proj_basis = project(test,basis,trial)
   interp = Interpolation(red)
   return HRProjection(proj_basis,red,interp)
 end
 
-function HRProjection(
-  red::RBFHyperReduction,
-  s::Snapshots,
-  trian::Triangulation,
-  test::RBSpace
-  )
-
+function HRProjection(red::RBFHyperReduction,s,trian,test)
   basis = projection(get_reduction(red),s)
   proj_basis = project(test,basis)
   interp = Interpolation(red,basis,s)
   return HRProjection(proj_basis,red,interp)
 end
 
-function HRProjection(
-  red::RBFHyperReduction,
-  s::Snapshots,
-  trian::Triangulation,
-  trial::RBSpace,
-  test::RBSpace
-  )
-
+function HRProjection(red::RBFHyperReduction,s,trian,trial,test)
   basis = projection(get_reduction(red),s)
   proj_basis = project(test,basis,trial)
   interp = Interpolation(red,basis,s)

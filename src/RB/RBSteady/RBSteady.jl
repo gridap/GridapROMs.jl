@@ -206,8 +206,7 @@ export projection_eltype
 export union_bases
 export get_norm_matrix
 export enrich!
-export to_fe_blocks
-export to_reduced_blocks
+export supremizers
 include("Projections.jl")
 
 export RBSpace
@@ -221,8 +220,8 @@ include("RBSpaces.jl")
 
 export IntegrationDomain
 export GenericDomain
-export empirical_interpolation
-export s_opt
+export DEIM
+export SOPT
 export get_integration_cells
 export get_cell_idofs
 export get_owned_icells

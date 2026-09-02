@@ -1,4 +1,4 @@
-function empirical_interpolation(basis::AbstractMatrix{T}) where T
+function DEIM(basis::AbstractMatrix{T}) where T
   m,n = size(basis)
   res = zeros(T,m)
   I = zeros(Int,n)
@@ -23,7 +23,7 @@ function empirical_interpolation(basis::AbstractMatrix{T}) where T
   return I,basisI
 end
 
-function s_opt(basis::AbstractMatrix{T}) where T
+function SOPT(basis::AbstractMatrix{T}) where T
   m,n = size(basis)
   I = zeros(Int,n)
   basisI = zeros(T,n,n)
@@ -76,7 +76,7 @@ function robust_logdet(A::AbstractMatrix{T}) where T
   end
 end
 
-for f in (:empirical_interpolation,:s_opt)
+for f in (:DEIM,:SOPT)
   @eval begin
     function $f(A::ParamSparseMatrix)
       I,AI = $f(A.data)

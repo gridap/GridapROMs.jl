@@ -282,7 +282,7 @@ function RBSteady.projection_eltype(a::KroneckerProjection)
   promote_type(T,S)
 end
 
-for f in (:(RBSteady.empirical_interpolation),:(RBSteady.s_opt))
+for f in (:(RBSteady.DEIM),:(RBSteady.SOPT))
   @eval begin
     function $f(a::KroneckerProjection)
       indices_space,interp_space = $f(get_basis_space(a))
@@ -329,8 +329,8 @@ DofMaps.get_dof_map(a::SequentialProjection) = get_dof_map(a.projection)
 RBSteady.get_basis(a::SequentialProjection) = get_basis(a.projection)
 RBSteady.num_reduced_dofs(a::SequentialProjection) = num_reduced_dofs(a.projection)
 RBSteady.get_norm_matrix(a::SequentialProjection) = get_norm_matrix(a.projection)
-RBSteady.empirical_interpolation(a::SequentialProjection) = empirical_interpolation(a.projection)
-RBSteady.s_opt(a::SequentialProjection) = s_opt(a.projection)
+RBSteady.DEIM(a::SequentialProjection) = DEIM(a.projection)
+RBSteady.SOPT(a::SequentialProjection) = SOPT(a.projection)
 
 function RBSteady.union_bases(a::SequentialProjection,b::AbstractArray,args...)
   projection′ = union_bases(a.projection,b,args...)
@@ -451,7 +451,7 @@ function RBSteady.enrich!(
   for i = eachindex(a_dual)
     dual_i_space = get_basis_space(a_dual[i])
     C_primal_dual_i = supr_matrix[Block(1,i+1)]
-    supr_space_i = H_primal \ (C_primal_dual_i * dual_i_space)
+    supr_space_i = supremizers(H_primal,C_primal_dual_i,dual_i_space)
     a_primal_space = union_bases(a_primal_space,supr_space_i,H_primal)
 
     dual_i_time = get_basis_time(a_dual[i])

@@ -393,7 +393,7 @@ end
 
 # supremizer computation for tensor train decompositions
 
-function tt_supremizer(
+function tt_supremizers(
   X::Vector{<:Factorization},
   B::Vector{<:AbstractSparseMatrix},
   cores_d::Vector{<:AbstractArray{T,3}}
@@ -411,7 +411,7 @@ function tt_supremizer(
   return supr_cores
 end
 
-function tt_supremizer(
+function tt_supremizers(
   X::Vector{<:Factorization},
   B::GenericRankTensor,
   cores_d::Vector{<:AbstractArray{T,3}}
@@ -422,7 +422,7 @@ function tt_supremizer(
   for iB in 1:nB
     Bi = get_decomposition(B)[iB]
     Bfactors = get_factors(Bi)
-    vec_supr[iB] = tt_supremizer(X,Bfactors,cores_d)
+    vec_supr[iB] = tt_supremizers(X,Bfactors,cores_d)
   end
   supr_cores = _block_cores_add_component(vec_supr)
   if length(cores_d) > length(X)
