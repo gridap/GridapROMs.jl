@@ -191,6 +191,6 @@ with_debug() do distribute
   jacs = jacobian_snapshots(rbsolver,op,snaps)
   ress = residual_snapshots(rbsolver,op,snaps)
   # red_jac = reduced_jacobian(jac_red,red_trial,red_test,jacs)
-  # red_res = reduced_residual(res_red,red_test,ress)
-  snp[] = jacs
+  red_res = reduced_residual(res_red,red_test,ress)
+  # snp[] = jacs
 end

@@ -240,14 +240,14 @@ function DofMaps.get_sparse_dof_map(trial::DistributedFESpace,test::DistributedF
   end
 end
 
-# local arrays have own rows but local (own+ghost) DOFs in the spaces, so sizes don't match.
-
+#TODO local arrays have own rows but local (own+ghost) DOFs in the spaces, so sizes don't match.
 function DofMaps.get_dof_map(f::DistributedFESpace,b::PVector)
   map(local_views(f),local_views(b)) do f,b
     VectorDofMap(length(b))
   end
 end
 
+#TODO local arrays have own rows but local (own+ghost) DOFs in the spaces, so sizes don't match.
 #TODO improve efficiency, and this works only for CSC format
 function DofMaps.get_sparse_dof_map(
   trial::DistributedFESpace,

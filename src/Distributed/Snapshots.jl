@@ -1,5 +1,5 @@
 function ParamDataStructures.Snapshots(s::PVector,i::AbstractArray,r::AbstractRealisation)
-  data = map(local_views(s),local_views(i)) do s,i
+  data = map(local_values(s),local_values(i)) do s,i
     Snapshots(s,i,r)
   end
   snaps = GenericPArray(data,flat_row_partition(s))
@@ -7,7 +7,7 @@ function ParamDataStructures.Snapshots(s::PVector,i::AbstractArray,r::AbstractRe
 end
 
 function ParamDataStructures.Snapshots(s::PSparseMatrix,i::AbstractArray,r::AbstractRealisation)
-  data = map(own_values(s),local_views(i)) do s,i
+  data = map(own_values(s),local_values(i)) do s,i
     Snapshots(s,i,r)
   end
   snaps = GenericPArray(data,flat_row_partition(s))
@@ -21,7 +21,7 @@ function ParamDataStructures.Snapshots(
   r::TransientRealisation
   )
 
-  data = map(local_views(s),local_views(i),local_views.(s0)...) do s,i,s0...
+  data = map(local_values(s),local_values(i),local_values.(s0)...) do s,i,s0...
     Snapshots(s,s0,i,r)
   end
   snaps = GenericPArray(data,flat_row_partition(s))
@@ -45,37 +45,37 @@ Base.setindex!(s::DistributedSnapshots,v,ids...) = setindex!(s.snaps,v,ids...)
 
 function Base.show(io::IO,k::MIME"text/plain",s::DistributedSnapshots)
   n,usizes... = size(s)
-  vals = local_views(s)
+  vals = local_values(s)
   nparts = length(vals)
   map_main(vals) do s
     println(io,"Snapshots of partitioned size ($n,) - into $nparts parts - and unpartitioned sizes $(usizes)")
   end
 end
 
-ParamDataStructures.get_realisation(s::DistributedSnapshots) = get_realisation(getany(local_views(s)))
+ParamDataStructures.get_realisation(s::DistributedSnapshots) = get_realisation(getany(local_values(s)))
 
 function ParamDataStructures.get_all_data(s::DistributedSnapshots)
-  data = map(local_views(s)) do s
+  data = map(local_values(s)) do s
     get_all_data(s)
   end
   GenericPArray(data,row_partition(s))
 end
 
 function ParamDataStructures.get_param_data(s::DistributedSnapshots)
-  data = map(local_views(s)) do s
+  data = map(local_values(s)) do s
     get_param_data(s)
   end
   PVector(data,row_partition(s))
 end
 
 function DofMaps.get_dof_map(s::DistributedSnapshots)
-  map(local_views(s)) do s
+  map(local_values(s)) do s
     get_dof_map(s)
   end
 end
 
 function ParamDataStructures.select_snapshots(s::DistributedSnapshots,pindex)
-  data = map(local_views(s)) do s
+  data = map(local_values(s)) do s
     select_snapshots(s,pindex)
   end
   snaps = GenericPArray(data,row_partition(s))
@@ -83,32 +83,32 @@ function ParamDataStructures.select_snapshots(s::DistributedSnapshots,pindex)
 end
 
 function ParamDataStructures.select_times(s::DistributedTransientSnapshots,tindex)
-  data = map(local_views(s)) do s
+  data = map(local_values(s)) do s
     select_times(s,tindex)
   end
   snaps = GenericPArray(data,row_partition(s))
   DistributedSnapshots(snaps)
 end
 
-GridapDistributed.local_views(s::DistributedSnapshots) = local_views(s.snaps)
 PartitionedArrays.partition(s::DistributedSnapshots) = partition(s.snaps)
-PartitionedArrays.local_values(s::DistributedSnapshots) = local_values(s.snaps)
+PartitionedArrays.local_values(s::DistributedSnapshots) = partition(s)
 PartitionedArrays.own_values(s::DistributedSnapshots) = own_values(s.snaps)
 PartitionedArrays.ghost_values(s::DistributedSnapshots) = ghost_values(s.snaps)
+GridapDistributed.local_views(s::DistributedSnapshots) = partition(s)
 
 # sparse interface
 
 const DistributedSparseSnapshots{T,N,I<:AbstractSparseDofMap,R,A} = DistributedSnapshots{T,N,I,R,A}
 
 function DofMaps.recast(a::GenericPArray,i::AbstractArray{<:AbstractSparseDofMap})
-  data = map(local_views(a),local_views(i)) do a,i
+  data = map(local_values(a),local_values(i)) do a,i
     recast(a,i)
   end
   PSparseMatrix(data,row_partition(a),col_partition(a))
 end
 
 function ParamDataStructures.get_param_data(s::DistributedSparseSnapshots)
-  data = map(local_views(s)) do s
+  data = map(local_values(s)) do s
     get_param_data(s)
   end
   PSparseMatrix(data,row_partition(s),col_partition(s))
@@ -221,22 +221,30 @@ blocks(s::DistributedBlockSnapshots) = s.array
 Base.size(s::DistributedBlockSnapshots) = size(s.array)
 
 function Base.show(io::IO,k::MIME"text/plain",s::DistributedBlockSnapshots)
-  vals = local_views(first(blocks(s)))
+  vals = local_values(first(blocks(s)))
   nparts = length(vals)
   map_main(vals) do _
     println(io,"Block snapshots of size $(size(s)), partitioned into $nparts parts")
   end
 end
 
-function GridapDistributed.local_views(s::DistributedBlockSnapshots)
-  a = map(local_values,blocks(s))
-  to_parray_of_blocksnaps(a,s.touched)
-end
-
 function PartitionedArrays.partition(s::DistributedBlockSnapshots)
   a = map(partition,blocks(s))
   to_parray_of_blocksnaps(a,s.touched)
 end
+
+function PartitionedArrays.own_values(s::DistributedBlockSnapshots)
+  a = map(own_values,blocks(s))
+  to_parray_of_blocksnaps(a,s.touched)
+end
+
+function PartitionedArrays.ghost_values(s::DistributedBlockSnapshots)
+  a = map(ghost_values,blocks(s))
+  to_parray_of_blocksnaps(a,s.touched)
+end
+
+PartitionedArrays.local_values(s::DistributedBlockSnapshots) = partition(s)
+GridapDistributed.local_views(s::DistributedBlockSnapshots) = partition(s)
 
 function to_parray_of_blocksnaps(a::AbstractArray{<:MPIArray{<:Snapshots}},touched)
   indices = linear_indices(first(a))
@@ -288,12 +296,12 @@ function flat_row_partition(a::PSparseMatrix)
   end
   n_nz_global = reduce(+,nnz_own,init=0)
   nz_part = variable_partition(nnz_own,n_nz_global)
-  map(nz_part,local_views(a.row_partition),local_views(a.col_partition)) do nzidx,lrow,lcol
+  map(nz_part,local_values(a.row_partition),local_values(a.col_partition)) do nzidx,lrow,lcol
     NZIndexPartition(nzidx,lrow,lcol)
   end
 end
 
-flat_row_partition(a) = local_views(row_partition(a))
+flat_row_partition(a) = local_values(row_partition(a))
 
 row_partition(a) = a
 row_partition(a::PVector) = a.index_partition
@@ -301,7 +309,7 @@ row_partition(a::PSparseMatrix) = a.row_partition
 row_partition(a::GenericPArray) = row_partition(a.index_partition)
 row_partition(a::DistributedSnapshots) = row_partition(a.snaps)
 row_partition(a::NZIndexPartition) = a.row
-row_partition(a::AbstractArray{<:NZIndexPartition}) = map(row_partition,local_views(a))
+row_partition(a::AbstractArray{<:NZIndexPartition}) = map(row_partition,local_values(a))
 
 col_partition(a) = a
 col_partition(a::PVector) = @notimplemented
@@ -309,7 +317,7 @@ col_partition(a::PSparseMatrix) = a.col_partition
 col_partition(a::GenericPArray) = col_partition(a.index_partition)
 col_partition(a::DistributedSnapshots) = col_partition(a.snaps)
 col_partition(a::NZIndexPartition) = a.col
-col_partition(a::AbstractArray{<:NZIndexPartition}) = map(col_partition,local_views(a))
+col_partition(a::AbstractArray{<:NZIndexPartition}) = map(col_partition,local_values(a))
 
 # linear algebra 
 

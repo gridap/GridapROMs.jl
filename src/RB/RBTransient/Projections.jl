@@ -451,7 +451,7 @@ function RBSteady.enrich!(
   for i = eachindex(a_dual)
     dual_i_space = get_basis_space(a_dual[i])
     C_primal_dual_i = supr_matrix[Block(1,i+1)]
-    supr_space_i = H_primal \ C_primal_dual_i * dual_i_space
+    supr_space_i = H_primal \ (C_primal_dual_i * dual_i_space)
     a_primal_space = union_bases(a_primal_space,supr_space_i,H_primal)
 
     dual_i_time = get_basis_time(a_dual[i])

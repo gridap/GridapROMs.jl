@@ -197,8 +197,8 @@ function _set_domains(
   jac::Function,
   test::FESpace,
   trial::FESpace,
-  trian_res::Tuple{Vararg{Triangulation}},
-  trian_jac::Tuple{Vararg{Triangulation}}
+  trian_res::Tuple,
+  trian_jac::Tuple
   )
 
   polyn_order = get_polynomial_order(test)
@@ -223,7 +223,7 @@ end
 
 function _set_domain_param_jac(
   jac::Function,
-  trian::Tuple{Vararg{Triangulation}},
+  trian::Tuple,
   order
   )
 
@@ -236,7 +236,7 @@ end
 
 function _set_domain_param_res(
   res::Function,
-  trian::Tuple{Vararg{Triangulation}},
+  trian::Tuple,
   order
   )
 

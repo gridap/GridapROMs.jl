@@ -11,7 +11,7 @@ end
 
 function RBSteady.load_contribution(
   dir,
-  trians::Tuple{Vararg{Tuple{Vararg{Triangulation}}}};
+  trians::Tuple{Vararg{Tuple}};
   label=""
   )
 

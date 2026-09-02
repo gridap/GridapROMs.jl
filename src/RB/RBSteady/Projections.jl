@@ -815,7 +815,7 @@ function enrich!(
   for i = eachindex(a_dual)
     dual_i = get_basis(a_dual[i])
     C_primal_dual_i = supr_matrix[Block(1,i+1)]
-    supr_i = H_primal \ C_primal_dual_i * dual_i
+    supr_i = H_primal \ (C_primal_dual_i * dual_i)
     a_primal = union_bases(a_primal,supr_i,H_primal)
   end
   a[1] = a_primal

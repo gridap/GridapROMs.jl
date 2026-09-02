@@ -1,27 +1,22 @@
 """
-    struct Contribution{V}
+    struct Contribution{V,T}
       values::Tuple{Vararg{V}}
-      trians::Tuple{Vararg{Triangulation}}
+      trians::Tuple{Vararg{T}}
     end
 
 Collection of values corresponding to a set of triangulations. Similarly to `DomainContribution`,
 the values can be accessed by indexing the corresponding triangulation.
 """
-struct Contribution{V}
+struct Contribution{V,T}
   values::Tuple{Vararg{V}}
-  trians::Tuple{Vararg{Triangulation}}
-  function Contribution(
-    values::Tuple{Vararg{V}},
-    trians::Tuple{Vararg{Triangulation}}
-    ) where V
-
+  trians::Tuple{Vararg{T}}
+  function Contribution(values::Tuple{Vararg{V}},trians::Tuple{Vararg{T}}) where {V,T}
     @check length(values) == length(trians)
-    @check !any([t === first(trians) for t = trians[2:end]])
-    new{V}(values,trians)
+    new{V,T}(values,trians)
   end
 end
 
-Contribution(v::V,t::Triangulation) where V = Contribution((v,),(t,))
+Contribution(v::V,t::T) where {V,T} = Contribution((v,),(t,))
 
 CellData.get_domains(a::Contribution) = a.trians
 
@@ -59,14 +54,14 @@ function contribution!(a,f,trians)
   contribution!(a,map(f,trians))
 end
 
-function Base.getindex(a::Contribution,trian::Triangulation...)
+function Base.getindex(a::Contribution{V,T},trian::T...) where {V,T}
   perm = find_trian_permutation(trian,a.trians)
   getindex(a,perm...)
 end
 
-function change_domains(a::Contribution,trians::Tuple{Vararg{Triangulation}})
+function change_domains(a::Contribution,trians::Tuple)
   values = ()
-  for (i,trian) in enumerate(trians)
+  for i in eachindex(trians)
     if i > length(a)
       valuei = similar(last(get_contributions(a)))
     else
@@ -77,7 +72,7 @@ function change_domains(a::Contribution,trians::Tuple{Vararg{Triangulation}})
   Contribution(values,trians)
 end
 
-function set_domains(a::Contribution,trians::Tuple{Vararg{Triangulation}})
+function set_domains(a::Contribution,trians::Tuple)
   Contribution(get_contributions(a),trians)
 end
 
@@ -247,11 +242,7 @@ end
 
 for f in (:change_domains,:set_domains)
   @eval begin
-    function $f(
-      a::TupOfArrayContribution,
-      trians::Tuple{Vararg{Tuple{Vararg{Triangulation}}}}
-      )
-
+    function $f(a::TupOfArrayContribution,trians::Tuple)
       @check length(a) == length(trians)
       b = ()
       for (ai,ti) in zip(a,trians)

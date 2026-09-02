@@ -3,7 +3,7 @@
 for T in (:PVector,:PSparseMatrix,:BlockPArray)
   @eval begin
     function ParamDataStructures.param_length(a::$T)
-      PartitionedArrays.getany(map(param_length,local_views(a)))
+      PartitionedArrays.getany(map(param_length,local_values(a)))
     end
   end
 end

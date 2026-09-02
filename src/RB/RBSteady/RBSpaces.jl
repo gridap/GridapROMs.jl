@@ -214,14 +214,14 @@ function FESpaces.FEFunction(r::RBSpace,x̂::AbstractVector)
 end
 
 """
-    struct SingleFieldRBSpace{S<:FESpace} <: RBSpace{S}
+    struct SingleFieldRBSpace{S<:SingleFieldFESpace} <: RBSpace{S}
       space::S
       subspace::Projection
     end
 
 Reduced basis subspace of a `SingleFieldFESpace` in [`Gridap`](@ref)
 """
-struct SingleFieldRBSpace{S<:FESpace} <: RBSpace{S}
+struct SingleFieldRBSpace{S<:SingleFieldFESpace} <: RBSpace{S}
   space::S
   subspace::Projection
 end
@@ -234,14 +234,14 @@ FESpaces.get_fe_space(r::SingleFieldRBSpace) = r.space
 get_reduced_subspace(r::SingleFieldRBSpace) = r.subspace
 
 """
-    struct MultiFieldRBSpace{S<:FESpace} <: RBSpace{S}
+    struct MultiFieldRBSpace{S<:MultiFieldFESpace} <: RBSpace{S}
       space::S
       subspace::BlockProjection
     end
 
 Reduced basis subspace of a `MultiFieldFESpace` in [`Gridap`](@ref)
 """
-struct MultiFieldRBSpace{S<:FESpace} <: RBSpace{S}
+struct MultiFieldRBSpace{S<:MultiFieldFESpace} <: RBSpace{S}
   space::S
   subspace::BlockProjection
 end

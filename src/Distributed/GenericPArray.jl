@@ -41,7 +41,6 @@ end
 const GenericPVector{V,A,B,C,D,T} = GenericPArray{V,A,B,C,D,T,1}
 const GenericPMatrix{V,A,B,C,D,T} = GenericPArray{V,A,B,C,D,T,2}
 
-GridapDistributed.local_views(a::GenericPArray) = partition(a)
 PartitionedArrays.partition(a::GenericPArray) = a.array_partition
 Base.axes(a::GenericPArray) = (PRange(a.index_partition),a.unpartitioned_axes...)
 Base.size(a::GenericPArray) = length.(axes(a))
@@ -94,7 +93,7 @@ function PartitionedArrays.assemble!(o,a::GenericPArray)
   end
 end
 
-function consistent!(a::GenericPArray)
+function PartitionedArrays.consistent!(a::GenericPArray)
   insert(a,b) = b
   cache = map(reverse,a.cache)
   t = assemble!(insert,partition(a),cache)
@@ -103,6 +102,8 @@ function consistent!(a::GenericPArray)
     a
   end
 end
+
+GridapDistributed.local_values(a::GenericPArray) = partition(a)
 
 function Base.similar(a::GenericPArray,::Type{T},inds::Tuple) where T
   rows,uaxes... = inds

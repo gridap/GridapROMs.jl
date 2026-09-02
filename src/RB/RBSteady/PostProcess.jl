@@ -119,7 +119,7 @@ end
 """
 function load_contribution(
   dir,
-  trian::Tuple{Vararg{Triangulation}};
+  trian::Tuple;
   label=""
   )
 
