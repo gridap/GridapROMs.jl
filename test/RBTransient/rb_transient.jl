@@ -61,8 +61,8 @@ end
 
   hrs = ntuple(i -> HighDimHyperReduction(CombinationOrder{i}(tcomb),red),Val(get_time_order(solver)+1))
   @test length(hrs) == 2
-  @test hrs[1] isa HighDimMDEIMHyperReduction
-  @test hrs[2] isa HighDimMDEIMHyperReduction
+  @test hrs[1] isa HighDimDEIMHyperReduction
+  @test hrs[2] isa HighDimDEIMHyperReduction
   @test isa(get_time_combination(hrs[1]),ThetaMethodStrategy{1})
   @test isa(get_time_combination(hrs[2]),ThetaMethodStrategy{2})
 
@@ -203,9 +203,9 @@ end
 
   @test solver isa RBSolver
   @test get_fe_solver(solver) === fesolver
-  @test solver.residual_reduction isa HighDimMDEIMHyperReduction
+  @test solver.residual_reduction isa HighDimDEIMHyperReduction
   @test length(solver.jacobian_reduction) == 2
-  @test all(r -> r isa HighDimMDEIMHyperReduction,solver.jacobian_reduction)
+  @test all(r -> r isa HighDimDEIMHyperReduction,solver.jacobian_reduction)
 
   solver_no = RBSolver(fesolver,red;nparams_res=5,nparams_jacs=(5,5),hypred_strategy=:no)
   @test solver_no.residual_reduction isa HighDimNoHyperReduction

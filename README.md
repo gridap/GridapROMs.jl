@@ -44,7 +44,7 @@ In the following numerical examples, we provide a plot of the convergence errors
 
 ### Test 1 
 
-Solve a steady elasticity problem with a [proper orthogonal decomposition algorithm](https://link.springer.com/book/10.1007/978-3-319-15431-2) (POD). The presence of parameters affecting the problem's LHS/RHS are dealt with by employing a [discrete empirical interpolation method in matrix form](https://www.sciencedirect.com/science/article/pii/S0021999115006543) (MDEIM). 
+Solve a steady elasticity problem with a [proper orthogonal decomposition algorithm](https://link.springer.com/book/10.1007/978-3-319-15431-2) (POD). The presence of parameters affecting the problem's LHS/RHS are dealt with by employing a [discrete empirical interpolation method in matrix form](https://www.sciencedirect.com/science/article/pii/S0021999115006543) (DEIM). 
 
 ```julia
 julia> include("examples/SteadyElasticityPOD.jl")
@@ -55,7 +55,7 @@ Solution             |  Convergence
 
 ### Test 2
 
-Solve the same problem, but with a tensor-train (TT) decomposition approach. In particular, we employ the [TT-SVD](https://epubs.siam.org/doi/10.1137/090752286) method to compute the reduced approximation subspace, and [TT-MDEIM](https://arxiv.org/abs/2412.14460) for the system approximation. 
+Solve the same problem, but with a tensor-train (TT) decomposition approach. In particular, we employ the [TT-SVD](https://epubs.siam.org/doi/10.1137/090752286) method to compute the reduced approximation subspace, and [TT-DEIM](https://arxiv.org/abs/2412.14460) for the system approximation. 
 
 ```julia
 julia> include("examples/SteadyElasticityTTSVD.jl")
@@ -66,7 +66,7 @@ Solution             |  Convergence
 
 ### Test 3
 
-Solve an [advection-diffusion equation](https://gridap.github.io/Tutorials/dev/pages/t010_advection_diffusion/) with TT-SVD and TT-MDEIM. 
+Solve an [advection-diffusion equation](https://gridap.github.io/Tutorials/dev/pages/t010_advection_diffusion/) with TT-SVD and TT-DEIM. 
 
 ```julia
 julia> include("examples/AdvectionDiffusionTTSVD.jl")
@@ -77,7 +77,7 @@ Solution             |  Convergence
 
 ### Test 4
 
-Solve a 2D [electromagnetic wave scattering problem](https://gridap.github.io/Tutorials/dev/pages/t013_emscatter/) modeled by the steady Helmholtz equation in PLM condition. We employ POD and MDEIM for the reduced problem.
+Solve a 2D [electromagnetic wave scattering problem](https://gridap.github.io/Tutorials/dev/pages/t013_emscatter/) modeled by the steady Helmholtz equation in PLM condition. We employ POD and DEIM for the reduced problem.
 
 ```julia
 julia> include("examples/HelmholtzPOD.jl")
@@ -88,7 +88,7 @@ Solution             |  Convergence
 
 ### Test 5
 
-Solve a steady Stokes equation with a POD+MDEIM method.
+Solve a steady Stokes equation with a POD+DEIM method.
 
 ```julia
 julia> include("examples/SteadyStokesPOD.jl")
@@ -100,7 +100,7 @@ Solution - velocity          |  Solution - pressure        |  Convergence
 
 ### Test 6 
 
-Moving to transient applications, we first solve a heat equation with a [space-time RB-MDEIM method](https://www.sciencedirect.com/science/article/pii/S0377042724000165).
+Moving to transient applications, we first solve a heat equation with a [space-time RB-DEIM method](https://www.sciencedirect.com/science/article/pii/S0377042724000165).
 
 ```julia
 julia> include("examples/HeatEquationSTRB.jl")

@@ -868,8 +868,8 @@ function set_params(red::TrivialHyperReduction;nparams::Int)
   @notimplemented "Cannot set parameters for TrivialHyperReduction"
 end
 
-function set_params(red::MDEIMHyperReduction;kwargs...)
-  MDEIMHyperReduction(set_params(red.reduction;kwargs...))
+function set_params(red::DEIMHyperReduction;kwargs...)
+  DEIMHyperReduction(set_params(red.reduction;kwargs...))
 end
 
 function set_params(red::SOPTHyperReduction;kwargs...)

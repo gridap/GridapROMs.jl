@@ -102,7 +102,7 @@ using GridapROMs.Extensions: ⊕; export ⊕
 @publish RBSteady PODReduction
 @publish RBSteady TTSVDReduction
 @publish RBSteady SupremizerReduction
-@publish RBSteady MDEIMHyperReduction
+@publish RBSteady DEIMHyperReduction
 @publish RBSteady AdaptiveReduction
 
 @publish RBSteady RBSolver

@@ -61,7 +61,7 @@ struct GreedyInterpolation{A,B<:IntegrationDomain} <: Interpolation
   domain::B
 end
 
-for (T,f) in zip((:MDEIMHyperReduction,:SOPTHyperReduction),(:DEIM,:SOPT))
+for (T,f) in zip((:DEIMHyperReduction,:SOPTHyperReduction),(:DEIM,:SOPT))
   @eval begin
     function Interpolation(
       red::$T,

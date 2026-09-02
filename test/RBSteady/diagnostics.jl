@@ -8,14 +8,14 @@ using GridapROMs
 include("../../examples/ExamplesInterface.jl")
 
 function main(
-  method=:pod,compression=:global,hypred_strategy=:mdeim;
+  method=:pod,compression=:global,hypred_strategy=:deim;
   tol=1e-4,nparams=15,nparams_res=floor(Int,nparams/3),
   nparams_jac=floor(Int,nparams/4),sketch=:sprn,ncentroids=2
   )
 
   method = method ∈ (:pod,:ttsvd) ? method : :pod
   compression = compression ∈ (:global,:local) ? compression : :global
-  hypred_strategy = hypred_strategy ∈ (:none,:affine,:mdeim,:sopt,:rbf) ? hypred_strategy : :mdeim
+  hypred_strategy = hypred_strategy ∈ (:none,:affine,:deim,:sopt,:rbf) ? hypred_strategy : :deim
 
   println("Running test with $compression ($method, $hypred_strategy) strategy")
 
@@ -79,7 +79,7 @@ function main(
   println(dgn)
 end
 
-for method in (:pod,:ttsvd), compression in (:local,:global), hypred_strategy in (:none,:affine,:mdeim,:sopt,:rbf)
+for method in (:pod,:ttsvd), compression in (:local,:global), hypred_strategy in (:none,:affine,:deim,:sopt,:rbf)
   main(method,compression,hypred_strategy)
 end
 

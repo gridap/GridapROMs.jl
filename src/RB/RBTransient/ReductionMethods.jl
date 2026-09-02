@@ -201,13 +201,13 @@ function HighDimHyperReduction end
 const TransientHyperReduction = HighDimHyperReduction
 
 """
-    HighDimHyperReduction(combination, args...; compression=:global, hypred_strategy=:mdeim, kwargs...)
+    HighDimHyperReduction(combination, args...; compression=:global, hypred_strategy=:deim, kwargs...)
 
 Factory for transient high-dimensional hyper-reduction strategies.
 
 Supported `hypred_strategy` values:
 
-- `:mdeim` (existing)
+- `:deim` (existing)
 - `:sopt` (existing)
 - `:rbf` (existing)
 - `:none` (new, aliases: `:no`, `:nohr`) -> [`HighDimNoHyperReduction`](@ref)
@@ -219,7 +219,7 @@ When `compression=:local`, this dispatches to
 function HighDimHyperReduction(
   combination::TimeCombination,
   args...;compression=:global,
-  hypred_strategy=:mdeim,
+  hypred_strategy=:deim,
   kwargs...
   )
 
@@ -229,8 +229,8 @@ function HighDimHyperReduction(
     return HighDimAffineHyperReduction(combination)
   elseif compression==:global
     reduction = HighDimReduction(args...;kwargs...)
-    if hypred_strategy==:mdeim
-      return HighDimMDEIMHyperReduction(combination,reduction)
+    if hypred_strategy==:deim
+      return HighDimDEIMHyperReduction(combination,reduction)
     elseif hypred_strategy==:sopt
       return HighDimSOPTHyperReduction(combination,reduction)
     elseif hypred_strategy==:rbf
@@ -259,7 +259,7 @@ function HighDimHyperReduction(
   )
 
   red_style = ReductionStyle(reduction)
-  HighDimMDEIMHyperReduction(combination,red_style;kwargs...)
+  HighDimDEIMHyperReduction(combination,red_style;kwargs...)
 end
 
 function HighDimHyperReduction(
@@ -343,28 +343,28 @@ end
 get_time_combination(r::HighDimAffineHyperReduction) = r.combination
 
 """
-    struct HighDimMDEIMHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
+    struct HighDimDEIMHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
 
 Transient hyper-reduction based on the Matrix Discrete Empirical Interpolation
-Method (MDEIM). Combines a spatial [`HighDimReduction`](@ref) with a
+Method (DEIM). Combines a spatial [`HighDimReduction`](@ref) with a
 [`TimeCombination`](@ref) encoding the ODE time-marching coefficients.
 
 # Fields
 - `reduction::R`: the underlying spatial reduction.
 - `combination::TimeCombination`: time-marching combination.
 """
-struct HighDimMDEIMHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
+struct HighDimDEIMHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
   reduction::R
   combination::TimeCombination
 end
 
-function HighDimMDEIMHyperReduction(combination::TimeCombination,args...;kwargs...)
+function HighDimDEIMHyperReduction(combination::TimeCombination,args...;kwargs...)
   reduction = HighDimReduction(args...;kwargs...)
-  HighDimMDEIMHyperReduction(reduction,combination)
+  HighDimDEIMHyperReduction(reduction,combination)
 end
 
-RBSteady.get_reduction(r::HighDimMDEIMHyperReduction) = r.reduction
-get_time_combination(r::HighDimMDEIMHyperReduction) = r.combination
+RBSteady.get_reduction(r::HighDimDEIMHyperReduction) = r.reduction
+get_time_combination(r::HighDimDEIMHyperReduction) = r.combination
 
 """
     struct HighDimSOPTHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
@@ -430,6 +430,6 @@ end
 _steady_reduction(r::HyperReduction) = SteadyReduction(get_reduction(r))
 _replace_reduction(r::HighDimNoHyperReduction) = r
 _replace_reduction(r::HighDimAffineHyperReduction) = r
-_replace_reduction(r::MDEIMHyperReduction) = MDEIMHyperReduction(_steady_reduction(r))
+_replace_reduction(r::DEIMHyperReduction) = DEIMHyperReduction(_steady_reduction(r))
 _replace_reduction(r::SOPTHyperReduction) = SOPTHyperReduction(_steady_reduction(r))
 _replace_reduction(r::RBFHyperReduction) = RBFHyperReduction(_steady_reduction(r),r.strategy)

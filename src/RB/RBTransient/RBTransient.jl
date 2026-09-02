@@ -11,7 +11,7 @@ capture temporal as well as spatial structure.  Key extensions:
   `SequentialReduction` extend the steady reductions; `HighDimReduction`,
   `SteadyReduction` handle the "high-dimensional" (full-space) and purely-spatial
   cases.  Corresponding hyper-reduction variants: `TransientHyperReduction`,
-  `HighDimMDEIMHyperReduction`, `HighDimSOPTHyperReduction`,
+  `HighDimDEIMHyperReduction`, `HighDimSOPTHyperReduction`,
   `HighDimRBFHyperReduction`.
 
 - **Tucker / Kronecker bases** (`BasesConstruction.jl`) — `tucker` computes a
@@ -98,7 +98,7 @@ export TransientHyperReduction
 export HighDimTrivialHyperReduction
 export HighDimNoHyperReduction
 export HighDimAffineHyperReduction
-export HighDimMDEIMHyperReduction
+export HighDimDEIMHyperReduction
 export HighDimSOPTHyperReduction
 export HighDimRBFHyperReduction
 export HighDimLocalHyperReduction

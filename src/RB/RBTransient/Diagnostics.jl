@@ -462,7 +462,7 @@ end
 
 # utils 
 
-for T in (:HighDimMDEIMHyperReduction,:HighDimSOPTHyperReduction)
+for T in (:HighDimDEIMHyperReduction,:HighDimSOPTHyperReduction)
   @eval begin
     function RBSteady.check_interpolation(res,a::HRVecProjection{<:$T},fecache)
       msg = "fecache mismatch at interpolation points"
@@ -520,8 +520,8 @@ function RBSteady.set_params(red::SequentialReduction;kwargs...)
   SequentialReduction(RBSteady.set_params(red.reduction;kwargs...))
 end
 
-function RBSteady.set_params(red::HighDimMDEIMHyperReduction;kwargs...)
-  HighDimMDEIMHyperReduction(RBSteady.set_params(red.reduction;kwargs...),red.combination)
+function RBSteady.set_params(red::HighDimDEIMHyperReduction;kwargs...)
+  HighDimDEIMHyperReduction(RBSteady.set_params(red.reduction;kwargs...),red.combination)
 end
 
 function RBSteady.set_params(red::HighDimSOPTHyperReduction;kwargs...)

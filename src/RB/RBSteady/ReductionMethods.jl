@@ -353,20 +353,20 @@ is not required for this reduction type.
 
 Subtypes:
 
-- [`MDEIMHyperReduction`](@ref)
+- [`DEIMHyperReduction`](@ref)
 - [`RBFHyperReduction`](@ref)
 - [`HighDimHyperReduction`](@ref)
 """
 abstract type HyperReduction{A<:ReductionStyle} <: Reduction{A,EuclideanNorm} end
 
 """
-  HyperReduction(args...; compression=:global, hypred_strategy=:mdeim, kwargs...)
+  HyperReduction(args...; compression=:global, hypred_strategy=:deim, kwargs...)
 
 Factory for steady hyper-reduction strategies.
 
 Supported `hypred_strategy` values:
 
-- `:mdeim` (existing)
+- `:deim` (existing)
 - `:sopt` (existing)
 - `:rbf` (existing)
 - `:none` (new, aliases: `:no`, `:nohr`) -> [`NoHyperReduction`](@ref)
@@ -375,15 +375,15 @@ Supported `hypred_strategy` values:
 When `compression=:local`, this dispatches to [`LocalHyperReduction`](@ref)
 with the selected strategy.
 """
-function HyperReduction(args...;compression=:global,hypred_strategy=:mdeim,kwargs...)
+function HyperReduction(args...;compression=:global,hypred_strategy=:deim,kwargs...)
   if hypred_strategy in (:no,:none,:nohr)
     return NoHyperReduction()
   elseif hypred_strategy == :affine
     return AffineHyperReduction()
   elseif compression == :global
     reduction = Reduction(args...;kwargs...)
-    if hypred_strategy == :mdeim
-      return MDEIMHyperReduction(reduction)
+    if hypred_strategy == :deim
+      return DEIMHyperReduction(reduction)
     elseif hypred_strategy == :sopt
       return SOPTHyperReduction(reduction)
     elseif hypred_strategy == :rbf
@@ -441,22 +441,22 @@ hyper-reduction stage.
 struct AffineHyperReduction <: TrivialHyperReduction end
 
 """
-    struct MDEIMHyperReduction{A} <: HyperReduction{A}
+    struct DEIMHyperReduction{A} <: HyperReduction{A}
       reduction::Reduction{A,EuclideanNorm}
     end
 
-MDEIM struct employed in steady problems
+DEIM struct employed in steady problems
 """
-struct MDEIMHyperReduction{A} <: HyperReduction{A}
+struct DEIMHyperReduction{A} <: HyperReduction{A}
   reduction::Reduction{A,EuclideanNorm}
 end
 
-function MDEIMHyperReduction(args...;kwargs...)
+function DEIMHyperReduction(args...;kwargs...)
   reduction = Reduction(args...;kwargs...)
-  MDEIMHyperReduction(reduction)
+  DEIMHyperReduction(reduction)
 end
 
-get_reduction(r::MDEIMHyperReduction) = r.reduction
+get_reduction(r::DEIMHyperReduction) = r.reduction
 
 """
     struct SOPTHyperReduction{A} <: HyperReduction{A}

@@ -157,7 +157,7 @@ The main novelty is the use of transient reduction techniques. In particular:
 
 * A [`HighDimReduction`](@ref) provides the information related to a reduction in space, and a reduction in time. 
 
-* A [`HighDimMDEIMHyperReduction`](@ref) provides the information related to a hyper-reduction in space, and a hyper-reduction in time. This is automatically built within the `RBSolver`, simply by passing as keyword argument the number of parameters for residual and Jacobians.
+* A [`HighDimDEIMHyperReduction`](@ref) provides the information related to a hyper-reduction in space, and a hyper-reduction in time. This is automatically built within the `RBSolver`, simply by passing as keyword argument the number of parameters for residual and Jacobians.
 
 * Whenever we provide a `coupling` variable in the reduction strategy, a reduction of type `SupremizerReduction` is returned. This type simply acts as a wrapper for a reduction strategy (of type `HighDimReduction` in our case), and has the scope of performing a supremizer enrichment for the stabilization of the reduced problem. Check [this](https://doi.org/10.1002/nme.4772) reference for more details on supremizer stabilizations. They are useful, for e.g., when reducting saddle-point problems such as the Stokes or Navier-Stokes equations.
 

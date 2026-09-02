@@ -25,7 +25,7 @@ end
 
 const TransientGreedyInterpolation{A,B} = GreedyInterpolation{A,B}
 
-for (T,f) in zip((:HighDimMDEIMHyperReduction,:HighDimSOPTHyperReduction),
+for (T,f) in zip((:HighDimDEIMHyperReduction,:HighDimSOPTHyperReduction),
                  (:DEIM,:SOPT))
   @eval begin
     function RBSteady.Interpolation(

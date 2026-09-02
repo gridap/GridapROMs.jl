@@ -17,7 +17,7 @@ problem dependent on a set of parameters. A RB method is a projection-based
 reduced order model where
 
 1. a suitable subspace of a FESpace is sought, of dimension n << Nₕ
-2. a matrix-based discrete empirical interpolation method (e.g. MDEIM) is performed
+2. a matrix-based discrete empirical interpolation method (e.g. DEIM) is performed
   to approximate the manifold of the parametric residuals and jacobians
 3. the EIM approximations are compressed with (Petrov-)Galerkin projections
   onto the subspace

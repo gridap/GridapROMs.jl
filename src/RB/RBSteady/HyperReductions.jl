@@ -108,7 +108,7 @@ end
 
 """
 """
-const MDEIMProjection{A<:Projection} = HRProjection{A,<:MDEIMHyperReduction}
+const DEIMProjection{A<:Projection} = HRProjection{A,<:DEIMHyperReduction}
 
 """
 """
@@ -265,7 +265,7 @@ const AffineHRContribution = AffineContribution{<:AffineHRProjection}
 
 """
 """
-const MDEIMContribution = AffineContribution{<:MDEIMProjection}
+const DEIMContribution = AffineContribution{<:DEIMProjection}
 
 """
 """

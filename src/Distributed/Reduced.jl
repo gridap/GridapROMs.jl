@@ -151,7 +151,7 @@ function RBSteady.Interpolation(red::RBSteady.NoHyperReduction,trian::Distribute
   DistributedInterpolation(interps)
 end
 
-for (T,f) in zip((:MDEIMHyperReduction,:SOPTHyperReduction),(:DEIM,:SOPT))
+for (T,f) in zip((:DEIMHyperReduction,:SOPTHyperReduction),(:DEIM,:SOPT))
   @eval begin
     function RBSteady.Interpolation(
       red::RBSteady.$T,

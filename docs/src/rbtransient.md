@@ -21,7 +21,7 @@ Transient hyper-reduction wraps a [`HighDimReduction`](@ref) together with a
 [`TimeCombination`](@ref) that encodes the ODE time-marching coefficients.
 See [`HighDimHyperReduction`](@ref) for details on how the θ-method (and
 higher-order schemes) lead to per-operator combination orders. Concrete
-subtypes include [`HighDimMDEIMHyperReduction`](@ref),
+subtypes include [`HighDimDEIMHyperReduction`](@ref),
 [`HighDimSOPTHyperReduction`](@ref), and [`HighDimRBFHyperReduction`](@ref).
 
 ## Bases construction

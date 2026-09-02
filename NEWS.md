@@ -103,13 +103,13 @@ and is integrated in the standard test matrix via:
 
 The hyper-reduction strategy keyword interface now explicitly supports:
 
-- `:mdeim`
+- `:deim`
 - `:rbf`
 - `:sopt`
 - `:none`
 - `:affine`
 
-The strategies `:mdeim`, `:rbf`, and `:sopt` were already available in
+The strategies `:deim`, `:rbf`, and `:sopt` were already available in
 previous releases. This release extends the interface with `:none` and
 `:affine`.
 
@@ -118,7 +118,7 @@ In addition, `:none` accepts aliases `:no` and `:nohr`.
 The steady and transient diagnostics tests validate these options by looping
 over all strategies when constructing the RB solver:
 
-- `RBSolver(...; hypred_strategy=:mdeim, ...)`
+- `RBSolver(...; hypred_strategy=:deim, ...)`
 - `RBSolver(...; hypred_strategy=:rbf, ...)`
 - `RBSolver(...; hypred_strategy=:sopt, ...)`
 - `RBSolver(...; hypred_strategy=:none, ...)`

@@ -10,7 +10,7 @@ small system for new parameter values.  Main building blocks:
 
 - **Reduction methods** (`ReductionMethods.jl`) — `PODReduction` (SVD-based),
   `TTSVDReduction` (tensor-train SVD), `GreedyReduction`, `SupremizerReduction`,
-  `MDEIMHyperReduction`, `SOPTHyperReduction`, `RBFHyperReduction`,
+  `DEIMHyperReduction`, `SOPTHyperReduction`, `RBFHyperReduction`,
   `LocalHyperReduction` (cluster-local variants), and composites.  Rank/tolerance
   criteria expressed via `SearchSVDRank`, `FixedSVDRank`, `LRApproxRank`, `TTSVDRanks`.
 
@@ -26,7 +26,7 @@ small system for new parameter values.  Main building blocks:
   `reduced_subspace`, `reduced_basis`.
 
 - **Hyper-reduction** (`HyperReductions.jl`) — `HRProjection` hierarchy
-  (`MDEIMProjection`, `RBFProjection`, `BlockHRProjection`)
+  (`DEIMProjection`, `RBFProjection`, `BlockHRProjection`)
   together with `IntegrationDomain` (DEIM-style reduced integration),
   `Interpolation` (`GreedyInterpolation`, `RBFInterpolation`),
   and `reduced_triangulation` / `reduced_jacobian` / `reduced_residual` /
@@ -134,7 +134,7 @@ export HyperReduction
 export TrivialHyperReduction
 export NoHyperReduction
 export AffineHyperReduction
-export MDEIMHyperReduction
+export DEIMHyperReduction
 export SOPTHyperReduction
 export RBFHyperReduction
 export LocalHyperReduction

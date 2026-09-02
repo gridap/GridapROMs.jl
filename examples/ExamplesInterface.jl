@@ -116,8 +116,8 @@ function update_reduction(red::SupremizerReduction,tolrank)
   SupremizerReduction(update_reduction(red.reduction,tolrank),red.coupling,red.supr_tol)
 end
 
-function update_reduction(red::MDEIMHyperReduction,tolrank)
-  MDEIMHyperReduction(update_reduction(red.reduction,tolrank))
+function update_reduction(red::DEIMHyperReduction,tolrank)
+  DEIMHyperReduction(update_reduction(red.reduction,tolrank))
 end
 
 function update_reduction(red::SOPTHyperReduction,tolrank)
@@ -146,8 +146,8 @@ function update_reduction(red::HighDimTrivialHyperReduction,tolrank)
   red
 end
 
-function update_reduction(red::HighDimMDEIMHyperReduction,tolrank)
-  HighDimMDEIMHyperReduction(update_reduction(red.reduction,tolrank),red.combination)
+function update_reduction(red::HighDimDEIMHyperReduction,tolrank)
+  HighDimDEIMHyperReduction(update_reduction(red.reduction,tolrank),red.combination)
 end
 
 function update_reduction(red::HighDimSOPTHyperReduction,tolrank)

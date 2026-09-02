@@ -5,7 +5,7 @@ using GridapROMs
 
 method=:pod
 compression=:global
-hypred_strategy=:mdeim
+hypred_strategy=:deim
 tol=1e-4
 nparams=15
 nparams_res=floor(Int,nparams/3)
@@ -15,7 +15,7 @@ ncentroids=2
 
 method = method ∈ (:pod,:ttsvd) ? method : :pod
 compression = compression ∈ (:global,:local) ? compression : :global
-hypred_strategy = hypred_strategy ∈ (:mdeim,:sopt,:rbf,:none,:affine) ? hypred_strategy : :mdeim
+hypred_strategy = hypred_strategy ∈ (:deim,:sopt,:rbf,:none,:affine) ? hypred_strategy : :deim
 
 println("Running test with $compression ($method, $hypred_strategy) strategy")
 

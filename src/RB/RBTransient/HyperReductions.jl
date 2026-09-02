@@ -66,7 +66,7 @@ end
 
 const HighDimNoHRProjection{A<:Projection} = HRProjection{A,<:HighDimNoHyperReduction}
 const HighDimAffineHRProjection{A<:Projection} = HRProjection{A,<:HighDimAffineHyperReduction}
-const HighDimMDEIMProjection{A<:Projection} = HRProjection{A,<:HighDimMDEIMHyperReduction}
+const HighDimDEIMProjection{A<:Projection} = HRProjection{A,<:HighDimDEIMHyperReduction}
 const HighDimSOPTProjection{A<:Projection} = HRProjection{A,<:HighDimSOPTHyperReduction}
 const HighDimRBFProjection{A<:Projection} = HRProjection{A,<:HighDimRBFHyperReduction}
 
@@ -100,14 +100,14 @@ end
 
 const HighDimNoHRContribution = AffineContribution{<:HighDimNoHRProjection}
 const HighDimAffineHRContribution = AffineContribution{<:HighDimAffineHRProjection}
-const HighDimMDEIMContribution = AffineContribution{<:HighDimMDEIMProjection}
+const HighDimDEIMContribution = AffineContribution{<:HighDimDEIMProjection}
 const HighDimSOPTContribution = AffineContribution{<:HighDimSOPTProjection}
 const HighDimRBFContribution = AffineContribution{<:HighDimRBFProjection}
 
 const TupOfAffineContribution = Tuple{Vararg{AffineContribution}}
 const TupOfHighDimNoHRContribution = Tuple{Vararg{HighDimNoHRContribution}}
 const TupOfHighDimAffineHRContribution = Tuple{Vararg{HighDimAffineHRContribution}}
-const TupOfHighDimMDEIMContribution = Tuple{Vararg{HighDimMDEIMContribution}}
+const TupOfHighDimDEIMContribution = Tuple{Vararg{HighDimDEIMContribution}}
 const TupOfHighDimSOPTContribution = Tuple{Vararg{HighDimSOPTContribution}}
 const TupOfHighDimRBFContribution = Tuple{Vararg{HighDimRBFContribution}}
 
