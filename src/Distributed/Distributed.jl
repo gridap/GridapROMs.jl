@@ -72,7 +72,7 @@ using GridapROMs.RBSteady
 import ArraysOfArrays: innersize,_ncolons
 import BlockArrays: BlockVector,BlockMatrix,BlockArray,mortar,blocks
 import Gridap.Helpers: @abstractmethod,@check,@notimplemented,@notimplementedif
-import GridapDistributed: BlockPMatrix,BlockPVector,BlockPArray,DistributedFESpace,DistributedSingleFieldFESpace,DistributedMultiFieldFESpace,to_parray_of_arrays
+import GridapDistributed: BlockPMatrix,BlockPVector,BlockPArray,DistributedFESpace,DistributedSingleFieldFESpace,DistributedMultiFieldFESpace,DistributedTriangulation,to_parray_of_arrays
 import GridapROMs.DofMaps: range_2d,range_1d
 import GridapROMs.ParamAlgebra: ParamBuilder,ParamCounter
 import GridapROMs.RBSteady: get_l2_form,get_h1_form,get_div_coupling_form,l2_norm,h1_norm,div_coupling,_assemble_operator,_unwrap,_meas,_energy_mortar,_coupling_mortar

@@ -206,12 +206,12 @@ function get_contributions(a::TupOfArrayContribution)
   values
 end
 
-for f in (:(Base.copy),:(Base.similar))
+for f in (:copy,:similar)
   @eval begin
-    function $f(a::TupOfArrayContribution)
+    function Base.$f(a::TupOfArrayContribution)
       b = ()
       for ai in a
-        b = (b...,$f(ai))
+        b = (b...,Base.$f(ai))
       end
       b
     end

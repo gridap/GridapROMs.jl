@@ -4,32 +4,32 @@ function Algebra.allocate_vector(::Type{V},n::Integer) where V<:AbstractParamVec
   parameterise(vector,1)
 end
 
-for f in (:(Algebra.allocate_in_range),:(Algebra.allocate_in_domain))
+for f in (:allocate_in_range,:allocate_in_domain)
   @eval begin
-    function $f(::Type{PV},matrix::AbstractParamMatrix) where {T,PV<:AbstractParamVector{T}}
+    function Algebra.$f(::Type{PV},matrix::AbstractParamMatrix) where {T,PV<:AbstractParamVector{T}}
       V = Vector{T}
       item = testitem(matrix)
       plength = param_length(matrix)
-      v = $f(V,item)
+      v = Algebra.$f(V,item)
       parameterise(v,plength)
     end
 
-    function $f(::Type{PV},matrix::BlockParamMatrix) where {T,PV<:BlockParamVector{T}}
+    function Algebra.$f(::Type{PV},matrix::BlockParamMatrix) where {T,PV<:BlockParamVector{T}}
       V = BlockVector{T,Vector{Vector{T}}}
       item = testitem(matrix)
       plength = param_length(matrix)
-      v = $f(V,item)
+      v = Algebra.$f(V,item)
       parameterise(v,plength)
     end
 
-    function $f(matrix::AbstractParamMatrix{T}) where T
+    function Algebra.$f(matrix::AbstractParamMatrix{T}) where T
       V = ConsecutiveParamVector{T}
-      $f(V,matrix)
+      Algebra.$f(V,matrix)
     end
 
-    function $f(matrix::BlockParamMatrix{T}) where T
+    function Algebra.$f(matrix::BlockParamMatrix{T}) where T
       V = BlockConsecutiveParamVector{T}
-      $f(V,matrix)
+      Algebra.$f(V,matrix)
     end
   end
 end
@@ -222,9 +222,9 @@ struct ParamBuilder{A} <: GridapType
   plength::Int
 end
 
-for T in (:(Algebra.SparseMatrixBuilder),:(Algebra.ArrayBuilder))
+for T in (:SparseMatrixBuilder,:ArrayBuilder)
   @eval begin
-    function ParamDataStructures.parameterise(a::$T,plength::Int)
+    function ParamDataStructures.parameterise(a::Algebra.$T,plength::Int)
       ParamBuilder(a,plength)
     end
   end

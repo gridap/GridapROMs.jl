@@ -1431,9 +1431,9 @@ end
 
 # Autodiff related
 
-for f in (:(ForwardDiff.gradient),:(ForwardDiff.jacobian))
+for f in (:gradient,:jacobian)
   @eval begin
-    function Arrays.return_cache(k::Arrays.ConfigMap{typeof($f)},x::ParamBlock)
+    function Arrays.return_cache(k::Arrays.ConfigMap{typeof(ForwardDiff.$f)},x::ParamBlock)
       xi = testitem(x)
       fi = return_cache(k,xi)
       data = Vector{typeof(fi)}(undef,param_length(x))
@@ -1443,15 +1443,15 @@ for f in (:(ForwardDiff.gradient),:(ForwardDiff.jacobian))
       GenericParamBlock(data)
     end
 
-    function Arrays.return_cache(k::Arrays.ConfigMap{typeof($f)},x::VectorBlock{<:ParamBlock})
-      return BlockParamConfig($f,k.tag,x)
+    function Arrays.return_cache(k::Arrays.ConfigMap{typeof(ForwardDiff.$f)},x::VectorBlock{<:ParamBlock})
+      return BlockParamConfig(ForwardDiff.$f,k.tag,x)
     end
   end
 end
 
-for F in (:(ForwardDiff.GradientConfig),:(ForwardDiff.JacobianConfig))
+for F in (:GradientConfig,:JacobianConfig)
   @eval begin
-    function Arrays.testitem(a::LazyArray{A,<:ParamBlock{<:T}} where A) where {Tag,V,N,D,T<:$F{Tag,V,N,D}}
+    function Arrays.testitem(a::LazyArray{A,<:ParamBlock{<:T}} where A) where {Tag,V,N,D,T<:ForwardDiff.$F{Tag,V,N,D}}
       if length(a) > 0
         first(a)::T
       else
@@ -1464,7 +1464,7 @@ for F in (:(ForwardDiff.GradientConfig),:(ForwardDiff.JacobianConfig))
       end::T
     end
 
-    function Arrays.return_value(k::DualizeMap,cfg::ParamBlock{<:$F},x::ParamBlock)
+    function Arrays.return_value(k::DualizeMap,cfg::ParamBlock{<:ForwardDiff.$F},x::ParamBlock)
       vi = return_value(k,testitem(cfg),testitem(x))
       v = Vector{typeof(vi)}(undef,param_length(x))
       fill!(v,vi)
@@ -2214,16 +2214,15 @@ function Arrays.evaluate!(cache,f::Field,x::ParamBlock)
   g
 end
 
-for f in (:(Fields.GenericField),:(Fields.ZeroField),:(Fields.ConstantField),:(Fields.inverse_map))
+for f in (:GenericField,:ZeroField,:ConstantField,:inverse_map)
   @eval begin
-    $f(a::ParamBlock) = GenericParamBlock(map($f,get_param_data(a)))
+    Fields.$f(a::ParamBlock) = GenericParamBlock(map(Fields.$f,get_param_data(a)))
   end
 end
 
-for op in (:(Fields.gradient),:(Fields.symmetric_gradient),:(Fields.divergence),
-  :(Fields.curl),:(Fields.laplacian))
+for op in (:gradient,:symmetric_gradient,:divergence,:curl,:laplacian)
   @eval begin
-    ($op)(a::ParamBlock) = GenericParamBlock(map($op,get_param_data(a)))
+    (Fields.$op)(a::ParamBlock) = GenericParamBlock(map(Fields.$op,get_param_data(a)))
   end
 end
 
@@ -2397,30 +2396,30 @@ function Arrays.seed_block!(
   return duals
 end
 
-for f in (:(Arrays.extract_gradient_block!),:(Arrays.extract_jacobian_block!))
+for f in (:extract_gradient_block!,:extract_jacobian_block!)
   @eval begin
-    function $f(
-      ::Type{T}, 
-      result::TrivialParamBlock, 
-      dual::TrivialParamBlock, 
+    function Arrays.$f(
+      ::Type{T},
+      result::TrivialParamBlock,
+      dual::TrivialParamBlock,
       offset
       ) where T
 
       @check param_length(dual) == param_length(result)
-      $f(T,result.data,dual.data,offset)
+      Arrays.$f(T,result.data,dual.data,offset)
       return result
     end
 
-    function $f(
-      ::Type{T}, 
-      result::ParamBlock, 
-      dual::ParamBlock, 
+    function Arrays.$f(
+      ::Type{T},
+      result::ParamBlock,
+      dual::ParamBlock,
       offset
       ) where T
 
       @check param_length(dual) == param_length(result)
       for i in param_eachindex(dual)
-        $f(T,param_getindex(result,i),param_getindex(dual,i),offset)
+        Arrays.$f(T,param_getindex(result,i),param_getindex(dual,i),offset)
       end
       return result
     end

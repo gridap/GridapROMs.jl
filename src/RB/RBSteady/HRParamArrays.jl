@@ -11,12 +11,12 @@ ParamDataStructures.param_length(a::HRParamArray) = param_length(a.hypred)
 ParamDataStructures.get_all_data(a::HRParamArray) = get_all_data(a.hypred)
 ParamDataStructures.param_getindex(a::HRParamArray,i::Integer) = param_getindex(a.hypred,i)
 
-for f in (:(Base.copy),:(Base.similar))
+for f in (:copy,:similar)
   @eval begin
-    function $f(a::HRParamArray)
-      fe_quantity′ = $f(a.fecache)
-      coeff′ = $f(a.coeff)
-      hypred′ = $f(a.hypred)
+    function Base.$f(a::HRParamArray)
+      fe_quantity′ = Base.$f(a.fecache)
+      coeff′ = Base.$f(a.coeff)
+      hypred′ = Base.$f(a.hypred)
       HRParamArray(fe_quantity′,coeff′,hypred′)
     end
   end

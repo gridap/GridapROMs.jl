@@ -1,16 +1,16 @@
-for f in (:(Algebra.allocate_in_range),:(Algebra.allocate_in_domain))
+for f in (:allocate_in_range,:allocate_in_domain)
   @eval begin
-    function $f(matrix::PSparseMatrix{<:ParamSparseMatrix{T}}) where T
+    function Algebra.$f(matrix::PSparseMatrix{<:ParamSparseMatrix{T}}) where T
       item = param_getindex(matrix,1)
       plength = param_length(matrix)
-      v = $f(PVector{Vector{T}},item)
+      v = Algebra.$f(PVector{Vector{T}},item)
       parameterise(v,plength)
     end
 
-    function $f(matrix::BlockPMatrix{<:ParamSparseMatrix{T}}) where T
+    function Algebra.$f(matrix::BlockPMatrix{<:ParamSparseMatrix{T}}) where T
       item = param_getindex(matrix,1)
       plength = param_length(matrix)
-      v = $f(BlockPVector{Vector{T}},item)
+      v = Algebra.$f(BlockPVector{Vector{T}},item)
       parameterise(v,plength)
     end
   end
@@ -37,9 +37,9 @@ function FESpaces.SparseMatrixAssembler(
   return GridapDistributed.DistributedSparseMatrixAssembler(par_strategy,assems,mat_builder,vec_builder,rows,cols)
 end
 
-for T in (:(GridapDistributed.PSparseMatrixBuilderCOO),:(GridapDistributed.PVectorBuilder))
+for T in (:PSparseMatrixBuilderCOO,:PVectorBuilder)
   @eval begin
-    function ParamDataStructures.parameterise(a::$T,plength::Int)
+    function ParamDataStructures.parameterise(a::GridapDistributed.$T,plength::Int)
       ParamBuilder(a,plength)
     end
   end

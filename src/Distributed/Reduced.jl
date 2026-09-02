@@ -54,42 +54,6 @@ function RBSteady.NormedProjection(a::AbstractArray{<:Projection},b::PSparseMatr
   DistributedProjection(projections)
 end
 
-const DistributedBlockProjection{A<:DistributedProjection,N} = BlockProjection{A,N}
-
-function RBSteady.projection(red::Reduction,s::DistributedBlockSnapshots)
-  basis = _allocate_projection(red,s)
-  for i in eachindex(basis)
-    if basis.touched[i]
-      basis[i] = projection(red,s[i])
-    end
-  end
-  return basis
-end
-
-function RBSteady.projection(red::Reduction,s::DistributedBlockSnapshots,X::BlockPMatrix)
-  basis = RBSteady._allocate_projection(red,s,X)
-  for i in eachindex(basis)
-    if basis.touched[i]
-      basis[i] = projection(red,s[i,X[Block(i,i)]])
-    end
-  end
-  return basis
-end
-
-function RBSteady._allocate_projection(red::Reduction,s::DistributedBlockSnapshots{N},args...) where N
-  T = DistributedProjection
-  block_basis = Array{T,N}(undef,size(s))
-  BlockProjection(block_basis,s.touched)
-end
-
-# reduced basis spaces
-
-const DistributedRBSpace = RBSpace{DistributedFESpace}
-const DistributedSingleFieldRBSpace = RBSpace{DistributedSingleFieldFESpace}
-const DistributedMultiFieldRBSpace = RBSpace{DistributedMultiFieldFESpace}
-
-# projections (distributed)
-
 function RBSteady.Projection(basis::GenericPArray,s::DistributedSnapshots)
   projections = map(partition(basis),partition(axes(basis,1))) do lb,rp
     PODProjection(copy(view(lb,own_to_local(rp),:)))
@@ -97,6 +61,8 @@ function RBSteady.Projection(basis::GenericPArray,s::DistributedSnapshots)
   DistributedProjection(projections)
 end
 
+RBSteady.get_basis(a::DistributedProjection) = map(get_basis,a.projections)
+RBSteady.num_fe_dofs(a::DistributedProjection) = num_fe_dofs(getany(a.projections))
 RBSteady.num_reduced_dofs(a::DistributedProjection) = num_reduced_dofs(getany(a.projections))
 RBSteady.projection_eltype(a::DistributedProjection) = projection_eltype(getany(a.projections))
 
@@ -114,6 +80,30 @@ function RBSteady.galerkin_projection(a::DistributedProjection,b::DistributedPro
   end
   b̂ = reduce(+,G)
   return ReducedProjection(b̂)
+end
+
+function RBSteady._allocate_projection(red::Reduction,s::DistributedBlockSnapshots{N}) where N
+  T = DistributedProjection
+  block_basis = Array{T,N}(undef,size(s))
+  BlockProjection(block_basis,s.touched)
+end
+
+GridapDistributed.local_views(a::DistributedProjection) = a.projections
+
+function GridapDistributed.local_views(a::NormedProjection)
+  map(local_views(a.projection),local_views(a.norm_matrix)) do proj,norm
+    NormedProjection(proj,norm)
+  end
+end
+
+# reduced basis spaces
+
+const DistributedRBSpace{S<:DistributedFESpace} = RBSpace{S}
+
+function GridapDistributed.local_views(r::DistributedRBSpace)
+  map(local_views(r.space),local_views(r.subspace)) do lspace,lsubspace
+    RBSpace(lspace,lsubspace)
+  end
 end
 
 # hyper-reduction

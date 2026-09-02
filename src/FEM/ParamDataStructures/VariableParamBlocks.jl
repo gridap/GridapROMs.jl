@@ -1336,9 +1336,9 @@ end
 
 # ─── autodiff ─────────────────────────────────────────────────────────────────
 
-for f in (:(ForwardDiff.gradient),:(ForwardDiff.jacobian))
+for f in (:gradient,:jacobian)
   @eval begin
-    function Arrays.return_cache(k::Arrays.ConfigMap{typeof($f)},x::VariableParamBlock)
+    function Arrays.return_cache(k::Arrays.ConfigMap{typeof(ForwardDiff.$f)},x::VariableParamBlock)
       xi = testitem(x)
       fi = return_cache(k,xi)
       data = similar(x.data,typeof(fi))
@@ -1350,9 +1350,9 @@ for f in (:(ForwardDiff.gradient),:(ForwardDiff.jacobian))
   end
 end
 
-for F in (:(ForwardDiff.GradientConfig),:(ForwardDiff.JacobianConfig))
+for F in (:GradientConfig,:JacobianConfig)
   @eval begin
-    function Arrays.return_value(k::DualizeMap,cfg::VariableParamBlock{<:$F},x::VariableParamBlock)
+    function Arrays.return_value(k::DualizeMap,cfg::VariableParamBlock{<:ForwardDiff.$F},x::VariableParamBlock)
       vi = return_value(k,testitem(cfg),testitem(x))
       v = similar(x.data,typeof(vi))
       fill!(v,vi)

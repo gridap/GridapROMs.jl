@@ -282,11 +282,11 @@ function RBSteady.projection_eltype(a::KroneckerProjection)
   promote_type(T,S)
 end
 
-for f in (:(RBSteady.DEIM),:(RBSteady.SOPT))
+for f in (:DEIM,:SOPT)
   @eval begin
-    function $f(a::KroneckerProjection)
-      indices_space,interp_space = $f(get_basis_space(a))
-      indices_time,interp_time = $f(get_basis_time(a))
+    function RBSteady.$f(a::KroneckerProjection)
+      indices_space,interp_space = RBSteady.$f(get_basis_space(a))
+      indices_time,interp_time = RBSteady.$f(get_basis_time(a))
       interp = kron(interp_time,interp_space)
       return (indices_space,indices_time),interp
     end

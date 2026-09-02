@@ -95,10 +95,10 @@ function Geometry.Triangulation(model::TProductDiscreteModel;kwargs...)
   TProductTriangulation(model,trian,trians_1d)
 end
 
-for f in (:(Geometry.BoundaryTriangulation),:(Geometry.SkeletonTriangulation),:(Geometry.InterfaceTriangulation))
+for f in (:BoundaryTriangulation,:SkeletonTriangulation,:InterfaceTriangulation)
   @eval begin
-    function $f(model::TProductDiscreteModel,args...;kwargs...)
-      $f(model.model,args...;kwargs...)
+    function Geometry.$f(model::TProductDiscreteModel,args...;kwargs...)
+      Geometry.$f(model.model,args...;kwargs...)
     end
   end
 end

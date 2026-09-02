@@ -269,12 +269,11 @@ function compute_ncentroids(
   all_ncentroids[elbow]
 end
 
-for f in (:(DofMaps.group_labels),:(DofMaps.get_group_to_labels),
-          :(DofMaps.group_ilabels),:(DofMaps.get_group_to_ilabels))
+for f in (:group_labels,:get_group_to_labels,:group_ilabels,:get_group_to_ilabels)
   @eval begin
-    function $f(q,k::KmeansResult)
+    function DofMaps.$f(q,k::KmeansResult)
       labels = get_label(k,q)
-      $f(labels)
+      DofMaps.$f(labels)
     end
   end
 end

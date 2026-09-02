@@ -146,9 +146,9 @@ function get_mesh(parts,np)
 end
 
 red = PODReduction(1e-4,H1(),nparams=2)
-res_red = PODReduction(1e-4,nparams=2)
-jac_red = PODReduction(1e-4,nparams=2)
 rbsolver = RBSolver(LUSolver(),red,nparams_jac=2,nparams_res=2)
+res_red = rbsolver.residual_reduction
+jac_red = rbsolver.jacobian_reduction
 
 parts = (2,2)
 snp = Ref{DistributedSnapshots}()

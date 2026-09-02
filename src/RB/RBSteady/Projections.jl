@@ -560,7 +560,7 @@ end
 
 # multi field interface
 
-function projection(red::Reduction,s::BlockSnapshots)
+function projection(red::Reduction,s::AbstractBlockSnapshots)
   basis = _allocate_projection(red,s)
   for i in eachindex(basis)
     if basis.touched[i]
@@ -570,7 +570,7 @@ function projection(red::Reduction,s::BlockSnapshots)
   return basis
 end
 
-function projection(red::Reduction,s::BlockSnapshots,X::MatrixOrTensor)
+function projection(red::Reduction,s::AbstractBlockSnapshots,X::MatrixOrTensor)
   basis = _allocate_projection(red,s,X)
   for i in eachindex(basis)
     if basis.touched[i]
@@ -684,23 +684,23 @@ function to_blocks(x::AbstractParamVector,o,f=identity)
   mortar(map(i -> f(get_param_entry(x,o[i]:o[i+1]-1)),1:n))
 end
 
-for f in (:(Algebra.allocate_in_domain),:(Algebra.allocate_in_range))
+for f in (:allocate_in_domain,:allocate_in_range)
   @eval begin
-    function $f(a::BlockProjection)
+    function Algebra.$f(a::BlockProjection)
       @notimplementedif !all(a.touched)
-      mortar(map($f,a.array))
+      mortar(map(Algebra.$f,a.array))
     end
 
-    function $f(a::BlockProjection,x::BlockVector)
+    function Algebra.$f(a::BlockProjection,x::BlockVector)
       @check length(a) == blocklength(x)
       @notimplementedif !all(a.touched)
-      mortar(map(i -> $f(a[Block(i)],x[Block(i)]),eachindex(a)))
+      mortar(map(i -> Algebra.$f(a[Block(i)],x[Block(i)]),eachindex(a)))
     end
 
-    function $f(a::BlockProjection,x::BlockParamVector)
+    function Algebra.$f(a::BlockProjection,x::BlockParamVector)
       @check length(a) == blocklength(x)
       @notimplementedif !all(a.touched)
-      mortar(map(i -> $f(a[Block(i)],x[Block(i)]),eachindex(a)))
+      mortar(map(i -> Algebra.$f(a[Block(i)],x[Block(i)]),eachindex(a)))
     end
   end
 end
@@ -895,7 +895,7 @@ end
 
 # utils
 
-function _allocate_projection(red::Reduction,s::BlockSnapshots{N}) where N
+function _allocate_projection(red::Reduction,s::AbstractBlockSnapshots{<:Any,N}) where N
   T = _proj_type(red)
   block_basis = Array{T,N}(undef,size(s))
   BlockProjection(block_basis,s.touched)
@@ -903,7 +903,7 @@ end
 
 function _allocate_projection(
   red::Reduction,
-  s::BlockSnapshots{N},
+  s::AbstractBlockSnapshots{<:Any,N},
   X::MatrixOrTensor
   ) where N
 

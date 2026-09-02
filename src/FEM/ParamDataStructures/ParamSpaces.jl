@@ -427,11 +427,10 @@ for op in (:+,:-,:*,:/,:^)
   end
 end
 
-for op in (:(Fields.gradient),:(Fields.symmetric_gradient),:(Fields.divergence),
-  :(Fields.curl),:(Fields.laplacian))
+for op in (:gradient,:symmetric_gradient,:divergence,:curl,:laplacian)
   @eval begin
-    function ($op)(f::ParamFunction)
-      _op(μ) = x -> $op(f.fun(μ))(x)
+    function (Fields.$op)(f::ParamFunction)
+      _op(μ) = x -> Fields.$op(f.fun(μ))(x)
       ParamFunction(_op,f.params)
     end
   end
@@ -518,11 +517,10 @@ for op in (:+,:-,:*,:/,:^)
   end
 end
 
-for op in (:(Fields.gradient),:(Fields.symmetric_gradient),:(Fields.divergence),
-  :(Fields.curl),:(Fields.laplacian))
+for op in (:gradient,:symmetric_gradient,:divergence,:curl,:laplacian)
   @eval begin
-    function ($op)(f::TransientParamFunction)
-      _op(μ,t) = x -> $op(f.fun(μ,t))(x)
+    function (Fields.$op)(f::TransientParamFunction)
+      _op(μ,t) = x -> Fields.$op(f.fun(μ,t))(x)
       TransientParamFunction(_op,f.params,f.times)
     end
   end
@@ -573,11 +571,10 @@ for op in (:+,:-,:*,:/,:^)
   end
 end
 
-for op in (:(Fields.gradient),:(Fields.symmetric_gradient),:(Fields.divergence),
-  :(Fields.curl),:(Fields.laplacian))
+for op in (:gradient,:symmetric_gradient,:divergence,:curl,:laplacian)
   @eval begin
-    function ($op)(f::TrivialParamFunction)
-      x -> $op(f.fun(f.args...))(x)
+    function (Fields.$op)(f::TrivialParamFunction)
+      x -> Fields.$op(f.fun(f.args...))(x)
     end
   end
 end

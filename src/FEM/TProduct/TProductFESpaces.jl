@@ -203,11 +203,11 @@ function get_tp_dof_map(::Type{T},spaces_1d,dof_map) where T<:MultiValue
   reshape(dof_map,nnodes_1d...,ncomps)
 end
 
-for F in (:(DofMaps.get_bg_dof_to_dof),:(DofMaps.get_dof_to_bg_dof))
+for F in (:get_bg_dof_to_dof,:get_dof_to_bg_dof)
   for T in (:SingleFieldFESpace,:FESpaceWithLinearConstraints)
     @eval begin
-      function $F(bg_f::TProductFESpace,f::$T)
-        $F(bg_f.space,f)
+      function DofMaps.$F(bg_f::TProductFESpace,f::$T)
+        DofMaps.$F(bg_f.space,f)
       end
     end
   end

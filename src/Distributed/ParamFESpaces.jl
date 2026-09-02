@@ -182,7 +182,7 @@ function Utils.collect_cell_matrix_for_trian(
   trial::DistributedFESpace,
   test::DistributedFESpace,
   a::GridapDistributed.DistributedDomainContribution,
-  trian::GridapDistributed.DistributedTriangulation
+  trian::DistributedTriangulation
   )
 
   map(collect_cell_matrix_for_trian,
