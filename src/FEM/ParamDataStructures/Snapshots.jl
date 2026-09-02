@@ -195,8 +195,10 @@ end
 
 # multi field interface
 
+abstract type AbstractBlockSnapshots{S,N} <: AbstractSnapshots{S,N} end
+
 """
-    struct BlockSnapshots{N,B} <: AbstractSnapshots{Snapshots,N}
+    struct BlockSnapshots{N,B} <: AbstractBlockSnapshots{N}
       array::Array{<:Any,N}
       touched::Array{Bool,N}
       param_data::B
@@ -205,7 +207,7 @@ end
 Block container for Snapshots of type `S` in a `MultiField` setting. This
 type is conceived similarly to `ArrayBlock` in Gridap
 """
-struct BlockSnapshots{N,B} <: AbstractSnapshots{Snapshots,N}
+struct BlockSnapshots{N,B} <: AbstractBlockSnapshots{Snapshots,N}
   array::Array{<:Any,N}
   touched::Array{Bool,N}
   param_data::B

@@ -61,6 +61,10 @@ function PartitionedArrays.ghost_values(a::GenericPArray)
   map(ghost_values,partition(a),partition(axes(a,1)))
 end
 
+function GridapDistributed.local_views(a::GenericPArray)
+  partition(a)
+end
+
 function Base.getindex(a::GenericPArray,gid::Int)
   PartitionedArrays.scalar_indexing_action(a)
 end
@@ -102,8 +106,6 @@ function PartitionedArrays.consistent!(a::GenericPArray)
     a
   end
 end
-
-GridapDistributed.local_values(a::GenericPArray) = partition(a)
 
 function Base.similar(a::GenericPArray,::Type{T},inds::Tuple) where T
   rows,uaxes... = inds

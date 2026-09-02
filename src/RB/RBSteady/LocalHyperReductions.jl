@@ -86,13 +86,7 @@ end
 
 const LocalHRContribution = AffineContribution{<:LocalHRProjection}
 
-function reduced_form(
-  lred::LocalReduction,
-  s,
-  trian::Triangulation,
-  test::SingleFieldRBSpace
-  )
-  
+function reduced_form(lred::LocalReduction,s,trian,test)
   red = get_reduction(lred)
   ks = compute_clusters(lred,s)
   kr, = get_clusters(test)
@@ -114,14 +108,7 @@ function reduced_form(
   return hyper_red,red_trian
 end
 
-function reduced_form(
-  lred::LocalReduction,
-  s,
-  trian::Triangulation,
-  trial::SingleFieldRBSpace,
-  test::SingleFieldRBSpace
-  )
-  
+function reduced_form(lred::LocalReduction,s,trian,trial,test)
   red = get_reduction(lred)
   ks = compute_clusters(lred,s)
   kr, = get_clusters(test)
@@ -139,6 +126,35 @@ function reduced_form(
   end
 
   hyper_red = LocalHRProjection(hr,(ks,kr))
+  red_trian = reduced_triangulation(trian,hyper_red)
+
+  return hyper_red,red_trian
+end
+
+function reduced_form(lred::LocalReduction,s::AbstractBlockSnapshots,trian,test)
+  @check length(s) == length(test)
+
+  hyper_reds = map(eachindex(s)) do i
+    hyper_red, = reduced_form(lred,s[i],trian,test[i])
+    hyper_red
+  end
+
+  hyper_red = BlockHRProjection(hyper_reds,s.touched)
+  red_trian = reduced_triangulation(trian,hyper_red)
+
+  return hyper_red,red_trian
+end
+
+function reduced_form(lred::LocalReduction,s::AbstractBlockSnapshots,trian,trial,test)
+  @check size(s,1) == length(test)
+  @check size(s,2) == length(trial)
+
+  hyper_reds = map(Iterators.product(axes(s)...)) do (i,j)
+    hyper_red, = reduced_form(lred,s[i,j],trian,trial[j],test[i])
+    hyper_red
+  end
+
+  hyper_red = BlockHRProjection(hyper_reds,s.touched)
   red_trian = reduced_triangulation(trian,hyper_red)
 
   return hyper_red,red_trian

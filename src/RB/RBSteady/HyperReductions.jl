@@ -387,7 +387,7 @@ function FESpaces.interpolate!(
   return hypred
 end
 
-function reduced_form(red::Reduction,s,trian::Triangulation,args...)
+function reduced_form(red::Reduction,s,trian,args...)
   hyper_red = HRProjection(red,s,trian,args...)
   red_trian = reduced_triangulation(trian,hyper_red)
   return hyper_red,red_trian
@@ -656,12 +656,8 @@ function allocate_hyper_reduction(a::BlockHRProjection{N}) where N
   return mortar(block_cache)
 end
 
-function reduced_form(
-  red::Reduction,
-  s::BlockSnapshots,
-  trian::Triangulation,
-  test::MultiFieldRBSpace
-  )
+function reduced_form(red::Reduction,s::AbstractBlockSnapshots,trian,test)
+  @check length(s) == length(test)
 
   hyper_reds = map(eachindex(s)) do i
     hyper_red, = reduced_form(red,s[i],trian,test[i])
@@ -674,13 +670,9 @@ function reduced_form(
   return hyper_red,red_trian
 end
 
-function reduced_form(
-  red::Reduction,
-  s::BlockSnapshots,
-  trian::Triangulation,
-  trial::MultiFieldRBSpace,
-  test::MultiFieldRBSpace
-  )
+function reduced_form(red::Reduction,s::AbstractBlockSnapshots,trian,trial,test)
+  @check size(s,1) == length(test)
+  @check size(s,2) == length(trial)
 
   hyper_reds = map(Iterators.product(axes(s)...)) do (i,j)
     hyper_red, = reduced_form(red,s[i,j],trian,trial[j],test[i])

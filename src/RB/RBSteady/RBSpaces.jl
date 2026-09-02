@@ -69,26 +69,26 @@ function reduced_basis(
 end
 
 """
-    reduced_subspace(space::FESpace,basis::Projection) -> RBSpace
+    struct RBSpace{S<:FESpace} <: FESpace
+      space::S
+      subspace::Projection
+    end
 
-Generic constructor of a [`RBSpace`](@ref) from a `FESpace` `space` and a projection
-`basis`
+Reduced basis subspace of a `FESpace` in [`Gridap`](@ref)
 """
-function reduced_subspace(space::FESpace,basis::Projection)
-  @abstractmethod
+struct RBSpace{S<:FESpace} <: FESpace 
+  space::S
+  subspace::Projection
 end
 
 """
-    abstract type RBSpace <: FESpace end
+    reduced_subspace(space::FESpace,basis::Projection) -> RBSpace
 
-Represents a vector subspace of a `FESpace`.
-
-Subtypes:
-
-- [`SingleFieldRBSpace`](@ref)
-- [`MultiFieldRBSpace`](@ref)
+Constructs a [`RBSpace`](@ref) from a `FESpace` `space` and a projection `basis`
 """
-abstract type RBSpace{S} <: FESpace end
+function reduced_subspace(space::FESpace,basis::Projection)
+  RBSpace(space,basis)
+end
 
 function Arrays.evaluate(r::RBSpace,args...)
   space = evaluate(get_fe_space(r),args...)
@@ -102,14 +102,14 @@ end
 
 (U::RBSpace)(μ) = evaluate(U,μ)
 
-FESpaces.get_fe_space(r::RBSpace) = @abstractmethod
+FESpaces.get_fe_space(r::RBSpace) = r.space
 
 """
     get_reduced_subspace(r::RBSpace) -> Projection
 
 Returns the [`Projection`](@ref) spanning the reduced subspace contained in `r`
 """
-get_reduced_subspace(r::RBSpace) = @abstractmethod
+get_reduced_subspace(r::RBSpace) = r.subspace
 
 get_basis(r::RBSpace) = get_basis(get_reduced_subspace(r))
 num_fe_dofs(r::RBSpace) = num_free_dofs(get_fe_space(r))
@@ -214,44 +214,18 @@ function FESpaces.FEFunction(r::RBSpace,x̂::AbstractVector)
 end
 
 """
-    struct SingleFieldRBSpace{S<:SingleFieldFESpace} <: RBSpace{S}
-      space::S
-      subspace::Projection
-    end
+    const SingleFieldRBSpace{S<:SingleFieldFESpace} = RBSpace{S}
 
 Reduced basis subspace of a `SingleFieldFESpace` in [`Gridap`](@ref)
 """
-struct SingleFieldRBSpace{S<:SingleFieldFESpace} <: RBSpace{S}
-  space::S
-  subspace::Projection
-end
-
-function reduced_subspace(space::SingleFieldFESpace,basis::Projection)
-  SingleFieldRBSpace(space,basis)
-end
-
-FESpaces.get_fe_space(r::SingleFieldRBSpace) = r.space
-get_reduced_subspace(r::SingleFieldRBSpace) = r.subspace
+const SingleFieldRBSpace{S<:SingleFieldFESpace} = RBSpace{S}
 
 """
-    struct MultiFieldRBSpace{S<:MultiFieldFESpace} <: RBSpace{S}
-      space::S
-      subspace::BlockProjection
-    end
+    const MultiFieldRBSpace{S<:MultiFieldFESpace} = RBSpace{S}
 
 Reduced basis subspace of a `MultiFieldFESpace` in [`Gridap`](@ref)
 """
-struct MultiFieldRBSpace{S<:MultiFieldFESpace} <: RBSpace{S}
-  space::S
-  subspace::BlockProjection
-end
-
-function reduced_subspace(space::MultiFieldFESpace,subspace::BlockProjection)
-  MultiFieldRBSpace(space,subspace)
-end
-
-FESpaces.get_fe_space(r::MultiFieldRBSpace) = r.space
-get_reduced_subspace(r::MultiFieldRBSpace) = r.subspace
+const MultiFieldRBSpace{S<:MultiFieldFESpace} = RBSpace{S}
 
 function Base.getindex(r::MultiFieldRBSpace,i::Integer)
   mfe = get_fe_space(r)

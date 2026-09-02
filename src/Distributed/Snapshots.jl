@@ -1,5 +1,5 @@
 function ParamDataStructures.Snapshots(s::PVector,i::AbstractArray,r::AbstractRealisation)
-  data = map(local_values(s),local_values(i)) do s,i
+  data = map(local_values(s),i) do s,i
     Snapshots(s,i,r)
   end
   snaps = GenericPArray(data,flat_row_partition(s))
@@ -7,7 +7,7 @@ function ParamDataStructures.Snapshots(s::PVector,i::AbstractArray,r::AbstractRe
 end
 
 function ParamDataStructures.Snapshots(s::PSparseMatrix,i::AbstractArray,r::AbstractRealisation)
-  data = map(own_values(s),local_values(i)) do s,i
+  data = map(own_values(s),i) do s,i
     Snapshots(s,i,r)
   end
   snaps = GenericPArray(data,flat_row_partition(s))
@@ -21,7 +21,7 @@ function ParamDataStructures.Snapshots(
   r::TransientRealisation
   )
 
-  data = map(local_values(s),local_values(i),local_values.(s0)...) do s,i,s0...
+  data = map(local_values(s),i,local_values.(s0)...) do s,i,s0...
     Snapshots(s,s0,i,r)
   end
   snaps = GenericPArray(data,flat_row_partition(s))
@@ -101,7 +101,7 @@ GridapDistributed.local_views(s::DistributedSnapshots) = partition(s)
 const DistributedSparseSnapshots{T,N,I<:AbstractSparseDofMap,R,A} = DistributedSnapshots{T,N,I,R,A}
 
 function DofMaps.recast(a::GenericPArray,i::AbstractArray{<:AbstractSparseDofMap})
-  data = map(local_values(a),local_values(i)) do a,i
+  data = map(local_values(a),i) do a,i
     recast(a,i)
   end
   PSparseMatrix(data,row_partition(a),col_partition(a))
@@ -116,7 +116,7 @@ end
 
 # multi-field interface
 
-struct DistributedBlockSnapshots{N,B} <: AbstractSnapshots{DistributedSnapshots,N}
+struct DistributedBlockSnapshots{N,B} <: ParamDataStructures.AbstractBlockSnapshots{DistributedSnapshots,N}
   array::AbstractArray{<:Any,N}
   touched::Array{Bool,N}
   param_data::B
@@ -296,12 +296,12 @@ function flat_row_partition(a::PSparseMatrix)
   end
   n_nz_global = reduce(+,nnz_own,init=0)
   nz_part = variable_partition(nnz_own,n_nz_global)
-  map(nz_part,local_values(a.row_partition),local_values(a.col_partition)) do nzidx,lrow,lcol
+  map(nz_part,row_partition(a),col_partition(a)) do nzidx,lrow,lcol
     NZIndexPartition(nzidx,lrow,lcol)
   end
 end
 
-flat_row_partition(a) = local_values(row_partition(a))
+flat_row_partition(a) = row_partition(a)
 
 row_partition(a) = a
 row_partition(a::PVector) = a.index_partition
@@ -309,7 +309,7 @@ row_partition(a::PSparseMatrix) = a.row_partition
 row_partition(a::GenericPArray) = row_partition(a.index_partition)
 row_partition(a::DistributedSnapshots) = row_partition(a.snaps)
 row_partition(a::NZIndexPartition) = a.row
-row_partition(a::AbstractArray{<:NZIndexPartition}) = map(row_partition,local_values(a))
+row_partition(a::AbstractArray{<:NZIndexPartition}) = map(row_partition,a)
 
 col_partition(a) = a
 col_partition(a::PVector) = @notimplemented
@@ -317,7 +317,7 @@ col_partition(a::PSparseMatrix) = a.col_partition
 col_partition(a::GenericPArray) = col_partition(a.index_partition)
 col_partition(a::DistributedSnapshots) = col_partition(a.snaps)
 col_partition(a::NZIndexPartition) = a.col
-col_partition(a::AbstractArray{<:NZIndexPartition}) = map(col_partition,local_values(a))
+col_partition(a::AbstractArray{<:NZIndexPartition}) = map(col_partition,a)
 
 # linear algebra 
 
