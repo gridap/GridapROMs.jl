@@ -248,7 +248,7 @@ end
 function IntegrationDomain(
   trian::Triangulation,
   test::FESpace,
-  rows::Vector{<:Number}
+  rows::AbstractVector
   )
 
   cell_dof_ids = get_cell_dof_ids(test,trian)
@@ -261,8 +261,8 @@ function IntegrationDomain(
   trian::Triangulation,
   trial::FESpace,
   test::FESpace,
-  rows::Vector{<:Number},
-  cols::Vector{<:Number}
+  rows::AbstractVector,
+  cols::AbstractVector
   )
 
   cell_row_ids = get_cell_dof_ids(test,trian)

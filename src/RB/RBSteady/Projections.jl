@@ -31,7 +31,7 @@ get_basis(a::Projection) = @abstractmethod
 For a projection map `a` from a low dimensional space `n` to a high dimensional
 one `N`, returns `N`
 """
-num_fe_dofs(a::Projection) = @abstractmethod
+num_fe_dofs(a::Projection) = size(get_basis(a),1)
 
 """
     num_reduced_dofs(a::Projection) -> Int
@@ -39,7 +39,7 @@ num_fe_dofs(a::Projection) = @abstractmethod
 For a projection map `a` from a low dimensional space `n` to a high dimensional
 one `N`, returns `n`
 """
-num_reduced_dofs(a::Projection) = @abstractmethod
+num_reduced_dofs(a::Projection) = size(get_basis(a),2)
 
 """
     project(a::Projection,x::AbstractArray,args...) -> AbstractArray
@@ -170,7 +170,7 @@ Computes the EIM of `a`. The outputs are:
 - a matrix `Φi = view(Φ,i)`, where `Φ = get_basis(a)`. This quantity represents
   the restricted basis on the set of interpolation rows `i`
 """
-DEIM(a::Projection) = @abstractmethod
+DEIM(a::Projection) = DEIM(get_basis(a))
 
 """
     SOPT(a::Projection) -> (AbstractVector,AbstractMatrix)
@@ -178,7 +178,7 @@ DEIM(a::Projection) = @abstractmethod
 Computes the S-OPT hyper-reduction of `a`. Check [this](https://arxiv.org/abs/2203.16494)
 reference for more information
 """
-SOPT(a::Projection) = @abstractmethod
+SOPT(a::Projection) = SOPT(get_basis(a))
 
 """
     union_bases(a::Projection,b::Projection,args...) -> Projection
@@ -355,8 +355,6 @@ function Projection(basis::AbstractMatrix,s::SparseSnapshots)
 end
 
 get_basis(a::PODProjection) = a.basis
-num_fe_dofs(a::PODProjection) = size(get_basis(a),1)
-num_reduced_dofs(a::PODProjection) = size(get_basis(a),2)
 
 union_bases(a::PODProjection,b::PODProjection,args...) = union_bases(a,get_basis(b),args...)
 
@@ -364,12 +362,6 @@ function union_bases(a::PODProjection,basis_b::AbstractMatrix,args...)
   basis_a = get_basis(a)
   basis_ab = gram_schmidt(basis_b,basis_a,args...)
   PODProjection(basis_ab)
-end
-
-for f in (:DEIM,:SOPT)
-  @eval begin
-    $f(a::PODProjection) = $f(get_basis(a))
-  end
 end
 
 # TT interface

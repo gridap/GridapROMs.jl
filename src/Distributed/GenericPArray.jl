@@ -45,10 +45,6 @@ PartitionedArrays.partition(a::GenericPArray) = a.array_partition
 Base.axes(a::GenericPArray) = (PRange(a.index_partition),a.unpartitioned_axes...)
 Base.size(a::GenericPArray) = length.(axes(a))
 
-function PartitionedArrays.own_values(a::AbstractArray{<:Any,N},i) where N
-  view(a,own_to_local(i),_ncolons(Val{N-1}())...)
-end
-
 function PartitionedArrays.local_values(a::GenericPArray)
   partition(a)
 end
@@ -436,4 +432,31 @@ function LinearAlgebra.mul!(
     mul!(co,ao,b,α,β)
   end
   c
+end
+
+function Base.hcat(A::GenericPMatrix,B::GenericPMatrix)
+  @boundscheck @assert PartitionedArrays.matching_own_indices(axes(A,1),axes(B,1))
+  @check size(A,2) == size(B,2)
+  values = map(partition(A),partition(B)) do la,lb
+    hcat(la,lb)
+  end
+  GenericPArray(values,partition(axes(A,1)),(size(A,2)+size(B,2),))
+end
+
+# necessary 
+
+function PartitionedArrays.own_values(a::AbstractArray{<:Any,N},i) where N
+  view(a,own_to_local(i),_ncolons(Val{N-1}())...)
+end
+
+function PartitionedArrays.ghost_values(a::AbstractArray{<:Any,N},i) where N
+  view(a,ghost_to_local(i),_ncolons(Val{N-1}())...)
+end
+
+function PartitionedArrays.own_values(a::ConsecutiveParamArray,indices)
+  ConsecutiveParamArray(own_values(a.data,indices))
+end
+
+function PartitionedArrays.ghost_values(a::ConsecutiveParamArray,indices)
+  ConsecutiveParamArray(ghost_values(a.data,indices))
 end

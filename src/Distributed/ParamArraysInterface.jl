@@ -86,26 +86,6 @@ function PartitionedArrays.default_local_values(
   ConsecutiveParamArray(data)
 end
 
-# FE space utils
-
-function PartitionedArrays.own_values(a::ConsecutiveParamVector,indices)
-  ov = view(a.data,own_to_local(indices),:)
-  ConsecutiveParamArray(ov)
-end
-
-function PartitionedArrays.ghost_values(a::ConsecutiveParamVector,indices)
-  gv = view(a.data,ghost_to_local(indices),:)
-  ConsecutiveParamArray(gv)
-end
-
-function PartitionedArrays.own_values(a::AbstractMatrix{<:Number},indices)
-  view(a,own_to_local(indices),:)
-end
-
-function PartitionedArrays.ghost_values(a::AbstractMatrix{<:Number},indices)
-  view(a,ghost_to_local(indices),:)
-end
-
 # caches
 
 struct ParamVectorAssemblyCache{T,A}

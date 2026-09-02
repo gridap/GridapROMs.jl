@@ -2,13 +2,16 @@
 
 for T in (:GenericPMatrix,:DistributedSnapshots)
   @eval begin
+    function RBSteady.tpod(red_style::ReductionStyle,A::$T)
+      _method_of_snapshots_row(red_style,A,A'*A)
+    end
+
     function RBSteady.tpod(red_style::ReductionStyle,A::$T,X::PSparseMatrix)
       _method_of_snapshots_row(red_style,A,A'*(X*A))
     end
 
-    function RBSteady.tpod(red_style::ReductionStyle,A::$T)
-      _method_of_snapshots_row(red_style,A,A'*A)
-    end
+    RBSteady.gram_schmidt(A::$T) = _qr!(A)
+    RBSteady.gram_schmidt(A::$T,X::PSparseMatrix) = _qr!(X*A)
   end
 end
 
@@ -36,31 +39,32 @@ end
 
 # projections
 
-struct DistributedProjection{P,A,B} <: Projection
-  projections::A
-  index_partition::B
-  function DistributedProjection(projections::A,index_partition::B) where {P<:Projection,A<:AbstractArray{<:P},B}
-    new{P,A,B}(projections,index_partition)
-  end
+struct DistributedProjection <: Projection
+  basis::AbstractMatrix
 end
 
-function RBSteady.Projection(basis::GenericPArray,s::DistributedSnapshots)
-  index_partition = row_partition(s)
-  projections = map(local_views(basis),local_views(s)) do lb,ls
-    Projection(lb,ls)
-  end
-  DistributedProjection(projections,index_partition)
+function RBSteady.Projection(basis::GenericPMatrix,s::DistributedSnapshots)
+  DistributedProjection(basis)
 end
 
-# function RBSteady.Projection(basis::AbstractMatrix,s::DistributedSparseSnapshots)
-#   basis′ = recast(basis,s)
-#   PODProjection(basis′)
-# end
+function RBSteady.Projection(basis::GenericPMatrix,s::DistributedSparseSnapshots)
+  basis′ = recast(basis,s)
+  DistributedProjection(basis′)
+end
 
-RBSteady.get_basis(a::DistributedProjection) = map(get_basis,a.projections)
-RBSteady.num_fe_dofs(a::DistributedProjection) = num_fe_dofs(getany(a.projections))
-RBSteady.num_reduced_dofs(a::DistributedProjection) = num_reduced_dofs(getany(a.projections))
-RBSteady.projection_eltype(a::DistributedProjection) = projection_eltype(getany(a.projections))
+RBSteady.get_basis(a::DistributedProjection) = a.basis
+row_partition(a::DistributedProjection) = row_partition(a.basis)
+col_partition(a::DistributedProjection) = col_partition(a.basis)
+
+function RBSteady.union_bases(a::DistributedProjection,b::DistributedProjection,args...) 
+  union_bases(a,get_basis(b),args...)
+end
+
+function RBSteady.union_bases(a::DistributedProjection,basis_b::AbstractMatrix,args...)
+  basis_a = get_basis(a)
+  basis_ab = gram_schmidt(basis_b,basis_a,args...)
+  DistributedProjection(basis_ab)
+end
 
 function RBSteady.galerkin_projection(a::DistributedProjection,b::DistributedProjection)
   lb̂ = map(local_views(a),local_views(b)) do ai,bi
@@ -84,7 +88,11 @@ function RBSteady._allocate_projection(red::Reduction,s::DistributedBlockSnapsho
   BlockProjection(block_basis,s.touched)
 end
 
-GridapDistributed.local_views(a::DistributedProjection) = a.projections
+function GridapDistributed.local_views(a::DistributedProjection)
+  map(local_views(a.basis)) do basis
+    PODProjection(basis)
+  end
+end
 
 function GridapDistributed.local_views(a::NormedProjection)
   map(local_views(a.projection),local_views(a.norm_matrix)) do proj,norm
@@ -97,8 +105,8 @@ end
 const DistributedRBSpace{S<:DistributedFESpace} = RBSpace{S}
 
 function GridapDistributed.local_views(r::DistributedRBSpace)
-  map(local_views(r.space),local_views(r.subspace)) do lspace,lsubspace
-    RBSpace(lspace,lsubspace)
+  map(local_views(r.space),local_views(r.subspace)) do space,subspace
+    RBSpace(space,subspace)
   end
 end
 
@@ -146,11 +154,10 @@ for (T,f) in zip((:DEIMHyperReduction,:SOPTHyperReduction),(:DEIM,:SOPT))
       test::DistributedRBSpace
       )
 
-      interps = map(basis.projections,basis.index_partition,local_views(trian),local_views(test)) do bi,rp,ti,testi
-        local_rows,interp = $f(bi)
-        dof_rows = convert(Vector{Int},own_to_local(rp)[local_rows])
+      interps = map(local_views(basis),local_views(trian),local_views(test)) do bi,ti,testi
+        rows,interp = $f(bi)
         factor = lu(interp)
-        domain = IntegrationDomain(ti,testi,dof_rows)
+        domain = IntegrationDomain(ti,testi,rows)
         GreedyInterpolation(factor,domain)
       end
       DistributedInterpolation(interps)
@@ -164,12 +171,10 @@ for (T,f) in zip((:DEIMHyperReduction,:SOPTHyperReduction),(:DEIM,:SOPT))
       test::DistributedRBSpace
       )
 
-      interps = map(basis.projections,basis.index_partition,local_views(trian),local_views(trial),local_views(test)) do bi,rp,ti,triali,testi
-        (local_rows,local_cols),interp = $f(bi)
-        dof_rows = convert(Vector{Int},own_to_local(rp)[local_rows])
-        dof_cols = convert(Vector{Int},own_to_local(rp)[local_cols])
+      interps = map(local_views(basis),local_views(trian),local_views(trial),local_views(test)) do bi,ti,triali,testi
+        (rows,cols),interp = $f(bi)
         factor = lu(interp)
-        domain = IntegrationDomain(ti,triali,testi,dof_rows,dof_cols)
+        domain = IntegrationDomain(ti,triali,testi,rows,cols)
         GreedyInterpolation(factor,domain)
       end
       DistributedInterpolation(interps)
@@ -183,7 +188,7 @@ function RBSteady.Interpolation(
   s::DistributedSnapshots
   )
 
-  interps = map(basis.projections,local_views(s)) do bi,si
+  interps = map(local_views(basis),local_views(s)) do bi,si
     Interpolation(red,bi,si)
   end
   DistributedInterpolation(interps)
