@@ -188,9 +188,9 @@ with_debug() do distribute
   # # basis[] = U
   feop[] = op
   red_trial,red_test = reduced_spaces(red,op,snaps)
-  # jacs = jacobian_snapshots(rbsolver,op,snaps)
-  # snp[] = jacs
+  jacs = jacobian_snapshots(rbsolver,op,snaps)
+  snp[] = jacs
   ress = residual_snapshots(rbsolver,op,snaps)
-  # red_jac = reduced_jacobian(jac_red,red_trial,red_test,jacs)
+  red_jac = reduced_jacobian(jac_red,red_trial,red_test,jacs)
   red_res = reduced_residual(res_red,red_test,ress)
 end

@@ -21,19 +21,17 @@ function _method_of_snapshots_row(red_style::ReductionStyle,A,AA)
   return Ur,Sr,Vr
 end
 
-function _weighted_mul(_A,V,S)
-  A = _gettr(_A)
+function _weighted_mul(A,V,S)
   Ta = eltype(A)
   Tv = eltype(V)
   T = typeof(zero(Ta)*zero(Tv)+zero(Ta)*zero(Tv))
-  U = GenericPArray{Matrix{T}}(undef,partition(axes(A,1)),axes(V,2))
+  U = GenericPArray{Matrix{T}}(undef,row_partition(A),axes(V,2))
   D = Diagonal(sqrt.(S).+eps())
-  map(partition(U),partition(A),partition(axes(A,1))) do lU,lA,rA
-    Uo = view(lU,own_to_local(rA),:)
-    Ao = view(lA,own_to_local(rA),:)
+  map(own_values(U),own_values(A)) do Uo,Ao
     mul!(Uo,Ao,V,one(T),zero(T))
     rdiv!(Uo,D)
   end
+  consistent!(U) |> fetch
   U
 end
 
@@ -67,16 +65,19 @@ function RBSteady.union_bases(a::DistributedProjection,basis_b::AbstractMatrix,a
 end
 
 function RBSteady.galerkin_projection(a::DistributedProjection,b::DistributedProjection)
-  lb̂ = map(local_views(a),local_views(b)) do ai,bi
-    galerkin_projection(get_basis(ai),get_basis(bi))
+  lb̂ = map(row_partition(a),local_views(a),local_views(b)) do ri,ai,bi
+    ao = view(get_basis(ai),own_to_local(ri),:)
+    bo = view(get_basis(bi),own_to_local(ri),:)
+    galerkin_projection(ao,bo)
   end
   b̂ = reduce(+,lb̂)
   return ReducedProjection(b̂)
 end
 
 function RBSteady.galerkin_projection(a::DistributedProjection,b::DistributedProjection,c::DistributedProjection,args...)
-  lb̂ = map(local_views(a),local_views(b),local_views(c)) do ai,bi,ci
-    galerkin_projection(get_basis(ai),get_basis(bi),get_basis(ci),args...)
+  lb̂ = map(row_partition(a),local_views(a),local_views(b),local_views(c)) do ri,ai,bi,ci
+    ao = view(get_basis(ai),own_to_local(ri),:)
+    galerkin_projection(ao,get_basis(bi),get_basis(ci),args...)
   end
   b̂ = reduce(+,lb̂)
   return ReducedProjection(b̂)
@@ -173,6 +174,10 @@ for (T,f) in zip((:DEIMHyperReduction,:SOPTHyperReduction),(:DEIM,:SOPT))
 
       interps = map(local_views(basis),local_views(trian),local_views(trial),local_views(test)) do bi,ti,triali,testi
         (rows,cols),interp = $f(bi)
+        println("  DEIM rows=$rows cols=$cols basis_size=$(size(get_basis(bi)))")
+        cell_row_ids = get_cell_dof_ids(get_fe_space(testi),ti)
+        cell_col_ids = get_cell_dof_ids(get_fe_space(triali),ti)
+        println("  n_cells=$(length(cell_row_ids)) row_ids_sample=$(cell_row_ids[1])")
         factor = lu(interp)
         domain = IntegrationDomain(ti,triali,testi,rows,cols)
         GreedyInterpolation(factor,domain)

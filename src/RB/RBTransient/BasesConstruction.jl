@@ -45,11 +45,11 @@ Returns a `Vector{Matrix{T}}` of orthonormal basis matrices, one per mode.
 """
 function tucker(red::AbstractVector{<:Reduction},A::AbstractArray{T,N}) where {T,N}
   @assert length(red) == N-1
-  bases = Vector{Matrix{T}}(undef,N-1)
   remainder = first_unfold(A)
+  bases = ()
   for n in 1:N-1
     Ur,remainder = tucker_loop(red[n],remainder)
-    bases[n] = Ur
+    bases = (bases...,Ur)
   end
   return bases
 end
@@ -57,12 +57,12 @@ end
 function tucker(red::AbstractVector{<:Reduction},A::TransientSnapshots{T,N}) where {T,N}
   @assert length(red) == N-1
   nparams = num_params(A)
-  bases = Vector{Matrix{T}}(undef,N-1)
   remainder = first_unfold(A)
+  bases = ()
   for n in 1:N-1
     Ur,remainder = tucker_loop(red[n],remainder)
     remainder = n == N-2 ? change_mode(remainder,nparams) : remainder
-    bases[n] = Ur
+    bases = (bases...,Ur)
   end
   return bases
 end
@@ -84,11 +84,11 @@ function tucker(
 
   @assert length(red) == N-1
   @assert M ≤ N
-  bases = Vector{Matrix{T}}(undef,N-1)
   remainder = first_unfold(A)
+  bases = ()
   for n in 1:N-1
     Ur,remainder = n ≤ M ? tucker_loop(red[n],remainder,X[n]) : tucker_loop(red[n],remainder)
-    bases[n] = Ur
+    bases = (bases...,Ur)
   end
   return bases
 end
@@ -102,12 +102,12 @@ function tucker(
   @assert length(red) == N-1
   @assert M ≤ N
   nparams = num_params(A)
-  bases = Vector{Matrix{T}}(undef,N-1)
   remainder = first_unfold(A)
+  bases = ()
   for n in 1:N-1
     Ur,remainder = n ≤ M ? tucker_loop(red[n],remainder,X[n]) : tucker_loop(red[n],remainder)
     remainder = n == N-2 ? change_mode(remainder,nparams) : remainder
-    bases[n] = Ur
+    bases = (bases...,Ur)
   end
   return bases
 end
