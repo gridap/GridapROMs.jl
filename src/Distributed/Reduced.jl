@@ -72,45 +72,23 @@ function RBSteady.SOPT(basis::GenericPMatrix{T}) where T
   n = size(basis,2)
   I = zeros(Int,n)
   basisI = zeros(T,n,n)
-  res = GenericPArray{Vector{T}}(undef,partition(axes(basis,1)))
-  map(own_values(res),own_values(basis)) do ro,bo
+  b = GenericPArray{Vector{T}}(undef,partition(axes(basis,1)))
+  map(own_values(b),own_values(basis)) do ro,bo
     @. ro = bo[:,1]
   end
-  I[1] = argmax(abs,res)
+  I[1] = argmax(abs,b)
   _from_submatrix!(basisI,basis,I,1)
   for l in 2:n
     P = I[1:l-1]
-    basisI_P = view(basisI,1:l-1,:)
-    G_P = basisI_P'*basisI_P
-    colnorms2 = vec(sum(abs2,basisI_P;dims=1))
-    Il = _best_s_opt_index(basis,P,G_P,colnorms2,n)
+    PᵀU = view(basisI,1:l-1,:)
+    G = PᵀU'*PᵀU
+    colnorms2 = vec(sum(abs2,PᵀU;dims=1))
+    Il = best_s_opt_index(basis,P,G,colnorms2,n)
     @check Il > 0
     I[l] = Il
     _from_submatrix!(basisI,basis,I,l)
   end
   return I,basisI
-end
-
-function _best_s_opt_index(basis::GenericPMatrix,P,G_P,colnorms2,n)
-  best_pairs = map(own_values(basis),partition(axes(basis,1))) do bo,ra
-    best_logS = -Inf
-    best_gi = 0
-    for oi in axes(bo,1)
-      gi = own_to_global(ra)[oi]
-      gi ∈ P && continue
-      q = view(bo,oi,:)
-      G = G_P + q*q'
-      logdet_plus = robust_logdet(G)
-      colnorms2_plus = colnorms2 .+ abs2.(q)
-      logS = (0.5/n)*(logdet_plus - sum(log,colnorms2_plus))
-      if logS > best_logS
-        best_logS = logS
-        best_gi = gi
-      end
-    end
-    best_logS => best_gi
-  end
-  return reduce(max,best_pairs,init=(-Inf=>0)).second
 end
 
 # projections
@@ -235,57 +213,84 @@ function RBSteady.Interpolation(red::NoHyperReduction,trian::DistributedTriangul
   DistributedInterpolation(interps)
 end
 
-for (T,f) in zip((:DEIMHyperReduction,:SOPTHyperReduction),(:DEIM,:SOPT))
-  @eval begin
-    function RBSteady.Interpolation(
-      red::$T,
-      basis::DistributedPODProjection,
-      trian::DistributedTriangulation,
-      test::DistributedRBSpace
-      )
+# for (T,f) in zip((:DEIMHyperReduction,:SOPTHyperReduction),(:DEIM,:SOPT))
+#   @eval begin
+#     function RBSteady.Interpolation(
+#       red::$T,
+#       basis::DistributedPODProjection,
+#       trian::DistributedTriangulation,
+#       test::DistributedRBSpace
+#       )
 
-      interps = map(local_views(basis),local_views(trian),local_views(test)) do bi,ti,testi
-        rows,interp = $f(bi)
-        factor = lu(interp)
-        domain = IntegrationDomain(ti,testi,rows)
-        GreedyInterpolation(factor,domain)
-      end
-      DistributedInterpolation(interps)
-    end
+#       interps = map(local_views(basis),local_views(trian),local_views(test)) do bi,ti,testi
+#         rows,interp = $f(bi)
+#         factor = lu(interp)
+#         domain = IntegrationDomain(ti,testi,rows)
+#         GreedyInterpolation(factor,domain)
+#       end
+#       DistributedInterpolation(interps)
+#     end
 
-    function RBSteady.Interpolation(
-      red::$T,
-      basis::DistributedPODProjection,
-      trian::DistributedTriangulation,
-      trial::DistributedRBSpace,
-      test::DistributedRBSpace
-      )
+#     function RBSteady.Interpolation(
+#       red::$T,
+#       basis::DistributedPODProjection,
+#       trian::DistributedTriangulation,
+#       trial::DistributedRBSpace,
+#       test::DistributedRBSpace
+#       )
 
-      interps = map(local_views(basis),local_views(trian),local_views(trial),local_views(test)) do bi,ti,triali,testi
-        (rows,cols),interp = $f(bi)
-        println("  DEIM rows=$rows cols=$cols basis_size=$(size(get_basis(bi)))")
-        cell_row_ids = get_cell_dof_ids(get_fe_space(testi),ti)
-        cell_col_ids = get_cell_dof_ids(get_fe_space(triali),ti)
-        println("  n_cells=$(length(cell_row_ids)) row_ids_sample=$(cell_row_ids[1])")
-        factor = lu(interp)
-        domain = IntegrationDomain(ti,triali,testi,rows,cols)
-        GreedyInterpolation(factor,domain)
-      end
-      DistributedInterpolation(interps)
-    end
-  end
-end
+#       interps = map(local_views(basis),local_views(trian),local_views(trial),local_views(test)) do bi,ti,triali,testi
+#         (rows,cols),interp = $f(bi)
+#         println("  DEIM rows=$rows cols=$cols basis_size=$(size(get_basis(bi)))")
+#         cell_row_ids = get_cell_dof_ids(get_fe_space(testi),ti)
+#         cell_col_ids = get_cell_dof_ids(get_fe_space(triali),ti)
+#         println("  n_cells=$(length(cell_row_ids)) row_ids_sample=$(cell_row_ids[1])")
+#         factor = lu(interp)
+#         domain = IntegrationDomain(ti,triali,testi,rows,cols)
+#         GreedyInterpolation(factor,domain)
+#       end
+#       DistributedInterpolation(interps)
+#     end
+#   end
+# end
 
-function RBSteady.Interpolation(
-  red::RBFHyperReduction,
-  basis::DistributedPODProjection,
-  s::DistributedSnapshots
+# function RBSteady.Interpolation(
+#   red::RBFHyperReduction,
+#   basis::DistributedPODProjection,
+#   s::DistributedSnapshots
+#   )
+
+#   interps = map(local_views(basis),local_views(s)) do bi,si
+#     Interpolation(red,bi,si)
+#   end
+#   DistributedInterpolation(interps)
+# end
+
+function IntegrationDomain(
+  trian::Triangulation,
+  test::FESpace,
+  rows::AbstractVector
   )
 
-  interps = map(local_views(basis),local_views(s)) do bi,si
-    Interpolation(red,bi,si)
-  end
-  DistributedInterpolation(interps)
+  cell_dof_ids = get_cell_dof_ids(test,trian)
+  cells = get_rows_to_cells(cell_dof_ids,rows)
+  idofs = get_cells_to_irows(cell_dof_ids,cells,rows)
+  GenericDomain(cells,idofs,rows)
+end
+
+function IntegrationDomain(
+  trian::Triangulation,
+  trial::FESpace,
+  test::FESpace,
+  rows::AbstractVector,
+  cols::AbstractVector
+  )
+
+  cell_row_ids = get_cell_dof_ids(test,trian)
+  cell_col_ids = get_cell_dof_ids(trial,trian)
+  cells = get_rowcols_to_cells(cell_row_ids,cell_col_ids,rows,cols)
+  irowcols = get_cells_to_irowcols(cell_row_ids,cell_col_ids,cells,rows,cols)
+  GenericDomain(cells,irowcols,(rows,cols))
 end
 
 # utils 
@@ -324,4 +329,25 @@ function _from_submatrix!(aI,a,I,l)
       or > 0 && _subfill!(aI,oa,k,or)
     end
   end
+end
+
+function best_s_opt_index(basis::GenericPMatrix,P,G,colnorms2,n)
+  best_pairs = map(own_values(basis),partition(axes(basis,1))) do bo,ra
+    best_logS = -Inf
+    best_gi = 0
+    for oi in axes(bo,1)
+      gi = own_to_global(ra)[oi]
+      gi ∈ P && continue
+      q = view(bo,oi,:)
+      logdet_plus = RBSteady.robust_logdet(G + q*q')
+      colnorms2_plus = colnorms2 .+ abs2.(q)
+      logS = (0.5/n)*(logdet_plus - sum(log,colnorms2_plus))
+      if logS > best_logS
+        best_logS = logS
+        best_gi = gi
+      end
+    end
+    best_logS => best_gi
+  end
+  return reduce(max,best_pairs,init=(-Inf=>0)).second
 end

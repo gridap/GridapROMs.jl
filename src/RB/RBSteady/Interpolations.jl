@@ -41,12 +41,7 @@ struct FullInterpolation <: Interpolation
   cells::Vector{Int32}
 end
 
-function Interpolation(
-  red::NoHyperReduction,
-  trian::Triangulation,
-  args...
-  )
-  
+function Interpolation(red::NoHyperReduction,trian,args...)
   n = num_cells(trian)
   cells = collect(Int32,1:n)
   FullInterpolation(cells)
@@ -63,28 +58,15 @@ end
 
 for (T,f) in zip((:DEIMHyperReduction,:SOPTHyperReduction),(:DEIM,:SOPT))
   @eval begin
-    function Interpolation(
-      red::$T,
-      basis::Projection,
-      trian::Triangulation,
-      test::RBSpace
-      )
-
-      rows,interp = $f(basis)
+    function Interpolation(red::$T,a::Projection,trian,test)
+      rows,interp = $f(a)
       factor = lu(interp)
       domain = IntegrationDomain(trian,test,rows)
       GreedyInterpolation(factor,domain)
     end
 
-    function Interpolation(
-      red::$T,
-      basis::Projection,
-      trian::Triangulation,
-      trial::RBSpace,
-      test::RBSpace
-      )
-
-      (rows,cols),interp = $f(basis)
+    function Interpolation(red::$T,a::Projection,trian,trial,test)
+      (rows,cols),interp = $f(a)
       factor = lu(interp)
       domain = IntegrationDomain(trian,trial,test,rows,cols)
       GreedyInterpolation(factor,domain)

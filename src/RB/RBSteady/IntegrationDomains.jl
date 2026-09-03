@@ -34,8 +34,9 @@ function SOPT(basis::AbstractMatrix{T}) where T
       U = basis[:,1:l]
       P = I[1:l-1]
       PᵀU = U[P,:]
+      G = PᵀU'*PᵀU
       colnorms2 = vec(sum(abs2,PᵀU;dims=1))
-      Il = best_s_opt_index(U,P,colnorms2)
+      Il = best_s_opt_index(U,P,G,colnorms2)
       @check Il > 0
       I[l] = Il
       basisI[l,:] = basis[Il,:]
@@ -44,17 +45,15 @@ function SOPT(basis::AbstractMatrix{T}) where T
   return I,basisI
 end
 
-function best_s_opt_index(U,P,colnorms2)
+function best_s_opt_index(U,P,G,colnorms2)
   m,n = size(U)
   best_i = 0
   best_logS = -Inf
   @inbounds @views for l in 1:m
     l ∈ P && continue
     q = U[l,:]
-    A = U[vcat(P,l),:]
-    G = A'*A
     logdet_plus = robust_logdet(G)
-    colnorms2_plus = colnorms2 .+ abs2.(q)
+    colnorms2_plus = colnorms2 .+ abs2.(G + q*q')
     # S(A) in log form: (1/n)*( 0.5*logdet - 0.5*Σ log colnorms2 )
     logS = (0.5/n)*(logdet_plus - sum(log,colnorms2_plus))
     if logS > best_logS

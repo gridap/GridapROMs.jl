@@ -10,12 +10,7 @@ function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,b::Abstract
   cache
 end
 
-function RBSteady.Interpolation(
-  red::HighDimNoHyperReduction,
-  trian::Triangulation,
-  args...
-  )
-
+function RBSteady.Interpolation(red::HighDimNoHyperReduction,trian,args...)
   n = num_cells(trian)
   cells = collect(Int32,1:n)
   FullInterpolation(cells)
@@ -28,30 +23,17 @@ const TransientGreedyInterpolation{A,B} = GreedyInterpolation{A,B}
 for (T,f) in zip((:HighDimDEIMHyperReduction,:HighDimSOPTHyperReduction),
                  (:DEIM,:SOPT))
   @eval begin
-    function RBSteady.Interpolation(
-      red::$T,
-      basis::TransientProjection,
-      trian::Triangulation,
-      test::RBSpace
-      )
-
-      (rows,indices_time),interp = $f(basis)
+    function RBSteady.Interpolation(red::$T,a::TransientProjection,trian,test)
+      (rows,indices_time),interp = $f(a)
       factor = lu(interp)
-      domain = IntegrationDomain(typeof(basis),trian,test,rows,indices_time)
+      domain = IntegrationDomain(typeof(a),trian,test,rows,indices_time)
       GreedyInterpolation(factor,domain)
     end
 
-    function RBSteady.Interpolation(
-      red::$T,
-      basis::TransientProjection,
-      trian::Triangulation,
-      trial::RBSpace,
-      test::RBSpace
-      )
-
-      ((rows,cols),indices_time),interp = $f(basis)
+    function RBSteady.Interpolation(red::$T,a::TransientProjection,trian,trial,test)
+      ((rows,cols),indices_time),interp = $f(a)
       factor = lu(interp)
-      domain = IntegrationDomain(typeof(basis),trian,trial,test,rows,cols,indices_time)
+      domain = IntegrationDomain(typeof(a),trian,trial,test,rows,cols,indices_time)
       GreedyInterpolation(factor,domain)
     end
   end
@@ -89,12 +71,7 @@ for (T,f) in zip(
   (:get_at_kron_domain,:get_at_seq_domain)
   )
   @eval begin
-    function RBSteady.Interpolation(
-      red::HighDimRBFHyperReduction,
-      a::$T,
-      s::TransientSnapshots
-      )
-
+    function RBSteady.Interpolation(red::HighDimRBFHyperReduction,a::$T,s::TransientSnapshots)
       strategy = RBSteady.interp_strategy(red)
       inds,interp = DEIM(a)
       factor = lu(interp)
