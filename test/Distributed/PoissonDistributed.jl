@@ -153,6 +153,7 @@ jac_red = rbsolver.jacobian_reduction
 parts = (2,2)
 trian = Ref{GridapDistributed.DistributedTriangulation}()
 snp = Ref{DistributedSnapshots}()
+ressnp = Ref{DistributedSnapshots}()
 nrm = Ref{PSparseMatrix}()
 basis = Ref{AbstractMatrix}()
 rbspace = Ref{RBSpace}()
@@ -184,7 +185,7 @@ with_debug() do distribute
   solve!(x,LUSolver(),nlop,syscache)
   snaps = Snapshots(x,get_dof_map(trial),μ)
   @test isa(snaps,DistributedSnapshots)
-  # snp[] = snaps
+  snp[] = snaps
   trian[] = Ω
   nrm[] = X
   # # U,_,_ = tpod(LRApproxRank(1e-4),snaps,X)
@@ -195,12 +196,12 @@ with_debug() do distribute
   # jacs = jacobian_snapshots(rbsolver,op,snaps)
   # snp[] = jacs
   ress = residual_snapshots(rbsolver,op,snaps)
-  snp[] = ress
+  ressnp[] = ress
   # red_jac = reduced_jacobian(jac_red,red_trial,red_test,jacs)
   red_res = reduced_residual(res_red,red_test,ress)
 end
 
-basis = projection(get_reduction(res_red),snp[])
+basis = projection(get_reduction(res_red),ressnp[])
 proj_basis = project(rbspace[],basis)
 interp = Interpolation(res_red,basis,trian[],rbspace[])
 

@@ -164,34 +164,50 @@ function Base.:(==)(a::GenericPArray,b::GenericPArray)
   reduce(&,map(==,own_values(a),own_values(b)),init=true)
 end
 
-function Base.any(f::Function,x::GenericPArray)
-  partials = map(own_values(x)) do o
+function Base.any(f::Function,a::GenericPArray)
+  partials = map(own_values(a)) do o
     any(f,o)
   end
   reduce(|,partials,init=false)
 end
 
-function Base.all(f::Function,x::GenericPArray)
-  partials = map(own_values(x)) do o
+function Base.all(f::Function,a::GenericPArray)
+  partials = map(own_values(a)) do o
     all(f,o)
   end
   reduce(&,partials,init=true)
 end
 
-Base.maximum(x::GenericPArray) = maximum(identity,x)
-function Base.maximum(f::Function,x::GenericPArray)
-  partials = map(own_values(x)) do o
-    maximum(f,o,init=typemin(eltype(x)))
+Base.maximum(a::GenericPArray) = maximum(identity,a)
+function Base.maximum(f::Function,a::GenericPArray)
+  partials = map(own_values(a)) do o
+    maximum(f,o,init=typemin(eltype(a)))
   end
-  reduce(max,partials,init=typemin(eltype(x)))
+  reduce(max,partials,init=typemin(eltype(a)))
 end
 
-Base.minimum(x::GenericPArray) = minimum(identity,x)
-function Base.minimum(f::Function,x::GenericPArray)
-  partials = map(own_values(x)) do o
-    minimum(f,o,init=typemax(eltype(x)))
+Base.minimum(a::GenericPArray) = minimum(identity,a)
+function Base.minimum(f::Function,a::GenericPArray)
+  partials = map(own_values(a)) do o
+    minimum(f,o,init=typemax(eltype(a)))
   end
-  reduce(min,partials,init=typemax(eltype(x)))
+  reduce(min,partials,init=typemax(eltype(a)))
+end
+
+function Base.argmax(f::Function,a::GenericPArray)
+  init = typemin(eltype(a))
+  pairs = map(own_values(a),partition(axes(a,1))) do o,ra
+    _arg_max_pairs_global(f,o,ra,init=init)
+  end
+  reduce(max,pairs,init=(init=>0)).second
+end
+
+function Base.argmin(f::Function,a::GenericPArray)
+  init = typemax(eltype(a))
+  pairs = map(own_values(a),partition(axes(a,1))) do o,ra
+    _arg_min_pairs_global(f,o,ra,init=init)
+  end
+  reduce(min,pairs,init=(init=>0)).second
 end
 
 function Base.collect(v::GenericPArray)
@@ -201,9 +217,9 @@ function Base.collect(v::GenericPArray)
   ids = gather(own_to_global_v,destination=:all)
   n = length(v)
   T = eltype(v)
-  map(vals,ids) do myvals,myids
+  map(vals,ids) do val,id
     u = Vector{T}(undef,n)
-    for (a,b) in zip(myvals,myids)
+    for (a,b) in zip(val,id)
       u[b] = a
     end
     u
@@ -295,9 +311,7 @@ end
 
 function Base.:*(at::Adjoint{T,<:GenericPMatrix} where T,b::GenericPVector)
   a = at.parent
-  G = map(partition(a),partition(b),partition(axes(a,1)),partition(axes(b,1))) do la,lb,ra,rb
-    ao = view(la,own_to_local(ra),:)
-    bo = view(lb,own_to_local(rb))
+  G = map(own_values(a),own_values(b)) do ao,bo
     ao'*bo
   end
   reduce(+,G)
@@ -305,26 +319,24 @@ end
 
 function Base.:*(at::Adjoint{T,<:GenericPMatrix} where T,b::GenericPMatrix)
   a = at.parent
-  G = map(partition(a),partition(b),partition(axes(a,1)),partition(axes(b,1))) do la,lb,ra,rb
-    ao = view(la,own_to_local(ra),:)
-    bo = view(lb,own_to_local(rb),:)
+  G = map(own_values(a),own_values(b)) do ao,bo
     ao'*bo
   end
   reduce(+,G)
 end
 
-function _with_ghost_structure(b::GenericPArray{V,A,B,C,D,T,N}, new_idx_partition) where {V,A,B,C,D,T,N}
-  new_parts = map(partition(b), new_idx_partition, partition(axes(b,1))) do lb, ra, rb
-    n_local = local_length(ra)
-    new_lb = N == 1 ? similar(lb, n_local) : similar(lb, n_local, size(lb,2))
-    if N == 1
-      new_lb[own_to_local(ra)] .= lb[own_to_local(rb)]
-    else
-      new_lb[own_to_local(ra),:] .= lb[own_to_local(rb),:]
+function _with_ghost_structure(b::GenericPArray,new_idx_partition)
+  N = ndims(b)
+  usizes = map(length,b.unpartitioned_axes) 
+  new_parts = map(own_values(b),new_idx_partition) do bo,ra
+    nl = local_length(ra)
+    new_lb = similar(bo,(nl,usizes...))
+    @views begin
+      new_lb[own_to_local(ra),_ncolons(Val{N-1}())...] .= bo
     end
     new_lb
   end
-  GenericPArray(new_parts, new_idx_partition, b.unpartitioned_axes)
+  GenericPArray(new_parts,new_idx_partition,b.unpartitioned_axes)
 end
 
 function LinearAlgebra.mul!(
@@ -340,14 +352,14 @@ function LinearAlgebra.mul!(
   # Ghost DOF orderings may differ between a's col partition and b's row partition
   # (same DOF set, different discovery order). Reconcile b to a's ghost structure.
   if !PartitionedArrays.matching_ghost_indices(axes(a,2),axes(b,1))
-    b = _with_ghost_structure(b, partition(axes(a,2)))
+    b = _with_ghost_structure(b,partition(axes(a,2)))
   end
   # Start the exchange
   t = consistent!(b)
   # Meanwhile, process the owned blocks
   map(own_values(c),own_values(a),own_values(b)) do co,aoo,bo
     if β != 1
-      β != 0 ? rmul!(co, β) : fill!(co,zero(eltype(co)))
+      β != 0 ? rmul!(co,β) : fill!(co,zero(eltype(co)))
     end
     mul!(co,aoo,bo,α,1)
   end
@@ -370,9 +382,7 @@ function LinearAlgebra.mul!(
 
   t = consistent!(b)
   wait(t)
-  map(partition(c),partition(a),partition(b),partition(axes(a,1)),partition(axes(c,1))) do lc,la,lb,ra,rc
-    ao = view(la,own_to_local(ra),:)
-    co = view(lc,own_to_local(rc))
+  map(own_values(c),own_values(a),partition(b)) do co,ao,lb
     if β != 1
       β != 0 ? rmul!(co,β) : fill!(co,zero(eltype(co)))
     end
@@ -391,9 +401,7 @@ function LinearAlgebra.mul!(
 
   t = consistent!(b)
   wait(t)
-  map(partition(c),partition(a),partition(b),partition(axes(a,1)),partition(axes(c,1))) do lc,la,lb,ra,rc
-    ao = view(la,own_to_local(ra),:)
-    co = view(lc,own_to_local(rc),:)
+  map(own_values(c),own_values(a),partition(b)) do co,ao,lb
     if β != 1
       β != 0 ? rmul!(co,β) : fill!(co,zero(eltype(co)))
     end
@@ -410,9 +418,7 @@ function LinearAlgebra.mul!(
   β::Number
   )
 
-  map(partition(c),partition(a),partition(axes(a,1))) do lc,la,ra
-    co = view(lc,own_to_local(ra))
-    ao = view(la,own_to_local(ra),:)
+  map(own_values(c),own_values(a)) do co,ao
     mul!(co,ao,b,α,β)
   end
   c
@@ -426,9 +432,7 @@ function LinearAlgebra.mul!(
   β::Number
   )
 
-  map(partition(c),partition(a),partition(axes(a,1))) do lc,la,ra
-    co = view(lc,own_to_local(ra),:)
-    ao = view(la,own_to_local(ra),:)
+  map(own_values(c),own_values(a)) do co,ao
     mul!(co,ao,b,α,β)
   end
   c
@@ -468,4 +472,60 @@ end
 
 function PartitionedArrays.ghost_values(a::ConsecutiveParamArray,indices)
   ConsecutiveParamArray(ghost_values(a.data,indices))
+end
+
+# utils 
+ 
+function _arg_min_pairs(f,v;init=typemax(eltype(v)))
+  local min_ind
+  min_val = init
+  for (i,val) in enumerate(v)
+    fv = f(val)
+    if fv < min_val
+      min_val = fv
+      min_ind = i
+    end
+  end
+  return min_val => min_ind
+end
+
+function _arg_max_pairs(f,v;init=typemin(eltype(v)))
+  local max_ind
+  max_val = init
+  for (i,val) in enumerate(v)
+    fv = f(val)
+    if fv > max_val
+      max_val = fv
+      max_ind = i
+    end
+  end
+  return max_val => max_ind
+end
+
+function _arg_min_pairs_global(f,v,ra;init=typemax(eltype(v)))
+  min_owned = 0
+  min_val = init
+  for (i,val) in enumerate(v)
+    fv = f(val)
+    if fv < min_val
+      min_val = fv
+      min_owned = i
+    end
+  end
+  gi = min_owned > 0 ? own_to_global(ra)[min_owned] : 0
+  return min_val => gi
+end
+
+function _arg_max_pairs_global(f,v,ra;init=typemin(eltype(v)))
+  max_owned = 0
+  max_val = init
+  for (i,val) in enumerate(v)
+    fv = f(val)
+    if fv > max_val
+      max_val = fv
+      max_owned = i
+    end
+  end
+  gi = max_owned > 0 ? own_to_global(ra)[max_owned] : 0
+  return max_val => gi
 end

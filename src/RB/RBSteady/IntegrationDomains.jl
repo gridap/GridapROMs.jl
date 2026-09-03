@@ -5,7 +5,7 @@ function DEIM(basis::AbstractMatrix{T}) where T
   basisI = zeros(T,n,n)
   @inbounds @views begin
     @. res = basis[:,1]
-    I[1] = argmax(abs.(res))
+    I[1] = argmax(abs,res)
     basisI[1,:] = basis[I[1],:]
     for l = 2:n
       U = basis[:,1:l-1]
@@ -16,7 +16,7 @@ function DEIM(basis::AbstractMatrix{T}) where T
       c = vec(PᵀU \ Pᵀuₗ)
       mul!(res,U,c)
       @. res = uₗ - res
-      I[l] = argmax(abs.(res))
+      I[l] = argmax(abs,res)
       basisI[l,:] = basis[I[l],:]
     end
   end
@@ -28,7 +28,7 @@ function SOPT(basis::AbstractMatrix{T}) where T
   I = zeros(Int,n)
   basisI = zeros(T,n,n)
   @inbounds @views begin
-    I[1] = argmax(abs.(basis[:,1]))
+    I[1] = argmax(abs,basis[:,1])
     basisI[1,:] = basis[I[1],:]
     for l in 2:n
       U = basis[:,1:l]

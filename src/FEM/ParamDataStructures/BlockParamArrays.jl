@@ -267,12 +267,12 @@ function LinearAlgebra.axpy!(α::Number,A::BlockParamArray,B::BlockParamArray)
   return B
 end
 
-function LinearAlgebra.norm(A::BlockParamArray)
+function LinearAlgebra.norm(A::BlockParamArray,p::Real=2)
   n = zeros(param_length(A))
   for b in blocks(A)
-    n .+= norm(b).^2
+    n .+= norm(b,p).^p
   end
-  return sqrt.(n)
+  return n.^(1/p)
 end
 
 function get_param_entry!(v::BlockVector,A::BlockParamArray,i...)

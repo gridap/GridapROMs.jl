@@ -59,8 +59,8 @@ function LinearAlgebra.axpy!(α::Number,a::HRParamArray,b::ParamArray)
   axpy!(α,a.hypred,b)
 end
 
-function LinearAlgebra.norm(a::HRParamArray)
-  norm(a.hypred)
+function LinearAlgebra.norm(a::HRParamArray,p::Real=2)
+  norm(a.hypred,p)
 end
 
 function Utils.change_domains(a::HRParamArray,trians)

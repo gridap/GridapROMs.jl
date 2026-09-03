@@ -186,8 +186,8 @@ function LinearAlgebra.dot(A::AbstractParamArray,B::AbstractParamArray)
   return map(dot,get_param_data(A),get_param_data(B))
 end
 
-function LinearAlgebra.norm(A::AbstractParamArray)
-  return map(norm,get_param_data(A))
+function LinearAlgebra.norm(A::AbstractParamArray,p::Real=2)
+  return map(x -> norm(x,p),get_param_data(A))
 end
 
 for factorization in (:LU,:Cholesky)

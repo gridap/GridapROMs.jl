@@ -38,10 +38,88 @@ function _weighted_mul(A,V,S)
     mul!(Uo,Ao,V)
     rdiv!(Uo,D)
   end
+  consistent!(U) |> fetch
   U
 end
 
+# integration domains
+
+function RBSteady.DEIM(basis::GenericPMatrix{T}) where T
+  n = size(basis,2)
+  I = zeros(Int,n)
+  basisI = zeros(T,n,n)
+  res = GenericPArray{Vector{T}}(undef,partition(axes(basis,1)))
+  map(own_values(res),own_values(basis)) do ro,bo
+    @. ro = bo[:,1]
+  end
+  I[1] = argmax(abs,res)
+  _from_submatrix!(basisI,basis,I,1)
+  for l = 2:n
+    PᵀU = view(basisI,1:l-1,1:l-1)
+    Pᵀuₗ = view(basisI,1:l-1,l)
+    c = vec(PᵀU \ Pᵀuₗ)
+    map(own_values(res),own_values(basis)) do ro,bo
+      @. ro = bo[:,l]
+      mul!(ro,view(bo,:,1:l-1),c,-1.0,1.0)
+    end
+    I[l] = argmax(abs,res)
+    _from_submatrix!(basisI,basis,I,l)
+  end
+  return I,basisI
+end
+
+function RBSteady.SOPT(basis::GenericPMatrix{T}) where T
+  n = size(basis,2)
+  I = zeros(Int,n)
+  basisI = zeros(T,n,n)
+  res = GenericPArray{Vector{T}}(undef,partition(axes(basis,1)))
+  map(own_values(res),own_values(basis)) do ro,bo
+    @. ro = bo[:,1]
+  end
+  I[1] = argmax(abs,res)
+  _from_submatrix!(basisI,basis,I,1)
+  for l in 2:n
+    P = I[1:l-1]
+    basisI_P = view(basisI,1:l-1,:)
+    G_P = basisI_P'*basisI_P
+    colnorms2 = vec(sum(abs2,basisI_P;dims=1))
+    Il = _best_s_opt_index(basis,P,G_P,colnorms2,n)
+    @check Il > 0
+    I[l] = Il
+    _from_submatrix!(basisI,basis,I,l)
+  end
+  return I,basisI
+end
+
+function _best_s_opt_index(basis::GenericPMatrix,P,G_P,colnorms2,n)
+  best_pairs = map(own_values(basis),partition(axes(basis,1))) do bo,ra
+    best_logS = -Inf
+    best_gi = 0
+    for oi in axes(bo,1)
+      gi = own_to_global(ra)[oi]
+      gi ∈ P && continue
+      q = view(bo,oi,:)
+      G = G_P + q*q'
+      logdet_plus = robust_logdet(G)
+      colnorms2_plus = colnorms2 .+ abs2.(q)
+      logS = (0.5/n)*(logdet_plus - sum(log,colnorms2_plus))
+      if logS > best_logS
+        best_logS = logS
+        best_gi = gi
+      end
+    end
+    best_logS => best_gi
+  end
+  return reduce(max,best_pairs,init=(-Inf=>0)).second
+end
+
 # projections
+
+PartitionedArrays.partition(a::Projection) = partition(get_basis(a))
+PartitionedArrays.local_values(a::Projection) = local_values(get_basis(a))
+PartitionedArrays.own_values(a::Projection) = own_values(get_basis(a))
+PartitionedArrays.ghost_values(a::Projection) = ghost_values(get_basis(a))
+PartitionedArrays.consistent!(a::Projection) = consistent!(get_basis(a))
 
 struct DistributedPODProjection <: Projection
   basis::AbstractMatrix
@@ -79,8 +157,6 @@ function RBSteady.union_bases(a::DistributedPODProjection,basis_b::AbstractMatri
 end
 
 function RBSteady.galerkin_projection(a::DistributedPODProjection,b::DistributedPODProjection)
-  # consistent!(a) |> fetch; a should already be consistent
-  consistent!(b) |> fetch 
   lb̂ = map(own_values(a),own_values(b)) do ao,bo
     galerkin_projection(ao,bo)
   end
@@ -89,9 +165,6 @@ function RBSteady.galerkin_projection(a::DistributedPODProjection,b::Distributed
 end
 
 function RBSteady.galerkin_projection(a::DistributedPODProjection,b::DistributedPODProjection,c::DistributedPODProjection,args...)
-  # consistent!(a) |> fetch; a should already be consistent
-  # consistent!(c) |> fetch; c should already be consistent
-  consistent!(b) |> fetch
   lb̂ = map(own_values(a),own_values(b),own_values(c)) do ao,bo,co
     galerkin_projection(ao,bo,co,args...)
   end
@@ -105,11 +178,6 @@ function RBSteady._allocate_projection(red::Reduction,s::DistributedBlockSnapsho
   BlockProjection(block_basis,s.touched)
 end
 
-PartitionedArrays.partition(a::Projection) = partition(get_basis(a))
-PartitionedArrays.local_values(a::Projection) = local_values(get_basis(a))
-PartitionedArrays.own_values(a::Projection) = own_values(get_basis(a))
-PartitionedArrays.ghost_values(a::Projection) = ghost_values(get_basis(a))
-
 function GridapDistributed.local_views(a::DistributedPODProjection)
   map(local_views(a.basis)) do basis
     PODProjection(basis)
@@ -121,9 +189,6 @@ function GridapDistributed.local_views(a::NormedProjection)
     NormedProjection(proj,norm)
   end
 end
-
-PartitionedArrays.consistent!(a::DistributedPODProjection) = consistent!(a.basis)
-PartitionedArrays.consistent!(a::NormedProjection) = consistent!(a.projection)
 
 # reduced basis spaces
 
@@ -221,4 +286,42 @@ function RBSteady.Interpolation(
     Interpolation(red,bi,si)
   end
   DistributedInterpolation(interps)
+end
+
+# utils 
+
+function submatrix(a::GenericPMatrix,global_rows,global_cols)
+  map(own_values(a),partition(axes(a,1))) do values,ra
+    g2o = global_to_own(ra)
+    own_rows = filter(>(0),g2o[global_rows])
+    view(values,own_rows,global_cols)
+  end
+end
+
+function submatrix(a::GenericPMatrix,::Colon,global_cols)
+  new_parts = map(partition(a)) do values
+    view(values,:,global_cols)
+  end
+  GenericPArray(new_parts,partition(axes(a,1)))
+end
+
+function _subfill!(a::AbstractVector,b::AbstractVector,ia,ib)
+  a[ia] = b[ib]
+end
+
+function _subfill!(a::AbstractMatrix,b::AbstractMatrix,ia,ib)
+  @check size(a,2) == size(b,2)
+  @inbounds for k in axes(a,2)
+    a[ia,k] = b[ib,k]
+  end
+end
+
+function _from_submatrix!(aI,a,I,l)
+  map(own_values(a),partition(axes(a,1))) do oa,ra
+    g2o = global_to_own(ra)
+    for k in l 
+      or = g2o[I[k]]
+      or > 0 && _subfill!(aI,oa,k,or)
+    end
+  end
 end
