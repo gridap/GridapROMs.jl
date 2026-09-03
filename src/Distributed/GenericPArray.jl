@@ -197,17 +197,17 @@ end
 function Base.argmax(f::Function,a::GenericPArray)
   init = typemin(eltype(a))
   pairs = map(own_values(a),partition(axes(a,1))) do o,ra
-    _arg_max_pairs_global(f,o,ra,init=init)
+    _arg_max_pairs(f,o,ra,init=init)
   end
-  reduce(max,pairs,init=(init=>0)).second
+  second(reduce(max,pairs,init=(init=>0)))
 end
 
 function Base.argmin(f::Function,a::GenericPArray)
   init = typemax(eltype(a))
   pairs = map(own_values(a),partition(axes(a,1))) do o,ra
-    _arg_min_pairs_global(f,o,ra,init=init)
+    _arg_min_pairs(f,o,ra,init=init)
   end
-  reduce(min,pairs,init=(init=>0)).second
+  second(reduce(min,pairs,init=(init=>0)))
 end
 
 function Base.collect(v::GenericPArray)
@@ -475,35 +475,11 @@ function PartitionedArrays.ghost_values(a::ConsecutiveParamArray,indices)
 end
 
 # utils 
- 
-function _arg_min_pairs(f,v;init=typemax(eltype(v)))
-  local min_ind
-  min_val = init
-  for (i,val) in enumerate(v)
-    fv = f(val)
-    if fv < min_val
-      min_val = fv
-      min_ind = i
-    end
-  end
-  return min_val => min_ind
-end
 
-function _arg_max_pairs(f,v;init=typemin(eltype(v)))
-  local max_ind
-  max_val = init
-  for (i,val) in enumerate(v)
-    fv = f(val)
-    if fv > max_val
-      max_val = fv
-      max_ind = i
-    end
-  end
-  return max_val => max_ind
-end
+second(p::Pairs) = p.second
 
-function _arg_min_pairs_global(f,v,ra;init=typemax(eltype(v)))
-  min_owned = 0
+function _arg_min_pairs(f,v,ra;init=typemax(eltype(v)))
+  local min_owned
   min_val = init
   for (i,val) in enumerate(v)
     fv = f(val)
@@ -512,12 +488,12 @@ function _arg_min_pairs_global(f,v,ra;init=typemax(eltype(v)))
       min_owned = i
     end
   end
-  gi = min_owned > 0 ? own_to_global(ra)[min_owned] : 0
+  gi = own_to_global(ra)[min_owned]
   return min_val => gi
 end
 
-function _arg_max_pairs_global(f,v,ra;init=typemin(eltype(v)))
-  max_owned = 0
+function _arg_max_pairs(f,v,ra;init=typemin(eltype(v)))
+  local max_owned
   max_val = init
   for (i,val) in enumerate(v)
     fv = f(val)
@@ -526,6 +502,6 @@ function _arg_max_pairs_global(f,v,ra;init=typemin(eltype(v)))
       max_owned = i
     end
   end
-  gi = max_owned > 0 ? own_to_global(ra)[max_owned] : 0
+  gi = own_to_global(ra)[max_owned]
   return max_val => gi
 end

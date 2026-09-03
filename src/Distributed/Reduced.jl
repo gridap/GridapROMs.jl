@@ -47,12 +47,14 @@ end
 function RBSteady.DEIM(basis::GenericPMatrix{T}) where T
   n = size(basis,2)
   I = zeros(Int,n)
+  I_local = map(_ -> Int[],partition(axes(basis,1)))
   basisI = zeros(T,n,n)
   res = GenericPArray{Vector{T}}(undef,partition(axes(basis,1)))
   map(own_values(res),own_values(basis)) do ro,bo
     @. ro = bo[:,1]
   end
   I[1] = argmax(abs,res)
+  _push_to_local!(I_local,I[1],partition(axes(basis,1)))
   _from_submatrix!(basisI,basis,I,1)
   for l = 2:n
     PᵀU = view(basisI,1:l-1,1:l-1)
@@ -63,32 +65,36 @@ function RBSteady.DEIM(basis::GenericPMatrix{T}) where T
       mul!(ro,view(bo,:,1:l-1),c,-1.0,1.0)
     end
     I[l] = argmax(abs,res)
+    _push_to_local!(I_local,I[l],partition(axes(basis,1)))
     _from_submatrix!(basisI,basis,I,l)
   end
-  return I,basisI
+  return I_local,basisI
 end
 
 function RBSteady.SOPT(basis::GenericPMatrix{T}) where T
   n = size(basis,2)
   I = zeros(Int,n)
+  I_local = map(_ -> Int[],partition(axes(basis,1)))
   basisI = zeros(T,n,n)
-  b = GenericPArray{Vector{T}}(undef,partition(axes(basis,1)))
-  map(own_values(b),own_values(basis)) do ro,bo
+  res = GenericPArray{Vector{T}}(undef,partition(axes(basis,1)))
+  map(own_values(res),own_values(basis)) do ro,bo
     @. ro = bo[:,1]
   end
-  I[1] = argmax(abs,b)
+  I[1] = argmax(abs,res)
+  _push_to_local!(I_local,I[1],partition(axes(basis,1)))
   _from_submatrix!(basisI,basis,I,1)
   for l in 2:n
     P = I[1:l-1]
-    PᵀU = view(basisI,1:l-1,:)
+    PᵀU = view(basisI,1:l-1,1:l)
     G = PᵀU'*PᵀU
     colnorms2 = vec(sum(abs2,PᵀU;dims=1))
-    Il = best_s_opt_index(basis,P,G,colnorms2,n)
+    Il = _best_s_opt_index(basis,P,G,colnorms2,l)
     @check Il > 0
     I[l] = Il
+    _push_to_local!(I_local,I[l],partition(axes(basis,1)))
     _from_submatrix!(basisI,basis,I,l)
   end
-  return I,basisI
+  return I_local,basisI
 end
 
 # projections
@@ -331,17 +337,24 @@ function _from_submatrix!(aI,a,I,l)
   end
 end
 
-function best_s_opt_index(basis::GenericPMatrix,P,G,colnorms2,n)
+function _push_to_local!(I_local,gi,idx_partition)
+  map(I_local,idx_partition) do li,ra
+    oi = global_to_own(ra)[gi]
+    oi > 0 && push!(li,oi)
+  end
+end
+
+function _best_s_opt_index(basis::GenericPMatrix,P,G,colnorms2,l)
   best_pairs = map(own_values(basis),partition(axes(basis,1))) do bo,ra
     best_logS = -Inf
     best_gi = 0
     for oi in axes(bo,1)
       gi = own_to_global(ra)[oi]
       gi ∈ P && continue
-      q = view(bo,oi,:)
+      q = view(bo,oi,1:l)
       logdet_plus = RBSteady.robust_logdet(G + q*q')
       colnorms2_plus = colnorms2 .+ abs2.(q)
-      logS = (0.5/n)*(logdet_plus - sum(log,colnorms2_plus))
+      logS = (0.5/l)*(logdet_plus - sum(log,colnorms2_plus))
       if logS > best_logS
         best_logS = logS
         best_gi = gi
@@ -349,5 +362,5 @@ function best_s_opt_index(basis::GenericPMatrix,P,G,colnorms2,n)
     end
     best_logS => best_gi
   end
-  return reduce(max,best_pairs,init=(-Inf=>0)).second
+  return second(reduce(max,best_pairs,init=(-Inf=>0)))
 end
