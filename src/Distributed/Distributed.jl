@@ -68,6 +68,7 @@ using GridapROMs.ParamFESpaces
 using GridapROMs.ParamSteady
 using GridapROMs.ParamODEs
 using GridapROMs.RBSteady
+using GridapROMs.RBTransient
 
 import ArraysOfArrays: innersize,_ncolons
 import BlockArrays: BlockVector,BlockMatrix,BlockArray,mortar,blocks

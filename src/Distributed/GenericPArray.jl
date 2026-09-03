@@ -434,6 +434,15 @@ function LinearAlgebra.mul!(
   c
 end
 
+function LinearAlgebra.axpy!(α,a::GenericPArray,b::GenericPArray)
+  @check partition(axes(a,1)) === partition(axes(b,1))
+  map(partition(a),partition(b)) do a,b
+    LinearAlgebra.axpy!(α,a,b)
+  end
+  consistent!(b) |> wait
+  return b
+end
+
 function Base.hcat(A::GenericPMatrix,B::GenericPMatrix)
   @boundscheck @assert PartitionedArrays.matching_own_indices(axes(A,1),axes(B,1))
   @check size(A,2) == size(B,2)

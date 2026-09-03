@@ -15,6 +15,13 @@ for T in (:GenericPMatrix,:DistributedSnapshots)
   end
 end
 
+function RBTransient.first_unfold(A::GenericPArray{T,3}) where T
+  values = map(local_values(A)) do A
+    RBTransient.first_unfold(A)
+  end
+  GenericPArray(values,row_partition(A))
+end
+
 function _method_of_snapshots_row(red_style::ReductionStyle,A,AA)
   _,Sr,Vr = RBSteady.truncated_svd(red_style,AA;issquare=true)
   Ur = _weighted_mul(A,Vr,Sr)
@@ -26,70 +33,84 @@ function _weighted_mul(A,V,S)
   Tv = eltype(V)
   T = typeof(zero(Ta)*zero(Tv)+zero(Ta)*zero(Tv))
   U = GenericPArray{Matrix{T}}(undef,row_partition(A),axes(V,2))
-  D = Diagonal(sqrt.(S).+eps())
+  D = Diagonal(S.+eps())
   map(own_values(U),own_values(A)) do Uo,Ao
-    mul!(Uo,Ao,V,one(T),zero(T))
+    mul!(Uo,Ao,V)
     rdiv!(Uo,D)
   end
-  consistent!(U) |> fetch
   U
 end
 
 # projections
 
-struct DistributedProjection <: Projection
+struct DistributedPODProjection <: Projection
   basis::AbstractMatrix
 end
 
-function RBSteady.Projection(basis::GenericPMatrix,s::DistributedSnapshots)
-  DistributedProjection(basis)
+function RBSteady.PODProjection(basis::GenericPMatrix)
+  DistributedPODProjection(basis)
 end
 
 function RBSteady.Projection(basis::GenericPMatrix,s::DistributedSparseSnapshots)
   basis′ = recast(basis,s)
-  DistributedProjection(basis′)
+  DistributedPODProjection(basis′)
 end
 
-RBSteady.get_basis(a::DistributedProjection) = a.basis
-row_partition(a::DistributedProjection) = row_partition(a.basis)
-col_partition(a::DistributedProjection) = col_partition(a.basis)
+function RBTransient.kron_projection(red::KroneckerReduction,s::DistributedSparseSnapshots,args...)
+  basis_space,basis_time = tucker(red.reductions,s,args...)
+  basis_space′ = recast(basis_space,s)
+  projection_space = PODProjection(basis_space′)
+  projection_time = PODProjection(basis_time)
+  return projection_space,projection_time
+end
 
-function RBSteady.union_bases(a::DistributedProjection,b::DistributedProjection,args...) 
+RBSteady.get_basis(a::DistributedPODProjection) = a.basis
+row_partition(a::DistributedPODProjection) = row_partition(a.basis)
+col_partition(a::DistributedPODProjection) = col_partition(a.basis)
+
+function RBSteady.union_bases(a::DistributedPODProjection,b::DistributedPODProjection,args...) 
   union_bases(a,get_basis(b),args...)
 end
 
-function RBSteady.union_bases(a::DistributedProjection,basis_b::AbstractMatrix,args...)
+function RBSteady.union_bases(a::DistributedPODProjection,basis_b::AbstractMatrix,args...)
   basis_a = get_basis(a)
   basis_ab = gram_schmidt(basis_b,basis_a,args...)
-  DistributedProjection(basis_ab)
+  DistributedPODProjection(basis_ab)
 end
 
-function RBSteady.galerkin_projection(a::DistributedProjection,b::DistributedProjection)
-  lb̂ = map(row_partition(a),local_views(a),local_views(b)) do ri,ai,bi
-    ao = view(get_basis(ai),own_to_local(ri),:)
-    bo = view(get_basis(bi),own_to_local(ri),:)
+function RBSteady.galerkin_projection(a::DistributedPODProjection,b::DistributedPODProjection)
+  # consistent!(a) |> fetch; a should already be consistent
+  consistent!(b) |> fetch 
+  lb̂ = map(own_values(a),own_values(b)) do ao,bo
     galerkin_projection(ao,bo)
   end
   b̂ = reduce(+,lb̂)
   return ReducedProjection(b̂)
 end
 
-function RBSteady.galerkin_projection(a::DistributedProjection,b::DistributedProjection,c::DistributedProjection,args...)
-  lb̂ = map(row_partition(a),local_views(a),local_views(b),local_views(c)) do ri,ai,bi,ci
-    ao = view(get_basis(ai),own_to_local(ri),:)
-    galerkin_projection(ao,get_basis(bi),get_basis(ci),args...)
+function RBSteady.galerkin_projection(a::DistributedPODProjection,b::DistributedPODProjection,c::DistributedPODProjection,args...)
+  # consistent!(a) |> fetch; a should already be consistent
+  # consistent!(c) |> fetch; c should already be consistent
+  consistent!(b) |> fetch
+  lb̂ = map(own_values(a),own_values(b),own_values(c)) do ao,bo,co
+    galerkin_projection(ao,bo,co,args...)
   end
   b̂ = reduce(+,lb̂)
   return ReducedProjection(b̂)
 end
 
 function RBSteady._allocate_projection(red::Reduction,s::DistributedBlockSnapshots{N}) where N
-  T = DistributedProjection
+  T = DistributedPODProjection
   block_basis = Array{T,N}(undef,size(s))
   BlockProjection(block_basis,s.touched)
 end
 
-function GridapDistributed.local_views(a::DistributedProjection)
+PartitionedArrays.partition(a::Projection) = partition(get_basis(a))
+PartitionedArrays.local_values(a::Projection) = local_values(get_basis(a))
+PartitionedArrays.own_values(a::Projection) = own_values(get_basis(a))
+PartitionedArrays.ghost_values(a::Projection) = ghost_values(get_basis(a))
+
+function GridapDistributed.local_views(a::DistributedPODProjection)
   map(local_views(a.basis)) do basis
     PODProjection(basis)
   end
@@ -100,6 +121,9 @@ function GridapDistributed.local_views(a::NormedProjection)
     NormedProjection(proj,norm)
   end
 end
+
+PartitionedArrays.consistent!(a::DistributedPODProjection) = consistent!(a.basis)
+PartitionedArrays.consistent!(a::NormedProjection) = consistent!(a.projection)
 
 # reduced basis spaces
 
@@ -150,7 +174,7 @@ for (T,f) in zip((:DEIMHyperReduction,:SOPTHyperReduction),(:DEIM,:SOPT))
   @eval begin
     function RBSteady.Interpolation(
       red::$T,
-      basis::DistributedProjection,
+      basis::DistributedPODProjection,
       trian::DistributedTriangulation,
       test::DistributedRBSpace
       )
@@ -166,7 +190,7 @@ for (T,f) in zip((:DEIMHyperReduction,:SOPTHyperReduction),(:DEIM,:SOPT))
 
     function RBSteady.Interpolation(
       red::$T,
-      basis::DistributedProjection,
+      basis::DistributedPODProjection,
       trian::DistributedTriangulation,
       trial::DistributedRBSpace,
       test::DistributedRBSpace
@@ -189,7 +213,7 @@ end
 
 function RBSteady.Interpolation(
   red::RBFHyperReduction,
-  basis::DistributedProjection,
+  basis::DistributedPODProjection,
   s::DistributedSnapshots
   )
 

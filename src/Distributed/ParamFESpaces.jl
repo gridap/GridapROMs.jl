@@ -242,23 +242,20 @@ end
 
 #TODO local arrays have own rows but local (own+ghost) DOFs in the spaces, so sizes don't match.
 function DofMaps.get_dof_map(f::DistributedFESpace,b::PVector)
-  map(local_views(f),local_views(b)) do f,b
+  map(local_views(f),own_values(b)) do f,b
     VectorDofMap(length(b))
   end
 end
 
 #TODO local arrays have own rows but local (own+ghost) DOFs in the spaces, so sizes don't match.
-#TODO improve efficiency, and this works only for CSC format
 function DofMaps.get_sparse_dof_map(
   trial::DistributedFESpace,
   test::DistributedFESpace,
   A::PSparseMatrix
   )
 
-  map(local_views(trial),local_views(test),local_views(A),local_views(A.row_partition)) do trial,test,Aloc,lrows
-    own_rows = own_to_local(lrows)
-    Aloc_own = testitem(Aloc)[own_rows,:]
-    get_sparse_dof_map(SparsityPattern(Aloc_own),trial,test)
+  map(local_views(trial),local_views(test),own_values(A)) do trial,test,Ao
+    get_sparse_dof_map(SparsityPattern(Ao),trial,test)
   end
 end
 
