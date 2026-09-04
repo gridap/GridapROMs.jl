@@ -39,7 +39,7 @@ end
 
 get_all_data(A::ParamSparseMatrix) = @abstractmethod
 
-SparseArrays.findnz(A::ParamSparseMatrix) = findnz(param_getindex(A,1))
+SparseArrays.findnz(A::ParamSparseMatrix) = findnz(testitem(A))
 
 function LinearAlgebra.fillstored!(A::ParamSparseMatrix,b::Number)
   fill!(get_all_data(A),b)

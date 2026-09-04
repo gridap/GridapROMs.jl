@@ -74,6 +74,13 @@ function DofMaps.get_dof_map(s::DistributedSnapshots)
   end
 end
 
+function DofMaps.flatten(s::DistributedSnapshots)
+  data = map(local_values(s)) do s
+    flatten(s)
+  end
+  GenericPArray(data,row_partition(s))
+end
+
 function ParamDataStructures.select_snapshots(s::DistributedSnapshots,pindex)
   data = map(local_values(s)) do s
     select_snapshots(s,pindex)

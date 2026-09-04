@@ -79,7 +79,7 @@ for f in (:DEIM,:SOPT)
   @eval begin
     function $f(A::ParamSparseMatrix)
       I,AI = $f(A.data)
-      R′,C′ = recast_split_indices(I,param_getindex(A,1))
+      R′,C′ = recast_split_indices(I,testitem(A))
       return (R′,C′),AI
     end
   end
@@ -161,6 +161,7 @@ function Arrays.evaluate!(cache,k::CellsToIrowsMap,icell::Int)
 end
 
 function get_cells_to_irows(cell_row_ids,cells,rows)
+  isempty(cells) && return Fill(Int32[],0)
   k = CellsToIrowsMap(cell_row_ids,cells,rows)
   lazy_map(k,1:length(cells))
 end
@@ -193,6 +194,7 @@ function Arrays.evaluate!(cache,k::CellsToIrowcolsMap,icell::Int)
 end
 
 function get_cells_to_irowcols(cell_row_ids,cell_col_ids,cells,rows,cols)
+  isempty(cells) && return Fill(Int32[],0)
   k = CellsToIrowcolsMap(cell_row_ids,cell_col_ids,cells,rows,cols)
   lazy_map(k,1:length(cells))
 end

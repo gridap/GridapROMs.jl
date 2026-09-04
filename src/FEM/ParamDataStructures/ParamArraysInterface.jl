@@ -84,7 +84,7 @@ param_getindex(A::AbstractParamArray{T,N},i::Integer) where {T,N} = getindex(A,t
 param_setindex!(A::AbstractParamArray{T,N},v,i::Integer) where {T,N} = setindex!(A,v,tfill(i,Val{N}())...)
 param_getindex!(cache,A::AbstractParamArray,i::Integer) = copyto!(cache,param_getindex(A,i))
 
-innersize(A) = size(param_getindex(A,1))
+innersize(A) = size(testitem(A))
 
 """
     innerlength(A) -> Int

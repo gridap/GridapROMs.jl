@@ -476,7 +476,7 @@ end
 
 # utils 
 
-second(p::Pairs) = p.second
+second(p::Pair) = p.second
 
 function _arg_min_pairs(f,v,ra;init=typemax(eltype(v)))
   local min_owned

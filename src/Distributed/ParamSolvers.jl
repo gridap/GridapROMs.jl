@@ -8,8 +8,8 @@ function Algebra.solve!(
   b::AbstractParamPVector
   )
 
-  A_item = param_getindex(A,1)
-  x_item = param_getindex(x,1)
+  A_item = testitem(A)
+  x_item = testitem(x)
   ss = symbolic_setup(ls,A_item)
   ns = numerical_setup(ss,A_item,x_item)
   solve!(x,ns,A,b)

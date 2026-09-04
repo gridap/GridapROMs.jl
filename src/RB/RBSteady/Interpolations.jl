@@ -188,7 +188,7 @@ function FESpaces.interpolate!(
   end
 end
 
-function get_at_domain(s::Snapshots,rows::AbstractVector{<:Integer})
+function get_at_domain(s::Snapshots,rows::AbstractVector)
   data = flatten(s)
   get_at_domain(data,rows)
 end
@@ -200,7 +200,7 @@ function get_at_domain(s::SparseSnapshots,rowscols::Tuple)
   get_at_domain(s,inds)
 end
 
-function get_at_domain(data::AbstractArray,rows::AbstractVector{<:Integer})
+function get_at_domain(data::AbstractArray,rows::AbstractVector)
   datav = view(data,rows,:)
   ConsecutiveParamArray(datav)
 end
