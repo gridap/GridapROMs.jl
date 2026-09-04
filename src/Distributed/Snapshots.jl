@@ -309,6 +309,9 @@ function flat_row_partition(a::PSparseMatrix)
 end
 
 flat_row_partition(a) = row_partition(a)
+flat_row_partition(a::DistributedSnapshots) = flat_row_partition(a.snaps)
+flat_row_partition(a::GenericPArray) = flat_row_partition(a.index_partition)
+flat_row_partition(a::AbstractArray{<:NZIndexPartition}) = a
 
 row_partition(a) = a
 row_partition(a::PVector) = a.index_partition

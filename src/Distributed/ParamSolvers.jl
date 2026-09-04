@@ -1,6 +1,3 @@
-const AbstractParamPVector = Union{PVector{<:AbstractParamVector},BlockPArray{<:AbstractParamVector}}
-const AbstractParamPSparseMatrix = Union{PSparseMatrix{<:ParamSparseMatrix},BlockPArray{<:ParamSparseMatrix}}
-
 function Algebra.solve!(
   x::AbstractParamPVector,
   ls::LinearSolver,

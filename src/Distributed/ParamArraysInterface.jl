@@ -1,5 +1,11 @@
 # param utils
 
+const AbstractParamPVector = Union{PVector{<:AbstractParamVector},BlockPArray{<:AbstractParamVector}}
+const AbstractParamPSparseMatrix = Union{PSparseMatrix{<:ParamSparseMatrix},BlockPArray{<:ParamSparseMatrix}}
+
+Arrays.testitem(a::AbstractParamPVector) = param_getindex(a,1)
+Arrays.testitem(a::AbstractParamPSparseMatrix) = param_getindex(a,1)
+
 for T in (:PVector,:PSparseMatrix,:BlockPArray)
   @eval begin
     function ParamDataStructures.param_length(a::$T)

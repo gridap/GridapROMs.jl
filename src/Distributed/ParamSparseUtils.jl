@@ -137,6 +137,10 @@ end
 ParamDataStructures.param_length(A::ParamSubSparseMatrix) = param_length(A.parent)
 ParamDataStructures.innersize(a::ParamSubSparseMatrix) = map(length,a.indices)
 
+function ParamDataStructures.param_getindex(A::ParamSubSparseMatrix,i::Integer)
+  ParamSubSparseMatrix(param_getindex(A.parent,i),A.indices,A.inv_indices)
+end
+
 #TODO this works only for CSC format
 function ParamDataStructures.get_all_data(A::ParamSubSparseMatrix{T,<:ParamDataStructures.ParamSparseMatrixCSC}) where T
   parent_data = get_all_data(A.parent)

@@ -19,7 +19,7 @@ function RBTransient.first_unfold(A::GenericPArray{T,3}) where T
   values = map(local_values(A)) do A
     RBTransient.first_unfold(A)
   end
-  GenericPArray(values,row_partition(A))
+  GenericPArray(values,flat_row_partition(A))
 end
 
 function _method_of_snapshots_row(red_style::ReductionStyle,A,AA)
@@ -32,7 +32,7 @@ function _weighted_mul(A,V,S)
   Ta = eltype(A)
   Tv = eltype(V)
   T = typeof(zero(Ta)*zero(Tv)+zero(Ta)*zero(Tv))
-  U = GenericPArray{Matrix{T}}(undef,row_partition(A),axes(V,2))
+  U = GenericPArray{Matrix{T}}(undef,flat_row_partition(A),axes(V,2))
   D = Diagonal(S.+eps())
   map(own_values(U),own_values(A)) do Uo,Ao
     mul!(Uo,Ao,V)
@@ -40,134 +40,6 @@ function _weighted_mul(A,V,S)
   end
   consistent!(U) |> fetch
   U
-end
-
-# integration domains
-
-struct LocalRows{T,Ti} <: AbstractVector{T}
-  rows::Vector{T}
-  inds::Vector{Ti}
-end
-
-LocalRows() = LocalRows(Int[],Int[])
-
-Base.size(a::LocalRows) = size(a.rows)
-Base.IndexStyle(::Type{<:LocalRows}) = IndexLinear()
-Base.getindex(a::LocalRows,i::Int) = getindex(a.rows,i)
-Base.setindex!(a::LocalRows,v,i::Int) = setindex!(a.rows,v,i)
-
-function RBSteady.DEIM(basis::GenericPMatrix)
-  T = eltype(basis)
-  V = Vector{T}
-  n = size(basis,2)
-  I = zeros(Int,n)
-  parts = partition(axes(basis,1))
-  Iloc = map(_ -> LocalRows(),parts)
-  basisI = zeros(T,n,n)
-  res = GenericPArray{V}(undef,parts)
-  map(own_values(res),own_values(basis)) do ro,bo
-    @. ro = bo[:,1]
-  end
-  I[1] = argmax(abs,res)
-  _push_to_local!(Iloc,parts,I,1)
-  _from_submatrix!(basisI,basis,I,1)
-  for l = 2:n
-    PᵀU = view(basisI,1:l-1,1:l-1)
-    Pᵀuₗ = view(basisI,1:l-1,l)
-    c = vec(PᵀU \ Pᵀuₗ)
-    map(own_values(res),own_values(basis)) do ro,bo
-      @. ro = bo[:,l]
-      mul!(ro,view(bo,:,1:l-1),c,-1.0,1.0)
-    end
-    I[l] = argmax(abs,res)
-    _push_to_local!(Iloc,parts,I,l)
-    _from_submatrix!(basisI,basis,I,l)
-  end
-  return Iloc,basisI
-end
-
-function RBSteady.SOPT(basis::GenericPMatrix)
-  T = eltype(basis)
-  V = Vector{T}
-  n = size(basis,2)
-  I = zeros(Int,n)  
-  parts = partition(axes(basis,1))
-  Iloc = map(_ -> LocalRows(),parts)
-  basisI = zeros(T,n,n)
-  res = GenericPArray{V}(undef,parts)
-  map(own_values(res),own_values(basis)) do ro,bo
-    @. ro = bo[:,1]
-  end
-  I[1] = argmax(abs,res)
-  _push_to_local!(Iloc,parts,I,1)
-  _from_submatrix!(basisI,basis,I,1)
-  for l in 2:n
-    P = I[1:l-1]
-    PᵀU = view(basisI,1:l-1,1:l)
-    G = PᵀU'*PᵀU
-    colnorms2 = vec(sum(abs2,PᵀU;dims=1))
-    Il = _best_s_opt_index(basis,P,G,colnorms2,l)
-    @check Il > 0
-    I[l] = Il
-    _push_to_local!(Iloc,parts,I,l)
-    _from_submatrix!(basisI,basis,I,l)
-  end
-  return Iloc,basisI
-end
-
-for f in (:DEIM,:SOPT)
-  @eval begin
-    function RBSteady.$f(A::PSparseMatrix)
-      basis = GenericPArray(partition(A),partition(axes(A,1)))
-      I,AI = $f(basis)
-      R′,C′ = map(local_views(I),own_values(A)) do I,A
-        recast_split_indices(I,testitem(A))
-      end |> tuple_of_arrays
-      return (R′,C′),AI
-    end
-  end
-end
-
-struct DistributedIntegrationDomain{A} <: Interpolation
-  domains::A
-end
-
-GridapDistributed.local_views(a::DistributedIntegrationDomain) = local_views(a.domains)
-
-function RBSteady.IntegrationDomain(
-  trian::DistributedTriangulation,
-  test::DistributedRBSpace,
-  rows::AbstractArray{<:AbstractVector}
-  )
-
-  domains = map(
-    local_views(trian),
-    local_views(test),
-    local_views(rows)
-    ) do trian,test,rows
-    IntegrationDomain(trian,test,rows)
-  end
-  DistributedIntegrationDomain(domains)
-end
-
-function RBSteady.IntegrationDomain(
-  trian::DistributedTriangulation,
-  trial::DistributedRBSpace,
-  test::DistributedRBSpace,
-  rows::AbstractArray{<:AbstractVector},
-  cols::AbstractArray{<:AbstractVector}
-  )
-
-  domains = map(
-    local_views(trian),
-    local_views(trial),
-    local_views(test),
-    local_views(rows),
-    local_views(cols)
-    ) do trian,trial,test,rows,cols
-    IntegrationDomain(trian,trial,test,rows,cols)
-  end
-  DistributedIntegrationDomain(domains)
 end
 
 # projections
@@ -202,6 +74,7 @@ end
 RBSteady.get_basis(a::DistributedPODProjection) = a.basis
 row_partition(a::DistributedPODProjection) = row_partition(a.basis)
 col_partition(a::DistributedPODProjection) = col_partition(a.basis)
+flat_row_partition(a::DistributedPODProjection) = flat_row_partition(a.basis)
 
 function RBSteady.union_bases(a::DistributedPODProjection,b::DistributedPODProjection,args...) 
   union_bases(a,get_basis(b),args...)
@@ -257,6 +130,142 @@ function GridapDistributed.local_views(r::DistributedRBSpace)
   end
 end
 
+# integration domains
+
+struct LocalRows{T,Ti} <: AbstractVector{T}
+  rows::Vector{T}
+  inds::Vector{Ti}
+end
+
+LocalRows() = LocalRows(Int[],Int[])
+
+Base.size(a::LocalRows) = size(a.rows)
+Base.IndexStyle(::Type{<:LocalRows}) = IndexLinear()
+Base.getindex(a::LocalRows,i::Int) = getindex(a.rows,i)
+Base.setindex!(a::LocalRows,v,i::Int) = setindex!(a.rows,v,i)
+
+function RBSteady.DEIM(basis::GenericPMatrix)
+  T = eltype(basis)
+  n = size(basis,2)
+  I = zeros(Int,n)
+  parts = partition(axes(basis,1))
+  Iloc = map(_ -> LocalRows(),parts)
+  basisI = zeros(T,n,n)
+  res = GenericPArray{Vector{T}}(undef,parts)
+  map(own_values(res),own_values(basis)) do ro,bo
+    @. ro = bo[:,1]
+  end
+  I[1] = argmax(abs,res)
+  _push_to_local!(Iloc,parts,I,1)
+  _from_submatrix!(basisI,basis,I,1)
+  for l = 2:n
+    PᵀU = view(basisI,1:l-1,1:l-1)
+    Pᵀuₗ = view(basisI,1:l-1,l)
+    c = vec(PᵀU \ Pᵀuₗ)
+    map(own_values(res),own_values(basis)) do ro,bo
+      @. ro = bo[:,l]
+      mul!(ro,view(bo,:,1:l-1),c,-1.0,1.0)
+    end
+    I[l] = argmax(abs,res)
+    _push_to_local!(Iloc,parts,I,l)
+    _from_submatrix!(basisI,basis,I,l)
+  end
+  return Iloc,basisI
+end
+
+function RBSteady.SOPT(basis::GenericPMatrix)
+  T = eltype(basis)
+  n = size(basis,2)
+  I = zeros(Int,n)  
+  parts = partition(axes(basis,1))
+  Iloc = map(_ -> LocalRows(),parts)
+  basisI = zeros(T,n,n)
+  res = GenericPArray{Vector{T}}(undef,parts)
+  map(own_values(res),own_values(basis)) do ro,bo
+    @. ro = bo[:,1]
+  end
+  I[1] = argmax(abs,res)
+  _push_to_local!(Iloc,parts,I,1)
+  _from_submatrix!(basisI,basis,I,1)
+  for l in 2:n
+    P = I[1:l-1]
+    PᵀU = view(basisI,1:l-1,1:l)
+    G = PᵀU'*PᵀU
+    colnorms2 = vec(sum(abs2,PᵀU;dims=1))
+    Il = _best_s_opt_index(basis,P,G,colnorms2,l)
+    @check Il > 0
+    I[l] = Il
+    _push_to_local!(Iloc,parts,I,l)
+    _from_submatrix!(basisI,basis,I,l)
+  end
+  return Iloc,basisI
+end
+
+for f in (:DEIM,:SOPT)
+  @eval begin
+    function RBSteady.$f(A::PSparseMatrix)
+      basis = GenericPArray(partition(A),partition(axes(A,1)))
+      I,AI = $f(basis)
+      R′,C′ = map(local_views(I),own_values(A)) do I,A
+        recast_split_indices(I,testitem(A))
+      end |> tuple_of_arrays
+      return (R′,C′),AI
+    end
+  end
+end
+
+struct DistributedIntegrationDomain{A} <: IntegrationDomain
+  domains::A
+end
+
+GridapDistributed.local_views(a::DistributedIntegrationDomain) = local_views(a.domains)
+
+for f in (:get_integration_cells,:get_cell_idofs,:get_interpolation_dofs)
+  @eval begin
+    function RBSteady.$f(a::DistributedIntegrationDomain)
+      map(local_views(a)) do a
+        $f(a)
+      end
+    end
+  end
+end
+
+function RBSteady.IntegrationDomain(
+  trian::DistributedTriangulation,
+  test::DistributedRBSpace,
+  rows::AbstractArray{<:AbstractVector}
+  )
+
+  domains = map(
+    local_views(trian),
+    local_views(test),
+    local_views(rows)
+    ) do trian,test,rows
+    IntegrationDomain(trian,test,rows)
+  end
+  DistributedIntegrationDomain(domains)
+end
+
+function RBSteady.IntegrationDomain(
+  trian::DistributedTriangulation,
+  trial::DistributedRBSpace,
+  test::DistributedRBSpace,
+  rows::AbstractArray{<:AbstractVector},
+  cols::AbstractArray{<:AbstractVector}
+  )
+
+  domains = map(
+    local_views(trian),
+    local_views(trial),
+    local_views(test),
+    local_views(rows),
+    local_views(cols)
+    ) do trian,trial,test,rows,cols
+    IntegrationDomain(trian,trial,test,rows,cols)
+  end
+  DistributedIntegrationDomain(domains)
+end
+
 # hyper-reduction
 
 struct DistributedInterpolation{A} <: Interpolation
@@ -265,23 +274,26 @@ end
 
 GridapDistributed.local_views(a::DistributedInterpolation) = local_views(a.interps)
 
+for f in (:get_integration_cells,:get_cell_idofs,:get_interpolation_dofs)
+  @eval begin
+    function RBSteady.$f(a::DistributedInterpolation)
+      map(local_views(a)) do a
+        $f(a)
+      end
+    end
+  end
+end
+
 function RBSteady.reduced_triangulation(trian::DistributedTriangulation,a::HRProjection)
   reduced_triangulation(trian,get_interpolation(a))
 end
 
-function RBSteady.reduced_triangulation(trian::DistributedTriangulation,a::DistributedInterpolation)
-  model = get_background_model(trian)
-  trians = map(local_views(trian),local_views(a)) do ti,ai
-    reduced_triangulation(ti,ai)
+function RBSteady.reduced_triangulation(trian::DistributedTriangulation,a::Interpolation)
+  red_cells = get_integration_cells(a)
+  trians = map(local_views(trian),local_views(red_cells)) do ti,ci
+    ChildTriangulation(ti,ci)
   end
-  DistributedTriangulation(trians,model)
-end
-
-function RBSteady.reduced_triangulation(trian::DistributedTriangulation,a::EmptyInterpolation)
   model = get_background_model(trian)
-  trians = map(local_views(trian)) do ti
-    reduced_triangulation(ti,a)
-  end
   DistributedTriangulation(trians,model)
 end
 
@@ -362,10 +374,11 @@ function _from_submatrix!(aI,a,I,l)
 end
 
 function _push_to_local!(Iloc::AbstractArray{<:LocalRows},row_parts,I,l)
+  Il = I[l]
   map(Iloc,row_parts) do li,ri
-    oi = global_to_own(ri)[I[l]]
-    if oi > 0 
-      push!(li.rows,oi)
+    oi = global_to_own(ri)[Il]
+    if oi > 0
+      push!(li.rows,own_to_local(ri)[oi])
       push!(li.inds,l)
     end
   end

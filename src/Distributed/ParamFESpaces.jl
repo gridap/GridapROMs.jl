@@ -240,21 +240,34 @@ function DofMaps.get_sparse_dof_map(trial::DistributedFESpace,test::DistributedF
   end
 end
 
+function DofMaps._get_dof_map(f::DistributedFESpace,b::AbstractParamPVector)
+  DofMaps._get_dof_map(f,testitem(b))
+end
+
 #TODO local arrays have own rows but local (own+ghost) DOFs in the spaces, so sizes don't match.
-function DofMaps.get_dof_map(f::DistributedFESpace,b::PVector)
-  map(local_views(f),own_values(b)) do f,b
+function DofMaps._get_dof_map(f::DistributedFESpace,b::PVector)
+  map(local_views(f),local_views(b)) do f,b
     VectorDofMap(length(b))
   end
 end
 
+function DofMaps._get_sparse_dof_map(
+  trial::DistributedFESpace,
+  test::DistributedFESpace,
+  A::AbstractParamPSparseMatrix
+  )
+
+  DofMaps._get_sparse_dof_map(trial,test,testitem(A))
+end
+
 #TODO local arrays have own rows but local (own+ghost) DOFs in the spaces, so sizes don't match.
-function DofMaps.get_sparse_dof_map(
+function DofMaps._get_sparse_dof_map(
   trial::DistributedFESpace,
   test::DistributedFESpace,
   A::PSparseMatrix
   )
 
-  map(local_views(trial),local_views(test),own_values(A)) do trial,test,Ao
+  map(local_views(trial),local_views(test),local_views(A)) do trial,test,Ao
     get_sparse_dof_map(SparsityPattern(Ao),trial,test)
   end
 end

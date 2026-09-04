@@ -235,7 +235,6 @@ export FullInterpolation
 export GreedyInterpolation
 export RBFInterpolation
 export BlockInterpolation
-export move_interpolation
 include("Interpolations.jl")
 
 export HRProjection

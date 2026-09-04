@@ -37,11 +37,6 @@ function get_owned_icells(a::LocalInterpolation,cells::AbstractVector)
   return Table(data)
 end
 
-function move_interpolation(a::LocalInterpolation,args...)
-  interp = map(i -> move_interpolation(i,args...),local_vals(a))
-  return LocalInterpolation(interp,get_clusters(a))
-end
-
 struct LocalHRProjection <: HRProjection{Projection,HyperReduction}
   reductions::AbstractMatrix
   k::NTuple{2,KmeansResult}

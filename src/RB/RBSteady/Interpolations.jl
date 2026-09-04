@@ -5,7 +5,6 @@ Interpolation(args...) = @abstractmethod
 get_integration_cells(a::Interpolation) = Int32[]
 get_cell_idofs(a::Interpolation) = empty_table(Int,Int32,0)
 get_owned_icells(a::Interpolation) = collect(1:length(get_integration_cells(a)))
-move_interpolation(a::Interpolation,args...) = a
 get_interpolation_dofs(a::Interpolation) = @abstractmethod
 
 function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,x::Any)
@@ -81,11 +80,6 @@ get_interpolation_dofs(a::GreedyInterpolation) = get_interpolation_dofs(a.domain
 function FESpaces.interpolate!(cache::AbstractArray,a::GreedyInterpolation,b::AbstractArray)
   ldiv!(cache,a.interpolation,b)
   cache
-end
-
-function move_interpolation(a::GreedyInterpolation,args...)
-  domain = move_integration_domain(a.domain,args...)
-  GreedyInterpolation(a.interpolation,domain)
 end
 
 # RBF interpolation
@@ -281,30 +275,4 @@ function get_owned_icells(a::BlockInterpolation{N},cells::AbstractVector) where 
     end
   end
   return ArrayBlock(array,a.touched)
-end
-
-for T in (:MultiFieldFESpace,:MultiFieldRBSpace)
-  @eval begin
-    function move_interpolation(a::BlockInterpolation{N},test::$T,args...) where N
-      I = eltype(a.interp)
-      cache = Array{I,N}(undef,size(a))
-      for i in eachindex(a)
-        if a.touched[i]
-          cache[i] = move_interpolation(a.interp[i],test[i],args...)
-        end
-      end
-      return BlockInterpolation(cache,a.touched)
-    end
-
-    function move_interpolation(a::BlockInterpolation{N},trial::$T,test::$T,args...) where N
-      I = eltype(a.interp)
-      cache = Array{I,N}(undef,size(a))
-      for (i,j) in Iterators.product(axes(a)...)
-        if a.touched[i,j]
-          cache[i,j] = move_interpolation(a.interp[i,j],trial[j],test[i],args...)
-        end
-      end
-      return BlockInterpolation(cache,a.touched)
-    end
-  end
 end

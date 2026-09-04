@@ -68,10 +68,6 @@ function reduced_triangulation(trian::Triangulation,a::HRProjection)
   reduced_triangulation(trian,get_interpolation(a))
 end
 
-function move_interpolation(a::HRProjection,args...)
-  move_interpolation(get_interpolation(a),args...)
-end
-
 """
 """
 const NoHRProjection{A<:Projection} = HRProjection{A,<:NoHyperReduction}

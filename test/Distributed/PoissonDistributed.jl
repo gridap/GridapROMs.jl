@@ -154,6 +154,7 @@ parts = (2,2)
 trian = Ref{GridapDistributed.DistributedTriangulation}()
 snp = Ref{DistributedSnapshots}()
 ressnp = Ref{DistributedSnapshots}()
+jacsnp = Ref{DistributedSnapshots}()
 nrm = Ref{PSparseMatrix}()
 basis = Ref{AbstractMatrix}()
 rbspace = Ref{RBSpace}()
@@ -193,12 +194,12 @@ with_debug() do distribute
   feop[] = op
   red_trial,red_test = reduced_spaces(red,op,snaps)
   rbspace[] = red_test
-  # jacs = jacobian_snapshots(rbsolver,op,snaps)
-  # snp[] = jacs
+  jacs = jacobian_snapshots(rbsolver,op,snaps)
+  jacsnp[] = jacs
   ress = residual_snapshots(rbsolver,op,snaps)
   ressnp[] = ress
   # red_jac = reduced_jacobian(jac_red,red_trial,red_test,jacs)
-  red_res = reduced_residual(res_red,red_test,ress)
+  # red_res = reduced_residual(res_red,red_test,ress)
 end
 
 basis = projection(get_reduction(res_red),ressnp[])
