@@ -326,11 +326,12 @@ function RBSteady.get_at_domain(s::DistributedSparseSnapshots,rowscols::Tuple)
   get_at_domain(s,inds)
 end
 
-function RBSteady.get_at_domain(data::GenericPArray,rows::AbstractArray{<:LocalRows})
-  n = size(data,2)
+function RBSteady.get_at_domain(a::GenericPArray,rows::AbstractArray{<:LocalRows})
+  n = size(a,2)
   @check reduce(+,map(length,rows)) == n
-  datav = zeros(eltype(data),n,n)
-  map(own_values(data),local_views(rows)) do data,rows
+  datav = zeros(eltype(a),n,n)
+  map(local_values(a),row_partition(a),local_views(rows)) do data,rparts,rows
+    _to_local!(rows,global_to_local(rparts))
     if !isempty(rows.rows)
       for (vi,i) in zip(rows.rows,rows.inds)
         for k in axes(data,2)

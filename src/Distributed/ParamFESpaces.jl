@@ -267,7 +267,7 @@ function DofMaps._get_sparse_dof_map(
   A::PSparseMatrix
   )
 
-  map(local_views(trial),local_views(test),local_views(A)) do trial,test,Ao
+  map(local_views(trial),local_views(test),own_values(A)) do trial,test,Ao
     get_sparse_dof_map(SparsityPattern(Ao),trial,test)
   end
 end
