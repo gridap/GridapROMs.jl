@@ -236,11 +236,14 @@ function RBSteady.IntegrationDomain(
   rows::AbstractArray{<:AbstractVector}
   )
 
+  gids = get_free_dof_ids(test)
   domains = map(
     local_views(trian),
     local_views(test),
-    local_views(rows)
-    ) do trian,test,rows
+    local_views(rows),
+    local_views(gids)
+    ) do trian,test,rows,gids
+    _to_local!(rows,global_to_local(gids))
     IntegrationDomain(trian,test,rows)
   end
   DistributedIntegrationDomain(domains)
@@ -254,6 +257,8 @@ function RBSteady.IntegrationDomain(
   cols::AbstractArray{<:AbstractVector}
   )
 
+  cgids = get_free_dof_ids(trial)
+  rgids = get_free_dof_ids(test)
   domains = map(
     local_views(trian),
     local_views(trial),
@@ -261,6 +266,8 @@ function RBSteady.IntegrationDomain(
     local_views(rows),
     local_views(cols)
     ) do trian,trial,test,rows,cols
+    _to_local!(rows,global_to_local(rgids))
+    _to_local!(cols,global_to_local(cgids))
     IntegrationDomain(trian,trial,test,rows,cols)
   end
   DistributedIntegrationDomain(domains)
@@ -374,13 +381,19 @@ function _from_submatrix!(aI,a,I,l)
 end
 
 function _push_to_local!(Iloc::AbstractArray{<:LocalRows},row_parts,I,l)
-  Il = I[l]
+  gl = I[l]
   map(Iloc,row_parts) do li,ri
-    oi = global_to_own(ri)[Il]
-    if oi > 0
-      push!(li.rows,own_to_local(ri)[oi])
+    ol = global_to_own(ri)[gl]
+    if ol > 0
+      push!(li.rows,gl)
       push!(li.inds,l)
     end
+  end
+end
+
+function _to_local!(gids,g2l)
+  for (i,gi) in enumerate(gids)
+    gids[i] = g2l[gi]
   end
 end
 
