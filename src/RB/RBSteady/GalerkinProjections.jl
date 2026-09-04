@@ -24,7 +24,7 @@ end
 
 function galerkin_projection(
   basis_left::AbstractMatrix{S},
-  a::ParamSparseMatrix{T},
+  a::AbstractParamMatrix{T},
   basis_right::AbstractMatrix{S}
   ) where {T,S}
 

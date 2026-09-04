@@ -78,7 +78,7 @@ end
 for f in (:DEIM,:SOPT)
   @eval begin
     function $f(A::ParamSparseMatrix)
-      I,AI = $f(A.data)
+      I,AI = $f(get_all_data(A))
       R′,C′ = recast_split_indices(I,testitem(A))
       return (R′,C′),AI
     end

@@ -134,11 +134,12 @@ function PartitionedArrays.SubSparseMatrix(
   ParamSubSparseMatrix(parent,indices,inv_indices)
 end
 
+Base.size(A::ParamSubSparseMatrix) = (param_length(A),param_length(A))
 ParamDataStructures.param_length(A::ParamSubSparseMatrix) = param_length(A.parent)
 ParamDataStructures.innersize(a::ParamSubSparseMatrix) = map(length,a.indices)
 
 function ParamDataStructures.param_getindex(A::ParamSubSparseMatrix,i::Integer)
-  ParamSubSparseMatrix(param_getindex(A.parent,i),A.indices,A.inv_indices)
+  PartitionedArrays.SubSparseMatrix(param_getindex(A.parent,i),A.indices,A.inv_indices)
 end
 
 #TODO this works only for CSC format
@@ -147,14 +148,14 @@ function ParamDataStructures.get_all_data(A::ParamSubSparseMatrix{T,<:ParamDataS
   plength = param_length(A)
   inv_rows, = A.inv_indices
   rv = rowvals(A.parent)
-  nnz_own = count(p -> inv_rows[rv[p]] > 0,eachindex(rv))
-  data = similar(parent_data,nnz_own,plength)
-  own_idx = 0
+  nnz = count(p -> inv_rows[rv[p]] > 0,eachindex(rv))
+  data = similar(parent_data,nnz,plength)
+  idx = 0
   @inbounds for p in eachindex(rv)
     if inv_rows[rv[p]] > 0
-      own_idx += 1
+      idx += 1
       for k in 1:plength
-        data[own_idx,k] = parent_data[p,k]
+        data[idx,k] = parent_data[p,k]
       end
     end
   end
@@ -164,7 +165,7 @@ end
 Base.@propagate_inbounds function Base.getindex(A::ParamSubSparseMatrix{T},i::Integer,j::Integer) where T
   @boundscheck checkbounds(A,i...)
   if i == j
-    PartitionedArrays.SubSparseMatrix(param_getindex(A.parent,i),A.indices,A.inv_indices)
+    param_getindex(A,i)
   else
     fill(zero(T),innersize(A))
   end

@@ -204,8 +204,7 @@ end
 for f in (:DEIM,:SOPT)
   @eval begin
     function RBSteady.$f(A::PSparseMatrix)
-      basis = GenericPArray(partition(A),partition(axes(A,1)))
-      I,AI = $f(basis)
+      I,AI = $f(get_all_data(A))
       R′,C′ = map(local_views(I),own_values(A)) do I,A
         recast_split_indices(I,testitem(A))
       end |> tuple_of_arrays

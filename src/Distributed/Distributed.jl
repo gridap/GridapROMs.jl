@@ -96,6 +96,8 @@ include("ParamFESpaces.jl")
 
 include("ParamSolvers.jl")
 
+include("NZIndexPartitions.jl")
+
 export GenericPArray
 include("GenericPArray.jl")
 
