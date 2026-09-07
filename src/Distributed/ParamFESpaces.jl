@@ -178,20 +178,6 @@ function GridapDistributed.DistributedMultiFieldFEFunction(
   GridapDistributed.DistributedMultiFieldCellField(field_fe_fun,part_fe_fun,metadata)
 end
 
-function Utils.collect_cell_matrix_for_trian(
-  trial::DistributedFESpace,
-  test::DistributedFESpace,
-  a::GridapDistributed.DistributedDomainContribution,
-  trian::DistributedTriangulation
-  )
-
-  map(collect_cell_matrix_for_trian,
-    local_views(trial),
-    local_views(test),
-    local_views(a),
-    local_views(trian))
-end
-
 function FESpaces.SparseMatrixAssembler(
   trial::DistributedParamFESpace,
   test::DistributedFESpace,
@@ -244,7 +230,6 @@ function DofMaps._get_dof_map(f::DistributedFESpace,b::AbstractParamPVector)
   DofMaps._get_dof_map(f,testitem(b))
 end
 
-#TODO local arrays have own rows but local (own+ghost) DOFs in the spaces, so sizes don't match.
 function DofMaps._get_dof_map(f::DistributedFESpace,b::PVector)
   map(local_views(f),local_views(b)) do f,b
     VectorDofMap(length(b))
@@ -260,7 +245,6 @@ function DofMaps._get_sparse_dof_map(
   DofMaps._get_sparse_dof_map(trial,test,testitem(A))
 end
 
-#TODO local arrays have own rows but local (own+ghost) DOFs in the spaces, so sizes don't match.
 function DofMaps._get_sparse_dof_map(
   trial::DistributedFESpace,
   test::DistributedFESpace,
@@ -360,3 +344,31 @@ function ParamODEs._collect_solutions!(
 end
 
 Utils.get_polynomial_order(f::DistributedFESpace) = get_polynomial_order(getany(local_views(f)))
+
+function Utils.collect_cell_matrix_for_trian(
+  trial::DistributedFESpace,
+  test::DistributedFESpace,
+  a::DistributedDomainContribution,
+  strian::DistributedTriangulation
+  )
+
+  map(collect_cell_matrix_for_trian,
+    local_views(trial),
+    local_views(test),
+    local_views(a),
+    local_views(strian)
+  )
+end
+
+function Utils.collect_cell_vector_for_trian(
+  test::DistributedFESpace,
+  a::DistributedDomainContribution,
+  strian::DistributedTriangulation
+  )
+
+  map(collect_cell_vector_for_trian,
+    local_views(test),
+    local_views(a),
+    local_views(strian)
+  )
+end

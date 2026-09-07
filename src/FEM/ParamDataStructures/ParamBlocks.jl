@@ -13,7 +13,6 @@ abstract type ParamBlock{A} end
 Base.size(b::ParamBlock) = tfill(param_length(b),Val{ndims(b)}())
 Base.length(b::ParamBlock) = param_length(b)^ndims(b)
 Base.eltype(::Type{<:ParamBlock{A}}) where A = A
-Base.eltype(b::ParamBlock{A}) where A = A
 Base.ndims(b::ParamBlock{A}) where A = ndims(A)
 Base.ndims(::Type{<:ParamBlock{A}}) where A = ndims(A)
 Base.ndims(b::ParamBlock{<:Map}) = 0

@@ -10,13 +10,15 @@ the values can be accessed by indexing the corresponding triangulation.
 struct Contribution{V,T}
   values::Tuple{Vararg{V}}
   trians::Tuple{Vararg{T}}
-  function Contribution(values::Tuple{Vararg{V}},trians::Tuple{Vararg{T}}) where {V,T}
+  function Contribution(values::Tuple,trians::Tuple)
     @check length(values) == length(trians)
+    V = eltype(values)
+    T = eltype(trians)
     new{V,T}(values,trians)
   end
 end
 
-Contribution(v::V,t::T) where {V,T} = Contribution((v,),(t,))
+Contribution(v,t) = Contribution((v,),(t,))
 
 CellData.get_domains(a::Contribution) = a.trians
 
@@ -93,7 +95,6 @@ const VectorContribution{T} = ArrayContribution{T,1}
 """
 const MatrixContribution{T} = ArrayContribution{T,2}
 
-Base.eltype(::ArrayContribution{T}) where T = T
 Base.eltype(::Type{<:ArrayContribution{T}}) where T = T
 Base.ndims(::ArrayContribution{<:Any,N}) where N = N
 Base.ndims(::Type{<:ArrayContribution{<:Any,N}}) where N = N

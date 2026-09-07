@@ -20,8 +20,9 @@ function LinearAlgebra.qr!(A::GenericPMatrix,::NoPivot)
     τ[j] = τj
     _reflector_apply!(A,τj,j:m,j+1:n)
   end
-  consistent!(A) |> wait
-  return A
+  Q = _get_Q(A,τ,m,n)
+  R = _get_R(A,n)
+  return Q,R,piv
 end
 
 function LinearAlgebra.qr!(A::GenericPMatrix,::ColumnNorm)
@@ -40,8 +41,9 @@ function LinearAlgebra.qr!(A::GenericPMatrix,::ColumnNorm)
     τ[j] = τj
     _reflector_apply!(A,τj,j:m,j+1:n)
   end
-  consistent!(A) |> wait
-  return A
+  Q = _get_Q(A,τ,m,n)
+  R = _get_R(A,n)
+  return Q,R,piv
 end
 
 function RBTransient.first_unfold(A::GenericPArray{T,3}) where T
@@ -71,6 +73,38 @@ function _weighted_mul(A,V,S)
   end
   consistent!(U) |> fetch
   U
+end
+
+function _get_Q(A::GenericPMatrix,τ,m,n)
+  T = eltype(A)
+  Q_parts = map(partition(A)) do local_mat
+    zeros(T,size(local_mat,1),n)
+  end
+  Q = GenericPArray(Q_parts,A.index_partition)
+  for j in 1:n
+    _set_value_single!(Q,j,j,one(T))
+  end
+  for j in n:-1:1
+    _reflector_apply_cross!(Q,A,τ[j],j:m,j:n)
+  end
+  consistent!(Q) |> wait
+  Q
+end
+
+function _get_R(A::GenericPMatrix,n)
+  T = eltype(A)
+  parts = map(own_values(A),row_partition(A)) do vals,row_idxs
+    o2g = own_to_global(row_idxs)
+    R = zeros(T,n,n)
+    for (oi,gi) in enumerate(o2g)
+      gi > n && continue
+      for j in gi:n
+        R[gi,j] = vals[oi,j]
+      end
+    end
+    R
+  end
+  reduce(+,parts;init=zeros(T,n,n))
 end
 
 function _swapcols!(A,j,j′)
@@ -111,7 +145,7 @@ function _colnorm(A,rows,col)
   sqrt(reduce(+,contribs;init=zero(eltype(contribs))))
 end
 
-function _fetch_value(A,global_row,global_col)
+function _get_value(A,global_row,global_col)
   v = ()
   map(own_values(A),row_partition(A)) do vals,row_idxs
     g2o = global_to_own(row_idxs)
@@ -124,7 +158,7 @@ function _fetch_value(A,global_row,global_col)
   first(v)
 end
 
-function _set_value_single!(A,global_row,global_col,val)
+function _set_value!(A,val,global_row,global_col)
   map(own_values(A),row_partition(A)) do vals,row_idxs
     g2o = global_to_own(row_idxs)
     lr = g2o[global_row]
@@ -135,26 +169,13 @@ function _set_value_single!(A,global_row,global_col,val)
   A
 end
 
-function _set_values!(A,global_rows,global_col,global_vals)
-  map(own_values(A),row_partition(A)) do vals,row_idxs
-    g2o = global_to_own(row_idxs)
-    for global_row in global_rows
-      lr = g2o[global_row]
-      if lr > 0
-        vals[lr,global_col] = global_vals[global_row]
-      end
-    end
-  end
-  A
-end
-
-function _div_col_range!(A,rows,col,d)
+function _div_col_range!(A,val,rows,col)
   map(own_values(A),row_partition(A)) do vals,row_idxs
     o2g = own_to_global(row_idxs)
     for (oi,gi) in enumerate(o2g)
       gi < first(rows) && continue
       gi > last(rows) && continue
-      vals[oi,col] /= d
+      vals[oi,col] /= val
     end
   end
   A
@@ -164,16 +185,16 @@ function _reflector!(A,rows=1:size(A,1),col=1)
   n = length(rows)
   n == 0 && return zero(eltype(A))
   T = eltype(A)
-  ξ1 = _fetch_value(A,first(rows),col)
+  ξ1 = _get_value(A,first(rows),col)
   normu = _colnorm(A,rows,col)
   if iszero(normu)
     return zero(T)
   end
   ν = T(copysign(normu,real(ξ1)))
-  v1 = ξ1 + ν
-  τ = v1 / ν
-  _set_value_single!(A,first(rows),col,-ν)
-  n > 1 && _div_col_range!(A,rows[2:end],col,v1)
+  v = ξ1 + ν
+  τ = v / ν
+  _set_value!(A,-ν,first(rows),col)
+  n > 1 && _div_col_range!(A,v,rows[2:end],col)
   return τ
 end
 
@@ -224,4 +245,52 @@ function _reflector_apply!(A,τ,rows,cols)
     end
   end
   A
+end
+
+function _reflector_apply_cross!(Q::GenericPMatrix,A::GenericPMatrix,τ,rows,cols)
+  isempty(rows) && return Q
+  isempty(cols) && return Q
+  T = eltype(Q)
+  ncols = length(cols)
+  partial_w = map(own_values(Q),own_values(A),row_partition(Q)) do Qv,av,row_idxs
+    o2g = own_to_global(row_idxs)
+    g2o = global_to_own(row_idxs)
+    w = zeros(T,ncols)
+    lr1 = g2o[first(rows)]
+    if lr1 > 0
+      for (jj,k) in enumerate(cols)
+        w[jj] += Qv[lr1,k]
+      end
+    end
+    for (oi,gi) in enumerate(o2g)
+      gi <= first(rows) && continue
+      gi > last(rows) && continue
+      vi = conj(av[oi,first(rows)])
+      for (jj,k) in enumerate(cols)
+        w[jj] += vi * Qv[oi,k]
+      end
+    end
+    w
+  end
+  w = reduce(+,partial_w;init=zeros(T,ncols))
+  vAk = conj(τ) .* w
+  map(own_values(Q),own_values(A),row_partition(Q)) do Qv,av,row_idxs
+    o2g = own_to_global(row_idxs)
+    g2o = global_to_own(row_idxs)
+    lr1 = g2o[first(rows)]
+    if lr1 > 0
+      for (jj,k) in enumerate(cols)
+        Qv[lr1,k] -= vAk[jj]
+      end
+    end
+    for (oi,gi) in enumerate(o2g)
+      gi <= first(rows) && continue
+      gi > last(rows) && continue
+      vi = av[oi,first(rows)]
+      for (jj,k) in enumerate(cols)
+        Qv[oi,k] -= vi * vAk[jj]
+      end
+    end
+  end
+  Q
 end

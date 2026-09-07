@@ -314,6 +314,20 @@ struct DistributedInterpolation{A} <: Interpolation
   interps::A
 end
 
+function RBSteady.Interpolation(red::NoHyperReduction,trian::DistributedTriangulation)
+  interps = map(local_views(trian)) do ti
+    Interpolation(red,ti)
+  end
+  DistributedInterpolation(interps)
+end
+
+function RBSteady.GreedyInterpolation(interp,domain::DistributedIntegrationDomain)
+  interps = map(local_views(domain)) do domain
+    GreedyInterpolation(interp,domain)
+  end
+  DistributedInterpolation(interps)
+end
+
 GridapDistributed.local_views(a::DistributedInterpolation) = local_views(a.interps)
 
 for f in (:get_integration_cells,:get_cell_idofs,:get_interpolation_dofs)
@@ -326,24 +340,21 @@ for f in (:get_integration_cells,:get_cell_idofs,:get_interpolation_dofs)
   end
 end
 
+function FESpaces.interpolate!(cache::AbstractArray,a::DistributedInterpolation,b::AbstractArray)
+  interpolate!(cache,PartitionedArrays.getany(a.interps),b)
+end
+
 function RBSteady.reduced_triangulation(trian::DistributedTriangulation,a::HRProjection)
   reduced_triangulation(trian,get_interpolation(a))
 end
 
-function RBSteady.reduced_triangulation(trian::DistributedTriangulation,a::Interpolation)
+function RBSteady.reduced_triangulation(trian::DistributedTriangulation,a::DistributedInterpolation)
   red_cells = get_integration_cells(a)
   trians = map(local_views(trian),local_views(red_cells)) do ti,ci
     ChildTriangulation(ti,ci)
   end
   model = get_background_model(trian)
   DistributedTriangulation(trians,model)
-end
-
-function RBSteady.Interpolation(red::NoHyperReduction,trian::DistributedTriangulation)
-  interps = map(local_views(trian)) do ti
-    Interpolation(red,ti)
-  end
-  DistributedInterpolation(interps)
 end
 
 function RBSteady.get_at_domain(s::DistributedSparseSnapshots,rowscols::Tuple)
@@ -376,6 +387,44 @@ function RBSteady.get_at_domain(a::GenericPArray,rows::AbstractArray{<:LocalRows
     end
   end
   ConsecutiveParamArray(datav)
+end
+
+function RBSteady.collect_cell_hr_matrix(
+  trial::DistributedRBSpace,
+  test::DistributedRBSpace,
+  a::DistributedDomainContribution,
+  strian::DistributedTriangulation,
+  interp::DistributedInterpolation,
+  args...
+  )
+
+  map(
+    local_views(trial),
+    local_views(test),
+    local_views(a),
+    local_views(strian),
+    local_views(interp)
+    ) do trial,test,a,strian,interp
+    collect_cell_hr_matrix(trial,test,a,strian,interp,args...)
+  end
+end
+
+function RBSteady.collect_cell_hr_vector(
+  test::DistributedRBSpace,
+  a::DistributedDomainContribution,
+  strian::DistributedTriangulation,
+  interp::DistributedInterpolation,
+  args...
+  )
+
+  map(
+    local_views(test),
+    local_views(a),
+    local_views(strian),
+    local_views(interp)
+    ) do test,a,strian,interp
+    collect_cell_hr_vector(test,a,strian,interp,args...)
+  end
 end
 
 # utils 
