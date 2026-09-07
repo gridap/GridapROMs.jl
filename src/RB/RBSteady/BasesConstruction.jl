@@ -29,6 +29,10 @@ function select_rank(red_style::ReductionStyle,args...)
   @abstractmethod
 end
 
+function select_rank(red_style::FixedSVDRank,args...)
+  red_style.rank
+end
+
 function select_rank(red_style::SearchSVDRank,S::AbstractVector)
   tol = red_style.tol
   energies = cumsum(S.^2;dims=1)
@@ -36,21 +40,11 @@ function select_rank(red_style::SearchSVDRank,S::AbstractVector)
   return rank
 end
 
-function truncated_svd(red_style::SearchSVDRank,A::AbstractMatrix;issquare=false)
+function truncated_svd(red_style::ReductionStyle,A::AbstractMatrix;issquare=false)
   U,S,V = svd(A)
   if issquare S = sqrt.(S) end
   rank = select_rank(red_style,S)
-  Ur = _truncate!(U,rank)
-  Sr = _truncate!(S,rank)
-  Vr = _truncate_row!(V',rank)
-  return Ur,Sr,Vr'
-end
-
-function truncated_svd(red_style::FixedSVDRank,A::AbstractMatrix;issquare=false)
-  U,S,V = svd(A)
-  if issquare S = sqrt.(S) end
-  rank = red_style.rank
-  Ur = _truncate!(U,rank)
+  Ur = _truncate_col!(U,rank)
   Sr = _truncate!(S,rank)
   Vr = _truncate_row!(V',rank)
   return Ur,Sr,Vr'
@@ -489,11 +483,11 @@ function gram_schmidt(A::AbstractMatrix,basis::AbstractMatrix,args...)
 end
 
 function pivoted_qr!(A,tol=1e-10)
-  C = qr!(A,ColumnNorm())
-  r = findlast(abs.(diag(C.R)) .> tol)
-  Qr = _truncate!(C.Q,r)
-  Rr = _truncate_row!(C.R,r)
-  invpermutecols!(Rr,C.jpvt)
+  Q,R,jpvt = qr!(A,ColumnNorm())
+  r = select_rank(SearchSVDRank(tol),diag(R))
+  Qr = _truncate_col!(Q,r)
+  Rr = _truncate_row!(R,r)
+  invpermutecols!(Rr,jpvt)
   return Qr,Rr
 end
 
@@ -619,25 +613,32 @@ function _backward_cholesky(Ã::AbstractMatrix,L::AbstractSparseMatrix,p::Abstr
   return A
 end
 
-function _truncate!(A::AbstractMatrix,rank)
-  nrows = size(A,1)
-  inds = nrows*rank+1:length(A)
-  v = vec(A)
-  Base.deleteat!(v,inds)
-  reshape(v,nrows,:)
-end
-
 function _truncate!(v::AbstractVector,rank)
+  rank == length(v) && return v
   Base.deleteat!(v,rank+1:length(v))
   v
 end
 
+function _truncate!(A::AbstractMatrix,rank)
+  _truncate_col!(A,rank)
+end
+
 function _truncate_row!(A::AbstractMatrix,rank)
+  rank == size(A,1) && return A
   nrows = size(A,1)
   inds = range_1d(rank+1:nrows,axes(A,2),nrows)
   v = vec(A)
   Base.deleteat!(v,inds)
   reshape(v,rank,:)
+end
+
+function _truncate_col!(A::AbstractMatrix,rank)
+  rank == size(A,2) && return A
+  nrows = size(A,1)
+  inds = nrows*rank+1:length(A)
+  v = vec(A)
+  Base.deleteat!(v,inds)
+  reshape(v,nrows,:)
 end
 
 permutecols!(a::AbstractMatrix,p::AbstractVector{<:Integer}) = _permute!(a,p,Base.swapcols!)

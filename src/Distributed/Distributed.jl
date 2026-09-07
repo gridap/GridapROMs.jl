@@ -106,6 +106,8 @@ include("Snapshots.jl")
 
 include("EnergyNorms.jl")
 
+include("BasesConstruction.jl")
+
 include("Reduced.jl")
 
 end
