@@ -33,6 +33,8 @@ one `N`, returns `N`
 """
 num_fe_dofs(a::Projection) = size(get_basis(a),1)
 
+fe_dof_ids(a::Projection) = Base.OneTo(num_fe_dofs(a))
+
 """
     num_reduced_dofs(a::Projection) -> Int
 
@@ -40,6 +42,8 @@ For a projection map `a` from a low dimensional space `n` to a high dimensional
 one `N`, returns `n`
 """
 num_reduced_dofs(a::Projection) = size(get_basis(a),2)
+
+reduced_dof_ids(a::Projection) = Base.OneTo(num_reduced_dofs(a))
 
 """
     project(a::Projection,x::AbstractArray,args...) -> AbstractArray
@@ -95,53 +99,59 @@ function inv_project!(x::AbstractArray,a::Projection,x̂::AbstractArray)
   mul!(x,basis,x̂)
 end
 
+projection_type(a::Projection) = Vector{projection_eltype(a)}
+
 """
     projection_eltype(a::Projection) -> DataType
 
 Returns the eltype of the projection `a`
 """
-projection_eltype(a::Projection) = eltype2(get_basis(a))
+projection_eltype(a::Projection) = eltype(get_basis(a))
 
 function Algebra.allocate_in_domain(a::Projection) 
-  V = Vector{projection_eltype(a)}
-  x̂ = allocate_vector(V,num_reduced_dofs(a))
+  V = projection_type(a)
+  x̂ = allocate_vector(V,reduced_dof_ids(a))
   return x̂
 end
 
 function Algebra.allocate_in_range(a::Projection) 
-  V = Vector{projection_eltype(a)}
-  x = allocate_vector(V,num_fe_dofs(a))
+  V = projection_type(a)
+  x = allocate_vector(V,fe_dof_ids(a))
   return x
 end
 
 function Algebra.allocate_in_domain(a::Projection,x::V) where V<:AbstractVector
-  x̂ = allocate_vector(V,num_reduced_dofs(a))
+  x̂ = allocate_vector(V,reduced_dof_ids(a))
   return x̂
 end
 
 function Algebra.allocate_in_range(a::Projection,x̂::V) where V<:AbstractVector
-  x = allocate_vector(V,num_fe_dofs(a))
+  x = allocate_vector(V,fe_dof_ids(a))
   return x
 end
 
 function Algebra.allocate_in_domain(a::Projection,X::M) where M<:AbstractMatrix
-  X̂ = zeros(eltype(M),num_reduced_dofs(a),size(X,2))
+  X̂ = allocate_full_matrix(M,reduced_dof_ids(a),Base.OneTo(size(X,2)))
   return X̂
 end
 
 function Algebra.allocate_in_range(a::Projection,X̂::M) where M<:AbstractMatrix
-  X = Matrix{eltype(M)}(undef,num_fe_dofs(a),size(X̂,2))
+  X = allocate_full_matrix(M,fe_dof_ids(a),Base.OneTo(size(X̂,2)))
   return X
 end
 
 function Algebra.allocate_in_domain(a::Projection,x::V) where V<:AbstractParamVector
-  x̂ = allocate_vector(eltype(V),num_reduced_dofs(a))
+  x̂ = allocate_vector(eltype(V),reduced_dof_ids(a))
   return parameterise(x̂,param_length(x))
 end
 
 function Algebra.allocate_in_range(a::Projection,x̂::V) where V<:AbstractParamVector
-  x = allocate_vector(eltype(V),num_fe_dofs(a))
+  x = allocate_vector(eltype(V),fe_dof_ids(a))
   return parameterise(x,param_length(x̂))
+end
+
+function allocate_full_matrix(::Type{M},rows::AbstractVector,cols::AbstractVector) where M
+  zeros(eltype(M),length(rows),length(cols))
 end
 
 """
@@ -508,6 +518,7 @@ get_norm_matrix(a::NormedProjection) = a.norm_matrix
 get_basis(a::NormedProjection) = get_basis(a.projection)
 num_fe_dofs(a::NormedProjection) = num_fe_dofs(a.projection)
 num_reduced_dofs(a::NormedProjection) = num_reduced_dofs(a.projection)
+projection_type(a::NormedProjection) = projection_type(a.projection)
 
 get_cores(a::NormedProjection) = get_cores(a.projection)
 DofMaps.get_dof_map(a::NormedProjection) = get_dof_map(a.projection)

@@ -35,7 +35,7 @@ function allocate_dcontribution(
 end
 
 function allocate_diagnostic_residual(
-  op::GenericRBOperator,
+  op::RBOperator,
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -46,7 +46,7 @@ function allocate_diagnostic_residual(
 end
 
 function allocate_diagnostic_residual(
-  op::GenericRBOperator{O,T,<:NoHRContribution,B},
+  op::RBOperator{O,T,<:NoHRContribution,B},
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -63,7 +63,7 @@ function allocate_diagnostic_residual(nlop::GenericParamNonlinearOperator,u)
 end
 
 function allocate_diagnostic_jacobian(
-  op::GenericRBOperator,
+  op::RBOperator,
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -74,7 +74,7 @@ function allocate_diagnostic_jacobian(
 end
 
 function allocate_diagnostic_jacobian(
-  op::GenericRBOperator{O,T,B,<:NoHRContribution},
+  op::RBOperator{O,T,B,<:NoHRContribution},
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -92,7 +92,7 @@ end
 
 function diagnostic_residual!(
   b::DiagnosticsContribution,
-  op::SplitRBOperator,
+  op::SplitReducedOperator,
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -119,7 +119,7 @@ end
 
 function diagnostic_residual!(
   b::DiagnosticsContribution,
-  op::GenericRBOperator{O,SplitDomains,A,<:NoHRContribution},
+  op::RBOperator{O,SplitDomains,A,<:NoHRContribution},
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -145,7 +145,7 @@ end
 
 function diagnostic_residual!(
   b::DiagnosticsContribution,
-  op::GenericRBOperator{O,T,A,<:AffineHRContribution},
+  op::RBOperator{O,T,A,<:AffineHRContribution},
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -156,7 +156,7 @@ end
 
 function diagnostic_residual!(
   b::DiagnosticsContribution,
-  op::GenericRBOperator{O,T,A,<:RBFContribution},
+  op::RBOperator{O,T,A,<:RBFContribution},
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -177,7 +177,7 @@ end
 
 function diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::SplitRBOperator,
+  op::SplitReducedOperator,
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -206,7 +206,7 @@ end
 
 function diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::GenericRBOperator{O,SplitDomains,<:NoHRContribution,B},
+  op::RBOperator{O,SplitDomains,<:NoHRContribution,B},
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -234,7 +234,7 @@ end
 
 function diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::GenericRBOperator{O,T,<:AffineHRContribution,B},
+  op::RBOperator{O,T,<:AffineHRContribution,B},
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -245,7 +245,7 @@ end
 
 function diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::GenericRBOperator{O,T,<:RBFContribution,B},
+  op::RBOperator{O,T,<:RBFContribution,B},
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -314,7 +314,7 @@ named tuple:
 - `"rhs dim"` — `Vector{Tuple}`, one `K`-tuple per tolerance (one integer per
   triangulation)
 - `"lhs dim"` — same for the Jacobian contributions
-- For `LinearNonlinearRBOperator`: `"lin_rhs dim"`, `"nlin_lhs dim"`, etc.
+- For `LinearNonlinearReducedOperator`: `"lin_rhs dim"`, `"nlin_lhs dim"`, etc.
 
 **Online** keys:
 - `"projection_error"` — `Vector{Float64}`
@@ -385,7 +385,7 @@ function rom_diagnostics(
   )
 end
 
-function offline_diagnostics(op::RBOperator)
+function offline_diagnostics(op::ReducedOperator)
   (
     state=projection_diagnostics(get_trial(op)),
     rhs=hr_diagnostics(get_rhs(op)),
@@ -393,7 +393,7 @@ function offline_diagnostics(op::RBOperator)
   )
 end
 
-function offline_diagnostics(op::LinearNonlinearRBOperator)
+function offline_diagnostics(op::LinearNonlinearReducedOperator)
   op_lin = get_linear_operator(op)
   op_nlin = get_nonlinear_operator(op)
   (
@@ -475,7 +475,7 @@ the RB trial space of `op`.
 """
 function projection_error(
   solver::RBSolver,
-  op::RBOperator,
+  op::ReducedOperator,
   s::AbstractSnapshots
   )
 
@@ -492,7 +492,7 @@ end
 
 function projection_error(
   solver::LocalRBSolver,
-  op::RBOperator,
+  op::ReducedOperator,
   s::AbstractSnapshots
   )
 
@@ -524,7 +524,7 @@ For each triangulation in the HR contributions:
 Returns `(hr_error_res,hr_error_jac)` where each is a `Tuple` with one
 `Float64` per triangulation (mean relative error over parameters).
 """
-function hr_error(::GlobalRBSolver,op::RBOperator,res,jac,s)
+function hr_error(::GlobalRBSolver,op::ReducedOperator,res,jac,s)
   μ = get_realisation(s)
   u = get_param_data(s)
   err_res = hr_error_res(op,res,μ,u)
@@ -532,7 +532,7 @@ function hr_error(::GlobalRBSolver,op::RBOperator,res,jac,s)
   return err_res,err_jac
 end
 
-function hr_error(::GlobalRBSolver,op::RBOperator{<:LinearParamEq},res,jac,s)
+function hr_error(::GlobalRBSolver,op::ReducedOperator{<:LinearParamEq},res,jac,s)
   μ = get_realisation(s)
   u = get_param_data(s)|> similar
   fill!(u,zero(eltype2(u)))
@@ -541,7 +541,7 @@ function hr_error(::GlobalRBSolver,op::RBOperator{<:LinearParamEq},res,jac,s)
   return err_res,err_jac
 end
 
-function hr_error(solver::LocalRBSolver,op::RBOperator,res,jac,s)
+function hr_error(solver::LocalRBSolver,op::ReducedOperator,res,jac,s)
   μ = get_realisation(s)
   gsolver = change_context(solver)
 
@@ -561,7 +561,7 @@ function hr_error(solver::LocalRBSolver,op::RBOperator,res,jac,s)
 end
 
 for T in (:GlobalRBSolver, :LocalRBSolver)
-  @eval function hr_error(solver::$T,op::LinearNonlinearRBOperator,res,jac,s)
+  @eval function hr_error(solver::$T,op::LinearNonlinearReducedOperator,res,jac,s)
     res_lin,res_nlin = res
     jac_lin,jac_nlin = jac
     op_lin = get_linear_operator(op)
@@ -573,7 +573,7 @@ for T in (:GlobalRBSolver, :LocalRBSolver)
 end 
 
 function hr_error_res(
-  op::RBOperator,
+  op::ReducedOperator,
   res::ArrayContribution,
   μ::AbstractRealisation,
   u
@@ -599,7 +599,7 @@ function hr_error_res(
 end
 
 function hr_error_jac(
-  op::RBOperator,
+  op::ReducedOperator,
   jac::ArrayContribution,
   μ::AbstractRealisation,
   u

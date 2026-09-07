@@ -196,7 +196,7 @@ end
 
 function plot_solutions(
   dir::String,
-  rbop::RBOperator,
+  rbop::ReducedOperator,
   sol::Snapshots,
   sol_approx::Snapshots;
   kwargs...
@@ -209,7 +209,7 @@ end
 
 function plot_solutions(
   dir::String,
-  rbop::RBOperator,
+  rbop::ReducedOperator,
   sol::BlockSnapshots,
   sol_approx::BlockSnapshots;
   kwargs...
@@ -226,7 +226,7 @@ end
 
 function plot_solutions(
   dir::String,
-  rbop::RBOperator,
+  rbop::ReducedOperator,
   fesnaps::AbstractSnapshots,
   x̂::AbstractParamVector;
   kwargs...

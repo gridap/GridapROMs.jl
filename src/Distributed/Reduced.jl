@@ -1,3 +1,20 @@
+# trian utils
+
+function Utils.ChildTriangulation(t::DistributedTriangulation,inds)
+  models = get_background_model(t)
+  trians = map(local_views(t),local_views(inds)) do t,inds
+    ChildTriangulation(t,inds)
+  end
+  DistributedTriangulation(trians,models;metadata=t.metadata)
+end
+
+function Utils.is_parent(parent::DistributedTriangulation,child::DistributedTriangulation)
+  x = map(local_views(parent),local_views(child)) do parent,child
+    Utils.is_parent(parent,child)
+  end
+  reduce(&,x)
+end
+
 # basis construction 
 
 for T in (:GenericPMatrix,:DistributedSnapshots)
@@ -72,9 +89,26 @@ function RBTransient.kron_projection(red::KroneckerReduction,s::DistributedSpars
 end
 
 RBSteady.get_basis(a::DistributedPODProjection) = a.basis
+RBSteady.fe_dof_ids(a::DistributedPODProjection) = row_partition(a)
 row_partition(a::DistributedPODProjection) = row_partition(a.basis)
 col_partition(a::DistributedPODProjection) = col_partition(a.basis)
 flat_row_partition(a::DistributedPODProjection) = flat_row_partition(a.basis)
+
+RBSteady.projection_type(a::DistributedPODProjection) = PVector{Vector{projection_eltype(a)}}
+
+function Algebra.allocate_in_domain(a::Projection,x::PVector{<:V}) where V<:AbstractParamVector
+  x̂ = allocate_vector(PVector{eltype(V)},RBSteady.reduced_dof_ids(a))
+  return parameterise(x̂,param_length(x))
+end
+
+function Algebra.allocate_in_range(a::Projection,x̂::PVector{<:V}) where V<:AbstractParamVector
+  x = allocate_vector(PVector{eltype(V)},RBSteady.fe_dof_ids(a))
+  return parameterise(x,param_length(x̂))
+end
+
+function RBSteady.allocate_full_matrix(::Type{<:GenericPArray{M}},rows::PRange,cols::AbstractVector) where M
+  GenericPArray{M}(undef,partition(rows),cols)
+end
 
 function RBSteady.union_bases(a::DistributedPODProjection,b::DistributedPODProjection,args...) 
   union_bases(a,get_basis(b),args...)
@@ -129,6 +163,13 @@ function GridapDistributed.local_views(r::DistributedRBSpace)
     RBSpace(space,subspace)
   end
 end
+
+function RBSteady._convert_to_block(V::DistributedMultiFieldFESpace)
+  part_fe_space = map(local_views(V)) do space
+    RBSteady._convert_to_block(space)
+  end
+  DistributedMultiFieldFESpace(V.field_fe_space,part_fe_space,V.gids,V.vector_type)
+end 
 
 # integration domains
 
@@ -206,9 +247,12 @@ for f in (:DEIM,:SOPT)
     function RBSteady.$f(A::PSparseMatrix)
       B = get_all_data(A)
       I,AI = $f(B)
-      R′,C′ = map(local_views(I),own_values(A),row_partition(B)) do I,A,ri
-        _to_local!(I,global_to_local(ri))
-        recast_split_indices(I,testitem(A))
+      R′,C′ = map(local_views(I),local_values(A),flat_row_partition(B)) do I,A,rci
+        _remap!(I,global_to_local(rci))
+        R′,C′ = recast_split_indices(I,testitem(A))
+        _remap!(R′,local_to_global(row_partition(rci)))
+        _remap!(C′,local_to_global(col_partition(rci)))
+        R′,C′
       end |> tuple_of_arrays
       return (R′,C′),AI
     end
@@ -260,7 +304,7 @@ function RBSteady.IntegrationDomain(
     local_views(rows),
     local_views(gids)
     ) do trian,test,rows,gids
-    _to_local!(rows,global_to_local(gids))
+    _remap!(rows,global_to_local(gids))
     IntegrationDomain(trian,test,rows)
   end
   DistributedIntegrationDomain(domains)
@@ -281,10 +325,12 @@ function RBSteady.IntegrationDomain(
     local_views(trial),
     local_views(test),
     local_views(rows),
-    local_views(cols)
-    ) do trian,trial,test,rows,cols
-    _to_local!(rows,global_to_local(rgids))
-    _to_local!(cols,global_to_local(cgids))
+    local_views(cols),
+    local_views(rgids),
+    local_views(cgids)
+    ) do trian,trial,test,rows,cols,rgids,cgids
+    _remap!(rows,global_to_local(rgids))
+    _remap!(cols,global_to_local(cgids))
     IntegrationDomain(trian,trial,test,rows,cols)
   end
   DistributedIntegrationDomain(domains)
@@ -330,7 +376,7 @@ end
 
 function RBSteady.get_at_domain(s::DistributedSparseSnapshots,rowscols::Tuple)
   rows,cols = rowscols
-  inds = map(local_values(s),local_views(rows),local_views(cols)) do data,rows,cols
+  inds = map(local_values(s),local_views(rows),local_views(cols)) do s,rows,cols
     @check rows.inds == cols.inds
     if !isempty(rows)
       sparsity = get_sparsity(get_dof_map(s))
@@ -348,7 +394,7 @@ function RBSteady.get_at_domain(a::GenericPArray,rows::AbstractArray{<:LocalRows
   @check reduce(+,map(length,rows)) == n
   datav = zeros(eltype(a),n,n)
   map(local_values(a),row_partition(a),local_views(rows)) do data,rparts,rows
-    _to_local!(rows,global_to_local(rparts))
+    _remap!(rows,global_to_local(rparts))
     if !isempty(rows.rows)
       for (vi,i) in zip(rows.rows,rows.inds)
         for k in axes(data,2)
@@ -409,9 +455,9 @@ function _push_to_local!(Iloc::AbstractArray{<:LocalRows},row_parts,I,l)
   end
 end
 
-function _to_local!(gids,g2l)
-  for (i,gi) in enumerate(gids)
-    gids[i] = g2l[gi]
+function _remap!(x,x_to_y)
+  for (i,xi) in enumerate(x)
+    x[i] = x_to_y[xi]
   end
 end
 

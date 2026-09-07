@@ -133,12 +133,12 @@ function _save_fixed_operator_parts(dir,op;label="")
   save(dir,get_trial(op);label=_get_label(label,trial_label))
 end
 
-function _save_trian_operator_parts(dir,op::RBOperator;label="")
+function _save_trian_operator_parts(dir,op::ReducedOperator;label="")
   save(dir,get_rhs(op);label=_get_label(label,rhs_label))
   save(dir,get_lhs(op);label=_get_label(label,lhs_label))
 end
 
-function DrWatson.save(dir,op::RBOperator;kwargs...)
+function DrWatson.save(dir,op::ReducedOperator;kwargs...)
   _save_fixed_operator_parts(dir,op;kwargs...)
   _save_trian_operator_parts(dir,op;kwargs...)
 end
@@ -158,7 +158,7 @@ function _load_trian_operator_parts(dir,feop::ParamOperator;label="")
 end
 
 """
-    load_operator(dir,feop::ParamOperator;kwargs...) -> RBOperator
+    load_operator(dir,feop::ParamOperator;kwargs...) -> ReducedOperator
 
 Given a FE operator `feop`, load its reduced counterpart stored in the
 directory `dir`. Throws an error if the reduced operator has not been previously
@@ -167,10 +167,10 @@ saved to file
 function load_operator(dir,feop::ParamOperator;kwargs...)
   trial,test = _load_fixed_operator_parts(dir,feop;kwargs...)
   red_lhs,red_rhs = _load_trian_operator_parts(dir,feop;kwargs...)
-  return RBOperator(feop,trial,test,red_lhs,red_rhs)
+  return ReducedOperator(feop,trial,test,red_lhs,red_rhs)
 end
 
-function DrWatson.save(dir,feop::LinearNonlinearRBOperator;label="")
+function DrWatson.save(dir,feop::LinearNonlinearReducedOperator;label="")
   feop_lin = get_linear_operator(feop)
   feop_nlin = get_nonlinear_operator(feop)
   _save_fixed_operator_parts(dir,feop_lin;label)
@@ -186,9 +186,9 @@ function load_operator(dir,feop::LinearNonlinearParamOperator;label="")
     dir,feop_lin;label=_get_label(linear_label,label))
   red_lhs_nlin,red_rhs_nlin = _load_trian_operator_parts(
     dir,feop_nlin;label=_get_label(nonlinear_label,label))
-  op_lin = RBOperator(feop_lin,trial,test,red_lhs_lin,red_rhs_lin)
-  op_nlin = RBOperator(feop_nlin,trial,test,red_lhs_nlin,red_rhs_nlin)
-  return LinearNonlinearRBOperator(op_lin,op_nlin)
+  op_lin = ReducedOperator(feop_lin,trial,test,red_lhs_lin,red_rhs_lin)
+  op_nlin = ReducedOperator(feop_nlin,trial,test,red_lhs_nlin,red_rhs_nlin)
+  return LinearNonlinearReducedOperator(op_lin,op_nlin)
 end
 
 """
@@ -229,7 +229,7 @@ end
 """
     eval_performance(
       solver::RBSolver,
-      rbop::RBOperator,
+      rbop::ReducedOperator,
       fesnaps::AbstractSnapshots,
       rbsnaps::AbstractSnapshots,
       festats::CostTracker,
@@ -250,7 +250,7 @@ and `festats`
 """
 function eval_performance(
   solver::RBSolver,
-  rbop::RBOperator,
+  rbop::ReducedOperator,
   fesnaps::AbstractSnapshots,
   rbsnaps::AbstractSnapshots,
   festats::CostTracker,
@@ -265,7 +265,7 @@ end
 
 function eval_performance(
   solver::RBSolver,
-  rbop::RBOperator,
+  rbop::ReducedOperator,
   fesnaps::AbstractSnapshots,
   x̂::RBParamVector,
   festats::CostTracker,

@@ -32,8 +32,8 @@ small system for new parameter values.  Main building blocks:
   and `reduced_triangulation` / `reduced_jacobian` / `reduced_residual` /
   `reduced_weak_form`.
 
-- **Reduced operators** (`ReducedOperators.jl`) — `GenericRBOperator`,
-  `LinearNonlinearRBOperator`; `reduced_operator`.
+- **Reduced operators** (`ReducedOperators.jl`) — `RBOperator`,
+  `LinearNonlinearReducedOperator`; `reduced_operator`.
 
 - **RB solvers** (`RBSolvers.jl`) — `RBSolver` orchestrates snapshot collection,
   offline reduction, and online solve; `solution_snapshots`, `residual_snapshots`,
@@ -272,9 +272,9 @@ export LocalHRProjection
 export LocalHRContribution
 include("LocalHyperReductions.jl")
 
+export ReducedOperator
 export RBOperator
-export GenericRBOperator
-export LinearNonlinearRBOperator
+export LinearNonlinearReducedOperator
 export reduced_operator
 export change_operator
 include("ReducedOperators.jl")

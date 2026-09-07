@@ -143,7 +143,7 @@ using GridapROMs.Extensions: ⊕; export ⊕
 @publish RBSteady LocalProjection
 @publish RBSteady compute_ncentroids
 
-@publish RBSteady RBOperator
+@publish RBSteady ReducedOperator
 @publish RBSteady reduced_operator
 @publish RBSteady change_operator
 
@@ -166,4 +166,4 @@ using GridapROMs.Extensions: ⊕; export ⊕
 @publish RBTransient HighDimHyperReduction
 @publish RBTransient TransientHyperReduction
 @publish RBTransient TransientProjection
-@publish RBTransient TransientRBOperator
+@publish RBTransient TransientReducedOperator

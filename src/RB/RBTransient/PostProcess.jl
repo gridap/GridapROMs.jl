@@ -22,14 +22,14 @@ function RBSteady.load_contribution(
   return c
 end
 
-function RBSteady._save_trian_operator_parts(dir,op::TransientRBOperator;label="")
+function RBSteady._save_trian_operator_parts(dir,op::TransientReducedOperator;label="")
   save(dir,op.rhs;label=_get_label(label,rhs_label))
   for (i,lhsi) in enumerate(op.lhs)
     save(dir,lhsi;label=_get_label(label,_get_label(lhs_label,i)))
   end
 end
 
-function DrWatson.save(dir,op::TransientRBOperator;kwargs...)
+function DrWatson.save(dir,op::TransientReducedOperator;kwargs...)
   RBSteady._save_fixed_operator_parts(dir,op;kwargs...)
   RBSteady._save_trian_operator_parts(dir,op;kwargs...)
 end
@@ -45,7 +45,7 @@ end
 function RBSteady.load_operator(dir,feop::ODEParamOperator;kwargs...)
   trial,test = RBSteady._load_fixed_operator_parts(dir,feop;kwargs...)
   red_lhs,red_rhs = RBSteady._load_trian_operator_parts(dir,feop;kwargs...)
-  op = RBOperator(feop,trial,test,red_lhs,red_rhs)
+  op = ReducedOperator(feop,trial,test,red_lhs,red_rhs)
   return op
 end
 
@@ -57,9 +57,9 @@ function RBSteady.load_operator(dir,feop::LinearNonlinearODEParamOperator;label=
     dir,feop_lin;label=_get_label(linear_label,label))
   red_lhs_nlin,red_rhs_nlin = RBSteady._load_trian_operator_parts(
     dir,feop_nlin;label=_get_label(nonlinear_label,label))
-  op_lin = RBOperator(feop_lin,trial,test,red_lhs_lin,red_rhs_lin)
-  op_nlin = RBOperator(feop_nlin,trial,test,red_lhs_nlin,red_rhs_nlin)
-  return LinearNonlinearRBOperator(op_lin,op_nlin)
+  op_lin = ReducedOperator(feop_lin,trial,test,red_lhs_lin,red_rhs_lin)
+  op_nlin = ReducedOperator(feop_nlin,trial,test,red_lhs_nlin,red_rhs_nlin)
+  return LinearNonlinearReducedOperator(op_lin,op_nlin)
 end
 
 function Utils.compute_relative_error(

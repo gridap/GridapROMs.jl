@@ -205,3 +205,4 @@ end
 jacbasis = get_basis(projection(get_reduction(jac_red),jacsnp[]))
 B = get_all_data(jacbasis)
 I,AI = DEIM(B)
+reduced_jacobian(jac_red,red_trial,red_test,jacsnp[])

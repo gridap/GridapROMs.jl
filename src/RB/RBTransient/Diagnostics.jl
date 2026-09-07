@@ -3,7 +3,7 @@ function RBSteady.allocate_diagnostic_residual(nlop::SpaceTimeParamOperator,u)
 end
 
 function RBSteady.allocate_diagnostic_residual(
-  op::TransientRBOperator,
+  op::TransientReducedOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -14,7 +14,7 @@ function RBSteady.allocate_diagnostic_residual(
 end
 
 function RBSteady.allocate_diagnostic_residual(
-  op::TransientGenericRBOperator{O,T,B,<:HighDimNoHRContribution},
+  op::TransientRBOperator{O,T,B,<:HighDimNoHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -48,7 +48,7 @@ function RBSteady.allocate_diagnostic_jacobian(nlop::SpaceTimeParamOperator,u)
 end
 
 function RBSteady.allocate_diagnostic_jacobian(
-  op::TransientRBOperator,
+  op::TransientReducedOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -59,7 +59,7 @@ function RBSteady.allocate_diagnostic_jacobian(
 end
 
 function RBSteady.allocate_diagnostic_jacobian(
-  op::TransientGenericRBOperator{O,T,<:TupOfHighDimNoHRContribution,B},
+  op::TransientRBOperator{O,T,<:TupOfHighDimNoHRContribution,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -109,7 +109,7 @@ end
 
 function RBSteady.diagnostic_residual!(
   b::DiagnosticsContribution,
-  op::SplitTransientRBOperator,
+  op::SplitTransientReducedOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -146,7 +146,7 @@ end
 
 function RBSteady.diagnostic_residual!(
   b::DiagnosticsContribution,
-  op::TransientGenericRBOperator{O,T,A,<:HighDimNoHRContribution},
+  op::TransientRBOperator{O,T,A,<:HighDimNoHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -176,7 +176,7 @@ end
 
 function RBSteady.diagnostic_residual!(
   b::DiagnosticsContribution,
-  op::TransientGenericRBOperator{O,T,A,<:HighDimAffineHRContribution},
+  op::TransientRBOperator{O,T,A,<:HighDimAffineHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -187,7 +187,7 @@ end
 
 function RBSteady.diagnostic_residual!(
   b::DiagnosticsContribution,
-  op::TransientGenericRBOperator{O,T,A,<:HighDimRBFContribution},
+  op::TransientRBOperator{O,T,A,<:HighDimRBFContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -198,7 +198,7 @@ end
 
 function RBSteady.diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::SplitTransientRBOperator,
+  op::SplitTransientReducedOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
@@ -246,7 +246,7 @@ end
 
 function RBSteady.diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::TransientGenericRBOperator{O,T,<:TupOfHighDimNoHRContribution,B},
+  op::TransientRBOperator{O,T,<:TupOfHighDimNoHRContribution,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
@@ -288,7 +288,7 @@ end
 
 function RBSteady.diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::TransientGenericRBOperator{O,T,<:TupOfHighDimAffineHRContribution,B},
+  op::TransientRBOperator{O,T,<:TupOfHighDimAffineHRContribution,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
@@ -300,7 +300,7 @@ end
 
 function RBSteady.diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::TransientGenericRBOperator{O,T,<:TupOfHighDimRBFContribution,B},
+  op::TransientRBOperator{O,T,<:TupOfHighDimRBFContribution,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
@@ -355,7 +355,7 @@ end
 
 function RBSteady.hr_error_res(
   c::TimeCombination,
-  op::TransientRBOperator{O},
+  op::TransientReducedOperator{O},
   res::ArrayContribution,
   r::AbstractRealisation,
   u::AbstractVector,
@@ -392,7 +392,7 @@ end
 
 function RBSteady.hr_error_jac(
   c::TimeCombination,
-  op::TransientRBOperator{O},
+  op::TransientReducedOperator{O},
   jac::TupOfArrayContribution,
   r::AbstractRealisation,
   u::AbstractVector,
@@ -433,7 +433,7 @@ function RBSteady.hr_error_jac(
   return err
 end
 
-function RBSteady.hr_error(solver::GlobalRBSolver,op::TransientRBOperator,res,jac,s)
+function RBSteady.hr_error(solver::GlobalRBSolver,op::TransientReducedOperator,res,jac,s)
   c = TimeCombination(solver)
   μ = get_realisation(s)
   u = get_param_data(s)

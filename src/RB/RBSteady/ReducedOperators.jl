@@ -1,6 +1,6 @@
 """
-    reduced_operator(solver::RBSolver,feop::ParamOperator,args...;kwargs...) -> RBOperator
-    reduced_operator(solver::RBSolver,feop::TransientParamOperator,args...;kwargs...) -> TransientRBOperator
+    reduced_operator(solver::RBSolver,feop::ParamOperator,args...;kwargs...) -> ReducedOperator
+    reduced_operator(solver::RBSolver,feop::TransientParamOperator,args...;kwargs...) -> TransientReducedOperator
 
 Computes a RB operator from the FE operator `feop`
 """
@@ -50,7 +50,7 @@ function reduced_operator(
   )
 
   red_lhs,red_rhs = reduced_weak_form(solver,feop,red_trial,red_test,s)
-  RBOperator(feop,red_trial,red_test,red_lhs,red_rhs)
+  ReducedOperator(feop,red_trial,red_test,red_lhs,red_rhs)
 end
 
 function reduced_operator(
@@ -63,7 +63,7 @@ function reduced_operator(
 
   red_op_lin = reduced_operator(solver,get_linear_operator(op),red_trial,red_test,s)
   red_op_nlin = reduced_operator(solver,get_nonlinear_operator(op),red_trial,red_test,s)
-  LinearNonlinearRBOperator(red_op_lin,red_op_nlin)
+  LinearNonlinearReducedOperator(red_op_lin,red_op_nlin)
 end
 
 function reduced_operator(rbsolver::RBSolver,feop::ParamOperator,s,jac,res)
@@ -84,7 +84,7 @@ function reduced_operator(
   red_lhs = reduced_jacobian(jac_red,red_trial,red_test,jac)
   res_red = get_residual_reduction(rbsolver)
   red_rhs = reduced_residual(res_red,red_test,res)
-  RBOperator(feop,red_trial,red_test,red_lhs,red_rhs)
+  ReducedOperator(feop,red_trial,red_test,red_lhs,red_rhs)
 end
 
 function reduced_operator(
@@ -100,46 +100,46 @@ function reduced_operator(
   res_lin,res_nlin = res
   red_op_lin = reduced_operator(solver,get_linear_operator(op),red_trial,red_test,jac_lin,res_lin)
   red_op_nlin = reduced_operator(solver,get_nonlinear_operator(op),red_trial,red_test,jac_nlin,res_nlin)
-  LinearNonlinearRBOperator(red_op_lin,red_op_nlin)
+  LinearNonlinearReducedOperator(red_op_lin,red_op_nlin)
 end
 
 """
-    abstract type RBOperator{O,T} <: ParamOperator{O,T} end
+    abstract type ReducedOperator{O,T} <: ParamOperator{O,T} end
 
 Type representing reduced algebraic operators used within a reduced order modelling
-framework in steady applications. A RBOperator should contain the following information:
+framework in steady applications. A ReducedOperator should contain the following information:
 
 - a reduced test and trial space, computed according to [`reduced_spaces`](@ref)
 - a hyper-reduced residual and jacobian, computed according to [`reduced_weak_form`](@ref)
 
 Subtypes:
 
-- [`GenericRBOperator`](@ref)
-- [`LinearNonlinearRBOperator`](@ref)
+- [`RBOperator`](@ref)
+- [`LinearNonlinearReducedOperator`](@ref)
 """
-abstract type RBOperator{O,T} <: ParamOperator{O,T} end
+abstract type ReducedOperator{O,T} <: ParamOperator{O,T} end
 
-const JointRBOperator{O} = RBOperator{O,JointDomains}
-const SplitRBOperator{O} = RBOperator{O,SplitDomains}
+const JointReducedOperator{O} = ReducedOperator{O,JointDomains}
+const SplitReducedOperator{O} = ReducedOperator{O,SplitDomains}
 
-ParamSteady.get_fe_operator(op::RBOperator) = @abstractmethod
-FESpaces.get_trial(op::RBOperator) = @abstractmethod
-FESpaces.get_test(op::RBOperator) = @abstractmethod
-get_lhs(op::RBOperator) = @abstractmethod
-get_rhs(op::RBOperator) = @abstractmethod
+ParamSteady.get_fe_operator(op::ReducedOperator) = @abstractmethod
+FESpaces.get_trial(op::ReducedOperator) = @abstractmethod
+FESpaces.get_test(op::ReducedOperator) = @abstractmethod
+get_lhs(op::ReducedOperator) = @abstractmethod
+get_rhs(op::ReducedOperator) = @abstractmethod
 
-function ParamSteady.set_domains(op::RBOperator,args...) 
+function ParamSteady.set_domains(op::ReducedOperator,args...) 
   feop = set_domains(get_fe_operator(op),args...)
-  RBOperator(feop,get_trial(op),get_test(op),get_lhs(op),get_rhs(op))
+  ReducedOperator(feop,get_trial(op),get_test(op),get_lhs(op),get_rhs(op))
 end
 
-function ParamSteady.change_domains(op::RBOperator,args...) 
+function ParamSteady.change_domains(op::ReducedOperator,args...) 
   feop = set_domains(get_fe_operator(op),args...)
-  RBOperator(feop,get_trial(op),get_test(op),get_lhs(op),get_rhs(op))
+  ReducedOperator(feop,get_trial(op),get_test(op),get_lhs(op),get_rhs(op))
 end
 
 function Algebra.allocate_residual(
-  op::RBOperator,
+  op::ReducedOperator,
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -149,7 +149,7 @@ function Algebra.allocate_residual(
 end
 
 function Algebra.allocate_jacobian(
-  op::RBOperator,
+  op::ReducedOperator,
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -160,7 +160,7 @@ end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::RBOperator,
+  op::ReducedOperator,
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -189,7 +189,7 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::RBOperator,
+  op::ReducedOperator,
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -218,22 +218,22 @@ function Algebra.jacobian!(
   interpolate!(A,lhs)
 end
 
-function change_operator(op::JointRBOperator,op′::ParamOperator)
+function change_operator(op::JointReducedOperator,op′::ParamOperator)
   rhs,lhs = get_rhs(op),get_lhs(op)
-  RBOperator(op′,op.trial,op.test,lhs,rhs)
+  ReducedOperator(op′,op.trial,op.test,lhs,rhs)
 end
 
-function change_operator(op::SplitRBOperator,op′::ParamOperator)
+function change_operator(op::SplitReducedOperator,op′::ParamOperator)
   rhs,lhs = get_rhs(op),get_lhs(op)
   trians_rhs′ = change_triangulation(get_domains_res(op′),get_domains(rhs))
   trians_lhs′ = change_triangulation(get_domains_jac(op′),get_domains(lhs))
   rhs′ = change_domains(rhs,trians_rhs′)
   lhs′ = change_domains(lhs,trians_lhs′)
-  RBOperator(op′,op.trial,op.test,lhs′,rhs′)
+  ReducedOperator(op′,op.trial,op.test,lhs′,rhs′)
 end
 
 """
-    struct GenericRBOperator{O,T,A,B} <: RBOperator{O,T}
+    struct RBOperator{O,T,A,B} <: ReducedOperator{O,T}
       op::ParamOperator{O,T}
       trial::RBSpace
       test::RBSpace
@@ -249,7 +249,7 @@ Fields:
 - `lhs`: hyper-reduced left hand side
 - `rhs`: hyper-reduced right hand side
 """
-struct GenericRBOperator{O,T,A,B} <: RBOperator{O,T}
+struct RBOperator{O,T,A,B} <: ReducedOperator{O,T}
   op::ParamOperator{O,T}
   trial::RBSpace
   test::RBSpace
@@ -257,7 +257,7 @@ struct GenericRBOperator{O,T,A,B} <: RBOperator{O,T}
   rhs::B
 end
 
-function RBOperator(
+function ReducedOperator(
   op::SplitParamOperator,
   trial::RBSpace,
   test::RBSpace,
@@ -268,10 +268,10 @@ function RBOperator(
   trians_rhs = get_domains(rhs)
   trians_lhs = get_domains(lhs)
   op′ = change_domains(op,trians_rhs,trians_lhs)
-  GenericRBOperator(op′,trial,test,lhs,rhs)
+  RBOperator(op′,trial,test,lhs,rhs)
 end
 
-function RBOperator(
+function ReducedOperator(
   op::JointParamOperator,
   trial::RBSpace,
   test::RBSpace,
@@ -279,17 +279,17 @@ function RBOperator(
   rhs::AffineContribution
   )
 
-  GenericRBOperator(op,trial,test,lhs,rhs)
+  RBOperator(op,trial,test,lhs,rhs)
 end
 
-ParamSteady.get_fe_operator(op::GenericRBOperator) = op.op
-FESpaces.get_trial(op::GenericRBOperator) = op.trial
-FESpaces.get_test(op::GenericRBOperator) = op.test
-get_lhs(op::GenericRBOperator) = op.lhs
-get_rhs(op::GenericRBOperator) = op.rhs
+ParamSteady.get_fe_operator(op::RBOperator) = op.op
+FESpaces.get_trial(op::RBOperator) = op.trial
+FESpaces.get_test(op::RBOperator) = op.test
+get_lhs(op::RBOperator) = op.lhs
+get_rhs(op::RBOperator) = op.rhs
 
 function Algebra.allocate_residual(
-  op::GenericRBOperator{O,T,B,<:NoHRContribution},
+  op::RBOperator{O,T,B,<:NoHRContribution},
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -301,7 +301,7 @@ function Algebra.allocate_residual(
 end
 
 function Algebra.allocate_jacobian(
-  op::GenericRBOperator{O,T,<:NoHRContribution,B},
+  op::RBOperator{O,T,<:NoHRContribution,B},
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -314,7 +314,7 @@ end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::GenericRBOperator{O,SplitDomains,A,<:NoHRContribution},
+  op::RBOperator{O,SplitDomains,A,<:NoHRContribution},
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -342,7 +342,7 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::GenericRBOperator{O,SplitDomains,<:NoHRContribution,B},
+  op::RBOperator{O,SplitDomains,<:NoHRContribution,B},
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -372,7 +372,7 @@ end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::GenericRBOperator{O,T,A,<:AffineHRContribution},
+  op::RBOperator{O,T,A,<:AffineHRContribution},
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -384,7 +384,7 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::GenericRBOperator{O,T,<:AffineHRContribution,B},
+  op::RBOperator{O,T,<:AffineHRContribution,B},
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -396,7 +396,7 @@ end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::GenericRBOperator{O,T,A,<:RBFContribution},
+  op::RBOperator{O,T,A,<:RBFContribution},
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -408,7 +408,7 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::GenericRBOperator{O,T,<:RBFContribution,B},
+  op::RBOperator{O,T,<:RBFContribution,B},
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -419,48 +419,48 @@ function Algebra.jacobian!(
 end
 
 """
-    struct LinearNonlinearRBOperator{O,T} <: RBOperator{O,T}
-      op_linear::RBOperator
-      op_nonlinear::RBOperator
+    struct LinearNonlinearReducedOperator{O,T} <: ReducedOperator{O,T}
+      op_linear::ReducedOperator
+      op_nonlinear::ReducedOperator
     end
 
-Extends the concept of [`GenericRBOperator`](@ref) to accommodate the linear/nonlinear
+Extends the concept of [`RBOperator`](@ref) to accommodate the linear/nonlinear
 splitting of terms in nonlinear applications
 """
-struct LinearNonlinearRBOperator{O,T} <: RBOperator{O,T}
-  op_linear::RBOperator
-  op_nonlinear::RBOperator
+struct LinearNonlinearReducedOperator{O,T} <: ReducedOperator{O,T}
+  op_linear::ReducedOperator
+  op_nonlinear::ReducedOperator
 
-  function LinearNonlinearRBOperator(
-    op_linear::RBOperator{OL,T},
-    op_nonlinear::RBOperator{ON,T}
+  function LinearNonlinearReducedOperator(
+    op_linear::ReducedOperator{OL,T},
+    op_nonlinear::ReducedOperator{ON,T}
     ) where {OL,ON,T}
 
     new{LinearNonlinearParamEq,T}(op_linear,op_nonlinear)
   end
 
-  function LinearNonlinearRBOperator(
-    op_linear::RBOperator{OL,T},
-    op_nonlinear::RBOperator{ON,T}
+  function LinearNonlinearReducedOperator(
+    op_linear::ReducedOperator{OL,T},
+    op_nonlinear::ReducedOperator{ON,T}
     ) where {OL<:ODEParamOperatorType,ON<:ODEParamOperatorType,T}
 
     new{LinearNonlinearParamODE,T}(op_linear,op_nonlinear)
   end
 end
 
-ParamAlgebra.get_linear_operator(op::LinearNonlinearRBOperator) = op.op_linear
-ParamAlgebra.get_nonlinear_operator(op::LinearNonlinearRBOperator) = op.op_nonlinear
-FESpaces.get_trial(op::LinearNonlinearRBOperator) = get_trial(get_nonlinear_operator(op))
-FESpaces.get_test(op::LinearNonlinearRBOperator) = get_test(get_nonlinear_operator(op))
+ParamAlgebra.get_linear_operator(op::LinearNonlinearReducedOperator) = op.op_linear
+ParamAlgebra.get_nonlinear_operator(op::LinearNonlinearReducedOperator) = op.op_nonlinear
+FESpaces.get_trial(op::LinearNonlinearReducedOperator) = get_trial(get_nonlinear_operator(op))
+FESpaces.get_test(op::LinearNonlinearReducedOperator) = get_test(get_nonlinear_operator(op))
 
-function ParamSteady.get_fe_operator(op::LinearNonlinearRBOperator)
+function ParamSteady.get_fe_operator(op::LinearNonlinearReducedOperator)
   feop_lin = get_fe_operator(get_linear_operator(op))
   feop_nlin = get_fe_operator(get_nonlinear_operator(op))
   LinearNonlinearParamOperator(feop_lin,feop_nlin)
 end 
 
 function ParamAlgebra.allocate_paramcache(
-  op::LinearNonlinearRBOperator,
+  op::LinearNonlinearReducedOperator,
   μ::AbstractRealisation
   )
 
@@ -469,7 +469,7 @@ function ParamAlgebra.allocate_paramcache(
 end
 
 function ParamAlgebra.allocate_systemcache(
-  op::LinearNonlinearRBOperator,
+  op::LinearNonlinearReducedOperator,
   u::AbstractVector
   )
 
@@ -479,7 +479,7 @@ end
 
 function ParamAlgebra.update_paramcache!(
   paramcache::AbstractParamCache,
-  op::LinearNonlinearRBOperator,
+  op::LinearNonlinearReducedOperator,
   μ::AbstractRealisation
   )
 
@@ -488,7 +488,7 @@ function ParamAlgebra.update_paramcache!(
 end
 
 function ParamDataStructures.parameterise(
-  op::LinearNonlinearRBOperator,
+  op::LinearNonlinearReducedOperator,
   μ::AbstractRealisation
   )
 
@@ -498,33 +498,33 @@ function ParamDataStructures.parameterise(
   LinNonlinParamOperator(op_lin,op_nlin,syscache_lin)
 end
 
-function change_operator(op::LinearNonlinearRBOperator,op′::LinearNonlinearParamOperator)
+function change_operator(op::LinearNonlinearReducedOperator,op′::LinearNonlinearParamOperator)
   op_lin′ = change_operator(get_linear_operator(op),get_linear_operator(op′))
   op_nlin′ = change_operator(get_nonlinear_operator(op),get_nonlinear_operator(op′))
-  LinearNonlinearRBOperator(op_lin′,op_nlin′)
+  LinearNonlinearReducedOperator(op_lin′,op_nlin′)
 end
 
 # local
 
-function get_local(op::RBOperator,μ::AbstractVector)
+function get_local(op::ReducedOperator,μ::AbstractVector)
   trialμ = get_local(op.trial,μ)
   testμ = get_local(op.test,μ)
   lhsμ = get_local(op.lhs,μ)
   rhsμ = get_local(op.rhs,μ)
-  RBOperator(op.op,trialμ,testμ,lhsμ,rhsμ)
+  ReducedOperator(op.op,trialμ,testμ,lhsμ,rhsμ)
 end
 
-function get_local(op::LinearNonlinearRBOperator,μ::AbstractVector)
+function get_local(op::LinearNonlinearReducedOperator,μ::AbstractVector)
   opμ_linear = get_local(get_linear_operator(op),μ)
   opμ_nlinear = get_local(get_nonlinear_operator(op),μ)
-  LinearNonlinearRBOperator(opμ_linear,opμ_nlinear)
+  LinearNonlinearReducedOperator(opμ_linear,opμ_nlinear)
 end
 
 # snapshots 
 
 function solution_snapshots(
   solver::RBSolver,
-  op::RBOperator,
+  op::ReducedOperator,
   r::AbstractRealisation,
   args...
   )

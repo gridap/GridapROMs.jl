@@ -28,7 +28,7 @@ capture temporal as well as spatial structure.  Key extensions:
   `TransientGreedyInterpolation`, `TransientRBFInterpolation`,
   `TransientBlockInterpolation`.
 
-- **Transient operators** (`ReducedOperators.jl`) — `TransientRBOperator` adds
+- **Transient operators** (`ReducedOperators.jl`) — `TransientReducedOperator` adds
   time-stepping to the reduced operator interface.
 
 - **Time marching** (`ParamTimeMarching.jl`) — hooks into `ParamODEs` to drive
@@ -153,9 +153,9 @@ include("LocalProjections.jl")
 
 include("LocalHyperReductions.jl")
 
+export TransientReducedOperator
 export TransientRBOperator
-export TransientGenericRBOperator
-export TransientLinearNonlinearRBOperator
+export TransientLinearNonlinearReducedOperator
 include("ReducedOperators.jl")
 
 export SpaceTimeParamOperator

@@ -8,10 +8,10 @@ function RBSteady.reduced_operator(
 
   red_op_lin = reduced_operator(solver,get_linear_operator(odeop),red_trial,red_test,s)
   red_op_nlin = reduced_operator(solver,get_nonlinear_operator(odeop),red_trial,red_test,s)
-  LinearNonlinearRBOperator(red_op_lin,red_op_nlin)
+  LinearNonlinearReducedOperator(red_op_lin,red_op_nlin)
 end
 
-function RBSteady.RBOperator(
+function RBSteady.ReducedOperator(
   odeop::ODEParamOperator,
   trial::RBSpace,
   test::RBSpace,
@@ -22,16 +22,16 @@ function RBSteady.RBOperator(
   trians_rhs = get_domains(rhs)
   trians_lhs = map(get_domains,lhs)
   odeop′ = change_domains(odeop,trians_rhs,trians_lhs)
-  GenericRBOperator(odeop′,trial,test,lhs,rhs)
+  RBOperator(odeop′,trial,test,lhs,rhs)
 end
 
-const TransientRBOperator{O<:ODEParamOperatorType,T} = RBOperator{O,T}
-const JointTransientRBOperator{O<:ODEParamOperatorType} = TransientRBOperator{O,JointDomains}
-const SplitTransientRBOperator{O<:ODEParamOperatorType} = TransientRBOperator{O,SplitDomains}
-const TransientGenericRBOperator{O<:ODEParamOperatorType,T,A,B} = GenericRBOperator{O,T,A,B}
+const TransientReducedOperator{O<:ODEParamOperatorType,T} = ReducedOperator{O,T}
+const JointTransientReducedOperator{O<:ODEParamOperatorType} = TransientReducedOperator{O,JointDomains}
+const SplitTransientReducedOperator{O<:ODEParamOperatorType} = TransientReducedOperator{O,SplitDomains}
+const TransientRBOperator{O<:ODEParamOperatorType,T,A,B} = RBOperator{O,T,A,B}
 
 function Algebra.allocate_residual(
-  op::TransientRBOperator,
+  op::TransientReducedOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -41,7 +41,7 @@ function Algebra.allocate_residual(
 end
 
 function Algebra.allocate_jacobian(
-  op::TransientRBOperator,
+  op::TransientReducedOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -52,7 +52,7 @@ end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::TransientRBOperator,
+  op::TransientReducedOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -87,7 +87,7 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::TransientRBOperator,
+  op::TransientReducedOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
@@ -132,7 +132,7 @@ function Algebra.jacobian!(
 end
 
 function Algebra.allocate_residual(
-  op::TransientGenericRBOperator{O,T,B,<:HighDimNoHRContribution},
+  op::TransientRBOperator{O,T,B,<:HighDimNoHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -144,7 +144,7 @@ function Algebra.allocate_residual(
 end
 
 function Algebra.allocate_jacobian(
-  op::TransientGenericRBOperator{O,T,<:TupOfHighDimNoHRContribution,B},
+  op::TransientRBOperator{O,T,<:TupOfHighDimNoHRContribution,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -157,7 +157,7 @@ end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::TransientGenericRBOperator{O,T,A,<:HighDimNoHRContribution},
+  op::TransientRBOperator{O,T,A,<:HighDimNoHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -189,7 +189,7 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::TransientGenericRBOperator{O,T,<:TupOfHighDimNoHRContribution,B},
+  op::TransientRBOperator{O,T,<:TupOfHighDimNoHRContribution,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
@@ -233,7 +233,7 @@ end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::TransientGenericRBOperator{O,T,A,<:HighDimAffineHRContribution},
+  op::TransientRBOperator{O,T,A,<:HighDimAffineHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -245,7 +245,7 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::TransientGenericRBOperator{O,T,<:TupOfHighDimAffineHRContribution,B},
+  op::TransientRBOperator{O,T,<:TupOfHighDimAffineHRContribution,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
@@ -258,7 +258,7 @@ end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::TransientGenericRBOperator{O,T,A,<:HighDimRBFContribution},
+  op::TransientRBOperator{O,T,A,<:HighDimRBFContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -270,7 +270,7 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::TransientGenericRBOperator{O,T,<:TupOfHighDimRBFContribution,B},
+  op::TransientRBOperator{O,T,<:TupOfHighDimRBFContribution,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
@@ -281,13 +281,13 @@ function Algebra.jacobian!(
   interpolate!(A,op.lhs,r)
 end
 
-const TransientLinearNonlinearRBOperator{T} = LinearNonlinearRBOperator{LinearNonlinearParamODE,T}
+const TransientLinearNonlinearReducedOperator{T} = LinearNonlinearReducedOperator{LinearNonlinearParamODE,T}
 
 # snapshots 
 
 function RBSteady.solution_snapshots(
   solver::TransientRBSolver{A,B,<:SteadyReduction},
-  op::TransientRBOperator,
+  op::TransientReducedOperator,
   r::TransientRealisation,
   args...
   ) where {A,B}
