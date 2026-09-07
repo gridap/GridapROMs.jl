@@ -96,6 +96,10 @@ flat_row_partition(a::DistributedPODProjection) = flat_row_partition(a.basis)
 
 RBSteady.projection_type(a::DistributedPODProjection) = PVector{Vector{projection_eltype(a)}}
 
+function Algebra.allocate_vector(::Type{<:PVector{V}},rows::AbstractVector) where V
+  allocate_vector(V,rows)
+end
+
 function Algebra.allocate_in_domain(a::Projection,x::PVector{<:V}) where V<:AbstractParamVector
   x̂ = allocate_vector(PVector{eltype(V)},RBSteady.reduced_dof_ids(a))
   return parameterise(x̂,param_length(x))
@@ -421,6 +425,24 @@ function submatrix(a::GenericPMatrix,::Colon,global_cols)
     view(values,:,global_cols)
   end
   GenericPArray(new_parts,partition(axes(a,1)))
+end
+
+function _reflector!(a::AbstractArray{<:AbstractVector{T}}) where T
+  Base.require_one_based_indexing(a)
+  n = reduce(+,map(length,a))
+  n == 0 && return zero(T)
+  ξ1 = @inbounds a[1]
+  normu = sqrt(reduce(+,map(x->sum(abs2,x),a)))
+  if iszero(normu)
+    return zero(ξ1/normu)
+  end
+  ν = T(copysign(normu,real(ξ1)))
+  ξ1 += ν
+  @inbounds a[1] = -ν
+  for i in 2:n
+    @inbounds a[i] /= ξ1
+  end
+  ξ1/ν
 end
 
 function _subfill!(a::AbstractVector,b::AbstractVector,ia,ib)

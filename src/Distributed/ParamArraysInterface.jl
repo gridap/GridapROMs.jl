@@ -299,3 +299,70 @@ function PartitionedArrays.p_sparse_matrix_cache_impl(
   cache = map(PartitionedArrays.VectorAssemblyCache,parts_snd,parts_rcv,k_snd,k_rcv,buffers...)
   map(ParamSparseMatrixAssemblyCache,cache)
 end
+
+# some linear algebra 
+
+function Base.:*(a::PSparseMatrix,b::PVector{<:ConsecutiveParamArray})
+  Ta = eltype(a)
+  Tb = eltype2(b)
+  T = typeof(zero(Ta)*zero(Tb)+zero(Ta)*zero(Tb))
+  c = PVector{Vector{T}}(undef,partition(axes(a,1)))
+  pc = parameterise(c,param_length(b))
+  mul!(pc,a,b)
+  pc
+end
+
+function LinearAlgebra.mul!(
+  c::AbstractParamVector,
+  a::SubSparseMatrix{A,<:SparseArrays.AbstractSparseMatrixCSC} where A,
+  b::AbstractParamVector,
+  α::Number,
+  β::Number
+  )
+
+  mul!(get_all_data(c),a,get_all_data(b),α,β)
+end
+
+function LinearAlgebra.mul!(
+  c::PVector{<:ConsecutiveParamArray},
+  a::PSparseMatrix,
+  b::PVector{<:ConsecutiveParamArray},
+  α::Number,
+  β::Number
+  )
+
+  @boundscheck @assert PartitionedArrays.matching_own_indices(axes(c,1),axes(a,1))
+  @boundscheck @assert PartitionedArrays.matching_own_indices(axes(a,2),axes(b,1))
+  if !PartitionedArrays.matching_ghost_indices(axes(a,2),axes(b,1))
+    b = _change_layout(b,partition(axes(a,2)))
+  end
+  # Start the exchange
+  t = consistent!(b)
+  # Meanwhile, process the owned blocks
+  map(own_values(c),own_values(a),own_values(b)) do co,aoo,bo
+    if β != 1
+      β != 0 ? rmul!(co,β) : fill!(co,zero(eltype(co)))
+    end
+    mul!(co,aoo,bo,α,1)
+  end
+  # Wait for the exchange to finish
+  wait(t)
+  # process the ghost block
+  map(own_values(c),own_ghost_values(a),ghost_values(b)) do co,aoh,bh
+    mul!(co,aoh,bh,α,1)
+  end
+  c
+end
+
+function _change_layout(b::PVector{<:ConsecutiveParamArray},new_idx_partition)
+  new_parts = map(own_values(b),new_idx_partition) do bo,ra
+    nl = local_length(ra)
+    nparams = param_length(bo)
+    new_lb = ConsecutiveParamArray(similar(bo.data,nl,nparams))
+    @views begin
+      new_lb.data[own_to_local(ra),:] .= bo.data
+    end
+    new_lb
+  end
+  PVector(new_parts,new_idx_partition)
+end

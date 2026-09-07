@@ -297,12 +297,20 @@ function LinearAlgebra.norm(a::GenericPArray,p::Real=2)
   reduce(+,contibs;init=zero(eltype(contibs)))^(1/p)
 end
 
+function Base.:*(a::PSparseMatrix,b::GenericPVector)
+  Ta = eltype(a)
+  Tb = eltype(b)
+  T = typeof(zero(Ta)*zero(Tb)+zero(Ta)*zero(Tb))
+  c = GenericPArray{Vector{T}}(undef,partition(axes(a,1)))
+  mul!(c,a,b)
+  c
+end
+
 function Base.:*(a::PSparseMatrix,b::GenericPMatrix)
   Ta = eltype(a)
   Tb = eltype(b)
   T = typeof(zero(Ta)*zero(Tb)+zero(Ta)*zero(Tb))
-  N = ndims(b)
-  c = GenericPArray{Array{T,N}}(undef,partition(axes(a,1)),axes(b,2))
+  c = GenericPArray{Matrix{T}}(undef,partition(axes(a,1)),axes(b,2))
   mul!(c,a,b)
   c
 end
@@ -339,18 +347,16 @@ function Base.:*(at::Adjoint{T,<:GenericPMatrix} where T,b::GenericPMatrix)
   reduce(+,G)
 end
 
-function _with_ghost_structure(b::GenericPArray,new_idx_partition)
-  N = ndims(b)
-  usizes = map(length,b.unpartitioned_axes) 
-  new_parts = map(own_values(b),new_idx_partition) do bo,ra
-    nl = local_length(ra)
-    new_lb = similar(bo,(nl,usizes...))
-    @views begin
-      new_lb[own_to_local(ra),_ncolons(Val{N-1}())...] .= bo
-    end
-    new_lb
+function Base.:*(
+  at::Adjoint{T,<:GenericPMatrix} where T,
+  b::PVector{<:ConsecutiveParamArray}
+  )
+  
+  a = at.parent
+  G = map(own_values(a),own_values(b)) do ao,bo
+    ao'*get_all_data(bo)
   end
-  GenericPArray(new_parts,new_idx_partition,b.unpartitioned_axes)
+  reduce(+,G)
 end
 
 function LinearAlgebra.mul!(
@@ -363,10 +369,8 @@ function LinearAlgebra.mul!(
 
   @boundscheck @assert PartitionedArrays.matching_own_indices(axes(c,1),axes(a,1))
   @boundscheck @assert PartitionedArrays.matching_own_indices(axes(a,2),axes(b,1))
-  # Ghost DOF orderings may differ between a's col partition and b's row partition
-  # (same DOF set, different discovery order). Reconcile b to a's ghost structure.
   if !PartitionedArrays.matching_ghost_indices(axes(a,2),axes(b,1))
-    b = _with_ghost_structure(b,partition(axes(a,2)))
+    b = _change_layout(b,partition(axes(a,2)))
   end
   # Start the exchange
   t = consistent!(b)
@@ -452,6 +456,22 @@ function LinearAlgebra.mul!(
   c
 end
 
+function LinearAlgebra.mul!(
+  x̂::AbstractParamArray,
+  at::Adjoint{<:Any,<:GenericPMatrix},
+  b::PVector{<:ConsecutiveParamArray},
+  α::Number,β::Number
+  )
+
+  r = at * b
+  if β == 0
+    copyto!(get_all_data(x̂),rmul!(r,α))
+  else
+    rmul!(get_all_data(x̂),β)
+    axpy!(α,r,get_all_data(x̂))
+  end
+end
+
 function LinearAlgebra.axpy!(α,a::GenericPArray,b::GenericPArray)
   @check partition(axes(a,1)) === partition(axes(b,1))
   map(partition(a),partition(b)) do a,b
@@ -495,6 +515,20 @@ row_partition(a::GenericPArray) = row_partition(a.index_partition)
 col_partition(a::GenericPArray) = col_partition(a.index_partition)
 
 # utils 
+
+function _change_layout(b::GenericPArray,new_idx_partition)
+  N = ndims(b)
+  usizes = map(length,b.unpartitioned_axes) 
+  new_parts = map(own_values(b),new_idx_partition) do bo,ra
+    nl = local_length(ra)
+    new_lb = similar(bo,(nl,usizes...))
+    @views begin
+      new_lb[own_to_local(ra),_ncolons(Val{N-1}())...] .= bo
+    end
+    new_lb
+  end
+  GenericPArray(new_parts,new_idx_partition,b.unpartitioned_axes)
+end
 
 second(p::Pair) = p.second
 
