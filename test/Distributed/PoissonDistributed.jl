@@ -199,20 +199,9 @@ with_debug() do distribute
   ress = residual_snapshots(rbsolver,op,snaps)
   ressnp[] = ress
   # red_jac = reduced_jacobian(jac_red,red_trial,red_test,jacs)
-  # red_res = reduced_residual(res_red,red_test,ress)
+  red_res = reduced_residual(res_red,red_test,ress)
 end
 
-basis = projection(get_reduction(res_red),ressnp[])
-proj_basis = project(rbspace[],basis)
-interp = Interpolation(res_red,basis,trian[],rbspace[])
-
-# local_views(basis),local_views(trian),local_views(test)) do bi,ti,testi
-bi = local_views(basis).items[4]
-ti = local_views(trian[]).items[4]
-testi = local_views(rbspace[]).items[4]
-
-rows,interp = DEIM(bi)
-factor = lu(interp)
-# domain = IntegrationDomain(ti,testi,rows)
-cell_dof_ids = get_cell_dof_ids(testi,ti)
-cells = RBSteady.get_rows_to_cells(cell_dof_ids,rows)
+jacbasis = get_basis(projection(get_reduction(jac_red),jacsnp[]))
+B = get_all_data(jacbasis)
+I,AI = DEIM(B)

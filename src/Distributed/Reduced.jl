@@ -204,13 +204,31 @@ end
 for f in (:DEIM,:SOPT)
   @eval begin
     function RBSteady.$f(A::PSparseMatrix)
-      I,AI = $f(get_all_data(A))
-      R′,C′ = map(local_views(I),own_values(A)) do I,A
+      B = get_all_data(A)
+      I,AI = $f(B)
+      R′,C′ = map(local_views(I),own_values(A),row_partition(B)) do I,A,ri
+        _to_local!(I,global_to_local(ri))
         recast_split_indices(I,testitem(A))
       end |> tuple_of_arrays
       return (R′,C′),AI
     end
   end
+end
+
+function DofMaps.recast_split_indices(sids::AbstractArray,a::SubSparseMatrix)
+  frows = similar(sids)
+  fcols = similar(sids)
+  fill!(frows,zero(eltype(frows)))
+  fill!(fcols,zero(eltype(fcols)))
+  prows,pcols = a.indices
+  I,J, = findnz(a.parent)
+  for (i,nzi) in enumerate(sids)
+    if nzi > 0
+      frows[i] = prows[I[nzi]]
+      fcols[i] = pcols[J[nzi]]
+    end
+  end
+  return frows,fcols
 end
 
 struct DistributedIntegrationDomain{A} <: IntegrationDomain

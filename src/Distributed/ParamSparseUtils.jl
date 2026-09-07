@@ -108,7 +108,7 @@ function PartitionedArrays.compresscoo(
   sparse(I,J,M,m,n,combine)
 end
 
-struct ParamSubSparseMatrix{T,A,B,C} <: AbstractParamArray{T,2,PartitionedArrays.SubSparseMatrix{T,A,B,C}}
+struct ParamSubSparseMatrix{T,A,B,C} <: AbstractParamArray{T,2,SubSparseMatrix{T,A,B,C}}
   parent::A
   indices::B
   inv_indices::C
@@ -139,11 +139,11 @@ ParamDataStructures.param_length(A::ParamSubSparseMatrix) = param_length(A.paren
 ParamDataStructures.innersize(a::ParamSubSparseMatrix) = map(length,a.indices)
 
 function ParamDataStructures.param_getindex(A::ParamSubSparseMatrix,i::Integer)
-  PartitionedArrays.SubSparseMatrix(param_getindex(A.parent,i),A.indices,A.inv_indices)
+  SubSparseMatrix(param_getindex(A.parent,i),A.indices,A.inv_indices)
 end
 
 #TODO this works only for CSC format
-function ParamDataStructures.get_all_data(A::ParamSubSparseMatrix{T,<:ParamDataStructures.ParamSparseMatrixCSC}) where T
+function ParamDataStructures.get_all_data(A::ParamSubSparseMatrix{T,<:ParamSparseMatrixCSC}) where T
   parent_data = get_all_data(A.parent)
   plength = param_length(A)
   inv_rows, = A.inv_indices
@@ -173,7 +173,7 @@ end
 
 function LinearAlgebra.mul!(
   C::ConsecutiveParamVector,
-  A::ParamSubSparseMatrix{T,<:ParamDataStructures.ParamSparseMatrixCSC} where T,
+  A::ParamSubSparseMatrix{T,<:ParamSparseMatrixCSC} where T,
   B::ConsecutiveParamVector,
   α::Number,
   β::Number
@@ -207,7 +207,7 @@ function LinearAlgebra.mul!(
 end
 
 function LinearAlgebra.fillstored!(
-  A::ParamSubSparseMatrix{T,<:ParamDataStructures.ParamSparseMatrixCSC},v::Number
+  A::ParamSubSparseMatrix{T,<:ParamSparseMatrixCSC},v::Number
   ) where T
 
   rows,cols = A.indices

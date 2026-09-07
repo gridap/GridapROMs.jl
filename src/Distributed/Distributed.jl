@@ -78,7 +78,7 @@ import GridapROMs.DofMaps: range_2d,range_1d
 import GridapROMs.ParamAlgebra: ParamBuilder,ParamCounter
 import GridapROMs.RBSteady: get_l2_form,get_h1_form,get_div_coupling_form,l2_norm,h1_norm,div_coupling,_assemble_operator,_unwrap,_meas,_energy_mortar,_coupling_mortar
 import MPI
-import PartitionedArrays: VectorAssemblyCache,length_to_ptrs!,rewind_ptrs!,getany
+import PartitionedArrays: SubSparseMatrix,VectorAssemblyCache,length_to_ptrs!,rewind_ptrs!,getany
 
 include("OwnAndGhostParamVectors.jl")
 
