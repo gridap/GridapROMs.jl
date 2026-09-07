@@ -68,48 +68,14 @@ function LinearAlgebra.axpy!(α::Number,a::RBParamVector,b::RBParamVector)
   return b
 end
 
-# multi field
-
-function MultiField.restrict_to_field(f::MultiFieldFESpace,fv::RBParamVector,i::Integer)
-  data_i = blocks(fv.data)[i]
-  fe_data_i = MultiField.restrict_to_field(f,fv.fe_data,i)
-  RBParamVector(data_i,fe_data_i)
-end
-
-for F in (:SingleFieldParamFESpace,:SingleFieldFESpace)
+for T in (:SingleFieldFESpace,:MultiFieldFESpace)
   @eval begin
-    function FESpaces.scatter_free_and_dirichlet_values(f::$F,fv::RBParamVector,dv::AbstractParamVector)
-      scatter_free_and_dirichlet_values(f,fv.fe_data,dv)
+    function FESpaces.FEFunction(f::$T,fv::RBParamVector)
+      FEFunction(f,fv.fe_data)
     end
 
-    function FESpaces.gather_free_and_dirichlet_values!(fv::RBParamVector,dv::AbstractParamVector,f::$F,cv)
-      gather_free_and_dirichlet_values!(fv.fe_data,dv,f,cv)
-    end
-  end
-end
-
-for T in (
-  :FESpaceWithLinearConstraints,
-  :(FESpaceWithConstantFixed{FESpaces.FixConstant}),
-  :(FESpaceWithConstantFixed{FESpaces.DoNotFixConstant})
-  )
-  @eval begin
-    function FESpaces.scatter_free_and_dirichlet_values(
-      f::SingleFieldParamFESpace{<:$T},
-      fv::RBParamVector,
-      dv::AbstractParamVector
-      )
-
-      scatter_free_and_dirichlet_values(f,fv.fe_data,dv)
-    end
-    function FESpaces.gather_free_and_dirichlet_values!(
-      fv::RBParamVector,
-      dv::AbstractParamVector,
-      f::SingleFieldParamFESpace{<:$T},
-      cv
-      )
-
-      gather_free_and_dirichlet_values!(fv.fe_data,dv,f,cv)
+    function FESpaces.EvaluationFunction(f::$T,fv::RBParamVector)
+      EvaluationFunction(f,fv.fe_data)
     end
   end
 end

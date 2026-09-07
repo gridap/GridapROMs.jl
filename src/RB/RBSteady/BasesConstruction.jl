@@ -464,48 +464,37 @@ Gram-Schmidt orthogonalization for a matrix `A` under a Euclidean norm. A
 (positive definite) sparse matrix `X` representing an inner product on the row space
 of `A` can be provided to make the result orthogonal under a different norm
 """
-function gram_schmidt end
-
-for (f,g) in zip((:gram_schmidt,:gram_schmidt!),(:pivoted_qr,:pivoted_qr!))
-  h = g==:pivoted_qr ? :qr : :qr!
-  @eval begin
-    function $f(A::AbstractMatrix,args...)
-      Q, = $g(A,args...)
-      return Q
-    end
-
-    function $f(A::AbstractMatrix,L::AbstractSparseMatrix,p::AbstractVector{Int},args...)
-      XA = _forward_cholesky(A,L,p)
-      Q̃, = $g(XA,args...)
-      Q = _backward_cholesky(Q̃,L,p)
-      return Q
-    end
-
-    function $f(A::AbstractMatrix,C::Factorization,args...)
-      $f(A,sparse(C.L),C.p,args...)
-    end
-
-    function $f(A::AbstractMatrix,X::AbstractSparseMatrix,args...)
-      $f(A,symcholesky(X),args...)
-    end
-
-    function $g(A,tol=1e-10)
-      C = $h(A,ColumnNorm())
-      r = findlast(abs.(diag(C.R)) .> tol)
-      Qr = C.Q[:,1:r]
-      Rr = _truncate_row!(C.R,r)
-      invpermutecols!(Rr,C.jpvt)
-      return Qr,Rr
-    end
-  end
+function gram_schmidt(A::AbstractMatrix,args...)
+  Q, = pivoted_qr!(A,args...)
+  return Q
 end
 
-for f in (:gram_schmidt,:gram_schmidt!)
-  @eval begin
-    function $f(A::AbstractMatrix,basis::AbstractMatrix,args...)
-      $f(hcat(basis,A),args...)
-    end
-  end
+function gram_schmidt(A::AbstractMatrix,L::AbstractSparseMatrix,p::AbstractVector{Int},args...)
+  XA = _forward_cholesky(A,L,p)
+  Q̃, = pivoted_qr!(XA,args...)
+  Q = _backward_cholesky(Q̃,L,p)
+  return Q
+end
+
+function gram_schmidt(A::AbstractMatrix,C::Factorization,args...)
+  gram_schmidt(A,sparse(C.L),C.p,args...)
+end
+
+function gram_schmidt(A::AbstractMatrix,X::AbstractSparseMatrix,args...)
+  gram_schmidt(A,symcholesky(X),args...)
+end
+
+function gram_schmidt(A::AbstractMatrix,basis::AbstractMatrix,args...)
+  gram_schmidt(hcat(basis,A),args...)
+end
+
+function pivoted_qr!(A,tol=1e-10)
+  C = qr!(A,ColumnNorm())
+  r = findlast(abs.(diag(C.R)) .> tol)
+  Qr = _truncate!(C.Q,r)
+  Rr = _truncate_row!(C.R,r)
+  invpermutecols!(Rr,C.jpvt)
+  return Qr,Rr
 end
 
 # overload to prevent bugs when compressing empty or zero matrices

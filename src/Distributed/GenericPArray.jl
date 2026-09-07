@@ -331,32 +331,29 @@ function Base.:*(a::GenericPMatrix,b::AbstractMatrix)
   mul!(c,a,b,one(T),zero(T))
 end
 
-function Base.:*(at::Adjoint{T,<:GenericPMatrix} where T,b::GenericPVector)
-  a = at.parent
-  G = map(own_values(a),own_values(b)) do ao,bo
-    ao'*bo
-  end
-  reduce(+,G)
+function Base.:*(a::Adjoint{T,<:GenericPMatrix} where T,b::GenericPVector)
+  Ta = eltype(a)
+  Tb = eltype(b)
+  T = typeof(zero(Ta)*zero(Tb)+zero(Ta)*zero(Tb))
+  c = Vector{T}(undef,(size(a,1),))
+  mul!(c,a,b,one(T),zero(T))
 end
 
-function Base.:*(at::Adjoint{T,<:GenericPMatrix} where T,b::GenericPMatrix)
-  a = at.parent
-  G = map(own_values(a),own_values(b)) do ao,bo
-    ao'*bo
-  end
-  reduce(+,G)
+function Base.:*(a::Adjoint{T,<:GenericPMatrix} where T,b::GenericPMatrix)
+  Ta = eltype(a)
+  Tb = eltype(b)
+  T = typeof(zero(Ta)*zero(Tb)+zero(Ta)*zero(Tb))
+  c = Matrix{T}(undef,(size(a,1),size(b,2)))
+  mul!(c,a,b,one(T),zero(T))
 end
 
-function Base.:*(
-  at::Adjoint{T,<:GenericPMatrix} where T,
-  b::PVector{<:ConsecutiveParamArray}
-  )
-  
-  a = at.parent
-  G = map(own_values(a),own_values(b)) do ao,bo
-    ao'*get_all_data(bo)
-  end
-  reduce(+,G)
+function Base.:*(a::Adjoint{T,<:GenericPMatrix} where T,b::PVector{<:AbstractParamVector})
+  Ta = eltype(a)
+  Tb = eltype2(b)
+  T = typeof(zero(Ta)*zero(Tb)+zero(Ta)*zero(Tb))
+  c = Vector{T}(undef,(size(a,1),))
+  pc = parameterise(c,param_length(b))
+  mul!(pc,a,b,one(T),zero(T))
 end
 
 function LinearAlgebra.mul!(
@@ -457,19 +454,66 @@ function LinearAlgebra.mul!(
 end
 
 function LinearAlgebra.mul!(
-  x̂::AbstractParamArray,
+  c::AbstractVector{<:Number},
   at::Adjoint{<:Any,<:GenericPMatrix},
-  b::PVector{<:ConsecutiveParamArray},
+  b::GenericPVector,
   α::Number,β::Number
   )
 
-  r = at * b
-  if β == 0
-    copyto!(get_all_data(x̂),rmul!(r,α))
-  else
-    rmul!(get_all_data(x̂),β)
-    axpy!(α,r,get_all_data(x̂))
+  a = at.parent
+  G = map(own_values(a),own_values(b)) do ao,bo
+    ao'*bo
   end
+  r = reduce(+,G)
+  if β == 0
+    c .= α.*r
+  else
+    rmul!(c,β)
+    c .+= α.*r
+  end
+  c
+end
+
+function LinearAlgebra.mul!(
+  c::AbstractMatrix{<:Number},
+  at::Adjoint{<:Any,<:GenericPMatrix},
+  b::GenericPMatrix,
+  α::Number,β::Number
+  )
+
+  a = at.parent
+  G = map(own_values(a),own_values(b)) do ao,bo
+    ao'*bo
+  end
+  r = reduce(+,G)
+  if β == 0
+    c .= α.*r
+  else
+    rmul!(c,β)
+    c .+= α.*r
+  end
+  c
+end
+
+function LinearAlgebra.mul!(
+  c::AbstractParamArray,
+  at::Adjoint{<:Any,<:GenericPMatrix},
+  b::PVector{<:AbstractParamVector},
+  α::Number,β::Number
+  )
+  
+  a = at.parent
+  G = map(own_values(a),own_values(b)) do ao,bo
+    ao'*get_all_data(bo)
+  end
+  r = reduce(+,G)
+  if β == 0
+    copyto!(get_all_data(c),rmul!(r,α))
+  else
+    rmul!(get_all_data(c),β)
+    axpy!(α,r,get_all_data(c))
+  end
+  c
 end
 
 function LinearAlgebra.axpy!(α,a::GenericPArray,b::GenericPArray)

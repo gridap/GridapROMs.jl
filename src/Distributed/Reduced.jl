@@ -15,50 +15,6 @@ function Utils.is_parent(parent::DistributedTriangulation,child::DistributedTria
   reduce(&,x)
 end
 
-# basis construction 
-
-for T in (:GenericPMatrix,:DistributedSnapshots)
-  @eval begin
-    function RBSteady.tpod(red_style::ReductionStyle,A::$T)
-      _method_of_snapshots_row(red_style,A,A'*A)
-    end
-
-    function RBSteady.tpod(red_style::ReductionStyle,A::$T,X::PSparseMatrix)
-      _method_of_snapshots_row(red_style,A,A'*(X*A))
-    end
-
-    RBSteady.gram_schmidt(A::$T) = _qr!(A)
-    RBSteady.gram_schmidt(A::$T,X::PSparseMatrix) = _qr!(X*A)
-  end
-end
-
-function RBTransient.first_unfold(A::GenericPArray{T,3}) where T
-  values = map(local_values(A)) do A
-    RBTransient.first_unfold(A)
-  end
-  GenericPArray(values,flat_row_partition(A))
-end
-
-function _method_of_snapshots_row(red_style::ReductionStyle,A,AA)
-  _,Sr,Vr = RBSteady.truncated_svd(red_style,AA;issquare=true)
-  Ur = _weighted_mul(A,Vr,Sr)
-  return Ur,Sr,Vr
-end
-
-function _weighted_mul(A,V,S)
-  Ta = eltype(A)
-  Tv = eltype(V)
-  T = typeof(zero(Ta)*zero(Tv)+zero(Ta)*zero(Tv))
-  U = GenericPArray{Matrix{T}}(undef,flat_row_partition(A),axes(V,2))
-  D = Diagonal(S.+eps())
-  map(own_values(U),own_values(A)) do Uo,Ao
-    mul!(Uo,Ao,V)
-    rdiv!(Uo,D)
-  end
-  consistent!(U) |> fetch
-  U
-end
-
 # projections
 
 PartitionedArrays.partition(a::Projection) = partition(get_basis(a))
@@ -165,6 +121,18 @@ const DistributedRBSpace{S<:DistributedFESpace} = RBSpace{S}
 function GridapDistributed.local_views(r::DistributedRBSpace)
   map(local_views(r.space),local_views(r.subspace)) do space,subspace
     RBSpace(space,subspace)
+  end
+end
+
+for T in (:DistributedSingleFieldFESpace,:DistributedMultiFieldFESpace)
+  @eval begin
+    function FESpaces.FEFunction(f::$T,fv::RBParamVector,args...)
+      FEFunction(f,fv.fe_data,args...)
+    end
+
+    function FESpaces.EvaluationFunction(f::$T,fv::RBParamVector,args...)
+      EvaluationFunction(f,fv.fe_data,args...)
+    end
   end
 end
 
@@ -427,7 +395,42 @@ function submatrix(a::GenericPMatrix,::Colon,global_cols)
   GenericPArray(new_parts,partition(axes(a,1)))
 end
 
-function _reflector!(a::AbstractArray{<:AbstractVector{T}}) where T
+function _fetch_value(parts,rows,global_row)
+  v = ()
+  map(local_views(parts),local_views(rows)) do vals,rows
+    g2o = global_to_own(rows)
+    o = g2o[global_row]
+    if o > 0 
+      v = (v...,vals[o])
+    end
+  end
+  @check length(v) == 1
+  first(v)
+end
+
+function _set_values!(parts,rows,global_rows)
+  map(local_views(parts),local_views(rows)) do vals,rows
+    g2o = global_to_own(rows)
+    for gr in global_rows
+      o = g2o[gr]
+      if o > 0 
+        vals[o] = 1.0
+      end
+    end
+    o = g2o[global_row]
+    if o > 0 
+      v = (v...,vals[o])
+    end
+  end
+  @check length(v) == 1
+  first(v)
+end
+
+function _reflector!(
+  a::AbstractArray{<:AbstractVector{T}},
+  rows::AbstractArray{<:AbstractLocalIndices}
+  ) where T
+
   Base.require_one_based_indexing(a)
   n = reduce(+,map(length,a))
   n == 0 && return zero(T)
