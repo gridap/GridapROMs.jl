@@ -26,6 +26,8 @@ row_partition(a::DistributedProjection) = row_partition(get_basis(a))
 col_partition(a::DistributedProjection) = col_partition(get_basis(a))
 flat_row_partition(a::DistributedProjection) = flat_row_partition(get_basis(a))
 
+RBSteady.fe_dof_ids(a::DistributedProjection) = axes(get_basis(a),1)
+
 RBSteady.projection_type(a::DistributedProjection) = PVector{Vector{projection_eltype(a)}}
 
 function Algebra.allocate_vector(::Type{<:PVector{V}},rows::AbstractVector) where V
@@ -46,7 +48,7 @@ function RBSteady.allocate_full_matrix(::Type{<:GenericPArray{M}},rows::PRange,c
   GenericPArray{M}(undef,partition(rows),cols)
 end
 
-function RBSteady._allocate_projection(red::Reduction,s::DistributedBlockSnapshots{N}) where N
+function RBSteady._allocate_projection(red::Reduction,s::DistributedBlockSnapshots{N},args...) where N
   T = _distr_proj_type(red)
   block_basis = Array{T,N}(undef,size(s))
   BlockProjection(block_basis,s.touched)
@@ -74,7 +76,6 @@ function RBSteady.Projection(basis::GenericPMatrix,s::DistributedSparseSnapshots
 end
 
 RBSteady.get_basis(a::DistributedPODProjection) = a.basis
-RBSteady.fe_dof_ids(a::DistributedPODProjection) = row_partition(a)
 
 function RBSteady.union_bases(a::DistributedPODProjection,b::DistributedPODProjection,args...) 
   union_bases(a,get_basis(b),args...)
@@ -87,7 +88,7 @@ function RBSteady.union_bases(a::DistributedPODProjection,basis_b::AbstractMatri
 end
 
 function GridapDistributed.local_views(a::DistributedPODProjection)
-  map(local_views(a.basis)) do basis
+  map(local_views(get_basis(a))) do basis
     PODProjection(basis)
   end
 end
@@ -127,13 +128,13 @@ function RBSteady.union_bases(a::DistributedNormedProjection,b::AbstractArray,ar
   DistributedNormedProjection(projection′,a.norm_matrix)
 end
 
-function RBSteady.galerkin_projection(proj_left::DistributedNormedProjection,a::Projection)
+function RBSteady.galerkin_projection(proj_left::DistributedNormedProjection,a::DistributedProjection)
   galerkin_projection(RBSteady.get_projection(proj_left),RBSteady.get_projection(a))
 end
 
 function RBSteady.galerkin_projection(
   proj_left::DistributedNormedProjection,
-  a::Projection,
+  a::DistributedProjection,
   proj_right::DistributedNormedProjection,
   args...
   )
@@ -149,6 +150,12 @@ end
 for f in (:DEIM,:SOPT)
   @eval begin
     RBSteady.$f(a::DistributedNormedProjection) = $f(a.projection)
+  end
+end
+
+function GridapDistributed.local_views(a::DistributedNormedProjection)
+  map(local_views(a.projection),local_views(a.norm_matrix)) do projection,matrix
+    NormedProjection(projection,matrix)
   end
 end
 

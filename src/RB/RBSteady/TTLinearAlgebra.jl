@@ -404,9 +404,7 @@ function tt_supremizers(
   n = length(X)
   supr_cores = Vector{Array{T,3}}(undef,n)
   for d in 1:n
-    cur_core = cores_d[d]
-    XinvB = X[d] \ B[d]
-    supr_cores[d] = _sparse_rescaling(XinvB,cur_core)
+    supr_cores[d] = _tt_supremizers(X[d],B[d],cores_d[d])
   end
   return supr_cores
 end
@@ -422,7 +420,7 @@ function tt_supremizers(
   for iB in 1:nB
     Bi = get_decomposition(B)[iB]
     Bfactors = get_factors(Bi)
-    vec_supr[iB] = tt_supremizers(X,Bfactors,cores_d)
+    vec_supr[iB] = _tt_supremizers(X,Bfactors,cores_d)
   end
   supr_cores = _block_cores_add_component(vec_supr)
   if length(cores_d) > length(X)
@@ -480,25 +478,24 @@ end
 
 # rescale a 3d-core by a (sparse) matrix
 
-function _sparse_rescaling(X::GenericRankTensor,cores::Vector{<:AbstractArray{T,3}}) where T
-  sum(map(k -> _sparse_rescaling(get_decomposition(X,k),cores),1:rank(X)))
+function _tt_supremizers(X::GenericRankTensor,B::AbstractSparseMatrix,cores::Vector{<:AbstractArray{T,3}}) where T
+  sum(map(k -> _tt_supremizers(get_decomposition(X,k),B,cores),1:rank(X)))
 end
 
-function _sparse_rescaling(X::Rank1Tensor,cores::Vector{<:AbstractArray{T,3}}) where T
-  map(_sparse_rescaling,get_factors(X),cores)
+function _tt_supremizers(X::Rank1Tensor,B::AbstractSparseMatrix,cores::Vector{<:AbstractArray{T,3}}) where T
+  map((f,c) -> _tt_supremizers(f,B,c),get_factors(X),cores)
 end
 
-function _sparse_rescaling(X::AbstractSparseMatrix,core::AbstractArray{T,3}) where T
-  prev_rank = size(core,1)
-  cur_size = size(core,2)
-  cur_size′ = size(X,1)
-  M = reshape(core,prev_rank*cur_size,:)
-
-  X′ = kron(X,I(prev_rank))
-  XM = X′*M
-  Xcore = reshape(XM,prev_rank,cur_size′,:)
-
-  return Xcore
+function _tt_supremizers(X::Factorization,B::AbstractSparseMatrix,core::AbstractArray{T,3}) where T
+  prev_rank,cur_size,next_rank = size(core)
+  cur_size′ = size(B,1)
+  Cmat = reshape(permutedims(core,(1,3,2)),prev_rank*next_rank,cur_size)
+  Ymat = Cmat*transpose(B)
+  W = reshape(permutedims(reshape(Ymat,prev_rank,next_rank,cur_size′),(3,1,2)),cur_size′,:)
+  W .= X \ W
+  Y = similar(W)
+  ldiv!(Y,X,W)
+  reshape(permutedims(reshape(Y,cur_size′,prev_rank,next_rank),(2,1,3)),prev_rank,cur_size′,next_rank)
 end
 
 # empirical interpolation

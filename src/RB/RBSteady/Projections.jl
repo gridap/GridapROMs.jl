@@ -850,10 +850,11 @@ function enrich!(
 end
 
 function supremizers(f::Factorization,C::AbstractMatrix,ϕ::AbstractMatrix)
-  supr = similar(ϕ,size(C,1),size(ϕ,2))
-  mul!(supr,C,ϕ)
-  ldiv!(f,supr)
-  return supr
+  c1 = similar(ϕ,size(C,1),size(ϕ,2))
+  c2 = similar(ϕ,size(C,1),size(ϕ,2))
+  mul!(c1,C,ϕ)
+  ldiv!(c2,f,c1)
+  return c2
 end
 
 # galerkin projections

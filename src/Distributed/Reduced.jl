@@ -19,6 +19,9 @@ end
 
 const DistributedRBSpace{S<:DistributedFESpace} = RBSpace{S}
 
+const DistributedSingleFieldRBSpace{S<:DistributedSingleFieldFESpace} = DistributedRBSpace{S}
+const DistributedMultiFieldRBSpace{S<:DistributedMultiFieldFESpace} = DistributedRBSpace{S}
+
 function GridapDistributed.local_views(r::DistributedRBSpace)
   map(local_views(r.space),local_views(r.subspace)) do space,subspace
     RBSpace(space,subspace)
@@ -448,51 +451,52 @@ for T in (:GenericPMatrix,:DistributedSnapshots)
   end
 end
 
-# save/load
-#
-# `serialize`/`deserialize` of a whole distributed container is unusable: under
-# MPI each rank is a separate process (only rank 0's data would be written) and
-# `MPIArray` holds an `MPI.Comm` that is not serializable; under `DebugArray` it
-# would work but ties the file to the number of parts / ghost layout it was
-# produced with. Instead we follow the GridapDistributed visualization pattern
-# and write one file per rank, storing the local piece together with its
-# `LocalIndices` so the partitioned container can be rebuilt on load. `load_*`
-# takes the `ranks` object (`distribute(LinearIndices(...))`) to drive the
-# per-rank read.
-
-# NB: `_get_label(name,labels...)` splats each label, so a `String` label gets
-# broken into characters -- compose only through the 2-arg `_get_label`.
-_part_filename(dir,name,label,part) =
-  joinpath(dir,RBSteady._get_label(RBSteady._get_label(name,label),"part$part")*".jld")
-
-function _save_pgeneric(dir,name,x;label="")
-  map(partition(x),partition(axes(x,1))) do xloc,ind
-    serialize(_part_filename(dir,name,label,part_id(ind)),(xloc,ind))
-  end
-  nothing
-end
-
-function _load_pgeneric(dir,name,ranks;label="")
-  parts = map(ranks) do p
-    deserialize(_part_filename(dir,name,label,p))
-  end
-  data = map(first,parts)
-  idx = map(last,parts)
-  GenericPArray(data,idx)
-end
-
 function DrWatson.save(dir,s::DistributedSnapshots;label="")
   _save_pgeneric(dir,RBSteady.SNAPSHOTS_LABEL,s.snaps;label)
 end
 
 function RBSteady.load_snapshots(dir,ranks::AbstractArray;label="")
-  DistributedSnapshots(_load_pgeneric(dir,RBSteady.SNAPSHOTS_LABEL,ranks;label))
+  snaps = _load_pgeneric(dir,RBSteady.SNAPSHOTS_LABEL,ranks;label)
+  DistributedSnapshots(snaps)
 end
 
-# projection / contribution / operator persistence: a distributed projection
-# basis is a `GenericPMatrix`, so `save(dir,b;label) = _save_pgeneric(dir,name,b;label)`
-# and `load(dir,ranks;label) = PODProjection(_load_pgeneric(dir,name,ranks;label))`
-# once the distributed-projection wrapper type is settled.
+function RBSteady.hr_error_res(
+  test::DistributedSingleFieldRBSpace,
+  res::DistributedSnapshots,
+  a::DistributedHRProjection,
+  fecache,
+  hypred
+  )
+  
+  map(
+    local_views(test),
+    local_views(res),
+    local_views(a),
+    local_views(fecache)
+    ) do test,res,a,fecache
+    RBSteady.hr_error_res(test,res,a,fecache,hypred)
+  end
+end
+
+function RBSteady.hr_error_jac(
+  trial::DistributedSingleFieldRBSpace,
+  test::DistributedSingleFieldRBSpace,
+  jac::DistributedSnapshots,
+  a::DistributedHRProjection,
+  fecache,
+  hypred
+  )
+  
+  map(
+    local_views(trial),
+    local_views(test),
+    local_views(jac),
+    local_views(a),
+    local_views(fecache)
+    ) do trial,test,jac,a,fecache
+    RBSteady.hr_error_jac(trial,test,jac,a,fecache,hypred)
+  end
+end
 
 # utils
 
@@ -553,4 +557,24 @@ function _best_s_opt_index(basis::GenericPMatrix,P,G,colnorms2,l)
     best_logS => best_gi
   end
   return second(reduce(max,best_pairs,init=(-Inf=>0)))
+end
+
+function _part_filename(dir,name,label,part)
+  joinpath(dir,RBSteady._get_label(RBSteady._get_label(name,label),"part_$part")*".jld")
+end 
+
+function _save_pgeneric(dir,name,x;label="")
+  map(partition(x),partition(axes(x,1))) do xloc,ind
+    serialize(_part_filename(dir,name,label,part_id(ind)),(xloc,ind))
+  end
+  nothing
+end
+
+function _load_pgeneric(dir,name,ranks;label="")
+  parts = map(ranks) do p
+    deserialize(_part_filename(dir,name,label,p))
+  end
+  data = map(first,parts)
+  idx = map(last,parts)
+  GenericPArray(data,idx)
 end
