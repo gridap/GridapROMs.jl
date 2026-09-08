@@ -577,7 +577,7 @@ function projection(red::Reduction,s::AbstractBlockSnapshots)
 end
 
 function projection(red::Reduction,s::AbstractBlockSnapshots,X::MatrixOrTensor)
-  basis = _allocate_projection(red,s,X)
+  basis = _allocate_projection(red,s)
   for i in eachindex(basis)
     if basis.touched[i]
       basis[i] = projection(red,s[i],X[Block(i,i)])
@@ -907,19 +907,6 @@ function _allocate_projection(red::Reduction,s::AbstractBlockSnapshots{<:Any,N})
   BlockProjection(block_basis,s.touched)
 end
 
-function _allocate_projection(
-  red::Reduction,
-  s::AbstractBlockSnapshots{<:Any,N},
-  X::MatrixOrTensor
-  ) where N
-
-  i = findfirst(s.touched)
-  @notimplementedif isnothing(i)
-  T = _proj_type(red,X[Block(i,i)])
-  block_basis = Array{T,N}(undef,size(s))
-  BlockProjection(block_basis,s.touched)
-end
-
 function _allocate_norm_matrix(a::BlockProjection{A,N}) where {A,N}
   ai = testitem(a)
   T = typeof(get_norm_matrix(ai))
@@ -951,13 +938,12 @@ function _galerkin_projection(
   return ReducedProjection(proj_basis)
 end
 
-_proj_type(::Reduction,args...) = @abstractmethod
-_proj_type(::PODReduction) = PODProjection
-_proj_type(::TTSVDReduction) = TTSVDProjection
-_proj_type(::LocalReduction) = LocalProjection
-_proj_type(::PODReduction,::MatrixOrTensor) = NormedProjection
-_proj_type(::TTSVDReduction,::MatrixOrTensor) = NormedProjection
-_proj_type(::LocalReduction,::MatrixOrTensor) = LocalProjection
+_proj_type(red::Reduction) = _proj_type(NormStyle(red),red)
+_proj_type(::NormStyle,::Reduction) = @abstractmethod
+_proj_type(::EuclideanNorm,::PODReduction) = PODProjection
+_proj_type(::EuclideanNorm,::TTSVDReduction) = TTSVDProjection
+_proj_type(::AssembleOperator,::DirectReduction) = NormedProjection
+_proj_type(::AssembleOperator,::LocalReduction) = LocalProjection
 
 function _make_compatible(X::AbstractMatrix,a::Projection)
   size(X,1) == num_fe_dofs(a) && return X 

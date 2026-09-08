@@ -15,105 +15,6 @@ function Utils.is_parent(parent::DistributedTriangulation,child::DistributedTria
   reduce(&,x)
 end
 
-# projections
-
-PartitionedArrays.partition(a::Projection) = partition(get_basis(a))
-PartitionedArrays.local_values(a::Projection) = local_values(get_basis(a))
-PartitionedArrays.own_values(a::Projection) = own_values(get_basis(a))
-PartitionedArrays.ghost_values(a::Projection) = ghost_values(get_basis(a))
-PartitionedArrays.consistent!(a::Projection) = consistent!(get_basis(a))
-
-struct DistributedPODProjection <: Projection
-  basis::AbstractMatrix
-end
-
-function RBSteady.PODProjection(basis::GenericPMatrix)
-  DistributedPODProjection(basis)
-end
-
-function RBSteady.Projection(basis::GenericPMatrix,s::DistributedSparseSnapshots)
-  basis′ = recast(basis,s)
-  DistributedPODProjection(basis′)
-end
-
-function RBTransient.kron_projection(red::KroneckerReduction,s::DistributedSparseSnapshots,args...)
-  basis_space,basis_time = tucker(red.reductions,s,args...)
-  basis_space′ = recast(basis_space,s)
-  projection_space = PODProjection(basis_space′)
-  projection_time = PODProjection(basis_time)
-  return projection_space,projection_time
-end
-
-RBSteady.get_basis(a::DistributedPODProjection) = a.basis
-RBSteady.fe_dof_ids(a::DistributedPODProjection) = row_partition(a)
-row_partition(a::DistributedPODProjection) = row_partition(a.basis)
-col_partition(a::DistributedPODProjection) = col_partition(a.basis)
-flat_row_partition(a::DistributedPODProjection) = flat_row_partition(a.basis)
-
-RBSteady.projection_type(a::DistributedPODProjection) = PVector{Vector{projection_eltype(a)}}
-
-function Algebra.allocate_vector(::Type{<:PVector{V}},rows::AbstractVector) where V
-  allocate_vector(V,rows)
-end
-
-function Algebra.allocate_in_domain(a::Projection,x::PVector{<:V}) where V<:AbstractParamVector
-  x̂ = allocate_vector(PVector{eltype(V)},RBSteady.reduced_dof_ids(a))
-  return parameterise(x̂,param_length(x))
-end
-
-function Algebra.allocate_in_range(a::DistributedPODProjection,x̂::V) where V<:AbstractParamVector
-  x = allocate_vector(PVector{eltype(V)},RBSteady.fe_dof_ids(a))
-  return parameterise(x,param_length(x̂))
-end
-
-function RBSteady.allocate_full_matrix(::Type{<:GenericPArray{M}},rows::PRange,cols::AbstractVector) where M
-  GenericPArray{M}(undef,partition(rows),cols)
-end
-
-function RBSteady.union_bases(a::DistributedPODProjection,b::DistributedPODProjection,args...) 
-  union_bases(a,get_basis(b),args...)
-end
-
-function RBSteady.union_bases(a::DistributedPODProjection,basis_b::AbstractMatrix,args...)
-  basis_a = get_basis(a)
-  basis_ab = gram_schmidt(basis_b,basis_a,args...)
-  DistributedPODProjection(basis_ab)
-end
-
-function RBSteady.galerkin_projection(a::DistributedPODProjection,b::DistributedPODProjection)
-  lb̂ = map(own_values(a),own_values(b)) do ao,bo
-    galerkin_projection(ao,bo)
-  end
-  b̂ = reduce(+,lb̂)
-  return ReducedProjection(b̂)
-end
-
-function RBSteady.galerkin_projection(a::DistributedPODProjection,b::DistributedPODProjection,c::DistributedPODProjection,args...)
-  lb̂ = map(own_values(a),own_values(b),own_values(c)) do ao,bo,co
-    galerkin_projection(ao,bo,co,args...)
-  end
-  b̂ = reduce(+,lb̂)
-  return ReducedProjection(b̂)
-end
-
-function RBSteady._allocate_projection(red::Reduction,s::DistributedBlockSnapshots{N}) where N
-  T = DistributedPODProjection
-  block_basis = Array{T,N}(undef,size(s))
-  BlockProjection(block_basis,s.touched)
-end
-
-function GridapDistributed.local_views(a::DistributedPODProjection)
-  map(local_views(a.basis)) do basis
-    PODProjection(basis)
-  end
-end
-
-function GridapDistributed.local_views(a::NormedProjection)
-  map(local_views(a.projection),local_views(a.norm_matrix)) do proj,norm
-    NormedProjection(proj,norm)
-  end
-end
-
 # reduced basis spaces
 
 const DistributedRBSpace{S<:DistributedFESpace} = RBSpace{S}
@@ -546,6 +447,52 @@ for T in (:GenericPMatrix,:DistributedSnapshots)
     end
   end
 end
+
+# save/load
+#
+# `serialize`/`deserialize` of a whole distributed container is unusable: under
+# MPI each rank is a separate process (only rank 0's data would be written) and
+# `MPIArray` holds an `MPI.Comm` that is not serializable; under `DebugArray` it
+# would work but ties the file to the number of parts / ghost layout it was
+# produced with. Instead we follow the GridapDistributed visualization pattern
+# and write one file per rank, storing the local piece together with its
+# `LocalIndices` so the partitioned container can be rebuilt on load. `load_*`
+# takes the `ranks` object (`distribute(LinearIndices(...))`) to drive the
+# per-rank read.
+
+# NB: `_get_label(name,labels...)` splats each label, so a `String` label gets
+# broken into characters -- compose only through the 2-arg `_get_label`.
+_part_filename(dir,name,label,part) =
+  joinpath(dir,RBSteady._get_label(RBSteady._get_label(name,label),"part$part")*".jld")
+
+function _save_pgeneric(dir,name,x;label="")
+  map(partition(x),partition(axes(x,1))) do xloc,ind
+    serialize(_part_filename(dir,name,label,part_id(ind)),(xloc,ind))
+  end
+  nothing
+end
+
+function _load_pgeneric(dir,name,ranks;label="")
+  parts = map(ranks) do p
+    deserialize(_part_filename(dir,name,label,p))
+  end
+  data = map(first,parts)
+  idx = map(last,parts)
+  GenericPArray(data,idx)
+end
+
+function DrWatson.save(dir,s::DistributedSnapshots;label="")
+  _save_pgeneric(dir,RBSteady.SNAPSHOTS_LABEL,s.snaps;label)
+end
+
+function RBSteady.load_snapshots(dir,ranks::AbstractArray;label="")
+  DistributedSnapshots(_load_pgeneric(dir,RBSteady.SNAPSHOTS_LABEL,ranks;label))
+end
+
+# projection / contribution / operator persistence: a distributed projection
+# basis is a `GenericPMatrix`, so `save(dir,b;label) = _save_pgeneric(dir,name,b;label)`
+# and `load(dir,ranks;label) = PODProjection(_load_pgeneric(dir,name,ranks;label))`
+# once the distributed-projection wrapper type is settled.
 
 # utils
 
