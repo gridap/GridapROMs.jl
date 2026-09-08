@@ -119,47 +119,33 @@ sqrtabs(x) = sqrt(x)
 sqrtabs(x::Complex) = sqrt(abs(x))
 
 induced_norm(v::AbstractVector) = norm(v)
-induced_norm(v::AbstractVector,norm_matrix::AbstractMatrix) = sqrtabs(v'*(norm_matrix*v))
 
-induced_norm(A::AbstractMatrix) = sqrt(sum(diag(A'*A)))
-induced_norm(A::AbstractMatrix,norm_matrix::AbstractMatrix) = sqrtabs(sum(diag(A'*(norm_matrix*A))))
+function induced_norm(A::AbstractMatrix)
+  s = 0.0
+  n = size(A,2)
+  for v = eachcol(A)
+    s += induced_norm(v)^2 / n
+  end
+  return sqrt(s)
+end
 
 induced_norm(A::AbstractArray) = induced_norm(reshape(A,size(A,1),size(A,2),:))
 
+induced_norm(v::AbstractArray,norm_matrix::AbstractMatrix) = induced_norm(norm_matrix*v)
+
 """
-    compute_error(
-      sol::AbstractArray{T,N},
-      sol_approx::AbstractArray{T,N},
-      args...
-      ) where {T,N} -> Number
+    compute_error(sol::AbstractArray,sol_approx::AbstractArray,args...) -> Number
 
 Computes the error between `sol` and `sol_approx`, by default in the Euclidean
 norm. A different norm (usually represented by a sparse matrix) can be provided
 as an argument.
 """
-function compute_error(
-  sol::AbstractArray{T,N},
-  sol_approx::AbstractArray{T,N},
-  args...
-  ) where {T,N}
-
-  @check size(sol) == size(sol_approx)
-  n = size(sol,N)
-  errors = zeros(T,n)
-  @inbounds for i = 1:n
-    soli = selectdim(sol,N,i)
-    soli_approx = selectdim(sol_approx,N,i)
-    errors[i] = induced_norm(soli,soli_approx,args...)
-  end
-  return mean(errors)
+function compute_error(sol::AbstractArray,sol_approx::AbstractArray,args...)
+  induced_norm(sol,sol_approx,args...)
 end
 
 """
-    compute_relative_error(
-      sol::AbstractArray{T,N},
-      sol_approx::AbstractArray{T,N},
-      args...
-      ) where {T,N} -> Number
+    compute_relative_error(sol::AbstractArray,sol_approx::AbstractArray,args...) -> Number
 
 Computes the relative error between `sol` and `sol_approx`, by default in the Euclidean
 norm. A different norm (usually represented by a sparse matrix) can be provided

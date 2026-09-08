@@ -150,15 +150,6 @@ rbsolver = RBSolver(LUSolver(),red,nparams_jac=2,nparams_res=2)
 res_red = rbsolver.residual_reduction
 jac_red = rbsolver.jacobian_reduction
 
-parts = (2,2)
-trian = Ref{GridapDistributed.DistributedTriangulation}()
-snp = Ref{DistributedSnapshots}()
-ressnp = Ref{DistributedSnapshots}()
-jacsnp = Ref{DistributedSnapshots}()
-nrm = Ref{PSparseMatrix}()
-basis = Ref{AbstractMatrix}()
-rbspace = Ref{RBSpace}()
-feop = Ref{GenericParamOperator}()
 with_debug() do distribute
   ranks = distribute(LinearIndices((prod(parts),)))
 
@@ -186,23 +177,9 @@ with_debug() do distribute
   solve!(x,LUSolver(),nlop,syscache)
   snaps = Snapshots(x,get_dof_map(trial),μ)
   @test isa(snaps,DistributedSnapshots)
-  snp[] = snaps
-  trian[] = Ω
-  nrm[] = X
-  # # U,_,_ = tpod(LRApproxRank(1e-4),snaps,X)
-  # # basis[] = U
-  feop[] = op
   red_trial,red_test = reduced_spaces(red,op,snaps)
-  rbspace[] = red_test
   jacs = jacobian_snapshots(rbsolver,op,snaps)
-  jacsnp[] = jacs
   ress = residual_snapshots(rbsolver,op,snaps)
-  ressnp[] = ress
-  # red_jac = reduced_jacobian(jac_red,red_trial,red_test,jacs)
+  red_jac = reduced_jacobian(jac_red,red_trial,red_test,jacs)
   red_res = reduced_residual(res_red,red_test,ress)
 end
-
-jacbasis = get_basis(projection(get_reduction(jac_red),jacsnp[]))
-B = get_all_data(jacbasis)
-I,AI = DEIM(B)
-reduced_jacobian(jac_red,red_trial,red_test,jacsnp[])

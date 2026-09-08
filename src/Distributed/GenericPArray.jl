@@ -262,7 +262,9 @@ for op in (:+,:-)
       GenericPArray(values,partition(axes(a,1)))
     end
     function Base.$op(a::GenericPArray,b::GenericPArray)
-      $op.(a,b)
+      @check size(a) == size(b)
+      values = map($op,partition(a),partition(b))
+      GenericPArray(values,partition(axes(a,1)),a.unpartitioned_axes)
     end
   end
 end
@@ -440,7 +442,7 @@ function LinearAlgebra.mul!(
 end
 
 function LinearAlgebra.mul!(
-  c::PVector{<:AbstractParamVector},
+  c::PVector,
   a::GenericPMatrix,
   b::AbstractParamVector,
   α::Number,
@@ -449,6 +451,26 @@ function LinearAlgebra.mul!(
 
   map(own_values(c),own_values(a)) do co,ao
     mul!(co,ao,b,α,β)
+  end
+  c
+end
+
+function LinearAlgebra.mul!(
+  c::AbstractParamArray,
+  a::GenericPMatrix,
+  b::AbstractParamArray,
+  α::Number,
+  β::Number
+  )
+
+  cd = get_all_data(c)
+  bd = get_all_data(b)
+  if β != 1
+    β != 0 ? rmul!(cd,β) : fill!(cd,zero(eltype(cd)))
+  end
+  map(own_values(a),partition(axes(a,1))) do ao,rows
+    o2g = own_to_global(rows)
+    @views cd[o2g,:] .+= α .* (ao*bd)
   end
   c
 end

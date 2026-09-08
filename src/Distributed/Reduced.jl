@@ -61,7 +61,7 @@ function Algebra.allocate_in_domain(a::Projection,x::PVector{<:V}) where V<:Abst
   return parameterise(x̂,param_length(x))
 end
 
-function Algebra.allocate_in_range(a::Projection,x̂::PVector{<:V}) where V<:AbstractParamVector
+function Algebra.allocate_in_range(a::DistributedPODProjection,x̂::V) where V<:AbstractParamVector
   x = allocate_vector(PVector{eltype(V)},RBSteady.fe_dof_ids(a))
   return parameterise(x,param_length(x̂))
 end
@@ -535,43 +535,14 @@ function RBSteady.assemble_hr_array_add!(A::AbstractArray{<:AbstractArray},celld
   end
 end
 
-# post process 
+# post process
 
-function DrWatson.save(dir,s::DistributedSnapshots;label="")
-  map(local_values(s),row_partition(s)) do s,row
-    part = part_id(row)
-    save(dir,s;label=_get_label(label,"part",part))
-  end
-end
-
-function DrWatson.save(dir,a::DistributedPODProjection;label="")
-  map(local_values(a),row_partition(a)) do a,row
-    part = part_id(row)
-    save(dir,a;label=_get_label(label,"part",part))
-  end
-end
-
-function DrWatson.save(dir,contrib::Contribution{V};label="") where V<:DistributedHRProjection
-  map(local_values.(contrib)) do a,row
-    part = part_id(row)
-    save(dir,a;label=_get_label(label,"part",part))
-  end
-end
-
-for T in (:DistributedSteadySnapshots,:DistributedTransientSnapshots)
+for T in (:GenericPMatrix,:DistributedSnapshots)
   @eval begin
-    function Utils.compute_relative_error(sol::$T,sol_approx::$T)
-      errs = map(own_values(sol),own_values(sol_approx)) do sol,sol_approx
-        compute_relative_error(sol,sol_approx)^2
-      end
-      sqrt(reduce(+,errs))
-    end
-
-    function Utils.compute_relative_error(sol::$T,sol_approx::$T,X::PSparseMatrix)
-      errs = map(own_values(sol),own_values(sol_approx),own_values(X)) do sol,sol_approx,X
-        compute_relative_error(sol,sol_approx,X)^2
-      end
-      sqrt(reduce(+,errs))
+    function Utils.induced_norm(a::$T)
+      _norm_part(x) = induced_norm(x)^2
+      n = reduce(+,map(_norm_part,own_values(a)))
+      sqrt(n)
     end
   end
 end

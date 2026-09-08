@@ -304,24 +304,6 @@ function Utils.compute_relative_error(norm_style::AssembleOperator,feop,sol,sol_
 end
 
 function Utils.compute_relative_error(
-  sol::SteadySnapshots{T,N},
-  sol_approx::SteadySnapshots{T,N},
-  args...
-  ) where {T,N}
-
-  @check size(sol) == size(sol_approx) 
-  errors = zeros(num_params(sol))
-  @inbounds for ip = 1:num_params(sol)
-    solip = param_getindex(sol,ip)
-    solip_approx = param_getindex(sol_approx,ip)
-    err_norm = induced_norm(solip-solip_approx,args...)
-    sol_norm = induced_norm(solip,args...)
-    errors[ip] = err_norm / sol_norm
-  end
-  return mean(errors)
-end
-
-function Utils.compute_relative_error(
   sol::BlockSnapshots{N},
   sol_approx::BlockSnapshots{N},
   args...

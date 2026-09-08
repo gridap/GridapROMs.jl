@@ -62,26 +62,4 @@ function RBSteady.load_operator(dir,feop::LinearNonlinearODEParamOperator;label=
   return LinearNonlinearReducedOperator(op_lin,op_nlin)
 end
 
-function Utils.compute_relative_error(
-  sol::TransientSnapshots{T,N},
-  sol_approx::TransientSnapshots{T,N},
-  args...
-  ) where {T,N}
-
-  @check size(sol) == size(sol_approx)
-  err_norm = zeros(num_times(sol))
-  sol_norm = zeros(num_times(sol))
-  errors = zeros(num_params(sol))
-  @inbounds for ip = 1:num_params(sol)
-    for it in 1:num_times(sol)
-      solitp = param_getindex(sol,ip,it)
-      solitp_approx = param_getindex(sol_approx,ip,it)
-      err_norm[it] = induced_norm(solitp-solitp_approx,args...)
-      sol_norm[it] = induced_norm(solitp,args...)
-    end
-    errors[ip] = norm(err_norm) / norm(sol_norm)
-  end
-  return mean(errors)
-end
-
 include("Diagnostics.jl")

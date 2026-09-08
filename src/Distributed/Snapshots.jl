@@ -1,6 +1,6 @@
 for T in (:PVector,:PSparseMatrix)
   @eval begin
-    function ParamDataStructures.Snapshots(s::$T,i::AbstractArray,r::AbstractRealisation)
+    function ParamDataStructures.Snapshots(s::$T,i::AbstractArray{<:AbstractArray},r::AbstractRealisation)
       data = map(local_values(s),i) do s,i
         Snapshots(s,i,r)
       end
@@ -277,15 +277,19 @@ col_partition(a::DistributedSnapshots) = col_partition(a.snaps)
 
 # linear algebra 
 
-_gettr(a) = a
-_gettr(a::DistributedSnapshots) = a.snaps 
+_getvals(a) = a
+_getvals(a::DistributedSnapshots) = a.snaps 
 
 for S in (:AbstractMatrix,:PSparseMatrix,:GenericPMatrix,:DistributedSnapshots), T in (:AbstractMatrix,:PSparseMatrix,:GenericPMatrix,:DistributedSnapshots)
   !(S == :DistributedSnapshots || T == :DistributedSnapshots) && continue
   @eval begin
-    Base.:*(a::$S,b::$T) = _gettr(a) * _gettr(b)
-    Base.:*(a::Adjoint{<:Any,<:$S},b::$T) = _gettr(a.parent)' * _gettr(b)
-    Base.:*(a::$S,b::Adjoint{<:Any,<:$T}) = _gettr(a) * _gettr(b.parent)'
-    Base.:*(a::Adjoint{<:Any,<:$S},b::Adjoint{<:Any,<:$T}) = _gettr(a.parent)' * _gettr(b.parent)'
+    Base.:*(a::$S,b::$T) = _getvals(a) * _getvals(b)
+    Base.:*(a::Adjoint{<:Any,<:$S},b::$T) = _getvals(a.parent)' * _getvals(b)
+    Base.:*(a::$S,b::Adjoint{<:Any,<:$T}) = _getvals(a) * _getvals(b.parent)'
+    Base.:*(a::Adjoint{<:Any,<:$S},b::Adjoint{<:Any,<:$T}) = _getvals(a.parent)' * _getvals(b.parent)'
   end
+end
+
+for op in (:+,:-)
+  @eval Base.$op(a::DistributedSnapshots,b::DistributedSnapshots) = $op(_getvals(a),_getvals(b))
 end

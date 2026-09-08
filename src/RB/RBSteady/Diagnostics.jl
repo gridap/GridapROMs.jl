@@ -20,12 +20,7 @@ struct DiagnosticsContribution{A,B,C}
   hypred::C
 end
 
-function allocate_dcontribution(
-  a::AffineContribution,
-  r::AbstractRealisation
-  )
-
-
+function allocate_dcontribution(a::AffineContribution,r::AbstractRealisation)
   fecache = allocate_coefficient(a,r)
   coeff = allocate_coefficient(a,r)
   hypred = contribution(get_domains(a)) do trian
