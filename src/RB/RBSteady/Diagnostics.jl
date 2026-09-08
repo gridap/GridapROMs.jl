@@ -620,38 +620,19 @@ function hr_error_jac(
   return err
 end
 
-function hr_error_res(
-  test::SingleFieldRBSpace,
-  res::Snapshots,
-  a::HRProjection,
-  fecache::AbstractParamArray,
-  hypred::AbstractParamVector
-  )
-  
+function hr_error_res(test,res,a,fecache,hypred)
   check_interpolation(res,a,fecache)
-
   b̂ = get_basis(galerkin_projection(test,res))
   hrb̂ = get_all_data(hypred)
-
   _mean_err(b̂,hrb̂)
 end
 
-function hr_error_jac(
-  trial::SingleFieldRBSpace,
-  test::SingleFieldRBSpace,
-  jac::Snapshots,
-  a::HRProjection,
-  fecache::AbstractParamArray,
-  hypred::AbstractParamMatrix
-  )
-  
+function hr_error_jac(trial,test,jac,a,fecache,hypred)
   check_interpolation(jac,a,fecache)
-
   μ = get_realisation(jac)
   Â = get_basis(galerkin_projection(test,jac,trial))
   Â = reshape(permutedims(Â,(1,3,2)),:,num_params(μ))
   hrÂ = reshape(get_all_data(hypred),:,num_params(μ))
-
   _mean_err(Â,hrÂ)
 end
 

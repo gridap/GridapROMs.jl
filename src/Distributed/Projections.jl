@@ -22,6 +22,20 @@ function RBSteady.galerkin_projection(a::DistributedProjection,b::DistributedPro
   return ReducedProjection(b̂)
 end
 
+function RBSteady.galerkin_projection(Φl::GenericPMatrix,b::PVector{<:AbstractParamVector})
+  lb̂ = map(own_values(Φl),own_values(b)) do Φlo,bo
+    galerkin_projection(Φlo,bo)
+  end
+  reduce(+,lb̂)
+end
+
+function RBSteady.galerkin_projection(Φl::GenericPMatrix,A::PSparseMatrix,Φr::GenericPMatrix)
+  lÂ = map(own_values(Φl),own_values(A),own_values(Φr)) do Φlo,Ao,Φro
+    galerkin_projection(Φlo,Ao,Φro)
+  end
+  reduce(+,lÂ)
+end
+
 row_partition(a::DistributedProjection) = row_partition(get_basis(a))
 col_partition(a::DistributedProjection) = col_partition(get_basis(a))
 flat_row_partition(a::DistributedProjection) = flat_row_partition(get_basis(a))
@@ -128,23 +142,14 @@ function RBSteady.union_bases(a::DistributedNormedProjection,b::AbstractArray,ar
   DistributedNormedProjection(projection′,a.norm_matrix)
 end
 
-function RBSteady.galerkin_projection(proj_left::DistributedNormedProjection,a::DistributedProjection)
-  galerkin_projection(RBSteady.get_projection(proj_left),RBSteady.get_projection(a))
+function RBSteady.galerkin_projection(a::DistributedProjection,s::DistributedSnapshots)
+  b̂ = galerkin_projection(get_basis(a),get_param_data(s))
+  return ReducedProjection(b̂)
 end
 
-function RBSteady.galerkin_projection(
-  proj_left::DistributedNormedProjection,
-  a::DistributedProjection,
-  proj_right::DistributedNormedProjection,
-  args...
-  )
-
-  galerkin_projection(
-    RBSteady.get_projection(proj_left),
-    RBSteady.get_projection(a),
-    RBSteady.get_projection(proj_right),
-    args...
-  )
+function RBSteady.galerkin_projection(a::DistributedProjection,s::DistributedSnapshots,c::DistributedProjection,args...)
+  b̂ = galerkin_projection(get_basis(a),get_param_data(s),get_basis(c),args...)
+  return ReducedProjection(b̂)
 end
 
 for f in (:DEIM,:SOPT)

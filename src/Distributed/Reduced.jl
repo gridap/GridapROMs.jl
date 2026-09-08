@@ -452,50 +452,25 @@ for T in (:GenericPMatrix,:DistributedSnapshots)
 end
 
 function DrWatson.save(dir,s::DistributedSnapshots;label="")
-  _save_pgeneric(dir,RBSteady.SNAPSHOTS_LABEL,s.snaps;label)
+  _psave(dir,RBSteady.SNAPSHOTS_LABEL,s.snaps;label)
 end
 
 function RBSteady.load_snapshots(dir,ranks::AbstractArray;label="")
-  snaps = _load_pgeneric(dir,RBSteady.SNAPSHOTS_LABEL,ranks;label)
+  snaps = _pload(dir,RBSteady.SNAPSHOTS_LABEL,ranks;label)
   DistributedSnapshots(snaps)
 end
 
-function RBSteady.hr_error_res(
-  test::DistributedSingleFieldRBSpace,
-  res::DistributedSnapshots,
-  a::DistributedHRProjection,
-  fecache,
-  hypred
-  )
-  
-  map(
-    local_views(test),
-    local_views(res),
-    local_views(a),
-    local_views(fecache)
-    ) do test,res,a,fecache
-    RBSteady.hr_error_res(test,res,a,fecache,hypred)
-  end
+function DrWatson.save(dir,a::$T;label="")
+  _psave(dir,RBSteady.PROJECTION_LABEL,s.snaps;label)
 end
 
-function RBSteady.hr_error_jac(
-  trial::DistributedSingleFieldRBSpace,
-  test::DistributedSingleFieldRBSpace,
-  jac::DistributedSnapshots,
-  a::DistributedHRProjection,
-  fecache,
-  hypred
-  )
-  
-  map(
-    local_views(trial),
-    local_views(test),
-    local_views(jac),
-    local_views(a),
-    local_views(fecache)
-    ) do trial,test,jac,a,fecache
-    RBSteady.hr_error_jac(trial,test,jac,a,fecache,hypred)
-  end
+function DrWatson.save(dir,s::DistributedHRProjection;label="")
+  _psave(dir,RBSteady.PROJECTION_LABEL,s.snaps;label)
+end
+
+function RBSteady.load_projection(dir,ranks::AbstractArray;label="")
+  snaps = _pload(dir,RBSteady.PROJECTION_LABEL,ranks;label)
+  DistributedSnapshots(snaps)
 end
 
 # utils
@@ -559,22 +534,17 @@ function _best_s_opt_index(basis::GenericPMatrix,P,G,colnorms2,l)
   return second(reduce(max,best_pairs,init=(-Inf=>0)))
 end
 
-function _part_filename(dir,name,label,part)
-  joinpath(dir,RBSteady._get_label(RBSteady._get_label(name,label),"part_$part")*".jld")
-end 
-
-function _save_pgeneric(dir,name,x;label="")
-  map(partition(x),partition(axes(x,1))) do xloc,ind
-    serialize(_part_filename(dir,name,label,part_id(ind)),(xloc,ind))
+function _psave(dir,name,x;label="")
+  map(partition(x),row_partition(x)) do xloc,rloc
+    part_name = RBSteady.get_filename(dir,name,(label,part_id(rloc)))
+    serialize(part_name,(xloc,rloc))
   end
   nothing
 end
 
-function _load_pgeneric(dir,name,ranks;label="")
-  parts = map(ranks) do p
+function _pload(dir,name,ranks;label="")
+  data,rows = map(ranks) do p
     deserialize(_part_filename(dir,name,label,p))
-  end
-  data = map(first,parts)
-  idx = map(last,parts)
-  GenericPArray(data,idx)
+  end |> tuple_of_arrays
+  GenericPArray(data,rows)
 end
