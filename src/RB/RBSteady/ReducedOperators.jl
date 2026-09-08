@@ -181,7 +181,7 @@ function Algebra.residual!(
     b_strian = b.fecache[strian]
     rhs_strian = get_interpolation(rhs[strian])
     vecdata = collect_cell_hr_vector(test,dc,strian,rhs_strian)
-    assemble_hr_array_add!(b_strian,vecdata...)
+    assemble_hr_array_add!(b_strian,vecdata)
   end
 
   interpolate!(b,rhs)
@@ -212,7 +212,7 @@ function Algebra.jacobian!(
     A_strian = A.fecache[strian]
     lhs_strian = get_interpolation(lhs[strian])
     matdata = collect_cell_hr_matrix(trial,test,dc,strian,lhs_strian)
-    assemble_hr_array_add!(A_strian,matdata...)
+    assemble_hr_array_add!(A_strian,matdata)
   end
 
   interpolate!(A,lhs)

@@ -162,6 +162,8 @@ end
   Algebra._add_entries!(vi,combine,A,vs,is)
 end
 
+assemble_hr_array_add!(A,celldata::Tuple) = assemble_hr_array_add!(A,celldata...)
+
 function assemble_hr_array_add!(
   A::ArrayBlock,
   _cellvals,

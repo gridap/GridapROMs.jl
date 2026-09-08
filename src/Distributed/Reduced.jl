@@ -405,7 +405,9 @@ function RBSteady.collect_cell_hr_matrix(
     local_views(strian),
     local_views(interp)
     ) do trial,test,a,strian,interp
-    collect_cell_hr_matrix(trial,test,a,strian,interp,args...)
+    dofs = get_interpolation_dofs(interp)
+    celldata = collect_cell_hr_matrix(trial,test,a,strian,interp,args...)
+    (dofs,celldata)
   end
 end
 
@@ -423,11 +425,21 @@ function RBSteady.collect_cell_hr_vector(
     local_views(strian),
     local_views(interp)
     ) do test,a,strian,interp
-    collect_cell_hr_vector(test,a,strian,interp,args...)
+    dofs = get_interpolation_dofs(interp)
+    celldata = collect_cell_hr_vector(test,a,strian,interp,args...)
+    (dofs,celldata)
   end
 end
 
-# utils 
+function RBSteady.assemble_hr_array_add!(A,celldata::AbstractArray{<:Tuple})
+  map(local_views(celldata)) do _celldata
+    dofs,celldata = _celldata
+    Aloc = _get_at_domain(A,dofs)
+    assemble_hr_array_add!(Aloc,celldata)
+  end
+end
+
+# utils
 
 function _subfill!(a::AbstractVector,b::AbstractVector,ia,ib)
   a[ia] = b[ib]
@@ -486,4 +498,14 @@ function _best_s_opt_index(basis::GenericPMatrix,P,G,colnorms2,l)
     best_logS => best_gi
   end
   return second(reduce(max,best_pairs,init=(-Inf=>0)))
+end
+
+function _get_at_domain(a::ConsecutiveParamVector,rows::LocalRows)
+  datav = view(a.data,rows.inds,:)
+  ConsecutiveParamArray(datav)
+end
+
+function _get_at_domain(a::BlockParamVector,rows::ArrayBlock)
+  @check all(rows.touched)
+  mortar(map(_get_at_domain,blocks(a),rows.array))
 end
