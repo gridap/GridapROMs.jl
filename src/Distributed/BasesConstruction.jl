@@ -12,8 +12,17 @@ for T in (:GenericPMatrix,:DistributedSnapshots)
   end
 end
 
+struct PQR{A,B,C}
+  Q::A
+  R::B
+  piv::C
+end
+
+Base.iterate(p::PQR,i...) = iterate((p.Q,p.R,p.piv),i...)
+
 function LinearAlgebra.qr!(A::GenericPMatrix,::NoPivot)
   m,n = size(A)
+  piv = Vector(UnitRange{BlasInt}(1,n))
   τ = Vector{eltype(A)}(undef,min(m,n))
   for j = 1:min(m,n)
     τj = _reflector!(A,j:m,j)
@@ -22,7 +31,7 @@ function LinearAlgebra.qr!(A::GenericPMatrix,::NoPivot)
   end
   Q = _get_Q(A,τ,m,n)
   R = _get_R(A,n)
-  return Q,R,piv
+  return PQR(Q,R,piv)
 end
 
 function LinearAlgebra.qr!(A::GenericPMatrix,::ColumnNorm)
@@ -43,7 +52,7 @@ function LinearAlgebra.qr!(A::GenericPMatrix,::ColumnNorm)
   end
   Q = _get_Q(A,τ,m,n)
   R = _get_R(A,n)
-  return Q,R,piv
+  return PQR(Q,R,piv)
 end
 
 function RBTransient.first_unfold(A::GenericPArray{T,3}) where T

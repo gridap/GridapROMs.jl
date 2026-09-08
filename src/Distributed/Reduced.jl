@@ -340,12 +340,15 @@ for f in (:get_integration_cells,:get_cell_idofs,:get_interpolation_dofs)
   end
 end
 
-function FESpaces.interpolate!(cache::AbstractArray,a::DistributedInterpolation,b::AbstractArray)
-  interpolate!(cache,PartitionedArrays.getany(a.interps),b)
-end
+function FESpaces.interpolate!(
+  cache::AbstractArray{<:AbstractArray},
+  a::DistributedInterpolation,
+  b::AbstractArray{<:AbstractArray}
+  )
 
-function RBSteady.reduced_triangulation(trian::DistributedTriangulation,a::HRProjection)
-  reduced_triangulation(trian,get_interpolation(a))
+  map(local_views(cache),local_views(a),local_views(b)) do cache,interp,b
+    interpolate!(cache,interp,b)
+  end
 end
 
 function RBSteady.reduced_triangulation(trian::DistributedTriangulation,a::DistributedInterpolation)
@@ -389,6 +392,69 @@ function RBSteady.get_at_domain(a::GenericPArray,rows::AbstractArray{<:LocalRows
   ConsecutiveParamArray(datav)
 end
 
+struct DistributedHRProjection{A,B} <: HRProjection{A,B}
+  basis::A
+  style::B
+  interpolation::DistributedInterpolation
+end
+
+function RBSteady.HRProjection(basis::ReducedProjection,style::HyperReduction,interp::DistributedInterpolation)
+  DistributedHRProjection(basis,style,interp)
+end
+
+function GridapDistributed.local_views(a::DistributedHRProjection)
+  map(local_views(a.interpolation)) do interp
+    HRProjection(a.basis,a.style,interp)
+  end
+end
+
+RBSteady.get_basis(a::DistributedHRProjection) = a.basis
+RBSteady.get_style(a::DistributedHRProjection) = a.style
+RBSteady.get_interpolation(a::DistributedHRProjection) = a.interpolation
+
+function FESpaces.interpolate!(
+  b̂::AbstractArray,
+  _coeff::AbstractArray{<:AbstractArray},
+  a::DistributedHRProjection,
+  x::AbstractArray{<:AbstractArray}
+  )
+
+  o = one(eltype2(b̂))
+  interpolate!(_coeff,get_interpolation(a),x)
+  coeff = reduce(+,_coeff)
+  mul!(b̂,a,coeff,o,o)
+  return b̂
+end
+
+function FESpaces.interpolate!(
+  b̂::AbstractArray,
+  _coeff::AbstractArray{<:AbstractArray},
+  a::DistributedHRProjection{A,NoHyperReduction} where A,
+  x::AbstractArray{<:AbstractArray}
+  )
+
+  coeff = reduce(+,_coeff)
+  o = one(eltype2(b̂))
+  axpy!(o,coeff,b̂)
+  return b̂
+end
+
+function RBSteady.reduced_triangulation(trian::DistributedTriangulation,a::DistributedHRProjection)
+  reduced_triangulation(trian,get_interpolation(a))
+end
+
+function RBSteady.allocate_coefficient(a::DistributedHRProjection)
+  map(local_views(a)) do a
+    RBSteady.allocate_coefficient(a)
+  end
+end
+
+function RBSteady.allocate_coefficient(a::DistributedHRProjection,r::AbstractRealisation)
+  map(local_views(a)) do a
+    RBSteady.allocate_coefficient(a,r)
+  end
+end
+
 function RBSteady.collect_cell_hr_matrix(
   trial::DistributedRBSpace,
   test::DistributedRBSpace,
@@ -405,9 +471,7 @@ function RBSteady.collect_cell_hr_matrix(
     local_views(strian),
     local_views(interp)
     ) do trial,test,a,strian,interp
-    dofs = get_interpolation_dofs(interp)
-    celldata = collect_cell_hr_matrix(trial,test,a,strian,interp,args...)
-    (dofs,celldata)
+    collect_cell_hr_matrix(trial,test,a,strian,interp,args...)
   end
 end
 
@@ -425,17 +489,13 @@ function RBSteady.collect_cell_hr_vector(
     local_views(strian),
     local_views(interp)
     ) do test,a,strian,interp
-    dofs = get_interpolation_dofs(interp)
-    celldata = collect_cell_hr_vector(test,a,strian,interp,args...)
-    (dofs,celldata)
+    collect_cell_hr_vector(test,a,strian,interp,args...)
   end
 end
 
-function RBSteady.assemble_hr_array_add!(A,celldata::AbstractArray{<:Tuple})
-  map(local_views(celldata)) do _celldata
-    dofs,celldata = _celldata
-    Aloc = _get_at_domain(A,dofs)
-    assemble_hr_array_add!(Aloc,celldata)
+function RBSteady.assemble_hr_array_add!(A::AbstractArray{<:AbstractArray},celldata::AbstractArray{<:Tuple})
+  map(local_views(A),local_views(celldata)) do A,celldata
+    assemble_hr_array_add!(A,celldata)
   end
 end
 
@@ -498,14 +558,4 @@ function _best_s_opt_index(basis::GenericPMatrix,P,G,colnorms2,l)
     best_logS => best_gi
   end
   return second(reduce(max,best_pairs,init=(-Inf=>0)))
-end
-
-function _get_at_domain(a::ConsecutiveParamVector,rows::LocalRows)
-  datav = view(a.data,rows.inds,:)
-  ConsecutiveParamArray(datav)
-end
-
-function _get_at_domain(a::BlockParamVector,rows::ArrayBlock)
-  @check all(rows.touched)
-  mortar(map(_get_at_domain,blocks(a),rows.array))
 end

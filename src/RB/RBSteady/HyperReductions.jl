@@ -70,7 +70,7 @@ end
 
 """
 """
-const NoHRProjection{A<:Projection} = HRProjection{A,<:NoHyperReduction}
+const NoHRProjection{A<:Projection} = HRProjection{A,NoHyperReduction}
 
 function FESpaces.interpolate!(
   b̂::AbstractArray,
@@ -86,7 +86,7 @@ end
 
 """
 """
-const AffineHRProjection{A<:Projection} = HRProjection{A,<:AffineHyperReduction}
+const AffineHRProjection{A<:Projection} = HRProjection{A,AffineHyperReduction}
 
 function FESpaces.interpolate!(
   b̂::AbstractArray,
@@ -136,7 +136,6 @@ end
 get_basis(a::GenericHRProjection) = a.basis
 get_style(a::GenericHRProjection) = a.style
 get_interpolation(a::GenericHRProjection) = a.interpolation
-projection_eltype(a::GenericHRProjection) = projection_eltype(get_basis(a))
 
 function HRProjection(red::Reduction,s::Nothing,trian,test)
   T = get_dof_value_type(test)
