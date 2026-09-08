@@ -38,7 +38,7 @@ end
 
 function try_loading_online_fe_snapshots(
   dir,rbsolver,feop,args...;
-  nparams=10,reuse_online=false,sampling=:uniform,label=online_label,kwargs...
+  nparams=10,reuse_online=false,sampling=:uniform,label=ONLINE_LABEL,kwargs...
   )
 
   if reuse_online
@@ -312,14 +312,14 @@ end
 
 #     rbsolver = update_solver(rbsolver,tolrank)
 #     # red_trial,red_test = reduced_spaces(rbsolver,feop,fesnaps)
-#     # save(dir_tolrank,red_trial;label=trial_label)
-#     # save(dir_tolrank,red_test;label=test_label)
+#     # save(dir_tolrank,red_trial;label=TRIAL_LABEL)
+#     # save(dir_tolrank,red_test;label=TEST_LABEL)
 #     red_trial,red_test = RBSteady._load_fixed_operator_parts(dir_tolrank,feop)
 #     # jac_red = get_jacobian_reduction(rbsolver)
 #     # red_jac = reduced_jacobian(jac_red,red_trial,red_test,jac)
 #     res_red = get_residual_reduction(rbsolver)
 #     red_res = reduced_residual(res_red,red_test,res)
-#     save(dir_tolrank,red_res;label=rhs_label)
+#     save(dir_tolrank,red_res;label=RHS_LABEL)
 #   end
 # end
 

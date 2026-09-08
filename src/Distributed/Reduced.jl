@@ -157,6 +157,35 @@ Base.IndexStyle(::Type{<:LocalRows}) = IndexLinear()
 Base.getindex(a::LocalRows,i::Int) = getindex(a.rows,i)
 Base.setindex!(a::LocalRows,v,i::Int) = setindex!(a.rows,v,i)
 
+function RBSteady._evaluate!(a,cellrows,rows::LocalRows)
+  fill!(a,zero(eltype(a)))
+  for (irow,row) in enumerate(rows)
+    for (icellrow,cellrow) in enumerate(cellrows)
+      if row == cellrow
+        a[icellrow] = rows.inds[irow]
+      end
+    end
+  end
+  a
+end
+
+function RBSteady._evaluate!(a,cellrows,cellcols,rows::LocalRows,cols::LocalRows)
+  fill!(a,zero(eltype(a)))
+  ncellrows = length(cellrows)
+  for (irowcol,rowcol) in enumerate(zip(rows,cols))
+    row,col = rowcol
+    for (icellrow,cellrow) in enumerate(cellrows)
+      for (icellcol,cellcol) in enumerate(cellcols)
+        if row == cellrow && col == cellcol
+          icellrowcol = icellrow + (icellcol-1)*ncellrows
+          a[icellrowcol] = rows.inds[irowcol]
+        end
+      end
+    end
+  end
+  a 
+end
+
 function RBSteady.DEIM(basis::GenericPMatrix)
   T = eltype(basis)
   n = size(basis,2)
@@ -443,6 +472,13 @@ function RBSteady.reduced_triangulation(trian::DistributedTriangulation,a::Distr
   reduced_triangulation(trian,get_interpolation(a))
 end
 
+function Base.fill!(a::AbstractArray{<:AbstractParamArray},b::Number)
+  map(local_views(a)) do a
+    fill!(a,b)
+  end
+  a
+end
+
 function RBSteady.allocate_coefficient(a::DistributedHRProjection)
   map(local_views(a)) do a
     RBSteady.allocate_coefficient(a)
@@ -496,6 +532,47 @@ end
 function RBSteady.assemble_hr_array_add!(A::AbstractArray{<:AbstractArray},celldata::AbstractArray{<:Tuple})
   map(local_views(A),local_views(celldata)) do A,celldata
     assemble_hr_array_add!(A,celldata)
+  end
+end
+
+# post process 
+
+function DrWatson.save(dir,s::DistributedSnapshots;label="")
+  map(local_values(s),row_partition(s)) do s,row
+    part = part_id(row)
+    save(dir,s;label=_get_label(label,"part",part))
+  end
+end
+
+function DrWatson.save(dir,a::DistributedPODProjection;label="")
+  map(local_values(a),row_partition(a)) do a,row
+    part = part_id(row)
+    save(dir,a;label=_get_label(label,"part",part))
+  end
+end
+
+function DrWatson.save(dir,contrib::Contribution{V};label="") where V<:DistributedHRProjection
+  map(local_values.(contrib)) do a,row
+    part = part_id(row)
+    save(dir,a;label=_get_label(label,"part",part))
+  end
+end
+
+for T in (:DistributedSteadySnapshots,:DistributedTransientSnapshots)
+  @eval begin
+    function Utils.compute_relative_error(sol::$T,sol_approx::$T)
+      errs = map(own_values(sol),own_values(sol_approx)) do sol,sol_approx
+        compute_relative_error(sol,sol_approx)^2
+      end
+      sqrt(reduce(+,errs))
+    end
+
+    function Utils.compute_relative_error(sol::$T,sol_approx::$T,X::PSparseMatrix)
+      errs = map(own_values(sol),own_values(sol_approx),own_values(X)) do sol,sol_approx,X
+        compute_relative_error(sol,sol_approx,X)^2
+      end
+      sqrt(reduce(+,errs))
+    end
   end
 end
 

@@ -440,6 +440,20 @@ function LinearAlgebra.mul!(
 end
 
 function LinearAlgebra.mul!(
+  c::PVector{<:AbstractParamVector},
+  a::GenericPMatrix,
+  b::AbstractParamVector,
+  α::Number,
+  β::Number
+  )
+
+  map(own_values(c),own_values(a)) do co,ao
+    mul!(co,ao,b,α,β)
+  end
+  c
+end
+
+function LinearAlgebra.mul!(
   c::GenericPMatrix,
   a::GenericPMatrix,
   b::AbstractMatrix{<:Number},

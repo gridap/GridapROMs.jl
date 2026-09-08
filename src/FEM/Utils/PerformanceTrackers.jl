@@ -115,14 +115,14 @@ function compute_speedup(t1::CostTracker,t2::CostTracker)
   return Speedup(name,speedup_time,speedup_memory)
 end
 
-sqrtreal(x) = sqrt(x)
-sqrtreal(x::Complex) = sqrt(real(x))
+sqrtabs(x) = sqrt(x)
+sqrtabs(x::Complex) = sqrt(abs(x))
 
 induced_norm(v::AbstractVector) = norm(v)
-induced_norm(v::AbstractVector,norm_matrix::AbstractMatrix) = sqrtreal(v'*(norm_matrix*v))
+induced_norm(v::AbstractVector,norm_matrix::AbstractMatrix) = sqrtabs(v'*(norm_matrix*v))
 
 induced_norm(A::AbstractMatrix) = sqrt(sum(diag(A'*A)))
-induced_norm(A::AbstractMatrix,norm_matrix::AbstractMatrix) = sqrtreal(sum(diag(A'*(norm_matrix*A))))
+induced_norm(A::AbstractMatrix,norm_matrix::AbstractMatrix) = sqrtabs(sum(diag(A'*(norm_matrix*A))))
 
 induced_norm(A::AbstractArray) = induced_norm(reshape(A,size(A,1),size(A,2),:))
 
@@ -149,7 +149,7 @@ function compute_error(
   @inbounds for i = 1:n
     soli = selectdim(sol,N,i)
     soli_approx = selectdim(sol_approx,N,i)
-    errors[i] = compute_relative_error(soli,soli_approx,args...)
+    errors[i] = induced_norm(soli,soli_approx,args...)
   end
   return mean(errors)
 end

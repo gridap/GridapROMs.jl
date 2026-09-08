@@ -28,7 +28,7 @@ function get_ids(dir::String)
     try
       push!(ids,parse(Int,id))
     catch
-      @assert id == online_label "$(id)"
+      @assert id == ONLINE_LABEL "$(id)"
     end
   end
   sort(ids)
@@ -129,7 +129,7 @@ function get_online_snapshots(dir::String)
   parts = split(dir,"/")
   @assert last(parts) == "sol"
   fesnaps = deserialize(get_online_dir_sol(dir))
-  festats = load_stats(joinpath(dir,"..");label=online_label)
+  festats = load_stats(joinpath(dir,"..");label=ONLINE_LABEL)
   fesnaps,festats
 end
 
@@ -487,7 +487,7 @@ function get_test_info(args...;label="2d_heateq",nparams_jacs=(20,1),kwargs...)
 end
 
 function generate_snaps(M;label="2d_heateq",id=string(Int(rand(1:1e4))),kwargs...)
-  if id == online_label
+  if id == ONLINE_LABEL
     sampling = :uniform
     start = nothing
   else
@@ -606,7 +606,7 @@ end
 
 M_test = (320,700)
 for M in M_test
-  for id in (string.(1:5:80)...,online_label)
+  for id in (string.(1:5:80)...,ONLINE_LABEL)
     generate_snaps(M;id,label="2d_poisson")
   end
 end

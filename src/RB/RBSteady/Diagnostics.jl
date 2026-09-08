@@ -327,7 +327,7 @@ struct RBDiagnostics
 end
 
 """
-    rom_diagnostics(dir,rbsolver,feop,args...;label=online_label,kwargs...)
+    rom_diagnostics(dir,rbsolver,feop,args...;label=ONLINE_LABEL,kwargs...)
         -> RBDiagnostics
 
 Scans every immediate sub-directory of `dir` whose name parses as a `Float64`
@@ -344,7 +344,7 @@ function rom_diagnostics(
   rbsolver::RBSolver,
   feop::ParamOperator,
   args...;
-  label=online_label,
+  label=ONLINE_LABEL,
   kwargs...
   )
 
@@ -745,44 +745,44 @@ function load_snapshots(dir,rbsolver,feop,args...;label="",kwargs...)
 end
 
 function save_residuals(dir,feop,res;label="")
-  save(dir,res;label=_get_label(label,residuals_label))
+  save(dir,res;label=_get_label(label,RESIDUALS_LABEL))
 end
 
 function save_jacobians(dir,feop,jac;label="")
-  save(dir,jac;label=_get_label(label,jacobians_label))
+  save(dir,jac;label=_get_label(label,JACOBIANS_LABEL))
 end
 
 for f in (:save_residuals,:save_jacobians)
   @eval begin
     function $f(dir,feop::LinearNonlinearParamOperator,resjac::Tuple;label="")
       @assert length(resjac) == 2
-      $f(dir,get_linear_operator(feop),resjac[1];label=_get_label(label,linear_label))
-      $f(dir,get_nonlinear_operator(feop),resjac[2];label=_get_label(label,nonlinear_label))
+      $f(dir,get_linear_operator(feop),resjac[1];label=_get_label(label,LINEAR_LABEL))
+      $f(dir,get_nonlinear_operator(feop),resjac[2];label=_get_label(label,NONLINEAR_LABEL))
       return
     end
   end
 end
 
 function load_residuals(dir,feop::ParamOperator;label="")
-  load_contribution(dir,get_domains_res(feop);label=_get_label(label,residuals_label))
+  load_contribution(dir,get_domains_res(feop);label=_get_label(label,RESIDUALS_LABEL))
 end
 
 function load_jacobians(dir,feop::ParamOperator;label="")
-  load_contribution(dir,get_domains_jac(feop);label=_get_label(label,jacobians_label))
+  load_contribution(dir,get_domains_jac(feop);label=_get_label(label,JACOBIANS_LABEL))
 end
 
 for f in (:load_residuals,:load_jacobians)
   @eval begin
     function $f(dir,feop::LinearNonlinearParamOperator;label="")
       (
-        $f(dir,get_linear_operator(feop);label=_get_label(label,linear_label)),
-        $f(dir,get_nonlinear_operator(feop);label=_get_label(label,nonlinear_label)),
+        $f(dir,get_linear_operator(feop);label=_get_label(label,LINEAR_LABEL)),
+        $f(dir,get_nonlinear_operator(feop);label=_get_label(label,NONLINEAR_LABEL)),
       )
     end
   end
 end
 
-function load_residuals(dir,rbsolver,feop,fesnaps;label=online_label)
+function load_residuals(dir,rbsolver,feop,fesnaps;label=ONLINE_LABEL)
   try
     res = load_residuals(dir,feop;label)
     select_snapshots(res,res_params(rbsolver))
@@ -793,7 +793,7 @@ function load_residuals(dir,rbsolver,feop,fesnaps;label=online_label)
   end
 end
 
-function load_jacobians(dir,rbsolver,feop,fesnaps;label=online_label)
+function load_jacobians(dir,rbsolver,feop,fesnaps;label=ONLINE_LABEL)
   try
     jac = load_jacobians(dir,feop;label)
     select_snapshots(jac,jac_params(rbsolver))
@@ -806,7 +806,7 @@ end
 
 function load_problem_snapshots(
   dir,rbsolver,feop,args...;
-  nparams=:all,label=online_label,kwargs...
+  nparams=:all,label=ONLINE_LABEL,kwargs...
   )
 
   s = load_snapshots(dir,rbsolver,feop,args...;label,kwargs...)

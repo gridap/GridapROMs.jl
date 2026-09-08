@@ -1,4 +1,4 @@
-function DrWatson.save(
+function save(
   dir,
   contribs::Tuple{Vararg{Contribution}};
   label=""
@@ -23,13 +23,13 @@ function RBSteady.load_contribution(
 end
 
 function RBSteady._save_trian_operator_parts(dir,op::TransientReducedOperator;label="")
-  save(dir,op.rhs;label=_get_label(label,rhs_label))
+  save(dir,op.rhs;label=_get_label(label,RHS_LABEL))
   for (i,lhsi) in enumerate(op.lhs)
-    save(dir,lhsi;label=_get_label(label,_get_label(lhs_label,i)))
+    save(dir,lhsi;label=_get_label(label,_get_label(LHS_LABEL,i)))
   end
 end
 
-function DrWatson.save(dir,op::TransientReducedOperator;kwargs...)
+function save(dir,op::TransientReducedOperator;kwargs...)
   RBSteady._save_fixed_operator_parts(dir,op;kwargs...)
   RBSteady._save_trian_operator_parts(dir,op;kwargs...)
 end
@@ -37,8 +37,8 @@ end
 function RBSteady._load_trian_operator_parts(dir,feop::ODEParamOperator;label="")
   trian_res = get_domains_res(feop)
   trian_jacs = get_domains_jac(feop)
-  red_rhs = load_contribution(dir,trian_res;label=_get_label(label,rhs_label))
-  red_lhs = load_contribution(dir,trian_jacs;label=_get_label(label,lhs_label))
+  red_rhs = load_contribution(dir,trian_res;label=_get_label(label,RHS_LABEL))
+  red_lhs = load_contribution(dir,trian_jacs;label=_get_label(label,LHS_LABEL))
   return red_lhs,red_rhs
 end
 
@@ -54,9 +54,9 @@ function RBSteady.load_operator(dir,feop::LinearNonlinearODEParamOperator;label=
   feop_nlin = get_nonlinear_operator(feop)
   trial,test = RBSteady._load_fixed_operator_parts(dir,feop_lin;label)
   red_lhs_lin,red_rhs_lin = RBSteady._load_trian_operator_parts(
-    dir,feop_lin;label=_get_label(linear_label,label))
+    dir,feop_lin;label=_get_label(LINEAR_LABEL,label))
   red_lhs_nlin,red_rhs_nlin = RBSteady._load_trian_operator_parts(
-    dir,feop_nlin;label=_get_label(nonlinear_label,label))
+    dir,feop_nlin;label=_get_label(NONLINEAR_LABEL,label))
   op_lin = ReducedOperator(feop_lin,trial,test,red_lhs_lin,red_rhs_lin)
   op_nlin = ReducedOperator(feop_nlin,trial,test,red_lhs_nlin,red_rhs_nlin)
   return LinearNonlinearReducedOperator(op_lin,op_nlin)

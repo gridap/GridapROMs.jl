@@ -339,6 +339,9 @@ end
 
 ReducedProjection(basis::AbstractArray) = ReducedAlgebraicProjection(basis)
 
+Base.eltype(::Type{<:ReducedAlgebraicProjection{A}}) where A = eltype(A)
+Base.ndims(::Type{<:ReducedAlgebraicProjection{A}}) where A = ndims(A)
+
 get_basis(a::ReducedAlgebraicProjection) = a.basis
 num_reduced_dofs(a::ReducedAlgebraicProjection) = size(get_basis(a),2)
 num_reduced_dofs_left_projector(a::ReducedAlgebraicProjection) = size(get_basis(a),1)

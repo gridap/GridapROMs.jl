@@ -402,7 +402,7 @@ function _evaluate!(a,cellrows,rows)
       end
     end
   end
-  a 
+  a
 end
 
 function _evaluate!(a::VectorBlock,cellrows::VectorBlock,rows)

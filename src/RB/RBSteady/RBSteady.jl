@@ -91,6 +91,7 @@ using GridapROMs.Extensions
 
 import ArraysOfArrays: _ncolons
 import Base: +,-,*,\
+import DrWatson: save,load
 import FillArrays: Fill
 import Gridap.Polynomials: Monomial
 import GridapROMs.TProduct: get_factor
@@ -300,21 +301,21 @@ export load_stats
 export load_problem_snapshots
 export try_loading_reduced_operator
 export create_dir
-export snapshots_label
-export residuals_label
-export jacobians_label
-export rhs_label
-export lhs_label
-export test_label
-export trial_label
-export statistics_label
-export results_label
-export projection_label
-export contributions_label
-export linear_label
-export nonlinear_label
-export offline_label
-export online_label
+export SNAPSHOTS_LABEL
+export RESIDUALS_LABEL
+export JACOBIANS_LABEL
+export RHS_LABEL
+export LHS_LABEL
+export TEST_LABEL
+export TRIAL_LABEL
+export STATISTICS_LABEL
+export RESULTS_LABEL
+export PROJECTION_LABEL
+export CONTRIBUTIONS_LABEL
+export LINEAR_LABEL
+export NONLINEAR_LABEL
+export OFFLINE_LABEL
+export ONLINE_LABEL
 include("PostProcess.jl")
 
 include("Extensions.jl")

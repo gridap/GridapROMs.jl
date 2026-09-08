@@ -45,7 +45,7 @@ export compute_speedup
 export compute_error
 export compute_relative_error
 export induced_norm
-export sqrtreal
+export sqrtabs
 include("PerformanceTrackers.jl")
 
 export unwrap_and_setsize!

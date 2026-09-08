@@ -339,6 +339,7 @@ function RBSteady.assemble_hr_array_add!(
   @check celldofs.touched == icells.touched == locations.touched
   for i in eachindex(celldofs)
     if celldofs.touched[i]
+      isempty(icells[i]) && continue
       cellvalsi = lazy_map(FetchBlockMap(_cellvals,i),icells[i])
       RBSteady._assemble_hr_array_add!(A[i],cellvalsi,celldofs[i],locations[i],style)
     end
@@ -347,6 +348,7 @@ function RBSteady.assemble_hr_array_add!(
 end
 
 function RBSteady.assemble_hr_array_add!(A,_cellvals,celldofs,icells,locations,style)
+  isempty(icells) && return A
   cellvals = lazy_map(Reindex(_cellvals),icells)
   RBSteady._assemble_hr_array_add!(A,cellvals,celldofs,locations,style)
   A
