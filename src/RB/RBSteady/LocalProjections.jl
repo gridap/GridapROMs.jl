@@ -187,10 +187,6 @@ function cluster(a,cluster_ids::Table)
   return cache
 end
 
-function cluster(::Nothing,::KmeansResult)
-  [nothing]
-end
-
 function cluster_sort(a,cluster_ids::Table)
   ids′ = sortperm(cluster_ids.data)
   _cluster(a,ids′)
@@ -207,10 +203,6 @@ end
 
 function compute_clusters(red::LocalReduction,s::AbstractSnapshots)
   compute_clusters(red,get_realisation(s))
-end
-
-function compute_clusters(::LocalReduction,::Nothing)
-  kmeans(zeros(1,1),1)
 end
 
 function get_label(k::KmeansResult,a)

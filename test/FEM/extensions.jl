@@ -43,4 +43,4 @@ end
   @test rv isa Float64
 end
 
-end # module
+end

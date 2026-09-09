@@ -445,7 +445,7 @@ function hr_diagnostics(a::LocalHRProjection)
   map(hr_diagnostics,local_vals(a))
 end
 
-function hr_diagnostics(a::BlockHRProjection{N}) where N
+function hr_diagnostics(a::BlockHRProjection)
   map(hr_diagnostics,a.array)
 end
 
@@ -531,17 +531,13 @@ function hr_error(solver::LocalRBSolver,op::ReducedOperator,res,jac,s)
   μ = get_realisation(s)
   gsolver = change_context(solver)
 
-  err_res = Any[]
-  err_jac = Any[]
-  for (i,μi) in enumerate(get_params(μ))
+  err_res,err_jac = map(enumerate(get_params(μ))) do (i,μi)
     opi = get_local(op,μi)
     si = select_snapshots(s,i)
     resi = select_snapshots(res,i)
     jaci = select_snapshots(jac,i)
-    err_res_i,err_jac_i = hr_error(gsolver,opi,resi,jaci,si)
-    push!(err_res,err_res_i)
-    push!(err_jac,err_jac_i)
-  end
+    hr_error(gsolver,opi,resi,jaci,si)
+  end |> tuple_of_arrays
 
   return _mean(err_res),_mean(err_jac)
 end
@@ -855,18 +851,14 @@ end
 
 _mean(vals::AbstractVector{<:Number}) = mean(vals)
 
-function _mean(vals::AbstractVector{<:AbstractArray{<:Number}})
-  v0 = first(vals)
-  x = zeros(length(v0))
-  for i in eachindex(v0)
-    x[i] = _mean(map(v -> v[i],vals))
-  end
-  return x
-end
-
 function _mean(vals::AbstractVector{<:Tuple})
   N = length(first(vals))
   ntuple(i -> _mean(map(v -> v[i],vals)),Val{N}())
+end
+
+function _mean(vals::AbstractVector{<:AbstractArray})
+  v0 = first(vals)
+  map(i -> _mean(map(v -> v[i],vals)),eachindex(v0))
 end
 
 function _unpack!(d::Dict,prefix::String,vals::AbstractVector)

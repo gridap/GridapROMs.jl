@@ -441,16 +441,21 @@ end
 # multi field interface
 
 """
-    struct BlockHRProjection{N,A,B} <: HRProjection{BlockProjection{A,N},B}
-      array::Array{<:HRProjection{A,B},N}
+    struct BlockHRProjection{A<:HRProjection,B<:HyperReduction,N} <: HRProjection{BlockProjection{A,N},B}
+      array::Array{A,N}
     end
 
 Block container for HRProjection in a `MultiField` setting. This
 type is conceived similarly to `ArrayBlock` in [`Gridap`](@ref). Every block is
-always populated.
+always populated. `A` is the (concrete, when the blocks are homogeneous) element
+type, so that e.g. distributed block hyper-reductions can be told apart from
+serial ones by dispatch; `B` is the hyper-reduction style.
 """
-struct BlockHRProjection{N,A,B} <: HRProjection{BlockProjection{A,N},B}
-  array::Array{<:HRProjection{A,B},N}
+struct BlockHRProjection{A<:HRProjection,B<:HyperReduction,N} <: HRProjection{BlockProjection{A,N},B}
+  array::Array{A,N}
+  function BlockHRProjection(array::Array{A,N}) where {T,B,A<:HRProjection{T,B},N}
+    new{A,B,N}(array)
+  end
 end
 
 Base.ndims(a::BlockHRProjection) = ndims(a.array)
@@ -467,7 +472,7 @@ Base.setindex!(a::BlockHRProjection,v,i::Block) = setindex!(a,v,i.n...)
 
 Arrays.testitem(a::BlockHRProjection) = first(a.array)
 
-function get_basis(a::BlockHRProjection{N}) where N
+function get_basis(a::BlockHRProjection)
   return map(get_basis,a.array)
 end
 
@@ -532,14 +537,13 @@ end
 
 allocate_coefficient(a::BlockHRProjection) = map(allocate_coefficient,a.array)
 
-# parameterise each block: a bare array of per-block vectors would otherwise be
-# misread as the data of a single parametric array
-allocate_coefficient(a::BlockHRProjection,r::AbstractRealisation) =
+function allocate_coefficient(a::BlockHRProjection,r::AbstractRealisation)
   map(b -> allocate_coefficient(b,r),a.array)
+end
 
-function allocate_hyper_reduction(a::BlockHRProjection{N}) where N
-  A = typeof(allocate_hyper_reduction(first(a.array)))
-  block_cache = Array{A,N}(undef,size(a))
+function allocate_hyper_reduction(a::BlockHRProjection)
+  T = typeof(allocate_hyper_reduction(first(a.array)))
+  block_cache = Array{T,ndims(a)}(undef,size(a))
   for i in eachindex(a)
     block_cache[i] = allocate_hyper_reduction(a.array[i])
   end

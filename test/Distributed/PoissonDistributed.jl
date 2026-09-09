@@ -82,7 +82,7 @@ function main(distribute,parts)
   end
 end
 
-end # module
+end
 
 using Gridap
 using GridapROMs

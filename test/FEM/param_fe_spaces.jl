@@ -70,4 +70,4 @@ end
   @test num_fields(VY) == 2
 end
 
-end # module
+end

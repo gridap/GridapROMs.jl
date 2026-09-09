@@ -220,4 +220,4 @@ end
   @test !(sdm isa TrivialSparseMatrixDofMap)
 end
 
-end # module
+end

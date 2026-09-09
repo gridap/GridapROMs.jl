@@ -124,4 +124,4 @@ include("DofMapsBuilders.jl")
 export DofMapArray
 include("DofMapArrays.jl")
 
-end # module
+end

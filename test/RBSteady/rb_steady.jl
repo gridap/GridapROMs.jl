@@ -112,4 +112,4 @@ end
   @test get_integration_cells(get_interpolation(nohr)) == collect(Int32,1:num_cells(trian))
 end
 
-end # module
+end

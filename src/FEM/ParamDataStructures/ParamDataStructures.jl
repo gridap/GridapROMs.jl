@@ -108,9 +108,6 @@ export GenericParamBlock
 export TrivialParamBlock
 include("ParamBlocks.jl")
 
-export VariableParamBlock
-include("VariableParamBlocks.jl")
-
 export AbstractParamArray
 export AbstractParamVector
 export AbstractParamMatrix
@@ -192,4 +189,4 @@ export lazy_param_getindex
 export lazy_testitem
 include("ParamMaps.jl")
 
-end # module
+end

@@ -228,4 +228,4 @@ end
   @test num_times(rμ) == num_times(r)
 end
 
-end # module
+end

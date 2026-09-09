@@ -239,13 +239,6 @@ end
 
 # Gridap interface
 
-#TODO Gridap bug fix
-function Arrays.testvalue(::Type{Fields.LinearCombinationField{V,F}}) where {V<:AbstractVector,F}
-  fields = testvalue(F)
-  values = zeros(eltype(V),length(fields))
-  Gridap.Fields.LinearCombinationField(values,fields,1)
-end
-
 Arrays.testitem(A::AbstractParamArray) = param_getindex(A,1)
 
 function Arrays.testvalue(A::AbstractParamArray{T,N}) where {T,N}

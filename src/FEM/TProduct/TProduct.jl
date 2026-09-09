@@ -70,4 +70,4 @@ export get_decomposition
 export get_crossnorm
 include("RankTensors.jl")
 
-end # module
+end

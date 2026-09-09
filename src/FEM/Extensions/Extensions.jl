@@ -96,4 +96,4 @@ export ExtensionODESolver
 export extend_solution
 include("ExtensionSolvers.jl")
 
-end # module
+end
