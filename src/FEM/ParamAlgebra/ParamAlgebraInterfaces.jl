@@ -192,6 +192,7 @@ end
   v::Number,
   i,j
   )
+
   l = nz_index(A,i,j)
   nz = get_all_data(nonzeros(A))
   @inbounds for k = param_eachindex(A)
@@ -207,6 +208,7 @@ end
   v::AbstractVector,
   i,j
   )
+  
   l = nz_index(A,i,j)
   nz = get_all_data(nonzeros(A))
   @inbounds for k = param_eachindex(A)

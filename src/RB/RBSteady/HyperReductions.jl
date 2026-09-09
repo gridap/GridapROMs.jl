@@ -300,32 +300,10 @@ function FESpaces.interpolate!(
   return hypred
 end
 
-# a structurally-empty block (e.g. the pressure-pressure Jacobian block of a
-# saddle-point problem) carries snapshots whose data is empty: the reduced
-# operator must still keep the shape
-# (num_reduced_dofs(test),·,num_reduced_dofs(trial)), so we build a zero HR
-# projection with an empty interpolation, regardless of the hyper-reduction
-# strategy
 function reduced_form(red::Reduction,s,trian,args...)
-  hyper_red = if isempty(get_all_data(s))
-    _empty_hr_projection(red,args...)
-  else
-    HRProjection(red,s,trian,args...)
-  end
+  hyper_red = HRProjection(red,s,trian,args...)
   red_trian = reduced_triangulation(trian,hyper_red)
   return hyper_red,red_trian
-end
-
-function _empty_hr_projection(red,test)
-  T = get_dof_value_type(test)
-  basis = ReducedProjection(zeros(T,num_reduced_dofs(test),1))
-  HRProjection(basis,red,Interpolation(red))
-end
-
-function _empty_hr_projection(red,trial,test)
-  T = get_dof_value_type(trial)
-  basis = ReducedProjection(zeros(T,num_reduced_dofs(test),1,num_reduced_dofs(trial)))
-  HRProjection(basis,red,Interpolation(red))
 end
 
 """

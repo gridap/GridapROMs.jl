@@ -233,11 +233,12 @@ function ParamDataStructures.get_all_data(A::ParamSubSparseMatrix{T,<:ParamSpars
   plength = param_length(A)
   invrows,invcols = A.inv_indices
   cv = colvals(A.parent)
-  nnz = count(p -> invcols[cv[p]] > 0,eachindex(cv))
+  o = getoffset(Ap)
+  nnz = count(p -> invcols[cv[p]+o] > 0,eachindex(cv))
   data = similar(parent_data,nnz,plength)
   idx = 0
   @inbounds for p in eachindex(cv)
-    if invcols[cv[p]] > 0
+    if invcols[cv[p]+o] > 0
       idx += 1
       for k in 1:plength
         data[idx,k] = parent_data[p,k]
