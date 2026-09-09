@@ -420,7 +420,7 @@ function tt_supremizers(
   for iB in 1:nB
     Bi = get_decomposition(B)[iB]
     Bfactors = get_factors(Bi)
-    vec_supr[iB] = _tt_supremizers(X,Bfactors,cores_d)
+    vec_supr[iB] = tt_supremizers(X,Bfactors,cores_d)
   end
   supr_cores = _block_cores_add_component(vec_supr)
   if length(cores_d) > length(X)

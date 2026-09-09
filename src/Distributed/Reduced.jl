@@ -451,22 +451,227 @@ for T in (:GenericPMatrix,:DistributedSnapshots)
   end
 end
 
+for T in (:DEIMHyperReduction,:SOPTHyperReduction,:HighDimDEIMHyperReduction,:HighDimSOPTHyperReduction)
+  for (A,B) in zip((:PVector,:PSparseMatrix),(:HRVecProjection,:HRMatProjection))
+    @eval begin
+      function RBSteady.check_interpolation(res::$A,a::$B{<:$T},fecache::AbstractArray{<:AbstractArray})
+        map(local_views(res),local_views(a),local_views(fecache)) do res,a,fecache
+          check_interpolation(res,a,fecache)
+        end
+      end
+    end
+  end
+end
+
+const HRPROJECTION_LABEL = "hrbasis"
+const NORM_MATRIX_LABEL = "normX"
+const BLOCK_LABEL = "block"
+const TRIAN_LABEL = "trian"
+
+_plabel(name,label...) = foldl(RBSteady._get_label,label;init=name)
+_part_name(name,label,part) = _plabel(name,label,"part$part")
+_part_filename(dir,name,label,part) = joinpath(dir,_part_name(name,label,part)*".jld")
+
+_part_ranks(x::GenericPArray) = map(part_id,partition(axes(x,1)))
+_part_ranks(x::PVector) = map(part_id,partition(axes(x,1)))
+
+# --- GenericPArray (row-partitioned matrix / vector) ---
+
+function _psave_pgeneric(dir,name,x::GenericPArray;label="")
+  map(partition(x),partition(axes(x,1))) do xloc,ind
+    serialize(_part_filename(dir,name,label,part_id(ind)),(xloc,ind))
+  end
+  nothing
+end
+
+function _pload_pgeneric(dir,name,ranks;label="")
+  data,inds = map(ranks) do p
+    deserialize(_part_filename(dir,name,label,p))
+  end |> tuple_of_arrays
+  GenericPArray(data,inds)
+end
+
+# --- PVector ---
+
+function _psave_pvector(dir,name,x::PVector;label="")
+  map(partition(x),partition(axes(x,1))) do xloc,ind
+    serialize(_part_filename(dir,name,label,part_id(ind)),(xloc,ind))
+  end
+  nothing
+end
+
+function _pload_pvector(dir,name,ranks;label="")
+  data,inds = map(ranks) do p
+    deserialize(_part_filename(dir,name,label,p))
+  end |> tuple_of_arrays
+  PVector(data,inds)
+end
+
+# --- PSparseMatrix ---
+
+function _psave_psparse(dir,name,x::PSparseMatrix;label="")
+  map(partition(x),partition(axes(x,1)),partition(axes(x,2))) do xloc,rind,cind
+    serialize(_part_filename(dir,name,label,part_id(rind)),(xloc,rind,cind))
+  end
+  nothing
+end
+
+function _pload_psparse(dir,name,ranks;label="")
+  data,rinds,cinds = map(ranks) do p
+    deserialize(_part_filename(dir,name,label,p))
+  end |> tuple_of_arrays
+  PSparseMatrix(data,rinds,cinds)
+end
+
+_haspart(dir,name,ranks;label="") = isfile(_part_filename(dir,name,label,getany(ranks)))
+
+# --- distributed snapshots ---
+
 function DrWatson.save(dir,s::DistributedSnapshots;label="")
-  _psave(dir,RBSteady.SNAPSHOTS_LABEL,s.snaps;label)
+  _psave_pgeneric(dir,RBSteady.SNAPSHOTS_LABEL,s.snaps;label)
+end
+
+function DrWatson.save(dir,s::DistributedBlockSnapshots;label="")
+  for i in eachindex(blocks(s))
+    _psave_pgeneric(dir,RBSteady.SNAPSHOTS_LABEL,blocks(s)[i].snaps;
+      label=_plabel(label,"$(BLOCK_LABEL)$i"))
+  end
+  nothing
 end
 
 function RBSteady.load_snapshots(dir,ranks::AbstractArray;label="")
-  snaps = _pload(dir,RBSteady.SNAPSHOTS_LABEL,ranks;label)
-  DistributedSnapshots(snaps)
+  if _haspart(dir,RBSteady.SNAPSHOTS_LABEL,ranks;label=_plabel(label,"$(BLOCK_LABEL)1"))
+    _load_distributed_block_snapshots(dir,ranks;label)
+  else
+    DistributedSnapshots(_pload_pgeneric(dir,RBSteady.SNAPSHOTS_LABEL,ranks;label))
+  end
 end
 
-function DrWatson.save(dir,s::DistributedHRProjection;label="")
-  _psave(dir,RBSteady.PROJECTION_LABEL,s.snaps;label)
+function _load_distributed_block_snapshots(dir,ranks;label="")
+  arr = DistributedSnapshots[]
+  i = 1
+  while _haspart(dir,RBSteady.SNAPSHOTS_LABEL,ranks;label=_plabel(label,"$(BLOCK_LABEL)$i"))
+    snaps = _pload_pgeneric(dir,RBSteady.SNAPSHOTS_LABEL,ranks;label=_plabel(label,"$(BLOCK_LABEL)$i"))
+    push!(arr,DistributedSnapshots(snaps))
+    i += 1
+  end
+  param_data = mortar(map(get_param_data,arr))
+  DistributedBlockSnapshots(arr,param_data)
+end
+
+# --- distributed projections (plain / normed / block) ---
+
+function DrWatson.save(dir,a::DistributedPODProjection;label="")
+  _psave_pgeneric(dir,RBSteady.PROJECTION_LABEL,a.basis;label)
+end
+
+function DrWatson.save(dir,a::DistributedNormedProjection;label="")
+  save(dir,a.projection;label)
+  _psave_psparse(dir,NORM_MATRIX_LABEL,a.norm_matrix;label)
+end
+
+function DrWatson.save(dir,a::BlockProjection{<:DistributedProjection};label="")
+  for i in eachindex(a)
+    save(dir,a[i];label=_plabel(label,"$(BLOCK_LABEL)$i"))
+  end
+  nothing
 end
 
 function RBSteady.load_projection(dir,ranks::AbstractArray;label="")
-  snaps = _pload(dir,RBSteady.PROJECTION_LABEL,ranks;label)
-  DistributedSnapshots(snaps)
+  basis = _pload_pgeneric(dir,RBSteady.PROJECTION_LABEL,ranks;label)
+  proj = DistributedPODProjection(basis)
+  if _haspart(dir,NORM_MATRIX_LABEL,ranks;label)
+    X = _pload_psparse(dir,NORM_MATRIX_LABEL,ranks;label)
+    return DistributedNormedProjection(proj,X)
+  end
+  return proj
+end
+
+function _load_distributed_block_projection(dir,ranks,nfields;label="")
+  block_basis = map(1:nfields) do i
+    RBSteady.load_projection(dir,ranks;label=_plabel(label,"$(BLOCK_LABEL)$i"))
+  end
+  RBSteady.BlockProjection(collect(block_basis))
+end
+
+# --- distributed hyper-reduced projections (single / block) ---
+
+function DrWatson.save(dir,a::DistributedHRProjection;label="")
+  interps = a.interpolation.interps
+  map(interps,linear_indices(interps)) do interp,p
+    serialize(_part_filename(dir,HRPROJECTION_LABEL,label,p),(a.basis,a.style,interp))
+  end
+  nothing
+end
+
+function DrWatson.save(dir,a::BlockHRProjection;label="")
+  for i in eachindex(a)
+    save(dir,a.array[i];label=_plabel(label,"$(BLOCK_LABEL)$i"))
+  end
+  nothing
+end
+
+function _load_distributed_hrprojection(dir,ranks;label="")
+  loaded = map(ranks) do p
+    deserialize(_part_filename(dir,HRPROJECTION_LABEL,label,p))
+  end
+  basis = getany(map(x -> x[1],loaded))
+  style = getany(map(x -> x[2],loaded))
+  interps = map(x -> x[3],loaded)
+  DistributedHRProjection(basis,style,DistributedInterpolation(interps))
+end
+
+function _load_distributed_hr(dir,ranks;label="")
+  if _haspart(dir,HRPROJECTION_LABEL,ranks;label=_plabel(label,"$(BLOCK_LABEL)1"))
+    arr = HRProjection[]
+    i = 1
+    while _haspart(dir,HRPROJECTION_LABEL,ranks;label=_plabel(label,"$(BLOCK_LABEL)$i"))
+      push!(arr,_load_distributed_hrprojection(dir,ranks;label=_plabel(label,"$(BLOCK_LABEL)$i")))
+      i += 1
+    end
+    return RBSteady.BlockHRProjection(collect(arr))
+  end
+  _load_distributed_hrprojection(dir,ranks;label)
+end
+
+# --- distributed RB spaces ---
+
+function RBSteady.load_reduced_subspace(dir,f::DistributedSingleFieldFESpace,ranks::AbstractArray;label="")
+  basis = RBSteady.load_projection(dir,ranks;label)
+  RBSteady.reduced_subspace(f,basis)
+end
+
+function RBSteady.load_reduced_subspace(dir,f::DistributedMultiFieldFESpace,ranks::AbstractArray;label="")
+  basis = _load_distributed_block_projection(dir,ranks,num_fields(f);label)
+  RBSteady.reduced_subspace(f,basis)
+end
+
+# --- distributed reduced contributions (rhs / lhs) ---
+
+function DrWatson.save(dir,contrib::Contribution{V,T};label="") where {V,T<:DistributedTriangulation}
+  for (i,v) in enumerate(get_contributions(contrib))
+    save(dir,v;label=_plabel(label,"$(TRIAN_LABEL)$i"))
+  end
+  nothing
+end
+
+function RBSteady.load_contribution(dir,trian::Tuple{Vararg{DistributedTriangulation}},ranks::AbstractArray;label="")
+  vals = ntuple(length(trian)) do i
+    _load_distributed_hr(dir,ranks;label=_plabel(label,"$(TRIAN_LABEL)$i"))
+  end
+  RBSteady._setup_contribution(vals,trian)
+end
+
+# --- whole distributed reduced operator ---
+
+function RBSteady.load_operator(dir,feop::ParamOperator,ranks::AbstractArray;label="")
+  test = RBSteady.load_reduced_subspace(dir,get_test(feop),ranks;label=_plabel(label,RBSteady.TEST_LABEL))
+  trial = RBSteady.load_reduced_subspace(dir,get_trial(feop),ranks;label=_plabel(label,RBSteady.TRIAL_LABEL))
+  trian_res = get_domains_res(feop)
+  trian_jac = get_domains_jac(feop)
+  red_rhs = load_contribution(dir,trian_res,ranks;label=_plabel(label,RBSteady.RHS_LABEL))
+  red_lhs = load_contribution(dir,trian_jac,ranks;label=_plabel(label,RBSteady.LHS_LABEL))
+  RBSteady.ReducedOperator(feop,trial,test,red_lhs,red_rhs)
 end
 
 # utils
@@ -530,18 +735,3 @@ function _best_s_opt_index(basis::GenericPMatrix,P,G,colnorms2,l)
   return second(reduce(max,best_pairs,init=(-Inf=>0)))
 end
 
-function _psave(dir,name,x;label="")
-  map(partition(x),row_partition(x)) do xloc,rloc
-    part_name = RBSteady.get_filename(dir,name,(label,part_id(rloc)))
-    serialize(part_name,(xloc,rloc))
-  end
-  nothing
-end
-
-function _pload(dir,name,ranks;label="")
-  data,rows = map(ranks) do p
-    part_name = RBSteady.get_filename(dir,name,(label,p))
-    deserialize(part_name)
-  end |> tuple_of_arrays
-  GenericPArray(data,rows)
-end

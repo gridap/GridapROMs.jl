@@ -543,7 +543,7 @@ function hr_error(solver::LocalRBSolver,op::ReducedOperator,res,jac,s)
     push!(err_jac,err_jac_i)
   end
 
-  return _diag_mean(err_res),_diag_mean(err_jac)
+  return _mean(err_res),_mean(err_jac)
 end
 
 for T in (:GlobalRBSolver, :LocalRBSolver)
@@ -845,81 +845,52 @@ function set_params(rbsolver;kwargs...)
   RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
 end
 
-function _entries_to_dict(entries::Vector{<:NamedTuple})
+function _entries_to_dict(entries::AbstractVector{<:NamedTuple})
   d = Dict{String,Any}()
   isempty(entries) && return d
-  d["tols"] = [e.tol for e in entries]
-  _unpack_into_dict!(d,"",map(e -> e.diagnostics,entries))
+  d["tols"] = map(e -> e.tol,entries)
+  _unpack!(d,"",map(e -> e.diagnostics,entries))
   return d
 end
 
-_diag_mean(vals::AbstractVector{<:Number}) = mean(vals)
+_mean(vals::AbstractVector{<:Number}) = mean(vals)
 
-function _diag_mean(vals::AbstractVector{<:Tuple})
-  n = length(first(vals))
-  ntuple(i -> _diag_mean(map(v -> v[i],vals)),n)
-end
-
-function _diag_mean(vals::AbstractVector{<:AbstractArray})
+function _mean(vals::AbstractVector{<:AbstractArray{<:Number}})
   v0 = first(vals)
-  if eltype(v0) <: Number
-    out = similar(v0,Float64)
-    for i in eachindex(v0)
-      out[i] = _diag_mean(map(v -> v[i],vals))
-    end
-    return out
-  end
-
-  out = Array{Any}(undef,size(v0))
+  x = zeros(length(v0))
   for i in eachindex(v0)
-    out[i] = _diag_mean(map(v -> v[i],vals))
+    x[i] = _mean(map(v -> v[i],vals))
   end
-  out
+  return x
 end
 
-function _diag_mean(vals::AbstractVector)
-  v0 = first(vals)
-  if v0 isa Number
-    return mean(vals)
-  elseif v0 isa Tuple
-    n = length(v0)
-    return ntuple(i -> _diag_mean([v[i] for v in vals]),n)
-  elseif v0 isa AbstractArray
-    if eltype(v0) <: Number
-      out = similar(v0,Float64)
-      for i in eachindex(v0)
-        out[i] = _diag_mean([v[i] for v in vals])
-      end
-      return out
-    end
-
-    out = Array{Any}(undef,size(v0))
-    for i in eachindex(v0)
-      out[i] = _diag_mean([v[i] for v in vals])
-    end
-    return out
-  end
-
-  @notimplemented
+function _mean(vals::AbstractVector{<:Tuple})
+  N = length(first(vals))
+  ntuple(i -> _mean(map(v -> v[i],vals)),Val{N}())
 end
 
-function _unpack_into_dict!(d::Dict,prefix::String,vals::Vector)
+function _unpack!(d::Dict,prefix::String,vals::AbstractVector)
   isempty(vals) && return
-  v1 = first(vals)
-  if v1 isa NamedTuple
-    for k in keys(v1)
-      _unpack_into_dict!(d,_diagkey(prefix,string(k)),map(v -> v[k],vals))
-    end
-  elseif v1 isa Tuple && !isempty(v1) && first(v1) isa NamedTuple
-    for k in keys(first(v1))
-      _unpack_into_dict!(
-        d,_diagkey(prefix,string(k)),
-        map(v -> Tuple(vt[k] for vt in v),vals),
-      )
-    end
-  else
-    d[prefix] = vals
+  d[prefix] = vals
+end
+
+function _unpack!(d::Dict,prefix::String,vals::AbstractVector{<:NamedTuple})
+  isempty(vals) && return
+  for k in keys(first(vals))
+    _unpack!(d,_key(prefix,string(k)),map(v -> v[k],vals))
   end
 end
 
-_diagkey(prefix,key) = isempty(prefix) ? key : "$prefix $key"
+function _unpack!(d::Dict,prefix::String,vals::AbstractVector{<:Tuple{Vararg{NamedTuple}}})
+  isempty(vals) && return
+  v0 = first(vals)
+  if isempty(v0)
+    d[prefix] = vals
+    return
+  end
+  for k in keys(first(v0))
+    _unpack!(d,_key(prefix,string(k)),map(v -> Tuple(vt[k] for vt in v),vals))
+  end
+end
+
+_key(prefix,key) = isempty(prefix) ? key : "$prefix $key"
