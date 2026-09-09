@@ -473,7 +473,8 @@ Base.setindex!(a::BlockHRProjection,v,i::Block) = setindex!(a,v,i.n...)
 Arrays.testitem(a::BlockHRProjection) = first(a.array)
 
 function get_basis(a::BlockHRProjection)
-  return map(get_basis,a.array)
+  array = map(get_basis,a.array)
+  return BlockProjection(array)
 end
 
 function get_interpolation(a::BlockHRProjection)
@@ -485,7 +486,7 @@ get_style(a::BlockHRProjection) = get_style(first(a.array))
 projection_eltype(a::BlockHRProjection) = promote_type(map(projection_eltype,a.array)...)
 
 function FESpaces.interpolate!(
-  hypred::Union{BlockParamArray,BlockArray},
+  hypred::BlockParamArray,
   coeff::AbstractArray{<:AbstractParamArray},
   a::BlockHRProjection,
   b::AbstractArray{<:AbstractParamArray}
@@ -498,10 +499,10 @@ function FESpaces.interpolate!(
 end
 
 function FESpaces.interpolate!(
-  hypred::Union{BlockParamArray,BlockArray},
+  hypred::BlockParamArray,
   coeff::AbstractArray{<:AbstractParamArray},
   a::BlockHRProjection,
-  b::Union{BlockParamArray,BlockArray}
+  b::BlockParamArray
   )
 
   for i in eachindex(a)
@@ -511,7 +512,7 @@ function FESpaces.interpolate!(
 end
 
 function FESpaces.interpolate!(
-  hypred::Union{BlockParamArray,BlockArray},
+  hypred::BlockParamArray,
   coeff::AbstractArray{<:AbstractParamArray},
   a::BlockHRProjection,
   r::AbstractRealisation
@@ -535,19 +536,16 @@ for T in (:AffineContribution,:BlockHRProjection)
   end
 end
 
-allocate_coefficient(a::BlockHRProjection) = map(allocate_coefficient,a.array)
+function allocate_coefficient(a::BlockHRProjection)
+  map(allocate_coefficient,a.array) |> mortar
+end
 
 function allocate_coefficient(a::BlockHRProjection,r::AbstractRealisation)
-  map(b -> allocate_coefficient(b,r),a.array)
+  map(b -> allocate_coefficient(b,r),a.array) |> mortar
 end
 
 function allocate_hyper_reduction(a::BlockHRProjection)
-  T = typeof(allocate_hyper_reduction(first(a.array)))
-  block_cache = Array{T,ndims(a)}(undef,size(a))
-  for i in eachindex(a)
-    block_cache[i] = allocate_hyper_reduction(a.array[i])
-  end
-  return mortar(block_cache)
+  map(allocate_hyper_reduction,a.array) |> mortar
 end
 
 function reduced_form(red::Reduction,s::AbstractBlockSnapshots,trian,test)

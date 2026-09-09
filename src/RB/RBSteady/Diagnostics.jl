@@ -627,38 +627,6 @@ function hr_error_res(
   test::MultiFieldRBSpace,
   res::BlockSnapshots,
   a::BlockHRProjection,
-  fecache::VectorBlock,
-  hypred::BlockParamVector
-  )
-  
-  error = zeros(size(res))
-  for i in eachindex(res)
-    error[i] = hr_error_res(test[i],res[i],a[i],fecache.array[i],hypred.data[i])
-  end
-  error
-end
-
-function hr_error_jac(
-  trial::MultiFieldRBSpace,
-  test::MultiFieldRBSpace,
-  jac::BlockSnapshots,
-  a::BlockHRProjection,
-  fecache::MatrixBlock,
-  hypred::BlockParamMatrix
-  )
-
-  error = zeros(size(jac))
-  for i in axes(jac,1), j in axes(jac,2)
-    error[i,j] = hr_error_jac(trial[j],test[i],jac[i,j],a[i,j],fecache.array[i,j],hypred.data[i,j])
-  end
-  error
-end
-
-
-function hr_error_res(
-  test::MultiFieldRBSpace,
-  res::BlockSnapshots,
-  a::BlockHRProjection,
   fecache::BlockParamVector,
   hypred::BlockParamVector
   )

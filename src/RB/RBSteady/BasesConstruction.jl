@@ -42,7 +42,7 @@ end
 
 function truncated_svd(red_style::ReductionStyle,A::AbstractMatrix;issquare=false)
   U,S,V = svd(A)
-  if issquare S = sqrt.(S) end
+  issquare && _root!(S)
   rank = select_rank(red_style,S)
   Ur = _truncate_col!(U,rank)
   Sr = _truncate!(S,rank)
@@ -50,8 +50,17 @@ function truncated_svd(red_style::ReductionStyle,A::AbstractMatrix;issquare=fals
   return Ur,Sr,Vr'
 end
 
-function truncated_svd(red_style::LRApproxRank,A::AbstractMatrix;kwargs...)
-  psvd(A,red_style.opts)
+function truncated_svd(red_style::LRApproxRank,A::AbstractMatrix;issquare=false)
+  U,S,V = psvd(A,red_style.opts)
+  issquare && _root!(S)
+  return U,S,V
+end
+
+function _root!(S)
+  for i in eachindex(S)
+    S[i] = sqrt(S[i])
+  end
+  S
 end
 
 """

@@ -320,3 +320,25 @@ end
 with_debug() do distribute
   main(distribute,(2,2))
 end
+
+rbop = op[]
+proj = rbop.test.subspace
+ϕ = get_basis(proj.projection)
+X = proj.norm_matrix
+s = snp[]
+
+ϕ'*(X*ϕ)
+
+ϕ'*X*ϕ
+
+using GridapROMs.Utils
+using GridapROMs.ParamDataStructures
+using GridapROMs.RBSteady
+using BlockArrays
+v = rand(3)
+pv = parameterise(v,3)
+bpv = mortar([pv,pv])
+t = Triangulation(CartesianDiscreteModel((0,1,0,1),(8,8)))
+c = Contribution((bpv,bpv),(t,t))
+hr = HRParamArray(c,c,bpv)
+fill!(c,0.0)

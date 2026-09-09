@@ -142,17 +142,16 @@ function ParamDataStructures.param_getindex(A::ParamSubSparseMatrix,i::Integer)
   SubSparseMatrix(param_getindex(A.parent,i),A.indices,A.inv_indices)
 end
 
-#TODO this works only for CSC format
 function ParamDataStructures.get_all_data(A::ParamSubSparseMatrix{T,<:ParamSparseMatrixCSC}) where T
   parent_data = get_all_data(A.parent)
   plength = param_length(A)
-  inv_rows, = A.inv_indices
+  invrows,invcols = A.inv_indices
   rv = rowvals(A.parent)
-  nnz = count(p -> inv_rows[rv[p]] > 0,eachindex(rv))
+  nnz = count(p -> invrows[rv[p]] > 0,eachindex(rv))
   data = similar(parent_data,nnz,plength)
   idx = 0
   @inbounds for p in eachindex(rv)
-    if inv_rows[rv[p]] > 0
+    if invrows[rv[p]] > 0
       idx += 1
       for k in 1:plength
         data[idx,k] = parent_data[p,k]
@@ -222,6 +221,85 @@ function LinearAlgebra.fillstored!(
       if i > 0
         for j in param_eachindex(A)
           nzv[p,j] = v
+        end
+      end
+    end
+  end
+  A
+end
+
+function ParamDataStructures.get_all_data(A::ParamSubSparseMatrix{T,<:ParamSparseMatrixCSR}) where T
+  parent_data = get_all_data(A.parent)
+  plength = param_length(A)
+  invrows,invcols = A.inv_indices
+  cv = colvals(A.parent)
+  nnz = count(p -> invcols[cv[p]] > 0,eachindex(cv))
+  data = similar(parent_data,nnz,plength)
+  idx = 0
+  @inbounds for p in eachindex(cv)
+    if invcols[cv[p]] > 0
+      idx += 1
+      for k in 1:plength
+        data[idx,k] = parent_data[p,k]
+      end
+    end
+  end
+  data
+end
+
+function LinearAlgebra.mul!(
+  C::ConsecutiveParamVector,
+  A::ParamSubSparseMatrix{T,<:ParamSparseMatrixCSR} where T,
+  B::ConsecutiveParamVector,
+  α::Number,
+  β::Number
+  )
+
+  size(A,2) == size(B,1) || throw(DimensionMismatch())
+  size(A,1) == size(C,1) || throw(DimensionMismatch())
+  size(B,2) == size(C,2) || throw(DimensionMismatch())
+  if β != 1
+    β != 0 ? rmul!(C,β) : fill!(C,zero(eltype(C)))
+  end
+  rows,cols = A.indices
+  invrows,invcols = A.inv_indices
+  Ap = A.parent
+  Cdata = get_all_data(C)
+  nzv = get_all_data(Ap)
+  Bdata = get_all_data(B)
+  cv = colvals(Ap)
+  o = getoffset(Ap)
+  for (i,I) in enumerate(rows)
+    for p in nzrange(Ap,I)
+      J = cv[p]+o
+      j = invcols[J]
+      if j>0
+        for l in param_eachindex(A)
+          C[i,l] += nzv[p,l]*Bdata[j,l]*α
+        end
+      end
+    end
+  end
+  C
+end
+
+function LinearAlgebra.fillstored!(
+  A::ParamSubSparseMatrix{T,<:ParamSparseMatrixCSR},v::Number
+  ) where T
+
+  rows,cols = A.indices
+  invrows,invcols = A.inv_indices
+  Ap = A.parent
+  nzv = get_all_data(Ap)
+  cv = colvals(Ap)
+  o = getoffset(Ap)
+  for (i,I) in enumerate(rows)
+    for p in nzrange(Ap,I)
+      J = cv[p]+o
+      j = invcols[J]
+      if j > 0
+        for i in param_eachindex(A)
+          nzv[p,i] = v
         end
       end
     end
