@@ -309,13 +309,11 @@ function Utils.compute_relative_error(
   args...
   ) where N
 
-  @check sol.touched == sol_approx.touched
+  @check size(sol) == size(sol_approx)
   T = eltype2(sol)
   error = Array{T,N}(undef,size(sol))
   for i in eachindex(sol)
-    if sol.touched[i]
-      error[i] = compute_relative_error(sol[i],sol_approx[i])
-    end
+    error[i] = compute_relative_error(sol[i],sol_approx[i])
   end
   error
 end
@@ -326,12 +324,10 @@ function Utils.compute_relative_error(
   X::MatrixOrTensor
   )
 
-  @check sol.touched == sol_approx.touched
+  @check size(sol) == size(sol_approx)
   error = zeros(size(sol))
   for i in eachindex(sol)
-    if sol.touched[i]
-      error[i] = compute_relative_error(sol[i],sol_approx[i],X[Block(i,i)])
-    end
+    error[i] = compute_relative_error(sol[i],sol_approx[i],X[Block(i,i)])
   end
   error
 end

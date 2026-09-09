@@ -137,23 +137,6 @@ get_basis(a::GenericHRProjection) = a.basis
 get_style(a::GenericHRProjection) = a.style
 get_interpolation(a::GenericHRProjection) = a.interpolation
 
-function HRProjection(red::Reduction,s::Nothing,trian,test)
-  T = get_dof_value_type(test)
-  nrows = num_reduced_dofs(test)
-  basis = ReducedProjection(zeros(T,nrows,1))
-  interp = Interpolation(red)
-  return HRProjection(basis,red,interp)
-end
-
-function HRProjection(red::Reduction,s::Nothing,trian,trial,test)
-  T = get_dof_value_type(trial)
-  nrows = num_reduced_dofs(test)
-  ncols = num_reduced_dofs(trial)
-  basis = ReducedProjection(zeros(T,nrows,1,ncols))
-  interp = Interpolation(red)
-  return HRProjection(basis,red,interp)
-end
-
 function HRProjection(red::Reduction,s,trian,test)
   basis = projection(get_reduction(red),s)
   proj_basis = project(test,basis)
@@ -317,10 +300,32 @@ function FESpaces.interpolate!(
   return hypred
 end
 
+# a structurally-empty block (e.g. the pressure-pressure Jacobian block of a
+# saddle-point problem) carries snapshots whose data is empty: the reduced
+# operator must still keep the shape
+# (num_reduced_dofs(test),·,num_reduced_dofs(trial)), so we build a zero HR
+# projection with an empty interpolation, regardless of the hyper-reduction
+# strategy
 function reduced_form(red::Reduction,s,trian,args...)
-  hyper_red = HRProjection(red,s,trian,args...)
+  hyper_red = if isempty(get_all_data(s))
+    _empty_hr_projection(red,args...)
+  else
+    HRProjection(red,s,trian,args...)
+  end
   red_trian = reduced_triangulation(trian,hyper_red)
   return hyper_red,red_trian
+end
+
+function _empty_hr_projection(red,test)
+  T = get_dof_value_type(test)
+  basis = ReducedProjection(zeros(T,num_reduced_dofs(test),1))
+  HRProjection(basis,red,Interpolation(red))
+end
+
+function _empty_hr_projection(red,trial,test)
+  T = get_dof_value_type(trial)
+  basis = ReducedProjection(zeros(T,num_reduced_dofs(test),1,num_reduced_dofs(trial)))
+  HRProjection(basis,red,Interpolation(red))
 end
 
 """
@@ -438,72 +443,37 @@ end
 """
     struct BlockHRProjection{N,A,B} <: HRProjection{BlockProjection{A,N},B}
       array::Array{<:HRProjection{A,B},N}
-      touched::Array{Bool,N}
     end
 
 Block container for HRProjection in a `MultiField` setting. This
-type is conceived similarly to `ArrayBlock` in [`Gridap`](@ref)
+type is conceived similarly to `ArrayBlock` in [`Gridap`](@ref). Every block is
+always populated.
 """
 struct BlockHRProjection{N,A,B} <: HRProjection{BlockProjection{A,N},B}
   array::Array{<:HRProjection{A,B},N}
-  touched::Array{Bool,N}
-
-  function BlockHRProjection(
-    array::Array{<:HRProjection{A,B},N},
-    touched::Array{Bool,N}
-    ) where {A,B,N}
-
-    @check size(array) == size(touched)
-    new{N,A,B}(array,touched)
-  end
 end
 
-Base.ndims(a::BlockHRProjection) = ndims(a.touched)
-Base.size(a::BlockHRProjection,args...) = size(a.touched,args...)
-Base.axes(a::BlockHRProjection,args...) = axes(a.touched,args...)
-Base.length(a::BlockHRProjection) = length(a.touched)
-Base.eachindex(a::BlockHRProjection) = eachindex(a.touched)
+Base.ndims(a::BlockHRProjection) = ndims(a.array)
+Base.size(a::BlockHRProjection,args...) = size(a.array,args...)
+Base.axes(a::BlockHRProjection,args...) = axes(a.array,args...)
+Base.length(a::BlockHRProjection) = length(a.array)
+Base.eachindex(a::BlockHRProjection) = eachindex(a.array)
 
-function Base.getindex(a::BlockHRProjection,i...)
-  if !a.touched[i...]
-    return nothing
-  end
-  a.array[i...]
-end
-
-function Base.setindex!(a::BlockHRProjection,v,i...)
-  @check a.touched[i...] "Only touched entries can be set"
-  a.array[i...] = v
-end
+Base.getindex(a::BlockHRProjection,i...) = a.array[i...]
+Base.setindex!(a::BlockHRProjection,v,i...) = (a.array[i...] = v)
 
 Base.getindex(a::BlockHRProjection,i::Block) = getindex(a,i.n...)
 Base.setindex!(a::BlockHRProjection,v,i::Block) = setindex!(a,v,i.n...)
 
-function Arrays.testitem(a::BlockHRProjection)
-  i = findfirst(a.touched)
-  @notimplementedif isnothing(i)
-  a.array[i]
-end
+Arrays.testitem(a::BlockHRProjection) = first(a.array)
 
 function get_basis(a::BlockHRProjection{N}) where N
-  A = eltype(a.array)
-  block_cache = Array{A,N}(undef,size(a))
-  for i in eachindex(a)
-    if a.touched[i]
-      block_cache[i] = get_basis(a[i])
-    end
-  end
-  return ArrayBlock(block_cache,a.touched)
+  return map(get_basis,a.array)
 end
 
 function get_interpolation(a::BlockHRProjection)
-  array = Array{Interpolation,ndims(a)}(undef,size(a))
-  for i in eachindex(a)
-    if a.touched[i]
-      array[i] = get_interpolation(a.array[i])
-    end
-  end
-  return BlockInterpolation(array,a.touched)
+  array = map(get_interpolation,a.array)
+  return BlockInterpolation(array)
 end
 
 get_style(a::BlockHRProjection) = get_style(first(a.array))
@@ -511,45 +481,39 @@ projection_eltype(a::BlockHRProjection) = promote_type(map(projection_eltype,a.a
 
 function FESpaces.interpolate!(
   hypred::Union{BlockParamArray,BlockArray},
-  coeff::ArrayBlock,
+  coeff::AbstractArray{<:AbstractParamArray},
   a::BlockHRProjection,
-  b::ArrayBlock
+  b::AbstractArray{<:AbstractParamArray}
   )
 
   for i in eachindex(a)
-    if a.touched[i]
-      interpolate!(blocks(hypred)[i],coeff.array[i],a.array[i],b.array[i])
-    end
+    interpolate!(blocks(hypred)[i],coeff[i],a.array[i],b[i])
   end
   return hypred
 end
 
 function FESpaces.interpolate!(
   hypred::Union{BlockParamArray,BlockArray},
-  coeff::ArrayBlock,
+  coeff::AbstractArray{<:AbstractParamArray},
   a::BlockHRProjection,
   b::Union{BlockParamArray,BlockArray}
   )
 
   for i in eachindex(a)
-    if a.touched[i]
-      interpolate!(blocks(hypred)[i],coeff.array[i],a.array[i],blocks(b)[i])
-    end
+    interpolate!(blocks(hypred)[i],coeff[i],a.array[i],blocks(b)[i])
   end
   return hypred
 end
 
 function FESpaces.interpolate!(
   hypred::Union{BlockParamArray,BlockArray},
-  coeff::ArrayBlock,
+  coeff::AbstractArray{<:AbstractParamArray},
   a::BlockHRProjection,
   r::AbstractRealisation
   )
 
   for i in eachindex(a)
-    if a.touched[i]
-      interpolate!(blocks(hypred)[i],coeff.array[i],a.array[i],r)
-    end
+    interpolate!(blocks(hypred)[i],coeff[i],a.array[i],r)
   end
   return hypred
 end
@@ -566,16 +530,12 @@ for T in (:AffineContribution,:BlockHRProjection)
   end
 end
 
-function allocate_coefficient(a::BlockHRProjection{N}) where N
-  A = typeof(allocate_coefficient(first(a.array)))
-  block_cache = Array{A,N}(undef,size(a))
-  for i in eachindex(a)
-    if a.touched[i]
-      block_cache[i] = allocate_coefficient(a[i])
-    end
-  end
-  return ArrayBlock(block_cache,a.touched)
-end
+allocate_coefficient(a::BlockHRProjection) = map(allocate_coefficient,a.array)
+
+# parameterise each block: a bare array of per-block vectors would otherwise be
+# misread as the data of a single parametric array
+allocate_coefficient(a::BlockHRProjection,r::AbstractRealisation) =
+  map(b -> allocate_coefficient(b,r),a.array)
 
 function allocate_hyper_reduction(a::BlockHRProjection{N}) where N
   A = typeof(allocate_hyper_reduction(first(a.array)))
@@ -594,7 +554,7 @@ function reduced_form(red::Reduction,s::AbstractBlockSnapshots,trian,test)
     hyper_red
   end
 
-  hyper_red = BlockHRProjection(hyper_reds,s.touched)
+  hyper_red = BlockHRProjection(hyper_reds)
   red_trian = reduced_triangulation(trian,hyper_red)
 
   return hyper_red,red_trian
@@ -609,7 +569,7 @@ function reduced_form(red::Reduction,s::AbstractBlockSnapshots,trian,trial,test)
     hyper_red
   end
 
-  hyper_red = BlockHRProjection(hyper_reds,s.touched)
+  hyper_red = BlockHRProjection(hyper_reds)
   red_trian = reduced_triangulation(trian,hyper_red)
 
   return hyper_red,red_trian

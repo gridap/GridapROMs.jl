@@ -97,9 +97,8 @@ end
 
 for f in (:vectorize,:flatten,:invert,:change_dof_map)
   @eval begin
-    function $f(i::ArrayBlock{<:AbstractDofMap,N},args...) where N
-      array = map(i -> $f(i,args...),i.array)
-      return ArrayBlock(array,i.touched)
+    function $f(i::AbstractArray{<:AbstractDofMap,N},args...) where N
+      map(x -> $f(x,args...),i)
     end
   end
 end

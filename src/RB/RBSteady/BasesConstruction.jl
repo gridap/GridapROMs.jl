@@ -485,7 +485,7 @@ end
 function pivoted_qr!(A,tol=1e-10)
   Q,R,jpvt = qr!(A,ColumnNorm())
   r = select_rank(SearchSVDRank(tol),diag(R))
-  Qr = _truncate_col!(Q,r)
+  Qr = _truncate_col!(Matrix(Q),r)
   Rr = _truncate_row!(R,r)
   invpermutecols!(Rr,jpvt)
   return Qr,Rr
@@ -679,7 +679,7 @@ end
 
 function _empty_decomposition(A::AbstractMatOrLinOp{T}) where T
   m,n = size(A)
-  k = min(1,n)
+  k = (m == 0 || n == 0) ? 0 : min(1,n)
   U = zeros(T,m,k)
   S = zeros(real(T),k)
   Vt = zeros(T,k,n)

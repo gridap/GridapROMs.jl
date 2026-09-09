@@ -1,11 +1,12 @@
 function DEIM(basis::AbstractMatrix{T}) where T
   m,n = size(basis)
+  (m == 0 || n == 0) && return zeros(Int,0),zeros(T,0,0)
   res = zeros(T,m)
   I = zeros(Int,n)
   basisI = zeros(T,n,n)
   @inbounds @views begin
     @. res = basis[:,1]
-    I[1] = argmax(abs,res)
+    I[1] = findrow(res)
     basisI[1,:] = basis[I[1],:]
     for l = 2:n
       U = basis[:,1:l-1]
@@ -16,7 +17,7 @@ function DEIM(basis::AbstractMatrix{T}) where T
       c = vec(PᵀU \ Pᵀuₗ)
       mul!(res,U,c)
       @. res = uₗ - res
-      I[l] = argmax(abs,res)
+      I[l] = findrow(res)
       basisI[l,:] = basis[I[l],:]
     end
   end
@@ -25,10 +26,11 @@ end
 
 function SOPT(basis::AbstractMatrix{T}) where T
   m,n = size(basis)
+  (m == 0 || n == 0) && return zeros(Int,0),zeros(T,0,0)
   I = zeros(Int,n)
   basisI = zeros(T,n,n)
   @inbounds @views begin
-    I[1] = argmax(abs,basis[:,1])
+    I[1] = findrow(basis[:,1])
     basisI[1,:] = basis[I[1],:]
     for l in 2:n
       U = basis[:,1:l]
@@ -36,7 +38,7 @@ function SOPT(basis::AbstractMatrix{T}) where T
       PᵀU = U[P,:]
       G = PᵀU'*PᵀU
       colnorms2 = vec(sum(abs2,PᵀU;dims=1))
-      Il = best_s_opt_index(U,P,G,colnorms2)
+      Il = _best_s_opt_index(U,P,G,colnorms2)
       @check Il > 0
       I[l] = Il
       basisI[l,:] = basis[Il,:]
@@ -45,40 +47,11 @@ function SOPT(basis::AbstractMatrix{T}) where T
   return I,basisI
 end
 
-function best_s_opt_index(U,P,G,colnorms2)
-  m,n = size(U)
-  best_i = 0
-  best_logS = -Inf
-  @inbounds @views for l in 1:m
-    l ∈ P && continue
-    q = U[l,:]
-    logdet_plus = robust_logdet(G)
-    colnorms2_plus = colnorms2 .+ abs2.(G + q*q')
-    # S(A) in log form: (1/n)*( 0.5*logdet - 0.5*Σ log colnorms2 )
-    logS = (0.5/n)*(logdet_plus - sum(log,colnorms2_plus))
-    if logS > best_logS
-      best_logS = logS
-      best_i = l
-    end
-  end
-  return best_i
-end
-
-function robust_logdet(A::AbstractMatrix{T}) where T
-  try
-    H = symcholesky(A)
-    2.0*sum(log,diag(H.L))
-  catch
-    _,Σ,_ = svd(A)
-    tol = maximum(Σ)*eps(T)+eps(T)
-    sum(log,clamp.(Σ,tol,Inf))
-  end
-end
-
 for f in (:DEIM,:SOPT)
   @eval begin
     function $f(A::ParamSparseMatrix)
       I,AI = $f(get_all_data(A))
+      isempty(I) && return (I,copy(I)),AI
       R′,C′ = recast_split_indices(I,testitem(A))
       return (R′,C′),AI
     end
@@ -304,6 +277,38 @@ get_integration_cells(t::Triangulation) = @abstractmethod
 get_integration_cells(t::ChildTriangulation) = t.cell_to_parent_cell
 
 # utils
+
+findrow(v::AbstractVector) = last(findmax(abs,v))
+
+function _best_s_opt_index(U,P,G,colnorms2)
+  m,n = size(U)
+  best_i = 0
+  best_logS = -Inf
+  @inbounds @views for l in 1:m
+    l ∈ P && continue
+    q = U[l,:]
+    logdet_plus = robust_logdet(G)
+    colnorms2_plus = colnorms2 .+ abs2.(G + q*q')
+    # S(A) in log form: (1/n)*( 0.5*logdet - 0.5*Σ log colnorms2 )
+    logS = (0.5/n)*(logdet_plus - sum(log,colnorms2_plus))
+    if logS > best_logS
+      best_logS = logS
+      best_i = l
+    end
+  end
+  return best_i
+end
+
+function robust_logdet(A::AbstractMatrix{T}) where T
+  try
+    H = symcholesky(A)
+    2.0*sum(log,diag(H.L))
+  catch
+    _,Σ,_ = svd(A)
+    tol = maximum(Σ)*eps(T)+eps(T)
+    sum(log,clamp.(Σ,tol,Inf))
+  end
+end
 
 function _isrow(cellrows,rows)
   for row in cellrows

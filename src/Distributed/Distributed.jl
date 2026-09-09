@@ -71,12 +71,12 @@ using GridapROMs.RBSteady
 using GridapROMs.RBTransient
 
 import ArraysOfArrays: innersize,_ncolons
-import BlockArrays: BlockVector,BlockMatrix,BlockArray,mortar,blocks
+import BlockArrays: BlockVector,BlockMatrix,BlockArray,AbstractBlockArray,mortar,blocks
 import Gridap.Helpers: @abstractmethod,@check,@notimplemented,@notimplementedif
 import GridapDistributed: BlockPMatrix,BlockPVector,BlockPArray,DistributedFESpace,DistributedSingleFieldFESpace,DistributedMultiFieldFESpace,DistributedTriangulation,DistributedDomainContribution,to_parray_of_arrays
 import GridapROMs.DofMaps: range_2d,range_1d
 import GridapROMs.ParamAlgebra: ParamBuilder,ParamCounter
-import GridapROMs.RBSteady: get_l2_form,get_h1_form,get_div_coupling_form,l2_norm,h1_norm,div_coupling,_assemble_operator,_unwrap,_meas,_energy_mortar,_coupling_mortar
+import GridapROMs.RBSteady: findrow,get_l2_form,get_h1_form,get_div_coupling_form,l2_norm,h1_norm,div_coupling,_assemble_operator,_unwrap,_meas,_energy_mortar,_coupling_mortar
 import MPI
 import PartitionedArrays: SubSparseMatrix,VectorAssemblyCache,length_to_ptrs!,rewind_ptrs!,getany
 

@@ -203,52 +203,24 @@ end
 
 struct BlockInterpolation{N} <: Interpolation
   interp::Array{<:Interpolation,N}
-  touched::Array{Bool,N}
-
-  function BlockInterpolation(
-    interp::Array{<:Interpolation,N},
-    touched::Array{Bool,N}
-    ) where N
-
-    @check size(interp) == size(touched)
-    new{N}(interp,touched)
-  end
 end
 
-Base.ndims(a::BlockInterpolation) = ndims(a.touched)
-Base.size(a::BlockInterpolation,args...) = size(a.touched,args...)
-Base.axes(a::BlockInterpolation,args...) = axes(a.touched,args...)
-Base.length(a::BlockInterpolation) = length(a.touched)
-Base.eachindex(a::BlockInterpolation) = eachindex(a.touched)
+Base.ndims(a::BlockInterpolation) = ndims(a.interp)
+Base.size(a::BlockInterpolation,args...) = size(a.interp,args...)
+Base.axes(a::BlockInterpolation,args...) = axes(a.interp,args...)
+Base.length(a::BlockInterpolation) = length(a.interp)
+Base.eachindex(a::BlockInterpolation) = eachindex(a.interp)
 
-function Base.getindex(a::BlockInterpolation,i...)
-  a.touched[i...] ? a.interp[i...] : nothing
-end
+Base.getindex(a::BlockInterpolation,i...) = a.interp[i...]
+Base.setindex!(a::BlockInterpolation,v,i...) = (a.interp[i...] = v)
 
-function Base.setindex!(a::BlockInterpolation,v,i...)
-  a.touched[i...] && (a.interp[i...] = v)
-end
-
-function Arrays.testitem(a::BlockInterpolation)
-  i = findfirst(a.touched)
-  if !isnothing(i)
-    @inbounds a.interp[i[1]]
-  else
-    testvalue(eltype(a.interp))
-  end
-end
+Arrays.testitem(a::BlockInterpolation) = first(a.interp)
 
 Base.getindex(a::BlockInterpolation,i::Block) = getindex(a,i.n...)
 Base.setindex!(a::BlockInterpolation,v,i::Block) = setindex!(a,v,i.n...)
 
 function get_cell_idofs(a::BlockInterpolation{N}) where N
-  array = Array{Any,N}(undef,size(a))
-  for i in eachindex(a)
-    if a.touched[i]
-      array[i] = get_cell_idofs(a.interp[i])
-    end
-  end
-  return ArrayBlock(array,a.touched)
+  map(get_cell_idofs,a.interp)
 end
 
 function get_integration_cells(a::BlockInterpolation)
@@ -256,23 +228,13 @@ function get_integration_cells(a::BlockInterpolation)
   _union(a::T,b::T) where T<:AbstractVector = union(a,b)
   _union(a::T,b::T) where T<:AppendedArray = lazy_append(union(a.a,b.a),union(a.b,b.b))
 
-  i = findfirst(a.touched)
-  isnothing(i) && return Int32[]
-  cells = get_integration_cells(a.interp[i])
+  cells = get_integration_cells(a.interp[1])
   for i in 2:length(a)
-    if a.touched[i]
-      cells = _union(cells,get_integration_cells(a.interp[i]))
-    end
+    cells = _union(cells,get_integration_cells(a.interp[i]))
   end
   return cells
 end
 
 function get_owned_icells(a::BlockInterpolation{N},cells::AbstractVector) where N
-  array = Array{Any,N}(undef,size(a))
-  for i in eachindex(a)
-    if a.touched[i]
-      array[i] = get_owned_icells(a.interp[i],cells)
-    end
-  end
-  return ArrayBlock(array,a.touched)
+  map(itp -> get_owned_icells(itp,cells),a.interp)
 end

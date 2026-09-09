@@ -569,9 +569,7 @@ end
 function projection(red::Reduction,s::AbstractBlockSnapshots)
   basis = _allocate_projection(red,s)
   for i in eachindex(basis)
-    if basis.touched[i]
-      basis[i] = projection(red,s[i])
-    end
+    basis[i] = projection(red,s[i])
   end
   return basis
 end
@@ -579,9 +577,7 @@ end
 function projection(red::Reduction,s::AbstractBlockSnapshots,X::MatrixOrTensor)
   basis = _allocate_projection(red,s)
   for i in eachindex(basis)
-    if basis.touched[i]
-      basis[i] = projection(red,s[i],X[Block(i,i)])
-    end
+    basis[i] = projection(red,s[i],X[Block(i,i)])
   end
   return basis
 end
@@ -589,69 +585,38 @@ end
 """
     struct BlockProjection{A<:Projection,N} <: Projection
       array::Array{A,N}
-      touched::Array{Bool,N}
     end
 
 Block container for Projection of type `A` in a `MultiField` setting. This
-type is conceived similarly to `ArrayBlock` in [`Gridap`](@ref)
+type is conceived similarly to `ArrayBlock` in [`Gridap`](@ref). Every block is
+always populated.
 """
 struct BlockProjection{A<:Projection,N} <: Projection
   array::Array{A,N}
-  touched::Array{Bool,N}
-
-  function BlockProjection(
-    array::Array{A,N},
-    touched::Array{Bool,N}
-    ) where {A<:Projection,N}
-
-    @check size(array) == size(touched)
-    new{A,N}(array,touched)
-  end
 end
 
-Base.ndims(a::BlockProjection) = ndims(a.touched)
-Base.size(a::BlockProjection,args...) = size(a.touched,args...)
-Base.axes(a::BlockProjection,args...) = axes(a.touched,args...)
-Base.length(a::BlockProjection) = length(a.touched)
-Base.eachindex(a::BlockProjection) = eachindex(a.touched)
+Base.ndims(a::BlockProjection) = ndims(a.array)
+Base.size(a::BlockProjection,args...) = size(a.array,args...)
+Base.axes(a::BlockProjection,args...) = axes(a.array,args...)
+Base.length(a::BlockProjection) = length(a.array)
+Base.eachindex(a::BlockProjection) = eachindex(a.array)
 
-function Base.getindex(a::BlockProjection,i...)
-  if !a.touched[i...]
-    return nothing
-  end
-  a.array[i...]
-end
-
-function Base.setindex!(a::BlockProjection,v,i...)
-  @check a.touched[i...] "Only touched entries can be set"
-  a.array[i...] = v
-end
+Base.getindex(a::BlockProjection,i...) = a.array[i...]
+Base.setindex!(a::BlockProjection,v,i...) = (a.array[i...] = v)
 
 Base.getindex(a::BlockProjection,i::Block) = getindex(a,i.n...)
 Base.setindex!(a::BlockProjection,v,i::Block) = setindex!(a,v,i.n...)
 
-function Arrays.testitem(a::BlockProjection)
-  i = findfirst(a.touched)
-  @notimplementedif isnothing(i)
-  a.array[i]
-end
+Arrays.testitem(a::BlockProjection) = first(a.array)
 
 function get_basis(a::BlockProjection{A,N}) where {A,N}
-  block_cache = Array{Any,N}(undef,size(a))
-  for i in eachindex(a)
-    if a.touched[i]
-      block_cache[i] = get_basis(a[i])
-    end
-  end
-  return ArrayBlock(block_cache,a.touched)
+  return map(get_basis,a.array)
 end
 
 function num_fe_dofs(a::BlockProjection)
   dofs = 0
   for i in eachindex(a)
-    if a.touched[i]
-      dofs += num_fe_dofs(a[i])
-    end
+    dofs += num_fe_dofs(a[i])
   end
   return dofs
 end
@@ -659,9 +624,7 @@ end
 function num_reduced_dofs(a::BlockProjection)
   dofs = 0
   for i in eachindex(a)
-    if a.touched[i]
-      dofs += num_reduced_dofs(a[i])
-    end
+    dofs += num_reduced_dofs(a[i])
   end
   return dofs
 end
@@ -693,19 +656,16 @@ end
 for f in (:allocate_in_domain,:allocate_in_range)
   @eval begin
     function Algebra.$f(a::BlockProjection)
-      @notimplementedif !all(a.touched)
       mortar(map(Algebra.$f,a.array))
     end
 
     function Algebra.$f(a::BlockProjection,x::BlockVector)
       @check length(a) == blocklength(x)
-      @notimplementedif !all(a.touched)
       mortar(map(i -> Algebra.$f(a[Block(i)],x[Block(i)]),eachindex(a)))
     end
 
     function Algebra.$f(a::BlockProjection,x::BlockParamVector)
       @check length(a) == blocklength(x)
-      @notimplementedif !all(a.touched)
       mortar(map(i -> Algebra.$f(a[Block(i)],x[Block(i)]),eachindex(a)))
     end
   end
@@ -721,9 +681,7 @@ for (f,g) in zip((:project!,:inv_project!),(:to_fe_blocks,:to_reduced_blocks))
       )
 
       for i in eachindex(a)
-        if a.touched[i]
-          $f(blocks(y)[i],a[i],blocks(x)[i])
-        end
+        $f(blocks(y)[i],a[i],blocks(x)[i])
       end
     end
 
@@ -746,14 +704,10 @@ function galerkin_projection(
 
   @check length(proj_left) == size(a,1)
   block_cache = Vector{Projection}(undef,length(a))
-  touched = fill(false,size(a))
   for i in eachindex(a)
-    if proj_left.touched[i] && a.touched[i]
-      block_cache[i] = galerkin_projection(proj_left[i],a[i],args...)
-      touched[i] = true
-    end
+    block_cache[i] = galerkin_projection(proj_left[i],a[i],args...)
   end
-  return BlockProjection(block_cache,touched)
+  return BlockProjection(block_cache)
 end
 
 function galerkin_projection(
@@ -766,32 +720,21 @@ function galerkin_projection(
   @check length(proj_left) == size(a,1)
   @check length(proj_right) == size(a,2)
   block_cache = Matrix{Projection}(undef,size(a))
-  touched = fill(false,size(a))
   for i in axes(a,1), j in axes(a,2)
-    if proj_left.touched[i] && a.touched[i,j] && proj_right.touched[j]
-      block_cache[i,j] = galerkin_projection(proj_left[i],a[i,j],proj_right[j],args...)
-      touched[i,j] = true
-    end
+    block_cache[i,j] = galerkin_projection(proj_left[i],a[i,j],proj_right[j],args...)
   end
-  return BlockProjection(block_cache,touched)
+  return BlockProjection(block_cache)
 end
 
 function ReducedProjection(basis::VectorBlock)
-  block_cache = Vector{Any}(undef,length(basis))
-  for i in eachindex(basis)
-    if basis.touched[i]
-      block_cache[i] = ReducedProjection(basis[i])
-    end
-  end
-  return BlockProjection(block_cache,basis.touched)
+  block_cache = map(ReducedProjection,basis.array)
+  return BlockProjection(block_cache)
 end
 
 function get_norm_matrix(a::BlockProjection)
   norm_matrix = _allocate_norm_matrix(a)
   for i in eachindex(a)
-    if a.touched[i]
-      norm_matrix[Block(i,i)] = get_norm_matrix(a[i])
-    end
+    norm_matrix[Block(i,i)] = get_norm_matrix(a[i])
   end
   return norm_matrix
 end
@@ -814,7 +757,6 @@ function enrich!(
   supr_matrix::BlockMatrix
   )
 
-  @check a.touched[1] "Primal field not defined"
   a_primal,a_dual... = a.array
   X_primal = norm_matrix[Block(1,1)]
   H_primal = symcholesky(X_primal)
@@ -835,7 +777,6 @@ function enrich!(
   supr_matrix::BlockRankTensor
   ) where {A,B}
 
-  @check a.touched[1] "Primal field not defined"
   a_primal,a_dual... = a.array
   X_primal = norm_matrix[Block(1,1)]
   H_primal = symcholesky(X_primal)
@@ -870,22 +811,13 @@ function GalerkinProjectable(s::AbstractSnapshots)
 end
 
 function GalerkinProjectable(a::BlockParamArray{T,N}) where {T,N}
-  block_cache = Array{GalerkinProjectable,N}(undef,size(blocks(a)))
-  for i in eachindex(blocks(a))
-    block_cache[i] = GalerkinProjectable(blocks(a)[i])
-  end
-  touched = fill(true,size(blocks(a)))
-  return BlockProjection(block_cache,touched)
+  block_cache = map(GalerkinProjectable,blocks(a))
+  return BlockProjection(block_cache)
 end
 
-function GalerkinProjectable(a::ArrayBlock{T,N}) where {T,N}
-  block_cache = Array{GalerkinProjectable,N}(undef,size(a))
-  for i in eachindex(a)
-    if a.touched[i]
-      block_cache[i] = GalerkinProjectable(a[i])
-    end
-  end
-  return BlockProjection(block_cache,a.touched)
+function GalerkinProjectable(a::AbstractArray{<:AbstractArray})
+  block_cache = map(GalerkinProjectable,a)
+  return BlockProjection(block_cache)
 end
 
 function galerkin_projection(a::Projection,b,args...)
@@ -905,7 +837,7 @@ end
 function _allocate_projection(red::Reduction,s::AbstractBlockSnapshots{<:Any,N}) where N
   T = _proj_type(red)
   block_basis = Array{T,N}(undef,size(s))
-  BlockProjection(block_basis,s.touched)
+  BlockProjection(block_basis)
 end
 
 function _allocate_norm_matrix(a::BlockProjection{A,N}) where {A,N}

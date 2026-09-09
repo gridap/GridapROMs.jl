@@ -101,7 +101,7 @@ function RBSteady.DEIM(basis::GenericPMatrix)
   map(own_values(res),own_values(basis)) do ro,bo
     @. ro = bo[:,1]
   end
-  I[1] = argmax(abs,res)
+  I[1] = findrow(res)
   _push_to_local!(Iloc,parts,I,1)
   _from_submatrix!(basisI,basis,I,1)
   for l = 2:n
@@ -112,7 +112,7 @@ function RBSteady.DEIM(basis::GenericPMatrix)
       @. ro = bo[:,l]
       mul!(ro,view(bo,:,1:l-1),c,-1.0,1.0)
     end
-    I[l] = argmax(abs,res)
+    I[l] = findrow(res)
     _push_to_local!(Iloc,parts,I,l)
     _from_submatrix!(basisI,basis,I,l)
   end
@@ -130,7 +130,7 @@ function RBSteady.SOPT(basis::GenericPMatrix)
   map(own_values(res),own_values(basis)) do ro,bo
     @. ro = bo[:,1]
   end
-  I[1] = argmax(abs,res)
+  I[1] = findrow(res)
   _push_to_local!(Iloc,parts,I,1)
   _from_submatrix!(basisI,basis,I,1)
   for l in 2:n
@@ -460,10 +460,6 @@ function RBSteady.load_snapshots(dir,ranks::AbstractArray;label="")
   DistributedSnapshots(snaps)
 end
 
-function DrWatson.save(dir,a::$T;label="")
-  _psave(dir,RBSteady.PROJECTION_LABEL,s.snaps;label)
-end
-
 function DrWatson.save(dir,s::DistributedHRProjection;label="")
   _psave(dir,RBSteady.PROJECTION_LABEL,s.snaps;label)
 end
@@ -544,7 +540,8 @@ end
 
 function _pload(dir,name,ranks;label="")
   data,rows = map(ranks) do p
-    deserialize(_part_filename(dir,name,label,p))
+    part_name = RBSteady.get_filename(dir,name,(label,p))
+    deserialize(part_name)
   end |> tuple_of_arrays
   GenericPArray(data,rows)
 end

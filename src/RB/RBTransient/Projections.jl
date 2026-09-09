@@ -441,7 +441,6 @@ function RBSteady.enrich!(
   supr_matrix::BlockMatrix
   ) where {A,B}
 
-  @check a.touched[1] "Primal field not defined"
   tol = RBSteady.get_supr_tol(red)
   a_primal,a_dual... = a.array
   a_primal_space = a_primal.projection_space
@@ -623,9 +622,7 @@ end
 function num_fe_dofs_space(a::BlockProjection)
   dofs = 0
   for i in eachindex(a)
-    if a.touched[i]
-      dofs += num_fe_dofs_space(a[i])
-    end
+    dofs += num_fe_dofs_space(a[i])
   end
   return dofs
 end
@@ -633,9 +630,7 @@ end
 function num_reduced_dofs_space(a::BlockProjection)
   dofs = 0
   for i in eachindex(a)
-    if a.touched[i]
-      dofs += num_reduced_dofs_space(a[i])
-    end
+    dofs += num_reduced_dofs_space(a[i])
   end
   return dofs
 end
@@ -663,13 +658,11 @@ end
 for (f,g) in zip((:allocate_in_space_domain,:allocate_in_space_range),(:to_fe_blocks_space,:to_reduced_blocks_space))
   @eval begin
     function $f(a::BlockProjection)
-      @notimplementedif !all(a.touched)
       mortar(map($f,a.array))
     end
 
     function $f(a::BlockProjection,x::BlockVector)
       @check length(a) == blocklength(x)
-      @notimplementedif !all(a.touched)
       mortar(map(i -> $f(a[Block(i)],x[Block(i)]),eachindex(a)))
     end
   end
@@ -685,10 +678,8 @@ for (f,g) in zip((:space_project!,:inv_space_project!),(:to_fe_blocks_space,:to_
       )
 
       for i in eachindex(a)
-        if a.touched[i]
-          yi = blocks(y)[i]
-          $f(yi,a[i],x[Block(i)])
-        end
+        yi = blocks(y)[i]
+        $f(yi,a[i],x[Block(i)])
       end
     end
 

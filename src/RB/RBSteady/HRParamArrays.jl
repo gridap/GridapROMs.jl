@@ -39,12 +39,11 @@ function LinearAlgebra.fillstored!(a::HRParamArray,b::Number)
   fill!(a,b)
 end
 
-function Base.fill!(a::ArrayBlock,b::Number)
-  for i in eachindex(a)
-    if a.touched[i]
-      fill!(a.array[i],b)
-    end
+function Base.fill!(a::Array{<:AbstractParamArray},b::Number)
+  for ai in a
+    fill!(ai,b)
   end
+  a
 end
 
 function LinearAlgebra.rmul!(a::HRParamArray,b::Number)

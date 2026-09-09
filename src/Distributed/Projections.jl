@@ -65,7 +65,7 @@ end
 function RBSteady._allocate_projection(red::Reduction,s::DistributedBlockSnapshots{N},args...) where N
   T = _distr_proj_type(red)
   block_basis = Array{T,N}(undef,size(s))
-  BlockProjection(block_basis,s.touched)
+  BlockProjection(block_basis)
 end
 
 function RBTransient.kron_projection(red::KroneckerReduction,s::DistributedSparseSnapshots,args...)

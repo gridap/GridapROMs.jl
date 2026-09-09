@@ -54,7 +54,7 @@ function local_vals(a::BlockHRProjection)
   litems = map(local_vals,a.array)
   nlitems = length(first(litems))
   map(1:nlitems) do i
-    BlockHRProjection(getindex.(litems,i),a.touched)
+    BlockHRProjection(getindex.(litems,i))
   end
 end
 
@@ -70,7 +70,7 @@ function get_local(a::LocalHRProjection,μ::AbstractVector)
 end
 
 function get_local(a::BlockHRProjection,μ::AbstractVector)
-  BlockHRProjection(map(p -> get_local(p,μ),a.array),a.touched)
+  BlockHRProjection(map(p -> get_local(p,μ),a.array))
 end
 
 function get_local(a::AffineContribution,μ::AbstractVector)
@@ -134,7 +134,7 @@ function reduced_form(lred::LocalReduction,s::AbstractBlockSnapshots,trian,test)
     hyper_red
   end
 
-  hyper_red = BlockHRProjection(hyper_reds,s.touched)
+  hyper_red = BlockHRProjection(collect(hyper_reds))
   red_trian = reduced_triangulation(trian,hyper_red)
 
   return hyper_red,red_trian
@@ -149,7 +149,7 @@ function reduced_form(lred::LocalReduction,s::AbstractBlockSnapshots,trian,trial
     hyper_red
   end
 
-  hyper_red = BlockHRProjection(hyper_reds,s.touched)
+  hyper_red = BlockHRProjection(collect(hyper_reds))
   red_trian = reduced_triangulation(trian,hyper_red)
 
   return hyper_red,red_trian

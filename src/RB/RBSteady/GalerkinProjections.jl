@@ -84,14 +84,9 @@ function copy_projection!(
 end
 
 function copy_projection!(
-  cache::ArrayBlock{A,N},
-  proj_basis::ArrayBlock{B,N}
-  ) where {A,B,N}
+  cache::AbstractArray{<:AbstractArray},
+  proj_basis::AbstractArray{<:AbstractArray}
+  )
 
-  @check size(cache) == size(proj_basis)
-  for i in eachindex(cache)
-    if cache.touched[i] && proj_basis.touched[i]
-      copy_projection!(cache[i],proj_basis[i])
-    end
-  end
+  map(copy_projection!,cache,proj_basis)
 end

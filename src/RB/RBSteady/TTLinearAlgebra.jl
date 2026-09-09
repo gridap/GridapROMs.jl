@@ -492,7 +492,6 @@ function _tt_supremizers(X::Factorization,B::AbstractSparseMatrix,core::Abstract
   Cmat = reshape(permutedims(core,(1,3,2)),prev_rank*next_rank,cur_size)
   Ymat = Cmat*transpose(B)
   W = reshape(permutedims(reshape(Ymat,prev_rank,next_rank,cur_size′),(3,1,2)),cur_size′,:)
-  W .= X \ W
   Y = similar(W)
   ldiv!(Y,X,W)
   reshape(permutedims(reshape(Y,cur_size′,prev_rank,next_rank),(2,1,3)),prev_rank,cur_size′,next_rank)

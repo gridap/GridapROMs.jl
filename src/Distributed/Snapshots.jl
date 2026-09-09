@@ -121,17 +121,14 @@ end
 
 struct DistributedBlockSnapshots{N,B} <: AbstractBlockSnapshots{DistributedSnapshots,N}
   array::AbstractArray{<:Any,N}
-  touched::Array{Bool,N}
   param_data::B
 
   function DistributedBlockSnapshots(
     array::AbstractArray{<:Any,N},
-    touched::Array{Bool,N},
     param_data::B
     ) where {N,B}
 
-    @check size(array) == size(touched)
-    new{N,B}(array,touched,param_data)
+    new{N,B}(array,param_data)
   end
 end
 
@@ -139,7 +136,7 @@ const DistributedTransientBlockSnapshots{N} = DistributedBlockSnapshots{N,<:Stor
 
 function ParamDataStructures.Snapshots(
   data::BlockPArray{V,T,N},
-  i::ArrayBlock,
+  i::AbstractArray{<:AbstractDofMap},
   r::AbstractRealisation
   ) where {V,T,N}
 
@@ -147,36 +144,33 @@ function ParamDataStructures.Snapshots(
   s = size(block_values)
   array = Array{Any,N}(undef,s)
   for (j,dataj) in enumerate(block_values)
-    if i.touched[j]
-      array[j] = Snapshots(dataj,i[j],r)
-    end
+    array[j] = Snapshots(dataj,i[j],r)
   end
-  DistributedBlockSnapshots(array,i.touched,data)
+  DistributedBlockSnapshots(array,data)
 end
 
 function ParamDataStructures.Snapshots(
   data::Union{PVector,PSparseMatrix},
-  i::ArrayBlock{<:Any,N},
+  i::AbstractArray{<:AbstractDofMap},
   r::AbstractRealisation
-  ) where N
+  )
 
+  N = ndims(i)
   s = size(i)
   ids = ParamDataStructures.offset_indices(i)
   array = Array{Any,N}(undef,s)
   for j in eachindex(i)
-    if i.touched[j]
-      dataj = get_param_entry(data,ids[j]...)
-      array[j] = Snapshots(dataj,i[j],r)
-    end
+    dataj = get_param_entry(data,ids[j]...)
+    array[j] = Snapshots(dataj,i[j],r)
   end
 
-  DistributedBlockSnapshots(array,i.touched,data)
+  DistributedBlockSnapshots(array,data)
 end
 
 function ParamDataStructures.Snapshots(
   data::BlockPArray{V,T,N},
   data0::BlockPArray,
-  i::ArrayBlock{<:Any,N},
+  i::AbstractArray{<:AbstractDofMap},
   r::TransientRealisation
   ) where {V,T,N}
 
@@ -186,37 +180,34 @@ function ParamDataStructures.Snapshots(
 
   array = Array{Any,N}(undef,s)
   for j in eachindex(block_values)
-    if i.touched[j]
-      dataj = block_values[j]
-      data0j = map(d0 -> blocks(d0)[j],data0)
-      array[j] = Snapshots(dataj,data0j,i[j],r)
-    end
+    dataj = block_values[j]
+    data0j = map(d0 -> blocks(d0)[j],data0)
+    array[j] = Snapshots(dataj,data0j,i[j],r)
   end
 
   stored_data = StoredParamData(data,data0)
-  DistributedBlockSnapshots(array,i.touched,stored_data)
+  DistributedBlockSnapshots(array,stored_data)
 end
 
 function ParamDataStructures.Snapshots(
   data::PVector,
   data0::Tuple{Vararg{PVector}},
-  i::ArrayBlock{<:Any,N},
+  i::AbstractArray{<:AbstractDofMap},
   r::TransientRealisation
-  ) where N
+  )
 
+  N = ndims(i)
   s = size(i)
   ids = ParamDataStructures.offset_indices(i)
   array = Array{Any,N}(undef,s)
   for j in eachindex(i)
-    if i.touched[j]
-      dataj = get_param_entry(data,ids[j]...)
-      data0j = map(d0 -> get_param_entry(d0,ids[j]...),data0)
-      array[j] = Snapshots(dataj,data0j,i[j],r)
-    end
+    dataj = get_param_entry(data,ids[j]...)
+    data0j = map(d0 -> get_param_entry(d0,ids[j]...),data0)
+    array[j] = Snapshots(dataj,data0j,i[j],r)
   end
 
   stored_data = StoredParamData(data,data0)
-  DistributedBlockSnapshots(array,i.touched,stored_data)
+  DistributedBlockSnapshots(array,stored_data)
 end
 
 blocks(s::DistributedBlockSnapshots) = s.array
@@ -232,40 +223,40 @@ function Base.show(io::IO,k::MIME"text/plain",s::DistributedBlockSnapshots)
 end
 
 function PartitionedArrays.partition(s::DistributedBlockSnapshots)
-  a = map(partition,blocks(s))
-  to_parray_of_blocksnaps(a,s.touched)
+  # a = map(partition,blocks(s))
+  to_parray_of_blocksnaps(partition,blocks(s))
 end
 
 function PartitionedArrays.own_values(s::DistributedBlockSnapshots)
   a = map(own_values,blocks(s))
-  to_parray_of_blocksnaps(a,s.touched)
+  to_parray_of_blocksnaps(own_values,a)
 end
 
 function PartitionedArrays.ghost_values(s::DistributedBlockSnapshots)
   a = map(ghost_values,blocks(s))
-  to_parray_of_blocksnaps(a,s.touched)
+  to_parray_of_blocksnaps(ghost_values,a)
 end
 
 PartitionedArrays.local_values(s::DistributedBlockSnapshots) = partition(s)
 GridapDistributed.local_views(s::DistributedBlockSnapshots) = partition(s)
 
-function to_parray_of_blocksnaps(a::AbstractArray{<:MPIArray{<:Snapshots}},touched)
+function to_parray_of_blocksnaps(f,a::AbstractArray{<:MPIArray{<:Snapshots}})
   indices = linear_indices(first(a))
   map(indices) do i
     array = map(a) do aj
       getany(aj)
     end
-    BlockSnapshots(array,touched,nothing)
+    BlockSnapshots(array,nothing)
   end
 end
 
-function to_parray_of_blocksnaps(a::AbstractArray{<:DebugArray{<:Snapshots}},touched)
+function to_parray_of_blocksnaps(f,a::AbstractArray{<:DebugArray{<:Snapshots}})
   indices = linear_indices(first(a))
   map(indices) do i
     array = map(a) do aj
       aj.items[i]
     end
-    BlockSnapshots(array,touched,nothing)
+    BlockSnapshots(array,nothing)
   end
 end
 
@@ -274,6 +265,11 @@ end
 flat_row_partition(a::DistributedSnapshots) = flat_row_partition(a.snaps)
 row_partition(a::DistributedSnapshots) = row_partition(a.snaps)
 col_partition(a::DistributedSnapshots) = col_partition(a.snaps)
+
+function row_partition(a::DistributedBlockSnapshots)
+  data = blocks(a)
+  row_partition(first(data))
+end
 
 # linear algebra 
 

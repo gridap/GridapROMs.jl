@@ -188,7 +188,7 @@ const TransientBlockSnapshots{N} = BlockSnapshots{N,<:StoredParamData}
 function Snapshots(
   data::BlockParamArray{T,N},
   data0::Tuple{Vararg{BlockParamArray}},
-  i::ArrayBlock{<:AbstractDofMap},
+  i::AbstractArray{<:AbstractDofMap},
   r::TransientRealisation
   ) where {T,N}
 
@@ -198,21 +198,19 @@ function Snapshots(
 
   array = Array{Any,N}(undef,s)
   for j in eachindex(block_values)
-    if i.touched[j]
-      dataj = block_values[j]
-      data0j = map(d0 -> blocks(d0)[j],data0)
-      array[j] = Snapshots(dataj,data0j,i[j],r)
-    end
+    dataj = block_values[j]
+    data0j = map(d0 -> blocks(d0)[j],data0)
+    array[j] = Snapshots(dataj,data0j,i.array[j],r)
   end
 
   stored_data = StoredParamData(data,data0)
-  BlockSnapshots(array,i.touched,stored_data)
+  BlockSnapshots(array,stored_data)
 end
 
 function Snapshots(
   data::AbstractParamArray{T,N},
   data0::Tuple{Vararg{AbstractParamArray}},
-  i::ArrayBlock{<:AbstractDofMap},
+  i::AbstractArray{<:AbstractDofMap},
   r::TransientRealisation
   ) where {T,N}
 
@@ -220,15 +218,13 @@ function Snapshots(
   ids = offset_indices(i)
   array = Array{Any,N}(undef,s)
   for j in eachindex(i)
-    if i.touched[j]
-      dataj = get_param_entry(data,ids[j]...)
-      data0j = map(d0 -> get_param_entry(d0,ids[j]...),data0)
-      array[j] = Snapshots(dataj,data0j,i[j],r)
-    end
+    dataj = get_param_entry(data,ids[j]...)
+    data0j = map(d0 -> get_param_entry(d0,ids[j]...),data0)
+    array[j] = Snapshots(dataj,data0j,i.array[j],r)
   end
 
   stored_data = StoredParamData(data,data0)
-  BlockSnapshots(array,i.touched,stored_data)
+  BlockSnapshots(array,stored_data)
 end
 
 num_times(s::TransientBlockSnapshots) = num_times(get_realisation(s))
@@ -238,27 +234,17 @@ get_initial_param_data(s::TransientBlockSnapshots) = get_initial_param_data(s.pa
 function select_snapshots(s::TransientBlockSnapshots{N},pindex) where N
   prange = _format_index(pindex)
   trange = 1:num_times(s)
-  array = Array{Any,N}(undef,size(s))
-  for i in eachindex(s.touched)
-    if s.touched[i]
-      array[i] = select_snapshots(s[i],pindex)
-    end
-  end
-  return BlockSnapshots(array,s.touched,select_param_data(s.param_data,prange,trange))
+  array = map(sj -> select_snapshots(sj,pindex),blocks(s))
+  return BlockSnapshots(array,select_param_data(s.param_data,prange,trange))
 end
 
 function select_times(s::TransientBlockSnapshots{N},tindex) where N
-  array = Array{Any,N}(undef,size(s))
-  for i in eachindex(s.touched)
-    if s.touched[i]
-      array[i] = select_times(s[i],tindex)
-    end
-  end
+  array = map(sj -> select_times(sj,tindex),blocks(s))
   np = num_params(s)
   prange = 1:np
   trange = _format_index(tindex)
   pdrange = select_param_data(s.param_data,prange,trange;nparams=np)
-  return BlockSnapshots(array,s.touched,pdrange)
+  return BlockSnapshots(array,pdrange)
 end
 
 # mode snapshots

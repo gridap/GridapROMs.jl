@@ -208,20 +208,20 @@ function Base.minimum(f::Function,a::GenericPArray)
   reduce(min,partials,init=typemax(eltype(a)))
 end
 
-function Base.argmax(f::Function,a::GenericPArray)
+function Base.findmax(f::Function,a::GenericPArray)
   init = typemin(eltype(a))
   pairs = map(own_values(a),partition(axes(a,1))) do o,ra
-    _arg_max_pairs(f,o,ra,init=init)
+    _findmax_pairs(f,o,ra,init=init)
   end
-  second(reduce(max,pairs,init=(init=>0)))
+  Tuple(reduce(max,pairs,init=(init=>0)))
 end
 
-function Base.argmin(f::Function,a::GenericPArray)
+function Base.findmin(f::Function,a::GenericPArray)
   init = typemax(eltype(a))
   pairs = map(own_values(a),partition(axes(a,1))) do o,ra
-    _arg_min_pairs(f,o,ra,init=init)
+    _findmin_pairs(f,o,ra,init=init)
   end
-  second(reduce(min,pairs,init=(init=>0)))
+  Tuple(reduce(min,pairs,init=(init=>0)))
 end
 
 function Base.collect(v::GenericPArray)
@@ -612,7 +612,7 @@ end
 
 second(p::Pair) = p.second
 
-function _arg_min_pairs(f,v,ra;init=typemax(eltype(v)))
+function _findmin_pairs(f,v,ra;init=typemax(eltype(v)))
   local min_owned
   min_val = init
   for (i,val) in enumerate(v)
@@ -626,7 +626,7 @@ function _arg_min_pairs(f,v,ra;init=typemax(eltype(v)))
   return min_val => gi
 end
 
-function _arg_max_pairs(f,v,ra;init=typemin(eltype(v)))
+function _findmax_pairs(f,v,ra;init=typemin(eltype(v)))
   local max_owned
   max_val = init
   for (i,val) in enumerate(v)

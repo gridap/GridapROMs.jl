@@ -424,11 +424,9 @@ function _projection_dims(a::BlockProjection)
   N = zeros(Int,size(a))
   n = zeros(Int,size(a))
   for i in eachindex(a)
-    if a.touched[i]
-      Ni,ni = _projection_dims(a[i])
-      N[i] = Ni
-      n[i] = ni
-    end
+    Ni,ni = _projection_dims(a[i])
+    N[i] = Ni
+    n[i] = ni
   end
   (N,n)
 end
@@ -448,14 +446,7 @@ function hr_diagnostics(a::LocalHRProjection)
 end
 
 function hr_diagnostics(a::BlockHRProjection{N}) where N
-  s = size(a)
-  array = Array{Any,N}(undef,s)
-  for i in eachindex(a)
-    if a.touched[i]
-      array[i] = hr_diagnostics(a.array[i])
-    end
-  end
-  ArrayBlock(array,a.touched)
+  map(hr_diagnostics,a.array)
 end
 
 function hr_diagnostics(c::AffineContribution)
@@ -624,7 +615,7 @@ function hr_error_res(test,res,a,fecache,hypred)
   check_interpolation(res,a,fecache)
   b̂ = get_basis(galerkin_projection(test,res))
   hrb̂ = get_all_data(hypred)
-  _mean_err(b̂,hrb̂)
+  compute_relative_error(b̂,hrb̂)
 end
 
 function hr_error_jac(trial,test,jac,a,fecache,hypred)
@@ -633,7 +624,7 @@ function hr_error_jac(trial,test,jac,a,fecache,hypred)
   Â = get_basis(galerkin_projection(test,jac,trial))
   Â = reshape(permutedims(Â,(1,3,2)),:,num_params(μ))
   hrÂ = reshape(get_all_data(hypred),:,num_params(μ))
-  _mean_err(Â,hrÂ)
+  compute_relative_error(Â,hrÂ)
 end
 
 function hr_error_res(
@@ -644,12 +635,9 @@ function hr_error_res(
   hypred::BlockParamVector
   )
   
-  @check res.touched == fecache.touched
   error = zeros(size(res))
   for i in eachindex(res)
-    if res.touched[i]
-      error[i] = hr_error_res(test[i],res[i],a[i],fecache.array[i],hypred.data[i])
-    end
+    error[i] = hr_error_res(test[i],res[i],a[i],fecache.array[i],hypred.data[i])
   end
   error
 end
@@ -662,13 +650,10 @@ function hr_error_jac(
   fecache::MatrixBlock,
   hypred::BlockParamMatrix
   )
-  
-  @check jac.touched == fecache.touched
+
   error = zeros(size(jac))
   for i in axes(jac,1), j in axes(jac,2)
-    if jac.touched[i,j]
-      error[i,j] = hr_error_jac(trial[j],test[i],jac[i,j],a[i,j],fecache.array[i,j],hypred.data[i,j])
-    end
+    error[i,j] = hr_error_jac(trial[j],test[i],jac[i,j],a[i,j],fecache.array[i,j],hypred.data[i,j])
   end
   error
 end
@@ -684,9 +669,7 @@ function hr_error_res(
   
   error = zeros(size(res))
   for i in eachindex(res)
-    if res.touched[i]
-      error[i] = hr_error_res(test[i],res[i],a[i],fecache.data[i],hypred.data[i])
-    end
+    error[i] = hr_error_res(test[i],res[i],a[i],fecache.data[i],hypred.data[i])
   end
   error
 end
@@ -702,9 +685,7 @@ function hr_error_jac(
   
   error = zeros(size(jac))
   for i in axes(jac,1), j in axes(jac,2)
-    if jac.touched[i,j]
-      error[i,j] = hr_error_jac(trial[j],test[i],jac[i,j],a[i,j],fecache.data[i,j],hypred.data[i,j])
-    end
+    error[i,j] = hr_error_jac(trial[j],test[i],jac[i,j],a[i,j],fecache.data[i,j],hypred.data[i,j])
   end
   error
 end
@@ -862,16 +843,6 @@ function set_params(rbsolver;kwargs...)
   residual_reduction = set_params(get_residual_reduction(rbsolver);kwargs...)
   jacobian_reduction = set_params(get_jacobian_reduction(rbsolver);kwargs...)
   RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
-end
-
-function _mean_err(a::AbstractMatrix,â::AbstractMatrix)
-  @check size(a) == size(â) 
-  err = 0.0
-  ε = eps()
-  @inbounds @views for i in axes(a,2)
-    err += norm(a[:,i]-â[:,i]) / (norm(a[:,i]) + ε)
-  end
-  err / size(a,2)
 end
 
 function _entries_to_dict(entries::Vector{<:NamedTuple})

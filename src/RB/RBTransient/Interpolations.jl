@@ -90,42 +90,19 @@ end
 const TransientBlockInterpolation{N} = BlockInterpolation{N}
 
 function get_domain_style(a::TransientBlockInterpolation)
-  i = findfirst(a.touched)
-  if !isnothing(i)
-    get_domain_style(a.interp[i])
-  else
-    KroneckerDomain()
-  end
+  get_domain_style(first(a.interp))
 end
 
 function get_indices_time(a::TransientBlockInterpolation{N}) where N
-  array = Array{Any,N}(undef,size(a))
-  for i in eachindex(a)
-    if a.touched[i]
-      array[i] = get_indices_time(a.interp[i])
-    end
-  end
-  ArrayBlock(array,a.touched)
+  map(get_indices_time,a.interp)
 end
 
 function get_itimes(a::TransientBlockInterpolation{N},ids::Union{Vector,Range2D}) where N
-  array = Array{Any,N}(undef,size(a))
-  for i in eachindex(a)
-    if a.touched[i]
-      array[i] = get_itimes(a.interp[i],ids)
-    end
-  end
-  ArrayBlock(array,a.touched)
+  map(itp -> get_itimes(itp,ids),a.interp)
 end
 
 function get_locations(a::TransientBlockInterpolation{N},ids::Range2D) where N
-  array = Array{Any,N}(undef,size(a))
-  for i in eachindex(a)
-    if a.touched[i]
-      array[i] = get_locations(a.interp[i],ids)
-    end
-  end
-  ArrayBlock(array,a.touched)
+  map(itp -> get_locations(itp,ids),a.interp)
 end
 
 # API

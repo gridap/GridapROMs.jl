@@ -16,9 +16,7 @@ function get_dof_map(f::SingleFieldFESpace)
 end
 
 function get_dof_map(f::MultiFieldFESpace)
-  array = map(get_dof_map,f.spaces)
-  touched = fill(true,num_fields(f))
-  ArrayBlock(array,touched)
+  map(get_dof_map,f.spaces)
 end
 
 function get_sparse_dof_map(a::SparsityPattern,U::FESpace,V::FESpace)
@@ -58,11 +56,9 @@ end
 function get_sparse_dof_map(trial::MultiFieldFESpace,test::MultiFieldFESpace)
   ntest = num_fields(test)
   ntrial = num_fields(trial)
-  array = map(Iterators.product(1:ntest,1:ntrial)) do (i,j)
+  map(Iterators.product(1:ntest,1:ntrial)) do (i,j)
     get_sparse_dof_map(trial[j],test[i])
   end
-  touched = fill(true,ntest,ntrial)
-  ArrayBlock(array,touched)
 end
 
 # utils
@@ -335,13 +331,10 @@ function _get_dof_map(f::SingleFieldFESpace,b::AbstractVector{<:AbstractVector})
 end
 
 function _get_dof_map(f::MultiFieldFESpace,b::AbstractVector)
-  array,touched = map(1:num_fields(f)) do i
-    bi = restrict_to_field(f,b,i) 
-    t = !iszero(bi)
-    v = _get_dof_map(f[i],bi)
-    v,t
-  end |> tuple_of_arrays
-  ArrayBlock(array,touched)
+  map(1:num_fields(f)) do i
+    bi = restrict_to_field(f,b,i)
+    _get_dof_map(f[i],bi)
+  end
 end
 
 function _get_dof_map(f::FESpace,b::Contribution)
@@ -367,13 +360,11 @@ function _get_sparse_dof_map(
 
   ntest = num_fields(test)
   ntrial = num_fields(trial)
-  array,touched = map(Iterators.product(1:ntest,1:ntrial)) do (i,j)
+  map(Iterators.product(1:ntest,1:ntrial)) do (i,j)
     Aij = restr_to_fields(A,i,j)
     t = !iszero(Aij)
     v = _get_sparse_dof_map(trial[j],test[i],Aij)
-    v,t
-  end |> tuple_of_arrays
-  ArrayBlock(array,touched)
+  end
 end
 
 function _get_sparse_dof_map(f::FESpace,g::FESpace,A::Contribution)

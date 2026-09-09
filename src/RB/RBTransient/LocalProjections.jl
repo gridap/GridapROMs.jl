@@ -27,7 +27,6 @@ function RBSteady.enrich!(
   supr_matrix::BlockMatrix
   ) where {A,B,C,D}
 
-  @check a.touched[1] "Primal field not defined"
   tol = RBSteady.get_supr_tol(red)
   a_primal,a_dual... = a.array
   X_primal = norm_matrix[Block(1,1)]
@@ -78,15 +77,10 @@ function RBSteady._cluster(s::TransientSnapshotsWithIC,inds::AbstractVector)
 end
 
 function RBSteady._cluster(s::TransientBlockSnapshots{N},inds::AbstractVector) where N
-  array = Array{Any,N}(undef,size(s))
-  for i in eachindex(s)
-    if s.touched[i]
-      array[i] = RBSteady._cluster(s[i],inds)
-    end
-  end
+  array = map(sj -> RBSteady._cluster(sj,inds),blocks(s))
   nt = num_times(get_realisation(s))
   pdata = RBSteady._cluster(s.param_data,inds,nt)
-  return BlockSnapshots(array,s.touched,pdata)
+  return BlockSnapshots(array,pdata)
 end
 
 function RBSteady._cluster(a::StoredParamData,inds::AbstractVector,nt::Int)

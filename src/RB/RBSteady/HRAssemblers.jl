@@ -165,19 +165,17 @@ end
 assemble_hr_array_add!(A,celldata::Tuple) = assemble_hr_array_add!(A,celldata...)
 
 function assemble_hr_array_add!(
-  A::ArrayBlock,
+  A::AbstractArray{<:AbstractArray},
   _cellvals,
-  celldofs::ArrayBlock,
-  icells::ArrayBlock
+  celldofs::AbstractArray{<:AbstractArray},
+  icells::AbstractArray{<:AbstractArray}
   )
 
-  @check celldofs.touched == icells.touched
+  @check size(celldofs) == size(icells) == size(A)
   for i in eachindex(celldofs)
-    if celldofs.touched[i]
-      isempty(icells[i]) && continue
-      cellvalsi = lazy_map(FetchBlockMap(_cellvals,i),icells[i])
-      _assemble_hr_array_add!(A[i],cellvalsi,celldofs[i])
-    end
+    isempty(icells[i]) && continue
+    cellvalsi = lazy_map(FetchBlockMap(_cellvals,i),icells[i])
+    _assemble_hr_array_add!(A[i],cellvalsi,celldofs[i])
   end
   A
 end

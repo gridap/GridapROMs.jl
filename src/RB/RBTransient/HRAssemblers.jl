@@ -328,11 +328,11 @@ end
 end
 
 function RBSteady.assemble_hr_array_add!(
-  A::ArrayBlock,
+  A::AbstractArray{<:AbstractArray},
   _cellvals,
-  celldofs::ArrayBlock,
-  icells::ArrayBlock,
-  locations::ArrayBlock,
+  celldofs::AbstractArray{<:AbstractArray},
+  icells::AbstractArray{<:AbstractArray},
+  locations::AbstractArray{<:AbstractArray},
   style::TransientIntegrationDomainStyle
   )
 
