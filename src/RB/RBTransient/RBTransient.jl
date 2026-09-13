@@ -144,7 +144,7 @@ export TransientBlockInterpolation
 include("Interpolations.jl")
 
 export HighDimAffineHRContribution
-export TupOfHighDimAffineHRContribution
+export HighDimAffineHRContributionTuple
 export get_common_time_domain
 include("HyperReductions.jl")
 

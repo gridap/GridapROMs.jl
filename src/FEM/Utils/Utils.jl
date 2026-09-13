@@ -66,7 +66,8 @@ export Contribution
 export ArrayContribution
 export VectorContribution
 export MatrixContribution
-export TupOfArrayContribution
+export ContributionTuple
+export ArrayContributionTuple
 export contribution
 export get_contributions
 export change_domains

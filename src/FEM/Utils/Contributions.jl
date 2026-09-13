@@ -163,16 +163,39 @@ function Algebra.copy_entries!(a::ArrayContribution,b::ArrayContribution)
 end
 
 """
-    const TupOfArrayContribution{T} = Tuple{Vararg{ArrayContribution{T}}}
+    struct ContributionTuple{N,C}
+      array::NTuple{N,C}
+    end
+
+Concrete wrapper around a tuple of [`Contribution`](@ref)s (e.g. one per time
+derivative order in unsteady settings, as in [`ArrayContributionTuple`](@ref)).
+"""
+struct ContributionTuple{N,C}
+  array::NTuple{N,C}
+end
+
+ContributionTuple(cs::Contribution...) = ContributionTuple(cs)
+
+Base.length(a::ContributionTuple) = length(a.array)
+Base.size(a::ContributionTuple) = size(a.array)
+Base.iterate(a::ContributionTuple,state...) = iterate(a.array,state...)
+Base.getindex(a::ContributionTuple,i::Integer) = a.array[i]
+Base.eachindex(a::ContributionTuple) = eachindex(a.array)
+Base.firstindex(a::ContributionTuple) = firstindex(a.array)
+Base.map(f,a::ContributionTuple) = ContributionTuple(map(f,a.array))
+Base.lastindex(a::ContributionTuple) = lastindex(a.array)
+
+"""
+    const ArrayContributionTuple{T} = ContributionTuple{N,<:ArrayContribution{T}} where N
 
 Specifically allows to deal with tuples of Jacobians in unsteady settings
 """
-const TupOfArrayContribution{T} = Tuple{Vararg{ArrayContribution{T}}}
+const ArrayContributionTuple{T} = ContributionTuple{N,<:ArrayContribution{T}} where N
 
-Base.eltype(::TupOfArrayContribution{T}) where T = T
-Base.eltype(::Type{<:TupOfArrayContribution{T}}) where T = T
+Base.eltype(::ArrayContributionTuple{T}) where T = T
+Base.eltype(::Type{<:ArrayContributionTuple{T}}) where T = T
 
-function CellData.get_domains(a::TupOfArrayContribution)
+function CellData.get_domains(a::ArrayContributionTuple)
   trians = ()
   for ai in a
     trians = (trians...,CellData.get_domains(ai))
@@ -180,7 +203,7 @@ function CellData.get_domains(a::TupOfArrayContribution)
   trians
 end
 
-function get_contributions(a::TupOfArrayContribution)
+function get_contributions(a::ArrayContributionTuple)
   values = ()
   for ai in a
     values = (values...,get_contributions(ai))
@@ -190,31 +213,31 @@ end
 
 for f in (:copy,:similar)
   @eval begin
-    function Base.$f(a::TupOfArrayContribution)
+    function Base.$f(a::ArrayContributionTuple)
       b = ()
       for ai in a
         b = (b...,Base.$f(ai))
       end
-      b
+      ContributionTuple(b)
     end
   end
 end
 
-function Base.fill!(a::TupOfArrayContribution,v)
+function Base.fill!(a::ArrayContributionTuple,v)
   for ai in a
     LinearAlgebra.fill!(ai,v)
   end
   a
 end
 
-function LinearAlgebra.fillstored!(a::TupOfArrayContribution,v)
+function LinearAlgebra.fillstored!(a::ArrayContributionTuple,v)
   for ai in a
     LinearAlgebra.fillstored!(ai,v)
   end
   a
 end
 
-function Algebra.copy_entries!(a::TupOfArrayContribution,b::TupOfArrayContribution)
+function Algebra.copy_entries!(a::ArrayContributionTuple,b::ArrayContributionTuple)
   @check length(a) == length(b)
   for (ai,bi) in zip(a,b)
     copy_entries!(ai,bi)
@@ -224,13 +247,13 @@ end
 
 for f in (:change_domains,:set_domains)
   @eval begin
-    function $f(a::TupOfArrayContribution,trians::Tuple)
+    function $f(a::ArrayContributionTuple,trians::Tuple)
       @check length(a) == length(trians)
       b = ()
       for (ai,ti) in zip(a,trians)
         b = (b...,$f(ai,ti))
       end
-      b
+      ContributionTuple(b)
     end
   end
 end

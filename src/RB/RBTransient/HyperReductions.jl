@@ -104,27 +104,34 @@ const HighDimDEIMContribution = AffineContribution{<:HighDimDEIMProjection}
 const HighDimSOPTContribution = AffineContribution{<:HighDimSOPTProjection}
 const HighDimRBFContribution = AffineContribution{<:HighDimRBFProjection}
 
-const TupOfAffineContribution = Tuple{Vararg{AffineContribution}}
-const TupOfHighDimNoHRContribution = Tuple{Vararg{HighDimNoHRContribution}}
-const TupOfHighDimAffineHRContribution = Tuple{Vararg{HighDimAffineHRContribution}}
-const TupOfHighDimDEIMContribution = Tuple{Vararg{HighDimDEIMContribution}}
-const TupOfHighDimSOPTContribution = Tuple{Vararg{HighDimSOPTContribution}}
-const TupOfHighDimRBFContribution = Tuple{Vararg{HighDimRBFContribution}}
+"""
+    const AffineContributionTuple = ContributionTuple{N,<:AffineContribution} where N
 
-function RBSteady.allocate_coefficient(a::TupOfAffineContribution,b::TupOfArrayContribution)
+Concrete (see [`ContributionTuple`](@ref)) replacement for what used to be a
+raw `Tuple{Vararg{AffineContribution}}` -- one entry per time derivative
+order in unsteady settings.
+"""
+const AffineContributionTuple = ContributionTuple{N,<:AffineContribution} where N
+const HighDimNoHRContributionTuple = ContributionTuple{N,<:HighDimNoHRContribution} where N
+const HighDimAffineHRContributionTuple = ContributionTuple{N,<:HighDimAffineHRContribution} where N
+const HighDimDEIMContributionTuple = ContributionTuple{N,<:HighDimDEIMContribution} where N
+const HighDimSOPTContributionTuple = ContributionTuple{N,<:HighDimSOPTContribution} where N
+const HighDimRBFContributionTuple = ContributionTuple{N,<:HighDimRBFContribution} where N
+
+function RBSteady.allocate_coefficient(a::AffineContributionTuple,b::ArrayContributionTuple)
   @check length(a) == length(b)
   coeffs = ()
   for (a,b) in zip(a,b)
     coeffs = (coeffs...,RBSteady.allocate_coefficient(a,b))
   end
-  return coeffs
+  return ContributionTuple(coeffs)
 end
 
 function FESpaces.interpolate!(
   b̂::AbstractParamArray,
-  coeff::TupOfArrayContribution,
-  a::TupOfAffineContribution,
-  b::TupOfArrayContribution
+  coeff::ArrayContributionTuple,
+  a::AffineContributionTuple,
+  b::ArrayContributionTuple
   )
 
   @check length(coeff) == length(a) == length(b)
@@ -139,8 +146,8 @@ end
 
 function FESpaces.interpolate!(
   b̂::AbstractParamArray,
-  coeff::TupOfArrayContribution,
-  a::TupOfAffineContribution,
+  coeff::ArrayContributionTuple,
+  a::AffineContributionTuple,
   r::AbstractRealisation
   )
 
@@ -154,15 +161,15 @@ function FESpaces.interpolate!(
   return b̂
 end
 
-function FESpaces.interpolate!(cache::HRParamArray,a::TupOfAffineContribution)
+function FESpaces.interpolate!(cache::HRParamArray,a::AffineContributionTuple)
   interpolate!(cache.hypred,cache.coeff,a,cache.fecache)
 end
 
-function FESpaces.interpolate!(cache::HRParamArray,a::TupOfAffineContribution,r::AbstractRealisation)
+function FESpaces.interpolate!(cache::HRParamArray,a::AffineContributionTuple,r::AbstractRealisation)
   interpolate!(cache.hypred,cache.coeff,a,r)
 end
 
-function RBSteady.allocate_hypred_cache(a::TupOfAffineContribution,args...)
+function RBSteady.allocate_hypred_cache(a::AffineContributionTuple,args...)
   fecache = map(ai -> RBSteady.allocate_coefficient(ai,args...),a)
   coeffs = map(ai -> RBSteady.allocate_coefficient(ai,args...),a)
   hypred = RBSteady.allocate_hyper_reduction(first(a),args...)
@@ -182,7 +189,7 @@ function get_common_time_domain(a::AffineContribution)
   get_common_time_domain(get_contributions(a)...)
 end
 
-function get_common_time_domain(a::TupOfAffineContribution)
+function get_common_time_domain(a::AffineContributionTuple)
   union(map(get_common_time_domain,a)...)
 end
 

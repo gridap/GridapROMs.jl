@@ -27,7 +27,7 @@ function RBSteady.allocate_diagnostic_residual(
 end
 
 function RBSteady.allocate_dcontribution(
-  a::TupOfAffineContribution,
+  a::AffineContributionTuple,
   r::AbstractRealisation
   )
 
@@ -59,7 +59,7 @@ function RBSteady.allocate_diagnostic_jacobian(
 end
 
 function RBSteady.allocate_diagnostic_jacobian(
-  op::TransientRBOperator{O,T,<:TupOfHighDimNoHRContribution,B},
+  op::TransientRBOperator{O,T,<:HighDimNoHRContributionTuple,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -73,7 +73,7 @@ end
 
 function RBSteady.diagnostic_interpolate!(
   cache::DiagnosticsContribution,
-  a::TupOfAffineContribution
+  a::AffineContributionTuple
   )
 
   for (hi,ci,ai,fi) in zip(cache.hypred,cache.coeff,a,cache.fecache)
@@ -91,7 +91,7 @@ end
 
 function RBSteady.diagnostic_interpolate!(
   cache::DiagnosticsContribution,
-  a::TupOfAffineContribution,
+  a::AffineContributionTuple,
   r::TransientRealisation
   )
 
@@ -246,7 +246,7 @@ end
 
 function RBSteady.diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::TransientRBOperator{O,T,<:TupOfHighDimNoHRContribution,B},
+  op::TransientRBOperator{O,T,<:HighDimNoHRContributionTuple,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
@@ -288,7 +288,7 @@ end
 
 function RBSteady.diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::TransientRBOperator{O,T,<:TupOfHighDimAffineHRContribution,B},
+  op::TransientRBOperator{O,T,<:HighDimAffineHRContributionTuple,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
@@ -300,7 +300,7 @@ end
 
 function RBSteady.diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::TransientRBOperator{O,T,<:TupOfHighDimRBFContribution,B},
+  op::TransientRBOperator{O,T,<:HighDimRBFContributionTuple,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
@@ -310,7 +310,7 @@ function RBSteady.diagnostic_jacobian!(
   RBSteady.diagnostic_interpolate!(A,op.lhs,r)
 end
 
-function RBSteady.hr_diagnostics(c::TupOfAffineContribution)
+function RBSteady.hr_diagnostics(c::AffineContributionTuple)
   Tuple(RBSteady.hr_diagnostics(v) for v in c)
 end
 
@@ -393,7 +393,7 @@ end
 function RBSteady.hr_error_jac(
   c::TimeCombination,
   op::TransientReducedOperator{O},
-  jac::TupOfArrayContribution,
+  jac::ArrayContributionTuple,
   r::AbstractRealisation,
   u::AbstractVector,
   us0::Tuple{Vararg{AbstractVector}}

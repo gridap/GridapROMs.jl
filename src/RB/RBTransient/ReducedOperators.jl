@@ -15,7 +15,7 @@ function RBSteady.ReducedOperator(
   odeop::ODEParamOperator,
   trial::RBSpace,
   test::RBSpace,
-  lhs::TupOfAffineContribution,
+  lhs::AffineContributionTuple,
   rhs::AffineContribution
   )
 
@@ -144,7 +144,7 @@ function Algebra.allocate_residual(
 end
 
 function Algebra.allocate_jacobian(
-  op::TransientRBOperator{O,T,<:TupOfHighDimNoHRContribution,B},
+  op::TransientRBOperator{O,T,<:HighDimNoHRContributionTuple,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -189,7 +189,7 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::TransientRBOperator{O,T,<:TupOfHighDimNoHRContribution,B},
+  op::TransientRBOperator{O,T,<:HighDimNoHRContributionTuple,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
@@ -245,7 +245,7 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::TransientRBOperator{O,T,<:TupOfHighDimAffineHRContribution,B},
+  op::TransientRBOperator{O,T,<:HighDimAffineHRContributionTuple,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
@@ -270,7 +270,7 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::TransientRBOperator{O,T,<:TupOfHighDimRBFContribution,B},
+  op::TransientRBOperator{O,T,<:HighDimRBFContributionTuple,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},

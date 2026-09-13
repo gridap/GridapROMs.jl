@@ -9,7 +9,7 @@ Diagnostic counterpart of [`HRParamArray`](@ref). Unlike `HRParamArray`, which
 accumulates hyper-reduced contributions across triangulations into a single
 reduced-dimension array, `DiagnosticsContribution` keeps one per-triangulation entry
 in `hypred::C`, where `C` is either an `ArrayContribution` (steady) or a
-`TupOfArrayContribution` (transient Jacobians). Each entry stores the
+`ArrayContributionTuple` (transient Jacobians). Each entry stores the
 reconstruction of the HR operator contribution from that triangulation,
 expanded back to a high-dimensional (FE or RB) space so that it can be
 directly compared with full-order snapshots.

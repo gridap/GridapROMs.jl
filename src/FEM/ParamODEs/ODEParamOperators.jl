@@ -337,11 +337,11 @@ function Algebra.allocate_jacobian(
     end
     As = (As...,A)
   end
-  As
+  ContributionTuple(As)
 end
 
 function ODEs.jacobian_add!(
-  As::TupOfArrayContribution,
+  As::ArrayContributionTuple,
   odeop::SplitODEParamOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},

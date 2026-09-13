@@ -356,7 +356,7 @@ end
       red_trial::RBSpace,
       red_test::RBSpace,
       s::AbstractSnapshots
-      ) -> Union{AffineContribution,TupOfAffineContribution}
+      ) -> Union{AffineContribution,AffineContributionTuple}
 
 Reduces the Jacobian contained in `op` via hyper-reduction. This function
 first builds the Jacobian snapshots, which are then reduced according to the strategy
@@ -398,7 +398,7 @@ end
       red_trial::RBSpace,
       red_test::RBSpace,
       s::AbstractSnapshots
-      ) -> (AffineContribution,Union{AffineContribution,TupOfAffineContribution})
+      ) -> (AffineContribution,Union{AffineContribution,AffineContributionTuple})
 
 Reduces the residual/Jacobian contained in `op` via hyper-reduction. Check the
 functions [`reduced_residual`](@ref) and [`reduced_jacobian`](@ref) for more details

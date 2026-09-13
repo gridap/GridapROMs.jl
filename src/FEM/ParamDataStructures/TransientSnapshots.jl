@@ -309,23 +309,23 @@ end
 # utils
 
 function Snapshots(
-  a::TupOfArrayContribution,
-  i::TupOfArrayContribution,
+  a::ArrayContributionTuple,
+  i::ArrayContributionTuple,
   r::TransientRealisation
   )
 
-  map((a,i)->Snapshots(a,i,r),a,i)
+  map((a,i)->Snapshots(a,i,r),a.array,i.array)
 end
 
-function select_snapshots(a::TupOfArrayContribution,pindex)
-  map(a->select_snapshots(a,pindex),a)
+function select_snapshots(a::ArrayContributionTuple,pindex)
+  map(a->select_snapshots(a,pindex),a.array)
 end
 
-function select_times(a::TupOfArrayContribution,tindex)
-  map(a->select_times(a,tindex),a)
+function select_times(a::ArrayContributionTuple,tindex)
+  map(a->select_times(a,tindex),a.array)
 end
 
-function change_dof_map(a::TupOfArrayContribution,i::TupOfArrayContribution)
+function change_dof_map(a::ArrayContributionTuple,i::ArrayContributionTuple)
   a′ = ()
   for j in eachindex(a)
     a′ = (a′...,change_dof_map(a[j],i[j]))
