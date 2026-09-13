@@ -1,28 +1,26 @@
 using Gridap
-using GridapROMs
-using DrWatson
 using Gridap.Algebra
 using Gridap.FESpaces
+using Gridap.MultiField
 using GridapDistributed
+using GridapPETSc
+using GridapROMs
 using GridapROMs.ParamDataStructures
 using GridapROMs.ParamAlgebra
 using GridapROMs.Distributed
 using GridapROMs.RBSteady
+using GridapSolvers
+using GridapSolvers.LinearSolvers
+using GridapSolvers.BlockSolvers
 using PartitionedArrays
 using Test
 
-method=:pod
-compression=:global
-hypred_strategy=:deim
 tol=1e-4
 nparams=2
 nparams_res=floor(Int,nparams/3)
 nparams_jac=floor(Int,nparams/4)
 ncentroids=2
-
-method = method ∈ (:pod,:ttsvd) ? method : :pod
-compression = compression ∈ (:global,:local) ? compression : :global
-hypred_strategy = hypred_strategy ∈ (:deim,:sopt,:rbf,:none,:affine) ? hypred_strategy : :deim
+hypred_strategy=:deim
 
 domain = (0,1,0,1)
 partition = (8,8)
@@ -37,39 +35,105 @@ g(μ) = x -> VectorValue(-μ[2]*x[2]*(1.0-x[2]),0.0)*(x[1]==0.0)
 gμ(μ) = parameterise(g,μ)
 
 order = 2
-degree = 2*order
 
 energy = BlockNorm((H1(),L2()))
 coupling = DivCoupling()
-state_reduction = SupremizerReduction(coupling,tol,energy;nparams,compression,ncentroids)
+state_reduction = SupremizerReduction(coupling,tol,energy;nparams,ncentroids)
+
+# block-preconditioned FGMRES for the (indefinite, saddle-point) distributed
+# FE system -- mirrors StokesDistributed.jl exactly. PETSc's monolithic direct
+# solve does NOT support a `BlockPArray` at all (its `convert(::Type{PETScMatrix},...)`
+# has no `getindex` for block matrices), so PETSc is used only for the
+# velocity sub-block (a plain, non-block `PSparseMatrix`) inside the ASM solver.
+function petsc_asm_setup(ksp)
+  pc = Ref{GridapPETSc.PETSC.PC}()
+  @check_error_code GridapPETSc.PETSC.KSPSetType(ksp[],GridapPETSc.PETSC.KSPCG)
+  @check_error_code GridapPETSc.PETSC.KSPGetPC(ksp[],pc)
+  @check_error_code GridapPETSc.PETSC.PCSetType(pc[],GridapPETSc.PETSC.PCASM)
+end
+
+ASMSolver() = PETScLinearSolver(petsc_asm_setup)
+
+# Local patch (kept out of src/ on purpose): `x` is normally allocated from the
+# FE trial space (e.g. `zero_free_values`), not from `A` itself. For a
+# `BlockMultiFieldFESpace` these two routes can produce non-identical (though
+# numerically equivalent) partition objects, which trips up PartitionedArrays'
+# identity-based ghost-layout check (`matching_ghost_indices`) inside block
+# Krylov solvers such as FGMRES. Reallocating `x` from `A`'s own domain before
+# solving sidesteps this by construction -- the same trick GridapROMs' own
+# Newton solver path already uses for its step vector (`dx = allocate_in_domain(A_item)`
+# in src/Distributed/ParamSolvers.jl), and the same trick StokesDistributed.jl
+# applies manually at its own call site. This overrides GridapROMs.Distributed's
+# method of the same signature for the duration of this script only.
+function Gridap.Algebra.solve!(
+  x::GridapROMs.Distributed.AbstractParamPVector,
+  ls::Gridap.Algebra.LinearSolver,
+  A::GridapROMs.Distributed.AbstractParamPSparseMatrix,
+  b::GridapROMs.Distributed.AbstractParamPVector
+  )
+
+  x_fixed = allocate_in_domain(A)
+  fill!(x_fixed,zero(eltype(x_fixed)))
+
+  A_item = Gridap.Arrays.testitem(A)
+  x_item = Gridap.Arrays.testitem(x_fixed)
+  ss = symbolic_setup(ls,A_item)
+  ns = numerical_setup(ss,A_item,x_item)
+  solve!(x_fixed,ns,A,b)
+  copy!(x,x_fixed)
+  ns
+end
+
+function build_rbsolver(Q,dΩ,ranks)
+  solver_u = ASMSolver()
+  solver_p = CGSolver(JacobiLinearSolver();maxiter=20,atol=1e-14,rtol=1.e-6,verbose=false)
+
+  blocks = [LinearSystemBlock() LinearSystemBlock();
+            LinearSystemBlock() BiformBlock((p,q) -> ∫(p*q)dΩ,Q,Q)]
+  prec = BlockTriangularSolver(blocks,[solver_u,solver_p])
+  fesolver = FGMRESSolver(30,prec;rtol=1.e-6,verbose=false)
+
+  RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy)
+end
+
+# NOTE: FE spaces are built from `model` (not `Triangulation(model)`), and the
+# `MultiFieldFESpace`s use `BlockMultiFieldStyle()` -- both required to avoid
+# a severe Julia type-inference blowup that otherwise hits `TestFESpace` on a
+# distributed triangulation (confirmed empirically: dropping either one
+# reintroduces a compile-time hang that can run indefinitely).
+function build_spaces(model)
+  reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
+  reffe_p = ReferenceFE(lagrangian,Float64,order-1)
+
+  V = TestFESpace(model,reffe_u;conformity=:H1,dirichlet_tags=[1,2,3,4,5,6,7])
+  Q = TestFESpace(model,reffe_p;conformity=:H1)
+  U = ParamTrialFESpace(V,gμ)
+  P = ParamTrialFESpace(Q)
+
+  X = MultiFieldFESpace([U,P];style=BlockMultiFieldStyle())
+  Y = MultiFieldFESpace([V,Q];style=BlockMultiFieldStyle())
+  return X,Y,Q
+end
 
 function main(distribute,parts)
   ranks = distribute(LinearIndices((prod(parts),)))
   model = CartesianDiscreteModel(ranks,parts,domain,partition)
 
+  # `dΩ` is captured as a closure (not passed as an explicit weak-form
+  # argument via `FEDomains`) since there is only one triangulation -- this
+  # also avoids the compile-time blowup mentioned above.
   Ω = Triangulation(model)
+  degree = 2*order
   dΩ = Measure(Ω,degree)
 
-  stiffness(μ,(u,p),(v,q),dΩ) = ∫(aμ(μ)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
-  res(μ,(u,p),(v,q),dΩ) = stiffness(μ,(u,p),(v,q),dΩ)
+  stiffness(μ,(u,p),(v,q)) = ∫(aμ(μ)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
+  res(μ,(u,p),(v,q)) = stiffness(μ,(u,p),(v,q))
 
-  trian_res = (Ω,)
-  trian_stiffness = (Ω,)
-  domains = FEDomains(trian_res,trian_stiffness)
+  X,Y,Q = build_spaces(model)
+  feop = LinearParamOperator(res,stiffness,pspace,X,Y)
 
-  reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
-  reffe_p = ReferenceFE(lagrangian,Float64,order-1)
-  test_u = TestFESpace(Ω,reffe_u;conformity=:H1,dirichlet_tags=[1,2,3,4,5,6,7])
-  test_p = TestFESpace(Ω,reffe_p;conformity=:H1)
-  trial_u = ParamTrialFESpace(test_u,gμ)
-  trial_p = ParamTrialFESpace(test_p)
-  test = MultiFieldFESpace([test_u,test_p])
-  trial = MultiFieldFESpace([trial_u,trial_p])
+  rbsolver = build_rbsolver(Q,dΩ,ranks)
 
-  fesolver = LUSolver()
-  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy)
-
-  feop = LinearParamOperator(res,stiffness,pspace,trial,test,domains)
   fesnaps, = solution_snapshots(rbsolver,feop)
   println("diagnostic | fesnaps built ok")
   rbop = reduced_operator(rbsolver,feop,fesnaps)
@@ -77,28 +141,13 @@ function main(distribute,parts)
 
   perr = RBSteady.projection_error(rbsolver,rbop,fesnaps)
   println("diagnostic | projection error (basis + project/inv_project, no HR): ", perr)
-
-  # μon = realisation(feop;nparams=10,start=nparams+1)
-  # x̂,rbstats = solve(rbsolver,rbop,μon)
-  # x,festats = solution_snapshots(rbsolver,feop,μon)
-  # perf = eval_performance(rbsolver,rbop,x,x̂,festats,rbstats)
-  # println(perf)
-
-  # rbsolverx = RBSteady.set_params(rbsolver;nparams=num_params(x))
-  # res = residual_snapshots(rbsolverx,feop,x)
-  # jac = jacobian_snapshots(rbsolverx,feop,x)
-  # err_res,err_jac = RBSteady.hr_error(rbsolverx,rbop,res,jac,x)
-  # println("diagnostic | hr error residual (per trian): ", err_res)
-  # println("diagnostic | hr error jacobian (per trian): ", err_jac)
-
-  # # per-rank save / load round-trip of the FE snapshots (distributed)
-  # diagdir = mkpath(joinpath(@__DIR__,"boh_diag"))
-  # save(diagdir,fesnaps)
-  # fesnaps_loaded = load_snapshots(diagdir,ranks)
-  # println("diagnostic | snapshots save/load round-trip ok: ",
-  #   compute_relative_error(fesnaps,fesnaps_loaded) < 1e-12)
 end
 
+petsc_options = "-ksp_error_if_not_converged true"
+
 with_debug() do distribute
-  main(distribute,(2,2))
+  GridapPETSc.with(;args=split(petsc_options)) do
+    main(distribute,(2,2))
+    GridapPETSc.gridap_petsc_gc()
+  end
 end

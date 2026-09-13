@@ -561,6 +561,8 @@ end
 symcholesky(X::Rank1Tensor) = symcholesky.(get_factors(X))
 symcholesky(X::GenericRankTensor) = symcholesky(get_crossnorm(X))
 
+gram_solver(X;kwargs...) = symcholesky(X;kwargs...)
+
 function symmetrise!(A::AbstractMatrix;atol=1e-12,rtol=1e-8)
   n,m = size(A)
   n == m || return false

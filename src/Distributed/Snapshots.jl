@@ -210,9 +210,8 @@ function ParamDataStructures.Snapshots(
   DistributedBlockSnapshots(array,stored_data)
 end
 
-blocks(s::DistributedBlockSnapshots) = s.array
-
-Base.size(s::DistributedBlockSnapshots) = size(s.array)
+BlockArrays.blocks(s::DistributedBlockSnapshots) = s.array
+ParamDataStructures.get_param_data(s::DistributedBlockSnapshots) = s.param_data
 
 function Base.show(io::IO,k::MIME"text/plain",s::DistributedBlockSnapshots)
   vals = local_values(first(blocks(s)))
@@ -222,8 +221,41 @@ function Base.show(io::IO,k::MIME"text/plain",s::DistributedBlockSnapshots)
   end
 end
 
-PartitionedArrays.local_values(s::DistributedBlockSnapshots) = partition(s)
-GridapDistributed.local_views(s::DistributedBlockSnapshots) = partition(s)
+function PartitionedArrays.local_values(a::DistributedBlockSnapshots)
+  map(local_values,blocks(a)) |> to_parray_of_arrays
+end
+
+function PartitionedArrays.own_values(a::DistributedBlockSnapshots)
+  map(own_values,blocks(a)) |> to_parray_of_arrays
+end
+
+function PartitionedArrays.ghost_values(a::DistributedBlockSnapshots)
+  map(ghost_values,blocks(a)) |> to_parray_of_arrays
+end
+
+function GridapDistributed.to_parray_of_arrays(a::AbstractArray{<:MPIArray{<:Snapshots}})
+  indices = linear_indices(first(a))
+  map(indices) do i
+    array,data = map(a) do aj
+      s = getany(aj)
+      d = get_param_data(s)
+      s,d
+    end |> tuple_of_arrays
+    BlockSnapshots(array,data)
+  end
+end
+
+function GridapDistributed.to_parray_of_arrays(a::AbstractArray{<:DebugArray{<:Snapshots}})
+  indices = linear_indices(first(a))
+  map(indices) do i
+    array,data = map(a) do aj
+      s = aj.items[i]
+      d = get_param_data(s)
+      s,d
+    end |> tuple_of_arrays
+    BlockSnapshots(array,data)
+  end
+end
 
 # index handling
 

@@ -179,6 +179,7 @@ export reduction
 export tpod
 export ttsvd
 export symcholesky
+export gram_solver
 export symmetrise!
 export gram_schmidt
 export orth_complement!

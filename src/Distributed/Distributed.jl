@@ -56,6 +56,9 @@ using Gridap.ODEs
 
 using GridapDistributed
 
+using GridapPETSc
+using GridapPETSc.PETSC
+
 using GridapSolvers
 using GridapSolvers.LinearSolvers
 using GridapSolvers.NonlinearSolvers
@@ -71,7 +74,8 @@ using GridapROMs.RBSteady
 using GridapROMs.RBTransient
 
 import ArraysOfArrays: innersize,_ncolons
-import BlockArrays: BlockVector,BlockMatrix,BlockArray,AbstractBlockArray,mortar,blocks
+import BlockArrays
+import BlockArrays: BlockVector,BlockMatrix,BlockArray,AbstractBlockArray
 import Gridap.Helpers: @abstractmethod,@check,@notimplemented,@notimplementedif
 import GridapDistributed: BlockPMatrix,BlockPVector,BlockPArray,DistributedFESpace,DistributedSingleFieldFESpace,DistributedMultiFieldFESpace,DistributedTriangulation,DistributedDomainContribution,to_parray_of_arrays
 import GridapROMs.DofMaps: range_2d,range_1d

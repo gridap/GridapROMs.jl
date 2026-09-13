@@ -164,9 +164,9 @@ function GridapDistributed.local_views(a::DistributedNormedProjection)
   end
 end
 
-function RBSteady.symcholesky(X::PSparseMatrix)
-  ls = CGSolver(JacobiLinearSolver();maxiter=100,atol=1e-14,rtol=1e-10)
-  ss = symbolic_setup(ls,X)
+function RBSteady.gram_solver(X::PSparseMatrix)
+  solver = PETScLinearSolver(_cholesky_ksp_setup)
+  ss = symbolic_setup(solver,X)
   numerical_setup(ss,X)
 end
 
@@ -222,4 +222,12 @@ function _galerkin_mul!(
   end
   copyto!(d,sreduce(ld))
   d
+end
+
+function _cholesky_ksp_setup(ksp)
+  pc = Ref{PETSC.PC}()
+  @check_error_code PETSC.KSPSetType(ksp[],PETSC.KSPPREONLY)
+  @check_error_code PETSC.KSPGetPC(ksp[],pc)
+  @check_error_code PETSC.PCSetType(pc[],PETSC.PCCHOLESKY)
+  @check_error_code PETSC.PCFactorSetMatSolverType(pc[],PETSC.MATSOLVERMUMPS)
 end

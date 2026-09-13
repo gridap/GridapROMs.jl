@@ -162,25 +162,6 @@ function Algebra.copy_entries!(a::ArrayContribution,b::ArrayContribution)
   a
 end
 
-struct ContributionBroadcast{D,T}
-  contrib::D
-  trians::T
-end
-
-function Base.broadcasted(f,a::ArrayContribution,b::Number)
-  ContributionBroadcast(map(values -> Base.broadcasted(f,values,b),a.values),a.trians)
-end
-
-function Base.materialize(c::ContributionBroadcast)
-  Contribution(map(Base.materialize,c.contrib),c.trians)
-end
-
-function Base.materialize!(a::ArrayContribution,c::ContributionBroadcast)
-  @check a.trians === c.trians
-  map(Base.materialize!,a.values,c.contrib)
-  a
-end
-
 """
     const TupOfArrayContribution{T} = Tuple{Vararg{ArrayContribution{T}}}
 

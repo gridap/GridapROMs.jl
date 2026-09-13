@@ -183,6 +183,29 @@ function param_cat(v::AbstractVector{<:StoredParamData})
   StoredParamData(pd,pd0)
 end
 
+const AbstractTransientBlockSnapshots{N} = AbstractBlockSnapshots{<:StoredParamData,N}
+
+num_times(s::AbstractTransientBlockSnapshots) = num_times(get_realisation(s))
+get_param_data(s::AbstractTransientBlockSnapshots) = get_param_data(get_param_data(s))
+get_initial_param_data(s::AbstractTransientBlockSnapshots) = get_initial_param_data(get_param_data(s))
+
+function select_snapshots(s::AbstractTransientBlockSnapshots{N},pindex) where N
+  prange = _format_index(pindex)
+  trange = 1:num_times(s)
+  array = map(sj -> select_snapshots(sj,pindex),blocks(s))
+  pdata = select_param_data(get_param_data(s),prange,trange)
+  return BlockSnapshots(array,pdata)
+end
+
+function select_times(s::AbstractTransientBlockSnapshots{N},tindex) where N
+  array = map(sj -> select_times(sj,tindex),blocks(s))
+  np = num_params(s)
+  prange = 1:np
+  trange = _format_index(tindex)
+  pdata = select_param_data(get_param_data(s),prange,trange;nparams=np)
+  return BlockSnapshots(array,pdata)
+end
+
 const TransientBlockSnapshots{N} = BlockSnapshots{N,<:StoredParamData}
 
 function Snapshots(
@@ -225,26 +248,6 @@ function Snapshots(
 
   stored_data = StoredParamData(data,data0)
   BlockSnapshots(array,stored_data)
-end
-
-num_times(s::TransientBlockSnapshots) = num_times(get_realisation(s))
-get_param_data(s::TransientBlockSnapshots) = get_param_data(s.param_data)
-get_initial_param_data(s::TransientBlockSnapshots) = get_initial_param_data(s.param_data)
-
-function select_snapshots(s::TransientBlockSnapshots{N},pindex) where N
-  prange = _format_index(pindex)
-  trange = 1:num_times(s)
-  array = map(sj -> select_snapshots(sj,pindex),blocks(s))
-  return BlockSnapshots(array,select_param_data(s.param_data,prange,trange))
-end
-
-function select_times(s::TransientBlockSnapshots{N},tindex) where N
-  array = map(sj -> select_times(sj,tindex),blocks(s))
-  np = num_params(s)
-  prange = 1:np
-  trange = _format_index(tindex)
-  pdrange = select_param_data(s.param_data,prange,trange;nparams=np)
-  return BlockSnapshots(array,pdrange)
 end
 
 # mode snapshots
