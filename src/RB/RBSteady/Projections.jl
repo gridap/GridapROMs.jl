@@ -31,7 +31,7 @@ get_basis(a::Projection) = @abstractmethod
 For a projection map `a` from a low dimensional space `n` to a high dimensional
 one `N`, returns `N`
 """
-num_fe_dofs(a::Projection) = size(get_basis(a),1)
+num_fe_dofs(a::Projection) = _num_fe_dofs(get_basis(a))
 
 fe_dof_ids(a::Projection) = Base.OneTo(num_fe_dofs(a))
 
@@ -41,7 +41,7 @@ fe_dof_ids(a::Projection) = Base.OneTo(num_fe_dofs(a))
 For a projection map `a` from a low dimensional space `n` to a high dimensional
 one `N`, returns `n`
 """
-num_reduced_dofs(a::Projection) = size(get_basis(a),2)
+num_reduced_dofs(a::Projection) = _num_reduced_dofs(get_basis(a))
 
 reduced_dof_ids(a::Projection) = Base.OneTo(num_reduced_dofs(a))
 
@@ -833,6 +833,16 @@ function copy_projection!(cache,a::Projection)
 end
 
 # utils
+
+# need to distinguish between a normal basis and a recast one (for sparse matrices)
+_num_fe_dofs(a) = @abstractmethod
+_num_fe_dofs(a::AbstractMatrix{<:Number}) = size(a,1)
+_num_fe_dofs(a::AbstractMatrix{<:AbstractMatrix}) = innersize(a,1)
+
+# need to distinguish between a normal basis and a recast one (for sparse matrices)
+_num_reduced_dofs(a) = @abstractmethod
+_num_reduced_dofs(a::AbstractMatrix{<:Number}) = size(a,2)
+_num_reduced_dofs(a::AbstractMatrix{<:AbstractMatrix}) = param_length(a)
 
 function _allocate_projection(red::Reduction,s::AbstractBlockSnapshots{<:Any,N}) where N
   T = _proj_type(red)

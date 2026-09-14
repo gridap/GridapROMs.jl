@@ -262,20 +262,22 @@ function RBSteady.galerkin_projection(
   proj_a_space = galerkin_projection(
     get_basis_space(proj_left),
     get_basis(a),
-    get_basis_space(proj_right))
+    get_basis_space(proj_right)
+  ) # ns_left x ns_right x Nμ*Nt
 
-  a2 = permutedims(proj_a_space,(2,1,3)) # Nμ*Nt x ns_left x ns_right
-  a3 = reshape(a2,np,nt,ns_left,ns_right) # Nμ x Nt x ns_left x ns_right
-  a4 = reshape(permutedims(a3,(2,3,1,4)),nt,:) # Nt x ns_left*Nμ*ns_right
+  a2 = reshape(proj_a_space,ns_left,ns_right,np,nt) # ns_left x ns_right x Nμ x Nt
+  a3 = permutedims(a2,(4,1,2,3)) # Nt x ns_left x ns_right x Nμ
+  a4 = reshape(a3,nt,:) # Nt x ns_left*ns_right*Nμ
   proj_a_spacetime = galerkin_projection(
     get_basis_time(proj_left),
     a4,
     get_basis_time(proj_right),
-    combine) # nt_left x ns_left*Nμ*ns_right x nt_right
+    combine
+  ) # nt_left x nt_right x ns_left*ns_right*Nμ
 
-  a5 = reshape(proj_a_spacetime,nt_left,ns_left,np,ns_right,nt_right) # nt_left x ns_left x Nμ x ns_right x nt_right
-  a6 = permutedims(a5,(2,1,3,4,5)) # ns_left x nt_left x Nμ x ns_right x nt_right
-  proj = reshape(a6,ns_left*nt_left,np,ns_right*nt_right)
+  a5 = reshape(proj_a_spacetime,nt_left,nt_right,ns_left,ns_right,np) # nt_left x nt_right x ns_left x ns_right x Nμ
+  a6 = permutedims(a5,(3,1,4,2,5)) # ns_left x nt_left x ns_right x nt_right x Nμ
+  proj = reshape(a6,ns_left*nt_left,ns_right*nt_right,np)
   return ReducedProjection(proj)
 end
 
@@ -389,15 +391,15 @@ function RBSteady.galerkin_projection(
   proj_a_space = galerkin_projection(
     get_basis_space(proj_left),
     get_basis(a),
-    get_basis_space(proj_right))
+    get_basis_space(proj_right)
+  ) # ns_left x ns_right x Nμ*Nt
 
-  a2 = permutedims(proj_a_space,(2,1,3)) # Nμ*Nt x ns_left x ns_right
-  a3 = reshape(a2,np,nt,ns_left,ns_right) # Nμ x Nt x ns_left x ns_right
-  a4 = permutedims(a3,(3,2,1,4)) # ns_left x Nt x Nμ x ns_right
+  a2 = reshape(proj_a_space,ns_left,ns_right,np,nt) # ns_left x ns_right x Nμ x Nt
+  a4 = permutedims(a2,(1,4,3,2)) # ns_left x Nt x Nμ x ns_right
 
   pl_time = get_core_time(proj_left) # ns_left x Nt x nt_left
   pr_time = get_core_time(proj_right) # ns_right x Nt x nt_right
-  proj_cores = _contraction(pl_time,a4,pr_time,combine) # nt_left x Nμ x nt_right
+  proj_cores = _contraction(pl_time,a4,pr_time,combine) # nt_left x nt_right x Nμ
   return ReducedProjection(proj_cores)
 end
 
@@ -531,7 +533,8 @@ function RBSteady._galerkin_projection(
   p_time = contraction(pl_time,a_time,pr_time,combine)
 
   p = sequential_product(p_space...,p_time)
-  proj_cores = dropdims(p;dims=(1,2,3))
+  proj_cores = dropdims(p;dims=(1,2,3)) # n_test x n_a x n_trial
+  proj_cores = permutedims(proj_cores,(1,3,2)) # n_test x n_trial x n_a
 
   return ReducedProjection(proj_cores)
 end
@@ -559,7 +562,8 @@ function RBSteady._galerkin_projection(
   p_time = contraction(pl_time,a_time,pr_time,combine)
 
   p = sequential_product(p_space,p_time)
-  proj_cores = dropdims(p;dims=(1,2,3))
+  proj_cores = dropdims(p;dims=(1,2,3)) # n_test x n_a x n_trial
+  proj_cores = permutedims(proj_cores,(1,3,2)) # n_test x n_trial x n_a
 
   return ReducedProjection(proj_cores)
 end

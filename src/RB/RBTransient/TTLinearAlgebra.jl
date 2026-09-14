@@ -77,7 +77,7 @@ Base.@propagate_inbounds function _contraction(
   Nt = size(factor1,2)
   θ = get_coefficients(combine,Nt)
   TSU = promote_type(T,S,U)
-  ABC = zeros(TSU,size(factor1,3),size(factor2,3),size(factor3,3))
+  ABC = zeros(TSU,size(factor1,3),size(factor3,3),size(factor2,3))
   tmp = zeros(TSU,size(factor3,1),Nt,size(factor3,3))
   @inbounds for iC in axes(factor3,3)
     for m = 1:Nt
@@ -98,7 +98,7 @@ Base.@propagate_inbounds function _contraction(
           for i1 in axes(factor1,1)
             for i3 in axes(factor3,1)
               v = factor1[i1,m,iA]*factor2[i1,m,iB,i3]*tmp[i3,m,iC]
-              RBSteady._entry!(+,ABC,v,iA,iB,iC)
+              RBSteady._entry!(+,ABC,v,iA,iC,iB)
             end
           end
         end

@@ -6,6 +6,9 @@ const AbstractParamPSparseMatrix = Union{PSparseMatrix{<:ParamSparseMatrix},Bloc
 Arrays.testitem(a::AbstractParamPVector) = param_getindex(a,1)
 Arrays.testitem(a::AbstractParamPSparseMatrix) = param_getindex(a,1)
 
+innersize(a::PVector{<:AbstractParamVector}) = size(a)
+innersize(a::PSparseMatrix{<:ParamSparseMatrix}) = size(a)
+
 for T in (:PVector,:PSparseMatrix,:BlockPArray)
   @eval begin
     function ParamDataStructures.param_length(a::$T)

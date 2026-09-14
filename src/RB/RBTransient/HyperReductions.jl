@@ -61,7 +61,7 @@ function RBSteady.reduced_jacobian(
   for i in eachindex(contribs)
     a = (a...,reduced_jacobian(red[i],trial,test,contribs[i]))
   end
-  return a
+  return ContributionTuple(a)
 end
 
 const HighDimNoHRProjection{A<:Projection} = HRProjection{A,<:HighDimNoHyperReduction}

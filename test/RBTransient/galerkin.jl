@@ -33,12 +33,8 @@ end
 function _check_cache_order_3d(cache,proj)
 	@test ndims(cache) == 3
 	@test ndims(proj) == 3
-	@test size(cache,1) == size(proj,1)
-	@test size(cache,2) == size(proj,3)
-	@test size(cache,3) == size(proj,2)
-	@inbounds for ip in axes(proj,2)
-		@test cache[:,:,ip] ≈ proj[:,ip,:]
-	end
+	@test size(cache) == size(proj)
+	@test cache ≈ proj
 end
 
 @testset "steady: matrix and param-vector projections" begin
@@ -62,10 +58,10 @@ end
 
 	psm = _rand_param_sparse(n,n,np)
 	proj_psm = galerkin_projection(Φl,psm,Φr)
-	@test size(proj_psm) == (rl,np,nr)
+	@test size(proj_psm) == (rl,nr,np)
 
 	for ip in 1:np
-		@test proj_psm[:,ip,:] ≈ Φl' * param_getindex(psm,ip) * Φr
+		@test proj_psm[:,:,ip] ≈ Φl' * param_getindex(psm,ip) * Φr
 	end
 
 	@test begin
@@ -89,7 +85,7 @@ end
 
 	proj = galerkin_projection(Φl,A,Φr,c)
 	θ = get_coefficients(c,nt)
-	proj_ref = zeros(rl,nc,nr)
+	proj_ref = zeros(rl,nr,nc)
 
 	@inbounds for i = 1:rl,k = 1:nc,j = 1:nr
 		s = 0.0
@@ -99,7 +95,7 @@ end
 				s += θ[γ] * Φl[α + γ - 1,i] * A[α + γ - 1,k] * Φr[α,j]
 			end
 		end
-		proj_ref[i,k,j] = s
+		proj_ref[i,j,k] = s
 	end
 
 	@test proj ≈ proj_ref
@@ -116,17 +112,17 @@ end
 	n1,n2,np = 7,6,4
 	rl1,rl2 = 3,2
 
-	Φl = BlockProjection(PODProjection.([_rand_basis(n1,rl1),_rand_basis(n2,rl2)]),Bool[true,true])
+	Φl = BlockProjection(PODProjection.([_rand_basis(n1,rl1),_rand_basis(n2,rl2)]))
 	a1 = consecutive_param(randn(n1,np))
 	a2 = consecutive_param(randn(n2,np))
-	a = ArrayBlock(Any[a1,a2],Bool[true,true])
+	a = [a1,a2]
 
 	proj = galerkin_projection(Φl,a)
 	@test get_basis(proj[1]) ≈ get_basis(galerkin_projection(Φl[1],a1))
 	@test get_basis(proj[2]) ≈ get_basis(galerkin_projection(Φl[2],a2))
 
 	@test begin
-		cache = ArrayBlock(Any[consecutive_param(zeros(rl1,np)),consecutive_param(zeros(rl2,np))],Bool[true,true])
+		cache = [consecutive_param(zeros(rl1,np)),consecutive_param(zeros(rl2,np))]
 		galerkin_projection!(cache,Φl,a)
 		get_all_data(cache[1]) ≈ get_basis(proj[1]) && get_all_data(cache[2]) ≈ get_basis(proj[2])
 	end
@@ -137,33 +133,30 @@ end
 	rl1,rl2 = 3,2
 	rr1,rr2 = 2,4
 
-	Φl = BlockProjection(PODProjection.([_rand_basis(n1,rl1),_rand_basis(n2,rl2)]),Bool[true,true])
-	Φr = BlockProjection(PODProjection.([_rand_basis(n1,rr1),_rand_basis(n2,rr2)]),Bool[true,true])
+	Φl = BlockProjection(PODProjection.([_rand_basis(n1,rl1),_rand_basis(n2,rl2)]))
+	Φr = BlockProjection(PODProjection.([_rand_basis(n1,rr1),_rand_basis(n2,rr2)]))
 
 	A = Array{Any}(undef,2,2)
 	A[1,1] = _rand_param_sparse(n1,n1,np)
 	A[1,2] = _rand_param_sparse(n1,n2,np)
 	A[2,1] = _rand_param_sparse(n2,n1,np)
 	A[2,2] = _rand_param_sparse(n2,n2,np)
-	touched = fill(true,2,2)
-	Ab = ArrayBlock(A,touched)
 
-	proj = galerkin_projection(Φl,Ab,Φr)
+	proj = galerkin_projection(Φl,A,Φr)
 
 	@test get_basis(proj[1,1]) ≈ get_basis(galerkin_projection(Φl[1],A[1,1],Φr[1]))
 	@test get_basis(proj[1,2]) ≈ get_basis(galerkin_projection(Φl[1],A[1,2],Φr[2]))
 	@test get_basis(proj[2,1]) ≈ get_basis(galerkin_projection(Φl[2],A[2,1],Φr[1]))
 	@test get_basis(proj[2,2]) ≈ get_basis(galerkin_projection(Φl[2],A[2,2],Φr[2]))
 
-	cache_data = Array{Any}(undef,2,2)
-	cache_data[1,1] = consecutive_param(zeros(rl1,rr1,np))
-	cache_data[1,2] = consecutive_param(zeros(rl1,rr2,np))
-	cache_data[2,1] = consecutive_param(zeros(rl2,rr1,np))
-	cache_data[2,2] = consecutive_param(zeros(rl2,rr2,np))
-	cache = ArrayBlock(cache_data,touched)
+	cache = Array{Any}(undef,2,2)
+	cache[1,1] = consecutive_param(zeros(rl1,rr1,np))
+	cache[1,2] = consecutive_param(zeros(rl1,rr2,np))
+	cache[2,1] = consecutive_param(zeros(rl2,rr1,np))
+	cache[2,2] = consecutive_param(zeros(rl2,rr2,np))
 
 	@test begin
-		galerkin_projection!(cache,Φl,Ab,Φr)
+		galerkin_projection!(cache,Φl,A,Φr)
 		_check_cache_order_3d(get_all_data(cache[1,1]),get_basis(proj[1,1]))
 		_check_cache_order_3d(get_all_data(cache[1,2]),get_basis(proj[1,2]))
 		_check_cache_order_3d(get_all_data(cache[2,1]),get_basis(proj[2,1]))

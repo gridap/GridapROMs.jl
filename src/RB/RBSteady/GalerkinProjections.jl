@@ -32,7 +32,7 @@ function galerkin_projection(
   nleft = size(basis_left,2)
   n = param_length(a)
   nright = size(basis_right,2)
-  proj_basis = zeros(TS,nleft,n,nright)
+  proj_basis = zeros(TS,nleft,nright,n)
   cache = zeros(TS,innersize(a,1),size(basis_right,2))
   @inbounds @views for i = 1:n
     mul!(cache,param_getindex(a,i),basis_right)

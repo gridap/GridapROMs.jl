@@ -494,11 +494,6 @@ end
 function pivoted_qr!(A,tol=1e-10)
   Q,R,jpvt = qr!(A,ColumnNorm())
   r = select_rank(SearchSVDRank(tol),diag(R))
-  if isnothing(r)
-    open("/tmp/claude-779795/-home-nmueller-git-repos-GridapROMs-jl/effb15cf-aa93-4682-9950-843ccc52d8e7/scratchpad/rank_nothing_debug.log","a") do io
-      println(io,"size(A)=",size(A)," diag(R)=",diag(R))
-    end
-  end
   Qr = _truncate_col!(Q,r)
   Rr = _truncate_row!(R,r)
   invpermutecols!(Rr,jpvt)

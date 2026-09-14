@@ -179,16 +179,14 @@ function LinearAlgebra.ldiv!(S::GenericPMatrix,ns,A::GenericPMatrix)
   end
 end
 
-# `enrich!` (RBSteady/Projections.jl) passes whatever `gram_solver` returns
-# straight into `union_bases`->`gram_schmidt`. The serial path returns a
-# `Factorization` (`gram_schmidt(A,C::Factorization,...)` uses `C.L`/`C.p`
-# directly); the distributed `gram_solver` above returns a `CGNumericalSetup`
-# instead (no distributed sparse Cholesky factor exists) - which already
-# stores the matrix it was built from in `.mat`, so route through the
-# existing `gram_schmidt(A,X::PSparseMatrix,...)` dispatch (BasesConstruction.jl)
-# rather than teaching it about `.L`/`.p`-style pivoted factorizations.
 function RBSteady.gram_schmidt(A::AbstractMatrix,ns::LinearSolvers.CGNumericalSetup,args...)
   gram_schmidt(A,ns.mat,args...)
+end
+
+function GridapDistributed.local_views(a::KroneckerProjection)
+  map(local_views(a.projection_space)) do projection_space
+    KroneckerProjection(projection_space,a.projection_time)
+  end
 end
 
 # utils 

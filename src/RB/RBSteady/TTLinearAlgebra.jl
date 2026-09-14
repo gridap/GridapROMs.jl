@@ -120,6 +120,7 @@ function contraction(
   ) where {T,S,U}
 
   factor = galerkin_projection(cores2basis(factor1),cores2basis(factor2),cores2basis(factor3))
+  factor = permutedims(factor,(1,3,2))
   reshape(factor,1,1,1,size(factor)...)
 end
 
@@ -389,7 +390,8 @@ function galerkin_projection(
   end
 
   rcore = sequential_product(rcores...)
-  dropdims(rcore;dims=(1,2,3))
+  proj_basis = dropdims(rcore;dims=(1,2,3)) # n_test x n_a x n_trial
+  permutedims(proj_basis,(1,3,2)) # n_test x n_trial x n_a
 end
 
 # supremizer computation for tensor train decompositions

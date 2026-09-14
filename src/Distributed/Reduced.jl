@@ -206,11 +206,15 @@ for f in (:DEIM,:SOPT)
   end
 end
 
-function DofMaps.recast_split_indices(sids::LocalDEIMIndices,a::SubSparseMatrix)
-  rids,cids = recast_split_indices(sids.global_rows,a)
-  r = LocalDEIMIndices(rids,copy(sids.global_cols),sids.index_parts)
-  c = LocalDEIMIndices(cids,copy(sids.global_cols),sids.index_parts)
-  (r,c)
+for T in (:AbstractSparseMatrix,:SubSparseMatrix)
+  @eval begin
+    function DofMaps.recast_split_indices(sids::LocalDEIMIndices,a::$T)
+      rids,cids = recast_split_indices(sids.global_rows,a)
+      r = LocalDEIMIndices(rids,copy(sids.global_cols),sids.index_parts)
+      c = LocalDEIMIndices(cids,copy(sids.global_cols),sids.index_parts)
+      (r,c)
+    end
+  end
 end
 
 function DofMaps.recast_split_indices(sids::AbstractArray,a::SubSparseMatrix)
