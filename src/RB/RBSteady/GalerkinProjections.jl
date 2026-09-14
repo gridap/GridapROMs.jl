@@ -36,7 +36,7 @@ function galerkin_projection(
   cache = zeros(TS,innersize(a,1),size(basis_right,2))
   @inbounds @views for i = 1:n
     mul!(cache,param_getindex(a,i),basis_right)
-    mul!(proj_basis[:,i,:],basis_left',cache)
+    mul!(proj_basis[:,:,i],basis_left',cache)
   end
   return proj_basis
 end
@@ -60,27 +60,13 @@ function copy_projection!(cache,proj_basis)
 end
 
 function copy_projection!(
-  cache::AbstractParamVector,
-  proj_basis::AbstractMatrix{<:Number}
+  cache::AbstractParamArray,
+  proj_basis::AbstractArray{<:Number}
   )
 
   data = get_all_data(cache)
   @check size(data) == size(proj_basis)
   copyto!(data,proj_basis)
-end
-
-function copy_projection!(
-  cache::AbstractParamMatrix,
-  proj_basis::AbstractArray{<:Number,3}
-  )
-
-  data = get_all_data(cache)
-  @check size(data,1) == size(proj_basis,1)
-  @check size(data,2) == size(proj_basis,3)
-  @check size(data,3) == size(proj_basis,2)
-  @inbounds @views for i in axes(proj_basis,2)
-    data[:,:,i] = proj_basis[:,i,:]
-  end
 end
 
 function copy_projection!(

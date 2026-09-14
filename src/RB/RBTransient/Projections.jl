@@ -201,13 +201,15 @@ function RBSteady.galerkin_projection(
   proj_basis_space = galerkin_projection(
     get_basis_space(proj_left),
     get_basis_space(a),
-    get_basis_space(proj_right))
+    get_basis_space(proj_right)
+  )
 
   proj_basis_time = galerkin_projection(
     get_basis_time(proj_left),
     get_basis_time(a),
     get_basis_time(proj_right),
-    combine)
+    combine
+  )
 
   nleft = num_reduced_dofs(proj_left)
   ns = num_reduced_dofs(a.projection_space)
@@ -218,10 +220,11 @@ function RBSteady.galerkin_projection(
   T = projection_eltype(proj_left)
   S = projection_eltype(a)
   TS = promote_type(T,S)
-  proj_basis = zeros(TS,nleft,n,nright)
-  @inbounds for it = 1:nt, is = 1:ns
+  proj_basis = zeros(TS,nleft,nright,n)
+  @inbounds @views for it = 1:nt, is = 1:ns
     ist = (it-1)*ns+is
-    @views proj_basis[:,ist,:] = kron(proj_basis_time[:,it,:],proj_basis_space[:,is,:])
+    cache = proj_basis[:,:,ist]
+    kron!(cache,proj_basis_time[:,:,it],proj_basis_space[:,:,is])
   end
 
   return ReducedProjection(proj_basis)

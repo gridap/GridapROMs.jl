@@ -247,7 +247,7 @@ function DofMaps._get_dof_map(f::DistributedFESpace,b::AbstractParamPVector)
   DofMaps._get_dof_map(f,testitem(b))
 end
 
-function DofMaps._get_dof_map(f::DistributedSingleFieldFESpace,b::PVector)
+function DofMaps._get_dof_map(f::DistributedSingleFieldFESpace,b::PVector{<:AbstractVector{<:Number}})
   map(local_views(f),local_views(b)) do f,b
     VectorDofMap(length(b))
   end
@@ -272,12 +272,21 @@ end
 function DofMaps._get_sparse_dof_map(
   trial::DistributedSingleFieldFESpace,
   test::DistributedSingleFieldFESpace,
-  A::PSparseMatrix
+  A::PSparseMatrix{<:AbstractMatrix{<:Number}}
   )
 
   map(local_views(trial),local_views(test),local_views(A)) do trial,test,Ao
     get_sparse_dof_map(SparsityPattern(Ao),trial,test)
   end
+end
+
+function DofMaps._get_sparse_dof_map(
+  trial::DistributedMultiFieldFESpace,
+  test::DistributedMultiFieldFESpace,
+  A::AbstractParamPSparseMatrix
+  )
+
+  DofMaps._get_sparse_dof_map(trial,test,testitem(A))
 end
 
 function DofMaps._get_sparse_dof_map(

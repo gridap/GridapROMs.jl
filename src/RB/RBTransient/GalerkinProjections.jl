@@ -27,7 +27,7 @@ function RBSteady.galerkin_projection(
   n = size(a,2)
   nright = size(basis_right,2)
   TS = promote_type(T,S)
-  proj_basis = zeros(TS,nleft,n,nright)
+  proj_basis = zeros(TS,nleft,nright,n)
 
   θ = get_coefficients(combine,size(a,1))
   Nt = size(a,1)
@@ -44,12 +44,12 @@ function RBSteady.galerkin_projection(
     end
   end
 
-  @inbounds for i = 1:nleft, k = 1:n, j = 1:nright
+  @inbounds for i = 1:nleft, j = 1:nright, k = 1:n
     s = zero(TS)
     for m = 1:Nt
       s += basis_left[m,i]*a[m,k]*tmp[m,j]
     end
-    proj_basis[i,k,j] = s
+    proj_basis[i,j,k] = s
   end
 
   return proj_basis

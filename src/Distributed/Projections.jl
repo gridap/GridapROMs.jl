@@ -17,7 +17,7 @@ function RBSteady.galerkin_projection(Φl::GenericPMatrix,A::PSparseMatrix,Φr::
   nleft = size(Φl,2)
   n = getany(map(param_length,partition(A)))
   nright = size(Φr,2)
-  Â = zeros(TS,nleft,n,nright)
+  Â = zeros(TS,nleft,nright,n)
   _galerkin_mul!(Â,Φl,A,Φr)
   return Â
 end
@@ -218,7 +218,7 @@ function _galerkin_mul!(
     co1 = zeros(eltype(d),innersize(aoo)[1],size(bo,2))
     @inbounds for i in param_eachindex(aoo)
       mul!(co1,param_getindex(aoo,i),bo)
-      mul!(view(dl,:,i,:),co',co1)
+      mul!(view(dl,:,:,i),co',co1)
     end
     dl
   end
@@ -229,7 +229,7 @@ function _galerkin_mul!(
     co1 = zeros(eltype(d),innersize(aoh)[1],size(bh,2))
     @inbounds for i in param_eachindex(aoh)
       mul!(co1,param_getindex(aoh,i),bh)
-      mul!(view(dl,:,i,:),co',co1,1,1)
+      mul!(view(dl,:,:,i),co',co1,1,1)
     end
   end
   copyto!(d,sreduce(ld))

@@ -331,6 +331,10 @@ function LinearAlgebra.mul!(
   contraction!(get_all_data(x),get_basis(b),get_all_data(y),α,β)
 end
 
+num_reduced_dofs(a::ReducedProjection) = last(size(get_basis(a)))
+num_reduced_dofs_left_projector(a::ReducedProjection) = first(size(get_basis(a)))
+num_reduced_dofs_right_projector(a::ReducedMatProjection) = size(get_basis(a),2)
+
 """
 """
 struct ReducedAlgebraicProjection{A} <: ReducedProjection{A}
@@ -343,9 +347,6 @@ Base.eltype(::Type{<:ReducedAlgebraicProjection{A}}) where A = eltype(A)
 Base.ndims(::Type{<:ReducedAlgebraicProjection{A}}) where A = ndims(A)
 
 get_basis(a::ReducedAlgebraicProjection) = a.basis
-num_reduced_dofs(a::ReducedAlgebraicProjection) = size(get_basis(a),2)
-num_reduced_dofs_left_projector(a::ReducedAlgebraicProjection) = size(get_basis(a),1)
-num_reduced_dofs_right_projector(a::ReducedMatProjection) = size(get_basis(a),3)
 
 """
     struct PODProjection <: Projection

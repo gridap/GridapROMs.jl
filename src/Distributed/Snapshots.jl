@@ -54,7 +54,7 @@ function ParamDataStructures.get_all_data(s::DistributedSnapshots)
   data = map(local_values(s)) do s
     get_all_data(s)
   end
-  GenericPArray(data,row_partition(s))
+  GenericPArray(data,flat_row_partition(s))
 end
 
 function ParamDataStructures.get_param_data(s::DistributedSnapshots)
@@ -81,14 +81,14 @@ function DofMaps.flatten(s::DistributedSnapshots)
   data = map(local_values(s)) do s
     flatten(s)
   end
-  GenericPArray(data,row_partition(s))
+  GenericPArray(data,flat_row_partition(s))
 end
 
 function ParamDataStructures.select_snapshots(s::DistributedSnapshots,pindex)
   data = map(local_values(s)) do s
     select_snapshots(s,pindex)
   end
-  snaps = GenericPArray(data,row_partition(s))
+  snaps = GenericPArray(data,flat_row_partition(s))
   DistributedSnapshots(snaps)
 end
 
@@ -96,7 +96,7 @@ function ParamDataStructures.select_times(s::DistributedTransientSnapshots,tinde
   data = map(local_values(s)) do s
     select_times(s,tindex)
   end
-  snaps = GenericPArray(data,row_partition(s))
+  snaps = GenericPArray(data,flat_row_partition(s))
   DistributedSnapshots(snaps)
 end
 

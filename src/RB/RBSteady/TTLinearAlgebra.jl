@@ -19,8 +19,8 @@ function contraction(
   ) where {T,S}
 
   s1,s2,s3 = size(basis)
-  @check s2 == length(coefficient)
-  A = reshape(permutedims(basis,(1,3,2)),s1*s3,size(basis,2))
+  @check s3 == length(coefficient)
+  A = reshape(basis,:,s3)
   v = A*coefficient
   M = reshape(v,s1,s2)
   return M
@@ -34,10 +34,10 @@ function contraction!(
   )
 
   s1,s2,s3 = size(basis)
-  @check (size(cache,1) == s1 && size(cache,2) == s3)
-  @check s2 == length(coefficient)
+  @check (size(cache,1) == s1 && size(cache,2) == s2)
+  @check s3 == length(coefficient)
   v = vec(cache)
-  A = reshape(permutedims(basis,(1,3,2)),length(v),s2)
+  A = reshape(basis,:,s3)
   mul!(v,A,coefficient,α,β)
   return
 end
