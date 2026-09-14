@@ -42,9 +42,6 @@ using Gridap.ReferenceFEs
 using Gridap.TensorValues
 using Gridap.Helpers
 
-using GridapEmbedded
-using GridapEmbedded.Interfaces
-
 using GridapROMs.Utils
 using GridapROMs.DofMaps
 

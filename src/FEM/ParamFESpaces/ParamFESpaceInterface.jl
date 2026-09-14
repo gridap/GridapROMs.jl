@@ -468,25 +468,9 @@ function FESpaces._setup_mdof_to_val!(
 
 end
 
-# agfem
-
-function AgFEM._setup_agfem_constraints(
-  n_fdofs,
-  acell_to_acellin,
-  acell_to_dof_ids,
-  acell_to_coeffs::AbstractVector{<:ParamBlock},
-  acell_to_proj,
-  acell_to_gcell
-  )
-
-  AgFEM._setup_agfem_constraints(
-    n_fdofs,
-    acell_to_acellin,
-    acell_to_dof_ids,
-    lazy_testitem(acell_to_coeffs),
-    acell_to_proj,
-    acell_to_gcell)
-end
+# the AgFEM._setup_agfem_constraints override (for aggregated FE spaces on cut
+# meshes) lives in the GridapROMsEmbeddedExt package extension - see the note
+# in FEM/ParamGeometry/ParamGeometry.jl for why GridapEmbedded is a weak dep.
 
 # utils
 

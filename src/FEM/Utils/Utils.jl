@@ -31,8 +31,6 @@ using Gridap.ODEs
 using Gridap.ReferenceFEs
 using Gridap.TensorValues
 
-using GridapEmbedded.Interfaces
-
 import FillArrays: Fill
 import Statistics: mean
 

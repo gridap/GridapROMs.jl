@@ -126,6 +126,18 @@ function _assemble_operator(::DivCoupling,U::SingleFieldFESpace,V::SingleFieldFE
   div_coupling(U,V)
 end
 
+# bare bilinear form (u,v) -> ... behind each `AssembleOperator`, without
+# assembling it - used by the distributed `_assemble_operator(::BlockOperator,
+# X::DistributedMultiFieldFESpace,Y::DistributedMultiFieldFESpace)` to combine
+# every field's form into a SINGLE multi-field form and assemble it in one
+# `assemble_matrix` call, letting GridapDistributed's own multi-field assembler
+# derive the block sparsity (block-diagonal for norms, block-arrow for
+# couplings) instead of hand-building zero-padded `PSparseMatrix` blocks.
+get_form(::L2,U::FESpace,V::FESpace) = get_l2_form(U,V)
+get_form(::H1,U::FESpace,V::FESpace) = get_h1_form(U,V)
+get_form(op::EnergyNorm,U::FESpace,V::FESpace) = op.form
+get_form(::DivCoupling,U::FESpace,V::FESpace) = get_div_coupling_form(U,V)
+
 function _assemble_operator(op::NormStyle,X::MultiFieldFESpace,Y::MultiFieldFESpace)
   bop = BlockOperator(ntuple(_ -> op,Val{length(X)}()))
   _assemble_operator(bop,X,Y)

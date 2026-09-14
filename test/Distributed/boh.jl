@@ -40,11 +40,6 @@ energy = BlockNorm((H1(),L2()))
 coupling = DivCoupling()
 state_reduction = SupremizerReduction(coupling,tol,energy;nparams,ncentroids)
 
-# block-preconditioned FGMRES for the (indefinite, saddle-point) distributed
-# FE system -- mirrors StokesDistributed.jl exactly. PETSc's monolithic direct
-# solve does NOT support a `BlockPArray` at all (its `convert(::Type{PETScMatrix},...)`
-# has no `getindex` for block matrices), so PETSc is used only for the
-# velocity sub-block (a plain, non-block `PSparseMatrix`) inside the ASM solver.
 function petsc_asm_setup(ksp)
   pc = Ref{GridapPETSc.PETSC.PC}()
   @check_error_code GridapPETSc.PETSC.KSPSetType(ksp[],GridapPETSc.PETSC.KSPCG)
@@ -54,17 +49,6 @@ end
 
 ASMSolver() = PETScLinearSolver(petsc_asm_setup)
 
-# Local patch (kept out of src/ on purpose): `x` is normally allocated from the
-# FE trial space (e.g. `zero_free_values`), not from `A` itself. For a
-# `BlockMultiFieldFESpace` these two routes can produce non-identical (though
-# numerically equivalent) partition objects, which trips up PartitionedArrays'
-# identity-based ghost-layout check (`matching_ghost_indices`) inside block
-# Krylov solvers such as FGMRES. Reallocating `x` from `A`'s own domain before
-# solving sidesteps this by construction -- the same trick GridapROMs' own
-# Newton solver path already uses for its step vector (`dx = allocate_in_domain(A_item)`
-# in src/Distributed/ParamSolvers.jl), and the same trick StokesDistributed.jl
-# applies manually at its own call site. This overrides GridapROMs.Distributed's
-# method of the same signature for the duration of this script only.
 function Gridap.Algebra.solve!(
   x::GridapROMs.Distributed.AbstractParamPVector,
   ls::Gridap.Algebra.LinearSolver,

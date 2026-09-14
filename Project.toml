@@ -14,7 +14,6 @@ FillArrays = "1a297f60-69ca-5386-bcde-b61e274b549b"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 Gridap = "56d4f2e9-7ea1-5844-9cf6-b9c51ca7ce8e"
 GridapDistributed = "f9701e48-63b3-45aa-9a63-9bc6c271f355"
-GridapEmbedded = "8838a6a3-0006-4405-b874-385995508d5d"
 GridapGmsh = "3025c34a-b394-11e9-2a55-3fee550c04c8"
 GridapPETSc = "bcdc36c2-0c3e-11ea-095a-c9dadae499f1"
 GridapSolvers = "6d3209ee-5e3c-4db7-a716-942eb12ed534"
@@ -35,9 +34,11 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 UnPack = "3a884ed6-31ef-47d7-9d2a-63182c4928ed"
 
 [weakdeps]
+GridapEmbedded = "8838a6a3-0006-4405-b874-385995508d5d"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 
 [extensions]
+GridapROMsEmbeddedExt = "GridapEmbedded"
 GridapROMsExt = "Plots"
 
 [compat]
@@ -69,8 +70,9 @@ UnPack = "1"
 julia = "1.9"
 
 [extras]
+GridapEmbedded = "8838a6a3-0006-4405-b874-385995508d5d"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Plots", "Test"]
+test = ["GridapEmbedded", "Plots", "Test"]
