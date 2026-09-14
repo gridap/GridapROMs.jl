@@ -123,7 +123,7 @@ function Base.similar(a::GenericPArray,::Type{T},inds::Tuple) where T
     inds = (local_length(indices),map(length,uaxes)...)
     similar(values,T,inds)
   end
-  GenericPArray(values,partition(rows),uaxes)
+  GenericPArray(values,partition(rows),_to_range.(uaxes))
 end
 
 function Base.similar(::Type{<:GenericPArray{V}},inds::Tuple) where V
@@ -133,8 +133,21 @@ function Base.similar(::Type{<:GenericPArray{V}},inds::Tuple) where V
     inds = (local_length(indices),map(length,uaxes)...)
     similar(values,T,inds)
   end
-  GenericPArray(values,partition(rows),uaxes)
+  GenericPArray(values,partition(rows),_to_range.(uaxes))
 end
+
+# `Base.to_shape` (used by the generic `similar(a) = similar(a,T,to_shape(axes(a)))`
+# fallback) deliberately collapses a `Base.OneTo` axis down to a plain `Int`
+# (`to_shape(r::OneTo) = Int(last(r))`, standard/expected Julia behavior - `Int`
+# is the conventional "default" shape for ordinary arrays, which never need to
+# remember they were `OneTo`). `GenericPArray.unpartitioned_axes` is always
+# expected to hold proper `AbstractUnitRange`s (`_change_layout`/`hcat` call
+# `length(...)` on each entry, which is correct for a range but silently wrong
+# for a bare `Int` - `length(::Integer)` is always `1`, since Julia treats
+# scalars as length-1 iterables, not "the value stored in the axis"). Convert
+# back explicitly wherever `similar`/`hcat` accept a "loose" `uaxes` input.
+_to_range(i::Integer) = Base.OneTo(i)
+_to_range(r::AbstractUnitRange) = r
 
 function GenericPArray(::UndefInitializer,index_partition,uaxes...)
   GenericPArray{Vector{Float64}}(undef,index_partition,uaxes...)
@@ -559,11 +572,10 @@ end
 
 function Base.hcat(A::GenericPMatrix,B::GenericPMatrix)
   @boundscheck @assert PartitionedArrays.matching_own_indices(axes(A,1),axes(B,1))
-  @check size(A,2) == size(B,2)
   values = map(partition(A),partition(B)) do la,lb
     hcat(la,lb)
   end
-  GenericPArray(values,partition(axes(A,1)),(size(A,2)+size(B,2),))
+  GenericPArray(values,partition(axes(A,1)),(Base.OneTo(size(A,2)+size(B,2)),))
 end
 
 # necessary 
@@ -598,7 +610,6 @@ function _change_layout(b::GenericPArray,new_idx_partition)
   new_parts = map(own_values(b),new_idx_partition) do bo,ra
     nl = local_length(ra)
     new_lb = similar(bo,(nl,usizes...))
-    println("DEBUG _change_layout: size(bo)=",size(bo)," length(own_to_local(ra))=",length(own_to_local(ra))," own_length(ra)=",own_length(ra)," local_length(ra)=",nl); flush(stdout)
     @views begin
       new_lb[own_to_local(ra),_ncolons(Val{N-1}())...] .= bo
     end

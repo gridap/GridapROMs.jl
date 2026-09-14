@@ -45,7 +45,27 @@ function RBSteady._convert_to_block(V::DistributedMultiFieldFESpace)
     RBSteady._convert_to_block(space)
   end
   DistributedMultiFieldFESpace(V.field_fe_space,part_fe_space,V.gids,V.vector_type)
-end 
+end
+
+function Base.getindex(r::DistributedMultiFieldRBSpace,i::Integer)
+  mfe = get_fe_space(r)
+  rsp = get_reduced_subspace(r)
+  return reduced_subspace(mfe.field_fe_space[i],rsp[i])
+end
+
+function Base.iterate(r::DistributedMultiFieldRBSpace,state=1)
+  if state > num_fields(r)
+    return nothing
+  end
+  mfe = get_fe_space(r)
+  rsp = get_reduced_subspace(r)
+  ri = reduced_subspace(mfe.field_fe_space[state],rsp[state])
+  return ri,state+1
+end
+
+MultiField.MultiFieldStyle(r::DistributedMultiFieldRBSpace) = MultiFieldStyle(get_fe_space(r))
+MultiField.num_fields(r::DistributedMultiFieldRBSpace) = num_fields(get_fe_space(r))
+Base.length(r::DistributedMultiFieldRBSpace) = num_fields(r)
 
 # integration domains
 

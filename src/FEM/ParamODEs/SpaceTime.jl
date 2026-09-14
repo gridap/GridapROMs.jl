@@ -1,11 +1,6 @@
 include("TimeCombinations.jl")
 
-function spacetime_residual(
-  c::TimeCombination,
-  odeop::ODEParamOperator,
-  s::AbstractSnapshots
-  )
-
+function spacetime_residual(c::TimeCombination,odeop::ODEParamOperator,s)
   r = get_realisation(s)
   u = get_param_data(s)
   us0 = get_initial_param_data(s)
@@ -16,8 +11,8 @@ function spacetime_residual(
   c::TimeCombination,
   odeop::ODEParamOperator,
   r::TransientRealisation,
-  u::AbstractParamVector,
-  us0::Tuple{Vararg{AbstractParamVector}}
+  u::AbstractVector,
+  us0::Tuple{Vararg{AbstractVector}}
   )
 
   b,usx,paramcache = allocate_spacetime_residual(c,odeop,r,u,us0)
@@ -29,8 +24,8 @@ function allocate_spacetime_residual(
   c::TimeCombination,
   odeop::ODEParamOperator,
   r::TransientRealisation,
-  u::AbstractParamVector,
-  us0::Tuple{Vararg{AbstractParamVector}}
+  u::AbstractVector,
+  us0::Tuple{Vararg{AbstractVector}}
   )
 
   to_stencil!(r,c)
@@ -46,9 +41,9 @@ function spacetime_residual!(
   c::TimeCombination,
   odeop::ODEParamOperator,
   r::TransientRealisation,
-  u::AbstractParamVector,
-  usx::Tuple{Vararg{AbstractParamVector}},
-  us0::Tuple{Vararg{AbstractParamVector}},
+  u::AbstractVector,
+  usx::Tuple{Vararg{AbstractVector}},
+  us0::Tuple{Vararg{AbstractVector}},
   paramcache
   )
 
@@ -64,9 +59,9 @@ function spacetime_residual!(
   c::TimeCombination,
   odeop::ODEParamOperator{LinearParamODE},
   r::TransientRealisation,
-  u::AbstractParamVector,
-  usx::Tuple{Vararg{AbstractParamVector}},
-  us0::Tuple{Vararg{AbstractParamVector}},
+  u::AbstractVector,
+  usx::Tuple{Vararg{AbstractVector}},
+  us0::Tuple{Vararg{AbstractVector}},
   paramcache
   )
 
@@ -77,12 +72,7 @@ function spacetime_residual!(
   return b
 end
 
-function spacetime_jacobian(
-  c::TimeCombination,
-  odeop::ODEParamOperator,
-  s::AbstractSnapshots
-  )
-
+function spacetime_jacobian(c::TimeCombination,odeop::ODEParamOperator,s)
   r = get_realisation(s)
   u = get_param_data(s)
   us0 = get_initial_param_data(s)
@@ -93,8 +83,8 @@ function spacetime_jacobian(
   c::TimeCombination,
   odeop::ODEParamOperator,
   r::TransientRealisation,
-  u::AbstractParamVector,
-  us0::Tuple{Vararg{AbstractParamVector}}
+  u::AbstractVector,
+  us0::Tuple{Vararg{AbstractVector}}
   )
 
   A,usx,paramcache = allocate_spacetime_jacobian(c,odeop,r,u,us0)
@@ -106,8 +96,8 @@ function allocate_spacetime_jacobian(
   c::TimeCombination,
   odeop::ODEParamOperator,
   r::TransientRealisation,
-  u::AbstractParamVector,
-  us0::Tuple{Vararg{AbstractParamVector}}
+  u::AbstractVector,
+  us0::Tuple{Vararg{AbstractVector}}
   )
 
   to_stencil!(r,c)
@@ -123,9 +113,9 @@ function spacetime_jacobian!(
   c::TimeCombination,
   odeop::ODEParamOperator,
   r::TransientRealisation,
-  u::AbstractParamVector,
-  usx::Tuple{Vararg{AbstractParamVector}},
-  us0::Tuple{Vararg{AbstractParamVector}},
+  u::AbstractVector,
+  usx::Tuple{Vararg{AbstractVector}},
+  us0::Tuple{Vararg{AbstractVector}},
   paramcache
   )
 
@@ -142,9 +132,9 @@ function spacetime_jacobian!(
   c::TimeCombination,
   odeop::ODEParamOperator{LinearParamODE},
   r::TransientRealisation,
-  u::AbstractParamVector,
-  usx::Tuple{Vararg{AbstractParamVector}},
-  us0::Tuple{Vararg{AbstractParamVector}},
+  u::AbstractVector,
+  usx::Tuple{Vararg{AbstractVector}},
+  us0::Tuple{Vararg{AbstractVector}},
   paramcache
   )
 
@@ -163,9 +153,9 @@ function spacetime_residual!(
   c::TimeMarchingCombination,
   odeop::ODEParamOperator,
   r::TransientRealisation,
-  u::AbstractParamVector,
-  usx::Tuple{Vararg{AbstractParamVector}},
-  us0::Tuple{Vararg{AbstractParamVector}},
+  u::AbstractVector,
+  usx::Tuple{Vararg{AbstractVector}},
+  us0::Tuple{Vararg{AbstractVector}},
   paramcache
   )
 
@@ -181,9 +171,9 @@ function spacetime_residual!(
   c::TimeMarchingCombination,
   odeop::ODEParamOperator{LinearParamODE},
   r::TransientRealisation,
-  u::AbstractParamVector,
-  usx::Tuple{Vararg{AbstractParamVector}},
-  us0::Tuple{Vararg{AbstractParamVector}},
+  u::AbstractVector,
+  usx::Tuple{Vararg{AbstractVector}},
+  us0::Tuple{Vararg{AbstractVector}},
   paramcache
   )
 
@@ -199,9 +189,9 @@ function spacetime_jacobian!(
   c::TimeMarchingCombination,
   odeop::ODEParamOperator,
   r::TransientRealisation,
-  u::AbstractParamVector,
-  usx::Tuple{Vararg{AbstractParamVector}},
-  us0::Tuple{Vararg{AbstractParamVector}},
+  u::AbstractVector,
+  usx::Tuple{Vararg{AbstractVector}},
+  us0::Tuple{Vararg{AbstractVector}},
   paramcache
   )
 
@@ -218,9 +208,9 @@ function spacetime_jacobian!(
   c::TimeMarchingCombination,
   odeop::ODEParamOperator{LinearParamODE},
   r::TransientRealisation,
-  u::AbstractParamVector,
-  usx::Tuple{Vararg{AbstractParamVector}},
-  us0::Tuple{Vararg{AbstractParamVector}},
+  u::AbstractVector,
+  usx::Tuple{Vararg{AbstractVector}},
+  us0::Tuple{Vararg{AbstractVector}},
   paramcache
   )
 

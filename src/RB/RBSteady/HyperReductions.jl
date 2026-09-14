@@ -344,7 +344,7 @@ function get_background_trian(f::FESpace)
   Triangulation(model)
 end
 
-function reduced_residual(red::Reduction,test::RBSpace,r::Snapshots)
+function reduced_residual(red::Reduction,test::RBSpace,r::AbstractSnapshots)
   trian = get_background_trian(test)
   reduced_residual(red,test,Contribution(r,trian))
 end
@@ -386,7 +386,7 @@ function reduced_jacobian(red::Reduction,trial::RBSpace,test::RBSpace,c::ArrayCo
   return Contribution(a,trians)
 end
 
-function reduced_jacobian(red::Reduction,trial::RBSpace,test::RBSpace,j::Snapshots)
+function reduced_jacobian(red::Reduction,trial::RBSpace,test::RBSpace,j::AbstractSnapshots)
   trian = get_background_trian(test)
   reduced_jacobian(red,trial,test,Contribution(j,trian))
 end

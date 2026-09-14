@@ -55,7 +55,7 @@ function LinearAlgebra.qr!(A::GenericPMatrix,::ColumnNorm)
   return PQR(Q,R,piv)
 end
 
-function RBTransient.first_unfold(A::GenericPArray{T,3}) where T
+function RBTransient.first_unfold(A::DistributedSnapshots)
   values = map(local_values(A)) do A
     RBTransient.first_unfold(A)
   end
@@ -82,6 +82,14 @@ function _weighted_mul(A,V,S)
   end
   consistent!(U) |> fetch
   U
+end
+
+function RBSteady._truncate_col!(A::GenericPMatrix,rank)
+  rank == size(A,2) && return A
+  values = map(local_values(A)) do A
+    RBSteady._truncate_col!(A,rank)
+  end
+  GenericPArray(values,partition(axes(A,1)))
 end
 
 function _get_Q(A::GenericPMatrix,τ,m,n)

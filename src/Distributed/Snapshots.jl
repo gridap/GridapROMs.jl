@@ -64,6 +64,13 @@ function ParamDataStructures.get_param_data(s::DistributedSnapshots)
   PVector(data,row_partition(s))
 end
 
+function ParamDataStructures.get_initial_param_data(s::DistributedSnapshots)
+  data = map(local_values(s)) do s
+    get_initial_param_data(s)
+  end |> tuple_of_arrays
+  map(d->PVector(d,row_partition(s)),data)
+end
+
 function DofMaps.get_dof_map(s::DistributedSnapshots)
   map(local_values(s)) do s
     get_dof_map(s)
@@ -213,16 +220,14 @@ end
 BlockArrays.blocks(s::DistributedBlockSnapshots) = s.array
 ParamDataStructures.get_param_data(s::DistributedBlockSnapshots) = s.param_data
 
-# the generic `select_snapshots(::AbstractBlockSnapshots,pindex)` selects each
-# block correctly (`blocks(s)` here is an array of `DistributedSnapshots`,
-# whose own `select_snapshots` override already does the right per-rank
-# selection), but then calls `select_param_data(get_param_data(s),prange)` on
-# the raw `BlockPArray`, for which no method exists, and rewraps the result in
-# a serial `BlockSnapshots` rather than a `DistributedBlockSnapshots`. Instead
-# of teaching `select_param_data` about `BlockPArray`, just re-mortar the
-# already-correctly-selected per-field param data.
 function ParamDataStructures.select_snapshots(s::DistributedBlockSnapshots,pindex)
   array = map(sj -> select_snapshots(sj,pindex),blocks(s))
+  pdata = mortar(map(get_param_data,array))
+  DistributedBlockSnapshots(array,pdata)
+end
+
+function ParamDataStructures.select_times(s::DistributedBlockSnapshots,tindex)
+  array = map(sj -> select_times(sj,tindex),blocks(s))
   pdata = mortar(map(get_param_data,array))
   DistributedBlockSnapshots(array,pdata)
 end

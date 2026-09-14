@@ -494,7 +494,7 @@ end
 function pivoted_qr!(A,tol=1e-10)
   Q,R,jpvt = qr!(A,ColumnNorm())
   r = select_rank(SearchSVDRank(tol),diag(R))
-  Qr = _truncate_col!(Matrix(Q),r)
+  Qr = _truncate_col!(Q,r)
   Rr = _truncate_row!(R,r)
   invpermutecols!(Rr,jpvt)
   return Qr,Rr
@@ -650,6 +650,10 @@ function _truncate_col!(A::AbstractMatrix,rank)
   v = vec(A)
   Base.deleteat!(v,inds)
   reshape(v,nrows,:)
+end
+
+for f in (:_truncate,:_truncate_row!,:_truncate_col!)
+  @eval $f(A,rank) = $f(Array(A),rank)
 end
 
 permutecols!(a::AbstractMatrix,p::AbstractVector{<:Integer}) = _permute!(a,p,Base.swapcols!)

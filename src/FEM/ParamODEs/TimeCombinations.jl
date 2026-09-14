@@ -39,7 +39,7 @@ corresponding [`CombinationOrder`](@ref)).
 get_coefficients(c::TimeCombination,args...) = @abstractmethod
 
 """
-    time_combination(c::TimeCombination, u, us0) -> NTuple{N,AbstractParamVector}
+    time_combination(c::TimeCombination, u, us0) -> NTuple{N,AbstractVector}
 
 Apply the time combination `c` to the parametric solution vector `u` and the
 `N` initial-condition vectors `us0`.  Returns an `N`-tuple of combined
@@ -48,8 +48,8 @@ vectors, one per derivative order of the ODE (e.g. ``u_{\\theta}`` and
 """
 function time_combination(
   c::TimeCombination,
-  u::AbstractParamVector,
-  us0::NTuple{N,AbstractParamVector}
+  u::AbstractVector,
+  us0::NTuple{N,AbstractVector}
   ) where N
 
   usx = allocate_time_combination(u,us0)
@@ -58,10 +58,10 @@ function time_combination(
 end
 
 function time_combination!(
-  usx::NTuple{N,AbstractParamVector},
+  usx::NTuple{N,AbstractVector},
   c::TimeCombination,
-  u::AbstractParamVector,
-  us0::NTuple{N,AbstractParamVector}
+  u::AbstractVector,
+  us0::NTuple{N,AbstractVector}
   ) where N
 
   for i in eachindex(us0)
@@ -74,8 +74,8 @@ end
 # used in linear cases, and usually only accounts for initial conditions 
 function zero_time_combination(
   c::TimeCombination,
-  u::AbstractParamVector,
-  us0::NTuple{N,AbstractParamVector}
+  u::AbstractVector,
+  us0::NTuple{N,AbstractVector}
   ) where N
 
   usx = allocate_time_combination(u,us0)
@@ -84,9 +84,9 @@ function zero_time_combination(
 end
 
 function zero_time_combination!(
-  usx::NTuple{N,AbstractParamVector},
+  usx::NTuple{N,AbstractVector},
   c::TimeCombination,
-  us0::NTuple{N,AbstractParamVector}
+  us0::NTuple{N,AbstractVector}
   ) where N
 
   all(iszero,us0) && return usx
@@ -98,8 +98,8 @@ function zero_time_combination!(
 end
 
 function allocate_time_combination(
-  u::AbstractParamVector, 
-  us0::NTuple{N,AbstractParamVector}
+  u::AbstractVector, 
+  us0::NTuple{N,AbstractVector}
   ) where N
 
   z = zero(eltype2(u))
@@ -199,10 +199,10 @@ function TimeMarchingCombination(odesolver::ODESolver)
 end
 
 function lin_time_combination!(
-  usx::NTuple{N,AbstractParamVector},
+  usx::NTuple{N,AbstractVector},
   c::TimeMarchingCombination,
-  u::AbstractParamVector,
-  us0::NTuple{N,AbstractParamVector}
+  u::AbstractVector,
+  us0::NTuple{N,AbstractVector}
   ) where N
 
   for i in eachindex(us0)

@@ -16,7 +16,7 @@ using PartitionedArrays
 using Test
 
 tol=1e-4
-nparams=2
+nparams=12
 nparams_res=floor(Int,nparams/3)
 nparams_jac=floor(Int,nparams/4)
 ncentroids=2
@@ -110,11 +110,15 @@ function main(distribute,parts)
   degree = 2*order
   dΩ = Measure(Ω,degree)
 
-  stiffness(μ,(u,p),(v,q)) = ∫(aμ(μ)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
-  res(μ,(u,p),(v,q)) = stiffness(μ,(u,p),(v,q))
+  stiffness(μ,(u,p),(v,q),dΩ) = ∫(aμ(μ)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
+  res(μ,(u,p),(v,q),dΩ) = stiffness(μ,(u,p),(v,q),dΩ)
+
+  trian_res = (Ω,)
+  trian_stiffness = (Ω,)
+  domains = FEDomains(trian_res,trian_stiffness)
 
   X,Y,Q = build_spaces(Ω)
-  feop = LinearParamOperator(res,stiffness,pspace,X,Y)
+  feop = LinearParamOperator(res,stiffness,pspace,X,Y,domains)
 
   rbsolver = build_rbsolver(Q,dΩ,ranks)
 

@@ -214,45 +214,9 @@ end
 
 DofMaps.get_dof_eltype(a::GridapDistributed.DistributedCellDof) = get_dof_eltype(getany(local_views(a)))
 
-function DofMaps.get_dof_map(f::DistributedFESpace)
+function DofMaps.get_dof_map(f::DistributedSingleFieldFESpace)
   map(local_views(f)) do f
     get_dof_map(f)
-  end
-end
-
-function DofMaps.get_sparse_dof_map(trial::DistributedFESpace,test::DistributedFESpace)
-  map(local_views(trial),local_views(test)) do trial,test
-    get_sparse_dof_map(trial,test)
-  end
-end
-
-function DofMaps._get_dof_map(f::DistributedFESpace,b::AbstractParamPVector)
-  DofMaps._get_dof_map(f,testitem(b))
-end
-
-function DofMaps._get_dof_map(f::DistributedFESpace,b::PVector)
-  map(local_views(f),local_views(b)) do f,b
-    VectorDofMap(length(b))
-  end
-end
-
-function DofMaps._get_sparse_dof_map(
-  trial::DistributedFESpace,
-  test::DistributedFESpace,
-  A::AbstractParamPSparseMatrix
-  )
-
-  DofMaps._get_sparse_dof_map(trial,test,testitem(A))
-end
-
-function DofMaps._get_sparse_dof_map(
-  trial::DistributedFESpace,
-  test::DistributedFESpace,
-  A::PSparseMatrix
-  )
-
-  map(local_views(trial),local_views(test),local_views(A)) do trial,test,Ao
-    get_sparse_dof_map(SparsityPattern(Ao),trial,test)
   end
 end
 
@@ -260,13 +224,10 @@ function DofMaps.get_dof_map(f::DistributedMultiFieldFESpace)
   map(get_dof_map,f.field_fe_space)
 end
 
-function DofMaps.get_dof_map(f::DistributedMultiFieldFESpace,b::BlockPArray)
-  nfields = num_fields(f)
-  array = map(1:nfields) do i
-    bi = blocks(b)[i]
-    get_dof_map(f.field_fe_space[i],bi)
+function DofMaps.get_sparse_dof_map(trial::DistributedSingleFieldFESpace,test::DistributedSingleFieldFESpace)
+  map(local_views(trial),local_views(test)) do trial,test
+    get_sparse_dof_map(trial,test)
   end
-  array
 end
 
 function DofMaps.get_sparse_dof_map(
@@ -282,20 +243,64 @@ function DofMaps.get_sparse_dof_map(
   array
 end
 
-function DofMaps.get_sparse_dof_map(
+function DofMaps._get_dof_map(f::DistributedFESpace,b::AbstractParamPVector)
+  DofMaps._get_dof_map(f,testitem(b))
+end
+
+function DofMaps._get_dof_map(f::DistributedSingleFieldFESpace,b::PVector)
+  map(local_views(f),local_views(b)) do f,b
+    VectorDofMap(length(b))
+  end
+end
+
+function DofMaps._get_dof_map(f::DistributedMultiFieldFESpace,b::Union{PVector,BlockPArray})
+  map(1:num_fields(f)) do i
+    bi = restrict_to_field(f,b,i)
+    DofMaps._get_dof_map(f[i],bi)
+  end
+end
+
+function DofMaps._get_sparse_dof_map(
+  trial::DistributedFESpace,
+  test::DistributedFESpace,
+  A::AbstractParamPSparseMatrix
+  )
+
+  DofMaps._get_sparse_dof_map(trial,test,testitem(A))
+end
+
+function DofMaps._get_sparse_dof_map(
+  trial::DistributedSingleFieldFESpace,
+  test::DistributedSingleFieldFESpace,
+  A::PSparseMatrix
+  )
+
+  map(local_views(trial),local_views(test),local_views(A)) do trial,test,Ao
+    get_sparse_dof_map(SparsityPattern(Ao),trial,test)
+  end
+end
+
+function DofMaps._get_sparse_dof_map(
   trial::DistributedMultiFieldFESpace,
   test::DistributedMultiFieldFESpace,
-  A::AbstractMatrix
+  A::Union{PSparseMatrix,BlockPArray}
   )
 
   ntest = num_fields(test)
   ntrial = num_fields(trial)
-  array = map(Iterators.product(1:ntest,1:ntrial)) do (i,j)
-    Aij = DofMaps.restr_to_fields(A,i,j)
-    get_sparse_dof_map(trial[j],test[i],Aij)
+  map(Iterators.product(1:ntest,1:ntrial)) do (i,j)
+    Aij = DofMaps.restr_to_fields(A,i,j,trial,test)
+    DofMaps._get_sparse_dof_map(trial[j],test[i],Aij)
   end
-  array
 end
+
+function DofMaps.restr_to_fields(A::PSparseMatrix,i,j,U,V)
+  map(local_values(A),local_views(U),local_views(V)) do A,U,V
+    DofMaps.restr_to_fields(A,i,j,U,V)
+  end
+end
+
+DofMaps.restr_to_fields(A::GridapDistributed.BlockPArray,i,j,args...) = A[Block(i,j)]
 
 function ParamODEs.collect_param_solutions(sol::ODEParamSolution{<:PVector{T}}) where T
   u0 = first(sol.us0)

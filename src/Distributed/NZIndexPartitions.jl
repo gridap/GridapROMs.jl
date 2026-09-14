@@ -19,9 +19,7 @@ PartitionedArrays.own_length(a::NZIndexPartition) = own_length(a.nz)
 PartitionedArrays.assembly_cache(a::NZIndexPartition) = PartitionedArrays.assembly_cache(a.nz)
 
 function flat_row_partition(a::PSparseMatrix)
-  nnz_local = map(local_values(a)) do lval
-    nnz(lval)
-  end
+  nnz_local = map(nnz,local_values(a))
   n_nz_global = reduce(+,nnz_local,init=0)
   nz_part = variable_partition(nnz_local,n_nz_global)
   map(nz_part,row_partition(a),col_partition(a)) do nzidx,lrow,lcol
