@@ -165,7 +165,7 @@ function GridapDistributed.local_views(a::DistributedNormedProjection)
 end
 
 function RBSteady.gram_solver(X::PSparseMatrix)
-  solver = PETScLinearSolver(_cholesky_ksp_setup)
+  solver = CGSolver(JacobiLinearSolver();maxiter=100,atol=1e-14,rtol=1e-10)
   ss = symbolic_setup(solver,X)
   numerical_setup(ss,X)
 end
@@ -177,6 +177,18 @@ function LinearAlgebra.ldiv!(S::GenericPMatrix,ns,A::GenericPMatrix)
     solve!(Si,ns,Ai)
     # consistent!(Si) |> wait
   end
+end
+
+# `enrich!` (RBSteady/Projections.jl) passes whatever `gram_solver` returns
+# straight into `union_bases`->`gram_schmidt`. The serial path returns a
+# `Factorization` (`gram_schmidt(A,C::Factorization,...)` uses `C.L`/`C.p`
+# directly); the distributed `gram_solver` above returns a `CGNumericalSetup`
+# instead (no distributed sparse Cholesky factor exists) - which already
+# stores the matrix it was built from in `.mat`, so route through the
+# existing `gram_schmidt(A,X::PSparseMatrix,...)` dispatch (BasesConstruction.jl)
+# rather than teaching it about `.L`/`.p`-style pivoted factorizations.
+function RBSteady.gram_schmidt(A::AbstractMatrix,ns::LinearSolvers.CGNumericalSetup,args...)
+  gram_schmidt(A,ns.mat,args...)
 end
 
 # utils 
@@ -222,12 +234,4 @@ function _galerkin_mul!(
   end
   copyto!(d,sreduce(ld))
   d
-end
-
-function _cholesky_ksp_setup(ksp)
-  pc = Ref{PETSC.PC}()
-  @check_error_code PETSC.KSPSetType(ksp[],PETSC.KSPPREONLY)
-  @check_error_code PETSC.KSPGetPC(ksp[],pc)
-  @check_error_code PETSC.PCSetType(pc[],PETSC.PCCHOLESKY)
-  @check_error_code PETSC.PCFactorSetMatSolverType(pc[],PETSC.MATSOLVERMUMPS)
 end

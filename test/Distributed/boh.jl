@@ -80,17 +80,20 @@ function build_rbsolver(Q,dΩ,ranks)
   RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy)
 end
 
-# NOTE: FE spaces are built from `model` (not `Triangulation(model)`), and the
-# `MultiFieldFESpace`s use `BlockMultiFieldStyle()` -- both required to avoid
-# a severe Julia type-inference blowup that otherwise hits `TestFESpace` on a
-# distributed triangulation (confirmed empirically: dropping either one
-# reintroduces a compile-time hang that can run indefinitely).
-function build_spaces(model)
+# NOTE: `MultiFieldFESpace`s use `BlockMultiFieldStyle()` - required to avoid
+# a severe Julia type-inference blowup that used to hit `TestFESpace` on a
+# distributed triangulation. That blowup's actual root cause (GridapEmbedded
+# being an unconditional dependency of GridapROMs, incompatible at compile
+# time with GridapDistributed) is now fixed - see Project.toml/ext/ - so V/Q
+# are built off the SAME `Ω` as the weak form again (needed anyway: `_meas`
+# requires trial/test triangulations to be `===`-identical, which separately
+# building each space off `model` does not guarantee).
+function build_spaces(Ω)
   reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
   reffe_p = ReferenceFE(lagrangian,Float64,order-1)
 
-  V = TestFESpace(model,reffe_u;conformity=:H1,dirichlet_tags=[1,2,3,4,5,6,7])
-  Q = TestFESpace(model,reffe_p;conformity=:H1)
+  V = TestFESpace(Ω,reffe_u;conformity=:H1,dirichlet_tags=[1,2,3,4,5,6,7])
+  Q = TestFESpace(Ω,reffe_p;conformity=:H1)
   U = ParamTrialFESpace(V,gμ)
   P = ParamTrialFESpace(Q)
 
@@ -103,9 +106,6 @@ function main(distribute,parts)
   ranks = distribute(LinearIndices((prod(parts),)))
   model = CartesianDiscreteModel(ranks,parts,domain,partition)
 
-  # `dΩ` is captured as a closure (not passed as an explicit weak-form
-  # argument via `FEDomains`) since there is only one triangulation -- this
-  # also avoids the compile-time blowup mentioned above.
   Ω = Triangulation(model)
   degree = 2*order
   dΩ = Measure(Ω,degree)
@@ -113,7 +113,7 @@ function main(distribute,parts)
   stiffness(μ,(u,p),(v,q)) = ∫(aμ(μ)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
   res(μ,(u,p),(v,q)) = stiffness(μ,(u,p),(v,q))
 
-  X,Y,Q = build_spaces(model)
+  X,Y,Q = build_spaces(Ω)
   feop = LinearParamOperator(res,stiffness,pspace,X,Y)
 
   rbsolver = build_rbsolver(Q,dΩ,ranks)

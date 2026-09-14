@@ -298,11 +298,9 @@ function DofMaps.get_sparse_dof_map(
 end
 
 function ParamODEs.collect_param_solutions(sol::ODEParamSolution{<:PVector{T}}) where T
+  u0 = first(sol.us0)
   ncols = num_params(sol.r)*num_times(sol.r)
-  partition = map(local_views(sol.u0)) do u0item
-    ParamODEs._allocate_solutions(u0item,ncols)
-  end
-  sols = PVector(partition,sol.u0.index_partition)
+  sols = ParamODEs._allocate_solutions(u0,ncols)
   for (k,(rk,uk)) in enumerate(sol)
     ParamODEs._collect_solutions!(sols,uk,k)
   end
@@ -310,29 +308,31 @@ function ParamODEs.collect_param_solutions(sol::ODEParamSolution{<:PVector{T}}) 
 end
 
 function ParamODEs.collect_param_solutions(sol::ODEParamSolution{<:BlockPArray})
+  u0 = first(sol.us0)
   ncols = num_params(sol.r)*num_times(sol.r)
-  sols = map(blocks(sol.u0)) do b
-    partition = map(local_views(b)) do bi
-      ParamODEs._allocate_solutions(bi,ncols)
-    end
-    PVector(partition,b.index_partition)
-  end |> mortar
+  sols = ParamODEs._allocate_solutions(u0,ncols)
   for (k,(rk,uk)) in enumerate(sol)
-    for i in 1:blocklength(sol.u0)
+    for i in 1:blocklength(u0)
       ParamODEs._collect_solutions!(blocks(sols)[i],blocks(uk)[i],k)
     end
   end
   return sols
 end
 
-function ParamODEs._collect_solutions!(
-  sols::PVector{<:ConsecutiveParamArray},
-  ui::PVector{<:ConsecutiveParamArray},
-  it::Int
-  )
+function ParamODEs._allocate_solutions(u0::PVector,ncols)
+  partition = map(local_views(u0)) do u0i
+    ParamODEs._allocate_solutions(u0i,ncols)
+  end
+  PVector(partition,u0.index_partition)
+end
 
+function ParamODEs._allocate_solutions(u0::BlockPArray,ncols)
+  mortar(map(b -> ParamODEs._allocate_solutions(b,ncols),blocks(u0)))
+end
+
+function ParamODEs._collect_solutions!(sols::PVector,ui::PVector,it::Int)
   map(local_views(sols),local_views(ui)) do sols,ui
-    ParamODEs._collect_solutions!(sols.data,ui,it)
+    ParamODEs._collect_solutions!(sols,ui,it)
   end
 end
 

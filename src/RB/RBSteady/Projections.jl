@@ -753,8 +753,8 @@ a saddle point problem
 function enrich!(
   ::SupremizerReduction,
   a::BlockProjection,
-  norm_matrix::BlockMatrix,
-  supr_matrix::BlockMatrix
+  norm_matrix,
+  supr_matrix
   )
 
   a_primal,a_dual... = a.array
@@ -773,8 +773,8 @@ end
 function enrich!(
   ::SupremizerReduction{A,B,<:TTSVDReduction},
   a::BlockProjection,
-  norm_matrix::BlockRankTensor,
-  supr_matrix::BlockRankTensor
+  norm_matrix,
+  supr_matrix
   ) where {A,B}
 
   a_primal,a_dual... = a.array

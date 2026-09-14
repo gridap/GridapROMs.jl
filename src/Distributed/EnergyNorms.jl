@@ -55,16 +55,6 @@ function _assemble_operator(op::CouplingStyle,X::DistributedMultiFieldFESpace,Y:
   _assemble_operator(bop,X,Y)
 end
 
-# `_energy_mortar`/`_coupling_mortar` (the serial-only "assemble every field's
-# operator separately, then hand-mortar a block matrix padded with `spzeros`
-# off-diagonal blocks") have no distributed analogue: a "zero" `PSparseMatrix`
-# block needs a matching row/col `PRange`, and GridapDistributed has no ready
-# constructor for that. Instead, build ONE combined multi-field bilinear form
-# (block-diagonal for norms, block-arrow for couplings - see `get_form`) and
-# assemble it in a single `assemble_matrix` call: GridapDistributed's own
-# multi-field assembler then derives exactly the same block sparsity as the
-# serial `_energy_mortar`/`_coupling_mortar` construction, with every
-# untouched block implicitly (and correctly) empty.
 function _assemble_operator(op::BlockOperator{<:Tuple{Vararg{NormStyle}}},X::DistributedMultiFieldFESpace,Y::DistributedMultiFieldFESpace)
   @check length(op) == length(X) == length(Y) "Wrong length of norms or MultiFieldFESpaces"
   forms = map(get_form,op.op,X.field_fe_space,Y.field_fe_space)

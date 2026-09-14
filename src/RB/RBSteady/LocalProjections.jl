@@ -104,8 +104,8 @@ end
 function enrich!(
   red::SupremizerReduction{A,B,<:LocalReduction},
   a::BlockProjection,
-  norm_matrix::BlockMatrix,
-  supr_matrix::BlockMatrix
+  norm_matrix,
+  supr_matrix
   ) where {A,B}
 
   a_primal,a_dual... = a.array
@@ -128,11 +128,11 @@ function enrich!(
 end
 
 function enrich!(
-  red::SupremizerReduction{A,B,<:LocalReduction},
+  red::SupremizerReduction{A,D,<:LocalReduction{B,C,<:TTSVDReduction}},
   a::BlockProjection,
-  norm_matrix::BlockRankTensor,
-  supr_matrix::BlockRankTensor
-  ) where {A,B}
+  norm_matrix,
+  supr_matrix
+  ) where {A,B,C,D}
 
   a_primal,a_dual... = a.array
   X_primal = norm_matrix[Block(1,1)]

@@ -91,7 +91,7 @@ function _get_Q(A::GenericPMatrix,τ,m,n)
   end
   Q = GenericPArray(Q_parts,A.index_partition)
   for j in 1:n
-    _set_value_single!(Q,j,j,one(T))
+    _set_value!(Q,one(T),j,j)
   end
   for j in n:-1:1
     _reflector_apply_cross!(Q,A,τ[j],j:m,j:n)

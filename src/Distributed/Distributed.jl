@@ -39,6 +39,7 @@ module Distributed
 
 using DrWatson
 using LinearAlgebra
+using LinearAlgebra: BlasInt
 using SparseArrays
 using Serialization
 using PartitionedArrays

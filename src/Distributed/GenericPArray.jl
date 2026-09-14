@@ -42,7 +42,6 @@ struct GenericPArray{V,A,B,C,D,T,N} <: AbstractArray{T,N}
     cache=PartitionedArrays.p_vector_cache(array_partition,index_partition)
     ) where {T,N}
 
-    @notimplementedif N > 2 "For now only generic partitioned vectors/matrices are supported."
     V = eltype(array_partition)
     A = typeof(array_partition)
     B = typeof(index_partition)
@@ -595,10 +594,11 @@ col_partition(a::GenericPArray) = col_partition(a.index_partition)
 
 function _change_layout(b::GenericPArray,new_idx_partition)
   N = ndims(b)
-  usizes = map(length,b.unpartitioned_axes) 
+  usizes = map(length,b.unpartitioned_axes)
   new_parts = map(own_values(b),new_idx_partition) do bo,ra
     nl = local_length(ra)
     new_lb = similar(bo,(nl,usizes...))
+    println("DEBUG _change_layout: size(bo)=",size(bo)," length(own_to_local(ra))=",length(own_to_local(ra))," own_length(ra)=",own_length(ra)," local_length(ra)=",nl); flush(stdout)
     @views begin
       new_lb[own_to_local(ra),_ncolons(Val{N-1}())...] .= bo
     end

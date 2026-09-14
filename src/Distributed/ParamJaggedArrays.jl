@@ -8,11 +8,11 @@ function PartitionedArrays.assembly_buffers(
   ptrs = local_indices_snd.ptrs
   data = zeros(T,ptrs[end]-1,param_length(values))
   pdata = ConsecutiveParamArray(data)
-  buffer_snd = JaggedArray(data,ptrs)
+  buffer_snd = JaggedArray(pdata,ptrs)
   ptrs = local_indices_rcv.ptrs
   data = zeros(T,ptrs[end]-1,param_length(values))
   pdata = ConsecutiveParamArray(data)
-  buffer_rcv = JaggedArray(data,ptrs)
+  buffer_rcv = JaggedArray(pdata,ptrs)
   buffer_snd,buffer_rcv
 end
 

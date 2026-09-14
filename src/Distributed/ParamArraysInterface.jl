@@ -234,6 +234,49 @@ function ParamDataStructures.parameterise(
   ParamJaggedArrayAssemblyCache(parameterise(a.cache,plength))
 end
 
+function PartitionedArrays.p_vector_cache_impl(::Type{<:ParamJaggedArray},vector_partition,index_partition)
+  function data_index_snd(lids_snd,values)
+    tptrs = values.ptrs
+    ptrs = similar(lids_snd.ptrs)
+    fill!(ptrs,zero(eltype(ptrs)))
+    np = length(ptrs)-1
+    for p in 1:np
+      iini = lids_snd.ptrs[p]
+      iend = lids_snd.ptrs[p+1]-1
+      for i in iini:iend
+        d = lids_snd.data[i]
+        ptrs[p+1] += tptrs[d+1]-tptrs[d]
+      end
+    end
+    length_to_ptrs!(ptrs)
+    ndata = ptrs[end]-1
+    data = similar(lids_snd.data,eltype(lids_snd.data),ndata)
+    for p in 1:np
+      iini = lids_snd.ptrs[p]
+      iend = lids_snd.ptrs[p+1]-1
+      for i in iini:iend
+        d = lids_snd.data[i]
+        jini = tptrs[d]
+        jend = tptrs[d+1]-1
+        for j in jini:jend
+          data[ptrs[p]] = j
+          ptrs[p] += 1
+        end
+      end
+    end
+    rewind_ptrs!(ptrs)
+    JaggedArray(data,ptrs)
+  end
+  neighbors = PartitionedArrays.assembly_neighbors(index_partition)
+  local_indices_snd, local_indices_rcv = assembly_local_indices(index_partition,neighbors...)
+  p_snd = map(data_index_snd,local_indices_snd,vector_partition)
+  p_rcv = map(data_index_snd,local_indices_rcv,vector_partition)
+  data = map(PartitionedArrays.getdata,vector_partition)
+  buffers = map(PartitionedArrays.assembly_buffers,data,p_snd,p_rcv) |> tuple_of_arrays
+  cache = map(PartitionedArrays.VectorAssemblyCache,neighbors...,p_snd,p_rcv,buffers...)
+  map(PartitionedArrays.JaggedArrayAssemblyCache,cache)
+end
+
 # remove the whole function when fixing the issue inside
 function PartitionedArrays.p_sparse_matrix_cache_impl(
   ::Type{<:ParamSparseMatrix},matrix_partition,row_partition,col_partition

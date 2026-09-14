@@ -425,8 +425,8 @@ end
 function RBSteady.enrich!(
   red::SupremizerReduction{A,B,<:HighDimReduction},
   a::BlockProjection,
-  norm_matrix::BlockRankTensor,
-  supr_matrix::BlockRankTensor;
+  norm_matrix,
+  supr_matrix;
   kwargs...
   ) where {A,B}
 
@@ -437,8 +437,8 @@ end
 function RBSteady.enrich!(
   red::SupremizerReduction{A,B,<:KroneckerReduction},
   a::BlockProjection,
-  norm_matrix::BlockMatrix,
-  supr_matrix::BlockMatrix
+  norm_matrix,
+  supr_matrix
   ) where {A,B}
 
   tol = RBSteady.get_supr_tol(red)

@@ -70,7 +70,7 @@ end
 function tucker(
   red::AbstractVector{<:Reduction},
   A::AbstractArray,
-  X::AbstractSparseMatrix...
+  X::AbstractMatrix...
   )
 
   tucker(red,A,X)
@@ -79,7 +79,7 @@ end
 function tucker(
   red::AbstractVector{<:Reduction},
   A::AbstractArray{T,N},
-  X::NTuple{M}
+  X::NTuple{M,AbstractMatrix}
   ) where {T,N,M}
 
   @assert length(red) == N-1
@@ -96,7 +96,7 @@ end
 function tucker(
   red::AbstractVector{<:Reduction},
   A::TransientSnapshots{T,N},
-  X::NTuple{M}
+  X::NTuple{M,AbstractMatrix}
   ) where {T,N,M}
 
   @assert length(red) == N-1
