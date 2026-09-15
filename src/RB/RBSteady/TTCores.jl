@@ -206,7 +206,7 @@ end
 
 function _block_cores_add_component(a::AbstractVector{<:AbstractArray{T,3}}...) where T
   D = length(first(a))
-  ablocks = block_cores(a)
+  ablocks = block_cores(a...)
   ND = size(last(ablocks),3)
   N = Int(ND/D)
   In = T.(I(N))

@@ -175,7 +175,7 @@ function galerkin_projection(a::Projection,b::Projection)
 end
 
 function galerkin_projection(a::Projection,b::Projection,c::Projection,args...)
-  b̂ = galerkin_projection(get_basis(a),get_basis(b),get_basis(c),args...)
+  b̂ = galerkin_projection(get_basis(a),recast_basis(b),get_basis(c),args...)
   return ReducedProjection(b̂)
 end
 
@@ -830,6 +830,8 @@ struct GalerkinProjectable{A<:AbstractParamArray} <: Projection
 end
 
 get_basis(a::GalerkinProjectable) = a.array
+
+recast_basis(a::GalerkinProjectable) = get_basis(a)
 
 function GalerkinProjectable(s::AbstractSnapshots)
   GalerkinProjectable(get_param_data(s))

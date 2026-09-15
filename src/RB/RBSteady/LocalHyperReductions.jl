@@ -37,7 +37,7 @@ function get_owned_icells(a::LocalInterpolation,cells::AbstractVector)
   return Table(data)
 end
 
-struct LocalHRProjection <: HRProjection{HyperReduction,Projection,LocalInterpolation}
+struct LocalHRProjection <: HRProjection{HyperReduction,Projection}
   reductions::AbstractMatrix
   k::NTuple{2,KmeansResult}
 end

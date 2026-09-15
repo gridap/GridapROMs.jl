@@ -20,7 +20,7 @@ function contraction(
 
   s1,s2,s3 = size(basis)
   @check s3 == length(coefficient)
-  A = reshape(basis,:,s3)
+  A = reshape(basis,s1*s2,s3)
   v = A*coefficient
   M = reshape(v,s1,s2)
   return M
@@ -37,7 +37,7 @@ function contraction!(
   @check (size(cache,1) == s1 && size(cache,2) == s2)
   @check s3 == length(coefficient)
   v = vec(cache)
-  A = reshape(basis,:,s3)
+  A = reshape(basis,s1*s2,s3)
   mul!(v,A,coefficient,α,β)
   return
 end

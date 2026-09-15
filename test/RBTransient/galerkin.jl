@@ -108,7 +108,7 @@ end
 	end
 end
 
-@testset "multifield: VectorBlock projections" begin
+@testset "multifield: vector projections" begin
 	n1,n2,np = 7,6,4
 	rl1,rl2 = 3,2
 
@@ -128,7 +128,7 @@ end
 	end
 end
 
-@testset "multifield: MatrixBlock projections with ParamSparseMatrix" begin
+@testset "multifield: matrix projections" begin
 	n1,n2,np = 7,6,3
 	rl1,rl2 = 3,2
 	rr1,rr2 = 2,4
@@ -136,11 +136,8 @@ end
 	Φl = BlockProjection(PODProjection.([_rand_basis(n1,rl1),_rand_basis(n2,rl2)]))
 	Φr = BlockProjection(PODProjection.([_rand_basis(n1,rr1),_rand_basis(n2,rr2)]))
 
-	A = Array{Any}(undef,2,2)
-	A[1,1] = _rand_param_sparse(n1,n1,np)
-	A[1,2] = _rand_param_sparse(n1,n2,np)
-	A[2,1] = _rand_param_sparse(n2,n1,np)
-	A[2,2] = _rand_param_sparse(n2,n2,np)
+	sizes = [(n1,n1) (n1,n2); (n2,n1) (n2,n2)]
+	A = map(sz -> _rand_param_sparse(sz...,np),sizes)
 
 	proj = galerkin_projection(Φl,A,Φr)
 
@@ -149,11 +146,8 @@ end
 	@test get_basis(proj[2,1]) ≈ get_basis(galerkin_projection(Φl[2],A[2,1],Φr[1]))
 	@test get_basis(proj[2,2]) ≈ get_basis(galerkin_projection(Φl[2],A[2,2],Φr[2]))
 
-	cache = Array{Any}(undef,2,2)
-	cache[1,1] = consecutive_param(zeros(rl1,rr1,np))
-	cache[1,2] = consecutive_param(zeros(rl1,rr2,np))
-	cache[2,1] = consecutive_param(zeros(rl2,rr1,np))
-	cache[2,2] = consecutive_param(zeros(rl2,rr2,np))
+	cache_sizes = [(rl1,rr1) (rl1,rr2); (rl2,rr1) (rl2,rr2)]
+	cache = map(sz -> consecutive_param(zeros(sz...,np)),cache_sizes)
 
 	@test begin
 		galerkin_projection!(cache,Φl,A,Φr)

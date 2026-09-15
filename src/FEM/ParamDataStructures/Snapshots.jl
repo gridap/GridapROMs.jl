@@ -236,18 +236,7 @@ end
       param_data::B
     end
 
-Block container for Snapshots in a `MultiField` setting. This type is
-conceived similarly to `ArrayBlock` in Gridap. Every block is always
-populated; structurally-empty blocks (e.g. a pressure-pressure Jacobian block)
-simply hold Snapshots whose underlying data is empty. Unlike the FE-space
-blocks, whose Snapshots always share the same eltype `T` and realisation `R`,
-distinct blocks may have distinct dof map dimensionality `N` (e.g. velocity
-vs. pressure in a Stokes problem with a nontrivial, TT-based dof map). The
-type parameter `S` therefore is a free upper bound (`S<:Snapshots`, not a
-fixed concrete type): Julia's type-parameter inference (`typejoin`) keeps the
-parameters shared across all blocks concrete, and only generalizes the ones
-that genuinely differ (e.g. the dof map dimensionality) to a `where`-bound
-free variable.
+Block container for Snapshots in a `MultiField` setting.
 """
 struct BlockSnapshots{S<:Snapshots,N,B} <: AbstractBlockSnapshots{S,N}
   array::Array{S,N}
@@ -285,7 +274,13 @@ function Snapshots(
 end
 
 BlockArrays.blocks(s::BlockSnapshots) = s.array
-get_param_data(s::BlockSnapshots) = s.param_data
+# note: written with explicit {S,N,B} (rather than bare `s::BlockSnapshots`) so that
+# Julia's ambiguity checker can correctly rank this against the more specific
+# get_param_data(s::AbstractTransientBlockSnapshots) override (a bare alias on one
+# side and an explicit {<:Any,N,<:StoredParamData} form on the other otherwise
+# confuses the specificity check, exactly as with the TTSVDProjection galerkin_projection
+# ambiguity elsewhere in this codebase)
+get_param_data(s::BlockSnapshots{S,N,B}) where {S,N,B} = s.param_data
 
 # utils
 

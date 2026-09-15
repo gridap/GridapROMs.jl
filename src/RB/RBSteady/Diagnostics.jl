@@ -597,8 +597,8 @@ function hr_error_jac(
     )
 
     err = (err...,hr_error_jac(trial,test,jac_t,a_t,fecache_t,hypred_t))
-  end 
-  
+  end
+
   return err
 end
 
@@ -612,7 +612,7 @@ end
 function hr_error_jac(trial,test,jac,a,fecache,hypred)
   check_interpolation(jac,a,fecache)
   Â = galerkin_projection(test,jac,trial)
-  Â = permutedims(get_basis(Â),(1,3,2))
+  Â = get_basis(Â)
   hrÂ = get_all_data(hypred)
   compute_relative_error(Â,hrÂ)
 end
@@ -804,7 +804,7 @@ function set_params(rbsolver;kwargs...)
 end
 
 _get(x,i...) = x[i...]
-_get(x::BlockParamArray,i) = x.data[i...]
+_get(x::BlockParamArray,i...) = x.data[i...]
 
 function _to_dict(a::AbstractVector{<:NamedTuple})
   d = Dict{String,Any}()

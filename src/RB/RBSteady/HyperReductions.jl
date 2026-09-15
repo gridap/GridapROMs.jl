@@ -1,5 +1,5 @@
 """
-    abstract type HRProjection{A<:HyperReduction,B<:Projection,C<:Interpolation} <: Projection end
+    abstract type HRProjection{A<:HyperReduction,B<:Projection} <: Projection end
 
 Subtype of a [`Projection`](@ref) dedicated to the output of a hyper-reduction
 procedure applied on residual/jacobians of a differential problem. This procedure
@@ -28,10 +28,10 @@ Subtypes:
 - [`GenericHRProjection`](@ref)
 - [`BlockHRProjection`](@ref)
 """
-abstract type HRProjection{A<:HyperReduction,B<:Projection,C<:Interpolation} <: Projection end
+abstract type HRProjection{A<:HyperReduction,B<:Projection} <: Projection end
 
-const HRVecProjection{A<:HyperReduction,C<:Interpolation} = HRProjection{A,<:ReducedVecProjection,C}
-const HRMatProjection{A<:HyperReduction,C<:Interpolation} = HRProjection{A,<:ReducedMatProjection,C}
+const HRVecProjection{A<:HyperReduction} = HRProjection{A,<:ReducedVecProjection}
+const HRMatProjection{A<:HyperReduction} = HRProjection{A,<:ReducedMatProjection}
 
 HRProjection(::Reduction,args...) = @abstractmethod
 
@@ -115,7 +115,7 @@ const SOPTProjection{A<:Projection} = HRProjection{<:SOPTHyperReduction,A}
 const RBFProjection{A<:Projection} = HRProjection{<:RBFHyperReduction,A}
 
 """
-    struct GenericHRProjection{A<:HyperReduction,B<:Projection,C<:Interpolation} <: HRProjection{A,B,C}
+    struct GenericHRProjection{A<:HyperReduction,B<:Projection,C<:Interpolation} <: HRProjection{A,B}
       style::A
       basis::B
       interpolation::C
@@ -123,7 +123,7 @@ const RBFProjection{A<:Projection} = HRProjection{<:RBFHyperReduction,A}
 
 Generic implementation of an [`HRProjection`](@ref) object
 """
-struct GenericHRProjection{A<:HyperReduction,B<:Projection,C<:Interpolation} <: HRProjection{A,B,C}
+struct GenericHRProjection{A<:HyperReduction,B<:Projection,C<:Interpolation} <: HRProjection{A,B}
   style::A
   basis::B
   interpolation::C
@@ -419,20 +419,13 @@ end
 # multi field interface
 
 """
-    struct BlockHRProjection{A<:HyperReduction,B<:Projection,C<:Interpolation,T<:HRProjection{A,B,C},N} <: HRProjection{A,BlockProjection{T,N},C}
+    struct BlockHRProjection{A<:HyperReduction,B<:Projection,T<:HRProjection{A,B},N} <: HRProjection{A,BlockProjection{T,N}}
       array::Array{T,N}
     end
 
-Block container for HRProjection in a `MultiField` setting. This
-type is conceived similarly to `ArrayBlock` in [`Gridap`](@ref). Every block is
-always populated. `T` is the (concrete, when the blocks are homogeneous)
-per-block `HRProjection` type, so that e.g. distributed block hyper-reductions
-can be told apart from serial ones by dispatch; `A` and `C` are, respectively,
-the hyper-reduction style and interpolation strategy shared by all blocks,
-while the aggregated `BlockProjection{T,N}` takes the place of the single
-`Projection` in the `HRProjection{A,B,C}` triple.
+Block container for HRProjection in a `MultiField` setting.
 """
-struct BlockHRProjection{A<:HyperReduction,B<:Projection,C<:Interpolation,T<:HRProjection{A,B,C},N} <: HRProjection{A,BlockProjection{T,N},C}
+struct BlockHRProjection{A<:HyperReduction,B<:Projection,T<:HRProjection{A,B},N} <: HRProjection{A,BlockProjection{T,N}}
   array::Array{T,N}
 end
 
