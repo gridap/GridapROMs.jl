@@ -18,7 +18,7 @@ end
 
 # EIM interpolation
 
-const TransientGreedyInterpolation{A,B} = GreedyInterpolation{A,B}
+const TransientGreedyInterpolation{A,B<:TransientIntegrationDomain} = GreedyInterpolation{A,B}
 
 for (T,f) in zip((:TransientDEIMHyperReduction,:TransientSOPTHyperReduction),(:DEIM,:SOPT))
   @eval begin
@@ -86,21 +86,19 @@ end
 
 # multi field
 
-const TransientBlockInterpolation{N} = BlockInterpolation{<:TransientIntegrationDomain,N}
-
-function get_domain_style(a::TransientBlockInterpolation)
+function get_domain_style(a::BlockInterpolation)
   get_domain_style(first(a.interp))
 end
 
-function get_indices_time(a::TransientBlockInterpolation{N}) where N
+function get_indices_time(a::BlockInterpolation{N}) where N
   map(get_indices_time,a.interp)
 end
 
-function get_itimes(a::TransientBlockInterpolation{N},ids::Union{Vector,Range2D}) where N
+function get_itimes(a::BlockInterpolation{N},ids::Union{Vector,Range2D}) where N
   map(itp -> get_itimes(itp,ids),a.interp)
 end
 
-function get_locations(a::TransientBlockInterpolation{N},ids::Range2D) where N
+function get_locations(a::BlockInterpolation{N},ids::Range2D) where N
   map(itp -> get_locations(itp,ids),a.interp)
 end
 

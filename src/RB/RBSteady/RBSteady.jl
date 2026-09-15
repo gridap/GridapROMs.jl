@@ -187,6 +187,7 @@ export orth_projection
 include("BasesConstruction.jl")
 
 export Projection
+export GenericProjection
 export PODProjection
 export TTSVDProjection
 export NormedProjection

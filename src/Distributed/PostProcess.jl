@@ -59,15 +59,15 @@ end
 
 function RBSteady.load_snapshots(dir,ranks::AbstractArray;label="")
   if _haspart(dir,SNAPSHOTS_LABEL,ranks;label=_plabel(label,BLOCK_LABEL*"1"))
-    array = DistributedSnapshots[]
-    i = 1
-    while _haspart(dir,SNAPSHOTS_LABEL,ranks;label=_plabel(label,BLOCK_LABEL*"$i"))
-      snaps = _pload(dir,SNAPSHOTS_LABEL,ranks;label=_plabel(label,BLOCK_LABEL*"$i"))
-      push!(array,DistributedSnapshots(snaps))
-      i += 1
+    nblocks = 0
+    while _haspart(dir,SNAPSHOTS_LABEL,ranks;label=_plabel(label,BLOCK_LABEL*"$(nblocks+1)"))
+      nblocks += 1
+    end
+    array = map(1:nblocks) do i
+      _pload(dir,SNAPSHOTS_LABEL,ranks;label=_plabel(label,BLOCK_LABEL*"$i"))
     end
     param_data = mortar(map(get_param_data,array))
-    DistributedBlockSnapshots(array,param_data)
+    BlockSnapshots(array,param_data)
   else
     DistributedSnapshots(_pload(dir,SNAPSHOTS_LABEL,ranks;label))
   end

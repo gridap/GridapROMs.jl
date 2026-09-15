@@ -140,9 +140,10 @@ function ParamDataStructures.Snapshots(
   ) where {V,T,N}
 
   block_values = blocks(data)
-  s = size(block_values)
-  array = reshape([Snapshots(dataj,i[j],r) for (j,dataj) in enumerate(block_values)],s)
-  DistributedBlockSnapshots(array,data)
+  array = map(enumerate(block_values)) do (j,dataj)
+    Snapshots(dataj,i[j],r)
+  end
+  BlockSnapshots(array,data)
 end
 
 function ParamDataStructures.Snapshots(
@@ -153,9 +154,11 @@ function ParamDataStructures.Snapshots(
 
   s = size(i)
   ids = ParamDataStructures.offset_indices(i)
-  array = reshape([Snapshots(get_param_entry(data,ids[j]...),i[j],r) for j in eachindex(i)],s)
-
-  DistributedBlockSnapshots(array,data)
+  array = map(eachindex(i)) do j
+    dataj = get_param_entry(data,ids[j]...)
+    Snapshots(dataj,i[j],r)
+  end
+  BlockSnapshots(reshape(array,s),data)
 end
 
 function ParamDataStructures.Snapshots(
@@ -168,13 +171,12 @@ function ParamDataStructures.Snapshots(
   block_values = blocks(data)
   s = size(block_values)
   @check s == size(i)
-
-  array = reshape(
-    [Snapshots(block_values[j],map(d0 -> blocks(d0)[j],data0),i[j],r) for j in eachindex(block_values)],
-    s)
-
+  array = map(enumerate(block_values)) do (j,dataj)
+    data0j = map(d0 -> blocks(d0)[j],data0)
+    Snapshots(dataj,data0j,i[j],r)
+  end
   stored_data = StoredParamData(data,data0)
-  DistributedBlockSnapshots(array,stored_data)
+  BlockSnapshots(array,stored_data)
 end
 
 function ParamDataStructures.Snapshots(
@@ -186,27 +188,25 @@ function ParamDataStructures.Snapshots(
 
   s = size(i)
   ids = ParamDataStructures.offset_indices(i)
-  array = reshape(
-    [Snapshots(get_param_entry(data,ids[j]...),map(d0 -> get_param_entry(d0,ids[j]...),data0),i[j],r) for j in eachindex(i)],
-    s)
-
+  array = map(eachindex(i)) do j
+    dataj = get_param_entry(data,ids[j]...)
+    data0j = map(d0 -> blocks(d0)[j],data0)
+    Snapshots(dataj,data0j,i[j],r)
+  end
   stored_data = StoredParamData(data,data0)
-  DistributedBlockSnapshots(array,stored_data)
+  BlockSnapshots(reshape(array,s),stored_data)
 end
-
-BlockArrays.blocks(s::DistributedBlockSnapshots) = s.array
-ParamDataStructures.get_param_data(s::DistributedBlockSnapshots) = s.param_data
 
 function ParamDataStructures.select_snapshots(s::DistributedBlockSnapshots,pindex)
   array = map(sj -> select_snapshots(sj,pindex),blocks(s))
   pdata = mortar(map(get_param_data,array))
-  DistributedBlockSnapshots(array,pdata)
+  BlockSnapshots(array,pdata)
 end
 
 function ParamDataStructures.select_times(s::DistributedBlockSnapshots,tindex)
   array = map(sj -> select_times(sj,tindex),blocks(s))
   pdata = mortar(map(get_param_data,array))
-  DistributedBlockSnapshots(array,pdata)
+  BlockSnapshots(array,pdata)
 end
 
 function Base.show(io::IO,k::MIME"text/plain",s::DistributedBlockSnapshots)

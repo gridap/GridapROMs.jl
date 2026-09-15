@@ -206,6 +206,7 @@ end
 
   data = get_all_data(A)
   np,nt = size(hr_indices)
+  nt == 0 && return A # e.g. a structurally-empty (all-zero) jacobian block: no time indices to add
   ns = Int(size(data,1)/nt)
   for ip in 1:np
     for it in 1:nt
@@ -223,6 +224,7 @@ end
 
   data = get_all_data(A)
   np,nt = size(hr_indices)
+  nt == 0 && return A # e.g. a structurally-empty (all-zero) jacobian block: no time indices to add
   ns = Int(size(data,1)/nt)
   for ip in 1:np
     for it in 1:nt
@@ -336,13 +338,11 @@ function RBSteady.assemble_hr_array_add!(
   style::TransientIntegrationDomainStyle
   )
 
-  @check celldofs.touched == icells.touched == locations.touched
+  @check size(celldofs) == size(icells) == size(A)
   for i in eachindex(celldofs)
-    if celldofs.touched[i]
-      (isempty(icells[i]) || !RBSteady.istouched(_cellvals,i)) && continue
-      cellvalsi = lazy_map(FetchBlockMap(_cellvals,i),icells[i])
-      RBSteady._assemble_hr_array_add!(A[i],cellvalsi,celldofs[i],locations[i],style)
-    end
+    (isempty(icells[i]) || !RBSteady.istouched(_cellvals,i)) && continue
+    cellvalsi = lazy_map(FetchBlockMap(_cellvals,i),icells[i])
+    RBSteady._assemble_hr_array_add!(A[i],cellvalsi,celldofs[i],locations[i],style)
   end
   A
 end

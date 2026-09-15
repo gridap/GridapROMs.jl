@@ -25,8 +25,7 @@ capture temporal as well as spatial structure.  Key extensions:
   a reduced time-index set.
 
 - **Transient interpolations** (`Interpolations.jl`) —
-  `TransientGreedyInterpolation`, `TransientRBFInterpolation`,
-  `TransientBlockInterpolation`.
+  `TransientGreedyInterpolation`, `TransientRBFInterpolation`.
 
 - **Transient operators** (`ReducedOperators.jl`) — `TransientReducedOperator` adds
   time-stepping to the reduced operator interface.
@@ -138,7 +137,6 @@ include("IntegrationDomains.jl")
 
 export TransientGreedyInterpolation
 export TransientRBFInterpolation
-export TransientBlockInterpolation
 include("Interpolations.jl")
 
 export TransientAffineHRContribution

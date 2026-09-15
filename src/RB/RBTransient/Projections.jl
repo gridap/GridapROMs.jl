@@ -268,8 +268,8 @@ end
 for f in (:DEIM,:SOPT)
   @eval begin
     function RBSteady.$f(a::KroneckerProjection)
-      indices_space,interp_space = RBSteady.$f(get_basis_space(a))
-      indices_time,interp_time = RBSteady.$f(get_basis_time(a))
+      indices_space,interp_space = RBSteady.$f(a.projection_space)
+      indices_time,interp_time = RBSteady.$f(a.projection_time)
       interp = kron(interp_time,interp_space)
       return (indices_space,indices_time),interp
     end
