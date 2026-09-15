@@ -1,5 +1,5 @@
 """
-    abstract type HRProjection{A<:Projection,B<:HyperReduction} <: Projection end
+    abstract type HRProjection{A<:HyperReduction,B<:Projection,C<:Interpolation} <: Projection end
 
 Subtype of a [`Projection`](@ref) dedicated to the output of a hyper-reduction
 procedure applied on residual/jacobians of a differential problem. This procedure
@@ -28,10 +28,10 @@ Subtypes:
 - [`GenericHRProjection`](@ref)
 - [`BlockHRProjection`](@ref)
 """
-abstract type HRProjection{A<:Projection,B<:HyperReduction} <: Projection end
+abstract type HRProjection{A<:HyperReduction,B<:Projection,C<:Interpolation} <: Projection end
 
-const HRVecProjection{B<:HyperReduction} = HRProjection{<:ReducedVecProjection,B}
-const HRMatProjection{B<:HyperReduction} = HRProjection{<:ReducedMatProjection,B}
+const HRVecProjection{A<:HyperReduction,C<:Interpolation} = HRProjection{A,<:ReducedVecProjection,C}
+const HRMatProjection{A<:HyperReduction,C<:Interpolation} = HRProjection{A,<:ReducedMatProjection,C}
 
 HRProjection(::Reduction,args...) = @abstractmethod
 
@@ -70,7 +70,7 @@ end
 
 """
 """
-const NoHRProjection{A<:Projection} = HRProjection{A,NoHyperReduction}
+const NoHRProjection{A<:Projection} = HRProjection{NoHyperReduction,A}
 
 function FESpaces.interpolate!(
   b̂::AbstractArray,
@@ -86,7 +86,7 @@ end
 
 """
 """
-const AffineHRProjection{A<:Projection} = HRProjection{A,AffineHyperReduction}
+const AffineHRProjection{A<:Projection} = HRProjection{AffineHyperReduction,A}
 
 function FESpaces.interpolate!(
   b̂::AbstractArray,
@@ -104,29 +104,29 @@ end
 
 """
 """
-const DEIMProjection{A<:Projection} = HRProjection{A,<:DEIMHyperReduction}
+const DEIMProjection{A<:Projection} = HRProjection{<:DEIMHyperReduction,A}
 
 """
 """
-const SOPTProjection{A<:Projection} = HRProjection{A,<:SOPTHyperReduction}
+const SOPTProjection{A<:Projection} = HRProjection{<:SOPTHyperReduction,A}
 
 """
 """
-const RBFProjection{A<:Projection} = HRProjection{A,<:RBFHyperReduction}
+const RBFProjection{A<:Projection} = HRProjection{<:RBFHyperReduction,A}
 
 """
-    struct GenericHRProjection{A,B} <: HRProjection{A,B}
-      basis::A
-      style::B
-      interpolation::Interpolation
+    struct GenericHRProjection{A,B,C} <: HRProjection{A,B,C}
+      style::A
+      basis::B
+      interpolation::C
     end
 
 Generic implementation of an [`HRProjection`](@ref) object
 """
-struct GenericHRProjection{A,B} <: HRProjection{A,B}
-  basis::A
-  style::B
-  interpolation::Interpolation
+struct GenericHRProjection{A,B,C} <: HRProjection{A,B,C}
+  style::A
+  basis::B
+  interpolation::C
 end
 
 function HRProjection(basis::ReducedProjection,style::HyperReduction,interp::Interpolation)
@@ -419,21 +419,21 @@ end
 # multi field interface
 
 """
-    struct BlockHRProjection{A<:HRProjection,B<:HyperReduction,N} <: HRProjection{BlockProjection{A,N},B}
-      array::Array{A,N}
+    struct BlockHRProjection{A<:HyperReduction,B<:Projection,C<:Interpolation,T<:HRProjection{A,B,C},N} <: HRProjection{A,BlockProjection{T,N},C}
+      array::Array{T,N}
     end
 
 Block container for HRProjection in a `MultiField` setting. This
 type is conceived similarly to `ArrayBlock` in [`Gridap`](@ref). Every block is
-always populated. `A` is the (concrete, when the blocks are homogeneous) element
-type, so that e.g. distributed block hyper-reductions can be told apart from
-serial ones by dispatch; `B` is the hyper-reduction style.
+always populated. `T` is the (concrete, when the blocks are homogeneous)
+per-block `HRProjection` type, so that e.g. distributed block hyper-reductions
+can be told apart from serial ones by dispatch; `A` and `C` are, respectively,
+the hyper-reduction style and interpolation strategy shared by all blocks,
+while the aggregated `BlockProjection{T,N}` takes the place of the single
+`Projection` in the `HRProjection{A,B,C}` triple.
 """
-struct BlockHRProjection{A<:HRProjection,B<:HyperReduction,N} <: HRProjection{BlockProjection{A,N},B}
-  array::Array{A,N}
-  function BlockHRProjection(array::Array{A,N}) where {T,B,A<:HRProjection{T,B},N}
-    new{A,B,N}(array)
-  end
+struct BlockHRProjection{A<:HyperReduction,B<:Projection,C<:Interpolation,T<:HRProjection{A,B,C},N} <: HRProjection{A,BlockProjection{T,N},C}
+  array::Array{T,N}
 end
 
 Base.ndims(a::BlockHRProjection) = ndims(a.array)

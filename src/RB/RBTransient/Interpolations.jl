@@ -20,8 +20,7 @@ end
 
 const TransientGreedyInterpolation{A,B} = GreedyInterpolation{A,B}
 
-for (T,f) in zip((:HighDimDEIMHyperReduction,:HighDimSOPTHyperReduction),
-                 (:DEIM,:SOPT))
+for (T,f) in zip((:HighDimDEIMHyperReduction,:HighDimSOPTHyperReduction),(:DEIM,:SOPT))
   @eval begin
     function RBSteady.Interpolation(red::$T,a::TransientProjection,trian,test)
       (rows,indices_time),interp = $f(a)
@@ -87,7 +86,7 @@ end
 
 # multi field
 
-const TransientBlockInterpolation{N} = BlockInterpolation{N}
+const TransientBlockInterpolation{N} = BlockInterpolation{<:TransientIntegrationDomain,N}
 
 function get_domain_style(a::TransientBlockInterpolation)
   get_domain_style(first(a.interp))

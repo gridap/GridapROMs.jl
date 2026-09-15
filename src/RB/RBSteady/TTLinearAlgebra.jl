@@ -419,13 +419,13 @@ function tt_supremizers(
   ) where T
 
   nB = length(get_decomposition(B))
-  vec_supr = Vector{Vector{Array{T,3}}}(undef,nB)
+  vec_supr = ()
   for iB in 1:nB
     Bi = get_decomposition(B)[iB]
     Bfactors = get_factors(Bi)
-    vec_supr[iB] = tt_supremizers(X,Bfactors,cores_d)
+    vec_supr = (vec_supr...,tt_supremizers(X,Bfactors,cores_d))
   end
-  supr_cores = _block_cores_add_component(vec_supr)
+  supr_cores = _block_cores_add_component(vec_supr...)
   if length(cores_d) > length(X)
     push!(supr_cores,last(cores_d))
   end

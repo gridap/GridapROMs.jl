@@ -46,17 +46,6 @@ function SOPT(basis::AbstractMatrix{T}) where T
   return I,basisI
 end
 
-for f in (:DEIM,:SOPT)
-  @eval begin
-    function $f(A::ParamSparseMatrix)
-      I,AI = $f(get_all_data(A))
-      isempty(I) && return (I,copy(I)),AI
-      R′,C′ = recast_split_indices(I,testitem(A))
-      return (R′,C′),AI
-    end
-  end
-end
-
 """
     get_rows_to_cells(
       cell_row_ids::AbstractArray,

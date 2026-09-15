@@ -206,7 +206,7 @@ function select_times(s::AbstractTransientBlockSnapshots{N},tindex) where N
   return BlockSnapshots(array,pdata)
 end
 
-const TransientBlockSnapshots{N} = BlockSnapshots{N,<:StoredParamData}
+const TransientBlockSnapshots{S<:Snapshots,N} = BlockSnapshots{S,N,<:StoredParamData}
 
 function Snapshots(
   data::BlockParamArray{T,N},
@@ -218,14 +218,10 @@ function Snapshots(
   block_values = blocks(data)
   s = size(block_values)
   @check s == size(i)
-
-  array = Array{Any,N}(undef,s)
-  for j in eachindex(block_values)
-    dataj = block_values[j]
+  array = map(enumerate(block_values)) do (j,dataj)
     data0j = map(d0 -> blocks(d0)[j],data0)
-    array[j] = Snapshots(dataj,data0j,i.array[j],r)
+    Snapshots(dataj,data0j,i[j],r)
   end
-
   stored_data = StoredParamData(data,data0)
   BlockSnapshots(array,stored_data)
 end
@@ -239,15 +235,13 @@ function Snapshots(
 
   s = size(i)
   ids = offset_indices(i)
-  array = Array{Any,N}(undef,s)
-  for j in eachindex(i)
+  array = map(eachindex(i)) do j
     dataj = get_param_entry(data,ids[j]...)
-    data0j = map(d0 -> get_param_entry(d0,ids[j]...),data0)
-    array[j] = Snapshots(dataj,data0j,i.array[j],r)
+    data0j = map(d0 -> blocks(d0)[j],data0)
+    Snapshots(dataj,data0j,i[j],r)
   end
-
   stored_data = StoredParamData(data,data0)
-  BlockSnapshots(array,stored_data)
+  BlockSnapshots(reshape(array,s),stored_data)
 end
 
 # mode snapshots

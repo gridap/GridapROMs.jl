@@ -126,20 +126,32 @@ end
 
 # multi-field interface
 
-struct DistributedBlockSnapshots{N,B} <: AbstractBlockSnapshots{DistributedSnapshots,N}
-  array::AbstractArray{<:Any,N}
+"""
+    struct DistributedBlockSnapshots{S<:DistributedSnapshots,N,B} <: AbstractBlockSnapshots{S,N}
+      array::Array{S,N}
+      param_data::B
+    end
+
+Distributed analog of [`BlockSnapshots`](@ref): a block container for
+`DistributedSnapshots` in a `MultiField` setting. As with `BlockSnapshots`, `S`
+is a free upper bound (`S<:DistributedSnapshots`) rather than a fixed concrete
+type, so that blocks with distinct dof map dimensionality `N` (e.g. velocity vs.
+pressure) can coexist in the same container.
+"""
+struct DistributedBlockSnapshots{S<:DistributedSnapshots,N,B} <: AbstractBlockSnapshots{S,N}
+  array::Array{S,N}
   param_data::B
 
   function DistributedBlockSnapshots(
-    array::AbstractArray{<:Any,N},
+    array::Array{S,N},
     param_data::B
-    ) where {N,B}
+    ) where {S<:DistributedSnapshots,N,B}
 
-    new{N,B}(array,param_data)
+    new{S,N,B}(array,param_data)
   end
 end
 
-const DistributedTransientBlockSnapshots{N} = DistributedBlockSnapshots{N,<:StoredParamData}
+const DistributedTransientBlockSnapshots{N} = DistributedBlockSnapshots{<:Any,N,<:StoredParamData}
 
 function ParamDataStructures.Snapshots(
   data::BlockPArray{V,T,N},
@@ -149,10 +161,7 @@ function ParamDataStructures.Snapshots(
 
   block_values = blocks(data)
   s = size(block_values)
-  array = Array{Any,N}(undef,s)
-  for (j,dataj) in enumerate(block_values)
-    array[j] = Snapshots(dataj,i[j],r)
-  end
+  array = reshape([Snapshots(dataj,i[j],r) for (j,dataj) in enumerate(block_values)],s)
   DistributedBlockSnapshots(array,data)
 end
 
@@ -162,14 +171,9 @@ function ParamDataStructures.Snapshots(
   r::AbstractRealisation
   )
 
-  N = ndims(i)
   s = size(i)
   ids = ParamDataStructures.offset_indices(i)
-  array = Array{Any,N}(undef,s)
-  for j in eachindex(i)
-    dataj = get_param_entry(data,ids[j]...)
-    array[j] = Snapshots(dataj,i[j],r)
-  end
+  array = reshape([Snapshots(get_param_entry(data,ids[j]...),i[j],r) for j in eachindex(i)],s)
 
   DistributedBlockSnapshots(array,data)
 end
@@ -185,12 +189,9 @@ function ParamDataStructures.Snapshots(
   s = size(block_values)
   @check s == size(i)
 
-  array = Array{Any,N}(undef,s)
-  for j in eachindex(block_values)
-    dataj = block_values[j]
-    data0j = map(d0 -> blocks(d0)[j],data0)
-    array[j] = Snapshots(dataj,data0j,i[j],r)
-  end
+  array = reshape(
+    [Snapshots(block_values[j],map(d0 -> blocks(d0)[j],data0),i[j],r) for j in eachindex(block_values)],
+    s)
 
   stored_data = StoredParamData(data,data0)
   DistributedBlockSnapshots(array,stored_data)
@@ -203,15 +204,11 @@ function ParamDataStructures.Snapshots(
   r::TransientRealisation
   )
 
-  N = ndims(i)
   s = size(i)
   ids = ParamDataStructures.offset_indices(i)
-  array = Array{Any,N}(undef,s)
-  for j in eachindex(i)
-    dataj = get_param_entry(data,ids[j]...)
-    data0j = map(d0 -> get_param_entry(d0,ids[j]...),data0)
-    array[j] = Snapshots(dataj,data0j,i[j],r)
-  end
+  array = reshape(
+    [Snapshots(get_param_entry(data,ids[j]...),map(d0 -> get_param_entry(d0,ids[j]...),data0),i[j],r) for j in eachindex(i)],
+    s)
 
   stored_data = StoredParamData(data,data0)
   DistributedBlockSnapshots(array,stored_data)

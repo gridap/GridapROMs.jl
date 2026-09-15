@@ -58,7 +58,7 @@ function RBSteady.allocate_full_matrix(::Type{<:GenericPArray{M}},rows::PRange,c
   GenericPArray{M}(undef,partition(rows),cols)
 end
 
-function RBSteady._allocate_projection(red::Reduction,s::DistributedBlockSnapshots{N},args...) where N
+function RBSteady._allocate_projection(red::Reduction,s::DistributedBlockSnapshots{<:Any,N},args...) where N
   T = _distr_proj_type(red)
   block_basis = Array{T,N}(undef,size(s))
   BlockProjection(block_basis)
@@ -83,6 +83,10 @@ end
 function RBSteady.Projection(basis::GenericPMatrix,s::DistributedSparseSnapshots)
   basis′ = recast(basis,s)
   DistributedPODProjection(basis′)
+end
+
+function RBSteady.Projection(basis::GenericPMatrix,s::DistributedSnapshots)
+  DistributedPODProjection(basis)
 end
 
 RBSteady.get_basis(a::DistributedPODProjection) = a.basis

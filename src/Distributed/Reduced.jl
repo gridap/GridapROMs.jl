@@ -384,7 +384,7 @@ function RBSteady.get_at_domain(a::GenericPArray,rows::AbstractArray{<:LocalDEIM
   ConsecutiveParamArray(datav)
 end
 
-struct DistributedHRProjection{A,B} <: HRProjection{A,B}
+struct DistributedHRProjection{A,B} <: HRProjection{B,A,DistributedInterpolation}
   basis::A
   style::B
   interpolation::DistributedInterpolation

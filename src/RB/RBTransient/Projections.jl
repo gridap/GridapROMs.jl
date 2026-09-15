@@ -98,23 +98,15 @@ a temporal one. The space-time projection operator is equal to
 
 which, for efficiency reasons, is never explicitly computed
 """
-struct KroneckerProjection <: TransientProjection
-  projection_space::Projection
-  projection_time::Projection
+struct KroneckerProjection{A<:Projection,B<:Projection} <: TransientProjection
+  projection_space::A
+  projection_time::B
 end
 
 function kron_projection(red::KroneckerReduction,s::TransientSnapshots,args...)
   basis_space,basis_time = tucker(red.reductions,s,args...)
-  projection_space = PODProjection(basis_space)
-  projection_time = PODProjection(basis_time)
-  return projection_space,projection_time
-end
-
-function kron_projection(red::KroneckerReduction,s::TransientSparseSnapshots,args...)
-  basis_space,basis_time = tucker(red.reductions,s,args...)
-  basis_space′ = recast(basis_space,s)
-  projection_space = PODProjection(basis_space′)
-  projection_time = PODProjection(basis_time)
+  projection_space = Projection(basis_space,get_dof_map(s))
+  projection_time = Projection(basis_time)
   return projection_space,projection_time
 end
 
@@ -179,12 +171,7 @@ function RBSteady.inv_project!(
   inv_project!(X,a.projection_space,X̂*basis_time')
 end
 
-function RBSteady.galerkin_projection(
-  proj_left::KroneckerProjection,
-  a::KroneckerProjection,
-  args...
-  )
-
+function RBSteady.galerkin_projection(proj_left::KroneckerProjection,a::KroneckerProjection)
   proj_basis_space = galerkin_projection(get_basis_space(proj_left),get_basis_space(a))
   proj_basis_time = galerkin_projection(get_basis_time(proj_left),get_basis_time(a))
   proj_basis = kron(proj_basis_time,proj_basis_space)
@@ -230,12 +217,7 @@ function RBSteady.galerkin_projection(
   return ReducedProjection(proj_basis)
 end
 
-function RBSteady.galerkin_projection(
-  proj_left::KroneckerProjection,
-  a::GalerkinProjectable,
-  args...
-  )
-
+function RBSteady.galerkin_projection(proj_left::KroneckerProjection,a::GalerkinProjectable)
   nt = num_times(proj_left)
   np = Int(param_length(a.array) / nt)
   proj_a_space = galerkin_projection(get_basis_space(proj_left),get_basis(a))
@@ -300,7 +282,7 @@ end
 
 # tt interface
 
-struct SequentialProjection{A} <: TransientProjection
+struct SequentialProjection{A<:Projection} <: TransientProjection
   projection::A
 end
 
@@ -323,6 +305,14 @@ end
 RBSteady.get_cores(a::SequentialProjection) = get_cores(a.projection)
 get_cores_space(a::SequentialProjection) = get_cores(a)[1:end-1]
 get_core_time(a::SequentialProjection) = get_cores(a)[end]
+
+# recast (see RBSteady._recast_cores): the cores of `a` wrapped as SparseCores
+# according to the sparsity of get_dof_map(a), a no-op in the non-sparse scenario.
+# get_cores(_space)/get_core_time keep returning the plain, unrecast cores, needed
+# e.g. by union_bases/block_cores; this must be used instead whenever the cores are
+# about to be turned into actual numerical values (a full basis, a Galerkin projection)
+_recast_cores(a::SequentialProjection) = RBSteady._recast_cores(get_cores(a),get_dof_map(a))
+_recast_cores_space(a::SequentialProjection) = _recast_cores(a)[1:end-1]
 get_basis_space(a::SequentialProjection) = cores2basis(get_cores_space(a)...)
 get_basis_time(a::SequentialProjection) = @notimplemented
 
@@ -342,12 +332,7 @@ function RBSteady.union_bases(a::SequentialProjection,b::AbstractArray,args...)
   SequentialProjection(projection′)
 end
 
-function RBSteady.galerkin_projection(
-  proj_left::SequentialProjection,
-  a::SequentialProjection,
-  args...
-  )
-
+function RBSteady.galerkin_projection(proj_left::SequentialProjection,a::SequentialProjection)
   galerkin_projection(proj_left.projection,a.projection)
 end
 
@@ -358,15 +343,70 @@ function RBSteady.galerkin_projection(
   combine
   )
 
+  # dispatch on the *value* of get_dof_map(a), not its type (mirrors RBSteady's
+  # TTSVDProjection galerkin_projection, see the comment there): a TrivialDofMap
+  # bound on a type parameter of a SequentialProjection{<:TTSVDProjection{...}}
+  # is not reliably resolved by Julia's ambiguity checker
   RBSteady._galerkin_projection(get_dof_map(a),proj_left,a,proj_right,combine)
 end
 
-function RBSteady.galerkin_projection(
+function RBSteady._galerkin_projection(
+  ::DofMaps.AbstractDofMap,
   proj_left::SequentialProjection,
-  a::GalerkinProjectable,
-  args...
+  a::SequentialProjection,
+  proj_right::SequentialProjection,
+  combine
   )
 
+  # space
+  pl_space = get_cores_space(proj_left)
+  a_space = _recast_cores_space(a)
+  pr_space = get_cores_space(proj_right)
+  p_space = unbalanced_contractions(pl_space,a_space,pr_space)
+
+  # time
+  pl_time = get_core_time(proj_left)
+  a_time = get_core_time(a)
+  pr_time = get_core_time(proj_right)
+  p_time = contraction(pl_time,a_time,pr_time,combine)
+
+  p = sequential_product(p_space...,p_time)
+  proj_cores = dropdims(p;dims=(1,2,3)) # n_test x n_a x n_trial
+  proj_cores = permutedims(proj_cores,(1,3,2)) # n_test x n_trial x n_a
+
+  return ReducedProjection(proj_cores)
+end
+
+function RBSteady._galerkin_projection(
+  ::DofMaps.TrivialDofMap,
+  proj_left::SequentialProjection,
+  a::SequentialProjection,
+  proj_right::SequentialProjection,
+  combine
+  )
+
+  get_core_space(a) = RBSteady.basis2core(get_basis_space(a))
+
+  # space
+  pl_space = get_core_space(proj_left)
+  a_space = first(_recast_cores(a))
+  pr_space = get_core_space(proj_right)
+  p_space = contraction(pl_space,a_space,pr_space)
+
+  # time
+  pl_time = get_core_time(proj_left)
+  a_time = get_core_time(a)
+  pr_time = get_core_time(proj_right)
+  p_time = contraction(pl_time,a_time,pr_time,combine)
+
+  p = sequential_product(p_space,p_time)
+  proj_cores = dropdims(p;dims=(1,2,3)) # n_test x n_a x n_trial
+  proj_cores = permutedims(proj_cores,(1,3,2)) # n_test x n_trial x n_a
+
+  return ReducedProjection(proj_cores)
+end
+
+function RBSteady.galerkin_projection(proj_left::SequentialProjection,a::GalerkinProjectable)
   nt = num_times(proj_left)
   np = Int(param_length(a.array) / nt)
   proj_a_space = galerkin_projection(get_basis_space(proj_left),get_basis(a))
@@ -478,7 +518,7 @@ Temporal supremizer enrichment. (Approximate) Procedure:
 """
 function time_enrichment(a_primal::Projection,basis_dual;kwargs...)
   basis_primal′ = time_enrichment(get_basis(a_primal),basis_dual;kwargs...)
-  PODProjection(basis_primal′)
+  PODProjection(basis_primal′,get_dof_map(a_primal))
 end
 
 function time_enrichment(basis_primal,basis_dual;tol=1e-2)
@@ -508,64 +548,6 @@ function tenrich(basis_primal,basis_pd,basis_dual,i)
   orth_complement!(vi,basis_primal)
   vi ./= norm(vi)
   hcat(basis_primal,vi),vcat(basis_pd,vi'*basis_dual)
-end
-
-# utils
-
-function RBSteady._galerkin_projection(
-  ::AbstractDofMap,
-  proj_left::SequentialProjection,
-  a::SequentialProjection,
-  proj_right::SequentialProjection,
-  combine
-  )
-
-  # space
-  pl_space = get_cores_space(proj_left)
-  a_space = get_cores_space(a)
-  pr_space = get_cores_space(proj_right)
-  p_space = unbalanced_contractions(pl_space,a_space,pr_space)
-
-  # time
-  pl_time = get_core_time(proj_left)
-  a_time = get_core_time(a)
-  pr_time = get_core_time(proj_right)
-  p_time = contraction(pl_time,a_time,pr_time,combine)
-
-  p = sequential_product(p_space...,p_time)
-  proj_cores = dropdims(p;dims=(1,2,3)) # n_test x n_a x n_trial
-  proj_cores = permutedims(proj_cores,(1,3,2)) # n_test x n_trial x n_a
-
-  return ReducedProjection(proj_cores)
-end
-
-function RBSteady._galerkin_projection(
-  ::TrivialDofMap,
-  proj_left::SequentialProjection,
-  a::SequentialProjection,
-  proj_right::SequentialProjection,
-  combine
-  )
-
-  get_core_space(a) = RBSteady.basis2core(get_basis_space(a))
-
-  # space
-  pl_space = get_core_space(proj_left)
-  a_space = first(get_cores(a))
-  pr_space = get_core_space(proj_right)
-  p_space = contraction(pl_space,a_space,pr_space)
-
-  # time
-  pl_time = get_core_time(proj_left)
-  a_time = get_core_time(a)
-  pr_time = get_core_time(proj_right)
-  p_time = contraction(pl_time,a_time,pr_time,combine)
-
-  p = sequential_product(p_space,p_time)
-  proj_cores = dropdims(p;dims=(1,2,3)) # n_test x n_a x n_trial
-  proj_cores = permutedims(proj_cores,(1,3,2)) # n_test x n_trial x n_a
-
-  return ReducedProjection(proj_cores)
 end
 
 # space-only projections

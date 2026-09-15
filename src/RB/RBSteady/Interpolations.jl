@@ -201,8 +201,8 @@ end
 
 # multi field
 
-struct BlockInterpolation{N} <: Interpolation
-  interp::Array{<:Interpolation,N}
+struct BlockInterpolation{I<:Interpolation,N} <: Interpolation
+  interp::Array{I,N}
 end
 
 Base.ndims(a::BlockInterpolation) = ndims(a.interp)

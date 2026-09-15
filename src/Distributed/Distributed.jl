@@ -76,7 +76,7 @@ using GridapROMs.RBTransient
 
 import ArraysOfArrays: innersize,_ncolons
 import BlockArrays
-import BlockArrays: BlockVector,BlockMatrix,BlockArray,AbstractBlockArray,mortar,blocks,blocklength
+import BlockArrays: Block,BlockVector,BlockMatrix,BlockArray,AbstractBlockArray,mortar,blocks,blocklength
 import Gridap.Helpers: @abstractmethod,@check,@notimplemented,@notimplementedif
 import GridapDistributed: BlockPMatrix,BlockPVector,BlockPArray,DistributedFESpace,DistributedSingleFieldFESpace,DistributedMultiFieldFESpace,DistributedTriangulation,DistributedDomainContribution,to_parray_of_arrays
 import GridapROMs.DofMaps: range_2d,range_1d

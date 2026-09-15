@@ -116,7 +116,7 @@ function PartitionedArrays.consistent!(a::GenericPArray)
   end
 end
 
-function Base.similar(a::GenericPArray,::Type{T},inds::Dims) where T
+function Base.similar(a::GenericPArray,::Type{T},inds::Tuple) where T
   rows,usizes... = inds
   @check isa(rows,PRange)
   values = map(partition(a),partition(rows)) do values,indices

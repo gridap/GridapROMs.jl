@@ -76,7 +76,7 @@ function RBSteady._cluster(s::TransientSnapshotsWithIC,inds::AbstractVector)
   TransientSnapshotsWithIC(initial_param_data,snaps)
 end
 
-function RBSteady._cluster(s::TransientBlockSnapshots{N},inds::AbstractVector) where N
+function RBSteady._cluster(s::TransientBlockSnapshots,inds::AbstractVector)
   array = map(sj -> RBSteady._cluster(sj,inds),blocks(s))
   nt = num_times(get_realisation(s))
   pdata = RBSteady._cluster(s.param_data,inds,nt)

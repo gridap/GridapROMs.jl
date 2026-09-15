@@ -75,15 +75,15 @@ TransientIntegrationDomainStyle(::Type{<:SequentialProjection}) = SequentialDoma
 """
     struct TransientIntegrationDomain{A<:TransientIntegrationDomainStyle,Ti<:Integer} <: IntegrationDomain
       domain_style::A
-      domain_space::IntegrationDomain
+      domain_space::I
       indices_time::Vector{Ti}
     end
 
 Integration domain for a projection operator in a transient problem
 """
-struct TransientIntegrationDomain{A<:TransientIntegrationDomainStyle,Ti<:Integer} <: IntegrationDomain
+struct TransientIntegrationDomain{A<:TransientIntegrationDomainStyle,I<:IntegrationDomain,Ti<:Integer} <: IntegrationDomain
   domain_style::A
-  domain_space::IntegrationDomain
+  domain_space::I
   indices_time::Vector{Ti}
 end
 

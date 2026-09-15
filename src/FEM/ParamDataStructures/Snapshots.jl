@@ -208,14 +208,14 @@ Arrays.testitem(s::AbstractBlockSnapshots) = first(blocks(s))
 get_dof_map(s::AbstractBlockSnapshots) = map(get_dof_map,blocks(s))
 get_realisation(s::AbstractBlockSnapshots) = get_realisation(testitem(s))
 
-function select_snapshots(s::AbstractBlockSnapshots{N},pindex) where N
+function select_snapshots(s::AbstractBlockSnapshots{<:Any,N},pindex) where N
   prange = _format_index(pindex)
   array = map(sj -> select_snapshots(sj,pindex),blocks(s))
   pdata = select_param_data(get_param_data(s),prange)
   return BlockSnapshots(array,pdata)
 end
 
-function param_cat(v::AbstractVector{<:AbstractBlockSnapshots{N}}) where N
+function param_cat(v::AbstractVector{<:AbstractBlockSnapshots{<:Any,N}}) where N
   s = first(v)
   @check all(size(si)==size(s) for si in v)
   array = map(CartesianIndices(blocks(s))) do i
@@ -225,33 +225,35 @@ function param_cat(v::AbstractVector{<:AbstractBlockSnapshots{N}}) where N
   return BlockSnapshots(collect(array),pdata)
 end
 
-function change_dof_map(s::AbstractBlockSnapshots{N},i::AbstractArray{<:Any,N}) where N
+function change_dof_map(s::AbstractBlockSnapshots{<:Any,N},i::AbstractArray{<:Any,N}) where N
   array = map(change_dof_map,blocks(s),i)
   return BlockSnapshots(array,get_param_data(s))
 end
 
 """
-    struct BlockSnapshots{N,B} <: AbstractBlockSnapshots{N}
-      array::Array{<:Any,N}
+    struct BlockSnapshots{S<:Snapshots,N,B} <: AbstractBlockSnapshots{S,N}
+      array::Array{S,N}
       param_data::B
     end
 
-Block container for Snapshots of type `S` in a `MultiField` setting. This
-type is conceived similarly to `ArrayBlock` in Gridap. Every block is always
+Block container for Snapshots in a `MultiField` setting. This type is
+conceived similarly to `ArrayBlock` in Gridap. Every block is always
 populated; structurally-empty blocks (e.g. a pressure-pressure Jacobian block)
-simply hold Snapshots whose underlying data is empty.
+simply hold Snapshots whose underlying data is empty. Unlike the FE-space
+blocks, whose Snapshots always share the same eltype `T` and realisation `R`,
+distinct blocks may have distinct dof map dimensionality `N` (e.g. velocity
+vs. pressure in a Stokes problem with a nontrivial, TT-based dof map). The
+type parameter `S` therefore is a free upper bound (`S<:Snapshots`, not a
+fixed concrete type): Julia's type-parameter inference (`typejoin`) keeps the
+parameters shared across all blocks concrete, and only generalizes the ones
+that genuinely differ (e.g. the dof map dimensionality) to a `where`-bound
+free variable.
 """
-struct BlockSnapshots{N,B} <: AbstractBlockSnapshots{Snapshots,N}
-  array::Array{<:Any,N}
+struct BlockSnapshots{S<:Snapshots,N,B} <: AbstractBlockSnapshots{S,N}
+  array::Array{S,N}
   param_data::B
-  function BlockSnapshots(array::Array{<:Any,N},param_data::B) where {N,B}
-    new{N,B}(array,param_data)
-  end
 end
 
-# the multi-field dof map is a plain array of per-block dof maps: a vector from
-# `get_dof_map(::MultiFieldFESpace)`, a matrix from
-# `get_sparse_dof_map(::MultiFieldFESpace,...)`
 function Snapshots(
   data::BlockParamArray{T,N},
   i::AbstractArray{<:AbstractDofMap},
@@ -261,12 +263,9 @@ function Snapshots(
   block_values = blocks(data)
   s = size(block_values)
   @check s == size(i)
-
-  array = Array{Any,N}(undef,s)
-  for (j,dataj) in enumerate(block_values)
-    array[j] = Snapshots(dataj,i[j],r)
+  array = map(enumerate(block_values)) do (j,dataj)
+    Snapshots(dataj,i[j],r)
   end
-
   BlockSnapshots(array,data)
 end
 
@@ -278,13 +277,11 @@ function Snapshots(
 
   s = size(i)
   ids = offset_indices(i)
-  array = Array{Any,N}(undef,s)
-  for j in eachindex(i)
+  array = map(eachindex(i)) do j
     dataj = get_param_entry(data,ids[j]...)
-    array[j] = Snapshots(dataj,i[j],r)
+    Snapshots(dataj,i[j],r)
   end
-
-  BlockSnapshots(array,data)
+  BlockSnapshots(reshape(array,s),data)
 end
 
 BlockArrays.blocks(s::BlockSnapshots) = s.array

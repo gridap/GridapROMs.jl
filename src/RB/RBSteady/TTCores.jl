@@ -182,7 +182,7 @@ end
 
 for f in (:first_block,:block_core)
   @eval begin
-    function $f(a::AbstractVector{<:AbstractArray{T,3}}) where T
+    function $f(a::AbstractArray{T,3}...) where T
       D = length(a)
       @check D ≤ 3
       if D == 1
@@ -196,18 +196,15 @@ for f in (:first_block,:block_core)
   end
 end
 
-function block_cores(a::AbstractVector{<:AbstractVector{<:AbstractArray{T,3}}}) where T
+function block_cores(a::AbstractVector{<:AbstractArray{T,3}}...) where T
   D = length(first(a))
   @check all(length(ai)==D for ai in a)
-  abfirst = first_block(map(x -> getindex(x,1),a))
-  ablasts = map(d -> block_core(map(x -> getindex(x,d),a)),2:D)
+  abfirst = first_block(map(x -> getindex(x,1),a)...)
+  ablasts = map(d -> block_core(map(x -> getindex(x,d),a)...),2:D)
   return [abfirst,ablasts...]
 end
 
-function _block_cores_add_component(
-  a::AbstractVector{<:AbstractVector{<:AbstractArray{T,3}}}
-  ) where T
-
+function _block_cores_add_component(a::AbstractVector{<:AbstractArray{T,3}}...) where T
   D = length(first(a))
   ablocks = block_cores(a)
   ND = size(last(ablocks),3)
