@@ -21,11 +21,6 @@ get_projection_time(a::TransientProjection) = @abstractmethod
 get_basis_space(a::Projection) = get_basis(get_projection_space(a))
 get_basis_time(a::Projection) = get_basis(get_projection_time(a))
 
-# see RBSteady.recast_basis: recast the spatial basis according to the sparsity of
-# its dof map (a no-op in the non-sparse scenario). Must be used, instead of
-# get_basis_space, whenever the spatial basis of a jacobian/operator projection is
-# about to enter a Galerkin projection against test/trial bases
-recast_basis_space(a::Projection) = RBSteady.recast_basis(get_projection_space(a))
 ParamDataStructures.num_space_dofs(a::Projection) = num_fe_dofs(get_projection_space(a))
 ParamDataStructures.num_times(a::Projection) = num_fe_dofs(get_projection_time(a))
 RBSteady.num_fe_dofs(a::TransientProjection) = num_space_dofs(a)*num_times(a)
@@ -106,8 +101,8 @@ end
 
 function RBSteady.Projection(red::KroneckerReduction,s::TransientSnapshots,args...)
   basis_space,basis_time = tucker(red.reductions,s,args...)
-  projection_space = PODProjection(basis_space,get_dof_map(s))
-  projection_time = PODProjection(basis_time,VectorDofMap((size(basis_time,1),)))
+  projection_space = GenericProjection(basis_space,get_dof_map(s))
+  projection_time = GenericProjection(basis_time)
   return projection_space,projection_time
 end
 
@@ -173,7 +168,7 @@ function RBSteady.inv_project!(
 end
 
 function RBSteady.galerkin_projection(proj_left::KroneckerProjection,a::KroneckerProjection)
-  proj_basis_space = galerkin_projection(get_basis_space(proj_left),recast_basis_space(a))
+  proj_basis_space = galerkin_projection(get_basis_space(proj_left),get_basis_space(a))
   proj_basis_time = galerkin_projection(get_basis_time(proj_left),get_basis_time(a))
   proj_basis = kron(proj_basis_time,proj_basis_space)
   return ReducedProjection(proj_basis)
@@ -188,7 +183,7 @@ function RBSteady.galerkin_projection(
 
   proj_basis_space = galerkin_projection(
     get_basis_space(proj_left),
-    recast_basis_space(a),
+    recast_basis(get_projection_space(a)),
     get_basis_space(proj_right)
   )
 
@@ -367,7 +362,7 @@ function RBSteady.galerkin_projection(
 
   # space
   pl_space = get_core_space(proj_left)
-  a_space = first(RBSteady.recast_cores(a))
+  a_space = first(recast_cores(a))
   pr_space = get_core_space(proj_right)
   p_space = contraction(pl_space,a_space,pr_space)
 

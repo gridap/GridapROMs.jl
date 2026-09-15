@@ -619,7 +619,7 @@ end
 
 function hr_error_res(
   test,
-  res::AbstractBlockSnapshots,
+  res::BlockSnapshots,
   a::BlockHRProjection,
   fecache,
   hypred
@@ -635,7 +635,7 @@ end
 function hr_error_jac(
   trial,
   test,
-  jac::AbstractBlockSnapshots,
+  jac::BlockSnapshots,
   a::BlockHRProjection,
   fecache,
   hypred

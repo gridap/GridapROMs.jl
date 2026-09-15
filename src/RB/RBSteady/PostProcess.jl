@@ -304,8 +304,8 @@ function Utils.compute_relative_error(norm_style::AssembleOperator,feop,sol,sol_
 end
 
 function Utils.compute_relative_error(
-  sol::AbstractBlockSnapshots{<:Any,N},
-  sol_approx::AbstractBlockSnapshots{<:Any,N},
+  sol::BlockSnapshots{<:Any,N},
+  sol_approx::BlockSnapshots{<:Any,N},
   args...
   ) where N
 
@@ -319,8 +319,8 @@ function Utils.compute_relative_error(
 end
 
 function Utils.compute_relative_error(
-  sol::AbstractBlockSnapshots,
-  sol_approx::AbstractBlockSnapshots,
+  sol::BlockSnapshots,
+  sol_approx::BlockSnapshots,
   X::MatrixOrTensor
   )
 

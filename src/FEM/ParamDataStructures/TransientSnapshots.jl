@@ -183,13 +183,13 @@ function param_cat(v::AbstractVector{<:StoredParamData})
   StoredParamData(pd,pd0)
 end
 
-const AbstractTransientBlockSnapshots{N} = BlockSnapshots{<:Any,N,<:StoredParamData}
+const TransientBlockSnapshots{S<:TransientSnapshots,N} = BlockSnapshots{S,N,<:StoredParamData}
 
-num_times(s::AbstractTransientBlockSnapshots) = num_times(get_realisation(s))
-get_param_data(s::AbstractTransientBlockSnapshots) = get_param_data(s.param_data)
-get_initial_param_data(s::AbstractTransientBlockSnapshots) = get_initial_param_data(s.param_data)
+num_times(s::TransientBlockSnapshots) = num_times(get_realisation(s))
+get_param_data(s::TransientBlockSnapshots) = get_param_data(s.param_data)
+get_initial_param_data(s::TransientBlockSnapshots) = get_initial_param_data(s.param_data)
 
-function select_snapshots(s::AbstractTransientBlockSnapshots{N},pindex) where N
+function select_snapshots(s::TransientBlockSnapshots,pindex)
   prange = _format_index(pindex)
   trange = 1:num_times(s)
   array = map(sj -> select_snapshots(sj,pindex),blocks(s))
@@ -197,7 +197,7 @@ function select_snapshots(s::AbstractTransientBlockSnapshots{N},pindex) where N
   return BlockSnapshots(array,pdata)
 end
 
-function select_times(s::AbstractTransientBlockSnapshots{N},tindex) where N
+function select_times(s::TransientBlockSnapshots,tindex)
   array = map(sj -> select_times(sj,tindex),blocks(s))
   np = num_params(s)
   prange = 1:np
@@ -205,8 +205,6 @@ function select_times(s::AbstractTransientBlockSnapshots{N},tindex) where N
   pdata = select_param_data(s.param_data,prange,trange;nparams=np)
   return BlockSnapshots(array,pdata)
 end
-
-const TransientBlockSnapshots{S<:Snapshots,N} = BlockSnapshots{S,N,<:StoredParamData}
 
 function Snapshots(
   data::BlockParamArray{T,N},

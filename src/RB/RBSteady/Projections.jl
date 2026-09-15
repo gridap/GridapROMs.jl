@@ -592,7 +592,7 @@ end
 
 # multi field interface
 
-function projection(red::Reduction,s::AbstractBlockSnapshots)
+function projection(red::Reduction,s::BlockSnapshots)
   basis = _allocate_projection(red,s)
   for i in eachindex(basis)
     basis[i] = projection(red,s[i])
@@ -600,7 +600,7 @@ function projection(red::Reduction,s::AbstractBlockSnapshots)
   return basis
 end
 
-function projection(red::Reduction,s::AbstractBlockSnapshots,X::MatrixOrTensor)
+function projection(red::Reduction,s::BlockSnapshots,X::MatrixOrTensor)
   basis = _allocate_projection(red,s)
   for i in eachindex(basis)
     basis[i] = projection(red,s[i],X[Block(i,i)])
@@ -871,7 +871,7 @@ _num_reduced_dofs(a) = @abstractmethod
 _num_reduced_dofs(a::AbstractMatrix{<:Number}) = size(a,2)
 _num_reduced_dofs(a::AbstractMatrix{<:AbstractMatrix}) = param_length(a)
 
-function _allocate_projection(red::Reduction,s::AbstractBlockSnapshots{<:Any,N}) where N
+function _allocate_projection(red::Reduction,s::BlockSnapshots{<:Any,N}) where N
   T = _proj_type(red)
   block_basis = Array{T,N}(undef,size(s))
   BlockProjection(block_basis)

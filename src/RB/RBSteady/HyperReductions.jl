@@ -519,7 +519,7 @@ function allocate_hyper_reduction(a::BlockHRProjection)
   map(allocate_hyper_reduction,a.array) |> mortar
 end
 
-function reduced_form(red::Reduction,s::AbstractBlockSnapshots,trian,test)
+function reduced_form(red::Reduction,s::BlockSnapshots,trian,test)
   @check length(s) == length(test)
 
   hyper_reds = map(eachindex(s)) do i
@@ -533,7 +533,7 @@ function reduced_form(red::Reduction,s::AbstractBlockSnapshots,trian,test)
   return hyper_red,red_trian
 end
 
-function reduced_form(red::Reduction,s::AbstractBlockSnapshots,trian,trial,test)
+function reduced_form(red::Reduction,s::BlockSnapshots,trian,trial,test)
   @check size(s,1) == length(test)
   @check size(s,2) == length(trial)
 

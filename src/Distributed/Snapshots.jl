@@ -127,29 +127,9 @@ end
 # multi-field interface
 
 """
-    struct DistributedBlockSnapshots{S<:DistributedSnapshots,N,B} <: AbstractBlockSnapshots{S,N}
-      array::Array{S,N}
-      param_data::B
-    end
-
-Distributed analog of [`BlockSnapshots`](@ref): a block container for
-`DistributedSnapshots` in a `MultiField` setting. As with `BlockSnapshots`, `S`
-is a free upper bound (`S<:DistributedSnapshots`) rather than a fixed concrete
-type, so that blocks with distinct dof map dimensionality `N` (e.g. velocity vs.
-pressure) can coexist in the same container.
+    const DistributedBlockSnapshots{S<:DistributedSnapshots,N,B} = BlockSnapshots{S,N,B}
 """
-struct DistributedBlockSnapshots{S<:DistributedSnapshots,N,B} <: AbstractBlockSnapshots{S,N}
-  array::Array{S,N}
-  param_data::B
-
-  function DistributedBlockSnapshots(
-    array::Array{S,N},
-    param_data::B
-    ) where {S<:DistributedSnapshots,N,B}
-
-    new{S,N,B}(array,param_data)
-  end
-end
+const DistributedBlockSnapshots{S<:DistributedSnapshots,N,B} = BlockSnapshots{S,N,B}
 
 const DistributedTransientBlockSnapshots{N} = DistributedBlockSnapshots{<:Any,N,<:StoredParamData}
 

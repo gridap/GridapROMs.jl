@@ -195,50 +195,15 @@ end
 
 # multi field interface
 
-abstract type AbstractBlockSnapshots{S,N} <: AbstractSnapshots{S,N} end
-
-BlockArrays.blocks(s::AbstractBlockSnapshots) = @abstractmethod
-get_param_data(s::AbstractBlockSnapshots) = @abstractmethod
-
-Base.size(s::AbstractBlockSnapshots) = size(blocks(s))
-Base.getindex(s::AbstractBlockSnapshots,i...) = getindex(blocks(s),i...)
-Base.setindex!(s::AbstractBlockSnapshots,v,i...) = setindex!(blocks(s),v,i...)
-Arrays.testitem(s::AbstractBlockSnapshots) = first(blocks(s))
-
-get_dof_map(s::AbstractBlockSnapshots) = map(get_dof_map,blocks(s))
-get_realisation(s::AbstractBlockSnapshots) = get_realisation(testitem(s))
-
-function select_snapshots(s::AbstractBlockSnapshots{<:Any,N},pindex) where N
-  prange = _format_index(pindex)
-  array = map(sj -> select_snapshots(sj,pindex),blocks(s))
-  pdata = select_param_data(get_param_data(s),prange)
-  return BlockSnapshots(array,pdata)
-end
-
-function param_cat(v::AbstractVector{<:AbstractBlockSnapshots{<:Any,N}}) where N
-  s = first(v)
-  @check all(size(si)==size(s) for si in v)
-  array = map(CartesianIndices(blocks(s))) do i
-    param_cat(map(sv -> getindex(sv,i),v))
-  end
-  pdata = param_cat(map(sv -> get_param_data(sv),v))
-  return BlockSnapshots(collect(array),pdata)
-end
-
-function change_dof_map(s::AbstractBlockSnapshots{<:Any,N},i::AbstractArray{<:Any,N}) where N
-  array = map(change_dof_map,blocks(s),i)
-  return BlockSnapshots(array,get_param_data(s))
-end
-
 """
-    struct BlockSnapshots{S<:Snapshots,N,B} <: AbstractBlockSnapshots{S,N}
+    struct BlockSnapshots{S<:Snapshots,N,B} <: AbstractSnapshots{S,N}
       array::Array{S,N}
       param_data::B
     end
 
 Block container for Snapshots in a `MultiField` setting.
 """
-struct BlockSnapshots{S<:Snapshots,N,B} <: AbstractBlockSnapshots{S,N}
+struct BlockSnapshots{S<:Snapshots,N,B} <: AbstractSnapshots{S,N}
   array::Array{S,N}
   param_data::B
 end
@@ -274,13 +239,37 @@ function Snapshots(
 end
 
 BlockArrays.blocks(s::BlockSnapshots) = s.array
-# note: written with explicit {S,N,B} (rather than bare `s::BlockSnapshots`) so that
-# Julia's ambiguity checker can correctly rank this against the more specific
-# get_param_data(s::AbstractTransientBlockSnapshots) override (a bare alias on one
-# side and an explicit {<:Any,N,<:StoredParamData} form on the other otherwise
-# confuses the specificity check, exactly as with the TTSVDProjection galerkin_projection
-# ambiguity elsewhere in this codebase)
-get_param_data(s::BlockSnapshots{S,N,B}) where {S,N,B} = s.param_data
+get_param_data(s::BlockSnapshots) = s.param_data
+
+Base.size(s::BlockSnapshots) = size(blocks(s))
+Base.getindex(s::BlockSnapshots,i...) = getindex(blocks(s),i...)
+Base.setindex!(s::BlockSnapshots,v,i...) = setindex!(blocks(s),v,i...)
+Arrays.testitem(s::BlockSnapshots) = first(blocks(s))
+
+get_dof_map(s::BlockSnapshots) = map(get_dof_map,blocks(s))
+get_realisation(s::BlockSnapshots) = get_realisation(testitem(s))
+
+function select_snapshots(s::BlockSnapshots{<:Any,N},pindex) where N
+  prange = _format_index(pindex)
+  array = map(sj -> select_snapshots(sj,pindex),blocks(s))
+  pdata = select_param_data(get_param_data(s),prange)
+  return BlockSnapshots(array,pdata)
+end
+
+function param_cat(v::AbstractVector{<:BlockSnapshots{<:Any,N}}) where N
+  s = first(v)
+  @check all(size(si)==size(s) for si in v)
+  array = map(CartesianIndices(blocks(s))) do i
+    param_cat(map(sv -> getindex(sv,i),v))
+  end
+  pdata = param_cat(map(sv -> get_param_data(sv),v))
+  return BlockSnapshots(collect(array),pdata)
+end
+
+function change_dof_map(s::BlockSnapshots{<:Any,N},i::AbstractArray{<:Any,N}) where N
+  array = map(change_dof_map,blocks(s),i)
+  return BlockSnapshots(array,get_param_data(s))
+end
 
 # utils
 

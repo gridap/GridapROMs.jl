@@ -158,7 +158,6 @@ export SteadySnapshots
 export GenericSnapshots
 export SnapshotsAtIndices
 export SparseSnapshots
-export AbstractBlockSnapshots
 export BlockSnapshots
 export get_realisation
 export select_snapshots

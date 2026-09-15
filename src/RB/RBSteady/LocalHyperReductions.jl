@@ -126,7 +126,7 @@ function reduced_form(lred::LocalReduction,s,trian,trial,test)
   return hyper_red,red_trian
 end
 
-function reduced_form(lred::LocalReduction,s::AbstractBlockSnapshots,trian,test)
+function reduced_form(lred::LocalReduction,s::BlockSnapshots,trian,test)
   @check length(s) == length(test)
 
   hyper_reds = map(eachindex(s)) do i
@@ -140,7 +140,7 @@ function reduced_form(lred::LocalReduction,s::AbstractBlockSnapshots,trian,test)
   return hyper_red,red_trian
 end
 
-function reduced_form(lred::LocalReduction,s::AbstractBlockSnapshots,trian,trial,test)
+function reduced_form(lred::LocalReduction,s::BlockSnapshots,trian,trial,test)
   @check size(s,1) == length(test)
   @check size(s,2) == length(trial)
 
