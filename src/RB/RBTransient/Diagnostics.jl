@@ -14,7 +14,7 @@ function RBSteady.allocate_diagnostic_residual(
 end
 
 function RBSteady.allocate_diagnostic_residual(
-  op::TransientRBOperator{O,T,B,<:HighDimNoHRContribution},
+  op::TransientRBOperator{O,T,B,<:TransientNoHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -59,7 +59,7 @@ function RBSteady.allocate_diagnostic_jacobian(
 end
 
 function RBSteady.allocate_diagnostic_jacobian(
-  op::TransientRBOperator{O,T,<:HighDimNoHRContributionTuple,B},
+  op::TransientRBOperator{O,T,<:TransientNoHRContributionTuple,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -146,7 +146,7 @@ end
 
 function RBSteady.diagnostic_residual!(
   b::DiagnosticsContribution,
-  op::TransientRBOperator{O,T,A,<:HighDimNoHRContribution},
+  op::TransientRBOperator{O,T,A,<:TransientNoHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -176,7 +176,7 @@ end
 
 function RBSteady.diagnostic_residual!(
   b::DiagnosticsContribution,
-  op::TransientRBOperator{O,T,A,<:HighDimAffineHRContribution},
+  op::TransientRBOperator{O,T,A,<:TransientAffineHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -187,7 +187,7 @@ end
 
 function RBSteady.diagnostic_residual!(
   b::DiagnosticsContribution,
-  op::TransientRBOperator{O,T,A,<:HighDimRBFContribution},
+  op::TransientRBOperator{O,T,A,<:TransientRBFContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -246,7 +246,7 @@ end
 
 function RBSteady.diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::TransientRBOperator{O,T,<:HighDimNoHRContributionTuple,B},
+  op::TransientRBOperator{O,T,<:TransientNoHRContributionTuple,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
@@ -288,7 +288,7 @@ end
 
 function RBSteady.diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::TransientRBOperator{O,T,<:HighDimAffineHRContributionTuple,B},
+  op::TransientRBOperator{O,T,<:TransientAffineHRContributionTuple,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
@@ -300,7 +300,7 @@ end
 
 function RBSteady.diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::TransientRBOperator{O,T,<:HighDimRBFContributionTuple,B},
+  op::TransientRBOperator{O,T,<:TransientRBFContributionTuple,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
@@ -462,7 +462,7 @@ end
 
 # utils 
 
-for T in (:HighDimDEIMHyperReduction,:HighDimSOPTHyperReduction)
+for T in (:TransientDEIMHyperReduction,:TransientSOPTHyperReduction)
   @eval begin
     function RBSteady.check_interpolation(res,a::HRVecProjection{<:$T},fecache)
       msg = "fecache mismatch at interpolation points"
@@ -502,7 +502,7 @@ for T in (:HighDimDEIMHyperReduction,:HighDimSOPTHyperReduction)
   end
 end
 
-for S in (:HRVecProjection,:HRMatProjection), T in (:HighDimRBFHyperReduction,:HighDimTrivialHyperReduction)
+for S in (:HRVecProjection,:HRMatProjection), T in (:TransientRBFHyperReduction,:TransientTrivialHyperReduction)
   @eval function RBSteady.check_interpolation(resjac,a::$S{<:$T},fecache)
     return true
   end
@@ -520,16 +520,16 @@ function RBSteady.set_params(red::SequentialReduction;kwargs...)
   SequentialReduction(RBSteady.set_params(red.reduction;kwargs...))
 end
 
-function RBSteady.set_params(red::HighDimDEIMHyperReduction;kwargs...)
-  HighDimDEIMHyperReduction(RBSteady.set_params(red.reduction;kwargs...),red.combination)
+function RBSteady.set_params(red::TransientDEIMHyperReduction;kwargs...)
+  TransientDEIMHyperReduction(RBSteady.set_params(red.reduction;kwargs...),red.combination)
 end
 
-function RBSteady.set_params(red::HighDimSOPTHyperReduction;kwargs...)
-  HighDimSOPTHyperReduction(RBSteady.set_params(red.reduction;kwargs...),red.combination)
+function RBSteady.set_params(red::TransientSOPTHyperReduction;kwargs...)
+  TransientSOPTHyperReduction(RBSteady.set_params(red.reduction;kwargs...),red.combination)
 end
 
-function RBSteady.set_params(red::HighDimRBFHyperReduction;kwargs...)
-  HighDimRBFHyperReduction(RBSteady.set_params(red.reduction;kwargs...),red.combination,red.strategy)
+function RBSteady.set_params(red::TransientRBFHyperReduction;kwargs...)
+  TransientRBFHyperReduction(RBSteady.set_params(red.reduction;kwargs...),red.combination,red.strategy)
 end
 
 function RBSteady.set_params(red::NTuple{N,Reduction};kwargs...) where N

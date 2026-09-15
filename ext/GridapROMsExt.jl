@@ -142,20 +142,20 @@ function GridapROMs.update_reduction(red::SequentialReduction,tolrank)
   SequentialReduction(update_reduction(red.reduction,tolrank))
 end
 
-function GridapROMs.update_reduction(red::HighDimTrivialHyperReduction,tolrank)
+function GridapROMs.update_reduction(red::TransientTrivialHyperReduction,tolrank)
   red
 end
 
-function GridapROMs.update_reduction(red::HighDimDEIMHyperReduction,tolrank)
-  HighDimDEIMHyperReduction(update_reduction(red.reduction,tolrank),red.combination)
+function GridapROMs.update_reduction(red::TransientDEIMHyperReduction,tolrank)
+  TransientDEIMHyperReduction(update_reduction(red.reduction,tolrank),red.combination)
 end
 
-function GridapROMs.update_reduction(red::HighDimSOPTHyperReduction,tolrank)
-  HighDimSOPTHyperReduction(update_reduction(red.reduction,tolrank),red.combination)
+function GridapROMs.update_reduction(red::TransientSOPTHyperReduction,tolrank)
+  TransientSOPTHyperReduction(update_reduction(red.reduction,tolrank),red.combination)
 end
 
-function GridapROMs.update_reduction(red::HighDimRBFHyperReduction,tolrank)
-  HighDimRBFHyperReduction(update_reduction(red.reduction,tolrank),red.combination,red.strategy)
+function GridapROMs.update_reduction(red::TransientRBFHyperReduction,tolrank)
+  TransientRBFHyperReduction(update_reduction(red.reduction,tolrank),red.combination,red.strategy)
 end
 
 function GridapROMs.update_reduction(red::NTuple{N,Reduction},tolrank) where N

@@ -115,7 +115,7 @@ const SOPTProjection{A<:Projection} = HRProjection{<:SOPTHyperReduction,A}
 const RBFProjection{A<:Projection} = HRProjection{<:RBFHyperReduction,A}
 
 """
-    struct GenericHRProjection{A,B,C} <: HRProjection{A,B,C}
+    struct GenericHRProjection{A<:HyperReduction,B<:Projection,C<:Interpolation} <: HRProjection{A,B,C}
       style::A
       basis::B
       interpolation::C
@@ -123,14 +123,14 @@ const RBFProjection{A<:Projection} = HRProjection{<:RBFHyperReduction,A}
 
 Generic implementation of an [`HRProjection`](@ref) object
 """
-struct GenericHRProjection{A,B,C} <: HRProjection{A,B,C}
+struct GenericHRProjection{A<:HyperReduction,B<:Projection,C<:Interpolation} <: HRProjection{A,B,C}
   style::A
   basis::B
   interpolation::C
 end
 
 function HRProjection(basis::ReducedProjection,style::HyperReduction,interp::Interpolation)
-  GenericHRProjection(basis,style,interp)
+  GenericHRProjection(style,basis,interp)
 end
 
 get_basis(a::GenericHRProjection) = a.basis
@@ -163,7 +163,7 @@ function HRProjection(red::NoHyperReduction,s,trian,trial,test)
   T = get_dof_value_type(trial)
   nrows = num_reduced_dofs(test)
   ncols = num_reduced_dofs(trial)
-  basis = ReducedProjection(zeros(T,nrows,1,ncols))
+  basis = ReducedProjection(zeros(T,nrows,ncols,1))
   interp = Interpolation(red,trian)
   return HRProjection(basis,red,interp)
 end

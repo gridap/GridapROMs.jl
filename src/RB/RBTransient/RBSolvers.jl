@@ -7,9 +7,9 @@ function RBSteady.RBSolver(
   )
 
   c = TimeCombination(fesolver)
-  residual_reduction = HighDimHyperReduction(c,reduction;nparams=nparams_res,kwargs...)
+  residual_reduction = TransientHyperReduction(c,reduction;nparams=nparams_res,kwargs...)
   jacobian_reduction = ntuple(
-    i -> HighDimHyperReduction(
+    i -> TransientHyperReduction(
       CombinationOrder{i}(c),reduction;
       nparams=nparams_jacs[i],kwargs...
     ),

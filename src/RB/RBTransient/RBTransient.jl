@@ -8,11 +8,11 @@ from the time dimension: snapshots are matrices (space × time) and bases must
 capture temporal as well as spatial structure.  Key extensions:
 
 - **Reduction methods** — `TransientReduction`, `KroneckerReduction`,
-  `SequentialReduction` extend the steady reductions; `HighDimReduction`,
+  `SequentialReduction` extend the steady reductions; `TransientReduction`,
   `SteadyReduction` handle the "high-dimensional" (full-space) and purely-spatial
   cases.  Corresponding hyper-reduction variants: `TransientHyperReduction`,
-  `HighDimDEIMHyperReduction`, `HighDimSOPTHyperReduction`,
-  `HighDimRBFHyperReduction`.
+  `TransientDEIMHyperReduction`, `TransientSOPTHyperReduction`,
+  `TransientRBFHyperReduction`.
 
 - **Tucker / Kronecker bases** (`BasesConstruction.jl`) — `tucker` computes a
   Tucker decomposition, used for Kronecker-product basis representations.
@@ -88,21 +88,19 @@ import GridapROMs.ParamDataStructures: GenericTransientRealisation, TransientRea
 import GridapROMs.RBSteady: num_centroids,get_lhs,get_rhs,_get_label,_data,_fe_data,_setup,_convert_to_block
 import RadialBasisFunctions: Interpolator, AbstractRadialBasis, PHS
 
-export HighDimReduction
 export SteadyReduction
 export TransientReduction
 export KroneckerReduction
 export SequentialReduction
-export HighDimHyperReduction
 export SteadyHyperReduction
 export TransientHyperReduction
-export HighDimTrivialHyperReduction
-export HighDimNoHyperReduction
-export HighDimAffineHyperReduction
-export HighDimDEIMHyperReduction
-export HighDimSOPTHyperReduction
-export HighDimRBFHyperReduction
-export HighDimLocalHyperReduction
+export TransientTrivialHyperReduction
+export TransientNoHyperReduction
+export TransientAffineHyperReduction
+export TransientDEIMHyperReduction
+export TransientSOPTHyperReduction
+export TransientRBFHyperReduction
+export TransientLocalHyperReduction
 export get_reduction
 export get_time_combination
 include("ReductionMethods.jl")
@@ -143,8 +141,8 @@ export TransientRBFInterpolation
 export TransientBlockInterpolation
 include("Interpolations.jl")
 
-export HighDimAffineHRContribution
-export HighDimAffineHRContributionTuple
+export TransientAffineHRContribution
+export TransientAffineHRContributionTuple
 export get_common_time_domain
 include("HyperReductions.jl")
 

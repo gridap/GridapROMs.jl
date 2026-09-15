@@ -21,7 +21,7 @@ The per-order time-level weights are accessed through
 [`get_coefficients`](@ref), while [`time_combination`](@ref) applies the
 full combination to a parametric solution vector.
 
-See also: [`CombinationOrder`](@ref), [`HighDimHyperReduction`](@ref).
+See also: [`CombinationOrder`](@ref), [`TransientHyperReduction`](@ref).
 """
 abstract type TimeCombination end
 

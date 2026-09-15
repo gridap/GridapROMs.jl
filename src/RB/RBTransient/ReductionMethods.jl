@@ -1,5 +1,5 @@
 """
-    abstract type HighDimReduction{A<:ReductionStyle,B<:AssembleOperator} <: Reduction{A,B} end
+    abstract type TransientReduction{A<:ReductionStyle,B<:AssembleOperator} <: Reduction{A,B} end
 
 Abstract supertype for reduction methods in high-order (e.g. transient)
 parametric problems.
@@ -12,13 +12,13 @@ Concrete subtypes:
 - [`SequentialReduction`](@ref) — uses TT-SVD (tensor-train) decomposition
   for the snapshot tensor.
 
-Use the generic constructor `HighDimReduction(args...; kwargs...)` to dispatch
+Use the generic constructor `TransientReduction(args...; kwargs...)` to dispatch
 to the appropriate subtype based on the arguments.
 """
-abstract type HighDimReduction{A<:ReductionStyle,B<:AssembleOperator} <: Reduction{A,B} end
+abstract type TransientReduction{A<:ReductionStyle,B<:AssembleOperator} <: Reduction{A,B} end
 
 """
-    struct SteadyReduction{A,B} <: HighDimReduction{A,B}
+    struct SteadyReduction{A,B} <: TransientReduction{A,B}
       reduction::Reduction{A,B}
     end
 
@@ -26,7 +26,7 @@ Wrapper for steady reduction methods in high order problems, such as transient o
 In practice, the resulting ROM will still need to run the time marching scheme, since 
 no temporal reduction occurs.
 """
-struct SteadyReduction{A,B} <: HighDimReduction{A,B}
+struct SteadyReduction{A,B} <: TransientReduction{A,B}
   reduction::Reduction{A,B}
 end
 
@@ -45,14 +45,14 @@ RBSteady.NormStyle(r::SteadyReduction) = NormStyle(r.reduction)
 ParamDataStructures.num_params(r::SteadyReduction) = num_params(r.reduction)
 
 """
-    struct KroneckerReduction{A,B} <: HighDimReduction{A,B}
+    struct KroneckerReduction{A,B} <: TransientReduction{A,B}
       reductions::AbstractVector{<:Reduction}
     end
 
 Wrapper for reduction methods in high order problems, such as transient ones. The
 reduced subspaces are constructed as Kronecker product spaces
 """
-struct KroneckerReduction{A,B} <: HighDimReduction{A,B}
+struct KroneckerReduction{A,B} <: TransientReduction{A,B}
   reductions::AbstractVector{<:Reduction}
   function KroneckerReduction(reductions::AbstractVector{<:Reduction})
     A = typeof(ReductionStyle(first(reductions)))
@@ -76,41 +76,37 @@ get_reduction_time(r::KroneckerReduction) = last(r.reductions)
 
 # generic constructor
 
-function HighDimReduction end
-
-const TransientReduction = HighDimReduction
-
-function HighDimReduction(reduction::HighDimReduction,args...;kwargs...)
+function TransientReduction(reduction::TransientReduction,args...;kwargs...)
   reduction
 end
 
-function HighDimReduction(styles::AbstractVector{<:ReductionStyle},args...;kwargs...)
+function TransientReduction(styles::AbstractVector{<:ReductionStyle},args...;kwargs...)
   reductions = map(s -> Reduction(s,args...;kwargs...),styles)
   KroneckerReduction(reductions)
 end
 
-function HighDimReduction(tolranks::AbstractVector{<:Union{Int,Float64}},args...;kwargs...)
+function TransientReduction(tolranks::AbstractVector{<:Union{Int,Float64}},args...;kwargs...)
   reductions = map(t -> Reduction(t,args...;kwargs...),tolranks)
   KroneckerReduction(reductions)
 end
 
-function HighDimReduction(tolrank::Union{Int,Float64},args...;dim=2,kwargs...)
-  HighDimReduction(Fill(tolrank,dim),args...;kwargs...)
+function TransientReduction(tolrank::Union{Int,Float64},args...;dim=2,kwargs...)
+  TransientReduction(Fill(tolrank,dim),args...;kwargs...)
 end
 
-function HighDimReduction(red_style::ReductionStyle,args...;dim=2,kwargs...)
-  HighDimReduction(Fill(red_style,dim),args...;kwargs...)
+function TransientReduction(red_style::ReductionStyle,args...;dim=2,kwargs...)
+  TransientReduction(Fill(red_style,dim),args...;kwargs...)
 end
 
 """
-    struct SequentialReduction{A,B} <: HighDimReduction{A,B}
+    struct SequentialReduction{A,B} <: TransientReduction{A,B}
       reduction::Reduction{A,B}
     end
 
 Wrapper for sequential reduction methods in high-order problems, e.g. TT-SVD in
 transient applications
 """
-struct SequentialReduction{A,B} <: HighDimReduction{A,B}
+struct SequentialReduction{A,B} <: TransientReduction{A,B}
   reduction::Reduction{A,B}
 end
 
@@ -125,23 +121,23 @@ function SequentialReduction(r::LocalReduction)
   LocalReduction(r′,nc)
 end
 
-function HighDimReduction(red_style::TTSVDRanks,args...;kwargs...)
+function TransientReduction(red_style::TTSVDRanks,args...;kwargs...)
   reduction = Reduction(red_style,args...;kwargs...)
   SequentialReduction(reduction)
 end
 
-function HighDimReduction(tolrank::Union{Vector{Int},Vector{Float64}},args...;kwargs...)
+function TransientReduction(tolrank::Union{Vector{Int},Vector{Float64}},args...;kwargs...)
   reduction = Reduction(tolrank,args...;kwargs...)
   SequentialReduction(reduction)
 end
 
-function HighDimReduction(coupling::AssembleOperator,args...;supr_tol=1e-2,kwargs...)
-  reduction = HighDimReduction(args...;kwargs...)
+function TransientReduction(coupling::AssembleOperator,args...;supr_tol=1e-2,kwargs...)
+  reduction = TransientReduction(args...;kwargs...)
   SupremizerReduction(reduction,coupling,supr_tol)
 end
 
 @doc raw"""
-    abstract type HighDimHyperReduction{A} <: HyperReduction{A} end
+    abstract type TransientHyperReduction{A} <: HyperReduction{A} end
 
 Hyper-reduction strategies employed in high-order (e.g. transient) problems.
 
@@ -194,14 +190,10 @@ returns the per-order weights that combine snapshots from successive time
 levels.  Higher-order schemes (Newmark / Generalized-α) follow the same
 pattern with additional combination orders.
 """
-abstract type HighDimHyperReduction{A} <: HyperReduction{A} end
-
-function HighDimHyperReduction end
-
-const TransientHyperReduction = HighDimHyperReduction
+abstract type TransientHyperReduction{A} <: HyperReduction{A} end
 
 """
-    HighDimHyperReduction(combination, args...; compression=:global, hypred_strategy=:deim, kwargs...)
+    TransientHyperReduction(combination, args...; compression=:global, hypred_strategy=:deim, kwargs...)
 
 Factory for transient high-dimensional hyper-reduction strategies.
 
@@ -210,13 +202,13 @@ Supported `hypred_strategy` values:
 - `:deim` (existing)
 - `:sopt` (existing)
 - `:rbf` (existing)
-- `:none` (new, aliases: `:no`, `:nohr`) -> [`HighDimNoHyperReduction`](@ref)
-- `:affine` (new) -> [`HighDimAffineHyperReduction`](@ref)
+- `:none` (new, aliases: `:no`, `:nohr`) -> [`TransientNoHyperReduction`](@ref)
+- `:affine` (new) -> [`TransientAffineHyperReduction`](@ref)
 
 When `compression=:local`, this dispatches to
-[`HighDimLocalHyperReduction`](@ref) with the selected strategy.
+[`TransientLocalHyperReduction`](@ref) with the selected strategy.
 """
-function HighDimHyperReduction(
+function TransientHyperReduction(
   combination::TimeCombination,
   args...;compression=:global,
   hypred_strategy=:deim,
@@ -224,68 +216,68 @@ function HighDimHyperReduction(
   )
 
   if hypred_strategy in (:no,:none,:nohr)
-    return HighDimNoHyperReduction(combination)
+    return TransientNoHyperReduction(combination)
   elseif hypred_strategy == :affine
-    return HighDimAffineHyperReduction(combination)
+    return TransientAffineHyperReduction(combination)
   elseif compression==:global
-    reduction = HighDimReduction(args...;kwargs...)
+    reduction = TransientReduction(args...;kwargs...)
     if hypred_strategy==:deim
-      return HighDimDEIMHyperReduction(combination,reduction)
+      return TransientDEIMHyperReduction(combination,reduction)
     elseif hypred_strategy==:sopt
-      return HighDimSOPTHyperReduction(combination,reduction)
+      return TransientSOPTHyperReduction(combination,reduction)
     elseif hypred_strategy==:rbf
-      return HighDimRBFHyperReduction(combination,reduction)
+      return TransientRBFHyperReduction(combination,reduction)
     else
       error("Unknown high-dimensional hyper-reduction strategy: $hypred_strategy")
     end
   else
-    HighDimLocalHyperReduction(combination,args...;hypred_strategy,kwargs...)
+    TransientLocalHyperReduction(combination,args...;hypred_strategy,kwargs...)
   end
 end
 
-function HighDimHyperReduction(
+function TransientHyperReduction(
   combination::TimeCombination,
-  reduction::HighDimReduction,
+  reduction::TransientReduction,
   args...;kwargs...
   )
 
   red_style = ReductionStyle(reduction)
-  HighDimHyperReduction(combination,red_style;kwargs...)
+  TransientHyperReduction(combination,red_style;kwargs...)
 end
 
-function HighDimHyperReduction(
-  reduction::HighDimReduction,
+function TransientHyperReduction(
+  reduction::TransientReduction,
   combination::TimeCombination;kwargs...
   )
 
   red_style = ReductionStyle(reduction)
-  HighDimDEIMHyperReduction(combination,red_style;kwargs...)
+  TransientDEIMHyperReduction(combination,red_style;kwargs...)
 end
 
-function HighDimHyperReduction(
+function TransientHyperReduction(
   combination::TimeCombination,
   reduction::SupremizerReduction,
   args...;kwargs...
   )
 
-  HighDimHyperReduction(combination,get_reduction(reduction),args...;kwargs...)
+  TransientHyperReduction(combination,get_reduction(reduction),args...;kwargs...)
 end
 
-function HighDimHyperReduction(reduction::SupremizerReduction,args...;kwargs...)
-  HighDimHyperReduction(get_reduction(reduction),args...;kwargs...)
+function TransientHyperReduction(reduction::SupremizerReduction,args...;kwargs...)
+  TransientHyperReduction(get_reduction(reduction),args...;kwargs...)
 end
 
-function HighDimHyperReduction(combination::TimeCombination,r::LocalReduction,args...;ncentroids=num_centroids(r),kwargs...)
-  HighDimLocalHyperReduction(combination,get_reduction(r),args...;ncentroids,kwargs...)
+function TransientHyperReduction(combination::TimeCombination,r::LocalReduction,args...;ncentroids=num_centroids(r),kwargs...)
+  TransientLocalHyperReduction(combination,get_reduction(r),args...;ncentroids,kwargs...)
 end
 
-function HighDimHyperReduction(r::LocalReduction,combination::TimeCombination;ncentroids=num_centroids(r),kwargs...)
-  HighDimLocalHyperReduction(combination,get_reduction(r);ncentroids,kwargs...)
+function TransientHyperReduction(r::LocalReduction,combination::TimeCombination;ncentroids=num_centroids(r),kwargs...)
+  TransientLocalHyperReduction(combination,get_reduction(r);ncentroids,kwargs...)
 end
 
-get_time_combination(r::HighDimHyperReduction) = @abstractmethod
+get_time_combination(r::TransientHyperReduction) = @abstractmethod
 
-function HighDimHyperReduction(
+function TransientHyperReduction(
   combination::TimeCombination,
   reduction::SteadyReduction,
   args...;kwargs...
@@ -295,7 +287,7 @@ function HighDimHyperReduction(
   _replace_reduction(hr)
 end
 
-function HighDimHyperReduction(
+function TransientHyperReduction(
   reduction::SteadyReduction,
   combination::TimeCombination;kwargs...
   )
@@ -304,15 +296,15 @@ function HighDimHyperReduction(
   _replace_reduction(hr)
 end
 
-abstract type HighDimTrivialHyperReduction <: HighDimHyperReduction{NoReductionStyle} end
+abstract type TransientTrivialHyperReduction <: TransientHyperReduction{NoReductionStyle} end
 
-RBSteady.get_reduction(r::HighDimTrivialHyperReduction) = NoReduction()
-RBSteady.ReductionStyle(r::HighDimTrivialHyperReduction) = NoReductionStyle()
-RBSteady.NormStyle(r::HighDimTrivialHyperReduction) = EuclideanNorm()
-ParamDataStructures.num_params(r::HighDimTrivialHyperReduction) = 1
+RBSteady.get_reduction(r::TransientTrivialHyperReduction) = NoReduction()
+RBSteady.ReductionStyle(r::TransientTrivialHyperReduction) = NoReductionStyle()
+RBSteady.NormStyle(r::TransientTrivialHyperReduction) = EuclideanNorm()
+ParamDataStructures.num_params(r::TransientTrivialHyperReduction) = 1
 
 """
-    struct HighDimNoHyperReduction <: HighDimTrivialHyperReduction 
+    struct TransientNoHyperReduction <: TransientTrivialHyperReduction 
       combination::TimeCombination
     end
 
@@ -320,14 +312,14 @@ Reduction employed when the input data is independent with respect to the
 considered realisation. Therefore, simply considering a number of parameters
 equal to 1 suffices for this type of reduction
 """
-struct HighDimNoHyperReduction <: HighDimTrivialHyperReduction 
+struct TransientNoHyperReduction <: TransientTrivialHyperReduction 
   combination::TimeCombination
 end
 
-get_time_combination(r::HighDimNoHyperReduction) = r.combination
+get_time_combination(r::TransientNoHyperReduction) = r.combination
 
 """
-    struct HighDimAffineHyperReduction <: HighDimTrivialHyperReduction 
+    struct TransientAffineHyperReduction <: TransientTrivialHyperReduction 
       combination::TimeCombination
     end
 
@@ -336,65 +328,65 @@ parameter-independent (μ-independent) structure. As in the no-hyper-reduction
 case, this uses a single effective parameter sample (`num_params = 1`) for the
 hyper-reduction stage.
 """
-struct HighDimAffineHyperReduction <: HighDimTrivialHyperReduction 
+struct TransientAffineHyperReduction <: TransientTrivialHyperReduction 
   combination::TimeCombination
 end
 
-get_time_combination(r::HighDimAffineHyperReduction) = r.combination
+get_time_combination(r::TransientAffineHyperReduction) = r.combination
 
 """
-    struct HighDimDEIMHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
+    struct TransientDEIMHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: TransientHyperReduction{A}
 
 Transient hyper-reduction based on the Matrix Discrete Empirical Interpolation
-Method (DEIM). Combines a spatial [`HighDimReduction`](@ref) with a
+Method (DEIM). Combines a spatial [`TransientReduction`](@ref) with a
 [`TimeCombination`](@ref) encoding the ODE time-marching coefficients.
 
 # Fields
 - `reduction::R`: the underlying spatial reduction.
 - `combination::TimeCombination`: time-marching combination.
 """
-struct HighDimDEIMHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
+struct TransientDEIMHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: TransientHyperReduction{A}
   reduction::R
   combination::TimeCombination
 end
 
-function HighDimDEIMHyperReduction(combination::TimeCombination,args...;kwargs...)
-  reduction = HighDimReduction(args...;kwargs...)
-  HighDimDEIMHyperReduction(reduction,combination)
+function TransientDEIMHyperReduction(combination::TimeCombination,args...;kwargs...)
+  reduction = TransientReduction(args...;kwargs...)
+  TransientDEIMHyperReduction(reduction,combination)
 end
 
-RBSteady.get_reduction(r::HighDimDEIMHyperReduction) = r.reduction
-get_time_combination(r::HighDimDEIMHyperReduction) = r.combination
+RBSteady.get_reduction(r::TransientDEIMHyperReduction) = r.reduction
+get_time_combination(r::TransientDEIMHyperReduction) = r.combination
 
 """
-    struct HighDimSOPTHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
+    struct TransientSOPTHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: TransientHyperReduction{A}
 
 Transient hyper-reduction based on the SOPT (Second-Order Proper
-Transformation) strategy. Stores a spatial [`HighDimReduction`](@ref) and a
+Transformation) strategy. Stores a spatial [`TransientReduction`](@ref) and a
 [`TimeCombination`](@ref).
 
 # Fields
 - `reduction::R`: the underlying spatial reduction.
 - `combination::TimeCombination`: time-marching combination.
 """
-struct HighDimSOPTHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
+struct TransientSOPTHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: TransientHyperReduction{A}
   reduction::R
   combination::TimeCombination
 end
 
-function HighDimSOPTHyperReduction(combination::TimeCombination,args...;kwargs...)
-  reduction = HighDimReduction(args...;kwargs...)
-  HighDimSOPTHyperReduction(reduction,combination)
+function TransientSOPTHyperReduction(combination::TimeCombination,args...;kwargs...)
+  reduction = TransientReduction(args...;kwargs...)
+  TransientSOPTHyperReduction(reduction,combination)
 end
 
-RBSteady.get_reduction(r::HighDimSOPTHyperReduction) = r.reduction
-get_time_combination(r::HighDimSOPTHyperReduction) = r.combination
+RBSteady.get_reduction(r::TransientSOPTHyperReduction) = r.reduction
+get_time_combination(r::TransientSOPTHyperReduction) = r.combination
 
 """
-    struct HighDimRBFHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
+    struct TransientRBFHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: TransientHyperReduction{A}
 
 Transient hyper-reduction based on radial basis function (RBF) interpolation.
-In addition to the spatial [`HighDimReduction`](@ref) and
+In addition to the spatial [`TransientReduction`](@ref) and
 [`TimeCombination`](@ref), it stores an `AbstractRadialBasis` strategy that
 governs the RBF kernel.
 
@@ -403,33 +395,33 @@ governs the RBF kernel.
 - `combination::TimeCombination`: time-marching combination.
 - `strategy::AbstractRadialBasis`: radial basis function kernel (default `PHS()`).
 """
-struct HighDimRBFHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: HighDimHyperReduction{A}
+struct TransientRBFHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: TransientHyperReduction{A}
   reduction::R
   combination::TimeCombination
   strategy::AbstractRadialBasis
 end
 
-function HighDimRBFHyperReduction(combination::TimeCombination,args...;strategy=PHS(),kwargs...)
-  reduction = HighDimReduction(args...;kwargs...)
-  HighDimRBFHyperReduction(reduction,combination,strategy)
+function TransientRBFHyperReduction(combination::TimeCombination,args...;strategy=PHS(),kwargs...)
+  reduction = TransientReduction(args...;kwargs...)
+  TransientRBFHyperReduction(reduction,combination,strategy)
 end
 
-RBSteady.get_reduction(r::HighDimRBFHyperReduction) = r.reduction
-RBSteady.interp_strategy(r::HighDimRBFHyperReduction) = r.strategy
-get_time_combination(r::HighDimRBFHyperReduction) = r.combination
+RBSteady.get_reduction(r::TransientRBFHyperReduction) = r.reduction
+RBSteady.interp_strategy(r::TransientRBFHyperReduction) = r.strategy
+get_time_combination(r::TransientRBFHyperReduction) = r.combination
 
 # local
 
-function HighDimLocalHyperReduction(args...;ncentroids=10,kwargs...)
-  reduction = HighDimHyperReduction(args...;kwargs...)
+function TransientLocalHyperReduction(args...;ncentroids=10,kwargs...)
+  reduction = TransientHyperReduction(args...;kwargs...)
   LocalReduction(reduction,ncentroids)
 end
 
 # utils
 
 _steady_reduction(r::HyperReduction) = SteadyReduction(get_reduction(r))
-_replace_reduction(r::HighDimNoHyperReduction) = r
-_replace_reduction(r::HighDimAffineHyperReduction) = r
+_replace_reduction(r::TransientNoHyperReduction) = r
+_replace_reduction(r::TransientAffineHyperReduction) = r
 _replace_reduction(r::DEIMHyperReduction) = DEIMHyperReduction(_steady_reduction(r))
 _replace_reduction(r::SOPTHyperReduction) = SOPTHyperReduction(_steady_reduction(r))
 _replace_reduction(r::RBFHyperReduction) = RBFHyperReduction(_steady_reduction(r),r.strategy)

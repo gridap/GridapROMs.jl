@@ -1,8 +1,3 @@
-#TODO Functionalities are not yet implemented for a general high order PDE; eventually,
-# it would be desirable to have something like:
-# abstract type HighDimProjection <: Projection end
-# abstract type TransientProjection <: HighDimProjection end
-
 """
     abstract type TransientProjection <: Projection end
 
@@ -103,7 +98,7 @@ struct KroneckerProjection{A<:Projection,B<:Projection} <: TransientProjection
   projection_time::B
 end
 
-function kron_projection(red::KroneckerReduction,s::TransientSnapshots,args...)
+function RBSteady.Projection(red::KroneckerReduction,s::TransientSnapshots,args...)
   basis_space,basis_time = tucker(red.reductions,s,args...)
   projection_space = Projection(basis_space,get_dof_map(s))
   projection_time = Projection(basis_time)
@@ -111,7 +106,7 @@ function kron_projection(red::KroneckerReduction,s::TransientSnapshots,args...)
 end
 
 function RBSteady.projection(red::KroneckerReduction,s::TransientSnapshots)
-  ps,pt = kron_projection(red,s)
+  ps,pt = Projection(red,s)
   return KroneckerProjection(ps,pt)
 end
 
@@ -121,7 +116,7 @@ function RBSteady.projection(
   X::MatrixOrTensor
   )
 
-  ps,pt = kron_projection(red,s,X)
+  ps,pt = Projection(red,s,X)
   psX = NormedProjection(ps,X)
   return KroneckerProjection(psX,pt)
 end
@@ -366,7 +361,7 @@ function RBSteady.galerkin_projection(
 
   # space
   pl_space = get_core_space(proj_left)
-  a_space = first(recast_cores(a))
+  a_space = first(RBSteady.recast_cores(a))
   pr_space = get_core_space(proj_right)
   p_space = contraction(pl_space,a_space,pr_space)
 
@@ -445,7 +440,7 @@ end
 # multfield interface
 
 function RBSteady.enrich!(
-  red::SupremizerReduction{A,B,<:HighDimReduction},
+  red::SupremizerReduction{A,B,<:TransientReduction},
   a::BlockProjection,
   norm_matrix,
   supr_matrix;

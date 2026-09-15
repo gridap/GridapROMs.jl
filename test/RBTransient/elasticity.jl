@@ -60,9 +60,9 @@ function main(
   uh0μ(μ) = interpolate_everywhere(u0μ(μ),trial(μ,t0))
 
   if method == :pod
-    state_reduction = HighDimReduction(tol,H1();nparams,sketch,compression,ncentroids)
+    state_reduction = TransientReduction(tol,H1();nparams,sketch,compression,ncentroids)
   elseif method == :ttsvd
-    state_reduction = HighDimReduction(fill(tol,4),H1();nparams,sketch,compression,ncentroids)
+    state_reduction = TransientReduction(fill(tol,4),H1();nparams,sketch,compression,ncentroids)
   end
 
   θ = 0.5

@@ -10,7 +10,7 @@ function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,b::Abstract
   cache
 end
 
-function RBSteady.Interpolation(red::HighDimNoHyperReduction,trian,args...)
+function RBSteady.Interpolation(red::TransientNoHyperReduction,trian,args...)
   n = num_cells(trian)
   cells = collect(Int32,1:n)
   FullInterpolation(cells)
@@ -20,7 +20,7 @@ end
 
 const TransientGreedyInterpolation{A,B} = GreedyInterpolation{A,B}
 
-for (T,f) in zip((:HighDimDEIMHyperReduction,:HighDimSOPTHyperReduction),(:DEIM,:SOPT))
+for (T,f) in zip((:TransientDEIMHyperReduction,:TransientSOPTHyperReduction),(:DEIM,:SOPT))
   @eval begin
     function RBSteady.Interpolation(red::$T,a::TransientProjection,trian,test)
       (rows,indices_time),interp = $f(a)
@@ -70,7 +70,7 @@ for (T,f) in zip(
   (:get_at_kron_domain,:get_at_seq_domain)
   )
   @eval begin
-    function RBSteady.Interpolation(red::HighDimRBFHyperReduction,a::$T,s::TransientSnapshots)
+    function RBSteady.Interpolation(red::TransientRBFHyperReduction,a::$T,s::TransientSnapshots)
       strategy = RBSteady.interp_strategy(red)
       inds,interp = DEIM(a)
       factor = lu(interp)

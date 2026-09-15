@@ -69,7 +69,7 @@ contributions under local compression settings and local hyper-reduction.
 At API level, local workflows are now first-class in both steady and
 transient stacks, including dedicated local projection/hyper-reduction
 components (for example `LocalProjection`, `LocalHyperReduction`,
-`HighDimLocalHyperReduction`, and their related local interpolation and
+`TransientLocalHyperReduction`, and their related local interpolation and
 contribution paths).
 
 #### Diagnostics API for steady and transient workflows

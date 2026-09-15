@@ -1,11 +1,11 @@
-function RBSteady.HRProjection(red::HighDimHyperReduction,s,trian,trial,test)
+function RBSteady.HRProjection(red::TransientHyperReduction,s,trian,trial,test)
   basis = projection(get_reduction(red),s)
   proj_basis = project(test,basis,trial,get_time_combination(red))
   interp = Interpolation(red,basis,trian,trial,test)
   return HRProjection(proj_basis,red,interp)
 end
 
-function RBSteady.HRProjection(red::HighDimNoHyperReduction,s,trian,test)
+function RBSteady.HRProjection(red::TransientNoHyperReduction,s,trian,test)
   T = get_dof_value_type(test)
   nrows = num_reduced_dofs(test)
   basis = ReducedProjection(zeros(T,nrows,1))
@@ -13,7 +13,7 @@ function RBSteady.HRProjection(red::HighDimNoHyperReduction,s,trian,test)
   return HRProjection(basis,red,interp)
 end
 
-function RBSteady.HRProjection(red::HighDimNoHyperReduction,s,trian,trial,test)
+function RBSteady.HRProjection(red::TransientNoHyperReduction,s,trian,trial,test)
   T = get_dof_value_type(trial)
   nrows = num_reduced_dofs(test)
   ncols = num_reduced_dofs(trial)
@@ -22,28 +22,28 @@ function RBSteady.HRProjection(red::HighDimNoHyperReduction,s,trian,trial,test)
   return HRProjection(basis,red,interp)
 end
 
-function RBSteady.HRProjection(red::HighDimAffineHyperReduction,s,trian,test)
+function RBSteady.HRProjection(red::TransientAffineHyperReduction,s,trian,test)
   basis = GalerkinProjectable(s)
   proj_basis = project(test,basis)
   interp = Interpolation(red)
   return HRProjection(proj_basis,red,interp)
 end
 
-function RBSteady.HRProjection(red::HighDimAffineHyperReduction,s,trian,trial,test)
+function RBSteady.HRProjection(red::TransientAffineHyperReduction,s,trian,trial,test)
   basis = GalerkinProjectable(s)
   proj_basis = project(test,basis,trial,get_time_combination(red))
   interp = Interpolation(red)
   return HRProjection(proj_basis,red,interp)
 end
 
-function RBSteady.HRProjection(red::HighDimRBFHyperReduction,s,trian,test)
+function RBSteady.HRProjection(red::TransientRBFHyperReduction,s,trian,test)
   basis = projection(get_reduction(red),s)
   proj_basis = project(test,basis)
   interp = Interpolation(red,basis,s)
   return HRProjection(proj_basis,red,interp)
 end
 
-function RBSteady.HRProjection(red::HighDimRBFHyperReduction,s,trian,trial,test)
+function RBSteady.HRProjection(red::TransientRBFHyperReduction,s,trian,trial,test)
   basis = projection(get_reduction(red),s)
   proj_basis = project(test,basis,trial,get_time_combination(red))
   interp = Interpolation(red,basis,s)
@@ -64,16 +64,16 @@ function RBSteady.reduced_jacobian(
   return ContributionTuple(a)
 end
 
-const HighDimNoHRProjection{A<:Projection} = HRProjection{A,<:HighDimNoHyperReduction}
-const HighDimAffineHRProjection{A<:Projection} = HRProjection{A,<:HighDimAffineHyperReduction}
-const HighDimDEIMProjection{A<:Projection} = HRProjection{A,<:HighDimDEIMHyperReduction}
-const HighDimSOPTProjection{A<:Projection} = HRProjection{A,<:HighDimSOPTHyperReduction}
-const HighDimRBFProjection{A<:Projection} = HRProjection{A,<:HighDimRBFHyperReduction}
+const TransientNoHRProjection{A<:Projection} = HRProjection{<:TransientNoHyperReduction,A}
+const TransientAffineHRProjection{A<:Projection} = HRProjection{<:TransientAffineHyperReduction,A}
+const TransientDEIMProjection{A<:Projection} = HRProjection{<:TransientDEIMHyperReduction,A}
+const TransientSOPTProjection{A<:Projection} = HRProjection{<:TransientSOPTHyperReduction,A}
+const TransientRBFProjection{A<:Projection} = HRProjection{<:TransientRBFHyperReduction,A}
 
 function FESpaces.interpolate!(
   b̂::AbstractArray,
   coeff::AbstractArray,
-  a::HighDimNoHRProjection,
+  a::TransientNoHRProjection,
   x::AbstractArray
   )
 
@@ -82,12 +82,12 @@ function FESpaces.interpolate!(
   return b̂
 end
 
-RBSteady.allocate_coefficient(a::HighDimNoHRProjection) = RBSteady.allocate_hyper_reduction(a)
+RBSteady.allocate_coefficient(a::TransientNoHRProjection) = RBSteady.allocate_hyper_reduction(a)
 
 function FESpaces.interpolate!(
   b̂::AbstractArray,
   coeff::AbstractArray,
-  a::HighDimAffineHRProjection,
+  a::TransientAffineHRProjection,
   x::Any
   )
 
@@ -98,11 +98,11 @@ function FESpaces.interpolate!(
   return b̂
 end
 
-const HighDimNoHRContribution = AffineContribution{<:HighDimNoHRProjection}
-const HighDimAffineHRContribution = AffineContribution{<:HighDimAffineHRProjection}
-const HighDimDEIMContribution = AffineContribution{<:HighDimDEIMProjection}
-const HighDimSOPTContribution = AffineContribution{<:HighDimSOPTProjection}
-const HighDimRBFContribution = AffineContribution{<:HighDimRBFProjection}
+const TransientNoHRContribution = AffineContribution{<:TransientNoHRProjection}
+const TransientAffineHRContribution = AffineContribution{<:TransientAffineHRProjection}
+const TransientDEIMContribution = AffineContribution{<:TransientDEIMProjection}
+const TransientSOPTContribution = AffineContribution{<:TransientSOPTProjection}
+const TransientRBFContribution = AffineContribution{<:TransientRBFProjection}
 
 """
     const AffineContributionTuple = ContributionTuple{N,<:AffineContribution} where N
@@ -112,11 +112,11 @@ raw `Tuple{Vararg{AffineContribution}}` -- one entry per time derivative
 order in unsteady settings.
 """
 const AffineContributionTuple = ContributionTuple{N,<:AffineContribution} where N
-const HighDimNoHRContributionTuple = ContributionTuple{N,<:HighDimNoHRContribution} where N
-const HighDimAffineHRContributionTuple = ContributionTuple{N,<:HighDimAffineHRContribution} where N
-const HighDimDEIMContributionTuple = ContributionTuple{N,<:HighDimDEIMContribution} where N
-const HighDimSOPTContributionTuple = ContributionTuple{N,<:HighDimSOPTContribution} where N
-const HighDimRBFContributionTuple = ContributionTuple{N,<:HighDimRBFContribution} where N
+const TransientNoHRContributionTuple = ContributionTuple{N,<:TransientNoHRContribution} where N
+const TransientAffineHRContributionTuple = ContributionTuple{N,<:TransientAffineHRContribution} where N
+const TransientDEIMContributionTuple = ContributionTuple{N,<:TransientDEIMContribution} where N
+const TransientSOPTContributionTuple = ContributionTuple{N,<:TransientSOPTContribution} where N
+const TransientRBFContributionTuple = ContributionTuple{N,<:TransientRBFContribution} where N
 
 function RBSteady.allocate_coefficient(a::AffineContributionTuple,b::ArrayContributionTuple)
   @check length(a) == length(b)

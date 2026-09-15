@@ -412,16 +412,6 @@ for f in (:DEIM,:SOPT)
   end
 end
 
-function galerkin_projection(a::Projection,b::PODProjection)
-  b̂ = galerkin_projection(get_basis(a),b)
-  return ReducedProjection(b̂)
-end
-
-function galerkin_projection(a::Projection,b::PODProjection,c::Projection,args...)
-  b̂ = galerkin_projection(get_basis(a),recast_basis(b),get_basis(c),args...)
-  return ReducedProjection(b̂)
-end
-
 # TT interface
 
 """

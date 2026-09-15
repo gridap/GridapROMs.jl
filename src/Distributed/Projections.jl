@@ -64,11 +64,11 @@ function RBSteady._allocate_projection(red::Reduction,s::DistributedBlockSnapsho
   BlockProjection(block_basis)
 end
 
-function RBTransient.kron_projection(red::KroneckerReduction,s::DistributedSparseSnapshots,args...)
+function RBTransient.Projection(red::KroneckerReduction,s::DistributedSparseSnapshots,args...)
   basis_space,basis_time = tucker(red.reductions,s,args...)
   basis_space′ = recast(basis_space,s)
-  projection_space = PODProjection(basis_space′)
-  projection_time = PODProjection(basis_time)
+  projection_space = Projection(basis_space′)
+  projection_time = Projection(basis_time)
   return projection_space,projection_time
 end
 

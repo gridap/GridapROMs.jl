@@ -21,27 +21,27 @@ function _make_realisation(np=3,nt=4)
   TransientRealisation(params,times,0.0)
 end
 
-# ─── HighDimReduction constructors ────────────────────────────────────────────
+# ─── TransientReduction constructors ────────────────────────────────────────────
 
-@testset "KroneckerReduction via HighDimReduction — ReductionStyle vector" begin
-  red = HighDimReduction([SearchSVDRank(1e-2),SearchSVDRank(1e-2)])
+@testset "KroneckerReduction via TransientReduction — ReductionStyle vector" begin
+  red = TransientReduction([SearchSVDRank(1e-2),SearchSVDRank(1e-2)])
   @test red isa KroneckerReduction
   @test length(red.reductions) == 2
 end
 
 @testset "KroneckerReduction from scalar tol + dim" begin
-  red = HighDimReduction(1e-2;dim=2)
+  red = TransientReduction(1e-2;dim=2)
   @test red isa KroneckerReduction
   @test num_params(red) == num_params(first(red.reductions))
 end
 
-@testset "SequentialReduction via HighDimReduction — Float64 vector" begin
-  seq = HighDimReduction([1e-2,1e-2])
+@testset "SequentialReduction via TransientReduction — Float64 vector" begin
+  seq = TransientReduction([1e-2,1e-2])
   @test seq isa SequentialReduction
 end
 
-@testset "SequentialReduction via HighDimReduction — TTSVDRanks" begin
-  seq = HighDimReduction(TTSVDRanks([SearchSVDRank(1e-2),SearchSVDRank(1e-2)]))
+@testset "SequentialReduction via TransientReduction — TTSVDRanks" begin
+  seq = TransientReduction(TTSVDRanks([SearchSVDRank(1e-2),SearchSVDRank(1e-2)]))
   @test seq isa SequentialReduction
 end
 
@@ -51,35 +51,35 @@ end
   @test ReductionStyle(red) isa SearchSVDRank
 end
 
-# ─── HighDimHyperReduction constructors ───────────────────────────────────────
+# ─── TransientHyperReduction constructors ───────────────────────────────────────
 
-@testset "HighDimHyperReduction construction" begin
-  red = HighDimReduction(1e-2;dim=2)
+@testset "TransientHyperReduction construction" begin
+  red = TransientReduction(1e-2;dim=2)
 
   solver = ThetaMethod(LUSolver(),0.1,0.5)
   tcomb  = TimeCombination(solver)
 
-  hrs = ntuple(i -> HighDimHyperReduction(CombinationOrder{i}(tcomb),red),Val(get_time_order(solver)+1))
+  hrs = ntuple(i -> TransientHyperReduction(CombinationOrder{i}(tcomb),red),Val(get_time_order(solver)+1))
   @test length(hrs) == 2
-  @test hrs[1] isa HighDimDEIMHyperReduction
-  @test hrs[2] isa HighDimDEIMHyperReduction
+  @test hrs[1] isa TransientDEIMHyperReduction
+  @test hrs[2] isa TransientDEIMHyperReduction
   @test isa(get_time_combination(hrs[1]),ThetaMethodStrategy{1})
   @test isa(get_time_combination(hrs[2]),ThetaMethodStrategy{2})
 
-  hr_no  = HighDimHyperReduction(CombinationOrder{1}(tcomb),red;hypred_strategy=:no)
-  hr_aff = HighDimHyperReduction(CombinationOrder{1}(tcomb),red;hypred_strategy=:affine)
-  @test hr_no isa HighDimNoHyperReduction
-  @test hr_aff isa HighDimAffineHyperReduction
+  hr_no  = TransientHyperReduction(CombinationOrder{1}(tcomb),red;hypred_strategy=:no)
+  hr_aff = TransientHyperReduction(CombinationOrder{1}(tcomb),red;hypred_strategy=:affine)
+  @test hr_no isa TransientNoHyperReduction
+  @test hr_aff isa TransientAffineHyperReduction
 
   solver = Newmark(LUSolver(),0.1,0.5,0.25)
   tcomb  = TimeCombination(solver)
 
-  hrs = ntuple(i -> HighDimHyperReduction(CombinationOrder{i}(tcomb),red;hypred_strategy=:sopt),
+  hrs = ntuple(i -> TransientHyperReduction(CombinationOrder{i}(tcomb),red;hypred_strategy=:sopt),
     Val(get_time_order(solver)+1))
   @test length(hrs) == 3
-  @test hrs[1] isa HighDimSOPTHyperReduction
-  @test hrs[2] isa HighDimSOPTHyperReduction
-  @test hrs[3] isa HighDimSOPTHyperReduction
+  @test hrs[1] isa TransientSOPTHyperReduction
+  @test hrs[2] isa TransientSOPTHyperReduction
+  @test hrs[3] isa TransientSOPTHyperReduction
   @test isa(get_time_combination(hrs[1]),GenAlpha2Strategy{1})
   @test isa(get_time_combination(hrs[2]),GenAlpha2Strategy{2})
   @test isa(get_time_combination(hrs[3]),GenAlpha2Strategy{3})
@@ -198,22 +198,22 @@ end
 
 @testset "RBSolver(ODESolver,Reduction) builds a TransientRBSolver" begin
   fesolver = ThetaMethod(LUSolver(),0.1,0.5)
-  red      = HighDimReduction(1e-2;dim=2)
+  red      = TransientReduction(1e-2;dim=2)
   solver   = RBSolver(fesolver,red;nparams_res=5,nparams_jacs=(5,5))
 
   @test solver isa RBSolver
   @test get_fe_solver(solver) === fesolver
-  @test solver.residual_reduction isa HighDimDEIMHyperReduction
+  @test solver.residual_reduction isa TransientDEIMHyperReduction
   @test length(solver.jacobian_reduction) == 2
-  @test all(r -> r isa HighDimDEIMHyperReduction,solver.jacobian_reduction)
+  @test all(r -> r isa TransientDEIMHyperReduction,solver.jacobian_reduction)
 
   solver_no = RBSolver(fesolver,red;nparams_res=5,nparams_jacs=(5,5),hypred_strategy=:no)
-  @test solver_no.residual_reduction isa HighDimNoHyperReduction
-  @test all(r -> r isa HighDimNoHyperReduction,solver_no.jacobian_reduction)
+  @test solver_no.residual_reduction isa TransientNoHyperReduction
+  @test all(r -> r isa TransientNoHyperReduction,solver_no.jacobian_reduction)
 
   solver_aff = RBSolver(fesolver,red;nparams_res=5,nparams_jacs=(5,5),hypred_strategy=:affine)
-  @test solver_aff.residual_reduction isa HighDimAffineHyperReduction
-  @test all(r -> r isa HighDimAffineHyperReduction,solver_aff.jacobian_reduction)
+  @test solver_aff.residual_reduction isa TransientAffineHyperReduction
+  @test all(r -> r isa TransientAffineHyperReduction,solver_aff.jacobian_reduction)
 end
 
 # ─── to_realisation ───────────────────────────────────────────────────────────

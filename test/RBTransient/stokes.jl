@@ -62,9 +62,9 @@ function main(
   energy = BlockNorm((H1(),L2()))
   coupling = DivCoupling()
   if method == :pod
-    state_reduction = HighDimReduction(coupling,tol,energy;nparams,sketch,compression,ncentroids)
+    state_reduction = TransientReduction(coupling,tol,energy;nparams,sketch,compression,ncentroids)
   elseif method == :ttsvd
-    state_reduction = HighDimReduction(coupling,fill(tol,4),energy;nparams,sketch,compression,ncentroids)
+    state_reduction = TransientReduction(coupling,fill(tol,4),energy;nparams,sketch,compression,ncentroids)
   end
 
   θ = 0.5

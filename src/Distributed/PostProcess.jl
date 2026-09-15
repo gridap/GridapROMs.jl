@@ -1,4 +1,4 @@
-for T in (:DEIMHyperReduction,:SOPTHyperReduction,:HighDimDEIMHyperReduction,:HighDimSOPTHyperReduction)
+for T in (:DEIMHyperReduction,:SOPTHyperReduction,:TransientDEIMHyperReduction,:TransientSOPTHyperReduction)
   @eval begin
     function RBSteady.check_interpolation(res::DistributedSnapshots,a::HRVecProjection{<:$T},_fecache)
       msg = "fecache mismatch at interpolation points"
@@ -104,7 +104,7 @@ function DrWatson.save(dir,a::DistributedHRProjection;label="")
   end
 end
 
-function DrWatson.save(dir,a::BlockHRProjection{<:DistributedHRProjection};label="")
+function DrWatson.save(dir,a::BlockHRProjection{<:HyperReduction,<:Projection,<:Interpolation,<:DistributedHRProjection};label="")
   for i in eachindex(a)
     save(dir,a[i];label=_plabel(label,BLOCK_LABEL*"$i"))
   end

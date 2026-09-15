@@ -133,7 +133,7 @@ Subtypes:
 - [`GreedyReduction`](@ref)
 - [`SupremizerReduction`](@ref)
 - [`HyperReduction`](@ref)
-- [`HighDimReduction`](@ref)
+- [`TransientReduction`](@ref)
 """
 abstract type Reduction{A<:ReductionStyle,B<:AssembleOperator} end
 
@@ -355,7 +355,7 @@ Subtypes:
 
 - [`DEIMHyperReduction`](@ref)
 - [`RBFHyperReduction`](@ref)
-- [`HighDimHyperReduction`](@ref)
+- [`TransientHyperReduction`](@ref)
 """
 abstract type HyperReduction{A<:ReductionStyle} <: Reduction{A,EuclideanNorm} end
 
