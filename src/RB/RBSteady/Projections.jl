@@ -49,6 +49,10 @@ get_cores(a::Projection) = @notimplemented
 
 DofMaps.get_dof_map(a::Projection) = @abstractmethod
 
+recast_basis(a::Projection) = recast(get_basis(a),get_dof_map(a))
+
+recast_cores(a::Projection) = recast(get_cores(a),get_dof_map(a))
+
 """
     project(a::Projection,x::AbstractArray,args...) -> AbstractArray
 
@@ -357,13 +361,6 @@ get_basis(a::ReducedAlgebraicProjection) = a.basis
 Projection stemming from a truncated proper orthogonal decomposition [`tpod`](@ref),
 or from a tensor train SVD [`ttsvd`](@ref) (in which case `array` is a vector of
 tensor train cores rather than a basis matrix, see [`TTSVDProjection`](@ref)).
-When `s` is built from a sparse matrix (i.e. its dof map is an
-[`AbstractSparseDofMap`](@ref)), `array` is stored as-is, unrecast: the recast
-(i.e. the expansion from the nonzero-pattern-indexed representation to the full
-sparse-matrix-shaped one) is deferred to the point where the projection's
-numerical content is actually needed, e.g. [`get_basis`](@ref) or
-[`galerkin_projection`](@ref) (see [`PODProjection`](@ref)'s `Projection`
-constructor and [`TTSVDProjection`](@ref)'s `_recast_cores`)
 """
 struct GenericProjection{A<:AbstractArray,B<:AbstractDofMap} <: Projection
   array::A
@@ -384,6 +381,9 @@ DofMaps.get_dof_map(a::GenericProjection) = a.dof_map
 
 # POD interface
 
+""" 
+    const PODProjection{A<:AbstractMatrix,B<:AbstractDofMap} = GenericProjection{A,B}
+"""
 const PODProjection{A<:AbstractMatrix,B<:AbstractDofMap} = GenericProjection{A,B}
 
 PODProjection(args...) = GenericProjection(args...)
@@ -403,7 +403,7 @@ end
 
 for f in (:DEIM,:SOPT)
   @eval begin
-    function $f(a::PODProjection{A,<:AbstractSparseDofMap}) where A
+    function $f(a::PODProjection{A,<:AbstractSparseDofMap}) where A<:AbstractMatrix
       i,ai = $f(get_basis(a))
       isempty(i) && return (i,i),ai
       r,c = recast_split_indices(i,get_dof_map(a))
@@ -412,42 +412,20 @@ for f in (:DEIM,:SOPT)
   end
 end
 
-"""
-    _recast_basis(a::PODProjection) -> AbstractMatrix
-
-Returns the basis of `a`, recast according to the sparsity pattern of
-`get_dof_map(a)` whenever the latter is an [`AbstractSparseDofMap`](@ref). This
-is a no-op in the non-sparse scenario. Unlike `get_basis`, which always returns
-the plain, unrecast basis (needed e.g. by `union_bases`, and by the sparse
-`DEIM`/`SOPT` overrides above, which reindex the *unrecast* interpolation
-indices via `get_dof_map`), this function must be used whenever the basis is
-about to enter a Galerkin projection against dofs that are indexed in the full
-(as opposed to nonzero-pattern-compressed) space, i.e. against a test/trial basis
-"""
-_recast_basis(a::PODProjection) = _recast_basis(get_basis(a),get_dof_map(a))
-_recast_basis(basis,dof_map::AbstractDofMap) = basis
-_recast_basis(basis,dof_map::AbstractSparseDofMap) = recast(basis,dof_map)
-
 function galerkin_projection(a::Projection,b::PODProjection)
-  b̂ = galerkin_projection(get_basis(a),_recast_basis(b))
+  b̂ = galerkin_projection(get_basis(a),b)
   return ReducedProjection(b̂)
 end
 
 function galerkin_projection(a::Projection,b::PODProjection,c::Projection,args...)
-  b̂ = galerkin_projection(get_basis(a),_recast_basis(b),get_basis(c),args...)
+  b̂ = galerkin_projection(get_basis(a),recast_basis(b),get_basis(c),args...)
   return ReducedProjection(b̂)
 end
 
 # TT interface
 
 """
-    struct TTSVDProjection <: Projection
-      cores::AbstractVector{<:AbstractArray{<:Any,3}}
-      dof_map::AbstractDofMap
-    end
-
-Projection stemming from a tensor train SVD [`ttsvd`](@ref). For reindexing purposes
-a field `dof_map` is provided along with the tensor train cores `cores`
+    const TTSVDProjection{A<:AbstractVector{<:AbstractArray{<:Any,3}},B<:AbstractDofMap} = GenericProjection{A,B}
 """
 const TTSVDProjection{A<:AbstractVector{<:AbstractArray{<:Any,3}},B<:AbstractDofMap} = GenericProjection{A,B}
 
@@ -457,22 +435,7 @@ get_cores(a::TTSVDProjection) = a.array
 num_fe_dofs(a::TTSVDProjection) = prod(map(c -> size(c,2),get_cores(a)))
 num_reduced_dofs(a::TTSVDProjection) = size(last(get_cores(a)),3)
 
-"""
-    _recast_cores(a::TTSVDProjection) -> AbstractVector{<:AbstractArray{<:Any,3}}
-
-Returns the tensor train cores of `a`, recast (i.e. wrapped as [`SparseCore`](@ref)s)
-according to the sparsity pattern of `get_dof_map(a)` whenever the latter is an
-[`AbstractSparseDofMap`](@ref). This is a no-op in the non-sparse scenario. Unlike
-`get_cores`, which always returns the plain, unrecast cores (needed e.g. by
-`union_bases`/`block_cores`), this function must be used whenever the cores are
-about to be turned into actual numerical values (a full basis, a Galerkin
-projection), since only then does the sparsity pattern need to be applied
-"""
-_recast_cores(a::TTSVDProjection) = _recast_cores(get_cores(a),get_dof_map(a))
-_recast_cores(cores,dof_map::AbstractDofMap) = cores
-_recast_cores(cores,dof_map::AbstractSparseDofMap) = recast(cores,dof_map)
-
-get_basis(a::TTSVDProjection) = cores2basis(_recast_cores(a)...)
+get_basis(a::TTSVDProjection) = cores2basis(recast_cores(a)...)
 
 function project!(
   x̂::AbstractArray,
@@ -508,7 +471,7 @@ end
 
 function galerkin_projection(proj_left::TTSVDProjection,a::TTSVDProjection)
   cores_left = get_cores(proj_left)
-  cores = _recast_cores(a)
+  cores = get_cores(a)
   proj_basis = galerkin_projection(cores_left,cores)
   return ReducedProjection(proj_basis)
 end
@@ -520,7 +483,7 @@ function galerkin_projection(
   )
 
   cores_left = get_cores(proj_left)
-  cores = _recast_cores(a)
+  cores = recast_cores(a)
   cores_right = get_cores(proj_right)
   proj_basis = galerkin_projection(cores_left,cores,cores_right)
   return ReducedProjection(proj_basis)
@@ -633,7 +596,7 @@ end
 
 for f in (:DEIM,:SOPT)
   @eval begin
-    $f(a::NormedProjection) = $f(a.projection)
+    $f(a::NormedProjection) = $f(get_projection(a))
   end
 end
 

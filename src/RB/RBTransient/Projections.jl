@@ -306,13 +306,6 @@ RBSteady.get_cores(a::SequentialProjection) = get_cores(a.projection)
 get_cores_space(a::SequentialProjection) = get_cores(a)[1:end-1]
 get_core_time(a::SequentialProjection) = get_cores(a)[end]
 
-# recast (see RBSteady._recast_cores): the cores of `a` wrapped as SparseCores
-# according to the sparsity of get_dof_map(a), a no-op in the non-sparse scenario.
-# get_cores(_space)/get_core_time keep returning the plain, unrecast cores, needed
-# e.g. by union_bases/block_cores; this must be used instead whenever the cores are
-# about to be turned into actual numerical values (a full basis, a Galerkin projection)
-_recast_cores(a::SequentialProjection) = RBSteady._recast_cores(get_cores(a),get_dof_map(a))
-_recast_cores_space(a::SequentialProjection) = _recast_cores(a)[1:end-1]
 get_basis_space(a::SequentialProjection) = cores2basis(get_cores_space(a)...)
 get_basis_time(a::SequentialProjection) = @notimplemented
 
@@ -338,29 +331,14 @@ end
 
 function RBSteady.galerkin_projection(
   proj_left::SequentialProjection,
-  a::SequentialProjection,
+  a::SequentialProjection{<:TTSVDProjection{A,<:AbstractDofMap}},
   proj_right::SequentialProjection,
   combine
-  )
-
-  # dispatch on the *value* of get_dof_map(a), not its type (mirrors RBSteady's
-  # TTSVDProjection galerkin_projection, see the comment there): a TrivialDofMap
-  # bound on a type parameter of a SequentialProjection{<:TTSVDProjection{...}}
-  # is not reliably resolved by Julia's ambiguity checker
-  RBSteady._galerkin_projection(get_dof_map(a),proj_left,a,proj_right,combine)
-end
-
-function RBSteady._galerkin_projection(
-  ::DofMaps.AbstractDofMap,
-  proj_left::SequentialProjection,
-  a::SequentialProjection,
-  proj_right::SequentialProjection,
-  combine
-  )
+  ) where A
 
   # space
   pl_space = get_cores_space(proj_left)
-  a_space = _recast_cores_space(a)
+  a_space = recast(get_cores_space(a),get_dof_map(a))
   pr_space = get_cores_space(proj_right)
   p_space = unbalanced_contractions(pl_space,a_space,pr_space)
 
@@ -377,19 +355,18 @@ function RBSteady._galerkin_projection(
   return ReducedProjection(proj_cores)
 end
 
-function RBSteady._galerkin_projection(
-  ::DofMaps.TrivialDofMap,
+function RBSteady.galerkin_projection(
   proj_left::SequentialProjection,
-  a::SequentialProjection,
+  a::SequentialProjection{<:TTSVDProjection{A,<:TrivialDofMap}},
   proj_right::SequentialProjection,
   combine
-  )
+  ) where A
 
   get_core_space(a) = RBSteady.basis2core(get_basis_space(a))
 
   # space
   pl_space = get_core_space(proj_left)
-  a_space = first(_recast_cores(a))
+  a_space = first(recast_cores(a))
   pr_space = get_core_space(proj_right)
   p_space = contraction(pl_space,a_space,pr_space)
 

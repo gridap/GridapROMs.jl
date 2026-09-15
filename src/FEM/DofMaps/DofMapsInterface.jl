@@ -60,6 +60,10 @@ function invert(i::AbstractDofMap)
   InverseDofMap(i)
 end
 
+function recast(A::AbstractArray,i::AbstractDofMap)
+  A
+end
+
 """
     struct InverseDofMap{D,Ti,I<:AbstractDofMap{D,Ti}} <: AbstractDofMap{D,Ti}
       dof_map::I
