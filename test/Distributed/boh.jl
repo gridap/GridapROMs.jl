@@ -49,6 +49,16 @@ end
 
 ASMSolver() = PETScLinearSolver(petsc_asm_setup)
 
+function petsc_cg_jacobi_setup(ksp)
+  pc = Ref{GridapPETSc.PETSC.PC}()
+  @check_error_code GridapPETSc.PETSC.KSPSetType(ksp[],GridapPETSc.PETSC.KSPCG)
+  @check_error_code GridapPETSc.PETSC.KSPGetPC(ksp[],pc)
+  @check_error_code GridapPETSc.PETSC.PCSetType(pc[],GridapPETSc.PETSC.PCJACOBI)
+  @check_error_code GridapPETSc.PETSC.KSPSetTolerances(ksp[],1.e-6,1e-14,GridapPETSc.PETSC.PETSC_DEFAULT,20)
+end
+
+PressureSolver() = PETScLinearSolver(petsc_cg_jacobi_setup)
+
 function Gridap.Algebra.solve!(
   x::GridapROMs.Distributed.AbstractParamPVector,
   ls::Gridap.Algebra.LinearSolver,
@@ -70,7 +80,7 @@ end
 
 function build_rbsolver(Q,dΩ,ranks)
   solver_u = ASMSolver()
-  solver_p = CGSolver(JacobiLinearSolver();maxiter=20,atol=1e-14,rtol=1.e-6,verbose=false)
+  solver_p = PressureSolver()
 
   blocks = [LinearSystemBlock() LinearSystemBlock();
             LinearSystemBlock() BiformBlock((p,q) -> ∫(p*q)dΩ,Q,Q)]
@@ -131,7 +141,7 @@ function main(distribute,parts)
   println("diagnostic | projection error (basis + project/inv_project, no HR): ", perr)
 end
 
-petsc_options = "-ksp_error_if_not_converged true"
+petsc_options = "-ksp_error_if_not_converged true -sub_pc_type jacobi"
 
 with_debug() do distribute
   GridapPETSc.with(;args=split(petsc_options)) do

@@ -292,7 +292,7 @@ end
 
 function _set_domain_jacs(
   jacs::Tuple{Vararg{Function}},
-  trians::Union{Tuple{Vararg{Tuple}},AbstractVector{<:Tuple}},
+  trians::Tuple{Vararg{Tuple}},
   order
   )
 
@@ -322,7 +322,7 @@ function _set_domains(
   test::FESpace,
   trial::FESpace,
   trian_res::Tuple,
-  trian_jacs::Union{Tuple{Vararg{Tuple}},AbstractVector{<:Tuple}}
+  trian_jacs::Tuple{Vararg{Tuple}}
   )
 
   polyn_order = get_polynomial_order(test)
