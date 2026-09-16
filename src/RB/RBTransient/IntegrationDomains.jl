@@ -1,6 +1,7 @@
 # iurow_to_irow[id of a unique row] = ids of the entries of that row
 # e.g. get_iurow_to_irow([1,10,100,10]) = [[1],[2,4],[3],[2,4]]
 function get_iurow_to_irow(rows::AbstractVector)
+  isempty(rows) && return Table(Int32[],Int32[1])
   rows_to_count = zeros(Int32,maximum(rows))
   for row in rows
     rows_to_count[row] += 1
@@ -30,10 +31,11 @@ end
 function get_iurowcol_to_irowcol(
   rows::AbstractVector,
   cols::AbstractVector,
-  nrows::Int=maximum(rows)
+  nrows::Int=(isempty(rows) ? 0 : maximum(rows))
   )
 
   @assert length(rows) == length(cols)
+  isempty(rows) && return Table(Int32[],Int32[1])
 
   rowcols_to_count = zeros(Int32,maximum(rows)+nrows*(maximum(cols)-1))
   for (row,col) in zip(rows,cols)
@@ -87,8 +89,8 @@ struct TransientIntegrationDomain{A<:TransientIntegrationDomainStyle,I<:Integrat
   indices_time::Vector{Ti}
 end
 
-const KroneckerIntegrationDomain{Ti<:Integer} = TransientIntegrationDomain{KroneckerDomain,Ti}
-const SequentialIntegrationDomain{Ti<:Integer} = TransientIntegrationDomain{SequentialDomain,Ti}
+const KroneckerIntegrationDomain{I<:IntegrationDomain,Ti<:Integer} = TransientIntegrationDomain{KroneckerDomain,I,Ti}
+const SequentialIntegrationDomain{I<:IntegrationDomain,Ti<:Integer} = TransientIntegrationDomain{SequentialDomain,I,Ti}
 
 get_domain_style(a::TransientIntegrationDomain) = a.domain_style
 

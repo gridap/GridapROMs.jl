@@ -1,22 +1,4 @@
 function RBSteady.galerkin_projection(
-  basis_left::AbstractMatrix,
-  a::AbstractMatrix,
-  combine::TimeCombination
-  )
-
-  galerkin_projection(basis_left,a)
-end
-
-function RBSteady.galerkin_projection(
-  basis_left::AbstractMatrix,
-  a::AbstractParamVector,
-  combine::TimeCombination
-  )
-
-  galerkin_projection(basis_left,get_all_data(a),combine)
-end
-
-function RBSteady.galerkin_projection(
   basis_left::AbstractMatrix{S},
   a::AbstractMatrix{T},
   basis_right::AbstractMatrix{S},

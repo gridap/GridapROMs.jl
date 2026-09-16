@@ -81,7 +81,7 @@ end
 	c = CombinationOrder{1}(ThetaMethodCombination(0.1,0.35))
 
 	# The 2-argument transient overload should reduce to steady projection.
-	@test galerkin_projection(Φl,A,c) ≈ Φl' * A
+	@test galerkin_projection(Φl,A) ≈ Φl' * A
 
 	proj = galerkin_projection(Φl,A,Φr,c)
 	θ = get_coefficients(c,nt)
@@ -103,8 +103,8 @@ end
 	@test begin
 		a = consecutive_param(randn(nt,nc))
 		cache = consecutive_param(zeros(rl,nc))
-		galerkin_projection!(cache,Φl,a,c)
-		get_all_data(cache) ≈ galerkin_projection(Φl,a,c)
+		galerkin_projection!(cache,Φl,a)
+		get_all_data(cache) ≈ galerkin_projection(Φl,a)
 	end
 end
 

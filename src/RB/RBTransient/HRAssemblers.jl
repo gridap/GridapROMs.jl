@@ -334,7 +334,7 @@ function RBSteady.assemble_hr_array_add!(
   _cellvals,
   celldofs::AbstractArray{<:AbstractArray},
   icells::AbstractArray{<:AbstractArray},
-  locations::AbstractArray{<:AbstractArray},
+  locations::AbstractArray,
   style::TransientIntegrationDomainStyle
   )
 

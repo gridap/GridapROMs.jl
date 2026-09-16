@@ -177,11 +177,9 @@ function Algebra.residual!(
   assem = get_param_assembler(op,r)
 
   for strian in get_domains(rhs)
-    red = get_style(rhs[strian])
-    c = get_time_combination(red)
     vecdata = collect_cell_vector_for_trian(test,dc,strian)
     assemble_vector_add!(b.fecache[strian],assem,vecdata)
-    galerkin_projection!(b.coeff[strian],test,b.fecache[strian],c)
+    galerkin_projection!(b.coeff[strian],test,b.fecache[strian])
   end
 
   interpolate!(b,rhs)

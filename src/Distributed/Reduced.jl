@@ -124,8 +124,7 @@ function RBSteady.DEIM(basis::GenericPMatrix)
     @. ro = bo[:,1]
   end
   I[1] = findrow(res)
-  _push_parts!(Iparts,I,1)
-  _from_submatrix!(basisI,basis,I,1)
+  _fill_parts!(Iparts,basisI,basis,I,1)
   for l = 2:n
     PᵀU = view(basisI,1:l-1,1:l-1)
     Pᵀuₗ = view(basisI,1:l-1,l)
@@ -135,8 +134,7 @@ function RBSteady.DEIM(basis::GenericPMatrix)
       mul!(ro,view(bo,:,1:l-1),c,-1.0,1.0)
     end
     I[l] = findrow(res)
-    _push_parts!(Iparts,I,l)
-    _from_submatrix!(basisI,basis,I,l)
+    _fill_parts!(Iparts,basisI,basis,I,l)
   end
   return Iparts,basisI
 end
@@ -153,8 +151,7 @@ function RBSteady.SOPT(basis::GenericPMatrix)
     @. ro = bo[:,1]
   end
   I[1] = findrow(res)
-  _push_parts!(Iparts,I,1)
-  _from_submatrix!(basisI,basis,I,1)
+  _fill_parts!(Iparts,basisI,basis,I,1)
   for l in 2:n
     P = I[1:l-1]
     PᵀU = view(basisI,1:l-1,1:l)
@@ -163,8 +160,7 @@ function RBSteady.SOPT(basis::GenericPMatrix)
     Il = _best_s_opt_index(basis,P,G,colnorms2,l)
     @check Il > 0
     I[l] = Il
-    _push_parts!(Iparts,I,l)
-    _from_submatrix!(basisI,basis,I,l)
+    _fill_parts!(Iparts,basisI,basis,I,l)
   end
   return Iparts,basisI
 end
@@ -521,7 +517,22 @@ function _subfill!(a::AbstractMatrix,b::AbstractMatrix,ia,ib)
   end
 end
 
-function _from_submatrix!(aI,a,I,l)
+function _fill_parts!(Ip,aI,a,I,l)
+  _fill_index_parts!(Ip,I,l)
+  _update_matrix!(aI,a,I,l)
+end
+
+function _fill_index_parts!(Ip::AbstractArray{<:LocalDEIMIndices},I,l)
+  gl = I[l]
+  map(Ip) do a
+    if global_to_local(a.index_parts)[gl] > 0
+      push!(a.global_rows,gl)
+      push!(a.global_cols,l)
+    end
+  end
+end
+
+function _update_matrix!(aI,a,I,l)
   aI .+= map(own_values(a),partition(axes(a,1))) do oa,ra
     g2o = global_to_own(ra)
     c = similar(aI)
@@ -532,16 +543,6 @@ function _from_submatrix!(aI,a,I,l)
     end
     c
   end |> sreduce
-end
-
-function _push_parts!(a::AbstractArray{<:LocalDEIMIndices},I,l)
-  gl = I[l]
-  map(a) do a
-    if global_to_local(a.index_parts)[gl] > 0
-      push!(a.global_rows,gl)
-      push!(a.global_cols,l)
-    end
-  end
 end
 
 function _remap!(x,x_to_y)

@@ -120,10 +120,11 @@ sqrtabs(x::Complex) = sqrt(abs(x))
 
 induced_norm(v::AbstractVector) = norm(v)
 induced_norm(A::AbstractMatrix) = mean(map(norm,eachcol(A)))
-induced_norm(A::AbstractArray) = induced_norm(reshape(A,:,size(A,ndims(A))))
 
 induced_norm(v::AbstractVector,norm_matrix::AbstractMatrix) = sqrtabs(v'*(norm_matrix*v))
 induced_norm(A::AbstractMatrix,norm_matrix::AbstractMatrix) = sqrtabs(mean(diag(A'*(norm_matrix*A))))
+
+induced_norm(A::AbstractArray,args...) = induced_norm(reshape(A,size(A,1),:),args...)
 
 """
     compute_error(sol::AbstractArray,sol_approx::AbstractArray,args...) -> Number

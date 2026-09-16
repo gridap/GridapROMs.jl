@@ -168,7 +168,7 @@ function RBSteady.diagnostic_residual!(
     c = get_time_combination(red)
     vecdata = collect_cell_vector_for_trian(test,dc,strian)
     assemble_vector_add!(b.fecache[strian],assem,vecdata)
-    galerkin_projection!(b.coeff[strian],test,b.fecache[strian],c)
+    galerkin_projection!(b.coeff[strian],test,b.fecache[strian])
   end
 
   RBSteady.diagnostic_interpolate!(b,rhs)
@@ -323,12 +323,8 @@ function RBSteady.hr_error_res(
   )
   
   RBSteady.check_interpolation(res,a,fecache)
-
-  red = get_style(a)
-  c = get_time_combination(red)
-  b̂ = get_basis(galerkin_projection(test,res,c))
+  b̂ = get_basis(galerkin_projection(test,res))
   hrb̂ = get_all_data(hypred)
-
   compute_relative_error(b̂,hrb̂)
 end
 
@@ -342,14 +338,12 @@ function RBSteady.hr_error_jac(
   )
   
   RBSteady.check_interpolation(jac,a,fecache)
-
   μ = get_realisation(jac)
   red = get_style(a)
   c = get_time_combination(red)
   Â = get_basis(galerkin_projection(test,jac,trial,c))
   Â = reshape(permutedims(Â,(1,3,2)),:,num_params(μ))
   hrÂ = reshape(get_all_data(hypred),:,num_params(μ))
-
   compute_relative_error(Â,hrÂ)
 end
 

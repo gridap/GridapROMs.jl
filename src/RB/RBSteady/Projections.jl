@@ -722,16 +722,11 @@ for (f,g) in zip((:project!,:inv_project!),(:to_fe_blocks,:to_reduced_blocks))
   end
 end
 
-function galerkin_projection(
-  proj_left::BlockProjection{A,1},
-  a::BlockProjection{B,1},
-  args...
-  ) where {A,B}
-
+function galerkin_projection(proj_left::BlockProjection{A,1},a::BlockProjection{B,1}) where {A,B}
   @check length(proj_left) == size(a,1)
   block_cache = Vector{Projection}(undef,length(a))
   for i in eachindex(a)
-    block_cache[i] = galerkin_projection(proj_left[i],a[i],args...)
+    block_cache[i] = galerkin_projection(proj_left[i],a[i])
   end
   return BlockProjection(block_cache)
 end
@@ -847,8 +842,8 @@ function GalerkinProjectable(a::AbstractArray{<:AbstractArray})
   return BlockProjection(block_cache)
 end
 
-function galerkin_projection(a::Projection,b,args...)
-  galerkin_projection(a,GalerkinProjectable(b),args...)
+function galerkin_projection(a::Projection,b)
+  galerkin_projection(a,GalerkinProjectable(b))
 end
 
 function galerkin_projection(a::Projection,b,c::Projection,args...)

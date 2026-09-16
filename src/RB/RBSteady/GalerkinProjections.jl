@@ -43,14 +43,8 @@ end
 
 # not really in-place 
 
-function galerkin_projection!(
-  cache,
-  basis_left,
-  a,
-  args...
-  )
-
-  proj_basis = galerkin_projection(basis_left,a,args...)
+function galerkin_projection!(cache,args...)
+  proj_basis = galerkin_projection(args...)
   copy_projection!(cache,proj_basis)
   return cache
 end

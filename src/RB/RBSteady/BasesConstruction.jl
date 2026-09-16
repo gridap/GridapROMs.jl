@@ -173,9 +173,9 @@ function method_of_snapshots_col(
 end
 
 function ttsvd_loop(red_style::ReductionStyle,A::AbstractArray{T,3}) where T
-  A′ = reshape(A,size(A,1)*size(A,2),:)
+  A′ = reshape(A,size(A,1)*size(A,2),size(A,3))
   Ur,Sr,Vr = tpod(red_style,A′)
-  core = reshape(Ur,size(A,1),size(A,2),:)
+  core = reshape(Ur,size(A,1),size(A,2),size(Ur,2))
   remainder = Sr.*Vr'
   return core,remainder
 end
@@ -188,13 +188,13 @@ function ttsvd_loop(
 
   prev_rank = size(A,1)
   cur_size = size(A,2)
-  A′ = reshape(A,prev_rank*cur_size,:)
+  A′ = reshape(A,prev_rank*cur_size,size(A,3))
 
   #TODO make this more efficient
   L,p = _cholesky_decomp(kron(X,I(prev_rank)))
   Ur,Sr,Vr = tpod(red_style,A′,L,p)
 
-  core = reshape(Ur,prev_rank,cur_size,:)
+  core = reshape(Ur,prev_rank,cur_size,size(Ur,2))
   remainder = Sr.*Vr'
   return core,remainder
 end
@@ -238,7 +238,7 @@ function ttsvd(
   for d in 1:last_dim(A)
     cur_core,cur_remainder = ttsvd_loop(red_style[d],remainder)
     oldrank = size(cur_core,3)
-    remainder = reshape(cur_remainder,oldrank,size(A,d+1),:)
+    remainder = reshape(cur_remainder,oldrank,size(A,d+1),size(cur_remainder,2)÷size(A,d+1))
     push!(cores,cur_core)
   end
   return cores,remainder
@@ -305,14 +305,15 @@ end
 
 last_dim(A::AbstractArray{T,N}) where {T,N} = N-1
 
-first_unfold_3D(A::AbstractArray{T,N}) where {T,N} = reshape(A,1,size(A,1),:)
+first_unfold_3D(A::AbstractArray{T,N}) where {T,N} = reshape(A,1,size(A,1),prod(size(A)[2:N]))
 
 function first_unfold_3D(A::SubArray{T,N}) where {T,N}
   skeep = 1,size(A,1)
   scale = prod(size(A)[2:N-1])
   iview = A.indices[end]
   rview = range_1d(1:scale,iview,scale)
-  view(reshape(A.parent,skeep...,:),:,:,rview)
+  ncols = prod(size(A.parent)[2:N])
+  view(reshape(A.parent,skeep...,ncols),:,:,rview)
 end
 
 function first_unfold_3D(A::Snapshots)
@@ -402,7 +403,7 @@ function ttnorm_array(X::AbstractRankTensor{D,K},WD) where {D,K}
     kron!(cache,get_factor(X,D,k),WDk)
     @. XW = XW + cache
   end
-  @. XW = (XW+XW')/2 # needed to eliminate roundoff errors
+  symmetrise!(XW) # needed to eliminate roundoff errors
 
   return sparse(XW)
 end
