@@ -109,7 +109,7 @@ GridapDistributed.local_views(s::DistributedSnapshots) = partition(s)
 # sparse interface
 
 const DistributedSparseSnapshots{T,N,I<:AbstractSparseDofMap,R,A} = DistributedSnapshots{T,N,I,R,A}
-const DistributedTransientSparseSnapshots{T,N,I<:AbstractSparseDofMap,R<:TransientRealisation,A} = TransientSparseSnapshots{T,N,I,R,A}
+const DistributedTransientSparseSnapshots{T,N,I<:AbstractSparseDofMap,R<:TransientRealisation,A} = DistributedTransientSnapshots{T,N,I,R,A}
 
 function DofMaps.recast(a::GenericPArray,i::AbstractArray{<:AbstractSparseDofMap})
   data = map(local_values(a),i) do a,i

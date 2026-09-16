@@ -166,41 +166,56 @@ function RBSteady.SOPT(basis::GenericPMatrix)
   return Iparts,basisI
 end
 
-for f in (:DEIM,:SOPT)
-  @eval begin
-    function RBSteady.$f(A::PSparseMatrix)
-      B = get_all_data(A)
-      I,AI = $f(B)
-      n = size(AI,1)
-      r,c = map(local_views(I),local_values(A),flat_row_partition(B)) do I,A,rci
-        rcache = zeros(Int,n)
-        ccache = zeros(Int,n)
-        _remap!(I,global_to_local(rci))
-        r,c = recast_split_indices(I,testitem(A))
-        _remap!(r,local_to_global(row_partition(rci)))
-        _remap!(c,local_to_global(col_partition(rci)))
-        for (k,sk) in enumerate(r.global_cols)
-          rcache[sk] = r[k]
-          ccache[sk] = c[k]
-        end
-        (rcache,ccache)
-      end |> tuple_of_arrays
-      # assemble the full per-slot (global row & col dof) across ranks
-      op(a,b) = max.(a,b) # assign a DEIM index to only one rank, though it may appear on multiple ranks
-      grows = reduce(op,r)
-      gcols = reduce(op,c)
-      # per rank: keep every slot whose row AND col dof is local
-      R′,C′ = map(flat_row_partition(B)) do rci
-        g2lr = global_to_local(row_partition(rci))
-        g2lc = global_to_local(col_partition(rci))
-        ikeep,rkeep,ckeep = _keep_rows_and_cols(grows,gcols,g2lr,g2lc)
-        R′ = LocalDEIMIndices(rkeep,copy(ikeep),row_partition(rci))
-        C′ = LocalDEIMIndices(ckeep,copy(ikeep),col_partition(rci))
-        (R′,C′)
-      end |> tuple_of_arrays
-      return (R′,C′),AI
+function DofMaps.recast_split_indices(
+  sids::AbstractArray{<:LocalDEIMIndices},
+  dof_maps::AbstractArray{<:AbstractDofMap}
+  ) 
+
+  sids
+end
+
+function DofMaps.recast_split_indices(
+  sids::AbstractArray{<:LocalDEIMIndices},
+  dof_maps::AbstractArray{<:AbstractSparseDofMap}
+  )
+
+  r,c = map(sids,dof_maps) do I,dof_map
+    rci = I.index_parts
+    I = copy(I)
+    _remap!(I,global_to_local(rci))
+    r,c = recast_split_indices(I,dof_map)
+    _remap!(r,local_to_global(row_partition(rci)))
+    _remap!(c,local_to_global(col_partition(rci)))
+    (r,c)
+  end |> tuple_of_arrays
+
+  local_max = map(I -> isempty(I.global_cols) ? 0 : maximum(I.global_cols),sids)
+  n = reduce(max,local_max)
+  rcache,ccache = map(r,c) do r,c
+    rcache = zeros(Int,n)
+    ccache = zeros(Int,n)
+    for (k,sk) in enumerate(r.global_cols)
+      rcache[sk] = r[k]
+      ccache[sk] = c[k]
     end
-  end
+    (rcache,ccache)
+  end |> tuple_of_arrays
+
+  op(a,b) = max.(a,b) # assign a DEIM index to only one rank, though it may appear on multiple ranks
+  grows = reduce(op,rcache)
+  gcols = reduce(op,ccache)
+
+  R′,C′ = map(sids) do I
+    rci = I.index_parts
+    g2lr = global_to_local(row_partition(rci))
+    g2lc = global_to_local(col_partition(rci))
+    ikeep,rkeep,ckeep = _keep_rows_and_cols(grows,gcols,g2lr,g2lc)
+    R′ = LocalDEIMIndices(rkeep,copy(ikeep),row_partition(rci))
+    C′ = LocalDEIMIndices(ckeep,copy(ikeep),col_partition(rci))
+    (R′,C′)
+  end |> tuple_of_arrays
+
+  return (R′,C′)
 end
 
 for T in (:AbstractSparseMatrix,:SubSparseMatrix)

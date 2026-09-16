@@ -258,7 +258,6 @@ Constructs a [`Projection`](@ref) from a collection of snapshots `s`. An inner p
 represented by the quantity `X` can be provided, in which case the resulting
 `Projection` will be `X`-orthogonal
 """
-
 function projection(red::Reduction,s::Snapshots)
   Projection(red,s)
 end
@@ -403,11 +402,10 @@ end
 
 for f in (:DEIM,:SOPT)
   @eval begin
-    function $f(a::PODProjection{A,<:AbstractSparseDofMap}) where A<:AbstractMatrix
+    function $f(a::PODProjection)
       i,ai = $f(get_basis(a))
-      isempty(i) && return (i,i),ai
-      r,c = recast_split_indices(i,get_dof_map(a))
-      return (r,c),ai
+      i′ = recast_split_indices(i,get_dof_map(a))
+      return i′,ai
     end
   end
 end

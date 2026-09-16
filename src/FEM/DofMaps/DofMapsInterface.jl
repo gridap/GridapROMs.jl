@@ -60,10 +60,6 @@ function invert(i::AbstractDofMap)
   InverseDofMap(i)
 end
 
-function recast(A::AbstractArray,i::AbstractDofMap)
-  A
-end
-
 """
     struct InverseDofMap{D,Ti,I<:AbstractDofMap{D,Ti}} <: AbstractDofMap{D,Ti}
       dof_map::I
@@ -238,11 +234,14 @@ const AbstractSparseDofMap = Union{TrivialSparseMatrixDofMap,SparseMatrixDofMap}
 
 get_sparsity(i::TrivialSparseMatrixDofMap) = i.sparsity
 get_sparsity(i::SparseMatrixDofMap) = i.sparsity
+
 for f in (:recast,:recast_indices,:recast_split_indices,:sparsify_indices)
   @eval begin
+    $f(A::AbstractArray,i::AbstractDofMap) = A
     $f(A::AbstractArray,i::AbstractSparseDofMap) = $f(A,get_sparsity(i))
   end
 end
+
 function sparsify_split_indices(A::AbstractArray,B::AbstractArray,i::AbstractSparseDofMap)
   sparsify_split_indices(A,B,get_sparsity(i))
 end

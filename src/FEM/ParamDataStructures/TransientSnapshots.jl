@@ -155,7 +155,7 @@ end
 
 """
 """
-const TransientSparseSnapshots{T,N,I<:AbstractSparseDofMap,R<:TransientRealisation} = Snapshots{T,N,I,R}
+const TransientSparseSnapshots{T,N,I<:AbstractSparseDofMap,R<:TransientRealisation} = TransientSnapshots{T,N,I,R}
 
 # block snapshots
 
