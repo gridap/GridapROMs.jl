@@ -243,7 +243,7 @@ for f in (:recast,:recast_indices,:recast_split_indices,:sparsify_indices)
     $f(A::AbstractArray,i::AbstractSparseDofMap) = $f(A,get_sparsity(i))
   end
 end
-function sparsify_split_indices(A::AbstractArray,B::AbstractArray,i::SparseMatrixDofMap)
+function sparsify_split_indices(A::AbstractArray,B::AbstractArray,i::AbstractSparseDofMap)
   sparsify_split_indices(A,B,get_sparsity(i))
 end
 

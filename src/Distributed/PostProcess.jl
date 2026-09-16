@@ -26,10 +26,10 @@ for T in (:DEIMHyperReduction,:SOPTHyperReduction,:TransientDEIMHyperReduction,:
         delta = zero(fecache)
         rrows,rcols = rdofs
         isempty(rrows.global_rows) && return delta
-        sparsity = get_sparsity(get_dof_map(jvals))
+        dof_map = get_dof_map(jvals)
         lrows = _remap(rrows,global_to_local(rrows.index_parts))
         lcols = _remap(rcols,global_to_local(rcols.index_parts))
-        nzinds = sparsify_split_indices(lrows,lcols,sparsity)
+        nzinds = sparsify_split_indices(lrows,lcols,dof_map)
         A = flatten(jvals)
         @views for (nzi,i) in zip(nzinds,rrows.global_cols)
           delta[i,:] .= A[nzi,:]
@@ -87,7 +87,7 @@ end
 
 function DrWatson.save(dir,a::DistributedKroneckerProjection;label="")
   save(dir,a.projection_space;label=_get_label(label,"space"))
-  _psave(dir,a.projection_time;label=_get_label(label,"time"))
+  RBSteady.save(dir,a.projection_time;label=_get_label(label,"time"))
 end
 
 for T in (:DistributedProjection,:DistributedNormedProjection,:DistributedKroneckerProjection)
@@ -100,15 +100,48 @@ for T in (:DistributedProjection,:DistributedNormedProjection,:DistributedKronec
   end
 end
 
+"""
+    load_projection(dir,ranks::AbstractArray;label="") -> Projection
+
+Loads a (possibly distributed) [`Projection`](@ref) from `dir`. Since the type
+of the saved projection cannot be inspected ahead of time (unlike `save`,
+which dispatches on it), we probe the files on disk to figure out, in order:
+
+1) is this a block projection (multi-field)? -> recurse block by block
+2) is this a kronecker projection (space ⊗ time)? -> load space (distributed)
+   and time (not distributed) separately, and recombine
+3) is this a normed projection? -> load the plain (generic) basis, and enrich
+   it with a norm matrix if one was saved alongside it
+4) otherwise, it is a generic projection
+"""
 function RBSteady.load_projection(dir,ranks::AbstractArray;label="")
-  basis = _pload(dir,PROJECTION_LABEL,ranks;label)
-  dof_map = _pload(dir,DOFMAP_LABEL,ranks;label)
-  proj = Projection(basis,dof_map)
-  if _haspart(dir,NORM_MATRIX_LABEL,ranks;label)
-    X = _pload(dir,NORM_MATRIX_LABEL,ranks;label)
-    return NormedProjection(proj,X)
+  if _haspart(dir,PROJECTION_LABEL,ranks;label=_plabel(label,BLOCK_LABEL*"1"))
+    # 1) block projection
+    nblocks = 0
+    while _haspart(dir,PROJECTION_LABEL,ranks;label=_plabel(label,BLOCK_LABEL*"$(nblocks+1)"))
+      nblocks += 1
+    end
+    block_basis = map(1:nblocks) do i
+      RBSteady.load_projection(dir,ranks;label=_plabel(label,BLOCK_LABEL*"$i"))
+    end
+    return BlockProjection(block_basis)
+  elseif _haspart(dir,PROJECTION_LABEL,ranks;label=_get_label(label,"space"))
+    # 2) kronecker projection: the space part is distributed, the time part is not
+    projection_space = RBSteady.load_projection(dir,ranks;label=_get_label(label,"space"))
+    projection_time = RBSteady.load_projection(dir;label=_get_label(label,"time"))
+    return KroneckerProjection(projection_space,projection_time)
+  else
+    basis = _pload(dir,PROJECTION_LABEL,ranks;label)
+    dof_map = _pload(dir,DOFMAP_LABEL,ranks;label)
+    proj = Projection(basis,dof_map)
+    if _haspart(dir,NORM_MATRIX_LABEL,ranks;label)
+      # 3) normed projection
+      X = _pload(dir,NORM_MATRIX_LABEL,ranks;label)
+      return NormedProjection(proj,X)
+    end
+    # 4) generic projection
+    return proj
   end
-  return proj
 end
 
 function DrWatson.save(dir,a::DistributedHRProjection;label="")
@@ -129,7 +162,7 @@ function RBSteady.load_reduced_subspace(dir,f::DistributedSingleFieldFESpace,ran
 end
 
 function RBSteady.load_reduced_subspace(dir,f::DistributedMultiFieldFESpace,ranks::AbstractArray;label="")
-  basis = _load_distributed_block_projection(dir,ranks,num_fields(f);label)
+  basis = RBSteady.load_projection(dir,ranks;label)
   reduced_subspace(f,basis)
 end
 
@@ -209,13 +242,6 @@ function _pallocate(
   )
 
   PSparseMatrix(d,r,c)
-end
-
-function _load_distributed_block_projection(dir,ranks,nfields;label="")
-  block_basis = map(1:nfields) do i
-    RBSteady.load_projection(dir,ranks;label=_plabel(label,BLOCK_LABEL*"$i"))
-  end
-  BlockProjection(block_basis)
 end
 
 function _load_distributed_hrprojection(dir,ranks;label="")

@@ -146,8 +146,8 @@ for f in (:get_at_kron_domain,:get_at_seq_domain)
       )
 
       rows,cols = rowscols
-      sparsity = get_sparsity(get_dof_map(s))
-      inds = sparsify_split_indices(rows,cols,sparsity)
+      dof_map = get_dof_map(s)
+      inds = sparsify_split_indices(rows,cols,dof_map)
       $f(s,inds,indices_time)
     end
   end

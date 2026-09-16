@@ -189,8 +189,8 @@ end
 
 function get_at_domain(s::SparseSnapshots,rowscols::Tuple)
   rows,cols = rowscols
-  sparsity = get_sparsity(get_dof_map(s))
-  inds = sparsify_split_indices(rows,cols,sparsity)
+  dof_map = get_dof_map(s)
+  inds = sparsify_split_indices(rows,cols,dof_map)
   get_at_domain(s,inds)
 end
 

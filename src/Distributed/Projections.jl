@@ -42,12 +42,6 @@ end
 
 const DistributedNormedProjection{A<:DistributedProjection,B<:MatrixOrTensor} = NormedProjection{A,B}
 
-function GridapDistributed.local_views(a::DistributedNormedProjection)
-  map(local_views(get_basis(a)),local_views(get_dof_map(a))) do basis,dof_map
-    GenericProjection(basis,dof_map)
-  end
-end
-
 RBSteady.fe_dof_ids(a::DistributedNormedProjection) = axes(get_basis(a),1)
 
 RBSteady.projection_type(a::DistributedNormedProjection) = PVector{Vector{projection_eltype(a)}}

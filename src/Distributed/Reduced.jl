@@ -338,23 +338,11 @@ for f in (:get_integration_cells,:get_cell_idofs,:get_interpolation_dofs)
 end
 
 for f in (:get_domain_style,:get_indices_time)
-  @eval begin
-    function RBTransient.$f(a::DistributedInterpolation)
-      map(local_views(a)) do a
-        $f(a)
-      end
-    end
-  end
+  @eval RBTransient.$f(a::DistributedInterpolation) = $f(getany(a.interps))
 end
 
 for f in (:get_itimes,:get_locations)
-  @eval begin
-    function RBTransient.$f(a::DistributedInterpolation,ids::AbstractArray{<:AbstractArray})
-      map(local_views(a),local_views(ids)) do a,ids
-        $f(a,ids)
-      end
-    end
-  end
+  @eval RBTransient.$f(a::DistributedInterpolation,ids) = $f(getany(a.interps),ids)
 end
 
 function FESpaces.interpolate!(
@@ -382,8 +370,8 @@ function RBSteady.get_at_domain(s::DistributedSparseSnapshots,rowscols::Tuple)
   inds = map(local_values(s),local_views(rows),local_views(cols)) do s,rows,cols
     @check rows.global_cols == cols.global_cols
     if !isempty(rows)
-      sparsity = get_sparsity(get_dof_map(s))
-      rc = sparsify_split_indices(rows,cols,sparsity)
+      dof_map = get_dof_map(s)
+      rc = sparsify_split_indices(rows,cols,dof_map)
       LocalDEIMIndices(rc,rows.global_cols,rows.index_parts)
     else
       LocalDEIMIndices(rows.index_parts)
@@ -392,11 +380,11 @@ function RBSteady.get_at_domain(s::DistributedSparseSnapshots,rowscols::Tuple)
   get_at_domain(s.snaps,inds)
 end
 
-function RBSteady.get_at_domain(a::GenericPArray,rows::AbstractArray{<:LocalDEIMIndices})
-  n = size(a,2)
+function RBSteady.get_at_domain(s::DistributedSnapshots,rows::AbstractArray{<:LocalDEIMIndices})
+  n = size(s,2)
   @check reduce(+,map(length,rows)) == n
-  datav = map(local_values(a),local_views(rows)) do data,rows
-    x = zeros(eltype(a),n,n)
+  datav = map(local_values(s),local_views(rows)) do data,rows
+    x = zeros(eltype(data),n,n)
     g2l = global_to_local(rows.index_parts)
     if !isempty(rows.global_rows)
       for (gri,i) in zip(rows.global_rows,rows.global_cols)
@@ -411,7 +399,79 @@ function RBSteady.get_at_domain(a::GenericPArray,rows::AbstractArray{<:LocalDEIM
   ConsecutiveParamArray(datav)
 end
 
-const DistributedHRProjection{A<:HyperReduction,B<:Projection,C<:DistributedInterpolation} = GenericHRProjection{A,B,C}
+for f in (:get_at_kron_domain,:get_at_seq_domain)
+  @eval begin
+    function RBTransient.$f(
+      s::DistributedTransientSparseSnapshots,
+      rowscols::Tuple,
+      indices_time::AbstractVector{<:Integer}
+      )
+
+      rows,cols = rowscols
+      inds = map(local_values(s),local_views(rows),local_views(cols)) do s,rows,cols
+        @check rows.global_cols == cols.global_cols
+        if !isempty(rows)
+          dof_map = get_dof_map(s)
+          rc = sparsify_split_indices(rows,cols,dof_map)
+          LocalDEIMIndices(rc,rows.global_cols,rows.index_parts)
+        else
+          LocalDEIMIndices(rows.index_parts)
+        end
+      end
+      RBTransient.$f(s,inds,indices_time)
+    end
+  end
+end
+
+function RBTransient.get_at_kron_domain(
+  s::DistributedTransientSnapshots,
+  rows::AbstractArray{<:LocalDEIMIndices},
+  indices_time::AbstractVector{<:Integer}
+  )
+
+  ns = reduce(+,map(length,rows))
+  nt = length(indices_time)
+  np = num_params(s)
+  datav = map(local_values(s),local_views(rows)) do s,rows
+    data = flatten(s)
+    x = zeros(eltype(data),ns*nt,np)
+    g2l = global_to_local(rows.index_parts)
+    if !isempty(rows.global_rows)
+      for (j,itime) in enumerate(indices_time)
+        for (gri,i) in zip(rows.global_rows,rows.global_cols)
+          lri = g2l[gri]
+          for k in axes(data,2)
+            x[(j-1)*ns+i,k] = data[lri,k,itime]
+          end
+        end
+      end
+    end
+    x
+  end |> sreduce
+  ConsecutiveParamArray(datav)
+end
+
+function RBTransient.get_at_seq_domain(
+  s::DistributedTransientSnapshots,
+  rows::AbstractArray{<:LocalDEIMIndices},
+  indices_time::AbstractVector{<:Integer}
+  )
+
+  n = length(indices_time)
+  np = num_params(s)
+  @check reduce(+,map(length,rows)) == n
+  datav = map(local_values(s),local_views(rows)) do s,rows
+    data = flatten(s)
+    x = zeros(eltype(data),n,np)
+    for i in CartesianIndices(x)
+      x[i] = data[rows[i.I[1]],i.I[2],indices_time[i.I[1]]]
+    end
+    x
+  end |> sreduce
+  ConsecutiveParamArray(datav)
+end
+
+const DistributedHRProjection{A<:HyperReduction,B<:Projection,C<:DistributedInterpolation} = RBSteady.GenericHRProjection{A,B,C}
 
 function GridapDistributed.local_views(a::DistributedHRProjection)
   map(local_views(a.interpolation)) do interp
@@ -436,7 +496,7 @@ end
 function FESpaces.interpolate!(
   b̂::AbstractArray,
   _coeff::AbstractArray{<:AbstractArray},
-  a::DistributedHRProjection{A,NoHyperReduction} where A,
+  a::DistributedHRProjection{NoHyperReduction,B} where B,
   x::AbstractArray{<:AbstractArray}
   )
 
