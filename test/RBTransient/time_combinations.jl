@@ -740,7 +740,7 @@ end
     A = spacetime_jacobian(tcomb,feop,snaps)
 
     @test isa(b,ArrayContribution)
-    @test isa(A,TupOfArrayContribution)
+    @test isa(A,ArrayContributionTuple)
     _compare_with_gridap_heateq(fesolver,snaps,b)
   end
 end
@@ -820,7 +820,7 @@ end
   A = spacetime_jacobian(tcomb,feop,snaps)
 
   @test isa(b,ArrayContribution)
-  @test isa(A,TupOfArrayContribution)
+  @test isa(A,ArrayContributionTuple)
   _compare_with_gridap_waveeq(fesolver,snaps,b)
 end
 

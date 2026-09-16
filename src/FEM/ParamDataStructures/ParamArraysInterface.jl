@@ -134,6 +134,11 @@ function (*)(A::AbstractParamMatrix,x::AbstractParamVector)
   mul!(similar(x,TS,inneraxes(A)[1]),A,x)
 end
 
+function (*)(A::AbstractMatrix,x::AbstractParamVector)
+  TS = LinearAlgebra.promote_op(LinearAlgebra.matprod,eltype(A),eltype(x))
+  mul!(similar(x,TS,axes(A,1)),A,x)
+end
+
 function (*)(A::AbstractParamMatrix,B::AbstractParamMatrix)
   TS = LinearAlgebra.promote_op(LinearAlgebra.matprod,eltype(A),eltype(B))
   mul!(similar(B,TS,(innersize(A)[1],innersize(B)[2])),A,B)

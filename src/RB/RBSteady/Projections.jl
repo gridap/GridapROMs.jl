@@ -353,7 +353,7 @@ Base.ndims(::Type{<:ReducedAlgebraicProjection{A}}) where A = ndims(A)
 get_basis(a::ReducedAlgebraicProjection) = a.basis
 
 """
-    struct GenericProjection{A<:AbstractArray,B<:AbstractDofMap} <: Projection
+    struct GenericProjection{A<:AbstractArray,B<:AbstractArray} <: Projection
       array::A
       dof_map::B
     end
@@ -362,7 +362,7 @@ Projection stemming from a truncated proper orthogonal decomposition [`tpod`](@r
 or from a tensor train SVD [`ttsvd`](@ref) (in which case `array` is a vector of
 tensor train cores rather than a basis matrix, see [`TTSVDProjection`](@ref)).
 """
-struct GenericProjection{A<:AbstractArray,B<:AbstractDofMap} <: Projection
+struct GenericProjection{A<:AbstractArray,B<:AbstractArray} <: Projection
   array::A
   dof_map::B
 end
@@ -382,9 +382,9 @@ DofMaps.get_dof_map(a::GenericProjection) = a.dof_map
 # POD interface
 
 """ 
-    const PODProjection{A<:AbstractMatrix,B<:AbstractDofMap} = GenericProjection{A,B}
+    const PODProjection{A<:AbstractMatrix,B<:AbstractArray} = GenericProjection{A,B}
 """
-const PODProjection{A<:AbstractMatrix,B<:AbstractDofMap} = GenericProjection{A,B}
+const PODProjection{A<:AbstractMatrix,B<:AbstractArray} = GenericProjection{A,B}
 
 PODProjection(args...) = GenericProjection(args...)
 
@@ -415,9 +415,9 @@ end
 # TT interface
 
 """
-    const TTSVDProjection{A<:AbstractVector{<:AbstractArray{<:Any,3}},B<:AbstractDofMap} = GenericProjection{A,B}
+    const TTSVDProjection{A<:AbstractVector{<:AbstractArray{<:Any,3}},B<:AbstractArray} = GenericProjection{A,B}
 """
-const TTSVDProjection{A<:AbstractVector{<:AbstractArray{<:Any,3}},B<:AbstractDofMap} = GenericProjection{A,B}
+const TTSVDProjection{A<:AbstractVector{<:AbstractArray{<:Any,3}},B<:AbstractArray} = GenericProjection{A,B}
 
 TTSVDProjection(args...) = GenericProjection(args...)
 

@@ -213,7 +213,7 @@ function RBSteady.galerkin_projection(
   return ReducedProjection(proj_basis)
 end
 
-function RBSteady.galerkin_projection(proj_left::KroneckerProjection,a::GalerkinProjectable)
+function RBSteady.galerkin_projection(proj_left::KroneckerProjection,a::GalerkinProjectable,args...)
   nt = num_times(proj_left)
   np = Int(param_length(a.array) / nt)
   proj_a_space = galerkin_projection(get_basis_space(proj_left),get_basis(a))

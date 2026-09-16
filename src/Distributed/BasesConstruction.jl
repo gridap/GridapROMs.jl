@@ -7,9 +7,25 @@ for T in (:GenericPMatrix,:DistributedSnapshots)
     function RBSteady.tpod(red_style::ReductionStyle,A::$T,X::PSparseMatrix)
       _method_of_snapshots_row(red_style,A,A'*(X*A))
     end
-
-    RBSteady.gram_schmidt(A::$T,X::PSparseMatrix) = gram_schmidt(X*A)
   end
+end
+
+function RBSteady.gram_solver(X::PSparseMatrix)
+  solver = CGSolver(JacobiLinearSolver();maxiter=100,atol=1e-14,rtol=1e-10)
+  ss = symbolic_setup(solver,X)
+  numerical_setup(ss,X)
+end
+
+function LinearAlgebra.ldiv!(S::GenericPMatrix,ns,A::GenericPMatrix)
+  for i in param_eachindex(S)
+    Si = param_getindex(S,i)
+    Ai = param_getindex(A,i)
+    solve!(Si,ns,Ai)
+  end
+end
+
+function RBSteady.gram_schmidt(A::AbstractMatrix,X::PSparseMatrix,args...)
+  gram_schmidt(X*A,args...)
 end
 
 struct PQR{A,B,C}

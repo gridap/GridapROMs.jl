@@ -480,12 +480,8 @@ function gram_schmidt(A::AbstractMatrix,L::AbstractSparseMatrix,p::AbstractVecto
   return Q
 end
 
-function gram_schmidt(A::AbstractMatrix,C::Factorization,args...)
-  gram_schmidt(A,sparse(C.L),C.p,args...)
-end
-
 function gram_schmidt(A::AbstractMatrix,X::AbstractSparseMatrix,args...)
-  gram_schmidt(A,symcholesky(X),args...)
+  gram_schmidt(A,_cholesky_decomp(X)...,args...)
 end
 
 function gram_schmidt(A::AbstractMatrix,basis::AbstractMatrix,args...)

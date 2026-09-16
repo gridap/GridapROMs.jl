@@ -67,6 +67,24 @@ MultiField.MultiFieldStyle(r::DistributedMultiFieldRBSpace) = MultiFieldStyle(ge
 MultiField.num_fields(r::DistributedMultiFieldRBSpace) = num_fields(get_fe_space(r))
 Base.length(r::DistributedMultiFieldRBSpace) = num_fields(r)
 
+# galerkin projections
+
+function RBSteady.galerkin_projection(Φl::GenericPMatrix,b::PVector)
+  map(own_values(Φl),own_values(b)) do Φlo,bo
+    galerkin_projection(Φlo,bo)
+  end |> sreduce
+end
+
+function RBSteady.galerkin_projection(Φl::GenericPMatrix,A::PSparseMatrix,Φr::GenericPMatrix)
+  TS = promote_type(eltype(Φl),eltype(Φr))
+  nleft = size(Φl,2)
+  n = getany(map(param_length,partition(A)))
+  nright = size(Φr,2)
+  Â = zeros(TS,nleft,nright,n)
+  _galerkin_mul!(Â,Φl,A,Φr)
+  return Â
+end
+
 # integration domains
 
 struct LocalDEIMIndices{Tr,Tc,A<:AbstractLocalIndices} <: AbstractVector{Tr}
@@ -295,6 +313,8 @@ function RBSteady.IntegrationDomain(
   DistributedIntegrationDomain(domains)
 end
 
+const TransientDistributedIntegrationDomain{A<:TransientIntegrationDomainStyle,I<:DistributedIntegrationDomain,Ti<:Integer} = TransientIntegrationDomain{A,I,Ti}
+
 # hyper-reduction
 
 struct DistributedInterpolation{A} <: Interpolation
@@ -315,6 +335,13 @@ function RBSteady.GreedyInterpolation(interp,domain::DistributedIntegrationDomai
   DistributedInterpolation(interps)
 end
 
+function RBSteady.GreedyInterpolation(interp,domain::TransientDistributedIntegrationDomain)
+  interps = map(local_views(domain)) do domain
+    GreedyInterpolation(interp,domain)
+  end
+  DistributedInterpolation(interps)
+end
+
 GridapDistributed.local_views(a::DistributedInterpolation) = local_views(a.interps)
 
 for f in (:get_integration_cells,:get_cell_idofs,:get_interpolation_dofs)
@@ -322,6 +349,26 @@ for f in (:get_integration_cells,:get_cell_idofs,:get_interpolation_dofs)
     function RBSteady.$f(a::DistributedInterpolation)
       map(local_views(a)) do a
         $f(a)
+      end
+    end
+  end
+end
+
+for f in (:get_domain_style,:get_indices_time)
+  @eval begin
+    function RBTransient.$f(a::DistributedInterpolation)
+      map(local_views(a)) do a
+        $f(a)
+      end
+    end
+  end
+end
+
+for f in (:get_itimes,:get_locations)
+  @eval begin
+    function RBTransient.$f(a::DistributedInterpolation,ids::AbstractArray{<:AbstractArray})
+      map(local_views(a),local_views(ids)) do a,ids
+        $f(a,ids)
       end
     end
   end
@@ -365,18 +412,19 @@ end
 function RBSteady.get_at_domain(a::GenericPArray,rows::AbstractArray{<:LocalDEIMIndices})
   n = size(a,2)
   @check reduce(+,map(length,rows)) == n
-  datav = zeros(eltype(a),n,n)
-  map(local_values(a),local_views(rows)) do data,rows
+  datav = map(local_values(a),local_views(rows)) do data,rows
+    x = zeros(eltype(a),n,n)
     g2l = global_to_local(rows.index_parts)
     if !isempty(rows.global_rows)
       for (gri,i) in zip(rows.global_rows,rows.global_cols)
         lri = g2l[gri]
         for k in axes(data,2)
-          datav[i,k] = data[lri,k]
+          x[i,k] = data[lri,k]
         end
       end
     end
-  end
+    x
+  end |> sreduce
   ConsecutiveParamArray(datav)
 end
 
@@ -505,6 +553,44 @@ for T in (:GenericPMatrix,:DistributedSnapshots)
 end
 
 # utils
+
+function _galerkin_mul!(
+  d::AbstractArray{<:Number,3},
+  c::GenericPArray,
+  a::PSparseMatrix,
+  b::GenericPArray
+  )
+
+  @boundscheck @assert PartitionedArrays.matching_own_indices(axes(c,1),axes(a,1))
+  @boundscheck @assert PartitionedArrays.matching_own_indices(axes(a,2),axes(b,1))
+  if !PartitionedArrays.matching_ghost_indices(axes(a,2),axes(b,1))
+    b = _change_layout(b,partition(axes(a,2)))
+  end
+  # Start the exchange
+  t = consistent!(b)
+  # Meanwhile, process the owned block into a per-rank local buffer.
+  ld = map(own_values(c),own_values(a),own_values(b)) do co,aoo,bo
+    dl = zeros(eltype(d),size(d))
+    co1 = zeros(eltype(d),innersize(aoo)[1],size(bo,2))
+    @inbounds for i in param_eachindex(aoo)
+      mul!(co1,param_getindex(aoo,i),bo)
+      mul!(view(dl,:,:,i),co',co1)
+    end
+    dl
+  end
+  # Wait for the exchange to finish
+  wait(t)
+  # process the ghost block, accumulating onto the same per-rank buffer
+  map(ld,own_values(c),own_ghost_values(a),ghost_values(b)) do dl,co,aoh,bh
+    co1 = zeros(eltype(d),innersize(aoh)[1],size(bh,2))
+    @inbounds for i in param_eachindex(aoh)
+      mul!(co1,param_getindex(aoh,i),bh)
+      mul!(view(dl,:,:,i),co',co1,1,1)
+    end
+  end
+  copyto!(d,sreduce(ld))
+  d
+end
 
 function _subfill!(a::AbstractVector,b::AbstractVector,ia,ib)
   a[ia] = b[ib]
