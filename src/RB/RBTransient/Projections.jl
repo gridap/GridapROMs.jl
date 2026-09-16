@@ -82,9 +82,9 @@ function Algebra.allocate_in_range(
 end
 
 """
-    struct KroneckerProjection <: TransientProjection
-      projection_space::Projection
-      projection_time::Projection
+    struct KroneckerProjection{A<:Projection,B<:Projection} <: TransientProjection
+      projection_space::A
+      projection_time::B
     end
 
 Projection operator for transient problems, containing a spatial projection and
@@ -183,7 +183,7 @@ function RBSteady.galerkin_projection(
 
   proj_basis_space = galerkin_projection(
     get_basis_space(proj_left),
-    recast_basis(get_projection_space(a)),
+    get_recast_basis(get_projection_space(a)),
     get_basis_space(proj_right)
   )
 
@@ -362,7 +362,7 @@ function RBSteady.galerkin_projection(
 
   # space
   pl_space = get_core_space(proj_left)
-  a_space = first(recast_cores(a))
+  a_space = first(get_recast_cores(a))
   pr_space = get_core_space(proj_right)
   p_space = contraction(pl_space,a_space,pr_space)
 

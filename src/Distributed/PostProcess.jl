@@ -42,6 +42,7 @@ for T in (:DEIMHyperReduction,:SOPTHyperReduction,:TransientDEIMHyperReduction,:
   end
 end
 
+const DOFMAP_LABEL = "dofmap"
 const HRPROJECTION_LABEL = "hrprojection"
 const NORM_MATRIX_LABEL = "norm"
 const BLOCK_LABEL = "block"
@@ -69,12 +70,14 @@ function RBSteady.load_snapshots(dir,ranks::AbstractArray;label="")
     param_data = mortar(map(get_param_data,array))
     BlockSnapshots(array,param_data)
   else
-    DistributedSnapshots(_pload(dir,SNAPSHOTS_LABEL,ranks;label))
+    snaps = _pload(dir,SNAPSHOTS_LABEL,ranks;label)
+    DistributedSnapshots(snaps)
   end
 end
 
-function DrWatson.save(dir,a::DistributedPODProjection;label="")
+function DrWatson.save(dir,a::DistributedProjection;label="")
   _psave(dir,PROJECTION_LABEL,a.basis;label)
+  _psave(dir,DOFMAP_LABEL,a.dof_map;label)
 end
 
 function DrWatson.save(dir,a::DistributedNormedProjection;label="")
@@ -82,18 +85,28 @@ function DrWatson.save(dir,a::DistributedNormedProjection;label="")
   _psave(dir,NORM_MATRIX_LABEL,a.norm_matrix;label)
 end
 
-function DrWatson.save(dir,a::BlockProjection{<:DistributedProjection};label="")
-  for i in eachindex(a)
-    save(dir,a[i];label=_plabel(label,BLOCK_LABEL*"$i"))
+function DrWatson.save(dir,a::DistributedKroneckerProjection;label="")
+  save(dir,a.projection_space;label=_get_label(label,"space"))
+  _psave(dir,a.projection_time;label=_get_label(label,"time"))
+end
+
+for T in (:DistributedProjection,:DistributedNormedProjection,:DistributedKroneckerProjection)
+  @eval begin
+    function DrWatson.save(dir,a::BlockProjection{<:$T};label="")
+      for i in eachindex(a)
+        save(dir,a[i];label=_plabel(label,BLOCK_LABEL*"$i"))
+      end
+    end
   end
 end
 
 function RBSteady.load_projection(dir,ranks::AbstractArray;label="")
   basis = _pload(dir,PROJECTION_LABEL,ranks;label)
-  proj = DistributedPODProjection(basis)
+  dof_map = _pload(dir,DOFMAP_LABEL,ranks;label)
+  proj = Projection(basis,dof_map)
   if _haspart(dir,NORM_MATRIX_LABEL,ranks;label)
     X = _pload(dir,NORM_MATRIX_LABEL,ranks;label)
-    return DistributedNormedProjection(proj,X)
+    return NormedProjection(proj,X)
   end
   return proj
 end
@@ -210,7 +223,7 @@ function _load_distributed_hrprojection(dir,ranks;label="")
     a = deserialize(_part_filename(dir,HRPROJECTION_LABEL,label,p))
     get_basis(a),get_style(a),get_interpolation(a)
   end |> tuple_of_arrays
-  DistributedHRProjection(getany(basis),getany(style),DistributedInterpolation(interps))
+  HRProjection(getany(basis),getany(style),DistributedInterpolation(interps))
 end
 
 function _load_distributed_hr(dir,ranks;label="")

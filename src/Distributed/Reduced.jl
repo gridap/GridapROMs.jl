@@ -1,20 +1,3 @@
-# trian utils
-
-function Utils.ChildTriangulation(t::DistributedTriangulation,inds)
-  models = get_background_model(t)
-  trians = map(local_views(t),local_views(inds)) do t,inds
-    ChildTriangulation(t,inds)
-  end
-  DistributedTriangulation(trians,models;metadata=t.metadata)
-end
-
-function Utils.is_parent(parent::DistributedTriangulation,child::DistributedTriangulation)
-  x = map(local_views(parent),local_views(child)) do parent,child
-    Utils.is_parent(parent,child)
-  end
-  reduce(&,x)
-end
-
 # reduced basis spaces
 
 const DistributedRBSpace{S<:DistributedFESpace} = RBSpace{S}
@@ -428,25 +411,13 @@ function RBSteady.get_at_domain(a::GenericPArray,rows::AbstractArray{<:LocalDEIM
   ConsecutiveParamArray(datav)
 end
 
-struct DistributedHRProjection{A<:Projection,B<:HyperReduction} <: HRProjection{B,A}
-  basis::A
-  style::B
-  interpolation::DistributedInterpolation
-end
-
-function RBSteady.HRProjection(basis::ReducedProjection,style::HyperReduction,interp::DistributedInterpolation)
-  DistributedHRProjection(basis,style,interp)
-end
+const DistributedHRProjection{A<:HyperReduction,B<:Projection,C<:DistributedInterpolation} = GenericHRProjection{A,B,C}
 
 function GridapDistributed.local_views(a::DistributedHRProjection)
   map(local_views(a.interpolation)) do interp
     HRProjection(a.basis,a.style,interp)
   end
 end
-
-RBSteady.get_basis(a::DistributedHRProjection) = a.basis
-RBSteady.get_style(a::DistributedHRProjection) = a.style
-RBSteady.get_interpolation(a::DistributedHRProjection) = a.interpolation
 
 function FESpaces.interpolate!(
   b̂::AbstractArray,
@@ -542,6 +513,8 @@ function RBSteady.assemble_hr_array_add!(A::AbstractArray{<:AbstractArray},celld
   end
 end
 
+# norm utils 
+
 for T in (:GenericPMatrix,:DistributedSnapshots)
   @eval begin
     function Utils.induced_norm(a::$T)
@@ -552,7 +525,24 @@ for T in (:GenericPMatrix,:DistributedSnapshots)
   end
 end
 
-# utils
+# trian utils
+
+function Utils.ChildTriangulation(t::DistributedTriangulation,inds)
+  models = get_background_model(t)
+  trians = map(local_views(t),local_views(inds)) do t,inds
+    ChildTriangulation(t,inds)
+  end
+  DistributedTriangulation(trians,models;metadata=t.metadata)
+end
+
+function Utils.is_parent(parent::DistributedTriangulation,child::DistributedTriangulation)
+  x = map(local_views(parent),local_views(child)) do parent,child
+    Utils.is_parent(parent,child)
+  end
+  reduce(&,x)
+end
+
+# generic utils
 
 function _galerkin_mul!(
   d::AbstractArray{<:Number,3},

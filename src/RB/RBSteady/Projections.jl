@@ -49,9 +49,9 @@ get_cores(a::Projection) = @notimplemented
 
 DofMaps.get_dof_map(a::Projection) = @abstractmethod
 
-recast_basis(a::Projection) = recast(get_basis(a),get_dof_map(a))
+get_recast_basis(a::Projection) = recast(get_basis(a),get_dof_map(a))
 
-recast_cores(a::Projection) = recast(get_cores(a),get_dof_map(a))
+get_recast_cores(a::Projection) = recast(get_cores(a),get_dof_map(a))
 
 """
     project(a::Projection,x::AbstractArray,args...) -> AbstractArray
@@ -175,7 +175,7 @@ function galerkin_projection(a::Projection,b::Projection)
 end
 
 function galerkin_projection(a::Projection,b::Projection,c::Projection,args...)
-  b̂ = galerkin_projection(get_basis(a),recast_basis(b),get_basis(c),args...)
+  b̂ = galerkin_projection(get_basis(a),get_recast_basis(b),get_basis(c),args...)
   return ReducedProjection(b̂)
 end
 
@@ -425,7 +425,7 @@ get_cores(a::TTSVDProjection) = a.array
 num_fe_dofs(a::TTSVDProjection) = prod(map(c -> size(c,2),get_cores(a)))
 num_reduced_dofs(a::TTSVDProjection) = size(last(get_cores(a)),3)
 
-get_basis(a::TTSVDProjection) = cores2basis(recast_cores(a)...)
+get_basis(a::TTSVDProjection) = cores2basis(get_recast_cores(a)...)
 
 function project!(
   x̂::AbstractArray,
@@ -473,7 +473,7 @@ function galerkin_projection(
   )
 
   cores_left = get_cores(proj_left)
-  cores = recast_cores(a)
+  cores = get_recast_cores(a)
   cores_right = get_cores(proj_right)
   proj_basis = galerkin_projection(cores_left,cores,cores_right)
   return ReducedProjection(proj_basis)
@@ -820,13 +820,25 @@ end
 
 # galerkin projections
 
-struct GalerkinProjectable{A<:AbstractParamArray} <: Projection
+function galerkin_projection(a::Projection,b)
+  galerkin_projection(a,GalerkinProjectable(b))
+end
+
+function galerkin_projection(a::Projection,b,c::Projection,args...)
+  galerkin_projection(a,GalerkinProjectable(b),c,args...)
+end
+
+function copy_projection!(cache,a::Projection)
+  copy_projection!(cache,get_basis(a))
+end
+
+struct GalerkinProjectable{A<:AbstractArray} <: Projection
   array::A
 end
 
-get_basis(a::GalerkinProjectable) = a.array
-
-recast_basis(a::GalerkinProjectable) = get_basis(a)
+function GalerkinProjectable(a::A) where A<:AbstractParamArray
+  GalerkinProjectable{A}(a)
+end
 
 function GalerkinProjectable(s::AbstractSnapshots)
   GalerkinProjectable(get_param_data(s))
@@ -842,17 +854,9 @@ function GalerkinProjectable(a::AbstractArray{<:AbstractArray})
   return BlockProjection(block_cache)
 end
 
-function galerkin_projection(a::Projection,b)
-  galerkin_projection(a,GalerkinProjectable(b))
-end
+get_basis(a::GalerkinProjectable) = a.array
 
-function galerkin_projection(a::Projection,b,c::Projection,args...)
-  galerkin_projection(a,GalerkinProjectable(b),c,args...)
-end
-
-function copy_projection!(cache,a::Projection)
-  copy_projection!(cache,get_basis(a))
-end
+get_recast_basis(a::GalerkinProjectable) = get_basis(a)
 
 # utils
 

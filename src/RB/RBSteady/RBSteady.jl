@@ -201,8 +201,8 @@ export num_fe_dofs
 export num_reduced_dofs
 export get_basis
 export get_cores
-export recast_basis
-export recast_cores
+export get_recast_basis
+export get_recast_cores
 export project
 export project!
 export inv_project

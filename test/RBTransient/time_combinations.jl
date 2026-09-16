@@ -344,12 +344,12 @@ end
   c1 = CombinationOrder{1}(ThetaMethodCombination(dt,θ))
   proj = galerkin_projection(Φl,Φ,Φr,c1)
 
-  @test size(proj) == (nl,n,nr)
+  @test size(proj) == (nl,nr,n)
 
-  proj_ref = zeros(nl,n,nr)
-  for i=1:nl,k=1:n,j=1:nr
+  proj_ref = zeros(nl,nr,n)
+  for i=1:nl,j=1:nr,k=1:n
     for α=1:Nt
-      proj_ref[i,k,j] += 1.0 * Φl[α,i] * Φ[α,k] * Φr[α,j]
+      proj_ref[i,j,k] += 1.0 * Φl[α,i] * Φ[α,k] * Φr[α,j]
     end
   end
   @test proj ≈ proj_ref atol=1e-12
@@ -365,10 +365,10 @@ end
   c1 = CombinationOrder{1}(ThetaMethodCombination(dt,θ))
   proj = galerkin_projection(Φl,Φ,Φr,c1)
 
-  proj_ref = zeros(nl,n,nr)
-  for i=1:nl,k=1:n,j=1:nr
+  proj_ref = zeros(nl,nr,n)
+  for i=1:nl,j=1:nr,k=1:n
     for α=1:Nt-1
-      proj_ref[i,k,j] += 1.0 * Φl[α+1,i] * Φ[α+1,k] * Φr[α,j]
+      proj_ref[i,j,k] += 1.0 * Φl[α+1,i] * Φ[α+1,k] * Φr[α,j]
     end
   end
   @test proj ≈ proj_ref atol=1e-12
@@ -384,15 +384,15 @@ end
   c1 = CombinationOrder{1}(ThetaMethodCombination(dt,θ))
   proj = galerkin_projection(Φl,Φ,Φr,c1)
 
-  proj_ref = zeros(nl,n,nr)
-  for i=1:nl,k=1:n,j=1:nr
+  proj_ref = zeros(nl,nr,n)
+  for i=1:nl,j=1:nr,k=1:n
     for α=1:Nt
-      proj_ref[i,k,j] += 0.5 * Φl[α,i] * Φ[α,k] * Φr[α,j]
+      proj_ref[i,j,k] += 0.5 * Φl[α,i] * Φ[α,k] * Φr[α,j]
     end
   end
-  for i=1:nl,k=1:n,j=1:nr
+  for i=1:nl,j=1:nr,k=1:n
     for α=1:Nt-1
-      proj_ref[i,k,j] += 0.5 * Φl[α+1,i] * Φ[α+1,k] * Φr[α,j]
+      proj_ref[i,j,k] += 0.5 * Φl[α+1,i] * Φ[α+1,k] * Φr[α,j]
     end
   end
   @test proj ≈ proj_ref atol=1e-12
@@ -409,15 +409,15 @@ end
   c1 = CombinationOrder{2}(ThetaMethodCombination(dt,θ))
   proj = galerkin_projection(Φl,Φ,Φr,c1)
 
-  proj_ref = zeros(nl,n,nr)
-  for i=1:nl,k=1:n,j=1:nr
+  proj_ref = zeros(nl,nr,n)
+  for i=1:nl,j=1:nr,k=1:n
     for α=1:Nt
-      proj_ref[i,k,j] += dt_inv * Φl[α,i] * Φ[α,k] * Φr[α,j]
+      proj_ref[i,j,k] += dt_inv * Φl[α,i] * Φ[α,k] * Φr[α,j]
     end
   end
-  for i=1:nl,k=1:n,j=1:nr
+  for i=1:nl,j=1:nr,k=1:n
     for α=1:Nt-1
-      proj_ref[i,k,j] -= dt_inv * Φl[α+1,i] * Φ[α+1,k] * Φr[α,j]
+      proj_ref[i,j,k] -= dt_inv * Φl[α+1,i] * Φ[α+1,k] * Φr[α,j]
     end
   end
   @test proj ≈ proj_ref atol=1e-12
@@ -464,23 +464,23 @@ end
 
   @test proj1_alpha ≈ proj_theta atol=1e-12
 
-  _proj2_alpha = zeros(nl,n,nr)
-  @inbounds for i = 1:nl,k = 1:n,j = 1:nr
+  _proj2_alpha = zeros(nl,nr,n)
+  @inbounds for i = 1:nl,j = 1:nr,k = 1:n
     for α = 1:Nt
       idx = α + 1 - 1
-      _proj2_alpha[i,k,j] += θ[1] * Φl[idx,i] * Φ[idx,k] * Φr[α,j]
+      _proj2_alpha[i,j,k] += θ[1] * Φl[idx,i] * Φ[idx,k] * Φr[α,j]
     end
     for α = 1:Nt-1
       idx = α + 2 - 1
-      _proj2_alpha[i,k,j] += θ[2] * Φl[idx,i] * Φ[idx,k] * Φr[α,j]
+      _proj2_alpha[i,j,k] += θ[2] * Φl[idx,i] * Φ[idx,k] * Φr[α,j]
     end
     for α = 1:Nt-2
       idx = α + 3 - 1
-      _proj2_alpha[i,k,j] += θ[3] * Φl[idx,i] * Φ[idx,k] * Φr[α,j]
+      _proj2_alpha[i,j,k] += θ[3] * Φl[idx,i] * Φ[idx,k] * Φr[α,j]
     end
     for α = 1:Nt-3
       idx = α + 4 - 1
-      _proj2_alpha[i,k,j] += θ[4] * Φl[idx,i] * Φ[idx,k] * Φr[α,j]
+      _proj2_alpha[i,j,k] += θ[4] * Φl[idx,i] * Φ[idx,k] * Φr[α,j]
     end
   end
 
@@ -524,14 +524,14 @@ end
   proj2_alpha2 = galerkin_projection(Φl,Φ,Φr,c2_alpha2)
   proj3_alpha2 = galerkin_projection(Φl,Φ,Φr,c3_alpha2)
 
-  proj2_ref = zeros(nl,n,nr)
-  proj3_ref = zeros(nl,n,nr)
-  @inbounds for i = 1:nl,k = 1:n,j = 1:nr
+  proj2_ref = zeros(nl,nr,n)
+  proj3_ref = zeros(nl,nr,n)
+  @inbounds for i = 1:nl,j = 1:nr,k = 1:n
     for shift = eachindex(θv)
       for α = 1:(Nt - shift + 1)
         idx = α + shift - 1
-        proj2_ref[i,k,j] += θv[shift] * Φl[idx,i] * Φ[idx,k] * Φr[α,j]
-        proj3_ref[i,k,j] += θa[shift] * Φl[idx,i] * Φ[idx,k] * Φr[α,j]
+        proj2_ref[i,j,k] += θv[shift] * Φl[idx,i] * Φ[idx,k] * Φr[α,j]
+        proj3_ref[i,j,k] += θa[shift] * Φl[idx,i] * Φ[idx,k] * Φr[α,j]
       end
     end
   end

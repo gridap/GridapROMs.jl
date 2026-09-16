@@ -1,32 +1,22 @@
+PartitionedArrays.partition(a::Projection) = partition(get_basis(a))
+PartitionedArrays.local_values(a::Projection) = local_values(get_basis(a))
+PartitionedArrays.own_values(a::Projection) = own_values(get_basis(a))
+PartitionedArrays.ghost_values(a::Projection) = ghost_values(get_basis(a))
+PartitionedArrays.consistent!(a::Projection) = consistent!(get_basis(a))
+
+row_partition(a::Projection) = row_partition(get_basis(a))
+col_partition(a::Projection) = col_partition(get_basis(a))
+flat_row_partition(a::Projection) = flat_row_partition(get_basis(a))
+
 const DistributedProjection{A<:AbstractArray,B<:AbstractArray{<:AbstractDofMap}} = GenericProjection{A,B}
 const DistributedPODProjection{A<:GenericPMatrix,B<:AbstractArray{<:AbstractDofMap}} = DistributedProjection{A,B}
 const DistributedTTSVDProjection{A<:AbstractArray{<:GenericPArray},B<:AbstractArray{<:AbstractDofMap}} = DistributedProjection{A,B}
-
-PartitionedArrays.partition(a::DistributedProjection) = partition(get_basis(a))
-PartitionedArrays.local_values(a::DistributedProjection) = local_values(get_basis(a))
-PartitionedArrays.own_values(a::DistributedProjection) = own_values(get_basis(a))
-PartitionedArrays.ghost_values(a::DistributedProjection) = ghost_values(get_basis(a))
-PartitionedArrays.consistent!(a::DistributedProjection) = consistent!(get_basis(a))
 
 function GridapDistributed.local_views(a::DistributedProjection)
   map(local_views(get_basis(a)),local_views(get_dof_map(a))) do basis,dof_map
     GenericProjection(basis,dof_map)
   end
 end
-
-function RBSteady.galerkin_projection(a::DistributedProjection,s::DistributedSnapshots)
-  b̂ = galerkin_projection(get_basis(a),get_param_data(s))
-  return ReducedProjection(b̂)
-end
-
-function RBSteady.galerkin_projection(a::DistributedProjection,s::DistributedSnapshots,c::DistributedProjection,args...)
-  b̂ = galerkin_projection(get_basis(a),get_param_data(s),get_basis(c),args...)
-  return ReducedProjection(b̂)
-end
-
-row_partition(a::DistributedProjection) = row_partition(get_basis(a))
-col_partition(a::DistributedProjection) = col_partition(get_basis(a))
-flat_row_partition(a::DistributedProjection) = flat_row_partition(get_basis(a))
 
 RBSteady.fe_dof_ids(a::DistributedProjection) = axes(get_basis(a),1)
 
@@ -53,15 +43,50 @@ end
 const DistributedNormedProjection{A<:DistributedProjection,B<:MatrixOrTensor} = NormedProjection{A,B}
 
 function GridapDistributed.local_views(a::DistributedNormedProjection)
+  map(local_views(get_basis(a)),local_views(get_dof_map(a))) do basis,dof_map
+    GenericProjection(basis,dof_map)
+  end
+end
+
+RBSteady.fe_dof_ids(a::DistributedNormedProjection) = axes(get_basis(a),1)
+
+RBSteady.projection_type(a::DistributedNormedProjection) = PVector{Vector{projection_eltype(a)}}
+
+function Algebra.allocate_in_domain(a::DistributedNormedProjection,x::PVector{<:V}) where V<:AbstractParamVector
+  x̂ = allocate_vector(PVector{eltype(V)},RBSteady.reduced_dof_ids(a))
+  return parameterise(x̂,param_length(x))
+end
+
+function Algebra.allocate_in_range(a::DistributedNormedProjection,x̂::V) where V<:AbstractParamVector
+  x = allocate_vector(PVector{eltype(V)},RBSteady.fe_dof_ids(a))
+  return parameterise(x,param_length(x̂))
+end
+
+function GridapDistributed.local_views(a::DistributedNormedProjection)
   map(local_views(a.projection),local_views(a.norm_matrix)) do projection,matrix
     NormedProjection(projection,matrix)
   end
 end
 
-function GridapDistributed.local_views(a::KroneckerProjection)
+const DistributedKroneckerProjection{A<:Union{DistributedProjection,DistributedNormedProjection},B<:Projection} = KroneckerProjection{A,B}
+
+function GridapDistributed.local_views(a::DistributedKroneckerProjection)
   map(local_views(a.projection_space)) do projection_space
     KroneckerProjection(projection_space,a.projection_time)
   end
+end
+
+function RBSteady.GalerkinProjectable(a::A) where A<:AbstractParamPVector
+  GalerkinProjectable{A}(a)
+end
+
+function RBSteady.GalerkinProjectable(a::A) where A<:AbstractParamPSparseMatrix
+  GalerkinProjectable{A}(a)
+end
+
+function RBSteady.GalerkinProjectable(a::BlockPArray)
+  block_cache = map(GalerkinProjectable,blocks(a))
+  return BlockProjection(block_cache)
 end
 
 # utils
