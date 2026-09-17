@@ -75,7 +75,7 @@ fesolver = LUSolver()
 energy(du,v) = ∫(∇(v)⊙∇(du))dΩ
 
 tol = 1e-5
-state_reduction = Reduction(tol,energy;nparams=80,sketch=:sprn)
+state_reduction = Reduction(tol,energy;nparams=80)
 rbsolver = RBSolver(fesolver,state_reduction;nparams_res=40,nparams_jac=40)
 
 dir = datadir("elasticity_pod")

@@ -148,7 +148,7 @@ coupling((du,dp),(v,q)) = ∫(dp*(∇⋅(v)))dΩₕ
 energy((du,dp),(v,q)) = ∫(∇(v)⊙∇(du))dΩₕ + ∫(dp*q)dΩₕ
 
 tol = 1e-4
-state_reduction = TransientReduction(coupling,tol,energy;nparams=50,sketch=:sprn)
+state_reduction = TransientReduction(coupling,tol,energy;nparams=50)
 rbsolver = RBSolver(fesolver,state_reduction;nparams_res=40,nparams_jac=40)
 
 ```

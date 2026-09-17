@@ -12,7 +12,7 @@ small system for new parameter values.  Main building blocks:
   `TTSVDReduction` (tensor-train SVD), `GreedyReduction`, `SupremizerReduction`,
   `DEIMHyperReduction`, `SOPTHyperReduction`, `RBFHyperReduction`,
   `LocalHyperReduction` (cluster-local variants), and composites.  Rank/tolerance
-  criteria expressed via `SearchSVDRank`, `FixedSVDRank`, `LRApproxRank`, `TTSVDRanks`.
+  criteria expressed via `SearchSVDRank`, `FixedSVDRank`, `TTSVDRanks`.
 
 - **Bases construction** (`BasesConstruction.jl`) — `tpod` (truncated POD),
   `ttsvd` (tensor-train SVD), `gram_schmidt` / `orth_complement!`, `orth_projection`.
@@ -104,7 +104,6 @@ export ReductionStyle
 export NoReductionStyle
 export SearchSVDRank
 export FixedSVDRank
-export LRApproxRank
 export TTSVDRanks
 export AssembleOperator
 export assemble_operator

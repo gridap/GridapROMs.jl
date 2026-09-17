@@ -6,7 +6,7 @@ using GridapROMs
 function main(
   method=:pod,compression=:global,hypred_strategy=:deim;
   tol=1e-4,nparams=50,nparams_res=floor(Int,nparams/3),
-  nparams_jac=floor(Int,nparams/4),sketch=:sprn,ncentroids=2
+  nparams_jac=floor(Int,nparams/4),ncentroids=2
   )
 
   method = method ∈ (:pod,:ttsvd) ? method : :pod
@@ -55,9 +55,9 @@ function main(
   trial = ParamTrialFESpace(test,gμ)
 
   if method == :pod
-    state_reduction = Reduction(tol,H1();nparams,sketch,compression,ncentroids)
+    state_reduction = Reduction(tol,H1();nparams,compression,ncentroids)
   elseif method == :ttsvd
-    state_reduction = Reduction(fill(tol,3),H1();nparams,sketch,compression,ncentroids)
+    state_reduction = Reduction(fill(tol,3),H1();nparams,compression,ncentroids)
   end
 
   fesolver = LUSolver()

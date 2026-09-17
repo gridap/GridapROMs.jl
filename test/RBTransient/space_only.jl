@@ -10,7 +10,6 @@ tol=1e-4
 nparams=15
 nparams_res=floor(Int,nparams/3)
 nparams_jac=floor(Int,nparams/4)
-sketch=:sprn
 ncentroids=2
 
 method = method ∈ (:pod,:ttsvd) ? method : :pod
@@ -64,7 +63,7 @@ trial = TransientTrialParamFESpace(test,gμt)
 
 uh0μ(μ) = interpolate_everywhere(u0μ(μ),trial(μ,t0))
 
-state_reduction = SteadyReduction(tol,H1();nparams,sketch,compression,ncentroids)
+state_reduction = SteadyReduction(tol,H1();nparams,compression,ncentroids)
 
 θ = 0.5
 dt = 0.01

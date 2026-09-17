@@ -28,6 +28,79 @@ function RBSteady.gram_schmidt(A::AbstractMatrix,ns::LinearSolvers.CGNumericalSe
   gram_schmidt(ns.mat*A,args...)
 end
 
+"""
+    weighted_qr(A::GenericPMatrix,X::PSparseMatrix;tol=1e-10) -> (GenericPMatrix,AbstractMatrix)
+
+Distributed counterpart of [`RBSteady.weighted_qr`](@ref): column-pivoted, rank-revealing
+weighted (modified) Gram-Schmidt orthogonalization of `A` with respect to the inner product
+induced by `X`. Only ever needs a distributed sparse mat-vec `X*A` (already available for
+`PSparseMatrix`) and per-rank reductions over owned rows -- no factorization of `X`.
+"""
+function RBSteady.weighted_qr(A::GenericPMatrix,X::PSparseMatrix;tol=1e-10)
+  m,n = size(A)
+  T = eltype(A)
+  XA = X*A
+  piv = collect(1:n)
+  R = zeros(T,n,n)
+  colnorms2 = [real(_wdot(A,XA,j,j)) for j in 1:n]
+  for j in 1:min(m,n)
+    j′ = argmax(view(colnorms2,j:n)) + j - 1
+    if j′ != j
+      piv[j],piv[j′] = piv[j′],piv[j]
+      colnorms2[j],colnorms2[j′] = colnorms2[j′],colnorms2[j]
+      _swapcols!(A,j,j′)
+      _swapcols!(XA,j,j′)
+    end
+    normj = sqrt(max(colnorms2[j],zero(real(T))))
+    R[j,j] = normj
+    iszero(normj) && continue
+    _wscale_col!(A,inv(normj),j)
+    _wscale_col!(XA,inv(normj),j)
+    for k in j+1:n
+      rjk = _wdot(A,XA,j,k)
+      R[j,k] = rjk
+      _waxpy_col!(A,-rjk,j,k)
+      _waxpy_col!(XA,-rjk,j,k)
+      colnorms2[k] = real(_wdot(A,XA,k,k))
+    end
+  end
+  consistent!(A) |> wait
+  r = select_rank(SearchSVDRank(tol),diag(R))
+  Qr = RBSteady._truncate_col!(A,r)
+  Rr = RBSteady._truncate_row!(R,r)
+  RBSteady.invpermutecols!(Rr,piv)
+  return Qr,Rr
+end
+
+function _wdot(A::GenericPMatrix,XA::GenericPMatrix,i,j)
+  contribs = map(own_values(A),own_values(XA)) do Av,XAv
+    s = zero(promote_type(eltype(Av),eltype(XAv)))
+    for oi in axes(Av,1)
+      s += conj(Av[oi,i]) * XAv[oi,j]
+    end
+    s
+  end
+  reduce(+,contribs)
+end
+
+function _wscale_col!(A::GenericPMatrix,α,j)
+  map(own_values(A)) do Av
+    for oi in axes(Av,1)
+      Av[oi,j] *= α
+    end
+  end
+  A
+end
+
+function _waxpy_col!(A::GenericPMatrix,α,i,j)
+  map(own_values(A)) do Av
+    for oi in axes(Av,1)
+      Av[oi,j] += α*Av[oi,i]
+    end
+  end
+  A
+end
+
 struct PQR{A,B,C}
   Q::A
   R::B

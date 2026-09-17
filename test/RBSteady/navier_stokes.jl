@@ -12,7 +12,7 @@ using GridapROMs
 function main(
   method=:pod,compression=:global,hypred_strategy=:deim;
   tol=1e-4,nparams=15,nparams_res=floor(Int,nparams/3),
-  nparams_jac=floor(Int,nparams/4),sketch=:sprn,ncentroids=2
+  nparams_jac=floor(Int,nparams/4),ncentroids=2
   )
 
   method = method ∈ (:pod,:ttsvd) ? method : :pod
@@ -70,9 +70,9 @@ function main(
   coupling = DivCoupling()
 
   if method == :pod
-    state_reduction = SupremizerReduction(coupling,tol,energy;nparams,sketch,compression,ncentroids)
+    state_reduction = SupremizerReduction(coupling,tol,energy;nparams,compression,ncentroids)
   elseif method == :ttsvd
-    state_reduction = SupremizerReduction(coupling,fill(tol,3),energy;nparams,sketch,compression,ncentroids)
+    state_reduction = SupremizerReduction(coupling,fill(tol,3),energy;nparams,compression,ncentroids)
   end
 
   fesolver = NewtonSolver(LUSolver();rtol=1e-10,maxiter=20,verbose=true)

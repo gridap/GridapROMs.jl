@@ -191,7 +191,7 @@ A `RBSolver` contains the following information:
     and using randomized POD algorithms
 
     ```julia 
-    PODReduction(tol,inner_prod;nparams=20,sketch=:sprn)
+    PODReduction(tol,inner_prod;nparams=20)
     ```
 
     A comprehensive documentation on randomized POD algorithms can be found [here](https://github.com/JuliaLinearAlgebra/LowRankApprox.jl).

@@ -150,7 +150,7 @@ end
 
 fesolver = LUSolver()
 hr = compression == :global ? HyperReduction : LocalHyperReduction
-state_reduction = SupremizerReduction(coupling,tol,energy;nparams,sketch=:sprn,compression,ncentroids)
+state_reduction = SupremizerReduction(coupling,tol,energy;nparams,compression,ncentroids)
 residual_reduction = hr(tol.*1e-2;nparams,ncentroids)
 jacobian_reduction = hr(tol.*1e-2;nparams,ncentroids)
 rbsolver = RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)

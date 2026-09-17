@@ -37,14 +37,15 @@ function select_rank(red_style::SearchSVDRank,S::AbstractVector)
   tol = red_style.tol
   energies = cumsum(S.^2;dims=1)
   local rank
-  for rank in eachindex(energies)
+  for outer rank in eachindex(energies)
     energies[rank] >= (1-tol^2)*energies[end] && break
   end
   return rank
 end
 
 function truncated_svd(red_style::ReductionStyle,A::AbstractMatrix;issquare=false)
-  U,S,V = svd(A)
+  opts = _to_options(red_style)
+  U,S,V = psvd(A,opts)
   issquare && _root!(S)
   rank = select_rank(red_style,S)
   Ur = _truncate_col!(U,rank)
@@ -73,7 +74,7 @@ function tpod(red_style::ReductionStyle,A::AbstractMatrix,args...)
   if _is_rectangular(A)
     method_of_snapshots(red_style,A,args...)
   else
-    probabilistic_tpod(red_style,A,args...)
+    standard_tpod(red_style,A,args...)
   end
 end
 
@@ -81,14 +82,14 @@ function tpod(red_style::ReductionStyle,A::AbstractMatrix,X::AbstractRankTensor)
   tpod(red_style,A,kron(X))
 end
 
-function probabilistic_tpod(red_style::ReductionStyle,A::AbstractMatrix)
-  psvd(_to_options(red_style),A)
+function standard_tpod(red_style::ReductionStyle,A::AbstractMatrix)
+  truncated_svd(red_style,A)
 end
 
-function probabilistic_tpod(red_style::ReductionStyle,A::AbstractMatrix,X::AbstractMatrix)
+function standard_tpod(red_style::ReductionStyle,A::AbstractMatrix,X::AbstractMatrix)
   L,p = _cholesky_decomp(X)
   XA = _forward_cholesky(A,L,p)
-  Ũr,Sr,Vr = probabilistic_tpod(red_style,XA)
+  Ũr,Sr,Vr = truncated_svd(red_style,XA)
   Ur = _backward_cholesky(Ũr,L,p)
   return Ur,Sr,Vr
 end
@@ -120,7 +121,7 @@ function method_of_snapshots_col(red_style::ReductionStyle,A::AbstractMatrix)
 end
 
 function method_of_snapshots_col(red_style::ReductionStyle,A::AbstractMatrix,X::AbstractMatrix)
-  probabilistic_tpod(red_style,A,X)
+  standard_tpod(red_style,A,X)
 end
 
 function _method_of_snapshots_col(red_style::ReductionStyle,A,AA)
@@ -140,10 +141,10 @@ end
 
 function _weighted_mul_col(A,U,S)
   S .+= eps()
-  V = zeros(eltype(U),size(A,1),length(S))
+  V = zeros(eltype(U),size(A,2),length(S))
   D = Diagonal(S)
   mul!(V,A',U)
-  ldiv!(V,D)
+  rdiv!(V,D)
   return V
 end
 
@@ -296,7 +297,7 @@ function first_unfold_3D(A::Snapshots)
 end
 
 function orthogonalize!(cores::AbstractVector,X::AbstractRankTensor{D}) where D
-  red_style = LRApproxRank(1e-10)
+  red_style = SearchSVDRank(1e-10)
   T = promote_type(map(eltype,cores)...)
   weight = ones(T,1,rank(X),1)
   decomp = get_decomposition(X)
@@ -464,8 +465,9 @@ function gram_schmidt(A::AbstractMatrix,basis::AbstractMatrix,args...)
 end
 
 function pivoted_qr!(A,tol=1e-10)
+  red_style = SearchSVDRank(tol)
   Q,R,jpvt = qr!(A,ColumnNorm())
-  r = select_rank(SearchSVDRank(tol),diag(R))
+  r = select_rank(red_style,diag(R))
   Qr = _truncate_col!(Q,r)
   Rr = _truncate_row!(R,r)
   invpermutecols!(Rr,jpvt)
@@ -511,7 +513,8 @@ function weighted_qr(A::AbstractMatrix,X::AbstractMatrix;tol=1e-10)
       colnorms2[k] = real(dot(view(A,:,k),view(XA,:,k)))
     end
   end
-  r = select_rank(SearchSVDRank(tol),diag(R))
+  red_style = SearchSVDRank(tol)
+  r = select_rank(red_style,diag(R))
   Qr = _truncate_col!(A,r)
   Rr = _truncate_row!(R,r)
   invpermutecols!(Rr,p)

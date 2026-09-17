@@ -7,7 +7,7 @@ using GridapROMs
 function main(
   method=:pod,compression=:global,hypred_strategy=:deim;
   tol=1e-4,nparams=15,nparams_res=floor(Int,nparams/3),
-  nparams_jac=floor(Int,nparams/4),sketch=:sprn,ncentroids=2
+  nparams_jac=floor(Int,nparams/4),ncentroids=2
   )
 
   method = method ∈ (:pod,:ttsvd) ? method : :pod
@@ -62,9 +62,9 @@ function main(
   energy = BlockNorm((H1(),L2()))
   coupling = DivCoupling()
   if method == :pod
-    state_reduction = TransientReduction(coupling,tol,energy;nparams,sketch,compression,ncentroids)
+    state_reduction = TransientReduction(coupling,tol,energy;nparams,compression,ncentroids)
   elseif method == :ttsvd
-    state_reduction = TransientReduction(coupling,fill(tol,4),energy;nparams,sketch,compression,ncentroids)
+    state_reduction = TransientReduction(coupling,fill(tol,4),energy;nparams,compression,ncentroids)
   end
 
   θ = 0.5
