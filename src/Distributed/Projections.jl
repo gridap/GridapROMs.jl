@@ -8,6 +8,48 @@ row_partition(a::Projection) = row_partition(get_basis(a))
 col_partition(a::Projection) = col_partition(get_basis(a))
 flat_row_partition(a::Projection) = flat_row_partition(get_basis(a))
 
+RBSteady.to_fe_blocks(x::BlockPArray,a::BlockProjection,args...) = x
+RBSteady.to_reduced_blocks(x::BlockPArray,a::BlockProjection,args...) = x
+
+function RBSteady.to_blocks(x::PVector,o,f=identity)
+  n = length(o)-1
+  map(1:n) do i
+    vector_partition = map(partition(x)) do values
+      f(view(x,o[i]:o[i+1]-1))
+    end
+    PVector(vector_partition,row_partition(x))
+  end |> mortar
+end
+
+function RBSteady.to_blocks(x::PVector{<:AbstractParamVector},o,f=identity)
+  n = length(o)-1
+  map(1:n) do i
+    vector_partition = map(partition(x)) do values
+      f(get_param_entry(x,o[i]:o[i+1]-1))
+    end
+    PVector(vector_partition,row_partition(x))
+  end |> mortar
+end
+
+for f in (:project!,:inv_project!)
+  @eval begin
+    function $f(
+      y::Union{BlockArray,BlockParamArray},
+      a::BlockProjection,
+      x::BlockPArray
+      )
+
+      for i in eachindex(a)
+        $f(blocks(y)[i],a[i],blocks(x)[i])
+      end
+    end
+  end
+end
+
+function Algebra.allocate_in_domain(a::BlockProjection,x::BlockPArray)
+  map(Algebra.allocate_in_domain,a.array,blocks(x)) |> mortar
+end
+
 const DistributedProjection{A<:AbstractArray,B<:AbstractArray{<:AbstractDofMap}} = GenericProjection{A,B}
 const DistributedPODProjection{A<:GenericPMatrix,B<:AbstractArray{<:AbstractDofMap}} = DistributedProjection{A,B}
 const DistributedTTSVDProjection{A<:AbstractArray{<:GenericPArray},B<:AbstractArray{<:AbstractDofMap}} = DistributedProjection{A,B}
@@ -23,6 +65,10 @@ RBSteady.fe_dof_ids(a::DistributedProjection) = axes(get_basis(a),1)
 RBSteady.projection_type(a::DistributedProjection) = PVector{Vector{projection_eltype(a)}}
 
 function Algebra.allocate_vector(::Type{<:PVector{V}},rows::AbstractVector) where V
+  allocate_vector(V,rows)
+end
+
+function Algebra.allocate_vector(::Type{<:BlockPArray{V}},rows::AbstractVector) where V
   allocate_vector(V,rows)
 end
 

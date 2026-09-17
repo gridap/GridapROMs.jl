@@ -599,7 +599,7 @@ end
 second(p::Pair) = p.second
 
 function _findmin_pairs(f,v,ra;init=typemax(eltype(v)))
-  local min_owned
+  min_owned = 0
   min_val = init
   for (i,val) in enumerate(v)
     fv = f(val)
@@ -608,12 +608,12 @@ function _findmin_pairs(f,v,ra;init=typemax(eltype(v)))
       min_owned = i
     end
   end
-  gi = own_to_global(ra)[min_owned]
+  gi = iszero(min_owned) ? 0 : own_to_global(ra)[min_owned]
   return min_val => gi
 end
 
 function _findmax_pairs(f,v,ra;init=typemin(eltype(v)))
-  local max_owned
+  max_owned = 0
   max_val = init
   for (i,val) in enumerate(v)
     fv = f(val)
@@ -622,6 +622,6 @@ function _findmax_pairs(f,v,ra;init=typemin(eltype(v)))
       max_owned = i
     end
   end
-  gi = own_to_global(ra)[max_owned]
+  gi = iszero(max_owned) ? 0 : own_to_global(ra)[max_owned]
   return max_val => gi
 end

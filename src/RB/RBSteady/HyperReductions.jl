@@ -60,11 +60,11 @@ function FESpaces.interpolate!(
 end
 
 """
-    reduced_triangulation(trian::Triangulation,a::HRProjection)
+    reduced_triangulation(trian,a::HRProjection)
 
 Returns the triangulation view of `trian` on the integration cells contained in `a`
 """
-function reduced_triangulation(trian::Triangulation,a::HRProjection)
+function reduced_triangulation(trian,a::HRProjection)
   reduced_triangulation(trian,get_interpolation(a))
 end
 

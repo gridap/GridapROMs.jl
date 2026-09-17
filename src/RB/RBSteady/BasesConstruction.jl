@@ -36,7 +36,7 @@ end
 function select_rank(red_style::SearchSVDRank,S::AbstractVector)
   tol = red_style.tol
   energies = cumsum(S.^2;dims=1)
-  local rank
+  rank = 0
   for outer rank in eachindex(energies)
     energies[rank] >= (1-tol^2)*energies[end] && break
   end
@@ -44,8 +44,7 @@ function select_rank(red_style::SearchSVDRank,S::AbstractVector)
 end
 
 function truncated_svd(red_style::ReductionStyle,A::AbstractMatrix;issquare=false)
-  opts = _to_options(red_style)
-  U,S,V = psvd(A,opts)
+  U,S,V = svd(A)
   issquare && _root!(S)
   rank = select_rank(red_style,S)
   Ur = _truncate_col!(U,rank)
@@ -296,7 +295,7 @@ function first_unfold_3D(A::Snapshots)
   first_unfold_3D(get_all_data(A))
 end
 
-function orthogonalize!(cores::AbstractVector,X::AbstractRankTensor{D}) where D
+function orthogonalise!(cores::AbstractVector,X::AbstractRankTensor{D}) where D
   red_style = SearchSVDRank(1e-10)
   T = promote_type(map(eltype,cores)...)
   weight = ones(T,1,rank(X),1)
@@ -437,51 +436,35 @@ function orth_complement!(
 end
 
 """
-    gram_schmidt(A::AbstractMatrix,args...) -> AbstractMatrix
-    gram_schmidt(A::AbstractMatrix,X::AbstractSparseMatrix,args...) -> AbstractMatrix
+    gram_schmidt(A::AbstractMatrix;kwargs...) -> AbstractMatrix
+    gram_schmidt(A::AbstractMatrix,X::AbstractSparseMatrix;kwargs...) -> AbstractMatrix
 
 Gram-Schmidt orthogonalization for a matrix `A` under a Euclidean norm. A
 (positive definite) sparse matrix `X` representing an inner product on the row space
 of `A` can be provided to make the result orthogonal under a different norm
 """
-function gram_schmidt(A::AbstractMatrix,args...)
-  Q, = pivoted_qr!(A,args...)
-  return Q
+function gram_schmidt(A::AbstractMatrix;tol=1e-10)
+  Q,R, = qr!(A,ColumnNorm())
+  rank = something(findlast(abs.(diag(R)) .> tol),0)
+  Qr = _truncate_col!(Q,rank)
+  return Qr
 end
 
-function gram_schmidt(A::AbstractMatrix,L::AbstractSparseMatrix,p::AbstractVector{Int},args...)
-  XA = _forward_cholesky(A,L,p)
-  Q̃, = pivoted_qr!(XA,args...)
-  Q = _backward_cholesky(Q̃,L,p)
-  return Q
-end
-
-function gram_schmidt(A::AbstractMatrix,X::AbstractSparseMatrix,args...)
-  gram_schmidt(A,_cholesky_decomp(X)...,args...)
-end
-
-function gram_schmidt(A::AbstractMatrix,basis::AbstractMatrix,args...)
-  gram_schmidt(hcat(basis,A),args...)
-end
-
-function pivoted_qr!(A,tol=1e-10)
-  red_style = SearchSVDRank(tol)
-  Q,R,jpvt = qr!(A,ColumnNorm())
-  r = select_rank(red_style,diag(R))
-  Qr = _truncate_col!(Q,r)
-  Rr = _truncate_row!(R,r)
-  invpermutecols!(Rr,jpvt)
-  return Qr,Rr
+function gram_schmidt(A::AbstractMatrix,X::AbstractMatrix;tol=1e-10)
+  Q,R, = weighted_qr!(A,X)
+  rank = something(findlast(abs.(diag(R)) .> tol),0)
+  Qr = _truncate_col!(Q,rank)
+  return Qr
 end
 
 """
-    weighted_qr(A::AbstractMatrix,X::AbstractMatrix;tol=1e-10) -> (AbstractMatrix,AbstractMatrix)
+    weighted_qr!(A::AbstractMatrix,X::AbstractMatrix) -> (AbstractMatrix,AbstractMatrix)
 
 Column-pivoted, rank-revealing QR decomposition of `A` with respect to the inner
 product induced by the (positive definite) matrix `X`: returns `(Q,R)` such that
 `A[:,p] ≈ Q*R` (for the internal pivot vector `p`) and `Q'*X*Q ≈ I`.
 """
-function weighted_qr(A::AbstractMatrix,X::AbstractMatrix;tol=1e-10)
+function weighted_qr!(A::AbstractMatrix,X::AbstractMatrix)
   A = copy(A)
   m,n = size(A)
   T = eltype(A)
@@ -495,8 +478,12 @@ function weighted_qr(A::AbstractMatrix,X::AbstractMatrix;tol=1e-10)
   for j in 1:min(m,n)
     j′ = argmax(view(colnorms2,j:n)) + j - 1
     if j′ != j
-      p[j],p[j′] = p[j′],p[j]
-      colnorms2[j],colnorms2[j′] = colnorms2[j′],colnorms2[j]
+      tmp = p[j′]
+      p[j′] = p[j]
+      p[j] = tmp
+      tmp = colnorms2[j′]
+      colnorms2[j′] = colnorms2[j]
+      colnorms2[j] = tmp
       Base.swapcols!(A,j,j′)
       Base.swapcols!(XA,j,j′)
     end
@@ -513,61 +500,10 @@ function weighted_qr(A::AbstractMatrix,X::AbstractMatrix;tol=1e-10)
       colnorms2[k] = real(dot(view(A,:,k),view(XA,:,k)))
     end
   end
-  red_style = SearchSVDRank(tol)
-  r = select_rank(red_style,diag(R))
-  Qr = _truncate_col!(A,r)
-  Rr = _truncate_row!(R,r)
-  invpermutecols!(Rr,p)
-  return Qr,Rr
-end
-
-# overload to prevent bugs when compressing empty or zero matrices
-
-function LowRankApprox.psvdfact(
-  A::AbstractMatOrLinOp{T},opts::LRAOptions=LRAOptions(T);args...
-  ) where T<:Number
-
-  opts = isempty(args) ? opts : copy(opts; args...)
-  m,n = size(A)
-  if m >= n
-    V = idfact(:n,A,opts)
-    Q,R = qr!(getcols(:n,A,V[:sk]))
-    Ũ,σ,Ṽ = svd!(R*V)
-    isempty(σ) && return _empty_decomposition(A)
-    k = psvdrank(σ,opts)
-    if k < V[:k]
-      U = Q*view(Ũ,:,1:k)
-      S  = σ[1:k]
-      Vt = Ṽ'[1:k,:]
-    else
-      U = Q*Ũ
-      S  = σ
-      Vt = Ṽ'
-    end
-  else
-    V = idfact(:c,A,opts)
-    Q,R = qr!(getcols(:c,A,V[:sk]))
-    Ũ,σ,Ṽ = svd!(V'*R')
-    isempty(σ) && return _empty_decomposition(A)
-    k = psvdrank(σ,opts)
-    if k < V[:k]
-      U = Ũ[:,1:k]
-      S = σ[1:k]
-      Vt = view(Ṽ',1:k,:)*Q'
-    else
-      U = Ũ
-      S = σ
-      Vt = Ṽ'*Q'
-    end
-  end
-  PartialSVD(U,S,Vt)
+  return A,R,p
 end
 
 # utils 
-
-_to_options(r::ReductionStyle) = @abstractmethod
-_to_options(r::SearchSVDRank) = LRAOptions(rtol=r.tol,maxdet_tol=0.,sketch_randn_niter=1,sketch=:sprn)
-_to_options(r::FixedSVDRank) = LRAOptions(rank=r.rank,maxdet_tol=0.,sketch_randn_niter=1,sketch=:sprn)
 
 function _is_rectangular(A::AbstractMatrix;ratio=10)
   m,n = size(A)
@@ -712,18 +648,5 @@ invpermuterows!(a::AbstractMatrix,p::AbstractVector{<:Integer}) = _invpermute!(a
     end
   end
   a
-end
-
-function _empty_decomposition(A::AbstractMatOrLinOp{T}) where T
-  m,n = size(A)
-  k = (m == 0 || n == 0) ? 0 : min(1,n)
-  U = zeros(T,m,k)
-  S = zeros(real(T),k)
-  Vt = zeros(T,k,n)
-  if k == 1
-    U[1] = one(T)
-    Vt[1] = one(T)
-  end
-  return PartialSVD(U,S,Vt)
 end
 

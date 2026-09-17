@@ -135,9 +135,9 @@ function _get_order(ϕ::Fields.BroadcastOpFieldArray)
 end
 
 """
-    get_polynomial_orders(fs::FESpace) -> Integer
+    get_polynomial_orders(fs::FESpace) -> NTuple{D,Int}
 
-Retrieves the polynomial order of `fs` for every dimension
+Retrieves the polynomial order of `fs` for every dimension `d = 1,...,D` of the underlying reference FE
 """
 get_polynomial_orders(fs::SingleFieldFESpace) = get_polynomial_orders(get_fe_basis(fs))
 get_polynomial_orders(fs::MultiFieldFESpace) = maximum.(map(get_polynomial_orders,fs.spaces))

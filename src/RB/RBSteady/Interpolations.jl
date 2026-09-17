@@ -11,13 +11,13 @@ function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,x::Any)
   cache
 end
 
-function reduced_triangulation(trian::Triangulation,a::Interpolation)
+function reduced_triangulation(trian,a::Interpolation)
   red_cells = get_integration_cells(a)
   red_trian = ChildTriangulation(trian,red_cells)
   return red_trian
 end
 
-function get_owned_icells(a::Interpolation,trian::Triangulation) 
+function get_owned_icells(a::Interpolation,trian) 
   cells = get_integration_cells(trian)
   get_owned_icells(a,cells)
 end
@@ -224,10 +224,6 @@ function get_cell_idofs(a::BlockInterpolation{N}) where N
 end
 
 function get_integration_cells(a::BlockInterpolation)
-  _union(args...) = @notimplemented
-  _union(a::T,b::T) where T<:AbstractVector = union(a,b)
-  _union(a::T,b::T) where T<:AppendedArray = lazy_append(union(a.a,b.a),union(a.b,b.b))
-
   cells = get_integration_cells(a.interp[1])
   for i in 2:length(a)
     cells = _union(cells,get_integration_cells(a.interp[i]))
@@ -238,3 +234,9 @@ end
 function get_owned_icells(a::BlockInterpolation{N},cells::AbstractVector) where N
   map(itp -> get_owned_icells(itp,cells),a.interp)
 end
+
+#utils
+
+_union(args...) = @notimplemented
+_union(a::T,b::T) where T = union(a,b)
+_union(a::T,b::T) where T<:AppendedArray = lazy_append(union(a.a,b.a),union(a.b,b.b))

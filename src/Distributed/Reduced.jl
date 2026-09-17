@@ -115,9 +115,10 @@ end
 
 function RBSteady.DEIM(basis::GenericPMatrix)
   T = eltype(basis)
-  n = size(basis,2)
-  I = zeros(Int,n)
+  m,n = size(basis)
   parts = partition(axes(basis,1))
+  (m == 0 || n == 0) && return map(LocalDEIMIndices,parts),zeros(T,0,0)
+  I = zeros(Int,n)
   Iparts = map(LocalDEIMIndices,parts)
   basisI = zeros(T,n,n)
   res = GenericPArray{Vector{T}}(undef,parts)
@@ -142,9 +143,10 @@ end
 
 function RBSteady.SOPT(basis::GenericPMatrix)
   T = eltype(basis)
-  n = size(basis,2)
-  I = zeros(Int,n)  
+  m,n = size(basis)
   parts = partition(axes(basis,1))
+  (m == 0 || n == 0) && return map(LocalDEIMIndices,parts),zeros(T,0,0)
+  I = zeros(Int,n)
   Iparts = map(LocalDEIMIndices,parts)
   basisI = zeros(T,n,n)
   res = GenericPArray{Vector{T}}(undef,parts)
@@ -369,15 +371,6 @@ function FESpaces.interpolate!(
   map(local_views(cache),local_views(a),local_views(b)) do cache,interp,b
     interpolate!(cache,interp,b)
   end
-end
-
-function RBSteady.reduced_triangulation(trian::DistributedTriangulation,a::DistributedInterpolation)
-  red_cells = get_integration_cells(a)
-  trians = map(local_views(trian),local_views(red_cells)) do ti,ci
-    ChildTriangulation(ti,ci)
-  end
-  model = get_background_model(trian)
-  DistributedTriangulation(trians,model)
 end
 
 function RBSteady.get_at_domain(s::DistributedSparseSnapshots,rowscols::Tuple)
@@ -710,7 +703,6 @@ end
 
 function _keep_rows_and_cols(rows,cols,rowmap,colmap)
   @check length(rows) == length(cols)
-  @check length(rowmap) == length(colmap)
   count = 0
   for (r,c) in zip(rows,cols)
     if !iszero(rowmap[r]) && !iszero(colmap[c])
@@ -757,4 +749,10 @@ function RBSteady._setup(U::DistributedMultiFieldRBSpace,u0::PVector)
   map(local_views(U),local_values(u0)) do U,u0
     RBSteady._setup(U,u0)
   end |> mortar
+end
+
+function RBSteady._union(a::T,b::T) where T<:AbstractArray{<:AbstractVector}
+  map(local_views(a),local_values(b)) do a,b
+    RBSteady._union(a,b)
+  end
 end

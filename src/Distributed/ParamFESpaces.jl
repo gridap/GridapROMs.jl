@@ -253,7 +253,12 @@ function DofMaps._get_dof_map(f::DistributedSingleFieldFESpace,b::PVector{<:Abst
   end
 end
 
-function DofMaps._get_dof_map(f::DistributedMultiFieldFESpace,b::Union{PVector,BlockPArray})
+function DofMaps._get_dof_map(
+  f::DistributedMultiFieldFESpace,
+  b::Union{PVector{<:AbstractVector{<:Number}},BlockPArray{<:AbstractVector{<:Number}}}
+  )
+
+  b = GridapDistributed.change_ghost(b,get_free_dof_ids(f))
   map(1:num_fields(f)) do i
     bi = restrict_to_field(f,b,i)
     DofMaps._get_dof_map(f[i],bi)
@@ -292,7 +297,7 @@ end
 function DofMaps._get_sparse_dof_map(
   trial::DistributedMultiFieldFESpace,
   test::DistributedMultiFieldFESpace,
-  A::Union{PSparseMatrix,BlockPArray}
+  A::Union{PSparseMatrix{<:AbstractMatrix{<:Number}},BlockPArray{<:AbstractMatrix{<:Number}}}
   )
 
   ntest = num_fields(test)
@@ -309,7 +314,7 @@ function DofMaps.restr_to_fields(A::PSparseMatrix,i,j,U,V)
   end
 end
 
-DofMaps.restr_to_fields(A::GridapDistributed.BlockPArray,i,j,args...) = A[Block(i,j)]
+DofMaps.restr_to_fields(A::BlockPArray,i,j,args...) = A[Block(i,j)]
 
 function ParamODEs.collect_param_solutions(sol::ODEParamSolution{<:PVector{T}}) where T
   u0 = first(sol.us0)

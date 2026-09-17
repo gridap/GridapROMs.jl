@@ -16,7 +16,7 @@ function RBSteady.gram_solver(X::PSparseMatrix)
   numerical_setup(ss,X)
 end
 
-function LinearAlgebra.ldiv!(S::GenericPMatrix,ns,A::GenericPMatrix)
+function LinearAlgebra.ldiv!(S::GenericPMatrix,ns::NumericalSetup,A::GenericPMatrix)
   for i in param_eachindex(S)
     Si = param_getindex(S,i)
     Ai = param_getindex(A,i)
@@ -24,30 +24,26 @@ function LinearAlgebra.ldiv!(S::GenericPMatrix,ns,A::GenericPMatrix)
   end
 end
 
-function RBSteady.gram_schmidt(A::AbstractMatrix,ns::LinearSolvers.CGNumericalSetup,args...)
-  gram_schmidt(ns.mat*A,args...)
+function RBSteady.gram_schmidt(A::AbstractMatrix,ns::NumericalSetup;kwargs...)
+  gram_schmidt(A,ns.mat;kwargs...)
 end
 
-"""
-    weighted_qr(A::GenericPMatrix,X::PSparseMatrix;tol=1e-10) -> (GenericPMatrix,AbstractMatrix)
-
-Distributed counterpart of [`RBSteady.weighted_qr`](@ref): column-pivoted, rank-revealing
-weighted (modified) Gram-Schmidt orthogonalization of `A` with respect to the inner product
-induced by `X`. Only ever needs a distributed sparse mat-vec `X*A` (already available for
-`PSparseMatrix`) and per-rank reductions over owned rows -- no factorization of `X`.
-"""
-function RBSteady.weighted_qr(A::GenericPMatrix,X::PSparseMatrix;tol=1e-10)
+function RBSteady.weighted_qr!(A::GenericPMatrix,X::PSparseMatrix)
   m,n = size(A)
   T = eltype(A)
   XA = X*A
-  piv = collect(1:n)
+  p = collect(1:n)
   R = zeros(T,n,n)
   colnorms2 = [real(_wdot(A,XA,j,j)) for j in 1:n]
   for j in 1:min(m,n)
     j′ = argmax(view(colnorms2,j:n)) + j - 1
     if j′ != j
-      piv[j],piv[j′] = piv[j′],piv[j]
-      colnorms2[j],colnorms2[j′] = colnorms2[j′],colnorms2[j]
+      tmp = p[j′]
+      p[j′] = p[j]
+      p[j] = tmp
+      tmp = colnorms2[j′]
+      colnorms2[j′] = colnorms2[j]
+      colnorms2[j] = tmp
       _swapcols!(A,j,j′)
       _swapcols!(XA,j,j′)
     end
@@ -65,11 +61,7 @@ function RBSteady.weighted_qr(A::GenericPMatrix,X::PSparseMatrix;tol=1e-10)
     end
   end
   consistent!(A) |> wait
-  r = select_rank(SearchSVDRank(tol),diag(R))
-  Qr = RBSteady._truncate_col!(A,r)
-  Rr = RBSteady._truncate_row!(R,r)
-  RBSteady.invpermutecols!(Rr,piv)
-  return Qr,Rr
+  return A,R,p
 end
 
 function _wdot(A::GenericPMatrix,XA::GenericPMatrix,i,j)
@@ -104,14 +96,14 @@ end
 struct PQR{A,B,C}
   Q::A
   R::B
-  piv::C
+  p::C
 end
 
-Base.iterate(p::PQR,i...) = iterate((p.Q,p.R,p.piv),i...)
+Base.iterate(p::PQR,i...) = iterate((p.Q,p.R,p.p),i...)
 
 function LinearAlgebra.qr!(A::GenericPMatrix,::NoPivot)
   m,n = size(A)
-  piv = Vector(UnitRange{BlasInt}(1,n))
+  p = Vector(UnitRange{BlasInt}(1,n))
   τ = Vector{eltype(A)}(undef,min(m,n))
   for j = 1:min(m,n)
     τj = _reflector!(A,j:m,j)
@@ -120,19 +112,19 @@ function LinearAlgebra.qr!(A::GenericPMatrix,::NoPivot)
   end
   Q = _get_Q(A,τ,m,n)
   R = _get_R(A,n)
-  return PQR(Q,R,piv)
+  return PQR(Q,R,p)
 end
 
 function LinearAlgebra.qr!(A::GenericPMatrix,::ColumnNorm)
   m,n = size(A)
-  piv = Vector(UnitRange{BlasInt}(1,n))
+  p = Vector(UnitRange{BlasInt}(1,n))
   τ = Vector{eltype(A)}(undef,min(m,n))
   for j = 1:min(m,n)
     j′ = _indmaxcol(A,j:m,j:n) + j - 1
     if j′ != j
-      tmpp = piv[j′]
-      piv[j′] = piv[j]
-      piv[j] = tmpp
+      tmp = p[j′]
+      p[j′] = p[j]
+      p[j] = tmp
       _swapcols!(A,j,j′)
     end
     τj = _reflector!(A,j:m,j)
@@ -141,7 +133,7 @@ function LinearAlgebra.qr!(A::GenericPMatrix,::ColumnNorm)
   end
   Q = _get_Q(A,τ,m,n)
   R = _get_R(A,n)
-  return PQR(Q,R,piv)
+  return PQR(Q,R,p)
 end
 
 function RBTransient.first_unfold(A::DistributedSnapshots)

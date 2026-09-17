@@ -396,7 +396,7 @@ end
 
 function union_bases(a::PODProjection,basis_b::AbstractMatrix,args...)
   basis_a = get_basis(a)
-  basis_ab = gram_schmidt(basis_b,basis_a,args...)
+  basis_ab = gram_schmidt(hcat(basis_b,basis_a),args...)
   PODProjection(basis_ab,get_dof_map(a))
 end
 
@@ -453,7 +453,7 @@ function union_bases(
   cores_a = get_cores(a)
   @check length(cores_a) == length(cores_b)
   cores_ab = block_cores(cores_a,cores_b)
-  orthogonalize!(cores_ab,args...)
+  orthogonalise!(cores_ab,args...)
   TTSVDProjection(cores_ab,get_dof_map(a))
 end
 
@@ -669,12 +669,16 @@ end
 
 function to_blocks(x::AbstractVector,o,f=identity)
   n = length(o)-1
-  mortar(map(i -> f(view(x,o[i]:o[i+1]-1)),1:n))
+  map(1:n) do i
+    f(view(x,o[i]:o[i+1]-1))
+  end |> mortar
 end
 
 function to_blocks(x::AbstractParamVector,o,f=identity)
   n = length(o)-1
-  mortar(map(i -> f(get_param_entry(x,o[i]:o[i+1]-1)),1:n))
+  map(1:n) do i
+    f(get_param_entry(x,o[i]:o[i+1]-1))
+  end |> mortar
 end
 
 for f in (:allocate_in_domain,:allocate_in_range)

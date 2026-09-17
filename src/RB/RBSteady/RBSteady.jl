@@ -56,7 +56,6 @@ using BlockArrays
 using Clustering
 using DrWatson
 using LinearAlgebra
-using LowRankApprox
 using Random
 using Serialization
 using SparseArrays
@@ -95,7 +94,6 @@ import DrWatson: save,load
 import FillArrays: Fill
 import Gridap.Polynomials: Monomial
 import GridapROMs.TProduct: get_factor
-import LowRankApprox: getcols,qr!,svd!,psvdrank
 import PartitionedArrays: tuple_of_arrays
 import RadialBasisFunctions: Interpolator, AbstractRadialBasis, PHS, MonomialBasis, _build_collocation_matrix!
 import Statistics: mean
@@ -181,7 +179,7 @@ export symcholesky
 export gram_solver
 export symmetrise!
 export gram_schmidt
-export weighted_qr
+export weighted_qr!
 export orth_complement!
 export orth_projection
 include("BasesConstruction.jl")
