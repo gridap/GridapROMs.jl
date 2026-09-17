@@ -25,6 +25,11 @@ ParamDataStructures.num_space_dofs(a::Projection) = num_fe_dofs(get_projection_s
 ParamDataStructures.num_times(a::Projection) = num_fe_dofs(get_projection_time(a))
 RBSteady.num_fe_dofs(a::TransientProjection) = num_space_dofs(a)*num_times(a)
 
+num_fe_dofs_space(a::Projection) = size(get_basis_space(a),1)
+num_reduced_dofs_space(a::Projection) = size(get_basis_space(a),2)
+fe_space_dof_ids(a::Projection) = Base.OneTo(num_fe_dofs_space(a))
+reduced_space_dof_ids(a::Projection) = Base.OneTo(num_reduced_dofs_space(a))
+
 function RBSteady.project!(
   x̂::ConsecutiveParamVector,
   a::TransientProjection,
@@ -64,7 +69,7 @@ function Algebra.allocate_in_domain(
   x::V
   ) where V<:AbstractParamVector
 
-  x̂ = allocate_vector(eltype(V),num_reduced_dofs(a))
+  x̂ = allocate_vector(eltype(V),reduced_dof_ids(a))
   nt = num_times(a)
   np = Int(param_length(x) / nt)
   return parameterise(x̂,np)
@@ -75,7 +80,7 @@ function Algebra.allocate_in_range(
   x̂::V
   ) where V<:AbstractParamVector
 
-  x = allocate_vector(eltype(V),num_space_dofs(a))
+  x = allocate_vector(eltype(V),fe_space_dof_ids(a))
   nt = num_times(a)
   npt = param_length(x̂) * nt
   return parameterise(x,npt)
@@ -525,38 +530,35 @@ end
 
 # space-only projections
 
-num_fe_dofs_space(a::Projection) = size(get_basis_space(a),1)
-num_reduced_dofs_space(a::Projection) = size(get_basis_space(a),2)
-
 function space_project(a::Projection,x::AbstractArray,args...)
   x̂ = allocate_in_space_domain(a,x)
-  space_project!(x̂,a,x,args...)
+  project_space!(x̂,a,x,args...)
   return x̂
 end
 
 function inv_space_project(a::Projection,x̂::AbstractArray)
   x = allocate_in_space_range(a,x̂)
-  inv_space_project!(x,a,x̂)
+  inv_project_space!(x,a,x̂)
   return x
 end
 
-function space_project!(x̂::AbstractArray,a::Projection,x::AbstractArray)
+function project_space!(x̂::AbstractArray,a::Projection,x::AbstractArray)
   basis = get_basis_space(a)
   mul!(x̂,basis',x)
 end
 
-function inv_space_project!(x::AbstractArray,a::Projection,x̂::AbstractArray)
+function inv_project_space!(x::AbstractArray,a::Projection,x̂::AbstractArray)
   basis = get_basis_space(a)
   mul!(x,basis,x̂)
 end
 
 function allocate_in_space_domain(a::Projection,x::V) where V<:AbstractVector
-  x̂ = allocate_vector(V,num_reduced_dofs_space(a))
+  x̂ = allocate_vector(V,reduced_space_dof_ids(a))
   return x̂
 end
 
 function allocate_in_space_range(a::Projection,x̂::V) where V<:AbstractVector
-  x = allocate_vector(V,num_fe_dofs_space(a))
+  x = allocate_vector(V,fe_space_dof_ids(a))
   return x
 end
 
@@ -571,12 +573,12 @@ function allocate_in_space_range(a::Projection,X̂::M) where M<:AbstractMatrix
 end
 
 function allocate_in_space_domain(a::Projection,x::V) where V<:AbstractParamVector
-  x̂ = allocate_vector(eltype(V),num_reduced_dofs_space(a))
+  x̂ = allocate_vector(eltype(V),reduced_space_dof_ids(a))
   return parameterise(x̂,param_length(x))
 end
 
 function allocate_in_space_range(a::Projection,x̂::V) where V<:AbstractParamVector
-  x = allocate_vector(eltype(V),num_fe_dofs_space(a))
+  x = allocate_vector(eltype(V),fe_space_dof_ids(a))
   return parameterise(x,param_length(x̂))
 end
 
@@ -629,7 +631,7 @@ for (f,g) in zip((:allocate_in_space_domain,:allocate_in_space_range),(:to_fe_bl
   end
 end
 
-for (f,g) in zip((:space_project!,:inv_space_project!),(:to_fe_blocks_space,:to_reduced_blocks_space))
+for (f,g) in zip((:project_space!,:inv_project_space!),(:to_fe_blocks_space,:to_reduced_blocks_space))
   ginv = g == :to_fe_blocks_space ? :to_reduced_blocks_space : :to_fe_blocks_space
   @eval begin
     function $f(

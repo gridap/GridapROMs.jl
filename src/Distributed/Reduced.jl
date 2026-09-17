@@ -315,6 +315,12 @@ end
 
 const TransientDistributedIntegrationDomain{A<:TransientIntegrationDomainStyle,I<:DistributedIntegrationDomain,Ti<:Integer} = TransientIntegrationDomain{A,I,Ti}
 
+function GridapDistributed.local_views(a::TransientDistributedIntegrationDomain)
+  map(local_views(a.domain_space)) do domain_space
+    TransientIntegrationDomain(a.domain_style,domain_space,a.indices_time)
+  end
+end
+
 # hyper-reduction
 
 struct DistributedInterpolation{A} <: Interpolation
@@ -752,7 +758,7 @@ function RBSteady._setup(U::DistributedMultiFieldRBSpace,u0::PVector)
 end
 
 function RBSteady._union(a::T,b::T) where T<:AbstractArray{<:AbstractVector}
-  map(local_views(a),local_values(b)) do a,b
+  map(local_views(a),local_views(b)) do a,b
     RBSteady._union(a,b)
   end
 end

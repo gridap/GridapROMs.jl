@@ -68,6 +68,10 @@ function Algebra.allocate_vector(::Type{<:PVector{V}},rows::AbstractVector) wher
   allocate_vector(V,rows)
 end
 
+function Algebra.allocate_vector(::Type{<:PVector{V}},n::Integer) where V
+  allocate_vector(V,n)
+end
+
 function Algebra.allocate_vector(::Type{<:BlockPArray{V}},rows::AbstractVector) where V
   allocate_vector(V,rows)
 end
@@ -113,6 +117,75 @@ const DistributedKroneckerProjection{A<:Union{DistributedProjection,DistributedN
 function GridapDistributed.local_views(a::DistributedKroneckerProjection)
   map(local_views(a.projection_space)) do projection_space
     KroneckerProjection(projection_space,a.projection_time)
+  end
+end
+
+RBTransient.fe_space_dof_ids(a::DistributedKroneckerProjection) = axes(get_basis_space(a),1)
+
+function RBSteady.project!(
+  x̂::ConsecutiveParamVector,
+  a::TransientProjection,
+  x::PVector{<:ConsecutiveParamVector}
+  )
+
+  lx̂ = map(local_values(x),local_views(a)) do x,ap
+    project!(similar(x̂),ap,x)
+  end
+  copyto!(x̂,sreduce(lx̂))
+  x̂
+end
+
+function RBSteady.inv_project!(
+  x::PVector{<:ConsecutiveParamVector},
+  a::TransientProjection,
+  x̂::ConsecutiveParamVector
+  )
+
+  map(local_values(x),local_views(a)) do x,ap
+    inv_project!(x,ap,x̂)
+  end
+  x
+end
+
+function Algebra.allocate_in_domain(a::TransientProjection,x::PVector{<:V}) where V<:AbstractParamVector
+  x̂ = allocate_vector(PVector{eltype(V)},RBSteady.reduced_dof_ids(a))
+  nt = num_times(a)
+  np = Int(param_length(x) / nt)
+  return parameterise(x̂,np)
+end
+
+function Algebra.allocate_in_range(a::TransientProjection,x̂::PVector{<:V}) where V<:AbstractParamVector
+  x = allocate_vector(PVector{eltype(V)},RBSteady.fe_space_dof_ids(a))
+  nt = num_times(a)
+  npt = param_length(x̂) * nt
+  return parameterise(x,npt)
+end
+
+function RBTransient.allocate_in_space_domain(a::TransientProjection,x::PVector{<:V}) where V<:AbstractParamVector
+  x̂ = allocate_vector(PVector{eltype(V)},RBTransient.num_reduced_dofs_space(a))
+  return parameterise(x̂,param_length(x))
+end
+
+function RBTransient.allocate_in_space_range(a::TransientProjection,x̂::PVector{<:V}) where V<:AbstractParamVector
+  x = allocate_vector(PVector{eltype(V)},RBTransient.num_fe_dofs_space(a))
+  return parameterise(x,param_length(x̂))
+end
+
+RBTransient.to_fe_blocks_space(x::BlockPArray,a::BlockProjection,args...) = x
+RBTransient.to_reduced_blocks_space(x::BlockPArray,a::BlockProjection,args...) = x
+
+for f in (:project_space!,:inv_project_space!)
+  @eval begin
+    function RBTransient.$f(
+      y::Union{BlockArray,BlockParamArray},
+      a::BlockProjection,
+      x::BlockPArray
+      )
+
+      for i in eachindex(a)
+        RBTransient.$f(blocks(y)[i],a[i],blocks(x)[i])
+      end
+    end
   end
 end
 

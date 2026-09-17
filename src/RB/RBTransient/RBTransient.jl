@@ -84,7 +84,7 @@ import FillArrays: Fill
 import UnPack: @unpack
 import Gridap.ReferenceFEs: get_order
 import GridapROMs.ParamDataStructures: GenericTransientRealisation, TransientRealisationAt
-import GridapROMs.RBSteady: num_centroids,get_lhs,get_rhs,_get_label,_data,_fe_data,_setup,_convert_to_block
+import GridapROMs.RBSteady: num_centroids,get_lhs,get_rhs,_get_label,_data,_fe_data,_setup,_convert_to_block,fe_dof_ids,reduced_dof_ids
 import RadialBasisFunctions: Interpolator, AbstractRadialBasis, PHS
 
 export SteadyReduction
