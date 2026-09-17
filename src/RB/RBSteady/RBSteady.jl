@@ -182,6 +182,7 @@ export symcholesky
 export gram_solver
 export symmetrise!
 export gram_schmidt
+export weighted_qr
 export orth_complement!
 export orth_projection
 include("BasesConstruction.jl")

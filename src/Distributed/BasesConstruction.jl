@@ -24,8 +24,8 @@ function LinearAlgebra.ldiv!(S::GenericPMatrix,ns,A::GenericPMatrix)
   end
 end
 
-function RBSteady.gram_schmidt(A::AbstractMatrix,X::PSparseMatrix,args...)
-  gram_schmidt(X*A,args...)
+function RBSteady.gram_schmidt(A::AbstractMatrix,ns::LinearSolvers.CGNumericalSetup,args...)
+  gram_schmidt(ns.mat*A,args...)
 end
 
 struct PQR{A,B,C}
@@ -96,7 +96,7 @@ function _weighted_mul(A,V,S)
     mul!(Uo,Ao,V)
     rdiv!(Uo,D)
   end
-  consistent!(U) |> fetch
+  consistent!(U) |> wait
   U
 end
 
@@ -167,13 +167,13 @@ end
 function _colnorm(A,rows,col)
   contribs = map(own_values(A),row_partition(A)) do vals,row_idxs
     o2g = own_to_global(row_idxs)
-    local_sum = zero(real(eltype(vals)))
+    s = zero(real(eltype(vals)))
     for (oi,gi) in enumerate(o2g)
       gi < first(rows) && continue
       gi > last(rows) && continue
-      local_sum += abs2(vals[oi,col])
+      s += abs2(vals[oi,col])
     end
-    local_sum
+    s
   end
   sqrt(reduce(+,contribs;init=zero(eltype(contribs))))
 end
@@ -220,9 +220,7 @@ function _reflector!(A,rows=1:size(A,1),col=1)
   T = eltype(A)
   ξ1 = _get_value(A,first(rows),col)
   normu = _colnorm(A,rows,col)
-  if iszero(normu)
-    return zero(T)
-  end
+  iszero(normu) && return zero(T)
   ν = T(copysign(normu,real(ξ1)))
   v = ξ1 + ν
   τ = v / ν
