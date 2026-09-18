@@ -1,4 +1,4 @@
-for T in (:DEIMHyperReduction,:SOPTHyperReduction,:TransientDEIMHyperReduction,:TransientSOPTHyperReduction)
+for T in (:DEIMHyperReduction,:SOPTHyperReduction)
   @eval begin
     function RBSteady.check_interpolation(res::DistributedSnapshots,a::HRVecProjection{<:$T},_fecache)
       msg = "fecache mismatch at interpolation points"
@@ -37,6 +37,45 @@ for T in (:DEIMHyperReduction,:SOPTHyperReduction,:TransientDEIMHyperReduction,:
         delta
       end |> sreduce
       @check isapprox(fecache,data;rtol=1e-8) msg
+      return true
+    end
+  end
+end
+
+for T in (:TransientDEIMHyperReduction,:TransientSOPTHyperReduction)
+  @eval begin
+    function RBSteady.check_interpolation(res::DistributedSnapshots,a::HRVecProjection{<:$T},_fecache)
+      msg = "fecache mismatch at interpolation points"
+      fecache = sreduce(map(get_all_data,local_views(_fecache)))
+      interp = get_interpolation(a)
+      rows = get_interpolation_dofs(interp)
+      indices_time = get_indices_time(interp)
+      style = get_domain_style(interp)
+      bdata = if style isa KroneckerDomain
+        RBTransient.get_at_kron_domain(res,rows,indices_time)
+      else
+        @check style isa SequentialDomain "Unsupported transient domain style"
+        RBTransient.get_at_seq_domain(res,rows,indices_time)
+      end
+      @check isapprox(fecache,get_all_data(bdata);rtol=1e-8) msg
+      return true
+    end
+
+    function RBSteady.check_interpolation(jac::DistributedSnapshots,a::HRMatProjection{<:$T},_fecache)
+      msg = "fecache mismatch at interpolation points"
+      fecache = sreduce(map(get_all_data,local_views(_fecache)))
+      interp = get_interpolation(a)
+      dofs = get_interpolation_dofs(interp)
+      rows,cols = map(first,dofs),map(last,dofs)
+      indices_time = get_indices_time(interp)
+      style = get_domain_style(interp)
+      Adata = if style isa KroneckerDomain
+        RBTransient.get_at_kron_domain(jac,(rows,cols),indices_time)
+      else
+        @check style isa SequentialDomain "Unsupported transient domain style"
+        RBTransient.get_at_seq_domain(jac,(rows,cols),indices_time)
+      end
+      @check isapprox(fecache,get_all_data(Adata);rtol=1e-8) msg
       return true
     end
   end
@@ -100,20 +139,6 @@ for T in (:DistributedProjection,:DistributedNormedProjection,:DistributedKronec
   end
 end
 
-"""
-    load_projection(dir,ranks::AbstractArray;label="") -> Projection
-
-Loads a (possibly distributed) [`Projection`](@ref) from `dir`. Since the type
-of the saved projection cannot be inspected ahead of time (unlike `save`,
-which dispatches on it), we probe the files on disk to figure out, in order:
-
-1) is this a block projection (multi-field)? -> recurse block by block
-2) is this a kronecker projection (space ⊗ time)? -> load space (distributed)
-   and time (not distributed) separately, and recombine
-3) is this a normed projection? -> load the plain (generic) basis, and enrich
-   it with a norm matrix if one was saved alongside it
-4) otherwise, it is a generic projection
-"""
 function RBSteady.load_projection(dir,ranks::AbstractArray;label="")
   if _haspart(dir,PROJECTION_LABEL,ranks;label=_plabel(label,BLOCK_LABEL*"1"))
     # 1) block projection
@@ -228,7 +253,7 @@ function _pallocate(
 end
 
 function _pallocate(
-  d::AbstractArray{<:AbstractMatrix},
+  d::AbstractArray{<:AbstractArray},
   r::AbstractVector{<:AbstractVector}
   )
 

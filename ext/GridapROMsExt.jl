@@ -89,7 +89,6 @@ function GridapROMs.try_loading_reduced_operator(dir_tolrank,rbsolver,feop,fesna
 end
 
 update_redstyle(rs::SearchSVDRank,tolrank) = SearchSVDRank(tolrank)
-update_redstyle(rs::LRApproxRank,tolrank) = LRApproxRank(tolrank)
 update_redstyle(rs::TTSVDRanks,tolrank) = TTSVDRanks(map(s->update_redstyle(s,tolrank),rs.style))
 
 function GridapROMs.update_reduction(red::Reduction,tolrank)

@@ -70,56 +70,13 @@ end
 
 # integration domains
 
-struct LocalDEIMIndices{Tr,Tc,A<:AbstractLocalIndices} <: AbstractVector{Tr}
-  global_rows::Vector{Tr}
-  global_cols::Vector{Tc}
-  index_parts::A
-end
-
-LocalDEIMIndices(index_parts) = LocalDEIMIndices(Int[],Int[],index_parts)
-
-Base.size(a::LocalDEIMIndices) = size(a.global_rows)
-Base.IndexStyle(::Type{<:LocalDEIMIndices}) = IndexLinear()
-Base.getindex(a::LocalDEIMIndices,i::Int) = getindex(a.global_rows,i)
-Base.setindex!(a::LocalDEIMIndices,v,i::Int) = setindex!(a.global_rows,v,i)
-Base.copy(a::LocalDEIMIndices) = LocalDEIMIndices(copy(a.global_rows),copy(a.global_cols),a.index_parts)
-
-function RBSteady._evaluate!(a,cellrows,rows::LocalDEIMIndices)
-  fill!(a,zero(eltype(a)))
-  for (irow,row) in enumerate(rows)
-    for (icellrow,cellrow) in enumerate(cellrows)
-      if row == cellrow
-        a[icellrow] = rows.global_cols[irow]
-      end
-    end
-  end
-  a
-end
-
-function RBSteady._evaluate!(a,cellrows,cellcols,rows::LocalDEIMIndices,cols::LocalDEIMIndices)
-  fill!(a,zero(eltype(a)))
-  ncellrows = length(cellrows)
-  for (irowcol,rowcol) in enumerate(zip(rows,cols))
-    row,col = rowcol
-    for (icellrow,cellrow) in enumerate(cellrows)
-      for (icellcol,cellcol) in enumerate(cellcols)
-        if row == cellrow && col == cellcol
-          icellrowcol = icellrow + (icellcol-1)*ncellrows
-          a[icellrowcol] = rows.global_cols[irowcol]
-        end
-      end
-    end
-  end
-  a 
-end
-
 function RBSteady.DEIM(basis::GenericPMatrix)
   T = eltype(basis)
   m,n = size(basis)
   parts = partition(axes(basis,1))
-  (m == 0 || n == 0) && return map(LocalDEIMIndices,parts),zeros(T,0,0)
+  (m == 0 || n == 0) && return map(LocalDofs,parts),zeros(T,0,0)
   I = zeros(Int,n)
-  Iparts = map(LocalDEIMIndices,parts)
+  Iparts = map(LocalDofs,parts)
   basisI = zeros(T,n,n)
   res = GenericPArray{Vector{T}}(undef,parts)
   map(own_values(res),own_values(basis)) do ro,bo
@@ -145,9 +102,9 @@ function RBSteady.SOPT(basis::GenericPMatrix)
   T = eltype(basis)
   m,n = size(basis)
   parts = partition(axes(basis,1))
-  (m == 0 || n == 0) && return map(LocalDEIMIndices,parts),zeros(T,0,0)
+  (m == 0 || n == 0) && return map(LocalDofs,parts),zeros(T,0,0)
   I = zeros(Int,n)
-  Iparts = map(LocalDEIMIndices,parts)
+  Iparts = map(LocalDofs,parts)
   basisI = zeros(T,n,n)
   res = GenericPArray{Vector{T}}(undef,parts)
   map(own_values(res),own_values(basis)) do ro,bo
@@ -166,85 +123,6 @@ function RBSteady.SOPT(basis::GenericPMatrix)
     _fill_parts!(Iparts,basisI,basis,I,l)
   end
   return Iparts,basisI
-end
-
-function DofMaps.recast_split_indices(
-  sids::AbstractArray{<:LocalDEIMIndices},
-  dof_maps::AbstractArray{<:AbstractDofMap}
-  ) 
-
-  sids
-end
-
-function DofMaps.recast_split_indices(
-  sids::AbstractArray{<:LocalDEIMIndices},
-  dof_maps::AbstractArray{<:AbstractSparseDofMap}
-  )
-
-  r,c = map(sids,dof_maps) do I,dof_map
-    rci = I.index_parts
-    I = copy(I)
-    _remap!(I,global_to_local(rci))
-    r,c = recast_split_indices(I,dof_map)
-    _remap!(r,local_to_global(row_partition(rci)))
-    _remap!(c,local_to_global(col_partition(rci)))
-    (r,c)
-  end |> tuple_of_arrays
-
-  local_max = map(I -> isempty(I.global_cols) ? 0 : maximum(I.global_cols),sids)
-  n = reduce(max,local_max)
-  rcache,ccache = map(r,c) do r,c
-    rcache = zeros(Int,n)
-    ccache = zeros(Int,n)
-    for (k,sk) in enumerate(r.global_cols)
-      rcache[sk] = r[k]
-      ccache[sk] = c[k]
-    end
-    (rcache,ccache)
-  end |> tuple_of_arrays
-
-  op(a,b) = max.(a,b) # assign a DEIM index to only one rank, though it may appear on multiple ranks
-  grows = reduce(op,rcache)
-  gcols = reduce(op,ccache)
-
-  R′,C′ = map(sids) do I
-    rci = I.index_parts
-    g2lr = global_to_local(row_partition(rci))
-    g2lc = global_to_local(col_partition(rci))
-    ikeep,rkeep,ckeep = _keep_rows_and_cols(grows,gcols,g2lr,g2lc)
-    R′ = LocalDEIMIndices(rkeep,copy(ikeep),row_partition(rci))
-    C′ = LocalDEIMIndices(ckeep,copy(ikeep),col_partition(rci))
-    (R′,C′)
-  end |> tuple_of_arrays
-
-  return (R′,C′)
-end
-
-for T in (:AbstractSparseMatrix,:SubSparseMatrix)
-  @eval begin
-    function DofMaps.recast_split_indices(sids::LocalDEIMIndices,a::$T)
-      rids,cids = recast_split_indices(sids.global_rows,a)
-      r = LocalDEIMIndices(rids,copy(sids.global_cols),sids.index_parts)
-      c = LocalDEIMIndices(cids,copy(sids.global_cols),sids.index_parts)
-      (r,c)
-    end
-  end
-end
-
-function DofMaps.recast_split_indices(sids::AbstractArray,a::SubSparseMatrix)
-  frows = similar(sids)
-  fcols = similar(sids)
-  fill!(frows,zero(eltype(frows)))
-  fill!(fcols,zero(eltype(fcols)))
-  prows,pcols = a.indices
-  I,J, = findnz(a.parent)
-  for (i,nzi) in enumerate(sids)
-    if nzi > 0
-      frows[i] = prows[I[nzi]]
-      fcols[i] = pcols[J[nzi]]
-    end
-  end
-  return frows,fcols
 end
 
 struct DistributedIntegrationDomain{A} <: IntegrationDomain
@@ -386,17 +264,17 @@ function RBSteady.get_at_domain(s::DistributedSparseSnapshots,rowscols::Tuple)
     if !isempty(rows)
       dof_map = get_dof_map(s)
       rc = sparsify_split_indices(rows,cols,dof_map)
-      LocalDEIMIndices(rc,rows.global_cols,rows.index_parts)
+      LocalDofs(rc,rows.global_cols,rows.index_parts)
     else
-      LocalDEIMIndices(rows.index_parts)
+      LocalDofs(rows.index_parts)
     end
   end
   get_at_domain(s.snaps,inds)
 end
 
-function RBSteady.get_at_domain(s::DistributedSnapshots,rows::AbstractArray{<:LocalDEIMIndices})
+function RBSteady.get_at_domain(s::DistributedSnapshots,rows::AbstractArray{<:LocalDofs})
   n = size(s,2)
-  @check reduce(+,map(length,rows)) == n
+  @check reduce(max,map(r -> isempty(r.global_cols) ? 0 : maximum(r.global_cols),rows)) == n
   datav = map(local_values(s),local_views(rows)) do data,rows
     x = zeros(eltype(data),n,n)
     g2l = global_to_local(rows.index_parts)
@@ -409,41 +287,41 @@ function RBSteady.get_at_domain(s::DistributedSnapshots,rows::AbstractArray{<:Lo
       end
     end
     x
-  end |> sreduce
+  end |> nzreduce
   ConsecutiveParamArray(datav)
 end
 
-for f in (:get_at_kron_domain,:get_at_seq_domain)
-  @eval begin
-    function RBTransient.$f(
-      s::DistributedTransientSparseSnapshots,
-      rowscols::Tuple,
-      indices_time::AbstractVector{<:Integer}
-      )
+# for f in (:get_at_kron_domain,:get_at_seq_domain)
+#   @eval begin
+#     function RBTransient.$f(
+#       s::DistributedTransientSparseSnapshots,
+#       rowscols::Tuple,
+#       indices_time::AbstractVector{<:Integer}
+#       )
 
-      rows,cols = rowscols
-      inds = map(local_values(s),local_views(rows),local_views(cols)) do s,rows,cols
-        @check rows.global_cols == cols.global_cols
-        if !isempty(rows)
-          dof_map = get_dof_map(s)
-          rc = sparsify_split_indices(rows,cols,dof_map)
-          LocalDEIMIndices(rc,rows.global_cols,rows.index_parts)
-        else
-          LocalDEIMIndices(rows.index_parts)
-        end
-      end
-      RBTransient.$f(s,inds,indices_time)
-    end
-  end
-end
+#       rows,cols = rowscols
+#       inds = map(local_values(s),local_views(rows),local_views(cols)) do s,rows,cols
+#         @check rows.global_cols == cols.global_cols
+#         if !isempty(rows)
+#           dof_map = get_dof_map(s)
+#           rc = sparsify_split_indices(rows,cols,dof_map)
+#           LocalDofs(rc,rows.global_cols,rows.index_parts)
+#         else
+#           LocalDofs(rows.index_parts)
+#         end
+#       end
+#       RBTransient.$f(s,inds,indices_time)
+#     end
+#   end
+# end
 
 function RBTransient.get_at_kron_domain(
   s::DistributedTransientSnapshots,
-  rows::AbstractArray{<:LocalDEIMIndices},
+  rows::AbstractArray{<:LocalDofs},
   indices_time::AbstractVector{<:Integer}
   )
 
-  ns = reduce(+,map(length,rows))
+  ns = reduce(max,map(r -> isempty(r.global_cols) ? 0 : maximum(r.global_cols),rows))
   nt = length(indices_time)
   np = num_params(s)
   datav = map(local_values(s),local_views(rows)) do s,rows
@@ -461,19 +339,19 @@ function RBTransient.get_at_kron_domain(
       end
     end
     x
-  end |> sreduce
+  end |> nzreduce
   ConsecutiveParamArray(datav)
 end
 
 function RBTransient.get_at_seq_domain(
   s::DistributedTransientSnapshots,
-  rows::AbstractArray{<:LocalDEIMIndices},
+  rows::AbstractArray{<:LocalDofs},
   indices_time::AbstractVector{<:Integer}
   )
 
   n = length(indices_time)
   np = num_params(s)
-  @check reduce(+,map(length,rows)) == n
+  @check reduce(max,map(r -> isempty(r.global_cols) ? 0 : maximum(r.global_cols),rows)) == n
   datav = map(local_values(s),local_views(rows)) do s,rows
     data = flatten(s)
     x = zeros(eltype(data),n,np)
@@ -481,7 +359,7 @@ function RBTransient.get_at_seq_domain(
       x[i] = data[rows[i.I[1]],i.I[2],indices_time[i.I[1]]]
     end
     x
-  end |> sreduce
+  end |> nzreduce
   ConsecutiveParamArray(datav)
 end
 
@@ -684,7 +562,7 @@ function _fill_parts!(Ip,aI,a,I,l)
   _update_matrix!(aI,a,I,l)
 end
 
-function _fill_index_parts!(Ip::AbstractArray{<:LocalDEIMIndices},I,l)
+function _fill_index_parts!(Ip::AbstractArray{<:LocalDofs},I,l)
   gl = I[l]
   map(Ip) do a
     if global_to_local(a.index_parts)[gl] > 0
@@ -707,41 +585,6 @@ function _update_matrix!(aI,a,I,l)
   end |> sreduce
 end
 
-function _remap!(x,x_to_y)
-  for (i,xi) in enumerate(x)
-    x[i] = x_to_y[xi]
-  end
-end
-
-function _remap(x,x_to_y)
-  x′ = copy(x)
-  _remap!(x′, x_to_y)
-  x′
-end
-
-function _keep_rows_and_cols(rows,cols,rowmap,colmap)
-  @check length(rows) == length(cols)
-  count = 0
-  for (r,c) in zip(rows,cols)
-    if !iszero(rowmap[r]) && !iszero(colmap[c])
-      count += 1
-    end
-  end
-  ikeep = zeros(Int,count)
-  rkeep = zeros(Int,count)
-  ckeep = zeros(Int,count)
-  count = 0
-  for (i,(r,c)) in enumerate(zip(rows,cols))
-    if !iszero(rowmap[r]) && !iszero(colmap[c])
-      count += 1
-      ikeep[count] = i
-      rkeep[count] = r
-      ckeep[count] = c
-    end
-  end
-  return ikeep,rkeep,ckeep
-end
-
 function _best_s_opt_index(basis::GenericPMatrix,P,G,colnorms2,l)
   best_pairs = map(own_values(basis),partition(axes(basis,1))) do bo,ra
     best_logS = -Inf
@@ -752,7 +595,7 @@ function _best_s_opt_index(basis::GenericPMatrix,P,G,colnorms2,l)
       q = view(bo,oi,1:l)
       logdet_plus = RBSteady.robust_logdet(G + q*q')
       colnorms2_plus = colnorms2 .+ abs2.(q)
-      logS = (0.5/l)*(logdet_plus - sum(log,colnorms2_plus))
+      logS = (logdet_plus - sum(log,colnorms2_plus)) / (2*l)
       if logS > best_logS
         best_logS = logS
         best_gi = gi
@@ -797,4 +640,66 @@ function RBSteady._union(a::T,b::T) where T<:AbstractArray{<:AbstractVector}
   map(local_views(a),local_views(b)) do a,b
     RBSteady._union(a,b)
   end
+end
+
+function RBTransient.get_at_kron_domain(
+  s::DistributedTransientSparseSnapshots,
+  rowscols::Tuple,
+  indices_time::AbstractVector{<:Integer}
+  )
+
+  rows,cols = rowscols
+  ns = reduce(max,map(r -> isempty(r.global_cols) ? 0 : maximum(r.global_cols),rows))
+  nt = length(indices_time)
+  np = num_params(s)
+  datav = map(local_values(s),local_views(rows),local_views(cols)) do s,rows,cols
+    @check rows.global_cols == cols.global_cols
+    data = flatten(s)
+    x = zeros(eltype(data),ns*nt,np)
+    if !isempty(rows)
+      dof_map = get_dof_map(s)
+      lrows = _remap(rows,global_to_local(rows.index_parts))
+      lcols = _remap(cols,global_to_local(cols.index_parts))
+      rc = sparsify_split_indices(lrows,lcols,dof_map)
+      for (j,itime) in enumerate(indices_time)
+        for (nzi,i) in zip(rc,rows.global_cols)
+          for k in axes(data,2)
+            x[(j-1)*ns+i,k] = data[nzi,k,itime]
+          end
+        end
+      end
+    end
+    x
+  end |> nzreduce
+  ConsecutiveParamArray(datav)
+end
+
+function RBTransient.get_at_seq_domain(
+  s::DistributedTransientSparseSnapshots,
+  rowscols::Tuple,
+  indices_time::AbstractVector{<:Integer}
+  )
+
+  rows,cols = rowscols
+  n = length(indices_time)
+  np = num_params(s)
+  @check reduce(max,map(r -> isempty(r.global_cols) ? 0 : maximum(r.global_cols),rows)) == n
+  datav = map(local_values(s),local_views(rows),local_views(cols)) do s,rows,cols
+    @check rows.global_cols == cols.global_cols
+    data = flatten(s)
+    x = zeros(eltype(data),n,np)
+    if !isempty(rows)
+      dof_map = get_dof_map(s)
+      lrows = _remap(rows,global_to_local(rows.index_parts))
+      lcols = _remap(cols,global_to_local(cols.index_parts))
+      rc = sparsify_split_indices(lrows,lcols,dof_map)
+      for (i,(nzi,itime)) in enumerate(zip(rc,indices_time))
+        for k in axes(data,2)
+          x[i,k] = data[nzi,k,itime]
+        end
+      end
+    end
+    x
+  end |> nzreduce
+  ConsecutiveParamArray(datav)
 end

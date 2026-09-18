@@ -437,7 +437,7 @@ end
 
 """
     gram_schmidt(A::AbstractMatrix;kwargs...) -> AbstractMatrix
-    gram_schmidt(A::AbstractMatrix,X::AbstractSparseMatrix;kwargs...) -> AbstractMatrix
+    gram_schmidt(A::AbstractMatrix,X::Union{AbstractMatrix,Factorization};kwargs...) -> AbstractMatrix
 
 Gram-Schmidt orthogonalization for a matrix `A` under a Euclidean norm. A
 (positive definite) sparse matrix `X` representing an inner product on the row space
@@ -450,7 +450,7 @@ function gram_schmidt(A::AbstractMatrix;tol=1e-10)
   return Qr
 end
 
-function gram_schmidt(A::AbstractMatrix,X::AbstractMatrix;tol=1e-10)
+function gram_schmidt(A::AbstractMatrix,X::Union{AbstractMatrix,Factorization};tol=1e-10)
   Q,R, = weighted_qr!(A,X)
   rank = something(findlast(abs.(diag(R)) .> tol),0)
   Qr = _truncate_col!(Q,rank)
@@ -458,13 +458,13 @@ function gram_schmidt(A::AbstractMatrix,X::AbstractMatrix;tol=1e-10)
 end
 
 """
-    weighted_qr!(A::AbstractMatrix,X::AbstractMatrix) -> (AbstractMatrix,AbstractMatrix)
+    weighted_qr!(A::AbstractMatrix,X::Union{AbstractMatrix,Factorization}) -> (AbstractMatrix,AbstractMatrix)
 
 Column-pivoted, rank-revealing QR decomposition of `A` with respect to the inner
 product induced by the (positive definite) matrix `X`: returns `(Q,R)` such that
 `A[:,p] ≈ Q*R` (for the internal pivot vector `p`) and `Q'*X*Q ≈ I`.
 """
-function weighted_qr!(A::AbstractMatrix,X::AbstractMatrix)
+function weighted_qr!(A::AbstractMatrix,X::Union{AbstractMatrix,Factorization})
   A = copy(A)
   m,n = size(A)
   T = eltype(A)

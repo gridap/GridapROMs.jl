@@ -371,6 +371,10 @@ function PartitionedArrays.reduction!(
 end
 
 sreduce(a) = reduce(+,a)
+# like sreduce, but for values that are replicated (not partial) across the
+# ranks contributing to a given entry: picks whichever rank's entry is nonzero,
+# instead of summing
+nzreduce(a) = reduce((x,y) -> ifelse.(iszero.(x),y,x),a)
 
 # utils
 

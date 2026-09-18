@@ -103,7 +103,7 @@ include("ParamFESpaces.jl")
 
 include("ParamSolvers.jl")
 
-include("NZIndexPartitions.jl")
+include("IndexOperations.jl")
 
 export GenericPArray
 include("GenericPArray.jl")

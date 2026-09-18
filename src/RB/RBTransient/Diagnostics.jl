@@ -314,35 +314,20 @@ function RBSteady.hr_diagnostics(c::AffineContributionTuple)
   Tuple(RBSteady.hr_diagnostics(v) for v in c)
 end
 
-function RBSteady.hr_error_res(
-  test::SingleFieldRBSpace,
-  res::TransientSnapshots,
-  a::HRProjection,
-  fecache::AbstractParamArray,
-  hypred::AbstractParamVector
-  )
-  
+function RBSteady.hr_error_res(test,res::TransientSnapshots,a,fecache,hypred)
   RBSteady.check_interpolation(res,a,fecache)
   b̂ = get_basis(galerkin_projection(test,res))
   hrb̂ = get_all_data(hypred)
   compute_relative_error(b̂,hrb̂)
 end
 
-function RBSteady.hr_error_jac(
-  trial::SingleFieldRBSpace,
-  test::SingleFieldRBSpace,
-  jac::TransientSnapshots,
-  a::HRProjection,
-  fecache::AbstractParamArray,
-  hypred::AbstractParamMatrix
-  )
-  
+function RBSteady.hr_error_jac(trial,test,jac::TransientSnapshots,a,fecache,hypred)
   RBSteady.check_interpolation(jac,a,fecache)
   μ = get_realisation(jac)
   red = get_style(a)
   c = get_time_combination(red)
   Â = get_basis(galerkin_projection(test,jac,trial,c))
-  Â = reshape(permutedims(Â,(1,3,2)),:,num_params(μ))
+  Â = reshape(Â,:,num_params(μ))
   hrÂ = reshape(get_all_data(hypred),:,num_params(μ))
   compute_relative_error(Â,hrÂ)
 end
@@ -387,7 +372,7 @@ end
 function RBSteady.hr_error_jac(
   c::TimeCombination,
   op::TransientReducedOperator{O},
-  jac::ArrayContributionTuple,
+  jac::Tuple,
   r::AbstractRealisation,
   u::AbstractVector,
   us0::Tuple{Vararg{AbstractVector}}
