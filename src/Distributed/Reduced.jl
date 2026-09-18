@@ -257,21 +257,6 @@ function FESpaces.interpolate!(
   end
 end
 
-function RBSteady.get_at_domain(s::DistributedSparseSnapshots,rowscols::Tuple)
-  rows,cols = rowscols
-  inds = map(local_values(s),local_views(rows),local_views(cols)) do s,rows,cols
-    @check rows.global_cols == cols.global_cols
-    if !isempty(rows)
-      dof_map = get_dof_map(s)
-      rc = sparsify_split_indices(rows,cols,dof_map)
-      LocalDofs(rc,rows.global_cols,rows.index_parts)
-    else
-      LocalDofs(rows.index_parts)
-    end
-  end
-  get_at_domain(s.snaps,inds)
-end
-
 function RBSteady.get_at_domain(s::DistributedSnapshots,rows::AbstractArray{<:LocalDofs})
   n = size(s,2)
   @check reduce(max,map(r -> isempty(r.global_cols) ? 0 : maximum(r.global_cols),rows)) == n
@@ -290,30 +275,6 @@ function RBSteady.get_at_domain(s::DistributedSnapshots,rows::AbstractArray{<:Lo
   end |> nzreduce
   ConsecutiveParamArray(datav)
 end
-
-# for f in (:get_at_kron_domain,:get_at_seq_domain)
-#   @eval begin
-#     function RBTransient.$f(
-#       s::DistributedTransientSparseSnapshots,
-#       rowscols::Tuple,
-#       indices_time::AbstractVector{<:Integer}
-#       )
-
-#       rows,cols = rowscols
-#       inds = map(local_values(s),local_views(rows),local_views(cols)) do s,rows,cols
-#         @check rows.global_cols == cols.global_cols
-#         if !isempty(rows)
-#           dof_map = get_dof_map(s)
-#           rc = sparsify_split_indices(rows,cols,dof_map)
-#           LocalDofs(rc,rows.global_cols,rows.index_parts)
-#         else
-#           LocalDofs(rows.index_parts)
-#         end
-#       end
-#       RBTransient.$f(s,inds,indices_time)
-#     end
-#   end
-# end
 
 function RBTransient.get_at_kron_domain(
   s::DistributedTransientSnapshots,
@@ -640,66 +601,4 @@ function RBSteady._union(a::T,b::T) where T<:AbstractArray{<:AbstractVector}
   map(local_views(a),local_views(b)) do a,b
     RBSteady._union(a,b)
   end
-end
-
-function RBTransient.get_at_kron_domain(
-  s::DistributedTransientSparseSnapshots,
-  rowscols::Tuple,
-  indices_time::AbstractVector{<:Integer}
-  )
-
-  rows,cols = rowscols
-  ns = reduce(max,map(r -> isempty(r.global_cols) ? 0 : maximum(r.global_cols),rows))
-  nt = length(indices_time)
-  np = num_params(s)
-  datav = map(local_values(s),local_views(rows),local_views(cols)) do s,rows,cols
-    @check rows.global_cols == cols.global_cols
-    data = flatten(s)
-    x = zeros(eltype(data),ns*nt,np)
-    if !isempty(rows)
-      dof_map = get_dof_map(s)
-      lrows = _remap(rows,global_to_local(rows.index_parts))
-      lcols = _remap(cols,global_to_local(cols.index_parts))
-      rc = sparsify_split_indices(lrows,lcols,dof_map)
-      for (j,itime) in enumerate(indices_time)
-        for (nzi,i) in zip(rc,rows.global_cols)
-          for k in axes(data,2)
-            x[(j-1)*ns+i,k] = data[nzi,k,itime]
-          end
-        end
-      end
-    end
-    x
-  end |> nzreduce
-  ConsecutiveParamArray(datav)
-end
-
-function RBTransient.get_at_seq_domain(
-  s::DistributedTransientSparseSnapshots,
-  rowscols::Tuple,
-  indices_time::AbstractVector{<:Integer}
-  )
-
-  rows,cols = rowscols
-  n = length(indices_time)
-  np = num_params(s)
-  @check reduce(max,map(r -> isempty(r.global_cols) ? 0 : maximum(r.global_cols),rows)) == n
-  datav = map(local_values(s),local_views(rows),local_views(cols)) do s,rows,cols
-    @check rows.global_cols == cols.global_cols
-    data = flatten(s)
-    x = zeros(eltype(data),n,np)
-    if !isempty(rows)
-      dof_map = get_dof_map(s)
-      lrows = _remap(rows,global_to_local(rows.index_parts))
-      lcols = _remap(cols,global_to_local(cols.index_parts))
-      rc = sparsify_split_indices(lrows,lcols,dof_map)
-      for (i,(nzi,itime)) in enumerate(zip(rc,indices_time))
-        for k in axes(data,2)
-          x[i,k] = data[nzi,k,itime]
-        end
-      end
-    end
-    x
-  end |> nzreduce
-  ConsecutiveParamArray(datav)
 end

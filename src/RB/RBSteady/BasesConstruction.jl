@@ -164,11 +164,8 @@ function ttsvd_loop(
   prev_rank = size(A,1)
   cur_size = size(A,2)
   A′ = reshape(A,prev_rank*cur_size,size(A,3))
-
-  #TODO make this more efficient
-  L,p = _cholesky_decomp(kron(X,I(prev_rank)))
-  Ur,Sr,Vr = tpod(red_style,A′,L,p)
-
+  X′ = kron(X,I(prev_rank))
+  Ur,Sr,Vr = tpod(red_style,A′,X′)
   core = reshape(Ur,prev_rank,cur_size,size(Ur,2))
   remainder = Sr.*Vr'
   return core,remainder
@@ -183,11 +180,7 @@ function matching_ttsvd_loop(
   prev_rank = size(A,1)
   cur_size = size(A,2)
   A′ = reshape(A,prev_rank*cur_size,:)
-
-  #TODO make this more efficient
-  L,p = _cholesky_decomp(X)
-  Ur,Sr,Vr = tpod(red_style,A′,L,p)
-
+  Ur,Sr,Vr = tpod(red_style,A′,X)
   core = reshape(Ur,prev_rank,cur_size,:)
   remainder = Sr.*Vr'
   return core,remainder
@@ -465,10 +458,12 @@ product induced by the (positive definite) matrix `X`: returns `(Q,R)` such that
 `A[:,p] ≈ Q*R` (for the internal pivot vector `p`) and `Q'*X*Q ≈ I`.
 """
 function weighted_qr!(A::AbstractMatrix,X::Union{AbstractMatrix,Factorization})
+  _mul(a,b) = a*b
+  _mul(a::SparseArrays.CHOLMOD.Factor,b) = _forward_cholesky(b,a)
   A = copy(A)
   m,n = size(A)
   T = eltype(A)
-  XA = X*A
+  XA = _mul(X,A)
   p = collect(1:n)
   R = zeros(T,n,n)
   colnorms2 = zeros(real(T),n)
@@ -569,11 +564,19 @@ function _cholesky_decomp(X::AbstractSparseMatrix)
   return L,p
 end
 
+function _forward_cholesky(A::AbstractMatrix,C)
+  _forward_cholesky(A,sparse(C.L),C.p)
+end
+
 function _forward_cholesky(A::AbstractMatrix,L::AbstractSparseMatrix,p::AbstractVector)
   permuterows!(A,p)
   Ã = L'*A
   invpermuterows!(A,p)
   return Ã
+end
+
+function _backward_cholesky(Ã::AbstractMatrix,C)
+  _backward_cholesky(Ã,sparse(C.L),C.p)
 end
 
 function _backward_cholesky(Ã::AbstractMatrix,L::AbstractSparseMatrix,p::AbstractVector)

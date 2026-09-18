@@ -5,14 +5,14 @@ for T in (:DEIMHyperReduction,:SOPTHyperReduction)
       fecache = sreduce(map(get_all_data,local_views(_fecache)))
       dofs = get_interpolation_dofs(get_interpolation(a))
       data = map(local_views(res),local_views(dofs)) do rvals,rdofs
-        delta = zero(fecache)
-        isempty(rdofs.global_rows) && return delta
+        d = zero(fecache)
+        isempty(rdofs.global_rows) && return d
         g2l = global_to_local(rdofs.index_parts)
         b = flatten(rvals)
         @views for (gri,i) in zip(rdofs.global_rows,rdofs.global_cols)
-          delta[i,:] .= b[g2l[gri],:]
+          d[i,:] .= b[g2l[gri],:]
         end
-        delta
+        d
       end |> sreduce
       @check isapprox(fecache,data;rtol=1e-8) msg
       return true
@@ -23,18 +23,15 @@ for T in (:DEIMHyperReduction,:SOPTHyperReduction)
       fecache = sreduce(map(get_all_data,local_views(_fecache)))
       dofs = get_interpolation_dofs(get_interpolation(a))
       data = map(local_views(jac),local_views(dofs)) do jvals,rdofs
-        delta = zero(fecache)
+        d = zero(fecache)
         rrows,rcols = rdofs
-        isempty(rrows.global_rows) && return delta
-        dof_map = get_dof_map(jvals)
-        lrows = _remap(rrows,global_to_local(rrows.index_parts))
-        lcols = _remap(rcols,global_to_local(rcols.index_parts))
-        nzinds = sparsify_split_indices(lrows,lcols,dof_map)
+        isempty(rrows.global_rows) && return d
+        rnz = sparsify_split_indices(rrows,rcols,get_dof_map(jvals))
         A = flatten(jvals)
-        @views for (nzi,i) in zip(nzinds,rrows.global_cols)
-          delta[i,:] .= A[nzi,:]
+        @views for (nzi,i) in zip(rnz,rrows.global_cols)
+          d[i,:] .= A[nzi,:]
         end
-        delta
+        d
       end |> sreduce
       @check isapprox(fecache,data;rtol=1e-8) msg
       return true
@@ -67,13 +64,15 @@ for T in (:TransientDEIMHyperReduction,:TransientSOPTHyperReduction)
       interp = get_interpolation(a)
       dofs = get_interpolation_dofs(interp)
       rows,cols = map(first,dofs),map(last,dofs)
+      dof_maps = map(get_dof_map,local_views(jac))
+      rows_nz = sparsify_split_indices(rows,cols,dof_maps)
       indices_time = get_indices_time(interp)
       style = get_domain_style(interp)
       Adata = if style isa KroneckerDomain
-        RBTransient.get_at_kron_domain(jac,(rows,cols),indices_time)
+        RBTransient.get_at_kron_domain(jac,rows_nz,indices_time)
       else
         @check style isa SequentialDomain "Unsupported transient domain style"
-        RBTransient.get_at_seq_domain(jac,(rows,cols),indices_time)
+        RBTransient.get_at_seq_domain(jac,rows_nz,indices_time)
       end
       @check isapprox(fecache,get_all_data(Adata);rtol=1e-8) msg
       return true

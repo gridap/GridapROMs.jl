@@ -19,7 +19,7 @@ PartitionedArrays.own_length(a::NZIndexPartition) = own_length(a.nz)
 PartitionedArrays.assembly_cache(a::NZIndexPartition) = PartitionedArrays.assembly_cache(a.nz)
 
 function nz_partition(nz_part,row_partition,col_partition)
-  map(nz_part,row_partition(a),col_partition(a)) do nzidx,lrow,lcol
+  map(nz_part,row_partition,col_partition) do nzidx,lrow,lcol
     NZIndexPartition(nzidx,lrow,lcol)
   end
 end
@@ -140,21 +140,25 @@ function DofMaps.recast_split_indices(
   return (R′,C′)
 end
 
-# the result here is a list of global nz indices
 function DofMaps.sparsify_split_indices(
   frows::AbstractArray{<:LocalDofs},
   fcols::AbstractArray{<:LocalDofs},
   dof_maps::AbstractArray{<:AbstractSparseDofMap}
   )
 
-  map(frows,fcols,dof_maps) do i,j,dof_map
+  nnz_local = map(d -> nnz(get_sparsity(d)),dof_maps)
+  n_nz_global = reduce(+,nnz_local,init=0)
+  nz_part = variable_partition(nnz_local,n_nz_global)
+  map(frows,fcols,dof_maps,nz_part) do i,j,dof_map,nzidx
     @check i.global_cols == j.global_cols
     rci = i.index_parts
     rcj = j.index_parts
-    _i = _remap(i,global_to_local(rci))
-    _j = _remap(j,global_to_local(rcj))
-    sl = sparsify_split_indices(_i,_j,dof_map)
-    nzparts = NZIndexPartition(nnz(dof_map),global_to_local(rci),global_to_local(rcj))
+    li = _remap(i,global_to_local(rci))
+    lj = _remap(j,global_to_local(rcj))
+    sl = sparsify_split_indices(li,lj,dof_map)
+    _remap!(sl,local_to_global(nzidx))
+    nzparts = NZIndexPartition(nzidx,rci,rcj)
+    # the result here is a list of global nz indices
     LocalDofs(sl,i.global_cols,nzparts)
   end
 end
