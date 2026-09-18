@@ -33,7 +33,7 @@ end
 
 for f in (:project!,:inv_project!)
   @eval begin
-    function $f(
+    function RBSteady.$f(
       y::Union{BlockArray,BlockParamArray},
       a::BlockProjection,
       x::BlockPArray
@@ -129,7 +129,9 @@ function RBSteady.project!(
   )
 
   lx̂ = map(local_values(x),local_views(a)) do x,ap
-    project!(similar(x̂),ap,x)
+    ŷ = similar(x̂)
+    project!(ŷ,ap,x)
+    ŷ
   end
   copyto!(x̂,sreduce(lx̂))
   x̂
@@ -154,8 +156,8 @@ function Algebra.allocate_in_domain(a::TransientProjection,x::PVector{<:V}) wher
   return parameterise(x̂,np)
 end
 
-function Algebra.allocate_in_range(a::TransientProjection,x̂::PVector{<:V}) where V<:AbstractParamVector
-  x = allocate_vector(PVector{eltype(V)},RBSteady.fe_space_dof_ids(a))
+function Algebra.allocate_in_range(a::DistributedKroneckerProjection,x̂::V) where V<:AbstractParamVector
+  x = allocate_vector(PVector{eltype(V)},RBSteady.fe_dof_ids(a.projection_space))
   nt = num_times(a)
   npt = param_length(x̂) * nt
   return parameterise(x,npt)

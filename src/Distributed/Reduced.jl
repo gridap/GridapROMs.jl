@@ -589,12 +589,24 @@ end
 
 # norm utils 
 
-for T in (:GenericPMatrix,:DistributedSnapshots)
+for T in (:GenericPMatrix,:GenericPArray,:DistributedSnapshots)
   @eval begin
     function Utils.induced_norm(a::$T)
       _norm_part(x) = induced_norm(x)^2
       n = reduce(+,map(_norm_part,own_values(a)))
       sqrt(n)
+    end
+  end
+end
+
+for T in (:GenericPArray,:DistributedSnapshots)
+  @eval begin
+    function Utils.induced_norm(a::$T,norm_matrix::AbstractMatrix)
+      values = map(local_values(a)) do a 
+        reshape(a,size(a,1),:)
+      end
+      a′ = GenericPArray(values,partition(axes(a,1)))
+      sqrtabs(mean(diag(a′'*(norm_matrix*a′))))
     end
   end
 end
@@ -755,6 +767,30 @@ function RBSteady._setup(U::DistributedMultiFieldRBSpace,u0::PVector)
   map(local_views(U),local_values(u0)) do U,u0
     RBSteady._setup(U,u0)
   end |> mortar
+end
+
+function RBTransient._reduce_vector(u::PVector{<:ConsecutiveParamVector},hr_ids::AbstractVector)
+  vector_partition = map(partition(u)) do lu
+    RBTransient._reduce_vector(lu,hr_ids)
+  end
+  PVector(vector_partition,row_partition(u))
+end
+
+function RBTransient._reduce_vector(u::BlockPArray,hr_ids::AbstractVector)
+  mortar(map(b -> RBTransient._reduce_vector(b,hr_ids),blocks(u)))
+end
+
+function RBTransient._reduce_trial(f::DistributedSingleFieldFESpace,hr_ids::AbstractVector)
+  spaces = map(f.spaces) do s
+    RBTransient._reduce_trial(s,hr_ids)
+  end
+  DistributedSingleFieldFESpace(spaces,f.gids,f.trian,f.vector_type,f.metadata)
+end
+
+function RBTransient._reduce_trial(f::DistributedMultiFieldFESpace,hr_ids::AbstractVector)
+  field_fe_space = map(f -> RBTransient._reduce_trial(f,hr_ids),f.field_fe_space)
+  part_fe_spaces = map(f -> RBTransient._reduce_trial(f,hr_ids),local_views(f.part_fe_spaces))
+  DistributedMultiFieldFESpace(field_fe_space,part_fe_spaces,f.gids,f.vector_type)
 end
 
 function RBSteady._union(a::T,b::T) where T<:AbstractArray{<:AbstractVector}
