@@ -5,7 +5,7 @@ Interpolation(args...) = @abstractmethod
 get_integration_cells(a::Interpolation) = Int32[]
 get_cell_idofs(a::Interpolation) = empty_table(Int,Int32,0)
 get_owned_icells(a::Interpolation) = collect(1:length(get_integration_cells(a)))
-get_interpolation_dofs(a::Interpolation) = @abstractmethod
+get_interpolation_dofs(a::Interpolation) = Int64[]
 
 function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,x::Any)
   cache
@@ -58,7 +58,7 @@ end
 for (T,f) in zip((:DEIMHyperReduction,:SOPTHyperReduction),(:DEIM,:SOPT))
   @eval begin
     function Interpolation(red::$T,a::Projection,args...)
-      isempty(a) && return EmptyInterpolation()
+      isnull(a) && return EmptyInterpolation()
       GreedyInterpolation(red,a,args...)
     end
 
@@ -94,7 +94,7 @@ struct RBFInterpolation{A<:Interpolator} <: Interpolation
 end
 
 function Interpolation(red::RBFHyperReduction,a::Projection,args...)
-  isempty(a) && return EmptyInterpolation()
+  isnull(a) && return EmptyInterpolation()
   RBFInterpolation(red,a,args...)
 end
 

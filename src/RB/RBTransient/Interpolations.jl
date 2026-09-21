@@ -23,7 +23,7 @@ const TransientGreedyInterpolation{A,B<:TransientIntegrationDomain} = GreedyInte
 for (T,f) in zip((:TransientDEIMHyperReduction,:TransientSOPTHyperReduction),(:DEIM,:SOPT))
   @eval begin
     function RBSteady.Interpolation(red::$T,a::TransientProjection,args...)
-      isempty(a) && return EmptyInterpolation()
+      isnull(a) && return EmptyInterpolation()
       GreedyInterpolation(red,a,args...)
     end
 
@@ -71,7 +71,7 @@ end
 const TransientRBFInterpolation{A} = RBFInterpolation{A}
 
 function Interpolation(red::TransientRBFHyperReduction,a::TransientProjection,args...)
-  isempty(a) && return EmptyInterpolation()
+  isnull(a) && return EmptyInterpolation()
   RBFInterpolation(red,a,args...)
 end
 

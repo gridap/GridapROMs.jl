@@ -173,6 +173,7 @@ function assemble_hr_array_add!(
 
   @check size(celldofs) == size(icells) == size(A)
   for i in eachindex(celldofs)
+    isempty(icells[i]) && continue
     cellvalsi = lazy_map(FetchBlockMap(_cellvals,i),icells[i])
     _assemble_hr_array_add!(A[i],cellvalsi,celldofs[i])
   end
@@ -180,6 +181,7 @@ function assemble_hr_array_add!(
 end
 
 function assemble_hr_array_add!(A,_cellvals,celldofs,icells)
+  isempty(icells) && return A
   cellvals = lazy_map(Reindex(_cellvals),icells)
   _assemble_hr_array_add!(A,cellvals,celldofs)
   A

@@ -34,8 +34,10 @@ function select_rank(red_style::FixedSVDRank,args...)
 end
 
 function select_rank(red_style::SearchSVDRank,S::AbstractVector)
+  isempty(S) && return 0
   tol = red_style.tol
   energies = cumsum(S.^2;dims=1)
+  iszero(energies[end]) && return 0
   rank = 0
   for outer rank in eachindex(energies)
     energies[rank] >= (1-tol^2)*energies[end] && break
@@ -598,10 +600,11 @@ end
 function _truncate_row!(A::AbstractMatrix,rank)
   rank == size(A,1) && return A
   nrows = size(A,1)
+  ncols = size(A,2)
   inds = range_1d(rank+1:nrows,axes(A,2),nrows)
   v = vec(A)
   Base.deleteat!(v,inds)
-  reshape(v,rank,:)
+  reshape(v,rank,ncols)
 end
 
 function _truncate_col!(A::AbstractMatrix,rank)
@@ -610,7 +613,7 @@ function _truncate_col!(A::AbstractMatrix,rank)
   inds = nrows*rank+1:length(A)
   v = vec(A)
   Base.deleteat!(v,inds)
-  reshape(v,nrows,:)
+  reshape(v,nrows,rank)
 end
 
 for f in (:_truncate,:_truncate_row!,:_truncate_col!)

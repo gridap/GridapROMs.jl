@@ -43,6 +43,8 @@ one `N`, returns `n`
 """
 num_reduced_dofs(a::Projection) = _num_reduced_dofs(get_basis(a))
 
+isnull(a::Projection) = (num_reduced_dofs(a) == 0 || iszero(get_basis(a)))
+
 reduced_dof_ids(a::Projection) = Base.OneTo(num_reduced_dofs(a))
 
 get_cores(a::Projection) = @notimplemented

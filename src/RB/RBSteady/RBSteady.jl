@@ -197,6 +197,7 @@ export GalerkinProjectable
 export projection
 export num_fe_dofs
 export num_reduced_dofs
+export isnull
 export get_basis
 export get_cores
 export get_recast_basis
