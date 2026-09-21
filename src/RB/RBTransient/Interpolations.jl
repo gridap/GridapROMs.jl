@@ -22,14 +22,19 @@ const TransientGreedyInterpolation{A,B<:TransientIntegrationDomain} = GreedyInte
 
 for (T,f) in zip((:TransientDEIMHyperReduction,:TransientSOPTHyperReduction),(:DEIM,:SOPT))
   @eval begin
-    function RBSteady.Interpolation(red::$T,a::TransientProjection,trian,test)
+    function RBSteady.Interpolation(red::$T,a::TransientProjection,args...)
+      isempty(a) && return EmptyInterpolation()
+      GreedyInterpolation(red,a,args...)
+    end
+
+    function RBSteady.GreedyInterpolation(red::$T,a::TransientProjection,trian,test)
       (rows,indices_time),interp = $f(a)
       factor = lu(interp)
       domain = IntegrationDomain(typeof(a),trian,test,rows,indices_time)
       GreedyInterpolation(factor,domain)
     end
 
-    function RBSteady.Interpolation(red::$T,a::TransientProjection,trian,trial,test)
+    function RBSteady.GreedyInterpolation(red::$T,a::TransientProjection,trian,trial,test)
       ((rows,cols),indices_time),interp = $f(a)
       factor = lu(interp)
       domain = IntegrationDomain(typeof(a),trian,trial,test,rows,cols,indices_time)
@@ -65,12 +70,17 @@ end
 
 const TransientRBFInterpolation{A} = RBFInterpolation{A}
 
+function Interpolation(red::TransientRBFHyperReduction,a::TransientProjection,args...)
+  isempty(a) && return EmptyInterpolation()
+  RBFInterpolation(red,a,args...)
+end
+
 for (T,f) in zip(
   (:KroneckerProjection,:SequentialProjection),
   (:get_at_kron_domain,:get_at_seq_domain)
   )
   @eval begin
-    function RBSteady.Interpolation(red::TransientRBFHyperReduction,a::$T,s::TransientSnapshots)
+    function RBSteady.RBFInterpolation(red::TransientRBFHyperReduction,a::$T,s::TransientSnapshots)
       strategy = RBSteady.interp_strategy(red)
       inds,interp = DEIM(a)
       factor = lu(interp)

@@ -173,7 +173,6 @@ function assemble_hr_array_add!(
 
   @check size(celldofs) == size(icells) == size(A)
   for i in eachindex(celldofs)
-    (isempty(icells[i]) || !istouched(_cellvals,i)) && continue
     cellvalsi = lazy_map(FetchBlockMap(_cellvals,i),icells[i])
     _assemble_hr_array_add!(A[i],cellvalsi,celldofs[i])
   end
@@ -181,7 +180,6 @@ function assemble_hr_array_add!(
 end
 
 function assemble_hr_array_add!(A,_cellvals,celldofs,icells)
-  isempty(icells) && return A
   cellvals = lazy_map(Reindex(_cellvals),icells)
   _assemble_hr_array_add!(A,cellvals,celldofs)
   A
@@ -226,9 +224,3 @@ function Arrays.evaluate!(cache,k::FetchBlockMap,i...)
   a = getindex!(cache,k.values,i...)
   a.array[k.blockid]
 end
-
-istouched(a,i) = @notimplemented
-istouched(a::AbstractArray,i) = true
-istouched(a::ArrayBlock,i) = a.touched[i]
-istouched(a::ArrayBlock{<:ArrayBlock},i) = istouched(testitem(a),i)
-istouched(a::LazyArray,i) = istouched(testitem(a),i)

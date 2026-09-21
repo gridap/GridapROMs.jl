@@ -57,14 +57,19 @@ end
 
 for (T,f) in zip((:DEIMHyperReduction,:SOPTHyperReduction),(:DEIM,:SOPT))
   @eval begin
-    function Interpolation(red::$T,a::Projection,trian,test)
+    function Interpolation(red::$T,a::Projection,args...)
+      isempty(a) && return EmptyInterpolation()
+      GreedyInterpolation(red,a,args...)
+    end
+
+    function GreedyInterpolation(red::$T,a::Projection,trian,test)
       rows,interp = $f(a)
       factor = lu(interp)
       domain = IntegrationDomain(trian,test,rows)
       GreedyInterpolation(factor,domain)
     end
 
-    function Interpolation(red::$T,a::Projection,trian,trial,test)
+    function GreedyInterpolation(red::$T,a::Projection,trian,trial,test)
       (rows,cols),interp = $f(a)
       factor = lu(interp)
       domain = IntegrationDomain(trian,trial,test,rows,cols)
@@ -88,7 +93,12 @@ struct RBFInterpolation{A<:Interpolator} <: Interpolation
   interpolation::A
 end
 
-function Interpolation(red::RBFHyperReduction,a::Projection,s::Snapshots)
+function Interpolation(red::RBFHyperReduction,a::Projection,args...)
+  isempty(a) && return EmptyInterpolation()
+  RBFInterpolation(red,a,args...)
+end
+
+function RBFInterpolation(red::RBFHyperReduction,a::Projection,s::Snapshots)
   strategy = interp_strategy(red)
   inds,interp = DEIM(a)
   factor = lu(interp)

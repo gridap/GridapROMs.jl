@@ -228,7 +228,7 @@ end
 
 GridapDistributed.local_views(a::DistributedInterpolation) = local_views(a.interps)
 
-for f in (:get_integration_cells,:get_cell_idofs,:get_interpolation_dofs)
+for f in (:get_integration_cells,:get_cell_idofs)
   @eval begin
     function RBSteady.$f(a::DistributedInterpolation)
       map(local_views(a)) do a
@@ -236,6 +236,15 @@ for f in (:get_integration_cells,:get_cell_idofs,:get_interpolation_dofs)
       end
     end
   end
+end
+
+function RBSteady.get_interpolation_dofs(a::DistributedInterpolation)
+  _unpack(x) = x
+  _unpack(x::AbstractArray{<:Tuple}) = tuple_of_arrays(x) 
+  dofs = map(local_views(a)) do a
+    get_interpolation_dofs(a)
+  end
+  _unpack(dofs)
 end
 
 for f in (:get_domain_style,:get_indices_time)
@@ -257,11 +266,12 @@ function FESpaces.interpolate!(
   end
 end
 
-function RBSteady.get_at_domain(s::DistributedSnapshots,rows::AbstractArray{<:LocalDofs})
-  n = size(s,2)
-  @check reduce(max,map(r -> isempty(r.global_cols) ? 0 : maximum(r.global_cols),rows)) == n
-  datav = map(local_values(s),local_views(rows)) do data,rows
-    x = zeros(eltype(data),n,n)
+function RBSteady.get_at_domain(s::DistributedSnapshots,rows::AbstractVector{<:LocalDofs})
+  n = reduce(max,map(r -> isempty(r.global_cols) ? 0 : maximum(r.global_cols),rows))
+  np = num_params(s)
+  datav = map(local_values(s),local_views(rows)) do s,rows
+    data = flatten(s)
+    x = zeros(eltype(data),n,np)
     g2l = global_to_local(rows.index_parts)
     if !isempty(rows.global_rows)
       for (gri,i) in zip(rows.global_rows,rows.global_cols)

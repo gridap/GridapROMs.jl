@@ -7,6 +7,12 @@ function RBSteady.check_interpolation(snaps::DistributedSnapshots,a::HRProjectio
   return true
 end
 
+for T in (:RBFHyperReduction,:TrivialHyperReduction,:TransientRBFHyperReduction,:TransientTrivialHyperReduction)
+  @eval function RBSteady.check_interpolation(snaps::DistributedSnapshots,a::HRProjection{<:$T},fecache)
+    return true
+  end
+end
+
 const DOFMAP_LABEL = "dofmap"
 const HRPROJECTION_LABEL = "hrprojection"
 const NORM_MATRIX_LABEL = "norm"
