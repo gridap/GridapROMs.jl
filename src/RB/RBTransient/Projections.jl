@@ -132,6 +132,7 @@ get_projection_time(a::KroneckerProjection) = a.projection_time
 
 RBSteady.get_basis(a::KroneckerProjection) = kron(get_basis_time(a),get_basis_space(a))
 RBSteady.num_reduced_dofs(a::KroneckerProjection) = num_reduced_dofs(a.projection_space)*num_reduced_dofs(a.projection_time)
+RBSteady.isnull(a::KroneckerProjection) = isnull(a.projection_space) || isnull(a.projection_time)
 RBSteady.get_norm_matrix(a::KroneckerProjection) = get_norm_matrix(a.projection_space)
 
 function RBSteady.project!(
@@ -317,6 +318,7 @@ DofMaps.get_dof_map(a::SequentialProjection) = get_dof_map(a.projection)
 
 RBSteady.get_basis(a::SequentialProjection) = get_basis(a.projection)
 RBSteady.num_reduced_dofs(a::SequentialProjection) = num_reduced_dofs(a.projection)
+RBSteady.isnull(a::SequentialProjection) = isnull(a.projection)
 RBSteady.get_norm_matrix(a::SequentialProjection) = get_norm_matrix(a.projection)
 RBSteady.DEIM(a::SequentialProjection) = DEIM(a.projection)
 RBSteady.SOPT(a::SequentialProjection) = SOPT(a.projection)

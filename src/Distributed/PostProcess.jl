@@ -1,16 +1,9 @@
-function RBSteady.check_interpolation(snaps::DistributedSnapshots,a::HRProjection,_fecache)
+function RBSteady.check_interpolation(snaps,interp::DistributedInterpolation,_fecache)
   msg = "fecache mismatch at interpolation points"
   fecache = sreduce(map(get_all_data,local_views(_fecache)))
-  interp = get_interpolation(a)
   sdofs = get_at_domain(snaps,interp)
   @check isapprox(fecache,get_all_data(sdofs);rtol=1e-8) msg
   return true
-end
-
-for T in (:RBFHyperReduction,:TrivialHyperReduction,:TransientRBFHyperReduction,:TransientTrivialHyperReduction)
-  @eval function RBSteady.check_interpolation(snaps::DistributedSnapshots,a::HRProjection{<:$T},fecache)
-    return true
-  end
 end
 
 const DOFMAP_LABEL = "dofmap"

@@ -43,7 +43,8 @@ one `N`, returns `n`
 """
 num_reduced_dofs(a::Projection) = _num_reduced_dofs(get_basis(a))
 
-isnull(a::Projection) = (num_reduced_dofs(a) == 0 || iszero(get_basis(a)))
+isnull(a::AbstractArray) = isempty(a) || iszero(a)
+isnull(a::Projection) = (num_reduced_dofs(a) == 0 || isnull(get_basis(a)))
 
 reduced_dof_ids(a::Projection) = Base.OneTo(num_reduced_dofs(a))
 
@@ -425,6 +426,8 @@ get_cores(a::TTSVDProjection) = a.array
 num_fe_dofs(a::TTSVDProjection) = prod(map(c -> size(c,2),get_cores(a)))
 num_reduced_dofs(a::TTSVDProjection) = size(last(get_cores(a)),3)
 
+isnull(a::TTSVDProjection) = (num_reduced_dofs(a) == 0 || any(isnull,get_cores(a)))
+
 get_basis(a::TTSVDProjection) = cores2basis(get_recast_cores(a)...)
 
 function project!(
@@ -547,6 +550,7 @@ get_norm_matrix(a::NormedProjection) = a.norm_matrix
 get_basis(a::NormedProjection) = get_basis(get_projection(a))
 num_fe_dofs(a::NormedProjection) = num_fe_dofs(get_projection(a))
 num_reduced_dofs(a::NormedProjection) = num_reduced_dofs(get_projection(a))
+isnull(a::NormedProjection) = isnull(get_projection(a))
 projection_type(a::NormedProjection) = projection_type(get_projection(a))
 
 get_cores(a::NormedProjection) = get_cores(get_projection(a))

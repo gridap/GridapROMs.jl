@@ -555,6 +555,8 @@ function Base.hcat(A::GenericPMatrix,B::GenericPMatrix)
   GenericPArray(values,partition(axes(A,1)),(Base.OneTo(size(A,2)+size(B,2)),))
 end
 
+Base.iszero(A::GenericPMatrix) = all(iszero,A)
+
 # necessary 
 
 function PartitionedArrays.own_values(a::AbstractArray{<:Any,N},i) where N

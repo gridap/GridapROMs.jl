@@ -739,17 +739,18 @@ end
 # utils
 
 function check_interpolation(snaps,a::HRProjection,fecache)
+  check_interpolation(snaps,get_interpolation(a),fecache)
+end
+
+function check_interpolation(snaps,interp::GreedyInterpolation,fecache)
   msg = "fecache mismatch at interpolation points"
-  interp = get_interpolation(a)
   sdofs = get_at_domain(snaps,interp)
   @check isapprox(get_all_data(fecache),get_all_data(sdofs);rtol=1e-8) msg
   return true
 end
 
-for T in (:RBFHyperReduction,:TrivialHyperReduction)
-  @eval function check_interpolation(snaps,a::HRProjection{<:$T},fecache)
-    return true
-  end
+function check_interpolation(snaps,interp::Interpolation,fecache)
+  return true
 end
 
 function set_params(red::PODReduction;nparams::Int)

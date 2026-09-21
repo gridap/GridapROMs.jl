@@ -30,7 +30,13 @@ end
 
 # Empty interpolation
 
-struct EmptyInterpolation <: Interpolation end
+struct EmptyInterpolation{A} <: Interpolation
+  dofs::A
+end
+
+EmptyInterpolation() = EmptyInterpolation(Int64[])
+
+get_interpolation_dofs(a::EmptyInterpolation) = a.dofs
 
 function Interpolation(red::HyperReduction)
   EmptyInterpolation()

@@ -70,7 +70,7 @@ end
 
 const TransientRBFInterpolation{A} = RBFInterpolation{A}
 
-function Interpolation(red::TransientRBFHyperReduction,a::TransientProjection,args...)
+function RBSteady.Interpolation(red::TransientRBFHyperReduction,a::TransientProjection,args...)
   isnull(a) && return EmptyInterpolation()
   RBFInterpolation(red,a,args...)
 end

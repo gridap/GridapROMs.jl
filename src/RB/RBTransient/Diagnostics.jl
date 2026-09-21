@@ -441,12 +441,6 @@ end
 
 # utils 
 
-for T in (:TransientRBFHyperReduction,:TransientTrivialHyperReduction)
-  @eval function RBSteady.check_interpolation(snaps,a::HRProjection{<:$T},fecache)
-    return true
-  end
-end
-
 function RBSteady.set_params(red::SteadyReduction;kwargs...)
   SteadyReduction(RBSteady.set_params(red.reduction;kwargs...))
 end
