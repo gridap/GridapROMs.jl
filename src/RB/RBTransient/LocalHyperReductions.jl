@@ -30,7 +30,7 @@ function get_locations(a::LocalInterpolation,ids::Range2D)
   locations
 end
 
-const LocalHRContributionTuple = ContributionTuple{N,<:LocalHRContribution} where N<:Integer
+const LocalHRContributionTuple = ContributionTuple{<:LocalHRContribution,T} where T
   
 function RBSteady.get_local(a::AffineContributionTuple,μ::AbstractVector)
   map(a -> get_local(a,μ),a)

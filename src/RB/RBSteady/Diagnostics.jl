@@ -738,26 +738,16 @@ end
 
 # utils
 
-function check_interpolation(res,a::HRVecProjection,fecache)
+function check_interpolation(snaps,a::HRProjection,fecache)
   msg = "fecache mismatch at interpolation points"
-  rows = get_interpolation_dofs(get_interpolation(a))
-  bdata = flatten(res)
-  @check isapprox(get_all_data(fecache),view(bdata,rows,:);rtol=1e-8) msg
+  interp = get_interpolation(a)
+  sdofs = get_at_domain(snaps,interp)
+  @check isapprox(get_all_data(fecache),get_all_data(sdofs);rtol=1e-8) msg
   return true
 end
 
-function check_interpolation(jac,a::HRMatProjection,fecache)
-  msg = "fecache mismatch at interpolation points"
-  rows,cols = get_interpolation_dofs(get_interpolation(a))
-  dof_map = get_dof_map(jac)
-  inds = sparsify_split_indices(rows,cols,dof_map)
-  Adata = flatten(jac)
-  @check isapprox(get_all_data(fecache),view(Adata,inds,:);rtol=1e-8) msg
-  return true
-end
-
-for A in (:HRVecProjection,:HRMatProjection), T in (:RBFHyperReduction,:TrivialHyperReduction)
-  @eval function check_interpolation(resjac,a::$A{<:$T},fecache)
+for T in (:RBFHyperReduction,:TrivialHyperReduction)
+  @eval function check_interpolation(snaps,a::HRProjection{<:$T},fecache)
     return true
   end
 end

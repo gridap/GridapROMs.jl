@@ -105,18 +105,18 @@ const TransientSOPTContribution = AffineContribution{<:TransientSOPTProjection}
 const TransientRBFContribution = AffineContribution{<:TransientRBFProjection}
 
 """
-    const AffineContributionTuple = ContributionTuple{N,<:AffineContribution} where N
+    const AffineContributionTuple = ContributionTuple{<:AffineContribution,T} where T
 
 Concrete (see [`ContributionTuple`](@ref)) replacement for what used to be a
 raw `Tuple{Vararg{AffineContribution}}` -- one entry per time derivative
 order in unsteady settings.
 """
-const AffineContributionTuple = ContributionTuple{N,<:AffineContribution} where N
-const TransientNoHRContributionTuple = ContributionTuple{N,<:TransientNoHRContribution} where N
-const TransientAffineHRContributionTuple = ContributionTuple{N,<:TransientAffineHRContribution} where N
-const TransientDEIMContributionTuple = ContributionTuple{N,<:TransientDEIMContribution} where N
-const TransientSOPTContributionTuple = ContributionTuple{N,<:TransientSOPTContribution} where N
-const TransientRBFContributionTuple = ContributionTuple{N,<:TransientRBFContribution} where N
+const AffineContributionTuple = ContributionTuple{<:AffineContribution,T} where T
+const TransientNoHRContributionTuple = ContributionTuple{<:TransientNoHRContribution,T} where T
+const TransientAffineHRContributionTuple = ContributionTuple{<:TransientAffineHRContribution,T} where T
+const TransientDEIMContributionTuple = ContributionTuple{<:TransientDEIMContribution,T} where T
+const TransientSOPTContributionTuple = ContributionTuple{<:TransientSOPTContribution,T} where T
+const TransientRBFContributionTuple = ContributionTuple{<:TransientRBFContribution,T} where T
 
 function RBSteady.allocate_coefficient(a::AffineContributionTuple,b::ArrayContributionTuple)
   @check length(a) == length(b)

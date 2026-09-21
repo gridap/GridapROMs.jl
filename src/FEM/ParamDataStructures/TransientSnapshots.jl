@@ -306,15 +306,15 @@ function Snapshots(
   r::TransientRealisation
   )
 
-  map((a,i)->Snapshots(a,i,r),a.array,i.array)
+  map((a,i)->Snapshots(a,i,r),a.tuple,i.tuple)
 end
 
 function select_snapshots(a::ArrayContributionTuple,pindex)
-  map(a->select_snapshots(a,pindex),a.array)
+  map(a->select_snapshots(a,pindex),a.tuple)
 end
 
 function select_times(a::ArrayContributionTuple,tindex)
-  map(a->select_times(a,tindex),a.array)
+  map(a->select_times(a,tindex),a.tuple)
 end
 
 function change_dof_map(a::ArrayContributionTuple,i::ArrayContributionTuple)

@@ -90,14 +90,6 @@ function build_rbsolver(Q,dΩ,ranks)
   RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy)
 end
 
-# NOTE: `MultiFieldFESpace`s use `BlockMultiFieldStyle()` - required to avoid
-# a severe Julia type-inference blowup that used to hit `TestFESpace` on a
-# distributed triangulation. That blowup's actual root cause (GridapEmbedded
-# being an unconditional dependency of GridapROMs, incompatible at compile
-# time with GridapDistributed) is now fixed - see Project.toml/ext/ - so V/Q
-# are built off the SAME `Ω` as the weak form again (needed anyway: `_meas`
-# requires trial/test triangulations to be `===`-identical, which separately
-# building each space off `model` does not guarantee).
 function build_spaces(Ω)
   reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
   reffe_p = ReferenceFE(lagrangian,Float64,order-1)

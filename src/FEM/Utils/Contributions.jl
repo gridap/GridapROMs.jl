@@ -163,34 +163,39 @@ function Algebra.copy_entries!(a::ArrayContribution,b::ArrayContribution)
 end
 
 """
-    struct ContributionTuple{N,C}
-      array::NTuple{N,C}
+    struct ContributionTuple{A,T<:Tuple{Vararg{A}}}
+      tuple::T
     end
 
-Concrete wrapper around a tuple of [`Contribution`](@ref)s (e.g. one per time
-derivative order in unsteady settings, as in [`ArrayContributionTuple`](@ref)).
+Concrete wrapper around a (possibly heterogeneous) tuple of [`Contribution`](@ref)s
+(e.g. one per time derivative order in unsteady settings, as in
+[`ArrayContributionTuple`](@ref)). `A` is a common supertype of the elements of
+`tuple`, allowing e.g. different jacobian terms to have differently-shaped bases.
 """
-struct ContributionTuple{N,C}
-  array::NTuple{N,C}
+struct ContributionTuple{A,T<:Tuple{Vararg{A}}}
+  tuple::T
+  function ContributionTuple(t::T) where T<:Tuple
+    new{Union{map(typeof,t)...},T}(t)
+  end
 end
 
 ContributionTuple(cs::Contribution...) = ContributionTuple(cs)
 
-Base.length(a::ContributionTuple) = length(a.array)
-Base.size(a::ContributionTuple) = size(a.array)
-Base.iterate(a::ContributionTuple,state...) = iterate(a.array,state...)
-Base.getindex(a::ContributionTuple,i::Integer) = a.array[i]
-Base.eachindex(a::ContributionTuple) = eachindex(a.array)
-Base.firstindex(a::ContributionTuple) = firstindex(a.array)
-Base.map(f,a::ContributionTuple) = ContributionTuple(map(f,a.array))
-Base.lastindex(a::ContributionTuple) = lastindex(a.array)
+Base.length(a::ContributionTuple) = length(a.tuple)
+Base.size(a::ContributionTuple) = size(a.tuple)
+Base.iterate(a::ContributionTuple,state...) = iterate(a.tuple,state...)
+Base.getindex(a::ContributionTuple,i::Integer) = a.tuple[i]
+Base.eachindex(a::ContributionTuple) = eachindex(a.tuple)
+Base.firstindex(a::ContributionTuple) = firstindex(a.tuple)
+Base.map(f,a::ContributionTuple) = ContributionTuple(map(f,a.tuple))
+Base.lastindex(a::ContributionTuple) = lastindex(a.tuple)
 
 """
-    const ArrayContributionTuple{T} = ContributionTuple{N,<:ArrayContribution{T}} where N
+    const ArrayContributionTuple{T} = ContributionTuple{<:ArrayContribution{T},S} where S
 
 Specifically allows to deal with tuples of Jacobians in unsteady settings
 """
-const ArrayContributionTuple{T} = ContributionTuple{N,<:ArrayContribution{T}} where N
+const ArrayContributionTuple{T} = ContributionTuple{<:ArrayContribution{T},S} where S
 
 Base.eltype(::ArrayContributionTuple{T}) where T = T
 Base.eltype(::Type{<:ArrayContributionTuple{T}}) where T = T

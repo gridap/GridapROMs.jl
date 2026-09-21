@@ -20,7 +20,7 @@ function RBSteady.ReducedOperator(
   )
 
   trians_rhs = get_domains(rhs)
-  trians_lhs = map(get_domains,lhs.array)
+  trians_lhs = map(get_domains,lhs.tuple)
   odeop′ = change_domains(odeop,trians_rhs,trians_lhs)
   RBOperator(odeop′,trial,test,lhs,rhs)
 end

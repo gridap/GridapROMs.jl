@@ -182,6 +182,11 @@ function FESpaces.interpolate!(
   end
 end
 
+function get_at_domain(s::Snapshots,i::Interpolation)
+  dofs = get_interpolation_dofs(i)
+  get_at_domain(s,dofs)
+end
+
 function get_at_domain(s::Snapshots,rows::AbstractVector)
   data = flatten(s)
   get_at_domain(data,rows)

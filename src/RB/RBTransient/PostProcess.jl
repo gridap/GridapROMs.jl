@@ -1,6 +1,6 @@
 function save(
   dir,
-  contribs::Tuple{Vararg{Contribution}};
+  contribs::ContributionTuple;
   label=""
   )
 
@@ -19,7 +19,7 @@ function RBSteady.load_contribution(
   for (i,trian) in enumerate(trians)
     c = (c...,load_contribution(dir,trian;label=_get_label(label,i)))
   end
-  return c
+  return ContributionTuple(c,trians)
 end
 
 function RBSteady._save_trian_operator_parts(dir,op::TransientReducedOperator;label="")

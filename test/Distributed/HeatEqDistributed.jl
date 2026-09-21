@@ -1,4 +1,4 @@
-# module HeatEqDistributed
+module HeatEqDistributed
 
 using DrWatson
 using Gridap
@@ -60,8 +60,6 @@ degree = 2*order
 
 state_reduction = TransientReduction(tol,H1();nparams,compression,ncentroids)
 
-snp = Ref{DistributedSnapshots}()
-op = Ref{ParamOperator}()
 function main(distribute,parts)
   ranks = distribute(LinearIndices((prod(parts),)))
   model = CartesianDiscreteModel(ranks,parts,domain,partition)
@@ -75,8 +73,6 @@ function main(distribute,parts)
   mass(μ,t,uₜ,v,dΩ) = ∫(v*uₜ)dΩ
   rhs(μ,t,v,dΩ,dΓn) = ∫(fμt(μ,t)*v)dΩ + ∫(hμt(μ,t)*v)dΓn
   res(μ,t,u,v,dΩ,dΓn) = mass(μ,t,∂t(u),v,dΩ) + stiffness(μ,t,u,v,dΩ) - rhs(μ,t,v,dΩ,dΓn)
-
-  println("----- 1 -----")
 
   trian_res = (Ω,Γn)
   trian_stiffness = (Ω,)
@@ -92,17 +88,10 @@ function main(distribute,parts)
   fesolver = ThetaMethod(LUSolver(),dt,θ)#PETScLinearSolver()
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jacs=(nparams_jac,nparams_jac),hypred_strategy)
 
-  println("----- 2 -----")
-
   feop = TransientLinearParamOperator(res,(stiffness,mass),ptspace,trial,test,domains)
   fesnaps, = solution_snapshots(rbsolver,feop,uh0μ)
-  snp[] = fesnaps
-  op[] = feop
-  println("----- 3 -----")
 
   rbop = reduced_operator(rbsolver,feop,fesnaps)
-
-  println("----- 4 -----")
 
   μon = realisation(feop;nparams=10,start=nparams+1)
   x̂,rbstats = solve(rbsolver,rbop,μon,uh0μ)
@@ -128,7 +117,4 @@ function main(distribute,parts)
     compute_relative_error(fesnaps,fesnaps_loaded) < 1e-12)
 end
 
-# end
-with_debug() do distribute
-  main(distribute,(2,2))
 end

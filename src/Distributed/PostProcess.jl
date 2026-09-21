@@ -1,83 +1,10 @@
-for T in (:DEIMHyperReduction,:SOPTHyperReduction)
-  @eval begin
-    function RBSteady.check_interpolation(res::DistributedSnapshots,a::HRVecProjection{<:$T},_fecache)
-      msg = "fecache mismatch at interpolation points"
-      fecache = sreduce(map(get_all_data,local_views(_fecache)))
-      dofs = get_interpolation_dofs(get_interpolation(a))
-      data = map(local_views(res),local_views(dofs)) do rvals,rdofs
-        d = zero(fecache)
-        isempty(rdofs.global_rows) && return d
-        g2l = global_to_local(rdofs.index_parts)
-        b = flatten(rvals)
-        @views for (gri,i) in zip(rdofs.global_rows,rdofs.global_cols)
-          d[i,:] .= b[g2l[gri],:]
-        end
-        d
-      end |> sreduce
-      @check isapprox(fecache,data;rtol=1e-8) msg
-      return true
-    end
-
-    function RBSteady.check_interpolation(jac::DistributedSnapshots,a::HRMatProjection{<:$T},_fecache)
-      msg = "fecache mismatch at interpolation points"
-      fecache = sreduce(map(get_all_data,local_views(_fecache)))
-      dofs = get_interpolation_dofs(get_interpolation(a))
-      data = map(local_views(jac),local_views(dofs)) do jvals,rdofs
-        d = zero(fecache)
-        rrows,rcols = rdofs
-        isempty(rrows.global_rows) && return d
-        rnz = sparsify_split_indices(rrows,rcols,get_dof_map(jvals))
-        A = flatten(jvals)
-        @views for (nzi,i) in zip(rnz,rrows.global_cols)
-          d[i,:] .= A[nzi,:]
-        end
-        d
-      end |> sreduce
-      @check isapprox(fecache,data;rtol=1e-8) msg
-      return true
-    end
-  end
-end
-
-for T in (:TransientDEIMHyperReduction,:TransientSOPTHyperReduction)
-  @eval begin
-    function RBSteady.check_interpolation(res::DistributedSnapshots,a::HRVecProjection{<:$T},_fecache)
-      msg = "fecache mismatch at interpolation points"
-      fecache = sreduce(map(get_all_data,local_views(_fecache)))
-      interp = get_interpolation(a)
-      rows = get_interpolation_dofs(interp)
-      indices_time = get_indices_time(interp)
-      style = get_domain_style(interp)
-      bdata = if style isa KroneckerDomain
-        RBTransient.get_at_kron_domain(res,rows,indices_time)
-      else
-        @check style isa SequentialDomain "Unsupported transient domain style"
-        RBTransient.get_at_seq_domain(res,rows,indices_time)
-      end
-      @check isapprox(fecache,get_all_data(bdata);rtol=1e-8) msg
-      return true
-    end
-
-    function RBSteady.check_interpolation(jac::DistributedSnapshots,a::HRMatProjection{<:$T},_fecache)
-      msg = "fecache mismatch at interpolation points"
-      fecache = sreduce(map(get_all_data,local_views(_fecache)))
-      interp = get_interpolation(a)
-      dofs = get_interpolation_dofs(interp)
-      rows,cols = map(first,dofs),map(last,dofs)
-      dof_maps = map(get_dof_map,local_views(jac))
-      rows_nz = sparsify_split_indices(rows,cols,dof_maps)
-      indices_time = get_indices_time(interp)
-      style = get_domain_style(interp)
-      Adata = if style isa KroneckerDomain
-        RBTransient.get_at_kron_domain(jac,rows_nz,indices_time)
-      else
-        @check style isa SequentialDomain "Unsupported transient domain style"
-        RBTransient.get_at_seq_domain(jac,rows_nz,indices_time)
-      end
-      @check isapprox(fecache,get_all_data(Adata);rtol=1e-8) msg
-      return true
-    end
-  end
+function RBSteady.check_interpolation(snaps::DistributedSnapshots,a::HRProjection,_fecache)
+  msg = "fecache mismatch at interpolation points"
+  fecache = sreduce(map(get_all_data,local_views(_fecache)))
+  interp = get_interpolation(a)
+  sdofs = get_at_domain(snaps,interp)
+  @check isapprox(fecache,get_all_data(sdofs);rtol=1e-8) msg
+  return true
 end
 
 const DOFMAP_LABEL = "dofmap"

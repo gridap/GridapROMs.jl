@@ -102,7 +102,16 @@ function get_locations(a::BlockInterpolation{N},ids::Range2D) where N
   map(itp -> get_locations(itp,ids),a.interp)
 end
 
-# API
+function RBSteady.get_at_domain(s::TransientSnapshots,i::Interpolation)
+  dofs = get_interpolation_dofs(i)
+  indices_time = get_indices_time(i)
+  style = get_domain_style(i)
+  if style isa KroneckerDomain
+    get_at_kron_domain(s,dofs,indices_time)
+  else
+    get_at_seq_domain(s,dofs,indices_time)
+  end
+end
 
 function get_at_kron_domain(
   s::TransientSnapshots,
