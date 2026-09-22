@@ -1,7 +1,7 @@
 get_indices_time(a::Interpolation) = Int[]
 get_itimes(a::Interpolation,ids::AbstractVector) = Int[]
 get_locations(a::Interpolation,ids::Range2D) = range_2d(ids.axis1,Int[])
-
+get_domain_style(a::Interpolation) = KroneckerDomain()
 get_itimes(a::Interpolation,ids::Range1D) = error("should not be here")
 get_locations(a::Interpolation,ids::Range1D) = get_locations(a,ids.parent)
 
@@ -14,6 +14,21 @@ function RBSteady.Interpolation(red::TransientNoHyperReduction,trian,args...)
   n = num_cells(trian)
   cells = collect(Int32,1:n)
   FullInterpolation(cells)
+end
+
+struct TransientEmptyInterpolation{A,B,C} <: Interpolation
+  style::A
+  dofs::B
+  indices_time::C
+end
+
+function RBSteady.EmptyInterpolation(
+  style::TransientIntegrationDomainStyle,
+  dofs::Union{AbstractVector,Tuple},
+  indices_time::AbstractVector
+  )
+
+  TransientEmptyInterpolation(style,dofs,indices_time)
 end
 
 # EIM interpolation

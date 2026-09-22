@@ -217,6 +217,60 @@ for (T,f) in zip((:DEIMHyperReduction,:SOPTHyperReduction),(:DEIM,:SOPT))
   end
 end
 
+for (T,f) in zip((:TransientDEIMHyperReduction,:TransientSOPTHyperReduction),(:DEIM,:SOPT))
+  @eval begin
+    function RBSteady.Interpolation(red::$T,a::TransientProjection,trian::DistributedTriangulation,test::DistributedRBSpace)
+      (rows,indices_time),interp = $f(a)
+      factor = lu(interp)
+      gids = get_free_dof_ids(test)
+      style = TransientIntegrationDomainStyle(typeof(a))
+      interps = map(
+        local_views(trian),
+        local_views(test),
+        local_views(rows),
+        local_views(gids)
+        ) do trian,test,rows,gids
+        isnull(rows) && return EmptyInterpolation(style,rows,indices_time)
+        lrows = _remap(rows,global_to_local(gids))
+        ldomain = IntegrationDomain(typeof(a),trian,test,lrows,indices_time)
+        grows = _remap(lrows,local_to_global(gids))
+        domain_space = GenericDomain(get_integration_cells(ldomain),get_cell_idofs(ldomain),grows)
+        domain = TransientIntegrationDomain(style,domain_space,indices_time)
+        GreedyInterpolation(factor,domain)
+      end
+      DistributedInterpolation(interps)
+    end
+
+    function RBSteady.Interpolation(red::$T,a::TransientProjection,trian::DistributedTriangulation,trial::DistributedRBSpace,test::DistributedRBSpace)
+      ((rows,cols),indices_time),interp = $f(a)
+      factor = lu(interp)
+      cgids = get_free_dof_ids(trial)
+      rgids = get_free_dof_ids(test)
+      style = TransientIntegrationDomainStyle(typeof(a))
+      interps = map(
+        local_views(trian),
+        local_views(trial),
+        local_views(test),
+        local_views(rows),
+        local_views(cols),
+        local_views(cgids),
+        local_views(rgids)
+        ) do trian,trial,test,rows,cols,rgids,cgids
+        isnull(rows) && return EmptyInterpolation(style,(rows,cols),indices_time)
+        lrows = _remap(rows,global_to_local(rgids))
+        lcols = _remap(cols,global_to_local(cgids))
+        ldomain = IntegrationDomain(typeof(a),trian,trial,test,lrows,lcols,indices_time)
+        grows = _remap(lrows,local_to_global(rgids))
+        gcols = _remap(lcols,local_to_global(cgids))
+        domain_space = GenericDomain(get_integration_cells(ldomain),get_cell_idofs(ldomain),(grows,gcols))
+        domain = TransientIntegrationDomain(style,domain_space,indices_time)
+        GreedyInterpolation(factor,domain)
+      end
+      DistributedInterpolation(interps)
+    end
+  end
+end
+
 GridapDistributed.local_views(a::DistributedInterpolation) = local_views(a.interps)
 
 for f in (:get_integration_cells,:get_cell_idofs)
