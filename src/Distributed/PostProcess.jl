@@ -51,7 +51,7 @@ end
 
 function DrWatson.save(dir,a::DistributedKroneckerProjection;label="")
   save(dir,a.projection_space;label=_get_label(label,"space"))
-  RBSteady.save(dir,a.projection_time;label=_get_label(label,"time"))
+  save(dir,a.projection_time;label=_get_label(label,"time"))
 end
 
 for T in (:DistributedProjection,:DistributedNormedProjection,:DistributedKroneckerProjection)
@@ -72,13 +72,13 @@ function RBSteady.load_projection(dir,ranks::AbstractArray;label="")
       nblocks += 1
     end
     block_basis = map(1:nblocks) do i
-      RBSteady.load_projection(dir,ranks;label=_plabel(label,BLOCK_LABEL*"$i"))
+      load_projection(dir,ranks;label=_plabel(label,BLOCK_LABEL*"$i"))
     end
     return BlockProjection(block_basis)
   elseif _haspart(dir,PROJECTION_LABEL,ranks;label=_get_label(label,"space"))
     # 2) kronecker projection: the space part is distributed, the time part is not
-    projection_space = RBSteady.load_projection(dir,ranks;label=_get_label(label,"space"))
-    projection_time = RBSteady.load_projection(dir;label=_get_label(label,"time"))
+    projection_space = load_projection(dir,ranks;label=_get_label(label,"space"))
+    projection_time = load_projection(dir;label=_get_label(label,"time"))
     return KroneckerProjection(projection_space,projection_time)
   else
     basis = _pload(dir,PROJECTION_LABEL,ranks;label)
@@ -106,13 +106,21 @@ function DrWatson.save(dir,a::BlockHRProjection{<:HyperReduction,<:Projection,<:
   end
 end
 
-function RBSteady.load_reduced_subspace(dir,f::DistributedSingleFieldFESpace,ranks::AbstractArray;label="")
-  basis = RBSteady.load_projection(dir,ranks;label)
+function RBSteady.load_subspace(dir,f::DistributedSingleFieldFESpace,ranks::AbstractArray;label="")
+  basis = load_projection(dir,ranks;label)
   reduced_subspace(f,basis)
 end
 
-function RBSteady.load_reduced_subspace(dir,f::DistributedMultiFieldFESpace,ranks::AbstractArray;label="")
-  basis = RBSteady.load_projection(dir,ranks;label)
+function RBSteady.load_subspace(dir,f::DistributedMultiFieldFESpace,ranks::AbstractArray;label="")
+  basis = load_projection(dir,ranks;label)
+  reduced_subspace(f,basis)
+end
+
+# `ranks::Vector`: reassemble a serial (non-distributed) reduced subspace, over
+# an ordinary (non-distributed) FE space `f` matching the one the distributed
+# problem was solved on.
+function RBSteady.load_subspace(dir,f::FESpace,ranks::Vector;label="")
+  basis = load_projection(dir,ranks;label)
   reduced_subspace(f,basis)
 end
 
@@ -129,14 +137,59 @@ function RBSteady.load_contribution(dir,trian::Tuple{Vararg{DistributedTriangula
   RBSteady._setup_contribution(vals,trian)
 end
 
+# `ranks::Vector`: reassemble a serial (non-distributed) contribution, over
+# ordinary (non-distributed) triangulations `trian` matching the ones the
+# distributed problem was solved on.
+function RBSteady.load_contribution(dir,trian::Tuple,ranks::Vector;label="")
+  vals = ntuple(length(trian)) do i
+    _load_distributed_hr(dir,ranks;label=_plabel(label,"$(TRIAN_LABEL)$i"))
+  end
+  RBSteady._setup_contribution(vals,trian)
+end
+
 function RBSteady.load_operator(dir,feop::ParamOperator,ranks::AbstractArray;label="")
-  test = RBSteady.load_reduced_subspace(dir,get_test(feop),ranks;label=_plabel(label,RBSteady.TEST_LABEL))
-  trial = RBSteady.load_reduced_subspace(dir,get_trial(feop),ranks;label=_plabel(label,RBSteady.TRIAL_LABEL))
+  test = load_subspace(dir,get_test(feop),ranks;label=_plabel(label,RBSteady.TEST_LABEL))
+  trial = load_subspace(dir,get_trial(feop),ranks;label=_plabel(label,RBSteady.TRIAL_LABEL))
   trian_res = get_domains_res(feop)
   trian_jac = get_domains_jac(feop)
   red_rhs = load_contribution(dir,trian_res,ranks;label=_plabel(label,RBSteady.RHS_LABEL))
   red_lhs = load_contribution(dir,trian_jac,ranks;label=_plabel(label,RBSteady.LHS_LABEL))
   ReducedOperator(feop,trial,test,red_lhs,red_rhs)
+end
+
+function RBSteady.load_operator(dir,feop::ODEParamOperator,ranks::AbstractArray;label="")
+  test = load_subspace(dir,get_test(feop),ranks;label=_plabel(label,RBSteady.TEST_LABEL))
+  trial = load_subspace(dir,get_trial(feop),ranks;label=_plabel(label,RBSteady.TRIAL_LABEL))
+  trian_res = get_domains_res(feop)
+  trian_jacs = get_domains_jac(feop)
+  red_rhs = load_contribution(dir,trian_res,ranks;label=_plabel(label,RBSteady.RHS_LABEL))
+  red_lhs = ntuple(length(trian_jacs)) do i
+    load_contribution(dir,trian_jacs[i],ranks;label=_plabel(label,RBSteady.LHS_LABEL,i))
+  end
+  ReducedOperator(feop,trial,test,red_lhs,red_rhs)
+end
+
+function RBSteady.load_operator(dir,feop::LinearNonlinearODEParamOperator,ranks::AbstractArray;label="")
+  feop_lin = get_linear_operator(feop)
+  feop_nlin = get_nonlinear_operator(feop)
+  # test and trial are the same for both the linear and nonlinear operators
+  test = load_subspace(dir,get_test(feop_lin),ranks;label=_plabel(label,RBSteady.TEST_LABEL))
+  trial = load_subspace(dir,get_trial(feop_lin),ranks;label=_plabel(label,RBSteady.TRIAL_LABEL))
+  trian_res_lin = get_domains_res(feop_lin)
+  trian_jacs_lin = get_domains_jac(feop_lin)
+  red_rhs_lin = load_contribution(dir,trian_res_lin,ranks;label=_plabel(label,RBSteady.LINEAR_LABEL,RBSteady.RHS_LABEL))
+  red_lhs_lin = ntuple(length(trian_jacs_lin)) do i
+    load_contribution(dir,trian_jacs_lin[i],ranks;label=_plabel(label,RBSteady.LINEAR_LABEL,RBSteady.LHS_LABEL,i))
+  end
+  trian_res_nlin = get_domains_res(feop_nlin)
+  trian_jacs_nlin = get_domains_jac(feop_nlin)
+  red_rhs_nlin = load_contribution(dir,trian_res_nlin,ranks;label=_plabel(label,RBSteady.NONLINEAR_LABEL,RBSteady.RHS_LABEL))
+  red_lhs_nlin = ntuple(length(trian_jacs_nlin)) do i
+    load_contribution(dir,trian_jacs_nlin[i],ranks;label=_plabel(label,RBSteady.NONLINEAR_LABEL,RBSteady.LHS_LABEL,i))
+  end
+  op_lin = ReducedOperator(feop_lin,trial,test,red_lhs_lin,red_rhs_lin)
+  op_nlin = ReducedOperator(feop_nlin,trial,test,red_lhs_nlin,red_rhs_nlin)
+  LinearNonlinearReducedOperator(op_lin,op_nlin)
 end
 
 # utils
@@ -162,8 +215,11 @@ function _pload(dir,name,ranks;label="")
   data,inds... = map(ranks) do p
     deserialize(_part_filename(dir,name,label,p))
   end |> tuple_of_arrays
-  _pallocate(data,inds...)
+  _allocate(ranks,data,inds...)
 end
+
+_allocate(ranks::Vector,d,i...) = _sallocate(d,i...)
+_allocate(ranks,d,i...) = _pallocate(d,i...)
 
 function _pallocate(d,i...)
   @abstractmethod
@@ -192,6 +248,49 @@ function _pallocate(
   )
 
   PSparseMatrix(d,r,c)
+end
+
+function _sallocate(d,i...)
+  @abstractmethod
+end
+
+function _sallocate(
+  d::AbstractVector{<:AbstractArray},
+  r::AbstractVector{<:AbstractLocalIndices}
+  )
+
+  n = maximum(maximum,map(own_to_global,r))
+  T = eltype(eltype(d))
+  tail = size(first(d))[2:end]
+  v = zeros(T,n,tail...)
+  for (dl,rl) in zip(d,r)
+    o2l = own_to_local(rl)
+    o2g = own_to_global(rl)
+    selectdim(v,1,o2g) .= selectdim(dl,1,o2l)
+  end
+  v
+end
+
+function _sallocate(
+  d::AbstractVector{<:AbstractMatrix},
+  r::AbstractVector{<:AbstractLocalIndices},
+  c::AbstractVector{<:AbstractLocalIndices}
+  )
+
+  nr = maximum(maximum,map(own_to_global,r))
+  nc = maximum(maximum,map(own_to_global,c))
+  T = eltype(eltype(d))
+  I,J,V = Int[],Int[],T[]
+  for (dl,rl,cl) in zip(d,r,c)
+    o2l_r = own_to_local(rl)
+    o2g_r = own_to_global(rl)
+    l2g_c = local_to_global(cl)
+    is,js,vs = findnz(sparse(dl[o2l_r,:]))
+    append!(I,o2g_r[is])
+    append!(J,l2g_c[js])
+    append!(V,vs)
+  end
+  sparse(I,J,V,nr,nc)
 end
 
 function _load_distributed_hrprojection(dir,ranks;label="")

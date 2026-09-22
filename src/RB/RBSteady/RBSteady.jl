@@ -179,7 +179,6 @@ export symcholesky
 export gram_solver
 export symmetrise!
 export gram_schmidt
-export weighted_qr!
 export orth_complement!
 export orth_projection
 include("BasesConstruction.jl")
@@ -298,6 +297,8 @@ export load_residuals
 export load_jacobians
 export load_snapshots
 export load_contribution
+export load_projection
+export load_subspace
 export load_operator
 export load_results
 export load_stats

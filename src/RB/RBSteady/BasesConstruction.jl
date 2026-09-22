@@ -445,62 +445,16 @@ function gram_schmidt(A::AbstractMatrix;tol=1e-10)
   return Qr
 end
 
-function gram_schmidt(A::AbstractMatrix,X::Union{AbstractMatrix,Factorization};tol=1e-10)
-  Q,R, = weighted_qr!(A,X)
+function gram_schmidt(A::AbstractMatrix,C::Factorization;tol=1e-10)
+  Ã = _forward_cholesky(A,C)
+  Q̃,R, = qr!(Ã,ColumnNorm())
   rank = something(findlast(abs.(diag(R)) .> tol),0)
-  Qr = _truncate_col!(Q,rank)
+  Q̃r = _truncate_col!(Q̃,rank)
+  Qr = _backward_cholesky(Q̃r,C)
   return Qr
 end
 
-"""
-    weighted_qr!(A::AbstractMatrix,X::Union{AbstractMatrix,Factorization}) -> (AbstractMatrix,AbstractMatrix)
-
-Column-pivoted, rank-revealing QR decomposition of `A` with respect to the inner
-product induced by the (positive definite) matrix `X`: returns `(Q,R)` such that
-`A[:,p] ≈ Q*R` (for the internal pivot vector `p`) and `Q'*X*Q ≈ I`.
-"""
-function weighted_qr!(A::AbstractMatrix,X::Union{AbstractMatrix,Factorization})
-  _mul(a,b) = a*b
-  _mul(a::SparseArrays.CHOLMOD.Factor,b) = _forward_cholesky(b,a)
-  A = copy(A)
-  m,n = size(A)
-  T = eltype(A)
-  XA = _mul(X,A)
-  p = collect(1:n)
-  R = zeros(T,n,n)
-  colnorms2 = zeros(real(T),n)
-  for j in 1:n
-    colnorms2[j] = real(dot(view(A,:,j),view(XA,:,j)))
-  end
-  for j in 1:min(m,n)
-    j′ = argmax(view(colnorms2,j:n)) + j - 1
-    if j′ != j
-      tmp = p[j′]
-      p[j′] = p[j]
-      p[j] = tmp
-      tmp = colnorms2[j′]
-      colnorms2[j′] = colnorms2[j]
-      colnorms2[j] = tmp
-      Base.swapcols!(A,j,j′)
-      Base.swapcols!(XA,j,j′)
-    end
-    normj = sqrt(max(colnorms2[j],zero(real(T))))
-    R[j,j] = normj
-    iszero(normj) && continue
-    @views A[:,j] ./= normj
-    @views XA[:,j] ./= normj
-    for k in j+1:n
-      rjk = dot(view(A,:,j),view(XA,:,k))
-      R[j,k] = rjk
-      @views A[:,k] .-= rjk .* A[:,j]
-      @views XA[:,k] .-= rjk .* XA[:,j]
-      colnorms2[k] = real(dot(view(A,:,k),view(XA,:,k)))
-    end
-  end
-  return A,R,p
-end
-
-# utils 
+# utils
 
 function _is_rectangular(A::AbstractMatrix;ratio=10)
   m,n = size(A)

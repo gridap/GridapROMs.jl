@@ -89,7 +89,7 @@ end
 
 """
 """
-function load_reduced_subspace(dir,f::FESpace;label="")
+function load_subspace(dir,f::FESpace;label="")
   basis = load_projection(dir;label)
   reduced_subspace(f,basis)
 end
@@ -126,33 +126,11 @@ function load_contribution(
   _setup_contribution(vals,trian)
 end
 
-function _save_fixed_operator_parts(dir,op;label="")
+function save(dir,op::ReducedOperator;label="")
   save(dir,get_test(op);label=_get_label(label,TEST_LABEL))
   save(dir,get_trial(op);label=_get_label(label,TRIAL_LABEL))
-end
-
-function _save_trian_operator_parts(dir,op::ReducedOperator;label="")
   save(dir,get_rhs(op);label=_get_label(label,RHS_LABEL))
   save(dir,get_lhs(op);label=_get_label(label,LHS_LABEL))
-end
-
-function save(dir,op::ReducedOperator;kwargs...)
-  _save_fixed_operator_parts(dir,op;kwargs...)
-  _save_trian_operator_parts(dir,op;kwargs...)
-end
-
-function _load_fixed_operator_parts(dir,feop;label="")
-  test = load_reduced_subspace(dir,get_test(feop);label=_get_label(label,TEST_LABEL))
-  trial = load_reduced_subspace(dir,get_trial(feop);label=_get_label(label,TRIAL_LABEL))
-  return trial,test
-end
-
-function _load_trian_operator_parts(dir,feop::ParamOperator;label="")
-  trian_res = get_domains_res(feop)
-  trian_jac = get_domains_jac(feop)
-  red_rhs = load_contribution(dir,trian_res;label=_get_label(label,RHS_LABEL))
-  red_lhs = load_contribution(dir,trian_jac;label=_get_label(label,LHS_LABEL))
-  return red_lhs,red_rhs
 end
 
 """
@@ -162,28 +140,40 @@ Given a FE operator `feop`, load its reduced counterpart stored in the
 directory `dir`. Throws an error if the reduced operator has not been previously
 saved to file
 """
-function load_operator(dir,feop::ParamOperator;kwargs...)
-  trial,test = _load_fixed_operator_parts(dir,feop;kwargs...)
-  red_lhs,red_rhs = _load_trian_operator_parts(dir,feop;kwargs...)
+function load_operator(dir,feop::ParamOperator;label="")
+  test = load_subspace(dir,get_test(feop);label=_get_label(label,TEST_LABEL))
+  trial = load_subspace(dir,get_trial(feop);label=_get_label(label,TRIAL_LABEL))
+  trian_res = get_domains_res(feop)
+  trian_jac = get_domains_jac(feop)
+  red_rhs = load_contribution(dir,trian_res;label=_get_label(label,RHS_LABEL))
+  red_lhs = load_contribution(dir,trian_jac;label=_get_label(label,LHS_LABEL))
   return ReducedOperator(feop,trial,test,red_lhs,red_rhs)
 end
 
 function save(dir,feop::LinearNonlinearReducedOperator;label="")
   feop_lin = get_linear_operator(feop)
   feop_nlin = get_nonlinear_operator(feop)
-  _save_fixed_operator_parts(dir,feop_lin;label)
-  _save_trian_operator_parts(dir,feop_lin;label=_get_label(label,LINEAR_LABEL))
-  _save_trian_operator_parts(dir,feop_nlin;label=_get_label(label,NONLINEAR_LABEL))
+  # test and trial are the same for both the linear and nonlinear operators
+  save(dir,get_test(feop_lin);label=_get_label(label,TEST_LABEL))
+  save(dir,get_trial(feop_lin);label=_get_label(label,TRIAL_LABEL))
+  # weakform-related quantities are different for the linear and nonlinear operators
+  save(dir,get_rhs(feop_lin);label=_get_label(label,LINEAR_LABEL,RHS_LABEL))
+  save(dir,get_lhs(feop_lin);label=_get_label(label,LINEAR_LABEL,LHS_LABEL))
+  save(dir,get_rhs(feop_nlin);label=_get_label(label,NONLINEAR_LABEL,RHS_LABEL))
+  save(dir,get_lhs(feop_nlin);label=_get_label(label,NONLINEAR_LABEL,LHS_LABEL))
 end
 
 function load_operator(dir,feop::LinearNonlinearParamOperator;label="")
   feop_lin = get_linear_operator(feop)
   feop_nlin = get_nonlinear_operator(feop)
-  trial,test = _load_fixed_operator_parts(dir,feop_lin;label)
-  red_lhs_lin,red_rhs_lin = _load_trian_operator_parts(
-    dir,feop_lin;label=_get_label(LINEAR_LABEL,label))
-  red_lhs_nlin,red_rhs_nlin = _load_trian_operator_parts(
-    dir,feop_nlin;label=_get_label(NONLINEAR_LABEL,label))
+  # test and trial are the same for both the linear and nonlinear operators
+  test = load_subspace(dir,get_test(feop_lin);label=_get_label(label,TEST_LABEL))
+  trial = load_subspace(dir,get_trial(feop_lin);label=_get_label(label,TRIAL_LABEL))
+  # weakform-related quantities are different for the linear and nonlinear operators
+  red_rhs_lin = load_contribution(dir,get_domains_res(feop_lin);label=_get_label(label,LINEAR_LABEL,RHS_LABEL))
+  red_lhs_lin = load_contribution(dir,get_domains_jac(feop_lin);label=_get_label(label,LINEAR_LABEL,LHS_LABEL))
+  red_rhs_nlin = load_contribution(dir,get_domains_res(feop_nlin);label=_get_label(label,NONLINEAR_LABEL,RHS_LABEL))
+  red_lhs_nlin = load_contribution(dir,get_domains_jac(feop_nlin);label=_get_label(label,NONLINEAR_LABEL,LHS_LABEL))
   op_lin = ReducedOperator(feop_lin,trial,test,red_lhs_lin,red_rhs_lin)
   op_nlin = ReducedOperator(feop_nlin,trial,test,red_lhs_nlin,red_rhs_nlin)
   return LinearNonlinearReducedOperator(op_lin,op_nlin)

@@ -24,11 +24,14 @@ function LinearAlgebra.ldiv!(S::GenericPMatrix,ns::NumericalSetup,A::GenericPMat
   end
 end
 
-function RBSteady.gram_schmidt(A::AbstractMatrix,ns::NumericalSetup;kwargs...)
-  gram_schmidt(A,ns.mat;kwargs...)
+function RBSteady.gram_schmidt(A::AbstractMatrix,ns::NumericalSetup;tol=1e-10)
+  Q,R, = weighted_qr!(A,ns.mat;kwargs...)
+  rank = something(findlast(abs.(diag(R)) .> tol),0)
+  Qr = RBSteady._truncate_col!(Q,rank)
+  return Qr
 end
 
-function RBSteady.weighted_qr!(A::GenericPMatrix,X::PSparseMatrix)
+function weighted_qr!(A::GenericPMatrix,X::PSparseMatrix)
   m,n = size(A)
   T = eltype(A)
   XA = X*A
