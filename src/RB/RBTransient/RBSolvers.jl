@@ -82,7 +82,7 @@ function RBSteady.jacobian_snapshots(
     sa = Snapshots(a,ia,rjac)
     sA = (sA...,select_snapshots(sa,1:num_params(reda)))
   end
-  return sA
+  return ContributionTuple(sA)
 end
 
 function RBSteady.jacobian_snapshots(

@@ -372,7 +372,7 @@ end
 function RBSteady.hr_error_jac(
   c::TimeCombination,
   op::TransientReducedOperator{O},
-  jac::Tuple,
+  jac::ContributionTuple,
   r::AbstractRealisation,
   u::AbstractVector,
   us0::Tuple{Vararg{AbstractVector}}
@@ -422,7 +422,7 @@ function RBSteady.hr_error(solver::GlobalRBSolver,op::TransientReducedOperator,r
   return err_res,err_jac
 end
 
-function RBSteady.save_jacobians(dir,feop::ODEParamOperator,jacs::Tuple;label="")
+function RBSteady.save_jacobians(dir,feop::ODEParamOperator,jacs::ContributionTuple;label="")
   for (i,jac) in enumerate(jacs)
     save_jacobians(dir,feop,jac;label=_get_label(label,i))
   end
@@ -436,7 +436,7 @@ function RBSteady.load_jacobians(dir,feop::ODEParamOperator;label="")
     jaci = load_contribution(dir,dom_jaci;label=labi)
     jacs = (jacs...,jaci)
   end
-  return jacs
+  return ContributionTuple(jacs)
 end
 
 # utils 

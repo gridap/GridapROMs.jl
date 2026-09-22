@@ -61,6 +61,15 @@ struct GreedyInterpolation{A,B<:IntegrationDomain} <: Interpolation
   domain::B
 end
 
+# function _robust_lu(A::AbstractMatrix)
+#   try
+#     lu(A)
+#   catch e
+#     e isa SingularException || rethrow()
+#     qr(A,ColumnNorm())
+#   end
+# end
+
 for (T,f) in zip((:DEIMHyperReduction,:SOPTHyperReduction),(:DEIM,:SOPT))
   @eval begin
     function Interpolation(red::$T,a::Projection,args...)
@@ -155,7 +164,11 @@ function Interpolator(
       b[i,j] = i ≤ k ? y.data[j,i] : z
     end
   end
-  w = A \ b
+  w = try
+    A \ b
+  catch
+    pinv(Matrix(A)) * b
+  end
   return Interpolator(x,y,view(w,1:k,:),view(w,1+k:n,:),basis,mon)
 end
 

@@ -54,7 +54,7 @@ function RBSteady.reduced_jacobian(
   red::Tuple{Vararg{Reduction}},
   trial::RBSpace,
   test::RBSpace,
-  contribs::Tuple{Vararg{Any}}
+  contribs::ContributionTuple
   )
 
   a = ()
