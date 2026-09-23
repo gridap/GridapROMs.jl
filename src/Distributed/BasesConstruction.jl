@@ -6,6 +6,7 @@ end
 
 function LinearAlgebra.ldiv!(S::GenericPMatrix,ns::LinearSolvers.CGNumericalSetup,A::GenericPMatrix)
   mat = _get_matrix(ns)
+  S_orig = S
   if !PartitionedArrays.matching_ghost_indices(axes(S,1),axes(mat,2))
     S = _change_layout(S,partition(axes(mat,2)))
   end
@@ -21,6 +22,12 @@ function LinearAlgebra.ldiv!(S::GenericPMatrix,ns::LinearSolvers.CGNumericalSetu
     Ai = _get_column(A,i)
     solve!(Si,ns,Ai)
   end
+  if S !== S_orig
+    map(own_values(S_orig),own_values(S)) do so_orig,so
+      so_orig .= so
+    end
+  end
+  S_orig
 end
 
 function RBSteady.gram_schmidt(A::AbstractMatrix,ns::NumericalSetup;tol=1e-10)
@@ -148,6 +155,10 @@ end
 # utils 
 
 function RBSteady._is_rectangular(A::Union{GenericPMatrix,DistributedSnapshots};kwargs...)
+  true
+end
+
+function RBSteady._reduce_columns(A::Union{GenericPMatrix,DistributedSnapshots};kwargs...)
   true
 end
 

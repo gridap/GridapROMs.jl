@@ -437,12 +437,25 @@ function RBSteady.allocate_coefficient(a::DistributedHRProjection,r::AbstractRea
   end
 end
 
+function FESpaces.interpolate!(
+  hypred::AbstractArray,
+  coeff::AbstractArray,
+  a::RBSteady.BlockHRProjection,
+  b::BlockPArray
+  )
+
+  for i in eachindex(a)
+    interpolate!(blocks(hypred)[i],coeff[i],a.array[i],blocks(b)[i])
+  end
+  return hypred
+end
+
 function RBSteady.collect_cell_hr_matrix(
   trial::DistributedRBSpace,
   test::DistributedRBSpace,
   a::DistributedDomainContribution,
   strian::DistributedTriangulation,
-  interp::DistributedInterpolation,
+  interp,
   args...
   )
 
@@ -461,7 +474,7 @@ function RBSteady.collect_cell_hr_vector(
   test::DistributedRBSpace,
   a::DistributedDomainContribution,
   strian::DistributedTriangulation,
-  interp::DistributedInterpolation,
+  interp,
   args...
   )
 
@@ -478,6 +491,56 @@ end
 function RBSteady.assemble_hr_array_add!(A::AbstractArray{<:AbstractArray},celldata::AbstractArray{<:Tuple})
   map(local_views(A),local_views(celldata)) do A,celldata
     assemble_hr_array_add!(A,celldata)
+  end
+end
+
+# multi-field interface
+
+function GridapDistributed.local_views(a::BlockProjection)
+  map(local_views,a.array) |> to_parray_of_projections
+end
+
+function GridapDistributed.local_views(a::BlockInterpolation)
+  map(local_views,a.interp) |> to_parray_of_interps
+end
+
+function to_parray_of_projections(a::AbstractArray{<:MPIArray})
+  indices = linear_indices(first(a))
+  map(indices) do i
+    proj = map(a) do aj
+      getany(aj)
+    end
+    BlockProjection(proj)
+  end
+end
+
+function to_parray_of_projections(a::AbstractArray{<:DebugArray})
+  indices = linear_indices(first(a))
+  map(indices) do i
+    proj = map(a) do aj
+      aj.items[i]
+    end
+    BlockProjection(proj)
+  end
+end
+
+function to_parray_of_interps(a::AbstractArray{<:MPIArray})
+  indices = linear_indices(first(a))
+  map(indices) do i
+    interp = map(a) do aj
+      getany(aj)
+    end
+    BlockInterpolation(interp)
+  end
+end
+
+function to_parray_of_interps(a::AbstractArray{<:DebugArray})
+  indices = linear_indices(first(a))
+  map(indices) do i
+    interp = map(a) do aj
+      aj.items[i]
+    end
+    BlockInterpolation(interp)
   end
 end
 

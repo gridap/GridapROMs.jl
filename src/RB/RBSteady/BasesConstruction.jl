@@ -96,36 +96,36 @@ function standard_tpod(red_style::ReductionStyle,A::AbstractMatrix,X::AbstractMa
 end
 
 function method_of_snapshots(red_style::ReductionStyle,A::AbstractMatrix,args...)
-  if size(A,1) > size(A,2)
-    method_of_snapshots_row(red_style,A,args...)
-  else
+  if _reduce_columns(A)
     method_of_snapshots_col(red_style,A,args...)
+  else
+    method_of_snapshots_row(red_style,A,args...)
   end
 end
 
-function method_of_snapshots_row(red_style::ReductionStyle,A::AbstractMatrix)
-  _method_of_snapshots_row(red_style,A,A'*A)
+function method_of_snapshots_col(red_style::ReductionStyle,A::AbstractMatrix)
+  _method_of_snapshots_col(red_style,A,A'*A)
 end
 
-function method_of_snapshots_row(red_style::ReductionStyle,A::AbstractMatrix,X::AbstractMatrix)
-  _method_of_snapshots_row(red_style,A,A'*(X*A))
+function method_of_snapshots_col(red_style::ReductionStyle,A::AbstractMatrix,X::AbstractMatrix)
+  _method_of_snapshots_col(red_style,A,A'*(X*A))
 end
 
-function _method_of_snapshots_row(red_style::ReductionStyle,A,AA)
+function _method_of_snapshots_col(red_style::ReductionStyle,A,AA)
   _,Sr,Vr = truncated_svd(red_style,AA;issquare=true)
   Ur = _weighted_mul_row(A,Vr,Sr)
   return Ur,Sr,Vr
 end
 
-function method_of_snapshots_col(red_style::ReductionStyle,A::AbstractMatrix)
-  _method_of_snapshots_col(red_style,A,A*A')
+function method_of_snapshots_row(red_style::ReductionStyle,A::AbstractMatrix)
+  _method_of_snapshots_row(red_style,A,A*A')
 end
 
-function method_of_snapshots_col(red_style::ReductionStyle,A::AbstractMatrix,X::AbstractMatrix)
+function method_of_snapshots_row(red_style::ReductionStyle,A::AbstractMatrix,X::AbstractMatrix)
   standard_tpod(red_style,A,X)
 end
 
-function _method_of_snapshots_col(red_style::ReductionStyle,A,AA)
+function _method_of_snapshots_row(red_style::ReductionStyle,A,AA)
   Ur,Sr,_ = truncated_svd(red_style,AA;issquare=true)
   Vr = _weighted_mul_col(A,Ur,Sr)
   return Ur,Sr,Vr
@@ -459,6 +459,10 @@ end
 function _is_rectangular(A::AbstractMatrix;ratio=10)
   m,n = size(A)
   m > ratio*n || n > ratio*m
+end
+
+function _reduce_columns(A::AbstractMatrix)
+  size(A,1) > size(A,2)
 end
 
 function symcholesky(X::AbstractSparseMatrix;kwargs...)

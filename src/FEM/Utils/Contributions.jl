@@ -230,7 +230,7 @@ end
 
 function Base.fill!(a::ArrayContributionTuple,v)
   for ai in a
-    LinearAlgebra.fill!(ai,v)
+    fill!(ai,v)
   end
   a
 end

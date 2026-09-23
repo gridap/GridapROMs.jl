@@ -130,11 +130,9 @@ function main(distribute,parts)
   rbsolver = build_rbsolver(Q,dΩ,ranks)
 
   fesnaps, = solution_snapshots(rbsolver,feop)
-  println("diagnostic | fesnaps built ok")
   rbop = reduced_operator(rbsolver,feop,fesnaps)
-  println("diagnostic | rbop (with supremizer enrichment) built ok")
 
-  # 2) velocity basis H1-orthogonality after supremizer enrichment
+  # velocity basis H1-orthogonality after supremizer enrichment
   μ = get_realisation(fesnaps)
   trial = get_trial(rbop)(μ)
   rsub = RBSteady.get_reduced_subspace(trial)
@@ -146,15 +144,28 @@ function main(distribute,parts)
   orth_err = maximum(abs.(G .- I(n)))
   println("diagnostic | velocity basis H1-orthogonality max|Φ'HΦ - I|: ", orth_err)
 
-  # 1) MDEIM approximation quality (HR errors for residual/jacobian)
-  res = residual_snapshots(rbsolver,feop,fesnaps)
-  jac = jacobian_snapshots(rbsolver,feop,fesnaps)
-  err_res,err_jac = RBSteady.hr_error(rbsolver,rbop,res,jac,fesnaps)
-  println("diagnostic | hr error residual (per trian): ", err_res)
-  println("diagnostic | hr error jacobian (per trian): ", err_jac)
+  μon = realisation(feop;nparams=10,start=nparams+1)
+  x̂,rbstats = solve(rbsolver,rbop,μon)
+  x,festats = solution_snapshots(rbsolver,feop,μon)
+  perf = eval_performance(rbsolver,rbop,x,x̂,festats,rbstats)
+  println(perf)
 
   perr = RBSteady.projection_error(rbsolver,rbop,fesnaps)
   println("diagnostic | projection error (basis + project/inv_project, no HR): ", perr)
+
+  rbsolverx = RBSteady.set_params(rbsolver;nparams=num_params(x))
+  res = residual_snapshots(rbsolverx,feop,x)
+  jac = jacobian_snapshots(rbsolverx,feop,x)
+  err_res,err_jac = RBSteady.hr_error(rbsolverx,rbop,res,jac,x)
+  println("diagnostic | hr error residual (per trian): ", err_res)
+  println("diagnostic | hr error jacobian (per trian): ", err_jac)
+
+  # per-rank save / load round-trip of the FE snapshots (distributed)
+  diagdir = mkpath(joinpath(@__DIR__,"boh_diag"))
+  save(diagdir,fesnaps)
+  fesnaps_loaded = load_snapshots(diagdir,ranks)
+  println("diagnostic | snapshots save/load round-trip ok: ",
+    compute_relative_error(fesnaps,fesnaps_loaded) < 1e-12)
 end
 
 end
