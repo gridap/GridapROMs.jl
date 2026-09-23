@@ -6,28 +6,28 @@ end
 
 function LinearAlgebra.ldiv!(S::GenericPMatrix,ns::LinearSolvers.CGNumericalSetup,A::GenericPMatrix)
   mat = _get_matrix(ns)
-  S_orig = S
+  S′ = S
   if !PartitionedArrays.matching_ghost_indices(axes(S,1),axes(mat,2))
-    S = _change_layout(S,partition(axes(mat,2)))
+    S′ = _change_layout(S,partition(axes(mat,2)))
   end
   if !PartitionedArrays.matching_ghost_indices(axes(mat,2),axes(A,1))
     A = _change_layout(A,partition(axes(mat,2)))
   end
   consistent!(A) |> wait
-  map(own_values(S)) do so
-    fill!(so,zero(eltype(so)))
+  map(own_values(S′)) do s
+    fill!(s,zero(eltype(s)))
   end
   for i in axes(A,2)
-    Si = _get_column(S,i)
+    Si = _get_column(S′,i)
     Ai = _get_column(A,i)
     solve!(Si,ns,Ai)
   end
-  if S !== S_orig
-    map(own_values(S_orig),own_values(S)) do so_orig,so
-      so_orig .= so
+  if S !== S′
+    map(own_values(S),own_values(S′)) do s,s′
+      copyto!(s,s′)
     end
   end
-  S_orig
+  S
 end
 
 function RBSteady.gram_schmidt(A::AbstractMatrix,ns::NumericalSetup;tol=1e-10)

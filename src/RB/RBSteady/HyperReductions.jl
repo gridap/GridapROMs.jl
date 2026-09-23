@@ -457,10 +457,10 @@ get_style(a::BlockHRProjection) = get_style(first(a.array))
 projection_eltype(a::BlockHRProjection) = promote_type(map(projection_eltype,a.array)...)
 
 function FESpaces.interpolate!(
-  hypred::AbstractArray,
-  coeff::AbstractArray,
+  hypred::BlockParamArray,
+  coeff::AbstractArray{<:AbstractArray},
   a::BlockHRProjection,
-  b::AbstractArray
+  b::AbstractArray{<:AbstractArray}
   )
 
   for i in eachindex(a)
@@ -470,10 +470,10 @@ function FESpaces.interpolate!(
 end
 
 function FESpaces.interpolate!(
-  hypred::AbstractArray,
-  coeff::AbstractArray,
+  hypred::BlockParamArray,
+  coeff::AbstractArray{<:AbstractArray},
   a::BlockHRProjection,
-  b::Union{BlockArray,BlockParamArray}
+  b::BlockParamArray
   )
 
   for i in eachindex(a)
@@ -483,8 +483,8 @@ function FESpaces.interpolate!(
 end
 
 function FESpaces.interpolate!(
-  hypred::AbstractArray,
-  coeff::AbstractArray,
+  hypred::BlockParamArray,
+  coeff::AbstractArray{<:AbstractArray},
   a::BlockHRProjection,
   r::AbstractRealisation
   )

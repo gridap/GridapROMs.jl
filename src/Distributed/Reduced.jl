@@ -418,13 +418,6 @@ function RBSteady.reduced_triangulation(trian::DistributedTriangulation,a::Distr
   reduced_triangulation(trian,get_interpolation(a))
 end
 
-function Base.fill!(a::AbstractArray{<:AbstractParamArray},b::Number)
-  map(local_views(a)) do a
-    fill!(a,b)
-  end
-  a
-end
-
 function RBSteady.allocate_coefficient(a::DistributedHRProjection)
   map(local_views(a)) do a
     RBSteady.allocate_coefficient(a)
@@ -455,93 +448,37 @@ function RBSteady.collect_cell_hr_matrix(
   test::DistributedRBSpace,
   a::DistributedDomainContribution,
   strian::DistributedTriangulation,
-  interp,
-  args...
+  interp::Interpolation
   )
 
-  map(
-    local_views(trial),
-    local_views(test),
-    local_views(a),
-    local_views(strian),
-    local_views(interp)
-    ) do trial,test,a,strian,interp
-    collect_cell_hr_matrix(trial,test,a,strian,interp,args...)
+  cell_idofs = get_cell_idofs(interp)
+  icells = get_owned_icells(interp,strian)
+  cell_mat_rc = map(local_views(trial),local_views(test),local_views(a),local_views(strian),local_views(interp)) do trial,test,a,strian,interp
+    scell_mat = get_contribution(a,strian)
+    cell_mat,trian = move_contributions(scell_mat,strian)
+    @assert ndims(eltype(cell_mat)) == 2
+    cell_mat_c = attach_constraints_cols(trial,cell_mat,trian)
+    attach_constraints_rows(test,cell_mat_c,trian)
   end
+  (cell_mat_rc,cell_idofs,icells)
 end
 
 function RBSteady.collect_cell_hr_vector(
   test::DistributedRBSpace,
   a::DistributedDomainContribution,
   strian::DistributedTriangulation,
-  interp,
-  args...
+  interp::Interpolation
   )
 
-  map(
-    local_views(test),
-    local_views(a),
-    local_views(strian),
-    local_views(interp)
-    ) do test,a,strian,interp
-    collect_cell_hr_vector(test,a,strian,interp,args...)
+  cell_idofs = get_cell_idofs(interp)
+  icells = get_owned_icells(interp,strian)
+  cell_vec_r = map(local_views(test),local_views(a),local_views(strian),local_views(interp)) do test,a,strian,interp
+    scell_vec = get_contribution(a,strian)
+    cell_vec,trian = move_contributions(scell_vec,strian)
+    @assert ndims(eltype(cell_vec)) == 1
+    attach_constraints_rows(test,cell_vec,trian)
   end
-end
-
-function RBSteady.assemble_hr_array_add!(A::AbstractArray{<:AbstractArray},celldata::AbstractArray{<:Tuple})
-  map(local_views(A),local_views(celldata)) do A,celldata
-    assemble_hr_array_add!(A,celldata)
-  end
-end
-
-# multi-field interface
-
-function GridapDistributed.local_views(a::BlockProjection)
-  map(local_views,a.array) |> to_parray_of_projections
-end
-
-function GridapDistributed.local_views(a::BlockInterpolation)
-  map(local_views,a.interp) |> to_parray_of_interps
-end
-
-function to_parray_of_projections(a::AbstractArray{<:MPIArray})
-  indices = linear_indices(first(a))
-  map(indices) do i
-    proj = map(a) do aj
-      getany(aj)
-    end
-    BlockProjection(proj)
-  end
-end
-
-function to_parray_of_projections(a::AbstractArray{<:DebugArray})
-  indices = linear_indices(first(a))
-  map(indices) do i
-    proj = map(a) do aj
-      aj.items[i]
-    end
-    BlockProjection(proj)
-  end
-end
-
-function to_parray_of_interps(a::AbstractArray{<:MPIArray})
-  indices = linear_indices(first(a))
-  map(indices) do i
-    interp = map(a) do aj
-      getany(aj)
-    end
-    BlockInterpolation(interp)
-  end
-end
-
-function to_parray_of_interps(a::AbstractArray{<:DebugArray})
-  indices = linear_indices(first(a))
-  map(indices) do i
-    interp = map(a) do aj
-      aj.items[i]
-    end
-    BlockInterpolation(interp)
-  end
+  (cell_vec_r,cell_idofs,icells)
 end
 
 # norm utils 
@@ -583,6 +520,42 @@ function Utils.is_parent(parent::DistributedTriangulation,child::DistributedTria
     Utils.is_parent(parent,child)
   end
   reduce(&,x)
+end
+
+function RBSteady.get_integration_cells(t::DistributedTriangulation)
+  map(local_views(t)) do t
+    get_integration_cells(t)
+  end
+end
+
+# needed 
+
+function Base.fill!(a::DebugArray,b::Number)
+  map(local_views(a)) do a
+    fill!(a,b)
+  end
+  a
+end
+
+function Base.fill!(a::MPIArray,b::Number)
+  map(local_views(a)) do a
+    fill!(a,b)
+  end
+  a
+end
+
+function Base.fill!(a::Array{<:MPIArray},b::Number)
+  for ai in a
+    fill!(ai,b)
+  end
+  a
+end
+
+function Base.fill!(a::Array{<:DebugArray},b::Number)
+  for ai in a
+    fill!(ai,b)
+  end
+  a
 end
 
 # generic utils

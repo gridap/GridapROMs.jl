@@ -1,11 +1,4 @@
-function collect_cell_hr_matrix(
-  trial::FESpace,
-  test::FESpace,
-  a::DomainContribution,
-  strian::Triangulation,
-  interp::Interpolation
-  )
-
+function collect_cell_hr_matrix(trial,test,a,strian,interp)
   cell_idofs = get_cell_idofs(interp)
   icells = get_owned_icells(interp,strian)
   scell_mat = get_contribution(a,strian)
@@ -16,13 +9,7 @@ function collect_cell_hr_matrix(
   (cell_mat_rc,cell_idofs,icells)
 end
 
-function collect_cell_hr_vector(
-  test::FESpace,
-  a::DomainContribution,
-  strian::Triangulation,
-  interp::Interpolation
-  )
-
+function collect_cell_hr_vector(test,a,strian,interp)
   cell_idofs = get_cell_idofs(interp)
   icells = get_owned_icells(interp,strian)
   scell_vec = get_contribution(a,strian)
@@ -161,8 +148,6 @@ end
 @inline function add_hr_entries!(vi,combine,A,vs::ParamBlock,is)
   Algebra._add_entries!(vi,combine,A,vs,is)
 end
-
-assemble_hr_array_add!(A,celldata::Tuple) = assemble_hr_array_add!(A,celldata...)
 
 function assemble_hr_array_add!(
   A::AbstractArray{<:AbstractArray},
