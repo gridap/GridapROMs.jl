@@ -1,14 +1,14 @@
 function RBSteady.collect_cell_hr_matrix(trial,test,a,strian,interp,common_indices)
   cell_mat_rc,cell_idofs,icells = collect_cell_hr_matrix(trial,test,a,strian,interp)
   locations = get_locations(interp,common_indices)
-  style = get_domain_style(interp)
+  style = get_interpolation_style(interp)
   (cell_mat_rc,cell_idofs,icells,locations,style)
 end
 
 function RBSteady.collect_cell_hr_vector(test,a,strian,interp,common_indices)
   cell_vec_r,cell_idofs,icells = collect_cell_hr_vector(test,a,strian,interp)
   locations = get_locations(interp,common_indices)
-  style = get_domain_style(interp)
+  style = get_interpolation_style(interp)
   (cell_vec_r,cell_idofs,icells,locations,style)
 end
 
@@ -24,33 +24,33 @@ function get_hr_param_entry!(v::AbstractVector,A::TrivialParamBlock,hr_indices,i
   fill!(v,vk)
 end
 
-struct AddTransientHREntriesMap{A<:TransientIntegrationDomainStyle,F,I} <: Map
+struct AddTransientHREntriesMap{A<:InterpolationStyle,F,I} <: Map
   style::A
   combine::F
   locations::I
 end
 
-function AddTransientHREntriesMap(style::TransientIntegrationDomainStyle,locations)
+function AddTransientHREntriesMap(style::InterpolationStyle,locations)
   AddTransientHREntriesMap(style,+,locations)
 end
 
-function Arrays.return_cache(k::AddTransientHREntriesMap{KroneckerDomain},A,vs::ParamBlock,args...)
+function Arrays.return_cache(k::AddTransientHREntriesMap{KroneckerStyle},A,vs::ParamBlock,args...)
   zeros(eltype2(vs),length(k.locations))
 end
 
-function Arrays.return_cache(k::AddTransientHREntriesMap{SequentialDomain},A,vs,args...)
+function Arrays.return_cache(k::AddTransientHREntriesMap{SequentialStyle},A,vs,args...)
   sloc,tloc = k.locations
   array_cache(sloc)
 end
 
-function Arrays.return_cache(k::AddTransientHREntriesMap{SequentialDomain},A,vs::ParamBlock,args...)
+function Arrays.return_cache(k::AddTransientHREntriesMap{SequentialStyle},A,vs::ParamBlock,args...)
   sloc,tloc = k.locations
   cv = zeros(eltype2(vs),length(tloc))
   cl = array_cache(sloc)
   (cv,cl)
 end
 
-for (T,f) in zip((:KroneckerDomain,:SequentialDomain),(:add_hr_kron_entries!,:add_hr_lin_entries!))
+for (T,f) in zip((:KroneckerStyle,:SequentialStyle),(:add_hr_kron_entries!,:add_hr_lin_entries!))
   @eval begin
     function Arrays.evaluate!(cache,k::AddTransientHREntriesMap{$T},A,vs,is)
       $f(cache,k.combine,A,vs,is,k.locations)
@@ -58,7 +58,7 @@ for (T,f) in zip((:KroneckerDomain,:SequentialDomain),(:add_hr_kron_entries!,:ad
   end
 end
 
-for T in (:KroneckerDomain,:SequentialDomain)
+for T in (:KroneckerStyle,:SequentialStyle)
   @eval begin
     function Arrays.return_cache(k::AddTransientHREntriesMap{$T},A,v::MatrixBlock,IJ::MatrixBlock)
       qs = findall(v.touched)
@@ -307,7 +307,7 @@ function RBSteady.assemble_hr_array_add!(
   celldofs::AbstractArray{<:AbstractArray},
   icells::AbstractArray{<:AbstractArray},
   locations::AbstractArray,
-  style::TransientIntegrationDomainStyle
+  style::InterpolationStyle
   )
 
   @check size(celldofs) == size(icells) == size(A)

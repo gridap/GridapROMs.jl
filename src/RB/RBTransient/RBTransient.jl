@@ -20,12 +20,9 @@ capture temporal as well as spatial structure.  Key extensions:
 - **Transient projections** (`Projections.jl`) — `TransientProjection` wraps a
   spatial projection with a temporal one.
 
-- **Transient integration domains** (`IntegrationDomains.jl`) —
-  `TransientIntegrationDomain` extends DEIM-style reduced integration to include
-  a reduced time-index set.
-
 - **Transient interpolations** (`Interpolations.jl`) —
-  `TransientGreedyInterpolation`, `TransientRBFInterpolation`.
+  `TransientInterpolation` extends DEIM-style reduced integration to include
+  a reduced time-index set; `TransientRBFInterpolation`.
 
 - **Transient operators** (`ReducedOperators.jl`) — `TransientReducedOperator` adds
   time-stepping to the reduced operator interface.
@@ -128,14 +125,12 @@ include("Projections.jl")
 
 include("RBSpaces.jl")
 
-export TransientIntegrationDomain
-export KroneckerDomain
-export SequentialDomain
-export get_domain_style
+export TransientInterpolation
+export InterpolationStyle
+export KroneckerStyle
+export SequentialStyle
+export get_interpolation_style
 export get_indices_time
-include("IntegrationDomains.jl")
-
-export TransientGreedyInterpolation
 export TransientRBFInterpolation
 include("Interpolations.jl")
 
@@ -162,7 +157,5 @@ include("SpaceTime.jl")
 include("ParamTimeMarching.jl")
 
 include("PostProcess.jl")
-
-include("Extensions.jl")
 
 end

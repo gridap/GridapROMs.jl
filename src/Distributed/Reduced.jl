@@ -223,20 +223,20 @@ for (T,f) in zip((:TransientDEIMHyperReduction,:TransientSOPTHyperReduction),(:D
       (rows,indices_time),interp = $f(a)
       factor = lu(interp)
       gids = get_free_dof_ids(test)
-      style = TransientIntegrationDomainStyle(typeof(a))
+      style = InterpolationStyle(a)
       interps = map(
         local_views(trian),
         local_views(test),
         local_views(rows),
         local_views(gids)
         ) do trian,test,rows,gids
-        isnull(rows) && return EmptyInterpolation(style,rows,indices_time)
+        isnull(rows) && return EmptyInterpolation()
         lrows = _remap(rows,global_to_local(gids))
-        ldomain = IntegrationDomain(typeof(a),trian,test,lrows,indices_time)
+        ldomain = IntegrationDomain(trian,test,lrows)
         grows = _remap(lrows,local_to_global(gids))
-        domain_space = GenericDomain(get_integration_cells(ldomain),get_cell_idofs(ldomain),grows)
-        domain = TransientIntegrationDomain(style,domain_space,indices_time)
-        GreedyInterpolation(factor,domain)
+        domain = GenericDomain(get_integration_cells(ldomain),get_cell_idofs(ldomain),grows)
+        gi = GreedyInterpolation(factor,domain)
+        TransientInterpolation(style,gi,indices_time)
       end
       DistributedInterpolation(interps)
     end
@@ -246,7 +246,7 @@ for (T,f) in zip((:TransientDEIMHyperReduction,:TransientSOPTHyperReduction),(:D
       factor = lu(interp)
       cgids = get_free_dof_ids(trial)
       rgids = get_free_dof_ids(test)
-      style = TransientIntegrationDomainStyle(typeof(a))
+      style = InterpolationStyle(a)
       interps = map(
         local_views(trian),
         local_views(trial),
@@ -256,15 +256,15 @@ for (T,f) in zip((:TransientDEIMHyperReduction,:TransientSOPTHyperReduction),(:D
         local_views(rgids),
         local_views(cgids)
         ) do trian,trial,test,rows,cols,rgids,cgids
-        isnull(rows) && return EmptyInterpolation(style,(rows,cols),indices_time)
+        isnull(rows) && return EmptyInterpolation()
         lrows = _remap(rows,global_to_local(rgids))
         lcols = _remap(cols,global_to_local(cgids))
-        ldomain = IntegrationDomain(typeof(a),trian,trial,test,lrows,lcols,indices_time)
+        ldomain = IntegrationDomain(trian,trial,test,lrows,lcols)
         grows = _remap(lrows,local_to_global(rgids))
         gcols = _remap(lcols,local_to_global(cgids))
-        domain_space = GenericDomain(get_integration_cells(ldomain),get_cell_idofs(ldomain),(grows,gcols))
-        domain = TransientIntegrationDomain(style,domain_space,indices_time)
-        GreedyInterpolation(factor,domain)
+        domain = GenericDomain(get_integration_cells(ldomain),get_cell_idofs(ldomain),(grows,gcols))
+        gi = GreedyInterpolation(factor,domain)
+        TransientInterpolation(style,gi,indices_time)
       end
       DistributedInterpolation(interps)
     end
@@ -283,6 +283,12 @@ for f in (:get_integration_cells,:get_cell_idofs)
   end
 end
 
+function RBSteady.get_owned_icells(a::DistributedInterpolation,cells::AbstractVector)
+  map(local_views(a),local_views(cells)) do a,cells
+    get_owned_icells(a,cells)
+  end
+end
+
 function RBSteady.get_interpolation_dofs(a::DistributedInterpolation)
   _unpack(x) = x
   _unpack(x::AbstractArray{<:Tuple}) = tuple_of_arrays(x) 
@@ -292,13 +298,16 @@ function RBSteady.get_interpolation_dofs(a::DistributedInterpolation)
   _unpack(dofs)
 end
 
-for f in (:get_domain_style,:get_indices_time)
+for f in (:get_interpolation_style,:get_indices_time)
   @eval RBTransient.$f(a::DistributedInterpolation) = $f(getany(a.interps))
 end
 
 for f in (:get_itimes,:get_locations)
   @eval RBTransient.$f(a::DistributedInterpolation,ids) = $f(getany(a.interps),ids)
 end
+
+RBTransient.get_locations(a::DistributedInterpolation,ids::Range1D) = get_locations(a,ids.parent)
+RBTransient.get_locations(a::DistributedInterpolation,ids::Range2D) = get_locations(getany(a.interps),ids)
 
 function FESpaces.interpolate!(
   cache::AbstractArray{<:AbstractArray},
@@ -481,7 +490,67 @@ function RBSteady.collect_cell_hr_vector(
   (cell_vec_r,cell_idofs,icells)
 end
 
-# norm utils 
+const DArray = Union{MPIArray,DebugArray}
+
+function RBSteady.assemble_hr_array_add!(
+  A::DArray,
+  _cellvals::DArray,
+  celldofs::DArray,
+  icells::DArray
+  )
+
+  map(A,_cellvals,celldofs,icells) do A,_cellvals,celldofs,icells
+    assemble_hr_array_add!(A,_cellvals,celldofs,icells)
+  end
+end
+
+function RBSteady.assemble_hr_array_add!(
+  A::AbstractArray{<:DArray},
+  _cellvals::DArray,
+  celldofs::AbstractArray{<:DArray},
+  icells::AbstractArray{<:DArray}
+  )
+
+  Aloc = map((vals...) -> collect(vals),A...)
+  dloc = map((vals...) -> collect(vals),celldofs...)
+  iloc = map((vals...) -> collect(vals),icells...)
+  map(Aloc,_cellvals,dloc,iloc) do A,_cellvals,celldofs,icells
+    assemble_hr_array_add!(A,_cellvals,celldofs,icells)
+  end
+end
+
+function RBSteady.assemble_hr_array_add!(
+  A::DArray,
+  _cellvals::DArray,
+  celldofs::DArray,
+  icells::DArray,
+  locations,
+  style::InterpolationStyle
+  )
+
+  map(A,_cellvals,celldofs,icells) do A,_cellvals,celldofs,icells
+    assemble_hr_array_add!(A,_cellvals,celldofs,icells,locations,style)
+  end
+end
+
+function RBSteady.assemble_hr_array_add!(
+  A::AbstractArray{<:DArray},
+  _cellvals::DArray,
+  celldofs::AbstractArray{<:DArray},
+  icells::AbstractArray{<:DArray},
+  locations::AbstractArray,
+  style::InterpolationStyle
+  )
+
+  Aloc = map((vals...) -> collect(vals),A...)
+  dloc = map((vals...) -> collect(vals),celldofs...)
+  iloc = map((vals...) -> collect(vals),icells...)
+  map(Aloc,_cellvals,dloc,iloc) do A,_cellvals,celldofs,icells
+    assemble_hr_array_add!(A,_cellvals,celldofs,icells,locations,style)
+  end
+end
+
+# norm utils
 
 for T in (:GenericPMatrix,:GenericPArray,:DistributedSnapshots)
   @eval begin

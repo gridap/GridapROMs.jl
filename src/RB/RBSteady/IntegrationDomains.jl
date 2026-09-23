@@ -167,7 +167,6 @@ Type representing the set of interpolation DOFs of a `Projection` subjected
 to a EIM approximation.
 Subtypes:
 - [`GenericDomain`](@ref)
-- [`TransientIntegrationDomain`](@ref)
 """
 abstract type IntegrationDomain end
 

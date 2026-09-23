@@ -1,8 +1,8 @@
-function get_domain_style(a::LocalInterpolation)
+function get_interpolation_style(a::LocalInterpolation)
   vals = local_vals(a)
-  isempty(vals) && return KroneckerDomain()
-  style = get_domain_style(vals[1])
-  @check all(get_domain_style(v) == style for v in vals)
+  isempty(vals) && return KroneckerStyle()
+  style = get_interpolation_style(vals[1])
+  @check all(get_interpolation_style(v) == style for v in vals)
   style
 end
 

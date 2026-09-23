@@ -83,7 +83,7 @@ import GridapDistributed: BlockPMatrix,BlockPVector,BlockPArray,DistributedFESpa
 import GridapROMs.DofMaps: range_2d,range_1d
 import GridapROMs.ParamAlgebra: ParamBuilder,ParamCounter
 import GridapROMs.RBSteady: SNAPSHOTS_LABEL,PROJECTION_LABEL,findrow,get_at_domain,get_l2_form,get_h1_form,get_div_coupling_form,get_form,l2_norm,h1_norm,div_coupling,_assemble_operator,_unwrap,_meas,_energy_mortar,_coupling_mortar,select_rank,_truncate_row!,_get_label
-import GridapROMs.RBTransient: TransientIntegrationDomainStyle,get_itimes,get_locations
+import GridapROMs.RBTransient: InterpolationStyle,KroneckerStyle,SequentialStyle,get_itimes,get_locations,get_interpolation_style
 import MPI
 import PartitionedArrays: SubSparseMatrix,VectorAssemblyCache,length_to_ptrs!,rewind_ptrs!,getany
 

@@ -1,7 +1,7 @@
 get_indices_time(a::Interpolation) = Int[]
 get_itimes(a::Interpolation,ids::AbstractVector) = Int[]
 get_locations(a::Interpolation,ids::Range2D) = range_2d(ids.axis1,Int[])
-get_domain_style(a::Interpolation) = KroneckerDomain()
+get_interpolation_style(a::Interpolation) = KroneckerStyle()
 get_itimes(a::Interpolation,ids::Range1D) = error("should not be here")
 get_locations(a::Interpolation,ids::Range1D) = get_locations(a,ids.parent)
 
@@ -16,28 +16,58 @@ function RBSteady.Interpolation(red::TransientNoHyperReduction,trian,args...)
   FullInterpolation(cells)
 end
 
-struct TransientEmptyInterpolation{A,B,C} <: Interpolation
+abstract type InterpolationStyle end
+struct KroneckerStyle <: InterpolationStyle end
+struct SequentialStyle <: InterpolationStyle end
+
+InterpolationStyle(x) = InterpolationStyle(typeof(x))
+InterpolationStyle(::Type{T}) where T = @abstractmethod
+InterpolationStyle(::Type{<:KroneckerProjection}) = KroneckerStyle()
+InterpolationStyle(::Type{<:SequentialProjection}) = SequentialStyle()
+
+struct TransientInterpolation{A,B,C} <: Interpolation
   style::A
-  dofs::B
+  interp_space::B
   indices_time::C
 end
 
-function RBSteady.EmptyInterpolation(
-  style::TransientIntegrationDomainStyle,
-  dofs::Union{AbstractVector,Tuple},
-  indices_time::AbstractVector
-  )
+RBSteady.get_integration_cells(a::TransientInterpolation) = get_integration_cells(a.interp_space)
+RBSteady.get_cell_idofs(a::TransientInterpolation) = get_cell_idofs(a.interp_space)
+RBSteady.get_owned_icells(a::TransientInterpolation) = get_owned_icells(a.interp_space)
+RBSteady.get_interpolation_dofs(a::TransientInterpolation) = get_interpolation_dofs(a.interp_space)
 
-  TransientEmptyInterpolation(style,dofs,indices_time)
+get_interpolation_style(a::TransientInterpolation) = a.style
+get_indices_time(a::TransientInterpolation) = a.indices_time
+
+function get_itimes(i::TransientInterpolation,ids::AbstractVector)::Vector{Int}
+  idsi = get_indices_time(i)
+  filter(!isnothing,indexin(idsi,ids))
 end
 
-RBSteady.get_interpolation_dofs(a::TransientEmptyInterpolation) = a.dofs
-get_indices_time(a::TransientEmptyInterpolation) = a.indices_time
-get_domain_style(a::TransientEmptyInterpolation) = a.style
+function get_itimes(i::TransientInterpolation,ids::Range2D)::Vector{Int}
+  idsi = get_indices_time(i)
+  filter(!isnothing,indexin(idsi,ids))
+end
+
+function get_locations(a::TransientInterpolation{KroneckerStyle},ids::Range2D)
+  common_param_ids = ids.axis1
+  common_time_ids = ids.axis2
+  local_itime_ids = get_itimes(a,common_time_ids)
+  locations = range_2d(common_param_ids,local_itime_ids,length(common_param_ids))
+  return locations
+end
+
+function get_locations(a::TransientInterpolation{SequentialStyle},ids::Range2D)
+  dofs = get_interpolation_dofs(a)
+  slocations = get_iudof_to_idof(dofs)
+  common_param_ids = ids.axis1
+  common_time_ids = ids.axis2
+  local_itime_ids = get_itimes(a,common_time_ids)
+  tlocations = range_2d(common_param_ids,local_itime_ids,length(common_param_ids))
+  return (slocations,tlocations)
+end
 
 # EIM interpolation
-
-const TransientGreedyInterpolation{A,B<:TransientIntegrationDomain} = GreedyInterpolation{A,B}
 
 for (T,f) in zip((:TransientDEIMHyperReduction,:TransientSOPTHyperReduction),(:DEIM,:SOPT))
   @eval begin
@@ -47,42 +77,23 @@ for (T,f) in zip((:TransientDEIMHyperReduction,:TransientSOPTHyperReduction),(:D
     end
 
     function RBSteady.GreedyInterpolation(red::$T,a::TransientProjection,trian,test)
+      style = InterpolationStyle(a)
       (rows,indices_time),interp = $f(a)
       factor = lu(interp)
-      domain = IntegrationDomain(typeof(a),trian,test,rows,indices_time)
-      GreedyInterpolation(factor,domain)
+      domain = IntegrationDomain(trian,test,rows)
+      interp = GreedyInterpolation(factor,domain)
+      TransientInterpolation(style,interp,indices_time)
     end
 
     function RBSteady.GreedyInterpolation(red::$T,a::TransientProjection,trian,trial,test)
+      style = InterpolationStyle(a)
       ((rows,cols),indices_time),interp = $f(a)
       factor = lu(interp)
-      domain = IntegrationDomain(typeof(a),trian,trial,test,rows,cols,indices_time)
-      GreedyInterpolation(factor,domain)
+      domain = IntegrationDomain(trian,trial,test,rows,cols)
+      interp = GreedyInterpolation(factor,domain)
+      TransientInterpolation(style,interp,indices_time)
     end
   end
-end
-
-get_domain_style(a::TransientGreedyInterpolation) = get_domain_style(a.domain)
-get_indices_time(a::TransientGreedyInterpolation) = get_indices_time(a.domain)
-get_itimes(a::TransientGreedyInterpolation,ids::Union{Vector,Range2D}) = get_itimes(a.domain,ids)
-get_locations(a::TransientGreedyInterpolation,ids::Vector) = get_locations(a.domain,ids)
-
-function get_locations(a::TransientGreedyInterpolation{A,<:KroneckerIntegrationDomain},ids::Range2D) where A
-  common_param_ids = ids.axis1
-  common_time_ids = ids.axis2
-  local_itime_ids = get_itimes(a,common_time_ids)
-  locations = range_2d(common_param_ids,local_itime_ids,length(common_param_ids))
-  return locations
-end
-
-function get_locations(a::TransientGreedyInterpolation{A,<:SequentialIntegrationDomain},ids::Range2D) where A
-  dofs = get_interpolation_dofs(a)
-  slocations = get_iudof_to_idof(dofs)
-  common_param_ids = ids.axis1
-  common_time_ids = ids.axis2
-  local_itime_ids = get_itimes(a,common_time_ids)
-  tlocations = range_2d(common_param_ids,local_itime_ids,length(common_param_ids))
-  return (slocations,tlocations)
 end
 
 # RBF interpolation
@@ -113,29 +124,11 @@ for (T,f) in zip(
   end
 end
 
-# multi field
-
-function get_domain_style(a::BlockInterpolation)
-  get_domain_style(first(a.interp))
-end
-
-function get_indices_time(a::BlockInterpolation{N}) where N
-  map(get_indices_time,a.interp)
-end
-
-function get_itimes(a::BlockInterpolation{N},ids::Union{Vector,Range2D}) where N
-  map(itp -> get_itimes(itp,ids),a.interp)
-end
-
-function get_locations(a::BlockInterpolation{N},ids::Range2D) where N
-  map(itp -> get_locations(itp,ids),a.interp)
-end
-
 function RBSteady.get_at_domain(s::TransientSnapshots,i::Interpolation)
   dofs = get_interpolation_dofs(i)
   indices_time = get_indices_time(i)
-  style = get_domain_style(i)
-  if style isa KroneckerDomain
+  style = get_interpolation_style(i)
+  if style isa KroneckerStyle
     get_at_kron_domain(s,dofs,indices_time)
   else
     get_at_seq_domain(s,dofs,indices_time)
@@ -189,4 +182,103 @@ for f in (:get_at_kron_domain,:get_at_seq_domain)
       $f(s,inds,indices_time)
     end
   end
+end
+
+# iurow_to_irow[id of a unique row] = ids of the entries of that row
+# e.g. get_iurow_to_irow([1,10,100,10]) = [[1],[2,4],[3],[2,4]]
+function get_iurow_to_irow(rows::AbstractVector)
+  isempty(rows) && return Table(Int32[],Int32[1])
+  rows_to_count = zeros(Int32,maximum(rows))
+  for row in rows
+    rows_to_count[row] += 1
+  end
+
+  ptrs = Vector{Int32}(undef,length(rows)+1)
+  for (irow,row) in enumerate(rows)
+    ptrs[irow+1] = rows_to_count[row]
+  end
+  length_to_ptrs!(ptrs)
+
+  data = Vector{Int32}(undef,ptrs[end]-1)
+  for (irow,row) in enumerate(rows)
+    pini = ptrs[irow]
+    count = 0
+    for (jrow,_row) in enumerate(rows)
+      if _row == row
+        count += 1
+        data[pini+count-1] = jrow
+      end
+    end
+  end
+
+  return Table(data,ptrs)
+end
+
+function get_iurowcol_to_irowcol(
+  rows::AbstractVector,
+  cols::AbstractVector,
+  nrows::Int=(isempty(rows) ? 0 : maximum(rows))
+  )
+
+  @assert length(rows) == length(cols)
+  isempty(rows) && return Table(Int32[],Int32[1])
+
+  rowcols_to_count = zeros(Int32,maximum(rows)+nrows*(maximum(cols)-1))
+  for (row,col) in zip(rows,cols)
+    rowcols_to_count[row+nrows*(col-1)] += 1
+  end
+
+  ptrs = Vector{Int32}(undef,length(rows)+1)
+  for (irowcol,rowcol) in enumerate(zip(rows,cols))
+    row,col = rowcol
+    ptrs[irowcol+1] = rowcols_to_count[row+nrows*(col-1)]
+  end
+  length_to_ptrs!(ptrs)
+
+  data = Vector{Int32}(undef,ptrs[end]-1)
+  for (irowcols,rowcols) in enumerate(zip(rows,cols))
+    row,col = rowcols
+    pini = ptrs[irowcols]
+    count = 0
+    for (jrowcols,_rowcols) in enumerate(zip(rows,cols))
+      _row,_col = _rowcols
+      if _row == row && _col == col
+        count += 1
+        data[pini+count-1] = jrowcols
+      end
+    end
+  end
+
+  return Table(data,ptrs)
+end
+
+function get_iudof_to_idof(rows::AbstractVector)
+  get_iurow_to_irow(rows)
+end
+
+function get_iudof_to_idof(rowcols::Tuple{<:AbstractVector,<:AbstractVector})
+  rows,cols = rowcols
+  get_iurowcol_to_irowcol(rows,cols)
+end
+
+# multi field
+
+function get_interpolation_style(a::BlockInterpolation)
+  get_interpolation_style(first(a.interp))
+end
+
+function get_indices_time(a::BlockInterpolation{N}) where N
+  map(get_indices_time,a.interp)
+end
+
+function get_itimes(a::BlockInterpolation{N},ids::Vector) where N
+  map(itp -> get_itimes(itp,ids),a.interp)
+end
+
+function get_itimes(a::BlockInterpolation{N},ids::Range2D) where N
+  map(itp -> get_itimes(itp,ids),a.interp)
+end
+
+function get_locations(a::BlockInterpolation{N},ids::Range2D) where N
+  map(itp -> get_locations(itp,ids),a.interp)
 end
