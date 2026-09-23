@@ -1,17 +1,3 @@
-function ParamDataStructures.get_all_data(a::PVector)
-  vector_partition = map(a.vector_partition) do values
-    get_all_data(values)
-  end
-  GenericPArray(vector_partition,a.index_partition)
-end
-
-function ParamDataStructures.get_all_data(a::PSparseMatrix)
-  matrix_partition = map(a.matrix_partition) do values
-    get_all_data(values)
-  end
-  GenericPArray(matrix_partition,flat_row_partition(a))
-end
-
 """
     struct GenericPArray{V,A,B,C,D,T,N} <: AbstractArray{T,N}
       array_partition::A

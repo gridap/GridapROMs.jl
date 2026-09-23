@@ -59,6 +59,27 @@ function ParamDataStructures.parameterise(a::BlockPArray,plength::Integer)
   BlockPArray(b,a.axes)
 end
 
+function ParamDataStructures.get_all_data(a::PVector)
+  vector_partition = map(a.vector_partition) do values
+    get_all_data(values)
+  end
+  GenericPArray(vector_partition,a.index_partition)
+end
+
+function ParamDataStructures.get_all_data(a::PSparseMatrix)
+  matrix_partition = map(a.matrix_partition) do values
+    get_all_data(values)
+  end
+  GenericPArray(matrix_partition,flat_row_partition(a))
+end
+
+function ParamDataStructures.get_all_data(a::BlockPArray)
+  b = map(blocks(a)) do a
+    get_all_data(a)
+  end
+  BlockPArray(b,a.axes)
+end
+
 function ParamDataStructures.get_param_entry(a::PVector,i...)
   vector_partition = map(a.vector_partition) do values
     get_param_entry(values,i...)

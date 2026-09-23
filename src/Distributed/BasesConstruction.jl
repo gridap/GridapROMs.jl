@@ -1,31 +1,30 @@
-for T in (:GenericPMatrix,:DistributedSnapshots)
-  @eval begin
-    function RBSteady.tpod(red_style::ReductionStyle,A::$T)
-      _method_of_snapshots_row(red_style,A,A'*A)
-    end
-
-    function RBSteady.tpod(red_style::ReductionStyle,A::$T,X::PSparseMatrix)
-      _method_of_snapshots_row(red_style,A,A'*(X*A))
-    end
-  end
-end
-
 function RBSteady.gram_solver(X::PSparseMatrix)
   solver = CGSolver(JacobiLinearSolver();maxiter=100,atol=1e-14,rtol=1e-10)
   ss = symbolic_setup(solver,X)
   numerical_setup(ss,X)
 end
 
-function LinearAlgebra.ldiv!(S::GenericPMatrix,ns::NumericalSetup,A::GenericPMatrix)
-  for i in param_eachindex(S)
-    Si = param_getindex(S,i)
-    Ai = param_getindex(A,i)
+function LinearAlgebra.ldiv!(S::GenericPMatrix,ns::LinearSolvers.CGNumericalSetup,A::GenericPMatrix)
+  mat = _get_matrix(ns)
+  if !PartitionedArrays.matching_ghost_indices(axes(S,1),axes(mat,2))
+    S = _change_layout(S,partition(axes(mat,2)))
+  end
+  if !PartitionedArrays.matching_ghost_indices(axes(mat,2),axes(A,1))
+    A = _change_layout(A,partition(axes(mat,2)))
+  end
+  consistent!(A) |> wait
+  map(own_values(S)) do so
+    fill!(so,zero(eltype(so)))
+  end
+  for i in axes(A,2)
+    Si = _get_column(S,i)
+    Ai = _get_column(A,i)
     solve!(Si,ns,Ai)
   end
 end
 
 function RBSteady.gram_schmidt(A::AbstractMatrix,ns::NumericalSetup;tol=1e-10)
-  Q,R, = weighted_qr!(A,ns.mat;kwargs...)
+  Q,R, = weighted_qr!(A,_get_matrix(ns))
   rank = something(findlast(abs.(diag(R)) .> tol),0)
   Qr = RBSteady._truncate_col!(Q,rank)
   return Qr
@@ -148,13 +147,11 @@ end
 
 # utils 
 
-function _method_of_snapshots_row(red_style::ReductionStyle,A,AA)
-  _,Sr,Vr = RBSteady.truncated_svd(red_style,AA;issquare=true)
-  Ur = _weighted_mul(A,Vr,Sr)
-  return Ur,Sr,Vr
+function RBSteady._is_rectangular(A::Union{GenericPMatrix,DistributedSnapshots};kwargs...)
+  true
 end
 
-function _weighted_mul(A,V,S)
+function RBSteady._weighted_mul_row(A::Union{GenericPMatrix,DistributedSnapshots},V,S)
   Ta = eltype(A)
   Tv = eltype(V)
   T = typeof(zero(Ta)*zero(Tv)+zero(Ta)*zero(Tv))
@@ -174,6 +171,16 @@ function RBSteady._truncate_col!(A::GenericPMatrix,rank)
     RBSteady._truncate_col!(A,rank)
   end
   GenericPArray(values,partition(axes(A,1)))
+end
+
+_get_matrix(ns) = @abstractmethod
+_get_matrix(ns::LinearSolvers.CGNumericalSetup) = ns.mat
+
+function _get_column(A::GenericPMatrix,i::Integer)
+  vals,cache = map(A.array_partition,A.cache) do values,cache
+    view(values,:,i),param_getindex(cache,i)
+  end |> tuple_of_arrays
+  PVector(vals,A.index_partition,cache)
 end
 
 function _get_Q(A::GenericPMatrix,τ,m,n)

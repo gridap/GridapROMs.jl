@@ -122,6 +122,7 @@ function Arrays.evaluate!(cache,k::CellsToIrowsMap,icell::Int)
 end
 
 function get_cells_to_irows(cell_row_ids,cells,rows)
+  isempty(cells) && return Vector{Int32}[]
   k = CellsToIrowsMap(cell_row_ids,cells,rows)
   lazy_map(k,1:length(cells))
 end
@@ -154,6 +155,7 @@ function Arrays.evaluate!(cache,k::CellsToIrowcolsMap,icell::Int)
 end
 
 function get_cells_to_irowcols(cell_row_ids,cell_col_ids,cells,rows,cols)
+  isempty(cells) && return Vector{Int32}[]
   k = CellsToIrowcolsMap(cell_row_ids,cell_col_ids,cells,rows,cols)
   lazy_map(k,1:length(cells))
 end

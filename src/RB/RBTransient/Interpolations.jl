@@ -31,6 +31,10 @@ function RBSteady.EmptyInterpolation(
   TransientEmptyInterpolation(style,dofs,indices_time)
 end
 
+RBSteady.get_interpolation_dofs(a::TransientEmptyInterpolation) = a.dofs
+get_indices_time(a::TransientEmptyInterpolation) = a.indices_time
+get_domain_style(a::TransientEmptyInterpolation) = a.style
+
 # EIM interpolation
 
 const TransientGreedyInterpolation{A,B<:TransientIntegrationDomain} = GreedyInterpolation{A,B}

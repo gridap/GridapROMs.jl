@@ -207,11 +207,11 @@ function select_times(s::TransientBlockSnapshots,tindex)
 end
 
 function Snapshots(
-  data::BlockParamArray{T,N},
+  data::BlockParamArray,
   data0::Tuple{Vararg{BlockParamArray}},
   i::AbstractArray{<:AbstractDofMap},
   r::TransientRealisation
-  ) where {T,N}
+  )
 
   block_values = blocks(data)
   s = size(block_values)
@@ -225,17 +225,17 @@ function Snapshots(
 end
 
 function Snapshots(
-  data::AbstractParamArray{T,N},
+  data::AbstractParamArray,
   data0::Tuple{Vararg{AbstractParamArray}},
   i::AbstractArray{<:AbstractDofMap},
   r::TransientRealisation
-  ) where {T,N}
+  )
 
   s = size(i)
   ids = offset_indices(i)
   array = map(eachindex(i)) do j
     dataj = get_param_entry(data,ids[j]...)
-    data0j = map(d0 -> blocks(d0)[j],data0)
+    data0j = map(d0 -> get_param_entry(d0,ids[j]...),data0)
     Snapshots(dataj,data0j,i[j],r)
   end
   stored_data = StoredParamData(data,data0)

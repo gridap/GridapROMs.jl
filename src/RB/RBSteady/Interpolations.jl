@@ -61,15 +61,6 @@ struct GreedyInterpolation{A,B<:IntegrationDomain} <: Interpolation
   domain::B
 end
 
-# function _robust_lu(A::AbstractMatrix)
-#   try
-#     lu(A)
-#   catch e
-#     e isa SingularException || rethrow()
-#     qr(A,ColumnNorm())
-#   end
-# end
-
 for (T,f) in zip((:DEIMHyperReduction,:SOPTHyperReduction),(:DEIM,:SOPT))
   @eval begin
     function Interpolation(red::$T,a::Projection,args...)

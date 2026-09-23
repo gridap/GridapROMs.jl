@@ -207,7 +207,7 @@ function DofMaps.sparsify_split_indices(frows::AbstractArray,fcols::AbstractArra
   return sids
 end
 
-# utils 
+# utils
 
 function _remap!(x,x_to_y)
   for (i,xi) in enumerate(x)

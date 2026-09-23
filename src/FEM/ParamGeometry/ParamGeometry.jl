@@ -48,13 +48,4 @@ export ParamUnstructuredGrid
 export mapped_grid
 include("ParamGrids.jl")
 
-# `ParamSubCellData`/`ParamSubFacetData` (cut-cell geometry from GridapEmbedded's
-# `LevelSetCutters`) live in the `GridapROMsEmbeddedExt` package extension, not
-# here - GridapEmbedded is a weak dependency (see Project.toml) since merely
-# loading it alongside GridapDistributed triggers a severe Julia compiler stall
-# on any distributed `TestFESpace` construction, unrelated to GridapROMs' own
-# code (confirmed with a plain `Gridap+GridapDistributed+GridapEmbedded` repro).
-# They become available as `Base.get_extension(GridapROMs,:GridapROMsEmbeddedExt)`
-# members once the user's own script also does `using GridapEmbedded`.
-
 end

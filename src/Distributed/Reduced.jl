@@ -200,8 +200,8 @@ for (T,f) in zip((:DEIMHyperReduction,:SOPTHyperReduction),(:DEIM,:SOPT))
         local_views(test),
         local_views(rows),
         local_views(cols),
-        local_views(cgids),
-        local_views(rgids)
+        local_views(rgids),
+        local_views(cgids)
         ) do trian,trial,test,rows,cols,rgids,cgids
         isnull(rows) && return EmptyInterpolation((rows,cols))
         lrows = _remap(rows,global_to_local(rgids))
@@ -253,8 +253,8 @@ for (T,f) in zip((:TransientDEIMHyperReduction,:TransientSOPTHyperReduction),(:D
         local_views(test),
         local_views(rows),
         local_views(cols),
-        local_views(cgids),
-        local_views(rgids)
+        local_views(rgids),
+        local_views(cgids)
         ) do trian,trial,test,rows,cols,rgids,cgids
         isnull(rows) && return EmptyInterpolation(style,(rows,cols),indices_time)
         lrows = _remap(rows,global_to_local(rgids))

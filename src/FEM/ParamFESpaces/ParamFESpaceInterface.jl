@@ -468,10 +468,6 @@ function FESpaces._setup_mdof_to_val!(
 
 end
 
-# the AgFEM._setup_agfem_constraints override (for aggregated FE spaces on cut
-# meshes) lives in the GridapROMsEmbeddedExt package extension - see the note
-# in FEM/ParamGeometry/ParamGeometry.jl for why GridapEmbedded is a weak dep.
-
 # utils
 
 function zero_free_and_dirichlet_values(f::SingleFieldFESpace)

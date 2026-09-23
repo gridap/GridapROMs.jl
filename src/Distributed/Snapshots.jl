@@ -135,10 +135,10 @@ const DistributedBlockSnapshots{S<:DistributedSnapshots,N,B} = BlockSnapshots{S,
 const DistributedTransientBlockSnapshots{N} = DistributedBlockSnapshots{<:Any,N,<:StoredParamData}
 
 function ParamDataStructures.Snapshots(
-  data::BlockPArray{V,T,N},
+  data::BlockPArray,
   i::AbstractArray{<:AbstractArray{<:AbstractDofMap}},
   r::AbstractRealisation
-  ) where {V,T,N}
+  )
 
   block_values = blocks(data)
   array = map(enumerate(block_values)) do (j,dataj)
@@ -163,11 +163,11 @@ function ParamDataStructures.Snapshots(
 end
 
 function ParamDataStructures.Snapshots(
-  data::BlockPArray{V,T,N},
-  data0::BlockPArray,
+  data::BlockPArray,
+  data0::Tuple{Vararg{BlockPArray}},
   i::AbstractArray{<:AbstractArray{<:AbstractDofMap}},
   r::TransientRealisation
-  ) where {V,T,N}
+  )
 
   block_values = blocks(data)
   s = size(block_values)

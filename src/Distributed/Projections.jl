@@ -43,6 +43,17 @@ for f in (:project!,:inv_project!)
         $f(blocks(y)[i],a[i],blocks(x)[i])
       end
     end
+
+    function RBSteady.$f(
+      y::BlockPArray,
+      a::BlockProjection,
+      x::Union{BlockArray,BlockParamArray}
+      )
+
+      for i in eachindex(a)
+        $f(blocks(y)[i],a[i],blocks(x)[i])
+      end
+    end
   end
 end
 
