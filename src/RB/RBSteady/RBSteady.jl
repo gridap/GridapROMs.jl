@@ -168,6 +168,7 @@ export RBSolver
 export GlobalRBSolver
 export LocalRBSolver
 export get_fe_solver
+export get_reduced_solver
 export solution_snapshots
 export residual_snapshots
 export jacobian_snapshots

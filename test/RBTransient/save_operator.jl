@@ -108,15 +108,16 @@ function main(
   save(dir,rbop)
 
   μon = realisation(feop;nparams=10,sampling=:uniform)
-  x̂,rbstats = solve(rbsolver,rbop,μon,xh0μ)
-  x,festats = solution_snapshots(rbsolver,feop,μon,xh0μ)
-  perf = eval_performance(rbsolver,rbop,x,x̂,festats,rbstats)
+  x̂ = solve(rbsolver,rbop,μon,xh0μ)
+  x, = solution_snapshots(rbsolver,feop,μon,xh0μ)
+  perf = rom_performance(rbsolver,rbop,x,x̂)
+  error = perf.error
 
   rbop_load = load_operator(dir,feop)
-  x̂_load, = solve(rbsolver,rbop_load,μon,xh0μ)
-  perf_load = eval_performance(rbsolver,rbop_load,x,x̂_load,festats,rbstats)
+  x̂_load = solve(rbsolver,rbop_load,μon,xh0μ)
+  perf_load = rom_performance(rbsolver,rbop_load,x,x̂_load)
 
-  @test all(perf_load.error .≈ perf.error)
+  @test all(perf_load.error .≈ error)
 end
 
 for method in (:pod,:ttsvd), compression in (:local,:global), hypred_strategy in (:deim,:sopt,:rbf,:none,:affine)

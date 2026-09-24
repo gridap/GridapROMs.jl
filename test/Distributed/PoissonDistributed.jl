@@ -73,7 +73,7 @@ function main(distribute,parts)
   trial = ParamTrialFESpace(test,gμ)
 
   fesolver = LUSolver()#PETScLinearSolver()
-  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy,verbose=i_am_main(ranks))
+  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy)
 
   feop = LinearParamOperator(res,stiffness,pspace,trial,test,domains)
   fesnaps, = solution_snapshots(rbsolver,feop)

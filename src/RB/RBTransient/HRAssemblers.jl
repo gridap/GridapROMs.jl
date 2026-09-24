@@ -30,7 +30,7 @@ struct AddTransientHREntriesMap{A<:InterpolationStyle,F,I} <: Map
   locations::I
 end
 
-function RBSteady.AddHREntriesMap(combine::Function,style::InterpolationStyle,locations)
+function RBSteady.AddHREntriesMap(combine::Function,locations,style::InterpolationStyle)
   AddTransientHREntriesMap(style,combine,locations)
 end
 
@@ -313,7 +313,7 @@ function RBSteady.assemble_hr_array_add!(
   @check size(celldofs) == size(icells) == size(locations) == size(A)
   for i in eachindex(celldofs)
     cellvalsi = fetch_block(cellvals,i)
-    assemble_hr_array_add!(A[i],cellvalsi,celldofs[i],locations[i],style)
+    assemble_hr_array_add!(A[i],cellvalsi,celldofs[i],icells[i],locations[i],style)
   end
   A
 end

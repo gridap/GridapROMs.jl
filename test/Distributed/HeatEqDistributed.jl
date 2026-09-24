@@ -86,7 +86,7 @@ function main(distribute,parts)
   uh0μ(μ) = interpolate_everywhere(u0μ(μ),trial(μ,t0))
 
   fesolver = ThetaMethod(LUSolver(),dt,θ)#PETScLinearSolver()
-  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jacs=(nparams_jac,nparams_jac),hypred_strategy,verbose=i_am_main(ranks))
+  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jacs=(nparams_jac,nparams_jac),hypred_strategy)
 
   feop = TransientLinearParamOperator(res,(stiffness,mass),ptspace,trial,test,domains)
   fesnaps, = solution_snapshots(rbsolver,feop,uh0μ)

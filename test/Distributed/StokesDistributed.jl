@@ -92,7 +92,7 @@ function build_rbsolver(Q,dΩ,ranks)
   prec = BlockTriangularSolver(blocks,[solver_u,solver_p])
   fesolver = FGMRESSolver(30,prec;rtol=1.e-6,verbose=false)
 
-  RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy,verbose=i_am_main(ranks))
+  RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy)
 end
 
 function build_spaces(Ω)
@@ -131,6 +131,17 @@ function main(distribute,parts)
 
   fesnaps, = solution_snapshots(rbsolver,feop)
   rbop = reduced_operator(rbsolver,feop,fesnaps)
+
+  if get(ENV,"GRIDAPROMS_DEBUG_STOKES","") == "1"
+    mkpath(joinpath(@__DIR__,"boh_diag"))
+    for (k,strian) in enumerate(RBSteady.get_domains_jac(rbop))
+      map(local_views(strian)) do t
+        open(joinpath(@__DIR__,"boh_diag","jactrian_debug_$(getpid()).log"),"a") do io
+          println(io,"trian_jac[",k,"] ncells=",num_cells(t)," cell_to_parent_cell=",t.cell_to_parent_cell)
+        end
+      end
+    end
+  end
 
   # velocity basis H1-orthogonality after supremizer enrichment
   μ = get_realisation(fesnaps)

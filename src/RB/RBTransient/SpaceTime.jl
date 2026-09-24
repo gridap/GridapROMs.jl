@@ -93,7 +93,7 @@ struct SpaceTimeSolver{A<:ODESolver,B<:NonlinearSolver} <: NonlinearSolver
 end
 
 function SpaceTimeSolver(solver::RBSolver,args...)
-  SpaceTimeSolver(get_fe_solver(solver),args...)
+  SpaceTimeSolver(get_reduced_solver(solver),args...)
 end
 
 ParamODEs.TimeCombination(s::SpaceTimeSolver) = TimeCombination(s.solver)

@@ -42,7 +42,7 @@ Fields:
   information across the offline (subspace, jacobian and residual
   hyper-reduction) and online (reduced solve) phases
 
-    RBSolver(fesolver,reduction::Reduction;nparams_res=20,nparams_jac=20,verbose=true,kwargs...)
+    RBSolver(fesolver,reduction::Reduction;nparams_res=20,nparams_jac=20,verbose=default_verbose(),kwargs...)
     RBSolver(fesolver,style::ReductionStyle,args...;nparams=100,kwargs...)
 
 The most convenient way to build a `RBSolver`: `reduction` (or `style`, from which
@@ -114,7 +114,7 @@ function RBSolver(
   reduction::Reduction;
   nparams_res=20,
   nparams_jac=20,
-  verbose=true,
+  verbose=default_verbose(),
   kwargs...
   )
 
@@ -141,6 +141,7 @@ end
 Returns the underlying `NonlinearSolver` from a [`RBSolver`](@ref) `s`
 """
 get_fe_solver(s::RBSolver) = s.fesolver
+get_reduced_solver(s::RBSolver) = LUSolver()
 get_state_reduction(s::RBSolver) = s.state_reduction
 get_residual_reduction(s::RBSolver) = s.residual_reduction
 get_jacobian_reduction(s::RBSolver) = s.jacobian_reduction
@@ -320,8 +321,8 @@ function Algebra.solve(solver::GlobalRBSolver,op::NonlinearOperator,r::Realisati
   nlop = parameterise(op,r)
   syscache = allocate_systemcache(nlop,x̂)
 
-  fesolver = get_fe_solver(solver)
-  t = @timed solve!(x̂,fesolver,nlop,syscache)
+  s = get_reduced_solver(solver)
+  t = @timed solve!(x̂,s,nlop,syscache)
   update_rom_tracker!(solver,t,nruns=num_params(r))
 
   inv_project!(x̂,trial)

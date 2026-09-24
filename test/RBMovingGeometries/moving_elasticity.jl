@@ -156,18 +156,18 @@ end
 
 get_feop = method==:ttsvd ? def_extended_fe_operator : def_fe_operator
 
-function local_solver(rbsolver,rbop,μ,x,festats)
+function local_solver(rbsolver,rbop,μ,x)
   gsolver = change_context(rbsolver)
   k, = get_clusters(rbop.test)
   μsplit = cluster(μ,k)
   xsplit = cluster(x,k)
-  perfs = ROMPerformance[]
+  perfs = RBPerformanceTracker[]
   for (μi,xi) in zip(μsplit,xsplit)
     feopi = get_feop(μi)
     rbopi = change_operator(get_local(rbop,first(μi)),feopi)
-    x̂,rbstats = solve(gsolver,rbopi,μi)
-    perf = eval_performance(rbsolver,rbopi,xi,x̂,festats,rbstats)
-    push!(perfs,perf)
+    x̂ = solve(gsolver,rbopi,μi)
+    perf = rom_performance(rbsolver,rbopi,xi,x̂)
+    push!(perfs,deepcopy(perf))
   end
   return RBSteady.mean(perfs)
 end
@@ -189,16 +189,16 @@ fesnaps, = solution_snapshots(rbsolver,feop,μ)
 
 μon = realisation(pspace;nparams=10,sampling=:uniform)
 feopon = get_feop(μon)
-x,festats = solution_snapshots(rbsolver,feopon,μon)
+x, = solution_snapshots(rbsolver,feopon,μon)
 
 rbop = reduced_operator(rbsolver,feop,fesnaps)
 
 if compression == :global
   rbop′ = change_operator(rbop,feopon)
-  x̂,rbstats = solve(rbsolver,rbop′,μon)
-  perf = eval_performance(rbsolver,rbop′,x,x̂,festats,rbstats)
+  x̂ = solve(rbsolver,rbop′,μon)
+  perf = rom_performance(rbsolver,rbop′,x,x̂)
 else
-  perf = local_solver(rbsolver,rbop,μon,x,festats)
+  perf = local_solver(rbsolver,rbop,μon,x)
 end
 
 println(perf)

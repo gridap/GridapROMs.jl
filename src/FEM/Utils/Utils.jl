@@ -38,6 +38,8 @@ export PerformanceTracker
 export CostTracker
 export OfflineCostTracker
 export RBPerformanceTracker
+export default_verbose
+export set_default_verbose!
 export Speedup
 export reset_tracker!
 export update_tracker!
@@ -62,8 +64,6 @@ export ∂₁, ∂₂, ∂₃
 include("PartialDerivatives.jl")
 
 export ChildTriangulation
-export ChildCellQuadrature
-export ChildMeasure
 export order_domains
 export change_triangulation
 include("ChildTriangulations.jl")

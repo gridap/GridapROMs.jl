@@ -159,7 +159,7 @@ function assemble_hr_array_add!(
   @check size(celldofs) == size(icells) == size(A)
   for i in eachindex(celldofs)
     cellvalsi = fetch_block(cellvals,i)
-    assemble_hr_array_add!(A[i],cellvalsi,celldofs[i])
+    assemble_hr_array_add!(A[i],cellvalsi,celldofs[i],icells[i])
   end
   A
 end
@@ -189,7 +189,10 @@ end
 
 # utils
 
-fetch_block(a::AbstractArray,i::Int) = lazy_map(FetchBlockMap(i),a)
+function fetch_block(a::AbstractArray,i::Int)
+  T = eltype(eltype(a))
+  lazy_map(FetchBlockMap(i),T,a)
+end
 
 struct FetchBlockMap <: Map
   blockid::Int

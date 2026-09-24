@@ -5,9 +5,22 @@ const DistributedRBSpace{S<:DistributedFESpace} = RBSpace{S}
 const DistributedSingleFieldRBSpace{S<:DistributedSingleFieldFESpace} = DistributedRBSpace{S}
 const DistributedMultiFieldRBSpace{S<:DistributedMultiFieldFESpace} = DistributedRBSpace{S}
 
-function GridapDistributed.local_views(r::DistributedRBSpace)
+function GridapDistributed.local_views(r::DistributedSingleFieldRBSpace)
   map(local_views(r.space),local_views(r.subspace)) do space,subspace
     RBSpace(space,subspace)
+  end
+end
+
+# `r.subspace` is a `BlockProjection` here, whose fields may have different
+# concrete types across blocks (e.g. one field null, one not); `local_views`
+# is deliberately not defined for `BlockProjection` itself (it is used in
+# both distributed and non-distributed contexts), so the per-field split and
+# per-rank recombination happens here instead, scoped to `DistributedRBSpace`
+function GridapDistributed.local_views(r::DistributedMultiFieldRBSpace)
+  subspace = get_reduced_subspace(r)
+  local_subspaces = map(local_views,subspace.array)
+  map(local_views(r.space),local_subspaces...) do space,fields...
+    RBSpace(space,BlockProjection(collect(fields)))
   end
 end
 
@@ -378,7 +391,7 @@ const DistributedHRProjection{
   A<:HyperReduction,
   B<:Projection,
   C<:Union{DistributedInterpolation,TransientDistributedInterpolation}
-} = GenericHRProjection{A,B,C}
+} = RBSteady.GenericHRProjection{A,B,C}
 
 function GridapDistributed.local_views(a::DistributedHRProjection)
   map(local_views(a.interpolation)) do interp
@@ -452,7 +465,7 @@ function RBSteady.collect_cell_hr_matrix(
 
   cell_idofs = get_cell_idofs(interp)
   icells = get_owned_icells(interp,strian)
-  cell_mat_rc = map(local_views(trial),local_views(test),local_views(a),local_views(strian),local_views(interp)) do trial,test,a,strian,interp
+  cell_mat_rc = map(local_views(trial),local_views(test),local_views(a),local_views(strian)) do trial,test,a,strian
     scell_mat = get_contribution(a,strian)
     cell_mat,trian = move_contributions(scell_mat,strian)
     @assert ndims(eltype(cell_mat)) == 2
@@ -471,7 +484,7 @@ function RBSteady.collect_cell_hr_vector(
 
   cell_idofs = get_cell_idofs(interp)
   icells = get_owned_icells(interp,strian)
-  cell_vec_r = map(local_views(test),local_views(a),local_views(strian),local_views(interp)) do test,a,strian,interp
+  cell_vec_r = map(local_views(test),local_views(a),local_views(strian)) do test,a,strian
     scell_vec = get_contribution(a,strian)
     cell_vec,trian = move_contributions(scell_vec,strian)
     @assert ndims(eltype(cell_vec)) == 1
