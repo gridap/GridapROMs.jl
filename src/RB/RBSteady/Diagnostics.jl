@@ -87,7 +87,7 @@ end
 
 function diagnostic_residual!(
   b::DiagnosticsContribution,
-  op::SplitReducedOperator,
+  op::SplitROMOperator,
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -172,7 +172,7 @@ end
 
 function diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::SplitReducedOperator,
+  op::SplitROMOperator,
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -309,7 +309,7 @@ named tuple:
 - `"rhs dim"` — `Vector{Tuple}`, one `K`-tuple per tolerance (one integer per
   triangulation)
 - `"lhs dim"` — same for the Jacobian contributions
-- For `LinearNonlinearReducedOperator`: `"lin_rhs dim"`, `"nlin_lhs dim"`, etc.
+- For `LinearNonlinearROMOperator`: `"lin_rhs dim"`, `"nlin_lhs dim"`, etc.
 
 **Online** keys:
 - `"projection_error"` — `Vector{Float64}`
@@ -377,7 +377,7 @@ function rom_diagnostics(
   RBDiagnostics(_to_dict(offline_entries),_to_dict(online_entries))
 end
 
-function offline_diagnostics(op::ReducedOperator)
+function offline_diagnostics(op::ROMOperator)
   (
     state=projection_diagnostics(get_trial(op)),
     rhs=hr_diagnostics(get_rhs(op)),
@@ -385,7 +385,7 @@ function offline_diagnostics(op::ReducedOperator)
   )
 end
 
-function offline_diagnostics(op::LinearNonlinearReducedOperator)
+function offline_diagnostics(op::LinearNonlinearROMOperator)
   op_lin = get_linear_operator(op)
   op_nlin = get_nonlinear_operator(op)
   (
@@ -458,7 +458,7 @@ the RB trial space of `op`.
 """
 function projection_error(
   solver::RBSolver,
-  op::ReducedOperator,
+  op::ROMOperator,
   s::AbstractSnapshots
   )
 
@@ -475,7 +475,7 @@ end
 
 function projection_error(
   solver::LocalRBSolver,
-  op::ReducedOperator,
+  op::ROMOperator,
   s::AbstractSnapshots
   )
 
@@ -507,7 +507,7 @@ For each triangulation in the HR contributions:
 Returns `(hr_error_res,hr_error_jac)` where each is a `Tuple` with one
 `Float64` per triangulation (mean relative error over parameters).
 """
-function hr_error(solver::GlobalRBSolver,op::ReducedOperator,res,jac,s)
+function hr_error(solver::GlobalRBSolver,op::ROMOperator,res,jac,s)
   μ = get_realisation(s)
   u = get_param_data(s)
   err_res = hr_error_res(op,res,μ,u)
@@ -515,7 +515,7 @@ function hr_error(solver::GlobalRBSolver,op::ReducedOperator,res,jac,s)
   return err_res,err_jac
 end
 
-function hr_error(solver::GlobalRBSolver,op::ReducedOperator{<:LinearParamEq},res,jac,s)
+function hr_error(solver::GlobalRBSolver,op::ROMOperator{<:LinearParamEq},res,jac,s)
   μ = get_realisation(s)
   u = get_param_data(s)|> similar
   fill!(u,zero(eltype2(u)))
@@ -524,7 +524,7 @@ function hr_error(solver::GlobalRBSolver,op::ReducedOperator{<:LinearParamEq},re
   return err_res,err_jac
 end
 
-function hr_error(solver::LocalRBSolver,op::ReducedOperator,res,jac,s)
+function hr_error(solver::LocalRBSolver,op::ROMOperator,res,jac,s)
   μ = get_realisation(s)
   gsolver = change_context(solver)
   err_res,err_jac = map(enumerate(get_params(μ))) do (i,μi)
@@ -538,7 +538,7 @@ function hr_error(solver::LocalRBSolver,op::ReducedOperator,res,jac,s)
 end
 
 for T in (:GlobalRBSolver, :LocalRBSolver)
-  @eval function hr_error(solver::$T,op::LinearNonlinearReducedOperator,res,jac,s)
+  @eval function hr_error(solver::$T,op::LinearNonlinearROMOperator,res,jac,s)
     res_lin,res_nlin = res
     jac_lin,jac_nlin = jac
     op_lin = get_linear_operator(op)
@@ -550,7 +550,7 @@ for T in (:GlobalRBSolver, :LocalRBSolver)
 end 
 
 function hr_error_res(
-  op::ReducedOperator,
+  op::ROMOperator,
   res::ArrayContribution,
   μ::AbstractRealisation,
   u
@@ -576,7 +576,7 @@ function hr_error_res(
 end
 
 function hr_error_jac(
-  op::ReducedOperator,
+  op::ROMOperator,
   jac::ArrayContribution,
   μ::AbstractRealisation,
   u

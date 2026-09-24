@@ -24,7 +24,7 @@ capture temporal as well as spatial structure.  Key extensions:
   `TransientInterpolation` extends DEIM-style reduced integration to include
   a reduced time-index set; `TransientRBFInterpolation`.
 
-- **Transient operators** (`ReducedOperators.jl`) — `TransientReducedOperator` adds
+- **Transient operators** (`ROMOperators.jl`) — `TransientROMOperator` adds
   time-stepping to the reduced operator interface.
 
 - **Time marching** (`ParamTimeMarching.jl`) — hooks into `ParamODEs` to drive
@@ -145,10 +145,10 @@ include("LocalProjections.jl")
 
 include("LocalHyperReductions.jl")
 
-export TransientReducedOperator
+export TransientROMOperator
 export TransientRBOperator
-export TransientLinearNonlinearReducedOperator
-include("ReducedOperators.jl")
+export TransientLinearNonlinearROMOperator
+include("RBOperators.jl")
 
 export SpaceTimeParamOperator
 export SpaceTimeSolver

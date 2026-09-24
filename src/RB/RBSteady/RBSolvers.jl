@@ -1,14 +1,17 @@
-abstract type RBSolverContext end
-struct GlobalContext <: RBSolverContext end
-struct LocalContext <: RBSolverContext end
+abstract type SolverContext end
+struct GlobalContext <: SolverContext end
+struct LocalContext <: SolverContext end
+
+abstract type ROMSolver <: GridapType end
 
 """
-    struct RBSolver{A,B,C,D,E} <: GridapType
+    struct RBSolver{A,B,C,D,E,F} <: ROMSolver
       fesolver::A
       context::B
       state_reduction::C
       residual_reduction::D
       jacobian_reduction::E
+      tracker::F
     end
 
 Wrapper around a FE solver (e.g. `NonlinearSolver` or `ODESolver` in [`Gridap`](@ref)) with
@@ -24,56 +27,86 @@ reduced order model where
 4. for every desired choice of parameters, numerical integration is performed, and
   the resulting n × n system of equations is cheaply solved
 
-In particular:
+Fields:
 
-- tol: tolerance used in the projection-based truncated proper orthogonal
-  decomposition (TPOD) or in the tensor train singular value decomposition (TT-SVD),
-  where a basis spanning the reduced subspace is computed; the value of tol is
-  responsible for selecting the dimension of the subspace, i.e. n = n(tol)
-- nparams_state: number of snapshots considered when running TPOD or TT-SVD
-- nparams_res: number of snapshots considered when running hyper-reduction for the residual
-- nparams_jac: number of snapshots considered when running hyper-reduction for the jacobian
-- nparams_test:  number of snapshots considered when computing the error the RB
-  method commits with respect to the FE procedure
+- `fesolver`: solver used to compute the full-order (FE) solutions/snapshots
+- `context`: either `GlobalContext` (a [`GlobalRBSolver`](@ref)) or `LocalContext`
+  (a [`LocalRBSolver`](@ref), used for cluster-local ROMs)
+- `state_reduction`: `Reduction` strategy compressing state snapshots into the
+  reduced subspace (e.g. `tol`/`nparams` for TPOD or TT-SVD live here)
+- `residual_reduction`, `jacobian_reduction`: `HyperReduction` strategies
+  hyper-reducing the residual/Jacobian, respectively; the number of snapshots
+  used to train each is set through the `nparams_res`/`nparams_jac` keywords
+  of the constructor below
+- `tracker`: a [`RBPerformanceTracker`](@ref) accumulating timing/memory/error
+  information across the offline (subspace, jacobian and residual
+  hyper-reduction) and online (reduced solve) phases
+
+    RBSolver(fesolver,reduction::Reduction;nparams_res=20,nparams_jac=20,verbose=true,kwargs...)
+    RBSolver(fesolver,style::ReductionStyle,args...;nparams=100,kwargs...)
+
+The most convenient way to build a `RBSolver`: `reduction` (or `style`, from which
+a `Reduction` is built using `nparams` snapshots) governs the state subspace,
+while `nparams_res`/`nparams_jac` set the number of snapshots used for hyper-reduction.
+`verbose` controls whether `solver.tracker` prints cost information as it is
+populated during the offline/online phases (through [`set_subspace_tracker!`](@ref),
+[`set_jacobian_tracker!`](@ref), [`set_residual_tracker!`](@ref) and
+[`update_rom_tracker!`](@ref)); the (relative) error of an online solve against a
+full-order reference is instead computed on demand with [`rom_performance`](@ref).
 """
-struct RBSolver{A,B,C,D,E} <: GridapType
+struct RBSolver{A,B,C,D,E,F} <: ROMSolver
   fesolver::A
   context::B
   state_reduction::C
   residual_reduction::D
   jacobian_reduction::E
+  tracker::F
+end
+
+function RBSolver(
+  fesolver,
+  context::SolverContext,
+  state_reduction,
+  residual_reduction,
+  jacobian_reduction;
+  tracker=RBPerformanceTracker()
+  )
+
+  RBSolver(fesolver,context,state_reduction,residual_reduction,jacobian_reduction,tracker)
 end
 
 const GlobalRBSolver{A,C,D,E} = RBSolver{A,GlobalContext,C,D,E}
 
-function GlobalRBSolver(fesolver,args...)
-  RBSolver(fesolver,GlobalContext(),args...)
+function GlobalRBSolver(fesolver,args...;kwargs...)
+  RBSolver(fesolver,GlobalContext(),args...;kwargs...)
 end
 
 function RBSolver(
   fesolver,
   state_reduction,
   residual_reduction,
-  jacobian_reduction
+  jacobian_reduction;
+  kwargs...
   )
-  
-  GlobalRBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
+
+  GlobalRBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction;kwargs...)
 end
 
 const LocalRBSolver{A,C,D,E} = RBSolver{A,LocalContext,C,D,E}
 
-function LocalRBSolver(fesolver,args...)
-  RBSolver(fesolver,LocalContext(),args...)
+function LocalRBSolver(fesolver,args...;kwargs...)
+  RBSolver(fesolver,LocalContext(),args...;kwargs...)
 end
 
 function RBSolver(
   fesolver,
   state_reduction::Union{LocalReduction,SupremizerReduction{A,B,<:LocalReduction} where {A,B}},
   residual_reduction,
-  jacobian_reduction
+  jacobian_reduction;
+  kwargs...
   )
-  
-  LocalRBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
+
+  LocalRBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction;kwargs...)
 end
 
 function RBSolver(
@@ -81,12 +114,13 @@ function RBSolver(
   reduction::Reduction;
   nparams_res=20,
   nparams_jac=20,
+  verbose=true,
   kwargs...
   )
 
   residual_reduction = HyperReduction(reduction;nparams=nparams_res,kwargs...)
   jacobian_reduction = HyperReduction(reduction;nparams=nparams_jac,kwargs...)
-  RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)
+  RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction;tracker=RBPerformanceTracker(;verbose))
 end
 
 function RBSolver(
@@ -127,6 +161,16 @@ end
 function change_context(s::LocalRBSolver)
   GlobalRBSolver(get_fe_solver(s),get_state_reduction(s),get_residual_reduction(s),get_jacobian_reduction(s))
 end
+
+for f in (:set_fom_tracker!,:set_rom_tracker!,:set_subspace_tracker!,:set_jacobian_tracker!,:set_residual_tracker!)
+  @eval begin
+    function Utils.$f(s::RBSolver,args...;kwargs...)
+      Utils.$f(s.tracker,args...;kwargs...)
+    end
+  end
+end
+
+update_rom_tracker!(s::RBSolver,args...;kwargs...) = set_rom_tracker!(s,args...;kwargs...)
 
 """
     solution_snapshots(solver::NonlinearSolver,feop::ParamOperator,r::Realisation) -> SteadySnapshots
@@ -269,12 +313,7 @@ end
 
 # solvers 
 
-function Algebra.solve(
-  solver::GlobalRBSolver,
-  op::NonlinearOperator,
-  r::Realisation
-  )
-
+function Algebra.solve(solver::GlobalRBSolver,op::NonlinearOperator,r::Realisation)
   trial = get_trial(op)(r)
   x̂ = zero_free_values(trial)
 
@@ -283,30 +322,23 @@ function Algebra.solve(
 
   fesolver = get_fe_solver(solver)
   t = @timed solve!(x̂,fesolver,nlop,syscache)
-  stats = CostTracker(t,nruns=num_params(r),name="RB")
+  update_rom_tracker!(solver,t,nruns=num_params(r))
 
   inv_project!(x̂,trial)
 
-  return x̂,stats
+  return x̂
 end
 
-function Algebra.solve(
-  solver::LocalRBSolver,
-  op::NonlinearOperator,
-  r::AbstractRealisation,
-  args...
-  )
-
+function Algebra.solve(solver::LocalRBSolver,op::NonlinearOperator,r::AbstractRealisation,args...)
   gsolver = change_context(solver)
   t = @timed x̂vec = map(get_params(r)) do _μ
     opμ = get_local(op,_μ)
     μ = to_realisation(r,_μ)
-    x̂, = solve(gsolver,opμ,μ,args...)
-    x̂
+    solve(gsolver,opμ,μ,args...)
   end
   x̂ = to_param_array(r,x̂vec)
-  stats = CostTracker(t,nruns=num_params(r),name="RB")
-  return (x̂,stats)
+  update_rom_tracker!(solver,t,nruns=num_params(r))
+  return x̂
 end
 
 to_realisation(r::Realisation,μ) = Realisation([μ])

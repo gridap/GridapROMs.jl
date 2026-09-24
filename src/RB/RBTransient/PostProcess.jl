@@ -33,9 +33,9 @@ function RBSteady.load_operator(dir,feop::LinearNonlinearODEParamOperator;label=
   red_lhs_lin = load_contribution(dir,get_domains_jac(feop_lin);label=_get_label(label,LINEAR_LABEL,LHS_LABEL))
   red_rhs_nlin = load_contribution(dir,get_domains_res(feop_nlin);label=_get_label(label,NONLINEAR_LABEL,RHS_LABEL))
   red_lhs_nlin = load_contribution(dir,get_domains_jac(feop_nlin);label=_get_label(label,NONLINEAR_LABEL,LHS_LABEL))
-  op_lin = ReducedOperator(feop_lin,trial,test,red_lhs_lin,red_rhs_lin)
-  op_nlin = ReducedOperator(feop_nlin,trial,test,red_lhs_nlin,red_rhs_nlin)
-  return LinearNonlinearReducedOperator(op_lin,op_nlin)
+  op_lin = ROMOperator(feop_lin,trial,test,red_lhs_lin,red_rhs_lin)
+  op_nlin = ROMOperator(feop_nlin,trial,test,red_lhs_nlin,red_rhs_nlin)
+  return LinearNonlinearROMOperator(op_lin,op_nlin)
 end
 
 include("Diagnostics.jl")

@@ -15,7 +15,7 @@ import Gridap.FESpaces: get_trial
 import Gridap.Helpers: @abstractmethod
 import GridapROMs.ParamFESpaces: UnEvalTrialFESpace
 import GridapROMs.ParamSteady: get_fe_operator
-import GridapROMs.RBSteady: get_state_reduction,get_residual_reduction,get_jacobian_reduction,get_error,_fe_data
+import GridapROMs.RBSteady: get_state_reduction,get_residual_reduction,get_jacobian_reduction,_fe_data
 
 # ---------------------------------------------------------------------------
 # offline/online driver helpers (moved from examples/ExamplesInterface.jl)
@@ -234,7 +234,7 @@ end
 
 function GridapROMs.plot_solutions(
   dir::String,
-  rbop::ReducedOperator,
+  rbop::ROMOperator,
   sol::Snapshots,
   sol_approx::Snapshots;
   kwargs...
@@ -247,7 +247,7 @@ end
 
 function GridapROMs.plot_solutions(
   dir::String,
-  rbop::ReducedOperator,
+  rbop::ROMOperator,
   sol::BlockSnapshots,
   sol_approx::BlockSnapshots;
   kwargs...
@@ -262,7 +262,7 @@ end
 
 function GridapROMs.plot_solutions(
   dir::String,
-  rbop::ReducedOperator,
+  rbop::ROMOperator,
   fesnaps::AbstractSnapshots,
   x̂::AbstractParamVector;
   kwargs...
@@ -316,7 +316,7 @@ function _plot_solutions(dir,trian,uh,ûh,r::TransientRealisation;field=1)
 end
 
 function GridapROMs.plot_errors(dir,tolranks,perfs::AbstractVector{<:ROMPerformance})
-  errs = map(get_error,perfs)
+  errs = map(p->p.error,perfs)
   n = length(first(errs))
   errvec = hcat(map(i -> getindex.(errs,i),1:n)...)
   labvec = n==1 ? "Error" : hcat(["Error $i" for i in 1:n])

@@ -11,6 +11,16 @@ function GridapDistributed.local_views(r::DistributedRBSpace)
   end
 end
 
+# multi-field reduced subspace: `.array` may hold per-field projections whose
+# concrete type differs across fields, so this override must not constrain the
+# element type of `BlockProjection{A,N}` beyond `Projection` itself
+function GridapDistributed.local_views(a::RBSteady.BlockProjection)
+  arrays = map(local_views,a.array)
+  map(arrays...) do vals...
+    RBSteady.BlockProjection(collect(vals))
+  end
+end
+
 for T in (:DistributedSingleFieldFESpace,:DistributedMultiFieldFESpace)
   @eval begin
     function FESpaces.FEFunction(f::$T,fv::RBParamVector,args...)
@@ -125,10 +135,31 @@ function RBSteady.SOPT(basis::GenericPMatrix)
   return Iparts,basisI
 end
 
-# hyper-reduction
+struct DistributedIntegrationDomain{A} <: Interpolation
+  domains::A
+end
 
-struct DistributedInterpolation{A} <: Interpolation
-  interps::A
+GridapDistributed.local_views(a::DistributedIntegrationDomain) = a.domains
+
+function RBSteady.IntegrationDomain(
+  trian::DistributedTriangulation,
+  test::DistributedRBSpace,
+  rows::AbstractArray{<:AbstractVector}
+  )
+
+  rgids = get_free_dof_ids(test)
+  domains = map(
+    local_views(trian),
+    local_views(test),
+    local_views(rows),
+    local_views(rgids),
+    ) do trian,test,rows,rgids
+    lrows = _remap(rows,global_to_local(rgids))
+    domain = IntegrationDomain(trian,test,lrows)
+    grows = _remap(lrows,local_to_global(rgids))
+    GenericDomain(get_integration_cells(domain),get_cell_idofs(domain),grows)
+  end
+  DistributedIntegrationDomain(domains)
 end
 
 function RBSteady.IntegrationDomain(
@@ -160,6 +191,12 @@ function RBSteady.IntegrationDomain(
   DistributedIntegrationDomain(domains)
 end
 
+# hyper-reduction
+
+struct DistributedInterpolation{A} <: Interpolation
+  interps::A
+end
+
 function RBSteady.Interpolation(red::NoHyperReduction,trian::DistributedTriangulation)
   interps = map(local_views(trian)) do ti
     Interpolation(red,ti)
@@ -167,111 +204,67 @@ function RBSteady.Interpolation(red::NoHyperReduction,trian::DistributedTriangul
   DistributedInterpolation(interps)
 end
 
-for (T,f) in zip((:DEIMHyperReduction,:SOPTHyperReduction),(:DEIM,:SOPT))
+# a structurally-null (e.g. identically-zero) projection is not wrapped by the
+# generic `Interpolation(red,a::Projection,args...)` fallback into a
+# `DistributedInterpolation`, since it short-circuits before ever touching
+# `trian`/`test`. Since the null-ness of a distributed projection is consistent
+# across ranks, replicate the (empty) interpolation on every rank explicitly
+for T in (:DEIMHyperReduction,:SOPTHyperReduction)
   @eval begin
-    function RBSteady.Interpolation(red::$T,a::Projection,trian::DistributedTriangulation,test::DistributedRBSpace)
-      rows,interp = $f(a)
-      factor = lu(interp)
-      gids = get_free_dof_ids(test)
-      interps = map(
-        local_views(trian),
-        local_views(test),
-        local_views(rows),
-        local_views(gids)
-        ) do trian,test,rows,gids
-        isnull(rows) && return EmptyInterpolation(rows)
-        lrows = _remap(rows,global_to_local(gids))
-        ldomain = IntegrationDomain(trian,test,lrows)
-        grows = _remap(lrows,local_to_global(gids))
-        domain = GenericDomain(get_integration_cells(ldomain),get_cell_idofs(ldomain),grows)
-        GreedyInterpolation(factor,domain)
+    function RBSteady.Interpolation(
+      red::$T,
+      a::Projection,
+      trian::DistributedTriangulation,
+      test::DistributedRBSpace
+      )
+
+      if isnull(a)
+        interps = map(local_views(trian)) do _
+          EmptyInterpolation()
+        end
+        return DistributedInterpolation(interps)
       end
-      DistributedInterpolation(interps)
+      GreedyInterpolation(red,a,trian,test)
     end
 
-    function RBSteady.Interpolation(red::$T,a::Projection,trian::DistributedTriangulation,trial::DistributedRBSpace,test::DistributedRBSpace)
-      (rows,cols),interp = $f(a)
-      factor = lu(interp)
-      cgids = get_free_dof_ids(trial)
-      rgids = get_free_dof_ids(test)
-      interps = map(
-        local_views(trian),
-        local_views(trial),
-        local_views(test),
-        local_views(rows),
-        local_views(cols),
-        local_views(rgids),
-        local_views(cgids)
-        ) do trian,trial,test,rows,cols,rgids,cgids
-        isnull(rows) && return EmptyInterpolation((rows,cols))
-        lrows = _remap(rows,global_to_local(rgids))
-        lcols = _remap(cols,global_to_local(cgids))
-        ldomain = IntegrationDomain(trian,trial,test,lrows,lcols)
-        grows = _remap(lrows,local_to_global(rgids))
-        gcols = _remap(lcols,local_to_global(cgids))
-        domain = GenericDomain(get_integration_cells(ldomain),get_cell_idofs(ldomain),(grows,gcols))
-        GreedyInterpolation(factor,domain)
+    function RBSteady.Interpolation(
+      red::$T,
+      a::Projection,
+      trian::DistributedTriangulation,
+      trial::DistributedRBSpace,
+      test::DistributedRBSpace
+      )
+
+      if isnull(a)
+        interps = map(local_views(trian)) do _
+          EmptyInterpolation()
+        end
+        return DistributedInterpolation(interps)
       end
-      DistributedInterpolation(interps)
+      GreedyInterpolation(red,a,trian,trial,test)
     end
   end
 end
 
-for (T,f) in zip((:TransientDEIMHyperReduction,:TransientSOPTHyperReduction),(:DEIM,:SOPT))
-  @eval begin
-    function RBSteady.Interpolation(red::$T,a::TransientProjection,trian::DistributedTriangulation,test::DistributedRBSpace)
-      (rows,indices_time),interp = $f(a)
-      factor = lu(interp)
-      gids = get_free_dof_ids(test)
-      style = InterpolationStyle(a)
-      interps = map(
-        local_views(trian),
-        local_views(test),
-        local_views(rows),
-        local_views(gids)
-        ) do trian,test,rows,gids
-        isnull(rows) && return EmptyInterpolation()
-        lrows = _remap(rows,global_to_local(gids))
-        ldomain = IntegrationDomain(trian,test,lrows)
-        grows = _remap(lrows,local_to_global(gids))
-        domain = GenericDomain(get_integration_cells(ldomain),get_cell_idofs(ldomain),grows)
-        gi = GreedyInterpolation(factor,domain)
-        TransientInterpolation(style,gi,indices_time)
-      end
-      DistributedInterpolation(interps)
-    end
-
-    function RBSteady.Interpolation(red::$T,a::TransientProjection,trian::DistributedTriangulation,trial::DistributedRBSpace,test::DistributedRBSpace)
-      ((rows,cols),indices_time),interp = $f(a)
-      factor = lu(interp)
-      cgids = get_free_dof_ids(trial)
-      rgids = get_free_dof_ids(test)
-      style = InterpolationStyle(a)
-      interps = map(
-        local_views(trian),
-        local_views(trial),
-        local_views(test),
-        local_views(rows),
-        local_views(cols),
-        local_views(rgids),
-        local_views(cgids)
-        ) do trian,trial,test,rows,cols,rgids,cgids
-        isnull(rows) && return EmptyInterpolation()
-        lrows = _remap(rows,global_to_local(rgids))
-        lcols = _remap(cols,global_to_local(cgids))
-        ldomain = IntegrationDomain(trian,trial,test,lrows,lcols)
-        grows = _remap(lrows,local_to_global(rgids))
-        gcols = _remap(lcols,local_to_global(cgids))
-        domain = GenericDomain(get_integration_cells(ldomain),get_cell_idofs(ldomain),(grows,gcols))
-        gi = GreedyInterpolation(factor,domain)
-        TransientInterpolation(style,gi,indices_time)
-      end
-      DistributedInterpolation(interps)
-    end
+function RBSteady.GreedyInterpolation(interp,domain::DistributedIntegrationDomain)
+  interps = map(local_views(domain)) do di
+    GreedyInterpolation(interp,di)
   end
+  DistributedInterpolation(interps)
 end
 
-GridapDistributed.local_views(a::DistributedInterpolation) = local_views(a.interps)
+GridapDistributed.local_views(a::DistributedInterpolation) = a.interps
+
+# multi-field hyper-reduction interpolation: `.interp` may hold per-field
+# interpolations whose concrete type differs across fields (e.g. one field's
+# block may be an `EmptyInterpolation`), so this override must not constrain
+# the element type of `BlockInterpolation{I,N}` beyond `Interpolation` itself
+function GridapDistributed.local_views(a::RBSteady.BlockInterpolation)
+  interps = map(local_views,a.interp)
+  map(interps...) do vals...
+    RBSteady.BlockInterpolation(collect(vals))
+  end
+end
 
 for f in (:get_integration_cells,:get_cell_idofs)
   @eval begin
@@ -298,20 +291,34 @@ function RBSteady.get_interpolation_dofs(a::DistributedInterpolation)
   _unpack(dofs)
 end
 
-for f in (:get_interpolation_style,:get_indices_time)
-  @eval RBTransient.$f(a::DistributedInterpolation) = $f(getany(a.interps))
-end
-
-for f in (:get_itimes,:get_locations)
-  @eval RBTransient.$f(a::DistributedInterpolation,ids) = $f(getany(a.interps),ids)
-end
-
-RBTransient.get_locations(a::DistributedInterpolation,ids::Range1D) = get_locations(a,ids.parent)
-RBTransient.get_locations(a::DistributedInterpolation,ids::Range2D) = get_locations(getany(a.interps),ids)
-
 function FESpaces.interpolate!(
   cache::AbstractArray{<:AbstractArray},
   a::DistributedInterpolation,
+  b::AbstractArray{<:AbstractArray}
+  )
+
+  map(local_views(cache),local_views(a),local_views(b)) do cache,interp,b
+    interpolate!(cache,interp,b)
+  end
+end
+
+const TransientDistributedInterpolation{A} = TransientInterpolation{A,<:DistributedInterpolation}
+
+function GridapDistributed.local_views(a::TransientDistributedInterpolation)
+  map(local_views(a.interp_space)) do interp
+    TransientInterpolation(a.style,interp,a.indices_time)
+  end
+end
+
+function RBSteady.get_owned_icells(a::TransientDistributedInterpolation,cells::AbstractVector)
+  map(local_views(a),local_views(cells)) do a,cells
+    get_owned_icells(a,cells)
+  end
+end
+
+function FESpaces.interpolate!(
+  cache::AbstractArray{<:AbstractArray},
+  a::TransientDistributedInterpolation,
   b::AbstractArray{<:AbstractArray}
   )
 
@@ -388,7 +395,11 @@ function RBTransient.get_at_seq_domain(
   ConsecutiveParamArray(datav)
 end
 
-const DistributedHRProjection{A<:HyperReduction,B<:Projection,C<:DistributedInterpolation} = RBSteady.GenericHRProjection{A,B,C}
+const DistributedHRProjection{
+  A<:HyperReduction,
+  B<:Projection,
+  C<:Union{DistributedInterpolation,TransientInterpolation{<:Any,<:DistributedInterpolation}}
+  } = RBSteady.GenericHRProjection{A,B,C}
 
 function GridapDistributed.local_views(a::DistributedHRProjection)
   map(local_views(a.interpolation)) do interp
@@ -490,7 +501,14 @@ function RBSteady.collect_cell_hr_vector(
   (cell_vec_r,cell_idofs,icells)
 end
 
-const DArray = Union{MPIArray,DebugArray}
+const DArray = Union{MPIArray{<:AbstractArray},DebugArray{<:AbstractArray}}
+
+# a multi-field `Vector` of per-field `MPIArray`/`DebugArray`s can have its
+# element type widened by Julia to the bare, unparametrized `MPIArray`/`DebugArray`
+# (dropping the `<:AbstractArray` inner constraint) whenever different fields'
+# local data have different concrete types (e.g. one field null, one not); this
+# looser alias is used only for the *outer* multi-field container check
+const MDArray = Union{MPIArray,DebugArray}
 
 function RBSteady.assemble_hr_array_add!(
   A::DArray,
@@ -505,10 +523,10 @@ function RBSteady.assemble_hr_array_add!(
 end
 
 function RBSteady.assemble_hr_array_add!(
-  A::AbstractArray{<:DArray},
+  A::AbstractArray{<:MDArray},
   _cellvals::DArray,
-  celldofs::AbstractArray{<:DArray},
-  icells::AbstractArray{<:DArray}
+  celldofs::AbstractArray{<:MDArray},
+  icells::AbstractArray{<:MDArray}
   )
 
   Aloc = map((vals...) -> collect(vals),A...)
@@ -524,7 +542,7 @@ function RBSteady.assemble_hr_array_add!(
   _cellvals::DArray,
   celldofs::DArray,
   icells::DArray,
-  locations,
+  locations::AbstractArray,
   style::InterpolationStyle
   )
 
@@ -534,10 +552,24 @@ function RBSteady.assemble_hr_array_add!(
 end
 
 function RBSteady.assemble_hr_array_add!(
-  A::AbstractArray{<:DArray},
+  A::DArray,
   _cellvals::DArray,
-  celldofs::AbstractArray{<:DArray},
-  icells::AbstractArray{<:DArray},
+  celldofs::DArray,
+  icells::DArray,
+  locations::Tuple,
+  style::InterpolationStyle
+  )
+
+  map(A,_cellvals,celldofs,icells) do A,_cellvals,celldofs,icells
+    assemble_hr_array_add!(A,_cellvals,celldofs,icells,locations,style)
+  end
+end
+
+function RBSteady.assemble_hr_array_add!(
+  A::AbstractArray{<:MDArray},
+  _cellvals::DArray,
+  celldofs::AbstractArray{<:MDArray},
+  icells::AbstractArray{<:MDArray},
   locations::AbstractArray,
   style::InterpolationStyle
   )
@@ -579,6 +611,17 @@ end
 function Utils.ChildTriangulation(t::DistributedTriangulation,inds)
   models = get_background_model(t)
   trians = map(local_views(t),local_views(inds)) do t,inds
+    ChildTriangulation(t,inds)
+  end
+  DistributedTriangulation(trians,models;metadata=t.metadata)
+end
+
+# `inds` is a plain (non-distributed) vector, e.g. the integration cells of an
+# `EmptyInterpolation` for a structurally-null hyperreduction block: apply the
+# same (empty) selection on every rank instead of trying to distribute it
+function Utils.ChildTriangulation(t::DistributedTriangulation,inds::Vector)
+  models = get_background_model(t)
+  trians = map(local_views(t)) do t
     ChildTriangulation(t,inds)
   end
   DistributedTriangulation(trians,models;metadata=t.metadata)

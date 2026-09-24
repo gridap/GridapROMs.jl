@@ -5,11 +5,6 @@ get_interpolation_style(a::Interpolation) = KroneckerStyle()
 get_itimes(a::Interpolation,ids::Range1D) = error("should not be here")
 get_locations(a::Interpolation,ids::Range1D) = get_locations(a,ids.parent)
 
-function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,b::AbstractMatrix)
-  ldiv!(cache,a,vec(b))
-  cache
-end
-
 function RBSteady.Interpolation(red::TransientNoHyperReduction,trian,args...)
   n = num_cells(trian)
   cells = collect(Int32,1:n)
@@ -35,6 +30,10 @@ RBSteady.get_integration_cells(a::TransientInterpolation) = get_integration_cell
 RBSteady.get_cell_idofs(a::TransientInterpolation) = get_cell_idofs(a.interp_space)
 RBSteady.get_owned_icells(a::TransientInterpolation) = get_owned_icells(a.interp_space)
 RBSteady.get_interpolation_dofs(a::TransientInterpolation) = get_interpolation_dofs(a.interp_space)
+
+function FESpaces.interpolate!(cache::AbstractArray,a::TransientInterpolation,b::AbstractArray)
+  interpolate!(cache,a.interp_space,b)
+end
 
 get_interpolation_style(a::TransientInterpolation) = a.style
 get_indices_time(a::TransientInterpolation) = a.indices_time

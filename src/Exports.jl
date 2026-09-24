@@ -105,6 +105,7 @@ using GridapROMs.Extensions: ⊕; export ⊕
 @publish RBSteady DEIMHyperReduction
 @publish RBSteady AdaptiveReduction
 
+@publish RBSteady ROMSolver
 @publish RBSteady RBSolver
 @publish RBSteady solution_snapshots
 @publish RBSteady residual_snapshots
@@ -143,12 +144,14 @@ using GridapROMs.Extensions: ⊕; export ⊕
 @publish RBSteady LocalProjection
 @publish RBSteady compute_ncentroids
 
-@publish RBSteady ReducedOperator
+@publish RBSteady ROMOperator
 @publish RBSteady reduced_operator
 @publish RBSteady change_operator
 
-@publish RBSteady ROMPerformance
-@publish RBSteady eval_performance
+@publish RBSteady RBPerformanceTracker
+@publish RBSteady OfflineCostTracker
+@publish RBSteady compute_error!
+@publish RBSteady rom_performance
 @publish RBSteady rom_diagnostics
 @publish RBSteady save_residuals
 @publish RBSteady save_jacobians
@@ -166,4 +169,4 @@ using GridapROMs.Extensions: ⊕; export ⊕
 @publish RBTransient TransientHyperReduction
 @publish RBTransient TransientHyperReduction
 @publish RBTransient TransientProjection
-@publish RBTransient TransientReducedOperator
+@publish RBTransient TransientROMOperator

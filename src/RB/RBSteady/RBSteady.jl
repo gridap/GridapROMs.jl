@@ -32,8 +32,8 @@ small system for new parameter values.  Main building blocks:
   and `reduced_triangulation` / `reduced_jacobian` / `reduced_residual` /
   `reduced_weak_form`.
 
-- **Reduced operators** (`ReducedOperators.jl`) — `RBOperator`,
-  `LinearNonlinearReducedOperator`; `reduced_operator`.
+- **Reduced operators** (`ROMOperators.jl`) — `RBOperator`,
+  `LinearNonlinearROMOperator`; `reduced_operator`.
 
 - **RB solvers** (`RBSolvers.jl`) — `RBSolver` orchestrates snapshot collection,
   offline reduction, and online solve; `solution_snapshots`, `residual_snapshots`,
@@ -45,7 +45,7 @@ small system for new parameter values.  Main building blocks:
 - **Local / cluster-based projections** (`LocalProjections.jl`) — `LocalProjection`,
   `cluster`, `get_clusters`, `get_local`, `local_vals`.
 
-- **Post-processing** (`PostProcess.jl`) — `ROMPerformance`, `eval_performance`,
+- **Post-processing** (`PostProcess.jl`) — `RBPerformanceTracker`, `compute_error!`,
   I/O helpers (`load_snapshots`, `load_contribution`, `load_operator`, …).
 
 The `RBTransient` module extends all of the above to the time-dependent setting.
@@ -94,7 +94,7 @@ import DrWatson: save,load
 import FillArrays: Fill
 import Gridap.Polynomials: Monomial
 import GridapROMs.TProduct: get_factor
-import PartitionedArrays: tuple_of_arrays
+import PartitionedArrays: i_am_main, tuple_of_arrays
 import RadialBasisFunctions: Interpolator, AbstractRadialBasis, PHS, MonomialBasis, _build_collocation_matrix!
 import Statistics: mean
 
@@ -163,6 +163,7 @@ export sequential_product
 export cores2basis
 include("TTLinearAlgebra.jl")
 
+export ROMSolver
 export RBSolver
 export GlobalRBSolver
 export LocalRBSolver
@@ -170,6 +171,7 @@ export get_fe_solver
 export solution_snapshots
 export residual_snapshots
 export jacobian_snapshots
+export update_rom_tracker!
 include("RBSolvers.jl")
 
 export reduction
@@ -275,15 +277,17 @@ export LocalHRProjection
 export LocalHRContribution
 include("LocalHyperReductions.jl")
 
-export ReducedOperator
+export ROMOperator
 export RBOperator
-export LinearNonlinearReducedOperator
+export LinearNonlinearROMOperator
 export reduced_operator
 export change_operator
-include("ReducedOperators.jl")
+include("RBOperators.jl")
 
-export ROMPerformance
-export eval_performance
+export RBPerformanceTracker
+export OfflineCostTracker
+export compute_error!
+export rom_performance
 export rom_diagnostics
 export RBDiagnostics
 export DiagnosticsContribution

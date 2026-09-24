@@ -36,14 +36,22 @@ import Statistics: mean
 
 export PerformanceTracker
 export CostTracker
+export OfflineCostTracker
+export RBPerformanceTracker
 export Speedup
 export reset_tracker!
 export update_tracker!
+export set_fom_tracker!
+export set_rom_tracker!
+export set_subspace_tracker!
+export set_jacobian_tracker!
+export set_residual_tracker!
 export compute_speedup
 export compute_error
 export compute_relative_error
 export induced_norm
 export sqrtabs
+export get_name
 include("PerformanceTrackers.jl")
 
 export unwrap_and_setsize!

@@ -73,17 +73,16 @@ function main(distribute,parts)
   trial = ParamTrialFESpace(test,gμ)
 
   fesolver = LUSolver()#PETScLinearSolver()
-  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy)
+  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy,verbose=i_am_main(ranks))
 
   feop = LinearParamOperator(res,stiffness,pspace,trial,test,domains)
   fesnaps, = solution_snapshots(rbsolver,feop)
   rbop = reduced_operator(rbsolver,feop,fesnaps)
 
   μon = realisation(feop;nparams=10,start=nparams+1)
-  x̂,rbstats = solve(rbsolver,rbop,μon)
-  x,festats = solution_snapshots(rbsolver,feop,μon)
-  perf = eval_performance(rbsolver,rbop,x,x̂,festats,rbstats)
-  println(perf)
+  x̂ = solve(rbsolver,rbop,μon)
+  x, = solution_snapshots(rbsolver,feop,μon)
+  println(rom_performance(rbsolver,rbop,x,x̂))
 
   perr = RBSteady.projection_error(rbsolver,rbop,fesnaps)
   println("diagnostic | projection error (basis + project/inv_project, no HR): ", perr)

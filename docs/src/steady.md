@@ -245,7 +245,7 @@ Û,V̂ = reduced_spaces(rbsolver,feop,fesnaps)
 # compute the hyper-reduction for LHS & RHS
 â,l̂ = reduced_weak_form(rbsolver,feop,Û,V̂,fesnaps)
 # definition of reduced operator 
-ReducedOperator(feop,Û,V̂,â,l̂)
+ROMOperator(feop,Û,V̂,â,l̂)
 ```
 
 ## Online phase 

@@ -8,15 +8,13 @@ Computes the subspace of the test, trial `FESpace`s contained in the FE operator
 function reduced_spaces(solver::RBSolver,feop::ParamOperator,s::AbstractSnapshots)
   red = get_state_reduction(solver)
   soff = select_snapshots(s,offline_params(solver))
-  reduced_spaces(red,feop,soff)
+  t = @timed reduced_trial,reduced_test = reduced_spaces(red,feop,soff)
+  set_subspace_tracker!(solver,t)
+  return reduced_trial,reduced_test
 end
 
 function reduced_spaces(red::Reduction,feop::ParamOperator,s::AbstractSnapshots)
-  t = @timed begin
-    basis = reduced_basis(red,feop,s)
-  end
-  println(CostTracker(t,name="Basis construction"))
-
+  basis = reduced_basis(red,feop,s)
   reduced_trial = reduced_subspace(get_trial(feop),basis)
   reduced_test = reduced_subspace(get_test(feop),basis)
   return reduced_trial,reduced_test

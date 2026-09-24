@@ -328,7 +328,7 @@ function reduced_residual(
   res = residual_snapshots(solver,op,s)
   res_red = get_residual_reduction(solver)
   t = @timed red_res = reduced_residual(res_red,red_test,res)
-  println(CostTracker(t,name="Residual hyper-reduction"))
+  set_residual_tracker!(solver,t)
   return red_res
 end
 
@@ -375,7 +375,7 @@ function reduced_jacobian(
   jac = jacobian_snapshots(solver,op,s)
   jac_red = get_jacobian_reduction(solver)
   t = @timed red_jac = reduced_jacobian(jac_red,red_trial,red_test,jac)
-  println(CostTracker(t,name="Jacobian hyper-reduction"))
+  set_jacobian_tracker!(solver,t)
   return red_jac
 end
 

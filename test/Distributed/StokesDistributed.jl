@@ -92,7 +92,7 @@ function build_rbsolver(Q,dΩ,ranks)
   prec = BlockTriangularSolver(blocks,[solver_u,solver_p])
   fesolver = FGMRESSolver(30,prec;rtol=1.e-6,verbose=false)
 
-  RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy)
+  RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy,verbose=i_am_main(ranks))
 end
 
 function build_spaces(Ω)
@@ -145,10 +145,9 @@ function main(distribute,parts)
   println("diagnostic | velocity basis H1-orthogonality max|Φ'HΦ - I|: ", orth_err)
 
   μon = realisation(feop;nparams=10,start=nparams+1)
-  x̂,rbstats = solve(rbsolver,rbop,μon)
-  x,festats = solution_snapshots(rbsolver,feop,μon)
-  perf = eval_performance(rbsolver,rbop,x,x̂,festats,rbstats)
-  println(perf)
+  x̂ = solve(rbsolver,rbop,μon)
+  x, = solution_snapshots(rbsolver,feop,μon)
+  println(rom_performance(rbsolver,rbop,x,x̂))
 
   perr = RBSteady.projection_error(rbsolver,rbop,fesnaps)
   println("diagnostic | projection error (basis + project/inv_project, no HR): ", perr)

@@ -22,11 +22,11 @@ function SpaceTimeParamOperator(
   SpaceTimeParamOperator(op,r,us,ws,paramcache)
 end
 
-function ParamDataStructures.parameterise(op::TransientReducedOperator,r::TransientRealisation)
+function ParamDataStructures.parameterise(op::TransientROMOperator,r::TransientRealisation)
   SpaceTimeParamOperator(op,r)
 end
 
-function ParamDataStructures.parameterise(op::TransientLinearNonlinearReducedOperator,r::TransientRealisation)
+function ParamDataStructures.parameterise(op::TransientLinearNonlinearROMOperator,r::TransientRealisation)
   nstates = get_order(op)+1
   op_lin = SpaceTimeParamOperator(get_linear_operator(op),r;nstates)
   op_nlin = SpaceTimeParamOperator(get_nonlinear_operator(op),r;nstates)

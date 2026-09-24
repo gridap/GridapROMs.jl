@@ -126,7 +126,7 @@ function load_contribution(
   _setup_contribution(vals,trian)
 end
 
-function save(dir,op::ReducedOperator;label="")
+function save(dir,op::ROMOperator;label="")
   save(dir,get_test(op);label=_get_label(label,TEST_LABEL))
   save(dir,get_trial(op);label=_get_label(label,TRIAL_LABEL))
   save(dir,get_rhs(op);label=_get_label(label,RHS_LABEL))
@@ -134,7 +134,7 @@ function save(dir,op::ReducedOperator;label="")
 end
 
 """
-    load_operator(dir,feop::ParamOperator;kwargs...) -> ReducedOperator
+    load_operator(dir,feop::ParamOperator;kwargs...) -> ROMOperator
 
 Given a FE operator `feop`, load its reduced counterpart stored in the
 directory `dir`. Throws an error if the reduced operator has not been previously
@@ -147,10 +147,10 @@ function load_operator(dir,feop::ParamOperator;label="")
   trian_jac = get_domains_jac(feop)
   red_rhs = load_contribution(dir,trian_res;label=_get_label(label,RHS_LABEL))
   red_lhs = load_contribution(dir,trian_jac;label=_get_label(label,LHS_LABEL))
-  return ReducedOperator(feop,trial,test,red_lhs,red_rhs)
+  return ROMOperator(feop,trial,test,red_lhs,red_rhs)
 end
 
-function save(dir,feop::LinearNonlinearReducedOperator;label="")
+function save(dir,feop::LinearNonlinearROMOperator;label="")
   feop_lin = get_linear_operator(feop)
   feop_nlin = get_nonlinear_operator(feop)
   # test and trial are the same for both the linear and nonlinear operators
@@ -174,99 +174,62 @@ function load_operator(dir,feop::LinearNonlinearParamOperator;label="")
   red_lhs_lin = load_contribution(dir,get_domains_jac(feop_lin);label=_get_label(label,LINEAR_LABEL,LHS_LABEL))
   red_rhs_nlin = load_contribution(dir,get_domains_res(feop_nlin);label=_get_label(label,NONLINEAR_LABEL,RHS_LABEL))
   red_lhs_nlin = load_contribution(dir,get_domains_jac(feop_nlin);label=_get_label(label,NONLINEAR_LABEL,LHS_LABEL))
-  op_lin = ReducedOperator(feop_lin,trial,test,red_lhs_lin,red_rhs_lin)
-  op_nlin = ReducedOperator(feop_nlin,trial,test,red_lhs_nlin,red_rhs_nlin)
-  return LinearNonlinearReducedOperator(op_lin,op_nlin)
+  op_lin = ROMOperator(feop_lin,trial,test,red_lhs_lin,red_rhs_lin)
+  op_nlin = ROMOperator(feop_nlin,trial,test,red_lhs_nlin,red_rhs_nlin)
+  return LinearNonlinearROMOperator(op_lin,op_nlin)
 end
 
 """
-    struct ROMPerformance
-      error
-      speedup
-    end
-
-Allows to compute errors and computational speedups to compare the properties of
-the algorithm with the FE performance.
-"""
-struct ROMPerformance
-  error
-  speedup
-end
-
-get_error(perf::ROMPerformance) = perf.error
-get_speedup(perf::ROMPerformance) = perf.speedup
-
-function Base.show(io::IO,k::MIME"text/plain",perf::ROMPerformance)
-  println(io," -------------------- ROMPerformance -------------------------")
-  println(io," > error: $(perf.error)")
-  println(io," > speedup in time: $(perf.speedup.speedup_time)")
-  println(io," > speedup in memory: $(perf.speedup.speedup_memory)")
-  println(io," -------------------------------------------------------------")
-end
-
-function Base.show(io::IO,perf::ROMPerformance)
-  show(io,MIME"text/plain"(),perf)
-end
-
-function mean(perfs::AbstractVector{<:ROMPerformance})
-  mean_err = mean(map(get_error,perfs))
-  mean_su = mean(map(get_speedup,perfs))
-  ROMPerformance(mean_err,mean_su)
-end
-
-"""
-    eval_performance(
+    compute_error!(
+      tracker::RBPerformanceTracker,
       solver::RBSolver,
-      rbop::ReducedOperator,
-      fesnaps::AbstractSnapshots,
-      rbsnaps::AbstractSnapshots,
-      festats::CostTracker,
-      rbstats::CostTracker
-      ) -> ROMPerformance
+      op::ROMOperator,
+      x̂::RBParamVector,
+      fesnaps::AbstractSnapshots
+      ) -> RBPerformanceTracker
 
-Arguments:
-  - `solver`: solver for the reduced problem
-  - `rbop`: reduced operator representing the PDE
-  - `fesnaps`: online snapshots of the FE solution
-  - `rbsnaps`: reduced approximation of `fesnaps`
-  - `festats`: time and memory consumption needed to compute `fesnaps`
-  - `rbstats`: time and memory consumption needed to compute `rbsnaps`
-
-Returns the performance of the reduced algorithm, in terms of the (relative) error
-between `rbsnaps` and `fesnaps`, and the computational speedup between `rbstats`
-and `festats`
+Updates `tracker.error` in place with the (relative) error between the
+full-order snapshots `fesnaps` and the reduced approximation `x̂`
 """
-function eval_performance(
+function compute_error!(
+  tracker::RBPerformanceTracker,
   solver::RBSolver,
-  rbop::ReducedOperator,
-  fesnaps::AbstractSnapshots,
-  rbsnaps::AbstractSnapshots,
-  festats::CostTracker,
-  rbstats::CostTracker
-  )
-
-  feop = get_fe_operator(rbop)
-  error = compute_relative_error(solver,feop,fesnaps,rbsnaps)
-  speedup = compute_speedup(festats,rbstats)
-  ROMPerformance(error,speedup)
-end
-
-function eval_performance(
-  solver::RBSolver,
-  rbop::ReducedOperator,
-  fesnaps::AbstractSnapshots,
+  op::ROMOperator,
   x̂::RBParamVector,
-  festats::CostTracker,
-  rbstats::CostTracker
+  fesnaps::AbstractSnapshots
   )
 
-  r = get_realisation(fesnaps)
+  feop = get_fe_operator(op)
   i = get_dof_map(fesnaps)
-  rbsnaps = Snapshots(_fe_data(x̂),i,r)
-  eval_performance(solver,rbop,fesnaps,rbsnaps,festats,rbstats)
+  rbsnaps = Snapshots(_fe_data(x̂),i,get_realisation(fesnaps))
+  tracker.error = compute_relative_error(solver,feop,fesnaps,rbsnaps)
+
+  return tracker
 end
 
-function save(dir,perf::ROMPerformance;label="")
+"""
+    rom_performance(
+      solver::RBSolver,
+      op::ROMOperator,
+      fesnaps::AbstractSnapshots,
+      x̂::RBParamVector
+      ) -> RBPerformanceTracker
+
+Updates `solver.tracker.error` from the (relative) error between the full-order
+snapshots `fesnaps` and the reduced approximation `x̂`, and returns `solver.tracker`
+"""
+function rom_performance(
+  solver::RBSolver,
+  op::ROMOperator,
+  fesnaps::AbstractSnapshots,
+  x̂::RBParamVector
+  )
+
+  compute_error!(solver.tracker,solver,op,x̂,fesnaps)
+  return solver.tracker
+end
+
+function save(dir,perf::RBPerformanceTracker;label="")
   results_dir = get_filename(dir,RESULTS_LABEL,label)
   serialize(results_dir,perf)
 end

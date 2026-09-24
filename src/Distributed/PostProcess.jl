@@ -154,7 +154,7 @@ function RBSteady.load_operator(dir,feop::ParamOperator,ranks::AbstractArray;lab
   trian_jac = get_domains_jac(feop)
   red_rhs = load_contribution(dir,trian_res,ranks;label=_plabel(label,RBSteady.RHS_LABEL))
   red_lhs = load_contribution(dir,trian_jac,ranks;label=_plabel(label,RBSteady.LHS_LABEL))
-  ReducedOperator(feop,trial,test,red_lhs,red_rhs)
+  ROMOperator(feop,trial,test,red_lhs,red_rhs)
 end
 
 function RBSteady.load_operator(dir,feop::ODEParamOperator,ranks::AbstractArray;label="")
@@ -166,7 +166,7 @@ function RBSteady.load_operator(dir,feop::ODEParamOperator,ranks::AbstractArray;
   red_lhs = ntuple(length(trian_jacs)) do i
     load_contribution(dir,trian_jacs[i],ranks;label=_plabel(label,RBSteady.LHS_LABEL,i))
   end
-  ReducedOperator(feop,trial,test,red_lhs,red_rhs)
+  ROMOperator(feop,trial,test,red_lhs,red_rhs)
 end
 
 function RBSteady.load_operator(dir,feop::LinearNonlinearODEParamOperator,ranks::AbstractArray;label="")
@@ -187,9 +187,9 @@ function RBSteady.load_operator(dir,feop::LinearNonlinearODEParamOperator,ranks:
   red_lhs_nlin = ntuple(length(trian_jacs_nlin)) do i
     load_contribution(dir,trian_jacs_nlin[i],ranks;label=_plabel(label,RBSteady.NONLINEAR_LABEL,RBSteady.LHS_LABEL,i))
   end
-  op_lin = ReducedOperator(feop_lin,trial,test,red_lhs_lin,red_rhs_lin)
-  op_nlin = ReducedOperator(feop_nlin,trial,test,red_lhs_nlin,red_rhs_nlin)
-  LinearNonlinearReducedOperator(op_lin,op_nlin)
+  op_lin = ROMOperator(feop_lin,trial,test,red_lhs_lin,red_rhs_lin)
+  op_nlin = ROMOperator(feop_nlin,trial,test,red_lhs_nlin,red_rhs_nlin)
+  LinearNonlinearROMOperator(op_lin,op_nlin)
 end
 
 # utils
@@ -298,7 +298,16 @@ function _load_distributed_hrprojection(dir,ranks;label="")
     a = deserialize(_part_filename(dir,HRPROJECTION_LABEL,label,p))
     get_basis(a),get_style(a),get_interpolation(a)
   end |> tuple_of_arrays
-  HRProjection(getany(basis),getany(style),DistributedInterpolation(interps))
+  i = getany(interps)
+  interp = if i isa TransientInterpolation
+    tstyle = get_interpolation_style(i)
+    indices_time = get_indices_time(i)
+    interp_spaces = map(i -> i.interp_space,interps)
+    TransientInterpolation(tstyle,DistributedInterpolation(interp_spaces),indices_time)
+  else
+    DistributedInterpolation(interps)
+  end
+  HRProjection(getany(basis),getany(style),interp)
 end
 
 function _load_distributed_hr(dir,ranks;label="")

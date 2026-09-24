@@ -3,6 +3,7 @@ function RBSteady.RBSolver(
   reduction::Reduction;
   nparams_res=20,
   nparams_jacs=ntuple(_ -> 20,get_time_order(fesolver)+1),
+  verbose=true,
   kwargs...
   )
 
@@ -15,7 +16,7 @@ function RBSteady.RBSolver(
     ),
     Val(get_time_order(fesolver)+1)
   )
-  RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction)
+  RBSolver(fesolver,reduction,residual_reduction,jacobian_reduction;tracker=RBPerformanceTracker(;verbose))
 end
 
 const TransientRBSolver{A<:ODESolver,B,C,D,E} = RBSolver{A,B,C,D,E}
@@ -111,11 +112,11 @@ function Algebra.solve(
   syscache = allocate_systemcache(nlop,x̂)
 
   t = @timed solve!(x̂,fesolver,nlop,syscache)
-  stats = CostTracker(t,nruns=num_params(r),name="RB")
+  update_rom_tracker!(solver,t,nruns=num_params(r))
 
   inv_project!(x̂,trial)
-  
-  return x̂,stats
+
+  return x̂
 end
 
 function Algebra.solve(

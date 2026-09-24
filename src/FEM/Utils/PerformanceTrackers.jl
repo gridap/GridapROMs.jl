@@ -1,5 +1,9 @@
 abstract type PerformanceTracker end
 
+function Base.show(io::IO,t::PerformanceTracker)
+  show(io,MIME"text/plain"(),t)
+end
+
 mutable struct CostTracker <: PerformanceTracker
   name::String
   time::Float64
@@ -35,10 +39,6 @@ function Base.show(io::IO,k::MIME"text/plain",t::CostTracker)
   println(io," -------------------------------------------------------------")
 end
 
-function Base.show(io::IO,t::CostTracker)
-  show(io,MIME"text/plain"(),t)
-end
-
 function mean(cs::AbstractVector{<:CostTracker})
   name = get_name(first(cs))
   @check all(name == get_name(c) for c in cs)
@@ -71,6 +71,100 @@ function get_stats(t::CostTracker)
   return avg_time,avg_nallocs
 end
 
+mutable struct OfflineCostTracker <: PerformanceTracker
+  subspace::CostTracker
+  jacobian::CostTracker
+  residual::CostTracker
+end
+
+function set_subspace_tracker!(t::OfflineCostTracker,args...;kwargs...)
+  t.subspace = CostTracker(args...;name=get_name(t.subspace),kwargs...)
+end
+
+function set_jacobian_tracker!(t::OfflineCostTracker,args...;kwargs...)
+  t.jacobian = CostTracker(args...;name=get_name(t.jacobian),kwargs...)
+end
+
+function set_residual_tracker!(t::OfflineCostTracker,args...;kwargs...)
+  t.residual = CostTracker(args...;name=get_name(t.residual),kwargs...)
+end
+
+function OfflineCostTracker()
+  OfflineCostTracker(
+    CostTracker(name="subspace generation"),
+    CostTracker(name="jacobian hyper-reduction"),
+    CostTracker(name="residual hyper-reduction")
+  )
+end
+
+function mean(cs::AbstractVector{<:OfflineCostTracker})
+  subspace = mean(map(c->c.subspace,cs))
+  jacobian = mean(map(c->c.jacobian,cs))
+  residual = mean(map(c->c.residual,cs))
+  OfflineCostTracker(subspace,jacobian,residual)
+end
+
+mutable struct RBPerformanceTracker{A} <: PerformanceTracker
+  verbose::Bool
+  full_order::CostTracker
+  reduced_order::CostTracker
+  offline::OfflineCostTracker
+  error::A
+end
+
+function RBPerformanceTracker(;verbose=true)
+  RBPerformanceTracker(
+    verbose,
+    CostTracker(name="full_order"),
+    CostTracker(name="reduced_order"),
+    OfflineCostTracker(),
+    0.0
+  )
+end
+
+function Base.show(io::IO,k::MIME"text/plain",p::RBPerformanceTracker)
+  s = compute_speedup(p.full_order,p.reduced_order)
+  println(io," ----------------------- ROM results -------------------------")
+  println(io," > error: $(p.error)")
+  println(io," > speedup in time: $(s.speedup_time)")
+  println(io," > speedup in memory: $(s.speedup_memory)")
+  println(io," -------------------------------------------------------------")
+end
+
+function set_fom_tracker!(p::RBPerformanceTracker,args...;kwargs...)
+  p.full_order = CostTracker(args...;name=get_name(p.full_order),kwargs...)
+  p.verbose && show(p.full_order)
+end
+
+function set_rom_tracker!(p::RBPerformanceTracker,args...;kwargs...)
+  p.reduced_order = CostTracker(args...;name=get_name(p.reduced_order),kwargs...)
+  p.verbose && show(p.reduced_order)
+end
+
+function set_subspace_tracker!(p::RBPerformanceTracker,args...;kwargs...)
+  set_subspace_tracker!(p.offline,args...;kwargs...)
+  p.verbose && show(p.offline.subspace)
+end
+
+function set_jacobian_tracker!(p::RBPerformanceTracker,args...;kwargs...)
+  set_jacobian_tracker!(p.offline,args...;kwargs...)
+  p.verbose && show(p.offline.jacobian)
+end
+
+function set_residual_tracker!(p::RBPerformanceTracker,args...;kwargs...)
+  set_residual_tracker!(p.offline,args...;kwargs...)
+  p.verbose && show(p.offline.residual)
+end
+
+function mean(p::AbstractVector{<:RBPerformanceTracker})
+  verbose = first(p).verbose
+  full_order = mean(map(p->p.full_order,p))
+  reduced_order = mean(map(p->p.reduced_order,p))
+  offline = mean(map(p->p.offline,p))
+  error = mean(map(p->p.error,p))
+  RBPerformanceTracker(verbose,full_order,reduced_order,offline,error)
+end
+
 struct Speedup <: PerformanceTracker
   name::String
   speedup_time::Float64
@@ -86,10 +180,6 @@ function Base.show(io::IO,k::MIME"text/plain",su::Speedup)
   println(io," > speedup in time: $(su.speedup_time)")
   println(io," > speedup in memory: $(su.speedup_memory)")
   println(io," -------------------------------------------------------------")
-end
-
-function Base.show(io::IO,su::Speedup)
-  show(io,MIME"text/plain"(),su)
 end
 
 function mean(sus::AbstractVector{<:Speedup})

@@ -8,10 +8,10 @@ function RBSteady.reduced_operator(
 
   red_op_lin = reduced_operator(solver,get_linear_operator(odeop),red_trial,red_test,s)
   red_op_nlin = reduced_operator(solver,get_nonlinear_operator(odeop),red_trial,red_test,s)
-  LinearNonlinearReducedOperator(red_op_lin,red_op_nlin)
+  LinearNonlinearROMOperator(red_op_lin,red_op_nlin)
 end
 
-function RBSteady.ReducedOperator(
+function RBSteady.ROMOperator(
   odeop::ODEParamOperator,
   trial::RBSpace,
   test::RBSpace,
@@ -25,13 +25,13 @@ function RBSteady.ReducedOperator(
   RBOperator(odeop′,trial,test,lhs,rhs)
 end
 
-const TransientReducedOperator{O<:ODEParamOperatorType,T} = ReducedOperator{O,T}
-const JointTransientReducedOperator{O<:ODEParamOperatorType} = TransientReducedOperator{O,JointDomains}
-const SplitTransientReducedOperator{O<:ODEParamOperatorType} = TransientReducedOperator{O,SplitDomains}
+const TransientROMOperator{O<:ODEParamOperatorType,T} = ROMOperator{O,T}
+const JointTransientROMOperator{O<:ODEParamOperatorType} = TransientROMOperator{O,JointDomains}
+const SplitTransientROMOperator{O<:ODEParamOperatorType} = TransientROMOperator{O,SplitDomains}
 const TransientRBOperator{O<:ODEParamOperatorType,T,A,B} = RBOperator{O,T,A,B}
 
 function Algebra.allocate_residual(
-  op::TransientReducedOperator,
+  op::TransientROMOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -41,7 +41,7 @@ function Algebra.allocate_residual(
 end
 
 function Algebra.allocate_jacobian(
-  op::TransientReducedOperator,
+  op::TransientROMOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -52,7 +52,7 @@ end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::TransientReducedOperator,
+  op::TransientROMOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -87,7 +87,7 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::TransientReducedOperator,
+  op::TransientROMOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
@@ -279,13 +279,13 @@ function Algebra.jacobian!(
   interpolate!(A,op.lhs,r)
 end
 
-const TransientLinearNonlinearReducedOperator{T} = LinearNonlinearReducedOperator{LinearNonlinearParamODE,T}
+const TransientLinearNonlinearROMOperator{T} = LinearNonlinearROMOperator{LinearNonlinearParamODE,T}
 
 # snapshots 
 
 function RBSteady.solution_snapshots(
   solver::TransientRBSolver{A,B,<:SteadyReduction},
-  op::TransientReducedOperator,
+  op::TransientROMOperator,
   r::TransientRealisation,
   args...
   ) where {A,B}
