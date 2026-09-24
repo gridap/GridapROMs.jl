@@ -230,8 +230,16 @@ end
 # a structurally-null (e.g. identically-zero) projection is not wrapped by the
 # generic `Interpolation(red,a::Projection,args...)` fallback into a
 # `DistributedInterpolation`, since it short-circuits before ever touching
-# `trian`/`test`. Since the null-ness of a distributed projection is consistent
-# across ranks, replicate the (empty) interpolation on every rank explicitly
+# `trian`/`test`. It still needs to be wrapped here: a plain `EmptyInterpolation`
+# and a `DistributedInterpolation` mix badly in `get_integration_cells(a::
+# BlockInterpolation)`'s per-block `_union` (a real block's cells are
+# `MPIArray`-per-rank; a bare `EmptyInterpolation`'s are a plain `Vector`, and
+# `_union` requires matching types) whenever a multi-field block mixes a null
+# sub-projection (e.g. Stokes' pressure-pressure block) with real ones. Since
+# the null-ness of a distributed projection is consistent across ranks,
+# replicate the (empty) interpolation on every rank explicitly; the resulting
+# `DistributedInterpolation`-of-`EmptyInterpolation`s is itself trivial to spot
+# downstream (see `check_interpolation` in `Distributed/PostProcess.jl`)
 for T in (:DEIMHyperReduction,:SOPTHyperReduction)
   @eval begin
     function RBSteady.Interpolation(
