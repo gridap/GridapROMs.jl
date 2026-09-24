@@ -11,16 +11,6 @@ function GridapDistributed.local_views(r::DistributedRBSpace)
   end
 end
 
-# multi-field reduced subspace: `.array` may hold per-field projections whose
-# concrete type differs across fields, so this override must not constrain the
-# element type of `BlockProjection{A,N}` beyond `Projection` itself
-function GridapDistributed.local_views(a::RBSteady.BlockProjection)
-  arrays = map(local_views,a.array)
-  map(arrays...) do vals...
-    RBSteady.BlockProjection(collect(vals))
-  end
-end
-
 for T in (:DistributedSingleFieldFESpace,:DistributedMultiFieldFESpace)
   @eval begin
     function FESpaces.FEFunction(f::$T,fv::RBParamVector,args...)
@@ -255,17 +245,6 @@ end
 
 GridapDistributed.local_views(a::DistributedInterpolation) = a.interps
 
-# multi-field hyper-reduction interpolation: `.interp` may hold per-field
-# interpolations whose concrete type differs across fields (e.g. one field's
-# block may be an `EmptyInterpolation`), so this override must not constrain
-# the element type of `BlockInterpolation{I,N}` beyond `Interpolation` itself
-function GridapDistributed.local_views(a::RBSteady.BlockInterpolation)
-  interps = map(local_views,a.interp)
-  map(interps...) do vals...
-    RBSteady.BlockInterpolation(collect(vals))
-  end
-end
-
 for f in (:get_integration_cells,:get_cell_idofs)
   @eval begin
     function RBSteady.$f(a::DistributedInterpolation)
@@ -398,8 +377,8 @@ end
 const DistributedHRProjection{
   A<:HyperReduction,
   B<:Projection,
-  C<:Union{DistributedInterpolation,TransientInterpolation{<:Any,<:DistributedInterpolation}}
-  } = RBSteady.GenericHRProjection{A,B,C}
+  C<:Union{DistributedInterpolation,TransientDistributedInterpolation}
+} = GenericHRProjection{A,B,C}
 
 function GridapDistributed.local_views(a::DistributedHRProjection)
   map(local_views(a.interpolation)) do interp
@@ -501,84 +480,19 @@ function RBSteady.collect_cell_hr_vector(
   (cell_vec_r,cell_idofs,icells)
 end
 
-const DArray = Union{MPIArray{<:AbstractArray},DebugArray{<:AbstractArray}}
+for T in (:MPIArray,:DebugArray)
+  @eval begin
+    function RBSteady.assemble_hr_array_add!(A::$T,cellvals::$T,celldofs::$T,icells::$T,args...)
+      map(A,cellvals,celldofs,icells) do A,cellvals,celldofs,icells
+        assemble_hr_array_add!(A,cellvals,celldofs,icells,args...)
+      end
+    end
 
-# a multi-field `Vector` of per-field `MPIArray`/`DebugArray`s can have its
-# element type widened by Julia to the bare, unparametrized `MPIArray`/`DebugArray`
-# (dropping the `<:AbstractArray` inner constraint) whenever different fields'
-# local data have different concrete types (e.g. one field null, one not); this
-# looser alias is used only for the *outer* multi-field container check
-const MDArray = Union{MPIArray,DebugArray}
-
-function RBSteady.assemble_hr_array_add!(
-  A::DArray,
-  _cellvals::DArray,
-  celldofs::DArray,
-  icells::DArray
-  )
-
-  map(A,_cellvals,celldofs,icells) do A,_cellvals,celldofs,icells
-    assemble_hr_array_add!(A,_cellvals,celldofs,icells)
-  end
-end
-
-function RBSteady.assemble_hr_array_add!(
-  A::AbstractArray{<:MDArray},
-  _cellvals::DArray,
-  celldofs::AbstractArray{<:MDArray},
-  icells::AbstractArray{<:MDArray}
-  )
-
-  Aloc = map((vals...) -> collect(vals),A...)
-  dloc = map((vals...) -> collect(vals),celldofs...)
-  iloc = map((vals...) -> collect(vals),icells...)
-  map(Aloc,_cellvals,dloc,iloc) do A,_cellvals,celldofs,icells
-    assemble_hr_array_add!(A,_cellvals,celldofs,icells)
-  end
-end
-
-function RBSteady.assemble_hr_array_add!(
-  A::DArray,
-  _cellvals::DArray,
-  celldofs::DArray,
-  icells::DArray,
-  locations::AbstractArray,
-  style::InterpolationStyle
-  )
-
-  map(A,_cellvals,celldofs,icells) do A,_cellvals,celldofs,icells
-    assemble_hr_array_add!(A,_cellvals,celldofs,icells,locations,style)
-  end
-end
-
-function RBSteady.assemble_hr_array_add!(
-  A::DArray,
-  _cellvals::DArray,
-  celldofs::DArray,
-  icells::DArray,
-  locations::Tuple,
-  style::InterpolationStyle
-  )
-
-  map(A,_cellvals,celldofs,icells) do A,_cellvals,celldofs,icells
-    assemble_hr_array_add!(A,_cellvals,celldofs,icells,locations,style)
-  end
-end
-
-function RBSteady.assemble_hr_array_add!(
-  A::AbstractArray{<:MDArray},
-  _cellvals::DArray,
-  celldofs::AbstractArray{<:MDArray},
-  icells::AbstractArray{<:MDArray},
-  locations::AbstractArray,
-  style::InterpolationStyle
-  )
-
-  Aloc = map((vals...) -> collect(vals),A...)
-  dloc = map((vals...) -> collect(vals),celldofs...)
-  iloc = map((vals...) -> collect(vals),icells...)
-  map(Aloc,_cellvals,dloc,iloc) do A,_cellvals,celldofs,icells
-    assemble_hr_array_add!(A,_cellvals,celldofs,icells,locations,style)
+    function RBSteady.fetch_block(a::$T,i::Int)
+      map(local_views(a)) do a
+        fetch_block(a,i)
+      end
+    end
   end
 end
 
@@ -608,7 +522,7 @@ end
 
 # trian utils
 
-function Utils.ChildTriangulation(t::DistributedTriangulation,inds)
+function Utils.ChildTriangulation(t::DistributedTriangulation,inds::AbstractArray{<:AbstractVector})
   models = get_background_model(t)
   trians = map(local_views(t),local_views(inds)) do t,inds
     ChildTriangulation(t,inds)
@@ -616,9 +530,6 @@ function Utils.ChildTriangulation(t::DistributedTriangulation,inds)
   DistributedTriangulation(trians,models;metadata=t.metadata)
 end
 
-# `inds` is a plain (non-distributed) vector, e.g. the integration cells of an
-# `EmptyInterpolation` for a structurally-null hyperreduction block: apply the
-# same (empty) selection on every rank instead of trying to distribute it
 function Utils.ChildTriangulation(t::DistributedTriangulation,inds::Vector)
   models = get_background_model(t)
   trians = map(local_views(t)) do t

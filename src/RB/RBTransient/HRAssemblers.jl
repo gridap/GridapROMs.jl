@@ -30,8 +30,8 @@ struct AddTransientHREntriesMap{A<:InterpolationStyle,F,I} <: Map
   locations::I
 end
 
-function AddTransientHREntriesMap(style::InterpolationStyle,locations)
-  AddTransientHREntriesMap(style,+,locations)
+function RBSteady.AddHREntriesMap(combine::Function,style::InterpolationStyle,locations)
+  AddTransientHREntriesMap(style,combine,locations)
 end
 
 function Arrays.return_cache(k::AddTransientHREntriesMap{KroneckerStyle},A,vs::ParamBlock,args...)
@@ -303,39 +303,17 @@ end
 
 function RBSteady.assemble_hr_array_add!(
   A::AbstractArray{<:AbstractArray},
-  _cellvals,
+  cellvals,
   celldofs::AbstractArray{<:AbstractArray},
   icells::AbstractArray{<:AbstractArray},
-  locations::AbstractArray,
+  locations::AbstractArray{<:AbstractArray},
   style::InterpolationStyle
   )
 
-  @check size(celldofs) == size(icells) == size(A)
+  @check size(celldofs) == size(icells) == size(locations) == size(A)
   for i in eachindex(celldofs)
-    isempty(icells[i]) && continue
-    cellvalsi = lazy_map(FetchBlockMap(_cellvals,i),icells[i])
-    RBSteady._assemble_hr_array_add!(A[i],cellvalsi,celldofs[i],locations[i],style)
-  end
-  A
-end
-
-function RBSteady.assemble_hr_array_add!(A,_cellvals,celldofs,icells,locations,style)
-  isempty(icells) && return A
-  cellvals = lazy_map(Reindex(_cellvals),icells)
-  RBSteady._assemble_hr_array_add!(A,cellvals,celldofs,locations,style)
-  A
-end
-
-function RBSteady._assemble_hr_array_add!(A,cellvals,celldofs,locations,style)
-  if length(cellvals) > 0
-    dofs_cache = array_cache(celldofs)
-    vals_cache = array_cache(cellvals)
-    vals1 = getindex!(vals_cache,cellvals,1)
-    dofs1 = getindex!(dofs_cache,celldofs,1)
-    add! = AddTransientHREntriesMap(style,locations)
-    add_cache = return_cache(add!,A,vals1,dofs1)
-    caches = add!,add_cache,vals_cache,dofs_cache
-    RBSteady._numeric_loop_hr_array!(A,caches,cellvals,celldofs)
+    cellvalsi = fetch_block(cellvals,i)
+    assemble_hr_array_add!(A[i],cellvalsi,celldofs[i],locations[i],style)
   end
   A
 end

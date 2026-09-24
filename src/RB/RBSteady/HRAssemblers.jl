@@ -151,63 +151,50 @@ end
 
 function assemble_hr_array_add!(
   A::AbstractArray{<:AbstractArray},
-  _cellvals,
+  cellvals,
   celldofs::AbstractArray{<:AbstractArray},
   icells::AbstractArray{<:AbstractArray}
   )
 
   @check size(celldofs) == size(icells) == size(A)
   for i in eachindex(celldofs)
-    isempty(icells[i]) && continue
-    cellvalsi = lazy_map(FetchBlockMap(_cellvals,i),icells[i])
-    _assemble_hr_array_add!(A[i],cellvalsi,celldofs[i])
+    cellvalsi = fetch_block(cellvals,i)
+    assemble_hr_array_add!(A[i],cellvalsi,celldofs[i])
   end
   A
 end
 
-function assemble_hr_array_add!(A,_cellvals,celldofs,icells)
-  isempty(icells) && return A
-  cellvals = lazy_map(Reindex(_cellvals),icells)
-  _assemble_hr_array_add!(A,cellvals,celldofs)
-  A
-end
-
-function _assemble_hr_array_add!(A,cellvals,celldofs)
-  if length(cellvals) > 0
+function assemble_hr_array_add!(A,cellvals,celldofs,icells,args...)
+  if length(celldofs) > 0
     dofs_cache = array_cache(celldofs)
     vals_cache = array_cache(cellvals)
     vals1 = getindex!(vals_cache,cellvals,1)
     rows1 = getindex!(dofs_cache,celldofs,1)
-    add! = AddHREntriesMap(+)
+    add! = AddHREntriesMap(+,args...)
     add_cache = return_cache(add!,A,vals1,rows1)
     caches = add!,add_cache,vals_cache,dofs_cache
-    _numeric_loop_hr_array!(A,caches,cellvals,celldofs)
+    _numeric_loop_hr_array!(A,caches,cellvals,celldofs,icells)
   end
   A
 end
 
-@noinline function _numeric_loop_hr_array!(arr,caches,cell_vals,cell_dofs)
+@noinline function _numeric_loop_hr_array!(arr,caches,cell_vals,cell_dofs,icells)
   add!,add_cache,vals_cache,dofs_cache = caches
-  @assert length(cell_vals) == length(cell_dofs)
-  for cell in 1:length(cell_dofs)
+  for (cell,icell) in enumerate(icells)
     dofs = getindex!(dofs_cache,cell_dofs,cell)
-    vals = getindex!(vals_cache,cell_vals,cell)
+    vals = getindex!(vals_cache,cell_vals,icell)
     evaluate!(add_cache,add!,arr,vals,dofs)
   end
 end
 
-# utils 
+# utils
 
-struct FetchBlockMap{A} <: Map
-  values::A
+fetch_block(a::AbstractArray,i::Int) = lazy_map(FetchBlockMap(i),a)
+
+struct FetchBlockMap <: Map
   blockid::Int
 end
 
-function Arrays.return_cache(k::FetchBlockMap,i...)
-  array_cache(k.values)
-end
-
-function Arrays.evaluate!(cache,k::FetchBlockMap,i...)
-  a = getindex!(cache,k.values,i...)
+function Arrays.evaluate!(c,k::FetchBlockMap,a::ArrayBlock)
   a.array[k.blockid]
 end

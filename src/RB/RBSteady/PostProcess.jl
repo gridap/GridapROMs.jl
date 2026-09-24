@@ -181,29 +181,19 @@ end
 
 """
     compute_error!(
-      tracker::RBPerformanceTracker,
       solver::RBSolver,
-      op::ROMOperator,
-      x̂::RBParamVector,
-      fesnaps::AbstractSnapshots
+      op::ParamOperator,
+      x::AbstractSnapshots
+      x̂::AbstractSnapshots,
       ) -> RBPerformanceTracker
 
-Updates `tracker.error` in place with the (relative) error between the
+Updates `solver.tracker.error` in place with the (relative) error between the
 full-order snapshots `fesnaps` and the reduced approximation `x̂`
 """
-function compute_error!(
-  tracker::RBPerformanceTracker,
-  solver::RBSolver,
-  op::ROMOperator,
-  x̂::RBParamVector,
-  fesnaps::AbstractSnapshots
-  )
-
+function compute_error!(solver::RBSolver,op::ParamOperator,x::AbstractSnapshots,x̂::AbstractSnapshots)
   feop = get_fe_operator(op)
-  i = get_dof_map(fesnaps)
-  rbsnaps = Snapshots(_fe_data(x̂),i,get_realisation(fesnaps))
-  tracker.error = compute_relative_error(solver,feop,fesnaps,rbsnaps)
-
+  tracker = solver.tracker
+  tracker.error = compute_relative_error(solver,feop,x,x̂)
   return tracker
 end
 
@@ -211,21 +201,18 @@ end
     rom_performance(
       solver::RBSolver,
       op::ROMOperator,
-      fesnaps::AbstractSnapshots,
-      x̂::RBParamVector
+      x::AbstractSnapshots,
+      x̂
       ) -> RBPerformanceTracker
 
 Updates `solver.tracker.error` from the (relative) error between the full-order
 snapshots `fesnaps` and the reduced approximation `x̂`, and returns `solver.tracker`
 """
-function rom_performance(
-  solver::RBSolver,
-  op::ROMOperator,
-  fesnaps::AbstractSnapshots,
-  x̂::RBParamVector
-  )
-
-  compute_error!(solver.tracker,solver,op,x̂,fesnaps)
+function rom_performance(solver::RBSolver,op::ParamOperator,x::AbstractSnapshots,x̂)
+  _to_snaps(x̂) = @abstractmethod 
+  _to_snaps(x̂::AbstractSnapshots) = x̂
+  _to_snaps(x̂::RBParamVector) = Snapshots(_fe_data(x̂),get_dof_map(x),get_realisation(x)) 
+  compute_error!(solver,op,x,_to_snaps(x̂))
   return solver.tracker
 end
 
