@@ -3,8 +3,8 @@ abstract type Interpolation end
 Interpolation(args...) = @abstractmethod
 
 get_integration_cells(a::Interpolation) = Int32[]
+get_owned_integration_cells(a::Interpolation,args...) = get_integration_cells(a)
 get_cell_idofs(a::Interpolation) = empty_table(Int,Int32,0)
-get_owned_icells(a::Interpolation) = collect(1:length(get_integration_cells(a)))
 get_interpolation_dofs(a::Interpolation) = Int64[]
 
 function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,x::Any)
@@ -15,17 +15,6 @@ function reduced_triangulation(trian,a::Interpolation)
   red_cells = get_integration_cells(a)
   red_trian = ChildTriangulation(trian,red_cells)
   return red_trian
-end
-
-function get_owned_icells(a::Interpolation,trian) 
-  cells = get_integration_cells(trian)
-  get_owned_icells(a,cells)
-end
-
-function get_owned_icells(a::Interpolation,cells::AbstractVector)
-  cellsi = get_integration_cells(a)
-  icells = filter(!isnothing,indexin(cellsi,cells))
-  Int.(icells)
 end
 
 # Empty interpolation
@@ -256,8 +245,8 @@ function get_integration_cells(a::BlockInterpolation)
   return cells
 end
 
-function get_owned_icells(a::BlockInterpolation{N},cells::AbstractVector) where N
-  map(itp -> get_owned_icells(itp,cells),a.interp)
+function get_owned_integration_cells(a::BlockInterpolation,args...)
+  map(x -> get_owned_integration_cells(x,args...),a.interp)
 end
 
 #utils

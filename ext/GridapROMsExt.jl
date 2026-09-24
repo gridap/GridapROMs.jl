@@ -183,12 +183,10 @@ function GridapROMs.run_test(
 
   fesnaps, = try_loading_fe_snapshots(dir,rbsolver,feop,args...)
   jac,res = try_loading_fe_jac_res(dir,rbsolver,feop,fesnaps)
-  x,festats,μon = try_loading_online_fe_snapshots(
+  x,_,μon = try_loading_online_fe_snapshots(
     dir,rbsolver,feop,args...;nparams,reuse_online,sampling)
 
-  perfs = ROMPerformance[]
-
-  for tolrank in tolranks
+  perfs = map(tolranks) do tolrank
     println("Running test $dir with tolrank = $tolrank")
 
     dir_tolrank = joinpath(dir,string(tolrank))
@@ -197,16 +195,14 @@ function GridapROMs.run_test(
     rbsolver = update_solver(rbsolver,tolrank)
     rbop = try_loading_reduced_operator(dir_tolrank,rbsolver,feop,fesnaps,jac,res)
 
-    x̂,rbstats = solve(rbsolver,rbop,μon,args...)
-    perf = eval_performance(rbsolver,rbop,x,x̂,festats,rbstats)
-    println(perf)
-    push!(perfs,perf)
+    x̂ = solve(rbsolver,rbop,μon,args...)
+    rom_performance(rbsolver,rbop,x,x̂)
   end
 
   results_dir = joinpath(dir,"results")
   create_dir(results_dir)
 
-  # plot_errors(results_dir,tolranks,perfs)
+  plot_errors(results_dir,tolranks,perfs)
   serialize(joinpath(results_dir,"performance.jld"),(tolrank => perf for (tolrank,perf) in zip(tolranks,perfs)))
 
   return perfs
@@ -315,7 +311,7 @@ function _plot_solutions(dir,trian,uh,ûh,r::TransientRealisation;field=1)
   writevtk(trian,dir*"_field_$field",cellfields=fields)
 end
 
-function GridapROMs.plot_errors(dir,tolranks,perfs::AbstractVector{<:ROMPerformance})
+function GridapROMs.plot_errors(dir,tolranks,perfs::AbstractVector{<:RBPerformanceTracker})
   errs = map(p->p.error,perfs)
   n = length(first(errs))
   errvec = hcat(map(i -> getindex.(errs,i),1:n)...)

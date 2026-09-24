@@ -28,9 +28,8 @@ function get_integration_cells(a::LocalInterpolation)
   return cells
 end
 
-function get_owned_icells(a::LocalInterpolation,cells::AbstractVector) 
-  data = map(i -> get_owned_icells(i,cells),local_vals(a))
-  return Table(data)
+function get_owned_integration_cells(a::LocalInterpolation,args...)
+  map(i -> get_owned_integration_cells(i,args...),local_vals(a))
 end
 
 struct LocalHRProjection <: HRProjection{HyperReduction,Projection}

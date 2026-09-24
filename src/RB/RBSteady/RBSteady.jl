@@ -230,7 +230,6 @@ export DEIM
 export SOPT
 export get_integration_cells
 export get_cell_idofs
-export get_owned_icells
 export get_interpolation_dofs
 export move_integration_domain
 include("IntegrationDomains.jl")
@@ -241,6 +240,7 @@ export FullInterpolation
 export GreedyInterpolation
 export RBFInterpolation
 export BlockInterpolation
+export get_owned_integration_cells
 include("Interpolations.jl")
 
 export HRProjection

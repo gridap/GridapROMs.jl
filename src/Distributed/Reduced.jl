@@ -63,6 +63,26 @@ MultiField.MultiFieldStyle(r::DistributedMultiFieldRBSpace) = MultiFieldStyle(ge
 MultiField.num_fields(r::DistributedMultiFieldRBSpace) = num_fields(get_fe_space(r))
 Base.length(r::DistributedMultiFieldRBSpace) = num_fields(r)
 
+# the generic `inv_project(a::Projection,x̂) = allocate_in_range(a,x̂); ...` allocates
+# each block's output `PVector` independently from that field's *stored basis*
+# (`RBSteady.fe_dof_ids(a) = axes(get_basis(a),1)`), which is not guaranteed to carry
+# the same `PRange` element type across fields. `GridapDistributed.BlockPRange` can't
+# represent that regardless (it requires `Vector{<:PRange{A}}` for a single `A`), yet
+# this is exactly the situation for a `BlockMultiFieldStyle` space here. Sidestep it
+# entirely by reusing the FE space's own, already-homogeneous `BlockPRange` (built by
+# `GridapDistributed` itself via `generate_multi_field_gids`, stored as `fs.gids`) as
+# the allocation template, mirroring `GridapDistributed.Algebra.allocate_vector(
+# ::Type{<:BlockPVector{V}},ids::BlockPRange) = BlockPVector{V}(undef,ids)`, which
+# builds each block directly off `ids` without ever re-`mortar`-ing the row partition
+function RBSteady.inv_project(r::DistributedMultiFieldRBSpace,x̂::AbstractVector)
+  a = get_reduced_subspace(r)
+  gids = get_free_dof_ids(get_fe_space(r))
+  x = allocate_vector(BlockPVector{eltype(x̂)},gids)
+  x = parameterise(x,param_length(x̂))
+  inv_project!(x,a,x̂)
+  return x
+end
+
 # galerkin projections
 
 function RBSteady.galerkin_projection(Φl::GenericPMatrix,b::PVector)
@@ -268,9 +288,9 @@ for f in (:get_integration_cells,:get_cell_idofs)
   end
 end
 
-function RBSteady.get_owned_icells(a::DistributedInterpolation,cells::AbstractVector)
-  map(local_views(a),local_views(cells)) do a,cells
-    get_owned_icells(a,cells)
+function RBSteady.get_owned_integration_cells(a::DistributedInterpolation,args...)
+  map(local_views(a)) do a
+    get_owned_integration_cells(a,args...)
   end
 end
 
@@ -299,12 +319,6 @@ const TransientDistributedInterpolation{A} = TransientInterpolation{A,<:Distribu
 function GridapDistributed.local_views(a::TransientDistributedInterpolation)
   map(local_views(a.interp_space)) do interp
     TransientInterpolation(a.style,interp,a.indices_time)
-  end
-end
-
-function RBSteady.get_owned_icells(a::TransientDistributedInterpolation,cells::AbstractVector)
-  map(local_views(a),local_views(cells)) do a,cells
-    get_owned_icells(a,cells)
   end
 end
 
@@ -464,7 +478,7 @@ function RBSteady.collect_cell_hr_matrix(
   )
 
   cell_idofs = get_cell_idofs(interp)
-  icells = get_owned_icells(interp,strian)
+  cells = get_owned_integration_cells(interp,strian)
   cell_mat_rc = map(local_views(trial),local_views(test),local_views(a),local_views(strian)) do trial,test,a,strian
     scell_mat = get_contribution(a,strian)
     cell_mat,trian = move_contributions(scell_mat,strian)
@@ -472,7 +486,7 @@ function RBSteady.collect_cell_hr_matrix(
     cell_mat_c = attach_constraints_cols(trial,cell_mat,trian)
     attach_constraints_rows(test,cell_mat_c,trian)
   end
-  (cell_mat_rc,cell_idofs,icells)
+  (cell_mat_rc,cell_idofs,cells)
 end
 
 function RBSteady.collect_cell_hr_vector(
@@ -483,21 +497,21 @@ function RBSteady.collect_cell_hr_vector(
   )
 
   cell_idofs = get_cell_idofs(interp)
-  icells = get_owned_icells(interp,strian)
+  cells = get_owned_integration_cells(interp,strian)
   cell_vec_r = map(local_views(test),local_views(a),local_views(strian)) do test,a,strian
     scell_vec = get_contribution(a,strian)
     cell_vec,trian = move_contributions(scell_vec,strian)
     @assert ndims(eltype(cell_vec)) == 1
     attach_constraints_rows(test,cell_vec,trian)
   end
-  (cell_vec_r,cell_idofs,icells)
+  (cell_vec_r,cell_idofs,cells)
 end
 
 for T in (:MPIArray,:DebugArray)
   @eval begin
-    function RBSteady.assemble_hr_array_add!(A::$T,cellvals::$T,celldofs::$T,icells::$T,args...)
-      map(A,cellvals,celldofs,icells) do A,cellvals,celldofs,icells
-        assemble_hr_array_add!(A,cellvals,celldofs,icells,args...)
+    function RBSteady.assemble_hr_array_add!(A::$T,cellvals::$T,celldofs::$T,cells::$T,args...)
+      map(A,cellvals,celldofs,cells) do A,cellvals,celldofs,cells
+        assemble_hr_array_add!(A,cellvals,celldofs,cells,args...)
       end
     end
 

@@ -104,15 +104,23 @@ function mean(cs::AbstractVector{<:OfflineCostTracker})
   OfflineCostTracker(subspace,jacobian,residual)
 end
 
-mutable struct RBPerformanceTracker{A} <: PerformanceTracker
+mutable struct RBPerformanceTracker <: PerformanceTracker
   verbose::Bool
   full_order::CostTracker
   reduced_order::CostTracker
   offline::OfflineCostTracker
-  error::A
+  # scalar for a single-field FE operator, `Vector`/`Array` for a multi-field
+  # one (one entry per block); not known until `compute_error!` is first
+  # called, long after the tracker itself is constructed, hence untyped
+  error::Any
 end
 
-function RBPerformanceTracker(;verbose=true)
+const _default_verbose = Ref{Function}(() -> true)
+
+default_verbose() = _default_verbose[]()
+set_default_verbose!(f::Function) = (_default_verbose[] = f)
+
+function RBPerformanceTracker(;verbose=default_verbose())
   RBPerformanceTracker(
     verbose,
     CostTracker(name="full_order"),

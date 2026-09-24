@@ -1,22 +1,22 @@
 function collect_cell_hr_matrix(trial,test,a,strian,interp)
   cell_idofs = get_cell_idofs(interp)
-  icells = get_owned_icells(interp,strian)
+  cells = get_owned_integration_cells(interp,strian)
   scell_mat = get_contribution(a,strian)
   cell_mat,trian = move_contributions(scell_mat,strian)
   @assert ndims(eltype(cell_mat)) == 2
   cell_mat_c = attach_constraints_cols(trial,cell_mat,trian)
   cell_mat_rc = attach_constraints_rows(test,cell_mat_c,trian)
-  (cell_mat_rc,cell_idofs,icells)
+  (cell_mat_rc,cell_idofs,cells)
 end
 
 function collect_cell_hr_vector(test,a,strian,interp)
   cell_idofs = get_cell_idofs(interp)
-  icells = get_owned_icells(interp,strian)
+  cells = get_owned_integration_cells(interp,strian)
   scell_vec = get_contribution(a,strian)
   cell_vec,trian = move_contributions(scell_vec,strian)
   @assert ndims(eltype(cell_vec)) == 1
   cell_vec_r = attach_constraints_rows(test,cell_vec,trian)
-  (cell_vec_r,cell_idofs,icells)
+  (cell_vec_r,cell_idofs,cells)
 end
 
 struct AddHREntriesMap{F} <: Map
@@ -153,18 +153,18 @@ function assemble_hr_array_add!(
   A::AbstractArray{<:AbstractArray},
   cellvals,
   celldofs::AbstractArray{<:AbstractArray},
-  icells::AbstractArray{<:AbstractArray}
+  cells::AbstractArray{<:AbstractArray}
   )
 
-  @check size(celldofs) == size(icells) == size(A)
+  @check size(celldofs) == size(cells) == size(A)
   for i in eachindex(celldofs)
     cellvalsi = fetch_block(cellvals,i)
-    assemble_hr_array_add!(A[i],cellvalsi,celldofs[i],icells[i])
+    assemble_hr_array_add!(A[i],cellvalsi,celldofs[i],cells[i])
   end
   A
 end
 
-function assemble_hr_array_add!(A,cellvals,celldofs,icells,args...)
+function assemble_hr_array_add!(A,cellvals,celldofs,cells,args...)
   if length(celldofs) > 0
     dofs_cache = array_cache(celldofs)
     vals_cache = array_cache(cellvals)
@@ -173,16 +173,16 @@ function assemble_hr_array_add!(A,cellvals,celldofs,icells,args...)
     add! = AddHREntriesMap(+,args...)
     add_cache = return_cache(add!,A,vals1,rows1)
     caches = add!,add_cache,vals_cache,dofs_cache
-    _numeric_loop_hr_array!(A,caches,cellvals,celldofs,icells)
+    _numeric_loop_hr_array!(A,caches,cellvals,celldofs,cells)
   end
   A
 end
 
-@noinline function _numeric_loop_hr_array!(arr,caches,cell_vals,cell_dofs,icells)
+@noinline function _numeric_loop_hr_array!(arr,caches,cell_vals,cell_dofs,cells)
   add!,add_cache,vals_cache,dofs_cache = caches
-  for (cell,icell) in enumerate(icells)
-    dofs = getindex!(dofs_cache,cell_dofs,cell)
-    vals = getindex!(vals_cache,cell_vals,icell)
+  for (icell,cell) in enumerate(cells)
+    dofs = getindex!(dofs_cache,cell_dofs,icell)
+    vals = getindex!(vals_cache,cell_vals,cell)
     evaluate!(add_cache,add!,arr,vals,dofs)
   end
 end

@@ -1,15 +1,15 @@
 function RBSteady.collect_cell_hr_matrix(trial,test,a,strian,interp,common_indices)
-  cell_mat_rc,cell_idofs,icells = collect_cell_hr_matrix(trial,test,a,strian,interp)
+  cell_mat_rc,cell_idofs,cells = collect_cell_hr_matrix(trial,test,a,strian,interp)
   locations = get_locations(interp,common_indices)
   style = get_interpolation_style(interp)
-  (cell_mat_rc,cell_idofs,icells,locations,style)
+  (cell_mat_rc,cell_idofs,cells,locations,style)
 end
 
 function RBSteady.collect_cell_hr_vector(test,a,strian,interp,common_indices)
-  cell_vec_r,cell_idofs,icells = collect_cell_hr_vector(test,a,strian,interp)
+  cell_vec_r,cell_idofs,cells = collect_cell_hr_vector(test,a,strian,interp)
   locations = get_locations(interp,common_indices)
   style = get_interpolation_style(interp)
-  (cell_vec_r,cell_idofs,icells,locations,style)
+  (cell_vec_r,cell_idofs,cells,locations,style)
 end
 
 function get_hr_param_entry!(v::AbstractVector,A::GenericParamBlock,hr_indices,i...)
@@ -305,15 +305,15 @@ function RBSteady.assemble_hr_array_add!(
   A::AbstractArray{<:AbstractArray},
   cellvals,
   celldofs::AbstractArray{<:AbstractArray},
-  icells::AbstractArray{<:AbstractArray},
+  cells::AbstractArray{<:AbstractArray},
   locations::AbstractArray{<:AbstractArray},
   style::InterpolationStyle
   )
 
-  @check size(celldofs) == size(icells) == size(locations) == size(A)
+  @check size(celldofs) == size(cells) == size(locations) == size(A)
   for i in eachindex(celldofs)
     cellvalsi = fetch_block(cellvals,i)
-    assemble_hr_array_add!(A[i],cellvalsi,celldofs[i],icells[i],locations[i],style)
+    assemble_hr_array_add!(A[i],cellvalsi,celldofs[i],cells[i],locations[i],style)
   end
   A
 end

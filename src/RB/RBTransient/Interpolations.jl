@@ -28,8 +28,8 @@ end
 
 RBSteady.get_integration_cells(a::TransientInterpolation) = get_integration_cells(a.interp_space)
 RBSteady.get_cell_idofs(a::TransientInterpolation) = get_cell_idofs(a.interp_space)
-RBSteady.get_owned_icells(a::TransientInterpolation) = get_owned_icells(a.interp_space)
 RBSteady.get_interpolation_dofs(a::TransientInterpolation) = get_interpolation_dofs(a.interp_space)
+RBSteady.get_owned_integration_cells(a::TransientInterpolation,args...) = get_owned_integration_cells(a.interp_space,args...)
 
 function FESpaces.interpolate!(cache::AbstractArray,a::TransientInterpolation,b::AbstractArray)
   interpolate!(cache,a.interp_space,b)
