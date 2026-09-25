@@ -38,6 +38,13 @@ function ParamDataStructures.param_getindex(a::BlockPArray,i::Integer)
   BlockPArray(b,a.axes)
 end
 
+function ParamDataStructures.param_cat(A::AbstractVector{<:PVector})
+  a = first(A)
+  parts = map(a -> a.vector_partition,A)
+  vector_partition = map((vs...) -> param_cat(collect(vs)),parts...)
+  PVector(vector_partition,a.index_partition)
+end
+
 function ParamDataStructures.parameterise(a::PVector,plength::Integer)
   vector_partition,cache = map(a.vector_partition,a.cache) do values,cache
     parameterise(values,plength),parameterise(cache,plength)
@@ -192,6 +199,21 @@ function ParamDataStructures.parameterise(
     a.local_indices_rcv,
     parameterise(a.buffer_snd,plength),
     parameterise(a.buffer_rcv,plength)
+  )
+end
+
+# `neighbors_snd/rcv`,`local_indices_snd/rcv` (the communication topology) are
+# identical across `A`; only the per-param send/receive buffers need
+# concatenating
+function ParamDataStructures.param_cat(A::Vector{<:ParamVectorAssemblyCache})
+  a1 = first(A)
+  ParamVectorAssemblyCache(
+    a1.neighbors_snd,
+    a1.neighbors_rcv,
+    a1.local_indices_snd,
+    a1.local_indices_rcv,
+    param_cat(map(a -> a.buffer_snd,A)),
+    param_cat(map(a -> a.buffer_rcv,A))
   )
 end
 

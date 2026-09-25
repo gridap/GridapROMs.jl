@@ -88,6 +88,10 @@ struct ParamJaggedArray{T,Ti,A} <: AbstractVector{A}
 
     new{T,Ti,A}(data,convert(Vector{Ti},ptrs),A)
   end
+
+  function ParamJaggedArray{T,Ti,A}(data::AbstractMatrix{T},ptrs::Vector{Ti}) where {T,Ti,A}
+    new{T,Ti,A}(data,ptrs,A)
+  end
 end
 
 for A in (:ConsecutiveParamVector,:AbstractMatrix)
@@ -117,6 +121,13 @@ end
 function ParamDataStructures.parameterise(a::JaggedArray,plength::Integer)
   data = parameterise(a.data,plength)
   ParamJaggedArray(data,a.ptrs)
+end
+
+function ParamDataStructures.param_cat(A::AbstractVector{ParamJaggedArray{T,Ti,S}}) where {T,Ti,S}
+  a = first(A)
+  @check all(ai.ptrs == a.ptrs for ai in A)
+  data = hcat(map(a -> a.data,A)...)
+  ParamJaggedArray{T,Ti,S}(data,a.ptrs)
 end
 
 PartitionedArrays.JaggedArray(data::AbstractParamVector,ptrs) = JaggedArray(data,ptrs)

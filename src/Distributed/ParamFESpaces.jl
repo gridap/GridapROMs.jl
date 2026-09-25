@@ -356,31 +356,3 @@ function ParamODEs._collect_solutions!(sols::PVector,ui::PVector,it::Int)
 end
 
 Utils.get_polynomial_order(f::DistributedFESpace) = get_polynomial_order(getany(local_views(f)))
-
-function Utils.collect_cell_matrix_for_trian(
-  trial::DistributedFESpace,
-  test::DistributedFESpace,
-  a::DistributedDomainContribution,
-  strian::DistributedTriangulation
-  )
-
-  map(collect_cell_matrix_for_trian,
-    local_views(trial),
-    local_views(test),
-    local_views(a),
-    local_views(strian)
-  )
-end
-
-function Utils.collect_cell_vector_for_trian(
-  test::DistributedFESpace,
-  a::DistributedDomainContribution,
-  strian::DistributedTriangulation
-  )
-
-  map(collect_cell_vector_for_trian,
-    local_views(test),
-    local_views(a),
-    local_views(strian)
-  )
-end

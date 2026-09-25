@@ -247,6 +247,7 @@ export HRProjection
 export HRVecProjection
 export HRMatProjection
 export BlockHRProjection
+export GenericHRProjection
 export AffineContribution
 export get_style
 export get_interpolation

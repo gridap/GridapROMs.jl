@@ -58,24 +58,45 @@ MultiField.MultiFieldStyle(r::DistributedMultiFieldRBSpace) = MultiFieldStyle(ge
 MultiField.num_fields(r::DistributedMultiFieldRBSpace) = num_fields(get_fe_space(r))
 Base.length(r::DistributedMultiFieldRBSpace) = num_fields(r)
 
-# the generic `inv_project(a::Projection,x̂) = allocate_in_range(a,x̂); ...` allocates
-# each block's output `PVector` independently from that field's *stored basis*
-# (`RBSteady.fe_dof_ids(a) = axes(get_basis(a),1)`), which is not guaranteed to carry
-# the same `PRange` element type across fields. `GridapDistributed.BlockPRange` can't
-# represent that regardless (it requires `Vector{<:PRange{A}}` for a single `A`), yet
-# this is exactly the situation for a `BlockMultiFieldStyle` space here. Sidestep it
-# entirely by reusing the FE space's own, already-homogeneous `BlockPRange` (built by
-# `GridapDistributed` itself via `generate_multi_field_gids`, stored as `fs.gids`) as
-# the allocation template, mirroring `GridapDistributed.Algebra.allocate_vector(
-# ::Type{<:BlockPVector{V}},ids::BlockPRange) = BlockPVector{V}(undef,ids)`, which
-# builds each block directly off `ids` without ever re-`mortar`-ing the row partition
-function RBSteady.inv_project(r::DistributedMultiFieldRBSpace,x̂::AbstractVector)
-  a = get_reduced_subspace(r)
-  gids = get_free_dof_ids(get_fe_space(r))
+function Utils.collect_cell_vector_for_trian(
+  test::Union{DistributedFESpace,DistributedRBSpace},
+  a::DistributedDomainContribution,
+  strian::DistributedTriangulation
+  )
+
+  map(collect_cell_vector_for_trian,
+    local_views(test),
+    local_views(a),
+    local_views(strian)
+  )
+end
+
+function Utils.collect_cell_matrix_for_trian(
+  trial::Union{DistributedFESpace,DistributedRBSpace},
+  test::Union{DistributedFESpace,DistributedRBSpace},
+  a::DistributedDomainContribution,
+  strian::DistributedTriangulation
+  )
+
+  map(collect_cell_matrix_for_trian,
+    local_views(trial),
+    local_views(test),
+    local_views(a),
+    local_views(strian)
+  )
+end
+
+function Algebra.allocate_in_range(r::DistributedMultiFieldRBSpace)
+  f = get_fe_space(r)
+  gids = get_free_dof_ids(f)
+  allocate_vector(BlockPVector{eltype(x̂)},gids)
+end
+
+function Algebra.allocate_in_range(r::DistributedMultiFieldRBSpace,x̂::AbstractVector)
+  f = get_fe_space(r)
+  gids = get_free_dof_ids(f)
   x = allocate_vector(BlockPVector{eltype(x̂)},gids)
-  x = parameterise(x,param_length(x̂))
-  inv_project!(x,a,x̂)
-  return x
+  parameterise(x,param_length(x̂))
 end
 
 # galerkin projections
@@ -94,6 +115,16 @@ function RBSteady.galerkin_projection(Φl::GenericPMatrix,A::PSparseMatrix,Φr::
   Â = zeros(TS,nleft,nright,n)
   _galerkin_mul!(Â,Φl,A,Φr)
   return Â
+end
+
+function RBSteady.copy_projection!(
+  cache::AbstractArray{<:AbstractParamArray},
+  proj_basis::AbstractArray{<:Number}
+  )
+
+  map(cache) do c
+    RBSteady.copy_projection!(c,proj_basis)
+  end
 end
 
 # integration domains
@@ -354,11 +385,7 @@ function RBTransient.get_at_seq_domain(
   ConsecutiveParamArray(datav)
 end
 
-const DistributedHRProjection{
-  A<:HyperReduction,
-  B<:Projection,
-  C<:Union{DistributedInterpolation,TransientDistributedInterpolation}
-} = RBSteady.GenericHRProjection{A,B,C}
+const DistributedHRProjection{A<:HyperReduction} = GenericHRProjection{A,<:Projection,<:Union{DistributedInterpolation,TransientDistributedInterpolation}}
 
 function GridapDistributed.local_views(a::DistributedHRProjection)
   map(local_views(a.interpolation)) do interp
@@ -383,7 +410,7 @@ end
 function FESpaces.interpolate!(
   b̂::AbstractArray,
   _coeff::AbstractArray{<:AbstractArray},
-  a::DistributedHRProjection{NoHyperReduction,B} where B,
+  a::DistributedHRProjection{NoHyperReduction},
   x::AbstractArray{<:AbstractArray}
   )
 
@@ -547,6 +574,8 @@ function Base.fill!(a::MPIArray,b::Number)
   a
 end
 
+Base.fill!(a::PSparseMatrix,b::Number) = LinearAlgebra.fillstored!(a,b)
+
 # generic utils
 
 function _galerkin_mul!(
@@ -696,8 +725,9 @@ function RBSteady._union(a::AbstractArray{<:AbstractVector},b::AbstractArray)
 end
 
 function RBSteady._cluster(s::DistributedSnapshots,inds::AbstractVector)
-  snaps = map(local_views(s)) do s
+  data = map(local_views(s)) do s
     RBSteady._cluster(s,inds)
   end
+  snaps = GenericPArray(data,flat_row_partition(s))
   DistributedSnapshots(snaps)
 end
