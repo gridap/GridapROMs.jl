@@ -309,7 +309,6 @@ export load_operator
 export load_results
 export load_stats
 export load_problem_snapshots
-export create_dir
 export SNAPSHOTS_LABEL
 export RESIDUALS_LABEL
 export JACOBIANS_LABEL

@@ -1,17 +1,3 @@
-"""
-    create_dir(dir::String) -> Nothing
-
-Recursive creation of a directory `dir`; does not do anything if `dir` exists
-"""
-function create_dir(dir::String)
-  if !isdir(dir)
-    parent_dir, = splitdir(dir)
-    create_dir(parent_dir)
-    mkdir(dir)
-  end
-  return
-end
-
 const SNAPSHOTS_LABEL = "snaps"
 const RESIDUALS_LABEL = "res"
 const JACOBIANS_LABEL = "jac"

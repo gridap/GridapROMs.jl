@@ -168,7 +168,7 @@ using DrWatson
 using Serialization
 
 dir = datadir("navier-stokes")
-create_dir(dir) 
+mkpath(dir) 
 
 try # try loading offline quantities
     rbop = load_operator(dir,feop)

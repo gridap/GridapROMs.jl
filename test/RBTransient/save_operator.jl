@@ -101,7 +101,7 @@ function main(
   feop = LinearNonlinearTransientParamOperator(feop_lin,feop_nlin)
 
   dir = datadir("navier_stokes_test")
-  create_dir(dir)
+  mkpath(dir)
 
   fesnaps, = solution_snapshots(rbsolver,feop,xh0μ)
   rbop = reduced_operator(rbsolver,feop,fesnaps)

@@ -161,7 +161,6 @@ using GridapROMs.Extensions: ⊕; export ⊕
 @publish RBSteady load_operator
 @publish RBSteady load_results
 @publish RBSteady load_stats
-@publish RBSteady create_dir
 
 @publish RBTransient TransientReduction
 @publish RBTransient SteadyReduction

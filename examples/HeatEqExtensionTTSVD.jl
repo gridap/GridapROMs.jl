@@ -102,7 +102,7 @@ state_reduction = TransientReduction(tol,energy;nparams=40)
 rbsolver = RBSolver(fesolver,state_reduction;nparams_res=20,nparams_jacs=(20,1))
 
 dir = datadir("heateq_ttsvd")
-create_dir(dir)
+mkpath(dir)
 
 tols = [1e-1,1e-2,1e-3,1e-4,1e-5]
 run_test(dir,rbsolver,feop,tols,uh0μ)

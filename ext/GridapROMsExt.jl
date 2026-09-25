@@ -190,7 +190,7 @@ function GridapROMs.run_test(
     println("Running test $dir with tolrank = $tolrank")
 
     dir_tolrank = joinpath(dir,string(tolrank))
-    create_dir(dir_tolrank)
+    mkpath(dir_tolrank)
 
     rbsolver = update_solver(rbsolver,tolrank)
     rbop = try_loading_reduced_operator(dir_tolrank,rbsolver,feop,fesnaps,jac,res)
@@ -200,7 +200,7 @@ function GridapROMs.run_test(
   end
 
   results_dir = joinpath(dir,"results")
-  create_dir(results_dir)
+  mkpath(results_dir)
 
   plot_errors(results_dir,tolranks,perfs)
   serialize(joinpath(results_dir,"performance.jld"),(tolrank => perf for (tolrank,perf) in zip(tolranks,perfs)))

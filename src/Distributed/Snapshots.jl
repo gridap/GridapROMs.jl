@@ -132,7 +132,7 @@ end
 """
 const DistributedBlockSnapshots{S<:DistributedSnapshots,N,B} = BlockSnapshots{S,N,B}
 
-const DistributedTransientBlockSnapshots{N} = DistributedBlockSnapshots{<:Any,N,<:StoredParamData}
+const DistributedTransientBlockSnapshots{N} = DistributedBlockSnapshots{<:DistributedTransientSnapshots,N,<:StoredParamData}
 
 function ParamDataStructures.Snapshots(
   data::BlockPArray,
@@ -205,15 +205,48 @@ function ParamDataStructures.select_snapshots(s::DistributedBlockSnapshots,pinde
 end
 
 function ParamDataStructures.select_snapshots(s::DistributedTransientBlockSnapshots,pindex)
+  prange = ParamDataStructures._format_index(pindex)
+  trange = 1:num_times(s)
   array = map(sj -> select_snapshots(sj,pindex),blocks(s))
-  pdata = mortar(map(get_param_data,array))
+  pdata = select_param_data(s.param_data,prange,trange)
   BlockSnapshots(array,pdata)
 end
 
 function ParamDataStructures.select_times(s::DistributedTransientBlockSnapshots,tindex)
   array = map(sj -> select_times(sj,tindex),blocks(s))
-  pdata = mortar(map(get_param_data,array))
+  np = num_params(s)
+  prange = 1:np
+  trange = ParamDataStructures._format_index(tindex)
+  pdata = select_param_data(s.param_data,prange,trange;nparams=np)
   BlockSnapshots(array,pdata)
+end
+
+function ParamDataStructures.select_param_data(
+  a::PVector,prange,trange;
+  nparams=Int(param_length(a)/length(trange))
+  )
+
+  vector_partition = map(local_values(a)) do d
+    select_param_data(d,prange,trange;nparams)
+  end
+  PVector(vector_partition,a.index_partition)
+end
+
+function ParamDataStructures.select_param_data(
+  a::PSparseMatrix,prange,trange;
+  nparams=Int(param_length(a)/length(trange))
+  )
+
+  matrix_partition = map(local_values(a)) do d
+    select_param_data(d,prange,trange;nparams)
+  end
+  PSparseMatrix(matrix_partition,a.row_partition,a.col_partition)
+end
+
+function ParamDataStructures.select_param_data(a::BlockPArray,prange,trange;kwargs...)
+  map(blocks(a)) do p
+    select_param_data(p,prange,trange;kwargs...)
+  end |> mortar
 end
 
 function Base.show(io::IO,k::MIME"text/plain",s::DistributedBlockSnapshots)

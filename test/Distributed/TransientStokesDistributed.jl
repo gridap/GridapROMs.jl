@@ -105,7 +105,7 @@ function main(
   dir = datadir("diagnostics_transient_stokes_distributed")
   if i_am_main(ranks)
     isdir(dir) && rm(dir;recursive=true)
-    create_dir(dir)
+    mkpath(dir)
   end
   MPI.Initialized() && MPI.Barrier(MPI.COMM_WORLD)
 

@@ -507,20 +507,20 @@ function generate_snaps(M;label="2d_heateq",id=string(Int(rand(1:1e4))),kwargs..
   jacsnaps = jacobian_snapshots(rbsolver,feop,fesnaps)
 
   dir = datadir(label*"_$M")
-  create_dir(dir)
+  mkpath(dir)
 
   save(dir,festats;label=id)
 
   dir_sol = joinpath(dir,"sol")
-  create_dir(dir_sol)
+  mkpath(dir_sol)
   save(dir_sol,fesnaps;label=id)
 
   dir_res = joinpath(dir,"res")
-  create_dir(dir_res)
+  mkpath(dir_res)
   save(dir_res,ressnaps;label=id)
 
   dir_jac = joinpath(dir,"jac")
-  create_dir(dir_jac)
+  mkpath(dir_jac)
   save(dir_jac,jacsnaps,feop;label=id)
 end
 
@@ -576,7 +576,7 @@ function main_rb(;method=:pod,M_test=(25,50,100),tols=(1e-1,1e-2,1e-3,1e-4,1e-5)
       println("Running test $dir with tol = $tol")
 
       dir_tol = joinpath(dir,string(method)*"_"*string(tol))
-      create_dir(dir_tol)
+      mkpath(dir_tol)
 
       rbsolver = update_solver(rbsolver,tol)
       rbop = try_loading_reduced_operator(dir_tol,rbsolver,feop,fesnaps,method)

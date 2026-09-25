@@ -79,7 +79,7 @@ state_reduction = Reduction(tol,energy;nparams=80)
 rbsolver = RBSolver(fesolver,state_reduction;nparams_res=40,nparams_jac=40)
 
 dir = datadir("elasticity_pod")
-create_dir(dir)
+mkpath(dir)
 
 tols = [1e-1,1e-2,1e-3,1e-4,1e-5]
 run_test(dir,rbsolver,feop,tols)

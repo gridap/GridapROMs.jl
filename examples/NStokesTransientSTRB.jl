@@ -99,7 +99,7 @@ state_reduction = TransientReduction(coupling,tol,energy;nparams=60)
 rbsolver = RBSolver(fesolver,state_reduction;nparams_res=50,nparams_jacs=(20,1))
 
 dir = datadir("transient_nstokes_pod")
-create_dir(dir)
+mkpath(dir)
 
 tols = [1e-4,]
 run_test(dir,rbsolver,feop,tols,xh0μ;reuse_online=true)

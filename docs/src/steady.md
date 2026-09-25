@@ -209,7 +209,7 @@ and define a saving directory for our example
 
 ```julia 
 dir = datadir("poisson")
-create_dir(dir) 
+mkpath(dir) 
 ```
 
 Next, we try loading the offline quantities; if the load fails, we must run the offline phase 
