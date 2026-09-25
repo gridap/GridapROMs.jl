@@ -110,7 +110,7 @@ function enrich!(
 
   a_primal,a_dual... = a.array
   X_primal = norm_matrix[Block(1,1)]
-  H_primal = symcholesky(X_primal)
+  H_primal = gram_solver(X_primal)
   a_primal_loc = local_vals(a_primal)
   for j in eachindex(a_primal_loc)
     pj = a_primal_loc[j]
@@ -136,7 +136,7 @@ function enrich!(
 
   a_primal,a_dual... = a.array
   X_primal = norm_matrix[Block(1,1)]
-  H_primal = symcholesky(X_primal)
+  H_primal = gram_solver(X_primal)
   a_primal_loc = local_vals(a_primal)
   for j in eachindex(a_primal_loc)
     pj = a_primal_loc[j]
@@ -280,7 +280,7 @@ end
 
 function _compute_elbow(v::AbstractVector)
   dv = zeros(length(v)-1)
-  for i in 1:length(dv)
+  for i in eachindex(dv)
     dv[i] = abs(v[i+1]-v[i]) / v[i]
   end
   argmin(dv)
@@ -301,7 +301,7 @@ end
 
 function _cluster(s::GenericSnapshots,inds::AbstractVector)
   sinds = select_snapshots(s,inds)
-  data = collect(get_all_data(sinds))
+  data = collect(get_all_data(sinds)) #TODO: is collect needed?
   GenericSnapshots(data,get_param_data(sinds),get_dof_map(sinds),get_realisation(sinds))
 end
 

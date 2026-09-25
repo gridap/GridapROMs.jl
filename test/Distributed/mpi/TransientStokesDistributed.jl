@@ -1,14 +1,14 @@
-module StokesDistributedDebug
+module TransientStokesDistributedMPI
 
-using PartitionedArrays, GridapPETSc
-include("../StokesDistributed.jl")
+using MPI, PartitionedArrays, GridapPETSc
+include("../TransientStokesDistributed.jl")
 
 petsc_options = "-sub_pc_type jacobi"
 
-with_debug() do distribute
+with_mpi() do distribute
   GridapPETSc.with(;args=split(petsc_options)) do
     for compression in (:local,:global), hypred_strategy in (:none,:affine,:deim,:sopt,:rbf)
-      StokesDistributed.main(distribute,(2,2),compression,hypred_strategy)
+      TransientStokesDistributed.main(distribute,(2,2),compression,hypred_strategy)
       GridapPETSc.gridap_petsc_gc()
     end
   end

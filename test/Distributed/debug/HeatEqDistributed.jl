@@ -4,7 +4,9 @@ using PartitionedArrays
 include("../HeatEqDistributed.jl")
 
 with_debug() do distribute
-  HeatEqDistributed.main(distribute,(2,2))
+  for compression in (:local,:global), hypred_strategy in (:deim,:sopt,:rbf,:none,:affine)
+    HeatEqDistributed.main(distribute,(2,2),compression,hypred_strategy)
+  end
 end
 
 end

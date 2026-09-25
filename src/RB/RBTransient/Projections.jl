@@ -471,7 +471,7 @@ function RBSteady.enrich!(
   a_primal_space = a_primal.projection_space
   a_primal_time = a_primal.projection_time
   X_primal = norm_matrix[Block(1,1)]
-  H_primal = symcholesky(X_primal)
+  H_primal = gram_solver(X_primal)
   for i = eachindex(a_dual)
     dual_i_space = get_basis_space(a_dual[i])
     C_primal_dual_i = supr_matrix[Block(1,i+1)]

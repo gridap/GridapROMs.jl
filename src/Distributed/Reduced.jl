@@ -11,11 +11,6 @@ function GridapDistributed.local_views(r::DistributedSingleFieldRBSpace)
   end
 end
 
-# `r.subspace` is a `BlockProjection` here, whose fields may have different
-# concrete types across blocks (e.g. one field null, one not); `local_views`
-# is deliberately not defined for `BlockProjection` itself (it is used in
-# both distributed and non-distributed contexts), so the per-field split and
-# per-rank recombination happens here instead, scoped to `DistributedRBSpace`
 function GridapDistributed.local_views(r::DistributedMultiFieldRBSpace)
   subspace = get_reduced_subspace(r)
   local_subspaces = map(local_views,subspace.array)
@@ -698,4 +693,11 @@ function RBSteady._union(a::AbstractArray{<:AbstractVector},b::AbstractArray)
   map(local_views(a)) do a
     RBSteady._union(a,b)
   end
+end
+
+function RBSteady._cluster(s::DistributedSnapshots,inds::AbstractVector)
+  snaps = map(local_views(s)) do s
+    RBSteady._cluster(s,inds)
+  end
+  DistributedSnapshots(snaps)
 end

@@ -82,14 +82,12 @@ function reduced_form(lred::LocalReduction,s,trian,test)
   kr, = get_clusters(test)
   cs = cluster(s,ks)
 
-  hr = Matrix{HRProjection}(undef,length(ks.counts),length(kr.counts))
-  for i in eachindex(ks.counts)
+  hr = map(Iterators.product(axes(ks.counts,1),axes(kr.centers,2))) do (i,j)
     si = cs[i]
-    for (j,centerj) in enumerate(eachcol(kr.centers))
-      testj = get_local(test,centerj)
-      hyper_redij, = reduced_form(red,si,trian,testj)
-      hr[i,j] = hyper_redij
-    end
+    centerj = view(kr.centers,:,j)
+    testj = get_local(test,centerj)
+    hyper_redij, = reduced_form(red,si,trian,testj)
+    hyper_redij
   end
 
   hyper_red = LocalHRProjection(hr,(ks,kr))
@@ -104,15 +102,13 @@ function reduced_form(lred::LocalReduction,s,trian,trial,test)
   kr, = get_clusters(test)
   cs = cluster(s,ks)
 
-  hr = Matrix{HRProjection}(undef,length(ks.counts),length(kr.counts))
-  for i in eachindex(ks.counts)
+  hr = map(Iterators.product(axes(ks.counts,1),axes(kr.centers,2))) do (i,j)
     si = cs[i]
-    for (j,centerj) in enumerate(eachcol(kr.centers))
-      trialj = get_local(trial,centerj)
-      testj = get_local(test,centerj)
-      hyper_redij, = reduced_form(red,si,trian,trialj,testj)
-      hr[i,j] = hyper_redij
-    end
+    centerj = view(kr.centers,:,j)
+    trialj = get_local(trial,centerj)
+    testj = get_local(test,centerj)
+    hyper_redij, = reduced_form(red,si,trian,trialj,testj)
+    hyper_redij
   end
 
   hyper_red = LocalHRProjection(hr,(ks,kr))

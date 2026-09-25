@@ -1,7 +1,6 @@
 module StokesDistributed
 
 using DrWatson
-using LinearAlgebra
 using Gridap
 using Gridap.Algebra
 using Gridap.FESpaces
@@ -9,41 +8,18 @@ using Gridap.MultiField
 using GridapDistributed
 using GridapPETSc
 using GridapROMs
+using GridapROMs.RBSteady
 using GridapSolvers
+using MPI
+using GridapSolvers.LinearSolvers
+using GridapSolvers.BlockSolvers
 using PartitionedArrays
+using Plots
 using Test
 
 using GridapROMs.ParamAlgebra
 using GridapROMs.ParamDataStructures
-using GridapROMs.RBSteady
-
-using GridapSolvers.LinearSolvers
-using GridapSolvers.BlockSolvers
-
-tol=1e-4
-nparams=12
-nparams_res=floor(Int,nparams/3)
-nparams_jac=floor(Int,nparams/4)
-ncentroids=2
-hypred_strategy=:deim
-
-domain = (0,1,0,1)
-partition = (8,8)
-
-pdomain = (1,10,1,10)
-pspace = ParamSpace(pdomain)
-
-a(μ) = x -> μ[1]*exp(-x[1])
-aμ(μ) = parameterise(a,μ)
-
-g(μ) = x -> VectorValue(-μ[2]*x[2]*(1.0-x[2]),0.0)*(x[1]==0.0)
-gμ(μ) = parameterise(g,μ)
-
-order = 2
-
-energy = BlockNorm((H1(),L2()))
-coupling = DivCoupling()
-state_reduction = SupremizerReduction(coupling,tol,energy;nparams,ncentroids)
+using GridapROMs.Distributed
 
 function petsc_asm_setup(ksp)
   pc = Ref{GridapPETSc.PETSC.PC}()
@@ -83,38 +59,47 @@ function Gridap.Algebra.solve!(
   ns
 end
 
-function build_rbsolver(Q,dΩ,ranks)
+function build_fesolver(Q,dΩ)
   solver_u = ASMSolver()
   solver_p = PressureSolver()
 
   blocks = [LinearSystemBlock() LinearSystemBlock();
             LinearSystemBlock() BiformBlock((p,q) -> ∫(p*q)dΩ,Q,Q)]
   prec = BlockTriangularSolver(blocks,[solver_u,solver_p])
-  fesolver = FGMRESSolver(30,prec;rtol=1.e-6,verbose=false)
-
-  RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy)
+  FGMRESSolver(30,prec;rtol=1.e-6,verbose=false)
 end
 
-function build_spaces(Ω)
-  reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
-  reffe_p = ReferenceFE(lagrangian,Float64,order-1)
+function main(
+  distribute,parts,
+  compression=:global,hypred_strategy=:deim;
+  tol=1e-4,nparams=12,nparams_res=floor(Int,nparams/3),
+  nparams_jac=floor(Int,nparams/4),ncentroids=2
+  )
 
-  V = TestFESpace(Ω,reffe_u;conformity=:H1,dirichlet_tags=[1,2,3,4,5,6,7])
-  Q = TestFESpace(Ω,reffe_p;conformity=:H1)
-  U = ParamTrialFESpace(V,gμ)
-  P = ParamTrialFESpace(Q)
+  compression = compression ∈ (:global,:local) ? compression : :global
+  hypred_strategy = hypred_strategy ∈ (:deim,:sopt,:rbf,:none,:affine) ? hypred_strategy : :deim
 
-  X = MultiFieldFESpace([U,P];style=BlockMultiFieldStyle())
-  Y = MultiFieldFESpace([V,Q];style=BlockMultiFieldStyle())
-  return X,Y,Q
-end
+  println("Running test with $compression (pod, $hypred_strategy) strategy")
 
-function main(distribute,parts)
   ranks = distribute(LinearIndices((prod(parts),)))
+
+  domain = (0,1,0,1)
+  partition = (8,8)
   model = CartesianDiscreteModel(ranks,parts,domain,partition)
 
-  Ω = Triangulation(model)
+  pdomain = (1,10,1,10)
+  pspace = ParamSpace(pdomain)
+
+  a(μ) = x -> μ[1]*exp(-x[1])
+  aμ(μ) = parameterise(a,μ)
+
+  g(μ) = x -> VectorValue(-μ[2]*x[2]*(1.0-x[2]),0.0)*(x[1]==0.0)
+  gμ(μ) = parameterise(g,μ)
+
+  order = 2
   degree = 2*order
+
+  Ω = Triangulation(model)
   dΩ = Measure(Ω,degree)
 
   stiffness(μ,(u,p),(v,q),dΩ) = ∫(aμ(μ)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
@@ -124,58 +109,36 @@ function main(distribute,parts)
   trian_stiffness = (Ω,)
   domains = FEDomains(trian_res,trian_stiffness)
 
-  X,Y,Q = build_spaces(Ω)
+  reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
+  reffe_p = ReferenceFE(lagrangian,Float64,order-1)
+  V = TestFESpace(Ω,reffe_u;conformity=:H1,dirichlet_tags=[1,2,3,4,5,6,7])
+  Q = TestFESpace(Ω,reffe_p;conformity=:H1)
+  U = ParamTrialFESpace(V,gμ)
+  P = ParamTrialFESpace(Q)
+  X = MultiFieldFESpace([U,P];style=BlockMultiFieldStyle())
+  Y = MultiFieldFESpace([V,Q];style=BlockMultiFieldStyle())
+
+  energy = BlockNorm((H1(),L2()))
+  coupling = DivCoupling()
+  state_reduction = SupremizerReduction(coupling,tol,energy;nparams,compression,ncentroids)
+
+  fesolver = build_fesolver(Q,dΩ)
+  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy)
+
   feop = LinearParamOperator(res,stiffness,pspace,X,Y,domains)
 
-  rbsolver = build_rbsolver(Q,dΩ,ranks)
-
-  fesnaps, = solution_snapshots(rbsolver,feop)
-  rbop = reduced_operator(rbsolver,feop,fesnaps)
-
-  if get(ENV,"GRIDAPROMS_DEBUG_STOKES","") == "1"
-    mkpath(joinpath(@__DIR__,"boh_diag_stokes"))
-    for (k,strian) in enumerate(RBSteady.get_domains_jac(rbop))
-      map(local_views(strian)) do t
-        open(joinpath(@__DIR__,"boh_diag_stokes","jactrian_debug_$(getpid()).log"),"a") do io
-          println(io,"trian_jac[",k,"] ncells=",num_cells(t)," cell_to_parent_cell=",t.cell_to_parent_cell)
-        end
-      end
-    end
+  dir = datadir("diagnostics_stokes_distributed")
+  if i_am_main(ranks)
+    isdir(dir) && rm(dir;recursive=true)
+    create_dir(dir)
   end
+  MPI.Initialized() && MPI.Barrier(MPI.COMM_WORLD)
 
-  # velocity basis H1-orthogonality after supremizer enrichment
-  μ = get_realisation(fesnaps)
-  trial = get_trial(rbop)(μ)
-  rsub = RBSteady.get_reduced_subspace(trial)
-  a_primal = rsub[1]
-  Φ = RBSteady.get_basis(a_primal)
-  Xp = RBSteady.get_norm_matrix(a_primal)
-  G = Φ'*(Xp*Φ)
-  n = size(G,1)
-  orth_err = maximum(abs.(G .- I(n)))
-  println("diagnostic | velocity basis H1-orthogonality max|Φ'HΦ - I|: ", orth_err)
+  tols = [1e-1,1e-3,1e-5]
+  run_test(dir,rbsolver,feop,tols)
 
-  μon = realisation(feop;nparams=10,start=nparams+1)
-  x̂ = solve(rbsolver,rbop,μon)
-  x, = solution_snapshots(rbsolver,feop,μon)
-  println(rom_performance(rbsolver,rbop,x,x̂))
-
-  perr = RBSteady.projection_error(rbsolver,rbop,fesnaps)
-  println("diagnostic | projection error (basis + project/inv_project, no HR): ", perr)
-
-  rbsolverx = RBSteady.set_params(rbsolver;nparams=num_params(x))
-  res = residual_snapshots(rbsolverx,feop,x)
-  jac = jacobian_snapshots(rbsolverx,feop,x)
-  err_res,err_jac = RBSteady.hr_error(rbsolverx,rbop,res,jac,x)
-  println("diagnostic | hr error residual (per trian): ", err_res)
-  println("diagnostic | hr error jacobian (per trian): ", err_jac)
-
-  # per-rank save / load round-trip of the FE snapshots (distributed)
-  diagdir = mkpath(joinpath(@__DIR__,"boh_diag_stokes"))
-  save(diagdir,fesnaps)
-  fesnaps_loaded = load_snapshots(diagdir,ranks)
-  println("diagnostic | snapshots save/load round-trip ok: ",
-    all(compute_relative_error(fesnaps,fesnaps_loaded) .< 1e-12))
+  dgn = rom_diagnostics(dir,rbsolver,feop)
+  println(dgn)
 end
 
 end

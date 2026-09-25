@@ -30,7 +30,7 @@ function RBSteady.enrich!(
   tol = RBSteady.get_supr_tol(red)
   a_primal,a_dual... = a.array
   X_primal = norm_matrix[Block(1,1)]
-  H_primal = symcholesky(X_primal)
+  H_primal = gram_solver(X_primal)
   a_primal_loc = local_vals(a_primal)
   for j in eachindex(a_primal_loc)
     pj_space = a_primal_loc[j].projection_space
