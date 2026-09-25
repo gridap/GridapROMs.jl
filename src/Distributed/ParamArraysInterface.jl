@@ -202,10 +202,7 @@ function ParamDataStructures.parameterise(
   )
 end
 
-# `neighbors_snd/rcv`,`local_indices_snd/rcv` (the communication topology) are
-# identical across `A`; only the per-param send/receive buffers need
-# concatenating
-function ParamDataStructures.param_cat(A::Vector{<:ParamVectorAssemblyCache})
+function ParamDataStructures.param_cat(A::AbstractVector{<:ParamVectorAssemblyCache})
   a1 = first(A)
   ParamVectorAssemblyCache(
     a1.neighbors_snd,

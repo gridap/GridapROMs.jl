@@ -204,7 +204,13 @@ function ParamDataStructures.select_snapshots(s::DistributedBlockSnapshots,pinde
   BlockSnapshots(array,pdata)
 end
 
-function ParamDataStructures.select_times(s::DistributedBlockSnapshots,tindex)
+function ParamDataStructures.select_snapshots(s::DistributedTransientBlockSnapshots,pindex)
+  array = map(sj -> select_snapshots(sj,pindex),blocks(s))
+  pdata = mortar(map(get_param_data,array))
+  BlockSnapshots(array,pdata)
+end
+
+function ParamDataStructures.select_times(s::DistributedTransientBlockSnapshots,tindex)
   array = map(sj -> select_times(sj,tindex),blocks(s))
   pdata = mortar(map(get_param_data,array))
   BlockSnapshots(array,pdata)

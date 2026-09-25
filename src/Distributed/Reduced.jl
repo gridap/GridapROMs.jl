@@ -5,17 +5,9 @@ const DistributedRBSpace{S<:DistributedFESpace} = RBSpace{S}
 const DistributedSingleFieldRBSpace{S<:DistributedSingleFieldFESpace} = DistributedRBSpace{S}
 const DistributedMultiFieldRBSpace{S<:DistributedMultiFieldFESpace} = DistributedRBSpace{S}
 
-function GridapDistributed.local_views(r::DistributedSingleFieldRBSpace)
+function GridapDistributed.local_views(r::DistributedRBSpace)
   map(local_views(r.space),local_views(r.subspace)) do space,subspace
     RBSpace(space,subspace)
-  end
-end
-
-function GridapDistributed.local_views(r::DistributedMultiFieldRBSpace)
-  subspace = get_reduced_subspace(r)
-  local_subspaces = map(local_views,subspace.array)
-  map(local_views(r.space),local_subspaces...) do space,fields...
-    RBSpace(space,BlockProjection(collect(fields)))
   end
 end
 

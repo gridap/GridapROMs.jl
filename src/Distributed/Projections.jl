@@ -123,6 +123,13 @@ function GridapDistributed.local_views(a::DistributedNormedProjection)
   end
 end
 
+function GridapDistributed.local_views(a::BlockProjection)
+  parts = map(local_views,a.array)
+  map(parts...) do array...
+    BlockProjection(array)
+  end
+end
+
 const DistributedKroneckerProjection{A<:Union{DistributedProjection,DistributedNormedProjection},B<:Projection} = KroneckerProjection{A,B}
 
 function GridapDistributed.local_views(a::DistributedKroneckerProjection)

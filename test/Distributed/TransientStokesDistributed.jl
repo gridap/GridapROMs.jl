@@ -36,15 +36,16 @@ function main(
   compression = compression ∈ (:global,:local) ? compression : :global
   hypred_strategy = hypred_strategy ∈ (:deim,:sopt,:rbf,:none,:affine) ? hypred_strategy : :deim
 
-  println("Running test with $compression (pod, $hypred_strategy) strategy")
+  println("Running test with $compression (pod, $hypred_strategy) strategy"); flush(stdout)
 
   ranks = distribute(LinearIndices((prod(parts),)))
 
   domain = (0,1,0,1)
   partition = (8,8)
   model = CartesianDiscreteModel(ranks,parts,domain,partition)
+  println("  model built"); flush(stdout)
 
-  pdomain = (1,10,-1,5,1,2)
+  pdomain = (1,10,1,10)
 
   order = 2
   degree = 2*order
@@ -55,7 +56,7 @@ function main(
   a(μ,t) = x -> μ[1]*exp(sin(t))
   aμt(μ,t) = parameterise(a,μ,t)
 
-  g(μ,t) = x -> VectorValue(-(μ[2]*x[2]+μ[3])*x[2]*(1.0-x[2])*t,0.0)*(x[1]==0.0)
+  g(μ,t) = x -> VectorValue(-μ[2]*x[2]*(1.0-x[2])*t,0.0)*(x[1]==0.0)
   gμt(μ,t) = parameterise(g,μ,t)
 
   u0(μ) = x -> VectorValue(0.0,0.0)
@@ -80,6 +81,7 @@ function main(
   trial_p = TransientTrialParamFESpace(test_p)
   test = MultiFieldFESpace([test_u,test_p];style=BlockMultiFieldStyle())
   trial = MultiFieldFESpace([trial_u,trial_p];style=BlockMultiFieldStyle())
+  println("  fe spaces built"); flush(stdout)
 
   θ = 0.5
   dt = 0.01
@@ -98,6 +100,7 @@ function main(
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jacs=(nparams_jac,nparams_jac),hypred_strategy)
 
   feop = TransientLinearParamOperator(res,(stiffness,mass),ptspace,trial,test,domains)
+  println("  feop built, starting run_test"); flush(stdout)
 
   dir = datadir("diagnostics_transient_stokes_distributed")
   if i_am_main(ranks)
@@ -108,9 +111,10 @@ function main(
 
   tols = [1e-1,1e-3,1e-5]
   run_test(dir,rbsolver,feop,tols,xh0μ)
+  println("  run_test done"); flush(stdout)
 
   dgn = rom_diagnostics(dir,rbsolver,feop,xh0μ)
-  println(dgn)
+  println(dgn); flush(stdout)
 end
 
 end
