@@ -133,10 +133,10 @@ function main(distribute,parts)
   rbop = reduced_operator(rbsolver,feop,fesnaps)
 
   if get(ENV,"GRIDAPROMS_DEBUG_STOKES","") == "1"
-    mkpath(joinpath(@__DIR__,"boh_diag"))
+    mkpath(joinpath(@__DIR__,"boh_diag_stokes"))
     for (k,strian) in enumerate(RBSteady.get_domains_jac(rbop))
       map(local_views(strian)) do t
-        open(joinpath(@__DIR__,"boh_diag","jactrian_debug_$(getpid()).log"),"a") do io
+        open(joinpath(@__DIR__,"boh_diag_stokes","jactrian_debug_$(getpid()).log"),"a") do io
           println(io,"trian_jac[",k,"] ncells=",num_cells(t)," cell_to_parent_cell=",t.cell_to_parent_cell)
         end
       end
@@ -171,11 +171,11 @@ function main(distribute,parts)
   println("diagnostic | hr error jacobian (per trian): ", err_jac)
 
   # per-rank save / load round-trip of the FE snapshots (distributed)
-  diagdir = mkpath(joinpath(@__DIR__,"boh_diag"))
+  diagdir = mkpath(joinpath(@__DIR__,"boh_diag_stokes"))
   save(diagdir,fesnaps)
   fesnaps_loaded = load_snapshots(diagdir,ranks)
   println("diagnostic | snapshots save/load round-trip ok: ",
-    compute_relative_error(fesnaps,fesnaps_loaded) < 1e-12)
+    all(compute_relative_error(fesnaps,fesnaps_loaded) .< 1e-12))
 end
 
 end

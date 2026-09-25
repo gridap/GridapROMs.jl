@@ -109,7 +109,7 @@ function main(distribute,parts)
   println("diagnostic | hr error jacobian (per trian): ", err_jac)
 
   # per-rank save / load round-trip of the FE snapshots (distributed)
-  diagdir = mkpath(joinpath(@__DIR__,"boh_diag"))
+  diagdir = mkpath(joinpath(@__DIR__,"boh_diag_heateq"))
   save(diagdir,fesnaps)
   fesnaps_loaded = load_snapshots(diagdir,ranks)
   println("diagnostic | snapshots save/load round-trip ok: ",

@@ -227,56 +227,6 @@ function RBSteady.Interpolation(red::NoHyperReduction,trian::DistributedTriangul
   DistributedInterpolation(interps)
 end
 
-# a structurally-null (e.g. identically-zero) projection is not wrapped by the
-# generic `Interpolation(red,a::Projection,args...)` fallback into a
-# `DistributedInterpolation`, since it short-circuits before ever touching
-# `trian`/`test`. It still needs to be wrapped here: a plain `EmptyInterpolation`
-# and a `DistributedInterpolation` mix badly in `get_integration_cells(a::
-# BlockInterpolation)`'s per-block `_union` (a real block's cells are
-# `MPIArray`-per-rank; a bare `EmptyInterpolation`'s are a plain `Vector`, and
-# `_union` requires matching types) whenever a multi-field block mixes a null
-# sub-projection (e.g. Stokes' pressure-pressure block) with real ones. Since
-# the null-ness of a distributed projection is consistent across ranks,
-# replicate the (empty) interpolation on every rank explicitly; the resulting
-# `DistributedInterpolation`-of-`EmptyInterpolation`s is itself trivial to spot
-# downstream (see `check_interpolation` in `Distributed/PostProcess.jl`)
-for T in (:DEIMHyperReduction,:SOPTHyperReduction)
-  @eval begin
-    function RBSteady.Interpolation(
-      red::$T,
-      a::Projection,
-      trian::DistributedTriangulation,
-      test::DistributedRBSpace
-      )
-
-      if isnull(a)
-        interps = map(local_views(trian)) do _
-          EmptyInterpolation()
-        end
-        return DistributedInterpolation(interps)
-      end
-      GreedyInterpolation(red,a,trian,test)
-    end
-
-    function RBSteady.Interpolation(
-      red::$T,
-      a::Projection,
-      trian::DistributedTriangulation,
-      trial::DistributedRBSpace,
-      test::DistributedRBSpace
-      )
-
-      if isnull(a)
-        interps = map(local_views(trian)) do _
-          EmptyInterpolation()
-        end
-        return DistributedInterpolation(interps)
-      end
-      GreedyInterpolation(red,a,trian,trial,test)
-    end
-  end
-end
-
 function RBSteady.GreedyInterpolation(interp,domain::DistributedIntegrationDomain)
   interps = map(local_views(domain)) do di
     GreedyInterpolation(interp,di)
@@ -602,20 +552,6 @@ function Base.fill!(a::MPIArray,b::Number)
   a
 end
 
-function Base.fill!(a::Array{<:MPIArray},b::Number)
-  for ai in a
-    fill!(ai,b)
-  end
-  a
-end
-
-function Base.fill!(a::Array{<:DebugArray},b::Number)
-  for ai in a
-    fill!(ai,b)
-  end
-  a
-end
-
 # generic utils
 
 function _galerkin_mul!(
@@ -748,6 +684,18 @@ end
 
 function RBSteady._union(a::T,b::T) where T<:AbstractArray{<:AbstractVector}
   map(local_views(a),local_views(b)) do a,b
+    RBSteady._union(a,b)
+  end
+end
+
+function RBSteady._union(a::AbstractArray,b::AbstractArray{<:AbstractVector})
+  map(local_views(b)) do b
+    RBSteady._union(a,b)
+  end
+end
+
+function RBSteady._union(a::AbstractArray{<:AbstractVector},b::AbstractArray)
+  map(local_views(a)) do a
     RBSteady._union(a,b)
   end
 end

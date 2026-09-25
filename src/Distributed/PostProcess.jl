@@ -1,11 +1,4 @@
 function RBSteady.check_interpolation(snaps,interp::DistributedInterpolation,_fecache)
-  # the outer type is always `DistributedInterpolation` here regardless of
-  # what each rank actually holds, unlike the serial case where dispatch on
-  # `interp::GreedyInterpolation` vs `interp::Interpolation` (e.g. a null
-  # block's `EmptyInterpolation`) does this for free. Null-ness is consistent
-  # across ranks (see the comment above the `Interpolation` overrides in
-  # `Distributed/Reduced.jl`), so checking one representative rank is enough
-  getany(local_views(interp)) isa GreedyInterpolation || return true
   msg = "fecache mismatch at interpolation points"
   fecache = sreduce(map(get_all_data,local_views(_fecache)))
   sdofs = get_at_domain(snaps,interp)
@@ -36,7 +29,7 @@ function RBSteady.load_snapshots(dir,ranks::AbstractArray;label="")
       nblocks += 1
     end
     array = map(1:nblocks) do i
-      _pload(dir,SNAPSHOTS_LABEL,ranks;label=_plabel(label,BLOCK_LABEL*"$i"))
+      DistributedSnapshots(_pload(dir,SNAPSHOTS_LABEL,ranks;label=_plabel(label,BLOCK_LABEL*"$i")))
     end
     param_data = mortar(map(get_param_data,array))
     BlockSnapshots(array,param_data)

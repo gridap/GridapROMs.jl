@@ -69,7 +69,7 @@ end
 
 # utils 
 
-function Base.fill!(a::Array{<:AbstractParamArray},b::Number)
+function Base.fill!(a::Array{<:AbstractArray},b::Number)
   for ai in a
     fill!(ai,b)
   end
