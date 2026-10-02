@@ -124,8 +124,11 @@ function GridapDistributed.local_views(a::DistributedNormedProjection)
 end
 
 function GridapDistributed.local_views(a::BlockProjection)
-  parts = map(local_views,a.array)
-  map(parts...) do array...
+  indices = linear_indices(first(a.array))
+  map(indices) do i
+    array = map(a) do aj
+      getany(aj)
+    end
     BlockProjection(array)
   end
 end
@@ -189,6 +192,15 @@ end
 function RBTransient.allocate_in_space_range(a::TransientProjection,x̂::PVector{<:V}) where V<:AbstractParamVector
   x = allocate_vector(PVector{eltype(V)},RBTransient.num_fe_dofs_space(a))
   return parameterise(x,param_length(x̂))
+end
+
+for f in (:allocate_in_space_domain,:allocate_in_space_range)
+  @eval begin
+    function RBTransient.$f(a::BlockProjection,x::BlockPVector)
+      @check length(a) == blocklength(x)
+      mortar(map(i -> RBTransient.$f(a[Block(i)],x[Block(i)]),eachindex(a)))
+    end
+  end
 end
 
 RBTransient.to_fe_blocks_space(x::BlockPArray,a::BlockProjection,args...) = x

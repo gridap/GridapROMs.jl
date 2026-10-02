@@ -694,8 +694,8 @@ end
 
 function RBTransient._reduce_trial(f::DistributedMultiFieldFESpace,hr_ids::AbstractVector)
   field_fe_space = map(f -> RBTransient._reduce_trial(f,hr_ids),f.field_fe_space)
-  part_fe_spaces = map(f -> RBTransient._reduce_trial(f,hr_ids),local_views(f.part_fe_spaces))
-  DistributedMultiFieldFESpace(field_fe_space,part_fe_spaces,f.gids,f.vector_type)
+  part_fe_space = map(f -> RBTransient._reduce_trial(f,hr_ids),local_views(f.part_fe_space))
+  DistributedMultiFieldFESpace(field_fe_space,part_fe_space,f.gids,f.vector_type)
 end
 
 function RBSteady._union(a::T,b::T) where T<:AbstractArray{<:AbstractVector}

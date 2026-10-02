@@ -620,7 +620,7 @@ function to_reduced_blocks_space(x,a::BlockProjection,args...)
   RBSteady.to_blocks(x,cumsum(ids),args...)
 end
 
-for (f,g) in zip((:allocate_in_space_domain,:allocate_in_space_range),(:to_fe_blocks_space,:to_reduced_blocks_space))
+for f in (:allocate_in_space_domain,:allocate_in_space_range)
   @eval begin
     function $f(a::BlockProjection)
       mortar(map($f,a.array))
