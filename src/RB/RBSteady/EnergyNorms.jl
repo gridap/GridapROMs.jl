@@ -240,10 +240,10 @@ end
 
 function _energy_mortar(a::AbstractVector{<:AbstractSparseMatrix})
   nfields = length(a)
-  T = typeof(first(a))
+  T = eltype(a)
   blocks = Matrix{T}(undef,nfields,nfields)
   for j in 1:nfields, i in 1:nfields
-    blocks[i,j] = i == j ? a[i] : spzeros(size(a[i],1),size(a[j],1))
+    blocks[i,j] = i == j ? a[i] : spzeros(eltype(T),size(a[i],1),size(a[j],1))
   end
   mortar(blocks)
 end
@@ -253,7 +253,7 @@ function _coupling_mortar(a::AbstractVector{<:AbstractSparseMatrix})
   nfields = ndual+1
   nprimal = size(first(a),1)
   ncols = map(x -> size(x,2),a)
-  T = typeof(first(a))
+  T = eltype(a)
   blocks = Matrix{T}(undef,nfields,nfields)
   blocks[1,1] = spzeros(nprimal,nprimal)
   for i in 1:ndual
@@ -290,7 +290,7 @@ end
 
 function _energy_mortar(a::AbstractVector{<:TrivialRankTensor})
   nfields = length(a)
-  A = typeof(first(a))
+  A = eltype(a)
   blocks = Matrix{A}(undef,nfields,nfields)
   for j in 1:nfields, i in 1:nfields
     blocks[i,j] = i == j ? a[i] : _zero_rank_tensor(_row_sizes(a[i]),_row_sizes(a[j]))
@@ -313,7 +313,7 @@ end
 function _coupling_mortar(a::AbstractVector{<:TrivialRankTensor})
   ndual = length(a)
   nfields = ndual+1
-  A = typeof(first(a))
+  A = eltype(a)
   primal_sizes = _row_sizes(first(a))
   dual_sizes = map(_col_sizes,a)
   blocks = Matrix{A}(undef,nfields,nfields)
@@ -333,7 +333,7 @@ function _coupling_mortar(a::AbstractVector{<:AbstractRankTensor})
   nfields = ndual+1
   K = maximum(rank,a)
   a = map(x -> _pad_to_rank(x,K),a)
-  A = typeof(first(a))
+  A = eltype(a)
   primal_sizes = _row_sizes(first(a))
   dual_sizes = map(_col_sizes,a)
   blocks = Matrix{A}(undef,nfields,nfields)

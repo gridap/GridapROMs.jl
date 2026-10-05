@@ -891,7 +891,7 @@ function _allocate_norm_matrix(a::BlockProjection{A,N}) where {A,N}
 end
 
 _proj_type(red::Reduction) = _proj_type(NormStyle(red),red)
-_proj_type(::NormStyle,::Reduction) = @abstractmethod
+_proj_type(::AssembleOperator,::Reduction) = @abstractmethod
 _proj_type(::EuclideanNorm,::PODReduction) = PODProjection
 _proj_type(::EuclideanNorm,::TTSVDReduction) = TTSVDProjection
 _proj_type(::AssembleOperator,::DirectReduction) = NormedProjection

@@ -6,12 +6,29 @@ function _assemble_operator(op::NitscheH1,U::DistributedSingleFieldFESpace,V::Di
   assemble_matrix(form,U,V)
 end
 
-for T in (:DistributedSingleFieldFESpace,:DistributedMultiFieldFESpace)
-  @eval begin
-    function _assemble_operator(op::EnergyNorm,U::$T,V::$T) 
-      assemble_matrix(op.form,U,V)
-    end
-  end
+function _assemble_operator(op::EnergyNorm,U::DistributedSingleFieldFESpace,V::DistributedSingleFieldFESpace)
+  assemble_matrix(op.form,U,V)
+end
+
+# op.form is a single, user-provided function of every field jointly (unlike
+# the BlockOperator path below, which assembles each field's own, separate
+# operator), so it isn't generically splittable into per-field pieces here,
+# and this (more specific than the NormStyle/BlockOperator path below)
+# previously assembled it directly on U,V as given, producing a monolithic
+# PSparseMatrix for the default (consecutive) DistributedMultiFieldFESpace
+# numbering. U,V are re-styled to BlockMultiFieldStyle purely for this
+# assembly (independent of whatever style the actual PDE solve uses U,V
+# with), so assemble_matrix produces a genuine BlockPMatrix instead: op.form
+# only ever sees trial/test basis functions, never the underlying
+# MultiFieldStyle, so this is transparent to its result -- it just changes
+# how the assembled matrix is stored (block vs monolithic), which is what
+# the downstream per-field projection code (RBSteady.projection(red,s::
+# BlockSnapshots,X), which extracts each field's diagonal block via
+# X[Block(i,i)]) needs.
+function _assemble_operator(op::EnergyNorm,U::DistributedMultiFieldFESpace,V::DistributedMultiFieldFESpace)
+  Ub = MultiFieldFESpace(collect(U.field_fe_space);style=BlockMultiFieldStyle())
+  Vb = MultiFieldFESpace(collect(V.field_fe_space);style=BlockMultiFieldStyle())
+  assemble_matrix(op.form,Ub,Vb)
 end
 
 function _assemble_operator(::L2,U::DistributedSingleFieldFESpace,V::DistributedSingleFieldFESpace)
@@ -57,17 +74,53 @@ end
 
 function _assemble_operator(op::BlockOperator{<:Tuple{Vararg{NormStyle}}},X::DistributedMultiFieldFESpace,Y::DistributedMultiFieldFESpace)
   @check length(op) == length(X) == length(Y) "Wrong length of norms or MultiFieldFESpaces"
-  forms = map(get_form,op.op,X.field_fe_space,Y.field_fe_space)
-  form(u,v) = sum(forms[i](u[i],v[i]) for i in eachindex(forms))
-  assemble_matrix(form,X,Y)
+  map(_assemble_operator,op.op,X.field_fe_space,Y.field_fe_space) |> _energy_mortar
 end
 
 function _assemble_operator(op::BlockOperator{<:Tuple{Vararg{CouplingStyle}}},X::DistributedMultiFieldFESpace,Y::DistributedMultiFieldFESpace)
   @check length(op)+1 == length(X) == length(Y) "Wrong length of couplings or MultiFieldFESpaces"
+  V, = Y.field_fe_space
   Us = X.field_fe_space[2:end]
-  forms = map((o,U) -> get_form(o,U,Y.field_fe_space[1]),op.op,Us)
-  form(u,v) = sum(forms[i](u[i+1],v[1]) for i in eachindex(forms))
-  assemble_matrix(form,X,Y)
+  map((o,U) -> _assemble_operator(o,U,V),op.op,Us) |> _coupling_mortar
+end
+
+function _energy_mortar(a::AbstractVector{<:PSparseMatrix})
+  nfields = length(a)
+  T = eltype(a)
+  blocks = Matrix{T}(undef,nfields,nfields)
+  for i in 1:nfields, j in 1:nfields
+    if i == j
+      blocks[i,j] = a[i]
+    else
+      rows = partition(axes(a[i],1))
+      cols = partition(axes(a[j],1))
+      local_blocks = map(rows,cols) do rp,cp
+        spzeros(eltype(T),local_length(rp),local_length(cp))
+      end
+      blocks[i,j] = PSparseMatrix(local_blocks,rows,cols)
+    end
+  end
+  mortar(blocks)
+end
+
+function _coupling_mortar(a::AbstractVector{<:AbstractSparseMatrix})
+  ndual = length(a)
+  nfields = ndual+1
+  primal_rows = partition(axes(a[1],1))
+  primal_cols = partition(axes(a[1],2))
+  nprimal = size(first(a),1)
+  ncols = map(x -> size(x,2),a)
+  T = eltype(a)
+  blocks = Matrix{T}(undef,nfields,nfields)
+  blocks[1,1] = spzeros(nprimal,nprimal)
+  for i in 1:ndual
+    blocks[1,i+1] = a[i]
+    blocks[i+1,1] = spzeros(ncols[i],nprimal)
+    for j in 1:ndual
+      blocks[i+1,j+1] = spzeros(ncols[i],ncols[j])
+    end
+  end
+  mortar(blocks)
 end
 
 function _unwrap(f::DistributedMultiFieldFESpace)

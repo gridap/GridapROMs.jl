@@ -88,24 +88,21 @@ function ParamDataStructures.get_all_data(a::BlockPArray)
 end
 
 function ParamDataStructures.get_param_entry(a::PVector,i...)
-  vector_partition = map(a.vector_partition) do values
+  map(a.vector_partition) do values
     get_param_entry(values,i...)
   end
-  PVector(vector_partition,a.index_partition)
 end
 
 function ParamDataStructures.get_param_entry(a::PSparseMatrix,i...)
-  matrix_partition = map(a.matrix_partition) do values
+  map(a.matrix_partition) do values
     get_param_entry(values,i...)
   end
-  PSparseMatrix(matrix_partition,a.row_partition,a.col_partition,a.cache)
 end
 
 function ParamDataStructures.get_param_entry(a::BlockPArray,i...)
-  b = map(blocks(a)) do a
+  map(blocks(a)) do a
     get_param_entry(a,i...)
   end
-  BlockPArray(b,a.axes)
 end
 
 function PartitionedArrays.default_local_values(
@@ -115,7 +112,7 @@ function PartitionedArrays.default_local_values(
   ) where T
 
   data = zeros(T,local_length(indices),param_length(V))
-  for k in 1:length(I)
+  for k in eachindex(I)
     for l in param_eachindex(V)
       data[I[k],l] += V.data[k,l]
     end

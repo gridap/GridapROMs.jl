@@ -11,23 +11,30 @@ flat_row_partition(a::Projection) = flat_row_partition(get_basis(a))
 RBSteady.to_fe_blocks(x::BlockPArray,a::BlockProjection,args...) = x
 RBSteady.to_reduced_blocks(x::BlockPArray,a::BlockProjection,args...) = x
 
+# Both methods below used to slice x by the GLOBAL range o[i]:o[i+1]-1 (view
+# or get_param_entry on the full PVector x, ignoring the per-rank `values`
+# the outer map provided) and then rewrap the result reusing x's own,
+# unrestricted row_partition -- correct only by coincidence on 1 rank (where
+# local indices equal global ones) and otherwise producing a block whose
+# local data size doesn't match its attached partition. _restrict_to_range
+# (Distributed/Snapshots.jl) builds the correctly-sized, properly-partitioned
+# sub-PVector for the range directly, for either plain or param-batched local
+# data, so both cases now share the same implementation.
 function RBSteady.to_blocks(x::PVector,o,f=identity)
   n = length(o)-1
   map(1:n) do i
-    vector_partition = map(partition(x)) do values
-      f(view(x,o[i]:o[i+1]-1))
-    end
-    PVector(vector_partition,row_partition(x))
+    xi = _restrict_to_range(x,o[i]:o[i+1]-1)
+    vector_partition = map(f,partition(xi))
+    PVector(vector_partition,partition(axes(xi,1)))
   end |> mortar
 end
 
 function RBSteady.to_blocks(x::PVector{<:AbstractParamVector},o,f=identity)
   n = length(o)-1
   map(1:n) do i
-    vector_partition = map(partition(x)) do values
-      f(get_param_entry(x,o[i]:o[i+1]-1))
-    end
-    PVector(vector_partition,row_partition(x))
+    xi = _restrict_to_range(x,o[i]:o[i+1]-1)
+    vector_partition = map(f,partition(xi))
+    PVector(vector_partition,partition(axes(xi,1)))
   end |> mortar
 end
 
@@ -243,6 +250,6 @@ function RBSteady._allocate_projection(red::Reduction,s::DistributedBlockSnapsho
 end
 
 _distr_proj_type(red::Reduction) = _distr_proj_type(NormStyle(red),red)
-_distr_proj_type(::NormStyle,::Reduction) = @abstractmethod
+_distr_proj_type(::AssembleOperator,::Reduction) = @abstractmethod
 _distr_proj_type(::EuclideanNorm,::PODReduction) = DistributedPODProjection
 _distr_proj_type(::AssembleOperator,::DirectReduction) = DistributedNormedProjection

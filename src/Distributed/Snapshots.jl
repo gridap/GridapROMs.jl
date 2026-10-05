@@ -147,6 +147,61 @@ function ParamDataStructures.Snapshots(
   BlockSnapshots(array,data)
 end
 
+# get_param_entry(a::PVector/PSparseMatrix,i...) is designed for parameter-index
+# selection: it slices the local values by `i` but rewraps the result reusing
+# the original index_partition unchanged, which is only valid when `i` leaves
+# the row dimension untouched. offset_indices(i) below produces, per field, a
+# UnitRange over the GLOBAL (consecutive, multi-field) dof numbering, so using
+# get_param_entry to carve out a single field's own PVector/PSparseMatrix rows
+# is wrong in general (it happens to look right on 1 rank, where local indices
+# coincide with global ones, but is incorrect on >1 ranks and leaves a stale,
+# oversized index_partition attached to undersized local data either way,
+# triggering a BoundsError deeper in own_values). _restrict_rows_to_range
+# below builds a correct, properly-sized row partition for the sub-range by
+# intersecting each rank's own global ids with that range, re-based to start
+# at 1; it only needs to be valid for own_values (ghost-free is fine) since
+# that's all method_of_snapshots/tpod ever reads from these per-field
+# snapshots.
+function _restrict_rows_to_range(old_row_partition,i::AbstractUnitRange)
+  map(old_row_partition) do op
+    owner_p = part_id(op)
+    og = own_to_global(op)
+    mask = [in(g,i) for g in og]
+    local_positions = own_to_local(op)[mask]
+    new_l2g = collect(Int,og[mask]) .- (first(i)-1)
+    new_l2o = fill(Int32(owner_p),length(new_l2g))
+    new_indices = LocalIndices(length(i),owner_p,new_l2g,new_l2o)
+    (local_positions,new_indices)
+  end
+end
+
+# get_param_entry only knows how to slice an extra, trailing param dimension
+# (e.g. ConsecutiveParamArray's get_param_entry(A,i...) = view(get_all_data(A),
+# i...,:)); plain, non-param-batched local arrays (e.g. a bare Vector/
+# SparseMatrixCSC, as in the energy-norm operator, which is parameter-
+# independent) have no such extra dimension, so they're sliced directly.
+_restrict_local(values::AbstractParamArray,positions) = get_param_entry(values,positions)
+_restrict_local(values::AbstractVector,positions) = values[positions]
+_restrict_local(values::AbstractMatrix,positions) = values[positions,:]
+
+function _restrict_to_range(a::PVector,i::AbstractUnitRange)
+  info = _restrict_rows_to_range(partition(axes(a,1)),i)
+  new_values = map(partition(a),info) do values,(local_positions,_)
+    _restrict_local(values,local_positions)
+  end
+  new_row_partition = map(last,info)
+  PVector(new_values,new_row_partition)
+end
+
+function _restrict_to_range(a::PSparseMatrix,i::AbstractUnitRange)
+  info = _restrict_rows_to_range(partition(axes(a,1)),i)
+  new_values = map(partition(a),info) do values,(local_positions,_)
+    _restrict_local(values,local_positions)
+  end
+  new_row_partition = map(last,info)
+  PSparseMatrix(new_values,new_row_partition,partition(axes(a,2)))
+end
+
 function ParamDataStructures.Snapshots(
   data::Union{PVector,PSparseMatrix},
   i::AbstractArray{<:AbstractArray{<:AbstractDofMap}},
@@ -156,7 +211,7 @@ function ParamDataStructures.Snapshots(
   s = size(i)
   ids = ParamDataStructures.offset_indices(i)
   array = map(eachindex(i)) do j
-    dataj = get_param_entry(data,ids[j]...)
+    dataj = _restrict_to_range(data,ids[j][1])
     Snapshots(dataj,i[j],r)
   end
   BlockSnapshots(reshape(array,s),data)
@@ -190,7 +245,7 @@ function ParamDataStructures.Snapshots(
   s = size(i)
   ids = ParamDataStructures.offset_indices(i)
   array = map(eachindex(i)) do j
-    dataj = get_param_entry(data,ids[j]...)
+    dataj = _restrict_to_range(data,ids[j][1])
     data0j = map(d0 -> blocks(d0)[j],data0)
     Snapshots(dataj,data0j,i[j],r)
   end
