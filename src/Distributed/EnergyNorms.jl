@@ -12,23 +12,37 @@ end
 
 # op.form is a single, user-provided function of every field jointly (unlike
 # the BlockOperator path below, which assembles each field's own, separate
-# operator), so it isn't generically splittable into per-field pieces here,
-# and this (more specific than the NormStyle/BlockOperator path below)
-# previously assembled it directly on U,V as given, producing a monolithic
-# PSparseMatrix for the default (consecutive) DistributedMultiFieldFESpace
-# numbering. U,V are re-styled to BlockMultiFieldStyle purely for this
-# assembly (independent of whatever style the actual PDE solve uses U,V
-# with), so assemble_matrix produces a genuine BlockPMatrix instead: op.form
-# only ever sees trial/test basis functions, never the underlying
-# MultiFieldStyle, so this is transparent to its result -- it just changes
-# how the assembled matrix is stored (block vs monolithic), which is what
-# the downstream per-field projection code (RBSteady.projection(red,s::
-# BlockSnapshots,X), which extracts each field's diagonal block via
-# X[Block(i,i)]) needs.
+# operator on field_fe_space[i] directly), so it isn't generically
+# splittable into per-field forms here: it is assembled once on U,V exactly
+# as given, then each field's diagonal block is cut out via the same
+# per-rank-LOCAL-range restriction used for state snapshots (Snapshots.jl's
+# _local_ranges_from_sizes/_restrict_rows_to_local_range) -- the sizes here
+# come from each field's own get_free_dof_ids instead of a dof map, but it's
+# the same per-rank local (own+ghost) dof count either way, so the two
+# agree. This also matches field_fe_space[i]'s own standalone numbering:
+# both are the result of the same deterministic rank-ordered sequential
+# assignment to a field's own entries (which is, in fact, exactly how
+# GridapDistributed's generate_multi_field_gids derives a BlockMultiFieldStyle
+# block's gids for a single-field block -- it just reuses
+# get_free_dof_ids(field_fe_space[i]) directly), so this is consistent with
+# the BlockOperator path below too. A field-major GLOBAL offset range (the
+# previous approach here, and what the serial-only
+# ParamDataStructures.offset_indices computes) is wrong in general: see the
+# note in Snapshots.jl's _local_field_ranges for why.
 function _assemble_operator(op::EnergyNorm,U::DistributedMultiFieldFESpace,V::DistributedMultiFieldFESpace)
-  Ub = MultiFieldFESpace(collect(U.field_fe_space);style=BlockMultiFieldStyle())
-  Vb = MultiFieldFESpace(collect(V.field_fe_space);style=BlockMultiFieldStyle())
-  assemble_matrix(op.form,Ub,Vb)
+  A = assemble_matrix(op.form,U,V)
+  sizes = map(Ui -> map(local_length,partition(get_free_dof_ids(Ui))),U.field_fe_space)
+  local_ranges = _local_ranges_from_sizes(sizes)
+  map(lr -> _restrict_diag_block(A,lr),local_ranges)
+end
+
+function _restrict_diag_block(A::PSparseMatrix,local_range)
+  row_positions,new_row_partition = _restrict_rows_to_local_range(partition(axes(A,1)),local_range)
+  col_positions,new_col_partition = _restrict_rows_to_local_range(partition(axes(A,2)),local_range)
+  new_values = map(partition(A),row_positions,col_positions) do values,rp,cp
+    values[rp,cp]
+  end
+  PSparseMatrix(new_values,new_row_partition,new_col_partition)
 end
 
 function _assemble_operator(::L2,U::DistributedSingleFieldFESpace,V::DistributedSingleFieldFESpace)

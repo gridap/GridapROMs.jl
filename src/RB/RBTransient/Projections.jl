@@ -658,9 +658,3 @@ for (f,g) in zip((:project_space!,:inv_project_space!),(:to_fe_blocks_space,:to_
     end
   end
 end
-
-# utils 
-
-RBSteady._proj_type(r::SteadyReduction,args...) = RBSteady._proj_type(r.reduction,args...)
-RBSteady._proj_type(::KroneckerReduction,args...) = KroneckerProjection
-RBSteady._proj_type(::SequentialReduction,args...) = SequentialProjection

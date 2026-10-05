@@ -319,7 +319,7 @@ function select_param_data(pdata::BlockParamArray,prange)
   mortar(map(p -> select_param_data(p,prange),blocks(pdata)))
 end
 
-function offset_indices(i::AbstractArray{<:Any,N}) where N
+function offset_indices(i::AbstractArray{<:AbstractDofMap,N}) where N
   array = Array{Any,N}(undef,size(i))
   offset = 0
   for j in eachindex(i)

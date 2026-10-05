@@ -88,17 +88,19 @@ function ParamDataStructures.get_all_data(a::BlockPArray)
 end
 
 function ParamDataStructures.get_param_entry(a::PVector,i...)
-  local_rows,new_row_partition = _restrict_rows_to_range(partition(axes(a,1)),i...)
-  new_values = map(partition(a),local_rows) do lvals,lids
-    get_param_entry(lvals,lids)
+  new_row_partition = _restrict_rows_to_range(row_partition(a),i...)
+  new_values = map(partition(a),new_row_partition) do lvals,lrows
+    get_param_entry(lvals,own_to_local(lrows))
   end
   PVector(new_values,new_row_partition)
 end
 
-function ParamDataStructures.get_param_entry(a::BlockPVector,i...)
-  map(blocks(a)) do a
-    get_param_entry(a,i...)
+function ParamDataStructures.get_param_entry(a::PSparseMatrix,i...)
+  new_row_partition = _restrict_rows_to_range(flat_row_partition(a),i...)
+  new_values = map(partition(a),new_row_partition) do lvals,lrows
+    get_param_entry(lvals,own_to_local(lrows))
   end
+  PVector(new_values,new_row_partition)
 end
 
 function PartitionedArrays.default_local_values(
@@ -435,33 +437,26 @@ end
 
 # utils
 
-function _new_local_to_global(o2g,i)
-  masks = zeros(Bool,length(o2g))
-  for (o,g) in enumerate(o2g)
-    masks[o] = in(g,i) 
-  end
-  nr = count(masks)
-  new_l2g = zeros(Int,nr)
-  k = 0
-  for (o,g) in enumerate(o2g)
-    if masks[o]
-      k += 1
-      new_l2g[k] = g - first(i) + 1
-    end
-  end
-  return new_l2g
-end
-
 function _restrict_rows_to_range(old_row_partition,i::AbstractUnitRange)
   map(old_row_partition) do row_idxs
-    owner_p = part_id(row_idxs)
+    owner = part_id(row_idxs)
     o2g = own_to_global(row_idxs)
-    o2l = own_to_local(row_idxs)
-    new_l2g = _new_local_to_global(o2g,i)
-    new_l2o = fill(Int32(owner_p),length(new_l2g))
-    new_indices = LocalIndices(length(i),owner_p,new_l2g,new_l2o)
-    (new_l2g,new_indices)
-  end |> tuple_of_arrays
+    masks = zeros(Bool,length(o2g))
+    for (o,g) in enumerate(o2g)
+      masks[o] = in(g,i) 
+    end
+    nm = count(masks)
+    new_l2g = zeros(eltype(o2g),nm)
+    k = 0
+    for (o,g) in enumerate(o2g)
+      if masks[o]
+        k += 1
+        new_l2g[k] = g - first(i) + 1
+      end
+    end
+    new_l2o = fill(Int32(owner),length(new_l2g))
+    LocalIndices(length(i),owner,new_l2g,new_l2o)
+  end
 end
 
 function _change_layout(b::PVector{<:ConsecutiveParamArray},new_idx_partition)

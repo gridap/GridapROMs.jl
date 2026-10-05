@@ -265,7 +265,7 @@ function projection(red::Reduction,s::Snapshots)
   Projection(red,s)
 end
 
-function projection(red::Reduction,s::Snapshots,X::MatrixOrTensor)
+function projection(red::Reduction,s::Snapshots,X)
   proj = Projection(red,s,X)
   NormedProjection(proj,X)
 end
@@ -597,11 +597,11 @@ end
 # multi field interface
 
 function projection(red::Reduction,s::BlockSnapshots)
-  map(i -> projection(red,s[i]),eachindex(s))
+  BlockProjection(map(i -> projection(red,s[i]),eachindex(s)))
 end
 
-function projection(red::Reduction,s::BlockSnapshots,X::MatrixOrTensor)
-  map(i -> projection(red,s[i],X[i]),eachindex(s))
+function projection(red::Reduction,s::BlockSnapshots,X)
+  BlockProjection(map(i -> projection(red,s[i],X[i]),eachindex(s)))
 end
 
 """
