@@ -16,7 +16,6 @@ rank tensors of 1D matrices rather than full D-dimensional sparse matrices.
 
 - [`Rank1Tensor`](@ref): ``a_1 \\otimes \\cdots \\otimes a_D``.
 - [`GenericRankTensor`](@ref): ``\\sum_{k=1}^K a_1^k \\otimes \\cdots \\otimes a_D^k``.
-- [`BlockRankTensor`](@ref): multi-field variant.
 
 1D matrices are assembled directly on `spaces_1d` with Gridap's own
 `assemble_matrix`, then packed into an `AbstractRankTensor` (`Rank1Tensor`/
@@ -60,7 +59,6 @@ include("TProductFESpaces.jl")
 export AbstractRankTensor
 export Rank1Tensor
 export GenericRankTensor
-export BlockRankTensor
 export MatrixOrTensor
 export get_factors
 export get_decomposition

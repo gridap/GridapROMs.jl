@@ -240,16 +240,3 @@ function RBSteady.GalerkinProjectable(a::BlockPArray)
   block_cache = map(GalerkinProjectable,blocks(a))
   return BlockProjection(block_cache)
 end
-
-# utils
-
-function RBSteady._allocate_projection(red::Reduction,s::DistributedBlockSnapshots{<:Any,N},args...) where N
-  T = _distr_proj_type(red)
-  block_basis = Array{T,N}(undef,size(s))
-  BlockProjection(block_basis)
-end
-
-_distr_proj_type(red::Reduction) = _distr_proj_type(NormStyle(red),red)
-_distr_proj_type(::AssembleOperator,::Reduction) = @abstractmethod
-_distr_proj_type(::EuclideanNorm,::PODReduction) = DistributedPODProjection
-_distr_proj_type(::AssembleOperator,::DirectReduction) = DistributedNormedProjection

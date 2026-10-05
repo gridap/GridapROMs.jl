@@ -177,9 +177,9 @@ Updates `solver.tracker.error` in place with the (relative) error between the
 full-order snapshots `fesnaps` and the reduced approximation `x̂`
 """
 function compute_error!(solver::RBSolver,op::ParamOperator,x::AbstractSnapshots,x̂::AbstractSnapshots)
-  feop = get_fe_operator(op)
+  trial = get_trial(op)
   tracker = solver.tracker
-  tracker.error = compute_relative_error(solver,feop,x,x̂)
+  tracker.error = compute_relative_error(trial,x,x̂)
   return tracker
 end
 
@@ -214,48 +214,19 @@ function load_results(dir;label="")
   deserialize(results_dir)
 end
 
-function Utils.compute_relative_error(solver::RBSolver,feop,sol,sol_approx)
-  state_red = get_state_reduction(solver)
-  norm_style = NormStyle(state_red)
-  compute_relative_error(norm_style,feop,sol,sol_approx)
-end
-
-function Utils.compute_relative_error(norm_style::EuclideanNorm,feop,sol,sol_approx)
-  compute_relative_error(sol,sol_approx)
-end
-
-function Utils.compute_relative_error(norm_style::AssembleOperator,feop,sol,sol_approx)
-  X = assemble_operator(norm_style,feop)
+function Utils.compute_relative_error(trial::RBSpace,sol,sol_approx)
+  X = get_norm_matrix(trial)
   compute_relative_error(sol,sol_approx,X)
 end
 
-function Utils.compute_relative_error(
-  sol::BlockSnapshots{<:Any,N},
-  sol_approx::BlockSnapshots{<:Any,N},
-  args...
-  ) where N
-
+function Utils.compute_relative_error(sol::BlockSnapshots,sol_approx::BlockSnapshots)
   @check size(sol) == size(sol_approx)
-  T = eltype2(sol)
-  error = Array{T,N}(undef,size(sol))
-  for i in eachindex(sol)
-    error[i] = compute_relative_error(sol[i],sol_approx[i])
-  end
-  error
+  map(i -> compute_relative_error(sol[i],sol_approx[i]),eachindex(sol))
 end
 
-function Utils.compute_relative_error(
-  sol::BlockSnapshots,
-  sol_approx::BlockSnapshots,
-  X::MatrixOrTensor
-  )
-
+function Utils.compute_relative_error(sol::BlockSnapshots,sol_approx::BlockSnapshots,X)
   @check size(sol) == size(sol_approx)
-  error = zeros(size(sol))
-  for i in eachindex(sol)
-    error[i] = compute_relative_error(sol[i],sol_approx[i],X[Block(i,i)])
-  end
-  error
+  map(i -> compute_relative_error(sol[i],sol_approx[i],X[i]),eachindex(sol))
 end
 
 include("Diagnostics.jl")

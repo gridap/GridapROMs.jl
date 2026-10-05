@@ -597,19 +597,11 @@ end
 # multi field interface
 
 function projection(red::Reduction,s::BlockSnapshots)
-  basis = _allocate_projection(red,s)
-  for i in eachindex(basis)
-    basis[i] = projection(red,s[i])
-  end
-  return basis
+  map(i -> projection(red,s[i]),eachindex(s))
 end
 
 function projection(red::Reduction,s::BlockSnapshots,X::MatrixOrTensor)
-  basis = _allocate_projection(red,s)
-  for i in eachindex(basis)
-    basis[i] = projection(red,s[i],X[Block(i,i)])
-  end
-  return basis
+  map(i -> projection(red,s[i],X[i]),eachindex(s))
 end
 
 """
@@ -761,19 +753,15 @@ function ReducedProjection(basis::VectorBlock)
 end
 
 function get_norm_matrix(a::BlockProjection)
-  norm_matrix = _allocate_norm_matrix(a)
-  for i in eachindex(a)
-    norm_matrix[Block(i,i)] = get_norm_matrix(a[i])
-  end
-  return norm_matrix
+  map(get_norm_matrix,a.array)
 end
 
 """
     enrich!(
       red::SupremizerReduction,
       a::BlockProjection,
-      norm_matrix::MatrixOrTensor,
-      supr_matrix::MatrixOrTensor) -> Nothing
+      norm_matrix,
+      supr_matrix) -> Nothing
 
 In-place augmentation of the primal block of a [`BlockProjection`](@ref) `a`.
 This function has the purpose of stabilizing the reduced equations stemming from
@@ -787,11 +775,11 @@ function enrich!(
   )
 
   a_primal,a_dual... = a.array
-  X_primal = norm_matrix[Block(1,1)]
+  X_primal = norm_matrix[1]
   H_primal = gram_solver(X_primal)
   for i = eachindex(a_dual)
     dual_i = get_basis(a_dual[i])
-    C_primal_dual_i = supr_matrix[Block(1,i+1)]
+    C_primal_dual_i = supr_matrix[i]
     supr_i = supremizers(H_primal,C_primal_dual_i,dual_i)
     a_primal = union_bases(a_primal,supr_i,H_primal)
   end
@@ -807,11 +795,11 @@ function enrich!(
   ) where {A,B}
 
   a_primal,a_dual... = a.array
-  X_primal = norm_matrix[Block(1,1)]
+  X_primal = norm_matrix[1]
   H_primal = gram_solver(X_primal)
   for i = eachindex(a_dual)
     dual_i = get_cores(a_dual[i])
-    C_primal_dual_i = supr_matrix[Block(1,i+1)]
+    C_primal_dual_i = supr_matrix[i]
     supr_i = tt_supremizers(H_primal,C_primal_dual_i,dual_i)
     a_primal = union_bases(a_primal,supr_i,X_primal)
   end
@@ -877,25 +865,6 @@ _num_fe_dofs(a::AbstractMatrix{<:AbstractMatrix}) = innersize(a,1)
 _num_reduced_dofs(a) = @abstractmethod
 _num_reduced_dofs(a::AbstractMatrix{<:Number}) = size(a,2)
 _num_reduced_dofs(a::AbstractMatrix{<:AbstractMatrix}) = param_length(a)
-
-function _allocate_projection(red::Reduction,s::BlockSnapshots{<:Any,N}) where N
-  T = _proj_type(red)
-  block_basis = Array{T,N}(undef,size(s))
-  BlockProjection(block_basis)
-end
-
-function _allocate_norm_matrix(a::BlockProjection{A,N}) where {A,N}
-  ai = testitem(a)
-  T = typeof(get_norm_matrix(ai))
-  Array{T,N}(undef,size(a))
-end
-
-_proj_type(red::Reduction) = _proj_type(NormStyle(red),red)
-_proj_type(::AssembleOperator,::Reduction) = @abstractmethod
-_proj_type(::EuclideanNorm,::PODReduction) = PODProjection
-_proj_type(::EuclideanNorm,::TTSVDReduction) = TTSVDProjection
-_proj_type(::AssembleOperator,::DirectReduction) = NormedProjection
-_proj_type(::AssembleOperator,::LocalReduction) = LocalProjection
 
 function _make_compatible(X::AbstractMatrix,a::Projection)
   size(X,1) == num_fe_dofs(a) && return X 

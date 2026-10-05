@@ -561,11 +561,13 @@ function _convert_to_block(op::ParamOperator,V::T,U::T) where T<:MultiFieldFESpa
   typeof(op)(feopb)
 end
 
-function _convert_to_block(V::MultiFieldFESpace)
-  MultiFieldFESpace(V.spaces;style=BlockMultiFieldStyle())
-end
-
 function _convert_to_block(feop::ParamFEOperator,U,V) 
   assem = SparseMatrixAssembler(U,V)
   typeof(feop)(feop.res,feop.jac,feop.pspace,assem,U,V,feop.domains)
+end
+
+_convert_to_block(V::FESpace) = V
+
+function _convert_to_block(V::MultiFieldFESpace)
+  MultiFieldFESpace(V.spaces;style=BlockMultiFieldStyle())
 end

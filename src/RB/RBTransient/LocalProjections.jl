@@ -29,7 +29,7 @@ function RBSteady.enrich!(
 
   tol = RBSteady.get_supr_tol(red)
   a_primal,a_dual... = a.array
-  X_primal = norm_matrix[Block(1,1)]
+  X_primal = norm_matrix[1]
   H_primal = gram_solver(X_primal)
   a_primal_loc = local_vals(a_primal)
   for j in eachindex(a_primal_loc)
@@ -38,7 +38,7 @@ function RBSteady.enrich!(
     for i = eachindex(a_dual)
       a_dual_i = local_vals(a_dual[i])
       dij_space = get_basis_space(a_dual_i[j])
-      C_primal_dual_i = supr_matrix[Block(1,i+1)]
+      C_primal_dual_i = supr_matrix[i]
       supr_space_i = supremizers(H_primal,C_primal_dual_i,dij_space)
       pj_space = union_bases(pj_space,supr_space_i,H_primal)
 

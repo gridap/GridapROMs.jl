@@ -74,53 +74,14 @@ end
 
 function _assemble_operator(op::BlockOperator{<:Tuple{Vararg{NormStyle}}},X::DistributedMultiFieldFESpace,Y::DistributedMultiFieldFESpace)
   @check length(op) == length(X) == length(Y) "Wrong length of norms or MultiFieldFESpaces"
-  map(_assemble_operator,op.op,X.field_fe_space,Y.field_fe_space) |> _energy_mortar
+  map(_assemble_operator,op.op,X.field_fe_space,Y.field_fe_space)
 end
 
 function _assemble_operator(op::BlockOperator{<:Tuple{Vararg{CouplingStyle}}},X::DistributedMultiFieldFESpace,Y::DistributedMultiFieldFESpace)
   @check length(op)+1 == length(X) == length(Y) "Wrong length of couplings or MultiFieldFESpaces"
   V, = Y.field_fe_space
   Us = X.field_fe_space[2:end]
-  map((o,U) -> _assemble_operator(o,U,V),op.op,Us) |> _coupling_mortar
-end
-
-function _energy_mortar(a::AbstractVector{<:PSparseMatrix})
-  nfields = length(a)
-  T = eltype(a)
-  blocks = Matrix{T}(undef,nfields,nfields)
-  for i in 1:nfields, j in 1:nfields
-    if i == j
-      blocks[i,j] = a[i]
-    else
-      rows = partition(axes(a[i],1))
-      cols = partition(axes(a[j],1))
-      local_blocks = map(rows,cols) do rp,cp
-        spzeros(eltype(T),local_length(rp),local_length(cp))
-      end
-      blocks[i,j] = PSparseMatrix(local_blocks,rows,cols)
-    end
-  end
-  mortar(blocks)
-end
-
-function _coupling_mortar(a::AbstractVector{<:AbstractSparseMatrix})
-  ndual = length(a)
-  nfields = ndual+1
-  primal_rows = partition(axes(a[1],1))
-  primal_cols = partition(axes(a[1],2))
-  nprimal = size(first(a),1)
-  ncols = map(x -> size(x,2),a)
-  T = eltype(a)
-  blocks = Matrix{T}(undef,nfields,nfields)
-  blocks[1,1] = spzeros(nprimal,nprimal)
-  for i in 1:ndual
-    blocks[1,i+1] = a[i]
-    blocks[i+1,1] = spzeros(ncols[i],nprimal)
-    for j in 1:ndual
-      blocks[i+1,j+1] = spzeros(ncols[i],ncols[j])
-    end
-  end
-  mortar(blocks)
+  map((o,U) -> _assemble_operator(o,U,V),op.op,Us)
 end
 
 function _unwrap(f::DistributedMultiFieldFESpace)

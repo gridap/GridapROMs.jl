@@ -470,11 +470,11 @@ function RBSteady.enrich!(
   a_primal,a_dual... = a.array
   a_primal_space = a_primal.projection_space
   a_primal_time = a_primal.projection_time
-  X_primal = norm_matrix[Block(1,1)]
+  X_primal = norm_matrix[1]
   H_primal = gram_solver(X_primal)
   for i = eachindex(a_dual)
     dual_i_space = get_basis_space(a_dual[i])
-    C_primal_dual_i = supr_matrix[Block(1,i+1)]
+    C_primal_dual_i = supr_matrix[i]
     supr_space_i = supremizers(H_primal,C_primal_dual_i,dual_i_space)
     a_primal_space = union_bases(a_primal_space,supr_space_i,H_primal)
 

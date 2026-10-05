@@ -112,47 +112,12 @@ function LinearAlgebra.cholesky(a::GenericRankTensor{D,K}) where {D,K}
   cholesky(get_crossnorm(a))
 end
 
-"""
-    struct BlockRankTensor{A<:AbstractRankTensor,N} <: AbstractArray{A,N}
-      array::Array{A,N}
-    end
-
-Multi-field version of a [`AbstractRankTensor`](@ref)
-"""
-struct BlockRankTensor{A<:AbstractRankTensor,N} <: AbstractArray{A,N}
-  array::Array{A,N}
-end
-
-Base.size(a::BlockRankTensor) = size(a.array)
-
-function Base.getindex(
-  a::BlockRankTensor{A,N},
-  i::Vararg{Integer,N}
-  ) where {A,N}
-
-  @boundscheck checkbounds(a.array,i...)
-  getindex(a.array,i...)
-end
-
-function Base.setindex!(
-  a::BlockRankTensor{A,N},
-  v,i::Vararg{Integer,N}
-  ) where {A,N}
-
-  @boundscheck checkbounds(a.array,i...)
-  setindex!(a.array,v,i...)
-end
-
-function Base.getindex(a::BlockRankTensor{A,N},i::Block{N}) where {A,N}
-  getindex(a.array,i.n...)
-end
-
 # wrapper
 
 """
     const MatrixOrTensor = Union{AbstractMatrix,AbstractRankTensor}
 """
-const MatrixOrTensor = Union{AbstractMatrix,AbstractRankTensor,BlockRankTensor}
+const MatrixOrTensor = Union{AbstractMatrix,AbstractRankTensor}
 
 # linear algebra
 

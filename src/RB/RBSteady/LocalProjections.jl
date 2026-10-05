@@ -109,7 +109,7 @@ function enrich!(
   ) where {A,B}
 
   a_primal,a_dual... = a.array
-  X_primal = norm_matrix[Block(1,1)]
+  X_primal = norm_matrix[1]
   H_primal = gram_solver(X_primal)
   a_primal_loc = local_vals(a_primal)
   for j in eachindex(a_primal_loc)
@@ -117,7 +117,7 @@ function enrich!(
     for i = eachindex(a_dual)
       a_dual_i_loc = local_vals(a_dual[i])
       dij = get_basis(a_dual_i_loc[j])
-      C_primal_dual_i = supr_matrix[Block(1,i+1)]
+      C_primal_dual_i = supr_matrix[i]
       supr_i = supremizers(H_primal,C_primal_dual_i,dij)
       pj = union_bases(pj,supr_i,H_primal)
     end
@@ -135,7 +135,7 @@ function enrich!(
   ) where {A,B,C,D}
 
   a_primal,a_dual... = a.array
-  X_primal = norm_matrix[Block(1,1)]
+  X_primal = norm_matrix[1]
   H_primal = gram_solver(X_primal)
   a_primal_loc = local_vals(a_primal)
   for j in eachindex(a_primal_loc)
@@ -143,7 +143,7 @@ function enrich!(
     for i = eachindex(a_dual)
       a_dual_i_loc = local_vals(a_dual[i])
       dij = get_cores(a_dual_i_loc[j])
-      C_primal_dual_i = supr_matrix[Block(1,i+1)]
+      C_primal_dual_i = supr_matrix[i]
       supr_ij = tt_supremizers(H_primal,C_primal_dual_i,dij)
       pj = union_bases(pj,supr_ij,X_primal)
     end

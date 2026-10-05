@@ -28,7 +28,7 @@ function.
 `TProductAssembly.jl`, `TProductCellData.jl`, `TProductGeometry.jl`, and the
 `OrderedFESpace`/`OrderingMaps` machinery have been removed in favor of a
 leaner `TProductFESpace`/`RankTensor` design (`Rank1Tensor`,
-`GenericRankTensor`, `BlockRankTensor`). `TProductFESpace` now accepts a
+`GenericRankTensor`). `TProductFESpace` now accepts a
 concrete, polytope-supplied `reffe` directly — the same one you would pass to
 a plain `TestFESpace` — in addition to the existing tuple form, so no ad-hoc
 reffe construction is required for `:ttsvd` runs.

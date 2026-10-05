@@ -88,18 +88,14 @@ function ParamDataStructures.get_all_data(a::BlockPArray)
 end
 
 function ParamDataStructures.get_param_entry(a::PVector,i...)
-  map(a.vector_partition) do values
-    get_param_entry(values,i...)
+  local_rows,new_row_partition = _restrict_rows_to_range(partition(axes(a,1)),i...)
+  new_values = map(partition(a),local_rows) do lvals,lids
+    get_param_entry(lvals,lids)
   end
+  PVector(new_values,new_row_partition)
 end
 
-function ParamDataStructures.get_param_entry(a::PSparseMatrix,i...)
-  map(a.matrix_partition) do values
-    get_param_entry(values,i...)
-  end
-end
-
-function ParamDataStructures.get_param_entry(a::BlockPArray,i...)
+function ParamDataStructures.get_param_entry(a::BlockPVector,i...)
   map(blocks(a)) do a
     get_param_entry(a,i...)
   end
@@ -435,6 +431,37 @@ function LinearAlgebra.mul!(
     mul!(co,aoh,bh,α,1)
   end
   c
+end
+
+# utils
+
+function _new_local_to_global(o2g,i)
+  masks = zeros(Bool,length(o2g))
+  for (o,g) in enumerate(o2g)
+    masks[o] = in(g,i) 
+  end
+  nr = count(masks)
+  new_l2g = zeros(Int,nr)
+  k = 0
+  for (o,g) in enumerate(o2g)
+    if masks[o]
+      k += 1
+      new_l2g[k] = g - first(i) + 1
+    end
+  end
+  return new_l2g
+end
+
+function _restrict_rows_to_range(old_row_partition,i::AbstractUnitRange)
+  map(old_row_partition) do row_idxs
+    owner_p = part_id(row_idxs)
+    o2g = own_to_global(row_idxs)
+    o2l = own_to_local(row_idxs)
+    new_l2g = _new_local_to_global(o2g,i)
+    new_l2o = fill(Int32(owner_p),length(new_l2g))
+    new_indices = LocalIndices(length(i),owner_p,new_l2g,new_l2o)
+    (new_l2g,new_indices)
+  end |> tuple_of_arrays
 end
 
 function _change_layout(b::PVector{<:ConsecutiveParamArray},new_idx_partition)

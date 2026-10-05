@@ -126,13 +126,6 @@ function _assemble_operator(::DivCoupling,U::SingleFieldFESpace,V::SingleFieldFE
   div_coupling(U,V)
 end
 
-# bare bilinear form (u,v) -> ... behind each `AssembleOperator`, without
-# assembling it - used by the distributed `_assemble_operator(::BlockOperator,
-# X::DistributedMultiFieldFESpace,Y::DistributedMultiFieldFESpace)` to combine
-# every field's form into a SINGLE multi-field form and assemble it in one
-# `assemble_matrix` call, letting GridapDistributed's own multi-field assembler
-# derive the block sparsity (block-diagonal for norms, block-arrow for
-# couplings) instead of hand-building zero-padded `PSparseMatrix` blocks.
 get_form(::L2,U::FESpace,V::FESpace) = get_l2_form(U,V)
 get_form(::H1,U::FESpace,V::FESpace) = get_h1_form(U,V)
 get_form(op::EnergyNorm,U::FESpace,V::FESpace) = op.form
@@ -150,14 +143,14 @@ end
 
 function _assemble_operator(op::BlockOperator{<:Tuple{Vararg{NormStyle}}},X::MultiFieldFESpace,Y::MultiFieldFESpace)
   @check length(op) == length(X) == length(Y) "Wrong length of norms or MultiFieldFESpaces"
-  map(_assemble_operator,op.op,X.spaces,Y.spaces) |> _energy_mortar
+  map(_assemble_operator,op.op,X.spaces,Y.spaces)
 end
 
 function _assemble_operator(op::BlockOperator{<:Tuple{Vararg{CouplingStyle}}},X::MultiFieldFESpace,Y::MultiFieldFESpace)
   @check length(op)+1 == length(X) == length(Y) "Wrong length of couplings or MultiFieldFESpaces"
   V, = Y.spaces
   Us = X.spaces[2:end]
-  map((o,U) -> _assemble_operator(o,U,V),op.op,Us) |> _coupling_mortar
+  map((o,U) -> _assemble_operator(o,U,V),op.op,Us)
 end
 
 for (f,g) in zip((:l2_norm,:h1_norm,:div_coupling),(:get_l2_form,:get_h1_form,:get_div_coupling_form))
@@ -236,114 +229,4 @@ function _deriv_1d(U::SingleFieldFESpace,V::SingleFieldFESpace)
   dΩ = _meas(U,V)
   v̂ = VectorValue(1.0)
   assemble_matrix((u,v) -> ∫(u*(∇(v)⋅v̂))dΩ,U,V)
-end
-
-function _energy_mortar(a::AbstractVector{<:AbstractSparseMatrix})
-  nfields = length(a)
-  T = eltype(a)
-  blocks = Matrix{T}(undef,nfields,nfields)
-  for j in 1:nfields, i in 1:nfields
-    blocks[i,j] = i == j ? a[i] : spzeros(eltype(T),size(a[i],1),size(a[j],1))
-  end
-  mortar(blocks)
-end
-
-function _coupling_mortar(a::AbstractVector{<:AbstractSparseMatrix})
-  ndual = length(a)
-  nfields = ndual+1
-  nprimal = size(first(a),1)
-  ncols = map(x -> size(x,2),a)
-  T = eltype(a)
-  blocks = Matrix{T}(undef,nfields,nfields)
-  blocks[1,1] = spzeros(nprimal,nprimal)
-  for i in 1:ndual
-    blocks[1,i+1] = a[i]
-    blocks[i+1,1] = spzeros(ncols[i],nprimal)
-    for j in 1:ndual
-      blocks[i+1,j+1] = spzeros(ncols[i],ncols[j])
-    end
-  end
-  mortar(blocks)
-end
-
-_row_sizes(a::AbstractRankTensor{D}) where D = ntuple(d -> size(get_factor(a,d,1),1),Val{D}())
-_col_sizes(a::AbstractRankTensor{D}) where D = ntuple(d -> size(get_factor(a,d,1),2),Val{D}())
-
-const TrivialRankTensor{D} = AbstractRankTensor{D,1}
-
-function _zero_rank_tensor(row_sizes::NTuple{D,Int},col_sizes::NTuple{D,Int}) where D
-  factors = collect(map((nr,nc) -> spzeros(Float64,nr,nc),row_sizes,col_sizes))
-  Rank1Tensor(factors)
-end
-
-function _zero_rank_tensor(row_sizes::NTuple{D,Int},col_sizes::NTuple{D,Int},K::Integer) where D
-  factors = collect(map((nr,nc) -> spzeros(Float64,nr,nc),row_sizes,col_sizes))
-  GenericRankTensor([Rank1Tensor(factors) for _ in 1:K])
-end
-
-_pad_to_rank(a::GenericRankTensor,K::Integer) = a
-
-function _pad_to_rank(a::Rank1Tensor,K::Integer)
-  zero_decomp = Rank1Tensor(zero.(get_factors(a)))
-  GenericRankTensor(vcat(a,fill(zero_decomp,K-1)))
-end
-
-function _energy_mortar(a::AbstractVector{<:TrivialRankTensor})
-  nfields = length(a)
-  A = eltype(a)
-  blocks = Matrix{A}(undef,nfields,nfields)
-  for j in 1:nfields, i in 1:nfields
-    blocks[i,j] = i == j ? a[i] : _zero_rank_tensor(_row_sizes(a[i]),_row_sizes(a[j]))
-  end
-  BlockRankTensor(blocks)
-end
-
-function _energy_mortar(a::AbstractVector{<:AbstractRankTensor})
-  nfields = length(a)
-  K = maximum(rank,a)
-  diag = map(x -> _pad_to_rank(x,K),a)
-  A = typeof(first(diag))
-  blocks = Matrix{A}(undef,nfields,nfields)
-  for j in 1:nfields, i in 1:nfields
-    blocks[i,j] = i == j ? diag[i] : _zero_rank_tensor(_row_sizes(diag[i]),_row_sizes(diag[j]),K)
-  end
-  BlockRankTensor(blocks)
-end
-
-function _coupling_mortar(a::AbstractVector{<:TrivialRankTensor})
-  ndual = length(a)
-  nfields = ndual+1
-  A = eltype(a)
-  primal_sizes = _row_sizes(first(a))
-  dual_sizes = map(_col_sizes,a)
-  blocks = Matrix{A}(undef,nfields,nfields)
-  blocks[1,1] = _zero_rank_tensor(primal_sizes,primal_sizes)
-  for i in 1:ndual
-    blocks[1,i+1] = a[i]
-    blocks[i+1,1] = _zero_rank_tensor(dual_sizes[i],primal_sizes)
-    for j in 1:ndual
-      blocks[i+1,j+1] = _zero_rank_tensor(dual_sizes[i],dual_sizes[j])
-    end
-  end
-  BlockRankTensor(blocks)
-end
-
-function _coupling_mortar(a::AbstractVector{<:AbstractRankTensor})
-  ndual = length(a)
-  nfields = ndual+1
-  K = maximum(rank,a)
-  a = map(x -> _pad_to_rank(x,K),a)
-  A = eltype(a)
-  primal_sizes = _row_sizes(first(a))
-  dual_sizes = map(_col_sizes,a)
-  blocks = Matrix{A}(undef,nfields,nfields)
-  blocks[1,1] = _zero_rank_tensor(primal_sizes,primal_sizes,K)
-  for i in 1:ndual
-    blocks[1,i+1] = a[i]
-    blocks[i+1,1] = _zero_rank_tensor(dual_sizes[i],primal_sizes,K)
-    for j in 1:ndual
-      blocks[i+1,j+1] = _zero_rank_tensor(dual_sizes[i],dual_sizes[j],K)
-    end
-  end
-  BlockRankTensor(blocks)
 end
