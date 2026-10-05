@@ -308,20 +308,6 @@ function DofMaps._get_sparse_dof_map(
   end
 end
 
-# Called as restr_to_fields(A,i,j,trial,test) (so U=trial indexed by j
-# = columns, V=test indexed by i = rows, matching the serial convention in
-# FEM/DofMaps/DofMapsBuilders.jl's restr_to_fields/_restrict_to_fields). The
-# per-rank map below only extracts each LOCAL (i,j) sub-block (correctly,
-# since locally the combined array is field-major-contiguous, same as the
-# serial case); it does not wrap the result back into a genuine PSparseMatrix
-# with row/col partitions, which is what trial/test[field]'s own dof-map
-# construction (_get_sparse_dof_map(trial[j],test[i],Aij), the caller) needs
-# -- same gap as Snapshots.jl's old get_param_entry-based field-splitting,
-# fixed the same way: the correct row/col partition for the (i,j) block is
-# derived from test/trial's own per-field local (own+ghost) dof counts via
-# _local_ranges_from_sizes + _restrict_rows_to_local_range (Snapshots.jl),
-# the same primitives used for per-field state snapshots and the EnergyNorm
-# diagonal block, so this agrees with both.
 function DofMaps.restr_to_fields(
   A::PSparseMatrix,i,j,
   U::DistributedMultiFieldFESpace,
@@ -331,12 +317,12 @@ function DofMaps.restr_to_fields(
   local_vals = map(local_values(A),local_views(U),local_views(V)) do Al,Ul,Vl
     DofMaps.restr_to_fields(Al,i,j,Ul,Vl)
   end
-  row_sizes = map(Vk -> map(local_length,partition(get_free_dof_ids(Vk))),V.field_fe_space)
-  col_sizes = map(Uk -> map(local_length,partition(get_free_dof_ids(Uk))),U.field_fe_space)
-  row_range = _local_ranges_from_sizes(row_sizes)[i]
-  col_range = _local_ranges_from_sizes(col_sizes)[j]
-  _,new_row_partition = _restrict_rows_to_local_range(partition(axes(A,1)),row_range)
-  _,new_col_partition = _restrict_rows_to_local_range(partition(axes(A,2)),col_range)
+  row_ranges = _get_local_ranges(map(Vk -> partition(get_free_dof_ids(Vk)),V.field_fe_space))
+  col_ranges = _get_local_ranges(map(Uk -> partition(get_free_dof_ids(Uk)),U.field_fe_space))
+  row_range = row_ranges[i]
+  col_range = col_ranges[j]
+  _,new_row_partition = _restrict_to_local_range(partition(axes(A,1)),row_range)
+  _,new_col_partition = _restrict_to_local_range(partition(axes(A,2)),col_range)
   PSparseMatrix(local_vals,new_row_partition,new_col_partition)
 end
 

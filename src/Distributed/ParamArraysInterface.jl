@@ -87,20 +87,32 @@ function ParamDataStructures.get_all_data(a::BlockPArray)
   BlockPArray(b,a.axes)
 end
 
-function ParamDataStructures.get_param_entry(a::PVector,i...)
-  new_row_partition = _restrict_rows_to_range(row_partition(a),i...)
-  new_values = map(partition(a),new_row_partition) do lvals,lrows
-    get_param_entry(lvals,own_to_local(lrows))
+function ParamDataStructures.get_param_entry(a::PVector,local_range)
+  local_positions,new_row_partition = _restrict_to_local_range(row_partition(a),local_range)
+  new_values = map(partition(a),local_positions) do lvals,lids
+    get_param_entry(lvals,lids)
   end
   PVector(new_values,new_row_partition)
 end
 
-function ParamDataStructures.get_param_entry(a::PSparseMatrix,i...)
-  new_row_partition = _restrict_rows_to_range(flat_row_partition(a),i...)
-  new_values = map(partition(a),new_row_partition) do lvals,lrows
-    get_param_entry(lvals,own_to_local(lrows))
+function ParamDataStructures.get_param_entry(a::PSparseMatrix{<:ParamSparseMatrixCSC},local_range)
+  local_positions, = _restrict_to_local_range(flat_row_partition(a),local_range)
+  new_values = map(partition(a),local_positions) do lvals,lids
+    @check _iscontiguous(lids)
+    get_param_entry(lvals,lids)
   end
-  PVector(new_values,new_row_partition)
+  new_col_partition = _new_partition(map(part_id,col_partition(a)),map(v -> innersize(v,2),new_values))
+  PSparseMatrix(new_values,row_partition(a),new_col_partition)
+end
+
+function ParamDataStructures.get_param_entry(a::PSparseMatrix{<:ParamSparseMatrixCSR},local_range)
+  local_positions, = _restrict_to_local_range(flat_row_partition(a),local_range)
+  new_values = map(partition(a),local_positions) do lvals,lids
+    @check _iscontiguous(lids)
+    get_param_entry(lvals,lids)
+  end
+  new_row_partition = _new_partition(map(part_id,row_partition(a)),map(v -> innersize(v,1),new_values))
+  PSparseMatrix(new_values,new_row_partition,col_partition(a))
 end
 
 function PartitionedArrays.default_local_values(
@@ -437,26 +449,49 @@ end
 
 # utils
 
-function _restrict_rows_to_range(old_row_partition,i::AbstractUnitRange)
-  map(old_row_partition) do row_idxs
-    owner = part_id(row_idxs)
-    o2g = own_to_global(row_idxs)
-    masks = zeros(Bool,length(o2g))
-    for (o,g) in enumerate(o2g)
-      masks[o] = in(g,i) 
-    end
-    nm = count(masks)
-    new_l2g = zeros(eltype(o2g),nm)
-    k = 0
-    for (o,g) in enumerate(o2g)
-      if masks[o]
-        k += 1
-        new_l2g[k] = g - first(i) + 1
-      end
-    end
-    new_l2o = fill(Int32(owner),length(new_l2g))
-    LocalIndices(length(i),owner,new_l2g,new_l2o)
+function _iscontiguous(a::AbstractVector)
+  ra = first(a):last(a)
+  for i in eachindex(a)
+    a[i] != ra[i] && return false
   end
+  return true
+end
+
+function _new_partition(owners,lcounts)
+  inits = scan(+,lcounts;init=1,type=:exclusive)
+  ngids = PartitionedArrays.reduction(+,lcounts;destination=:all,init=0)
+  map(lcounts,inits,ngids,owners) do n,init,ng,owner
+    new_l2g = collect(init:init+n-1)
+    new_l2o = fill(Int32(owner),n)
+    LocalIndices(ng,owner,new_l2g,new_l2o)
+  end
+end
+
+function _get_local_ranges(i::AbstractArray{<:AbstractArray})
+  llength(a) = length(a)
+  llength(a::AbstractLocalIndices) = local_length(a)
+  lengths = map(ij -> map(llength,ij),i)
+  nfields = length(lengths)
+  offsets = Vector{Any}(undef,nfields)
+  offsets[1] = map(l -> zero(l),lengths[1])
+  for j in 2:nfields
+    offsets[j] = map(+,offsets[j-1],lengths[j-1])
+  end
+  map(1:nfields) do j
+    map((o,l) -> o+1:o+l,offsets[j],lengths[j])
+  end
+end
+
+function _restrict_to_local_range(old_partition,local_ranges)
+  owners = map(part_id,old_partition)
+  own_positions = map(old_partition,local_ranges) do idx,lr
+    l2o = local_to_owner(idx)
+    owner_p = part_id(idx)
+    filter(l -> l2o[l]==owner_p,collect(lr))
+  end
+  n_owns = map(length,own_positions)
+  new_partition = _new_partition(owners,n_owns)
+  (own_positions,new_partition)
 end
 
 function _change_layout(b::PVector{<:ConsecutiveParamArray},new_idx_partition)
