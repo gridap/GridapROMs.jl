@@ -114,7 +114,7 @@ function param_zero_dirichlet_values(f::FESpace,L::Integer=param_length(f))
 end
 
 function FESpaces.get_vector_type(f::SingleFieldParamFESpace)
-  V = get_vector_type(get_fe_space(f))
+  V = get_vector_type2(f)
   L = param_length(f)
   PV = parameterise(V(),L)
   typeof(PV)

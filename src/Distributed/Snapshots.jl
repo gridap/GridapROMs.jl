@@ -148,7 +148,7 @@ function ParamDataStructures.Snapshots(
 end
 
 function ParamDataStructures.Snapshots(
-  data::Union{PVector,PSparseMatrix},
+  data::PVector,
   i::AbstractArray{<:AbstractArray{<:AbstractDofMap}},
   r::AbstractRealisation
   )
@@ -160,6 +160,40 @@ function ParamDataStructures.Snapshots(
     Snapshots(dataj,i[j],r)
   end
   BlockSnapshots(reshape(array,s),data)
+end
+
+# i here is the (ntest,ntrial) field-pair dof-map grid from get_sparse_dof_map
+# (each i[k,l] a TrivialSparseMatrixDofMap/SparseMatrixDofMap built from the
+# already row/col-restricted (k,l) block -- see restr_to_fields in
+# ParamFESpaces.jl), NOT a 1D per-field array like the PVector case above:
+# linearizing it the same way (treating field-pair (k,l) as the "field" at
+# linear index k+(l-1)*ntest, and using each pair's own NNZ count for the
+# offset) mixes the test and trial dimensions into one sequence, which does
+# not correspond to "test field k's own rows" or "trial field l's own
+# columns" at all. Instead, the row range for test field k (same for every
+# l) and the column range for trial field l (same for every k) are computed
+# independently, each DOF-based (via num_rows/num_cols on the dof-map's own
+# sparsity, no FE space needed), exactly matching the PVector/residual
+# convention -- then get_param_entry(data,row_range,col_range) (which scans
+# for the matching NZ positions itself, the efficient CSC/CSR-native way to
+# do this restriction, not a contiguous-NNZ-range shortcut) extracts each
+# field-pair's own block.
+function ParamDataStructures.Snapshots(
+  data::PSparseMatrix,
+  i::AbstractMatrix{<:AbstractArray{<:AbstractDofMap}},
+  r::AbstractRealisation
+  )
+
+  ntest,ntrial = size(i)
+  row_sizes = map(k -> map(dm -> DofMaps.num_rows(get_sparsity(dm)),i[k,1]),1:ntest)
+  col_sizes = map(l -> map(dm -> DofMaps.num_cols(get_sparsity(dm)),i[1,l]),1:ntrial)
+  row_ranges = _ranges_from_sizes(row_sizes)
+  col_ranges = _ranges_from_sizes(col_sizes)
+  array = map(Iterators.product(1:ntest,1:ntrial)) do (k,l)
+    dataj = get_param_entry(data,row_ranges[k],col_ranges[l])
+    Snapshots(dataj,i[k,l],r)
+  end
+  BlockSnapshots(array,data)
 end
 
 function ParamDataStructures.Snapshots(

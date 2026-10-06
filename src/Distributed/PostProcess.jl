@@ -40,7 +40,7 @@ function RBSteady.load_snapshots(dir,ranks::AbstractArray;label="")
 end
 
 function DrWatson.save(dir,a::DistributedProjection;label="")
-  _psave(dir,PROJECTION_LABEL,a.basis;label)
+  _psave(dir,PROJECTION_LABEL,a.array;label)
   _psave(dir,DOFMAP_LABEL,a.dof_map;label)
 end
 
@@ -116,9 +116,6 @@ function RBSteady.load_subspace(dir,f::DistributedMultiFieldFESpace,ranks::Abstr
   reduced_subspace(f,basis)
 end
 
-# `ranks::Vector`: reassemble a serial (non-distributed) reduced subspace, over
-# an ordinary (non-distributed) FE space `f` matching the one the distributed
-# problem was solved on.
 function RBSteady.load_subspace(dir,f::FESpace,ranks::Vector;label="")
   basis = load_projection(dir,ranks;label)
   reduced_subspace(f,basis)
@@ -211,6 +208,12 @@ function _psave(dir,name,x::PSparseMatrix;label="")
   end
 end
 
+function _psave(dir,name,x::AbstractArray;label="")
+  map(x,PartitionedArrays.linear_indices(x)) do xloc,p
+    serialize(_part_filename(dir,name,label,p),xloc)
+  end
+end
+
 function _pload(dir,name,ranks;label="")
   data,inds... = map(ranks) do p
     deserialize(_part_filename(dir,name,label,p))
@@ -221,8 +224,8 @@ end
 _allocate(ranks::Vector,d,i...) = _sallocate(d,i...)
 _allocate(ranks,d,i...) = _pallocate(d,i...)
 
-function _pallocate(d,i...)
-  @abstractmethod
+function _pallocate(d::AbstractArray{<:AbstractArray},i...)
+  d
 end
 
 function _pallocate(

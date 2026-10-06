@@ -169,22 +169,24 @@ end
 
 Base.maximum(a::GenericPArray) = maximum(identity,a)
 function Base.maximum(f::Function,a::GenericPArray)
+  init = typemin(typeof(f(zero(eltype(a)))))
   partials = map(own_values(a)) do o
-    maximum(f,o,init=typemin(eltype(a)))
+    maximum(f,o,init=init)
   end
-  reduce(max,partials,init=typemin(eltype(a)))
+  reduce(max,partials,init=init)
 end
 
 Base.minimum(a::GenericPArray) = minimum(identity,a)
 function Base.minimum(f::Function,a::GenericPArray)
+  init = typemax(typeof(f(zero(eltype(a)))))
   partials = map(own_values(a)) do o
-    minimum(f,o,init=typemax(eltype(a)))
+    minimum(f,o,init=init)
   end
-  reduce(min,partials,init=typemax(eltype(a)))
+  reduce(min,partials,init=init)
 end
 
 function Base.findmax(f::Function,a::GenericPArray)
-  init = typemin(eltype(a))
+  init = typemin(typeof(f(zero(eltype(a)))))
   pairs = map(own_values(a),partition(axes(a,1))) do o,ra
     _findmax_pairs(f,o,ra,init=init)
   end
@@ -192,7 +194,7 @@ function Base.findmax(f::Function,a::GenericPArray)
 end
 
 function Base.findmin(f::Function,a::GenericPArray)
-  init = typemax(eltype(a))
+  init = typemax(typeof(f(zero(eltype(a)))))
   pairs = map(own_values(a),partition(axes(a,1))) do o,ra
     _findmin_pairs(f,o,ra,init=init)
   end
@@ -467,7 +469,7 @@ end
 function LinearAlgebra.mul!(
   c::AbstractVector{<:Number},
   at::Adjoint{<:Any,<:GenericPMatrix},
-  b::GenericPVector,
+  b::Union{PVector,GenericPVector},
   α::Number,β::Number
   )
 
@@ -586,7 +588,7 @@ end
 
 second(p::Pair) = p.second
 
-function _findmin_pairs(f,v,ra;init=typemax(eltype(v)))
+function _findmin_pairs(f,v,ra;init=typemax(typeof(f(zero(eltype(v))))))
   min_owned = 0
   min_val = init
   for (i,val) in enumerate(v)
@@ -600,7 +602,7 @@ function _findmin_pairs(f,v,ra;init=typemax(eltype(v)))
   return min_val => gi
 end
 
-function _findmax_pairs(f,v,ra;init=typemin(eltype(v)))
+function _findmax_pairs(f,v,ra;init=typemin(typeof(f(zero(eltype(v))))))
   max_owned = 0
   max_val = init
   for (i,val) in enumerate(v)

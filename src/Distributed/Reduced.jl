@@ -23,13 +23,6 @@ for T in (:DistributedSingleFieldFESpace,:DistributedMultiFieldFESpace)
   end
 end
 
-function RBSteady._convert_to_block(V::DistributedMultiFieldFESpace)
-  part_fe_space = map(local_views(V)) do space
-    RBSteady._convert_to_block(space)
-  end
-  DistributedMultiFieldFESpace(V.field_fe_space,part_fe_space,V.gids,V.vector_type)
-end
-
 function Base.getindex(r::DistributedMultiFieldRBSpace,i::Integer)
   mfe = get_fe_space(r)
   rsp = get_reduced_subspace(r)
@@ -102,7 +95,7 @@ end
 function RBSteady.galerkin_projection(Φl::GenericPMatrix,A::PSparseMatrix,Φr::GenericPMatrix)
   TS = promote_type(eltype(Φl),eltype(Φr))
   nleft = size(Φl,2)
-  n = getany(map(param_length,partition(A)))
+  n = param_length(A)
   nright = size(Φr,2)
   Â = zeros(TS,nleft,nright,n)
   _galerkin_mul!(Â,Φl,A,Φr)
@@ -666,6 +659,26 @@ function _best_s_opt_index(basis::GenericPMatrix,P,G,colnorms2,l)
     best_logS => best_gi
   end
   return second(reduce(max,best_pairs,init=(-Inf=>0)))
+end
+
+function RBSteady._convert_to_block(V::DistributedMultiFieldFESpace)
+  # V.gids/V.vector_type can't just be carried over from V: unlike evaluate
+  # (which keeps the same MultiFieldStyle), this changes Consecutive -> Block,
+  # which needs a structurally different gids (BlockPRange, not PRange) --
+  # e.g. GridapDistributed's own SparseMatrixAssembler for BlockMultiFieldStyle
+  # does blocks(test.gids), which requires a genuine BlockPRange. Delegate to
+  # GridapDistributed's own factory (mirrors the serial
+  # _convert_to_block(V::MultiFieldFESpace) = MultiFieldFESpace(V.spaces;style=BlockMultiFieldStyle())),
+  # which computes gids/vector_type from scratch for the new style
+  MultiFieldFESpace(V.field_fe_space;style=BlockMultiFieldStyle())
+end
+
+function RBSteady._convert_to_block(op::ParamOperator,V::T,U::T) where T<:DistributedMultiFieldFESpace{ConsecutiveMultiFieldStyle}
+  Vb = RBSteady._convert_to_block(V)
+  Ub = RBSteady._convert_to_block(U)
+  feop = get_fe_operator(op)
+  feopb = RBSteady._convert_to_block(feop,Ub,Vb)
+  typeof(op)(feopb)
 end
 
 function RBSteady._setup(U::DistributedMultiFieldRBSpace,u0::PVector)

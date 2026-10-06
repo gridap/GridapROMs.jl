@@ -6,7 +6,7 @@ function ParamFESpaces.UnEvalTrialFESpace(
   spaces = map(local_views(f)) do space
     UnEvalTrialFESpace(space,dirichlet)
   end
-  gids  = get_free_dof_ids(f)
+  gids = get_free_dof_ids(f)
   trian = get_triangulation(f)
   vector_type = get_vector_type(f)
   DistributedSingleFieldFESpace(spaces,gids,trian,vector_type)
@@ -62,27 +62,26 @@ const DistributedUnEvalTrialFESpace = DistributedSingleFieldFESpace{<:AbstractAr
 
 for f in (:(Arrays.evaluate),:(ODEs.allocate_space))
   @eval begin
-    function $f(space::DistributedUnEvalTrialFESpace,x::AbstractRealisation)
+    function $f(space::DistributedUnEvalTrialFESpace,r::AbstractRealisation)
       spaces = map(local_views(space)) do space
-        $f(space,x)
+        $f(space,r)
       end
-      gids  = get_free_dof_ids(space)
+      gids = get_free_dof_ids(space)
       trian = get_triangulation(space)
       vector_type = get_vector_type(space)
       DistributedSingleFieldFESpace(spaces,gids,trian,vector_type)
     end
 
-    function $f(space::DistributedMultiFieldFESpace,x::AbstractRealisation)
+    function $f(space::DistributedMultiFieldFESpace,r::AbstractRealisation)
       if !ParamFESpaces.has_param(space)
         return space
       end
-      field_fe_space = map(s->$f(s,x),space.field_fe_space)
+      field_fe_space = map(s->$f(s,r),space.field_fe_space)
       style = MultiFieldStyle(space)
       spaces = to_parray_of_arrays(map(local_views,field_fe_space))
       part_fe_spaces = map(s->MultiFieldFESpace(s;style),spaces)
       gids = get_free_dof_ids(space)
-      vector_type = get_vector_type(space)
-      DistributedMultiFieldFESpace(field_fe_space,part_fe_spaces,gids,vector_type)
+      _DistributedMultiFieldFESpace(field_fe_space,part_fe_spaces,gids)
     end
   end
 end
@@ -107,7 +106,7 @@ for T in (:AbstractRealisation,:Nothing)
         spaces = map(local_views(space)) do space
           $f(space,x,y)
         end
-        gids  = get_free_dof_ids(space)
+        gids = get_free_dof_ids(space)
         trian = get_triangulation(space)
         vector_type = get_vector_type(space)
         DistributedSingleFieldFESpace(spaces,gids,trian,vector_type)
@@ -122,8 +121,7 @@ for T in (:AbstractRealisation,:Nothing)
         spaces = to_parray_of_arrays(map(local_views,field_fe_space))
         part_fe_spaces = map(s->MultiFieldFESpace(s;style),spaces)
         gids = get_free_dof_ids(space)
-        vector_type = get_vector_type(space)
-        DistributedMultiFieldFESpace(field_fe_space,part_fe_spaces,gids,vector_type)
+        _DistributedMultiFieldFESpace(field_fe_space,part_fe_spaces,gids)
       end
     end
   end
@@ -144,28 +142,56 @@ for T in (:AbstractRealisation,:Nothing)
   end
 end
 
-function ParamFESpaces.has_param(space::DistributedMultiFieldFESpace)
-  getany(map(ParamFESpaces.has_param,local_views(space)))
+function _DistributedMultiFieldFESpace(field_fe_space,part_fe_spaces,gids)
+  if isa(gids,GridapDistributed.BlockPRange)
+    fv = mortar(map(zero_free_values,field_fe_space))
+    V = typeof(fv)
+  else
+    fv = map(zero_free_values,field_fe_space)
+    V = promote_type(typeof.(fv)...)
+  end
+  DistributedMultiFieldFESpace(field_fe_space,part_fe_spaces,gids,V)
 end
 
-function ParamODEs.has_param_transient(space::DistributedMultiFieldFESpace)
-  getany(map(ParamODEs.has_param_transient,local_views(space)))
+function ParamFESpaces.has_param(f::DistributedMultiFieldFESpace)
+  ParamFESpaces.has_param(getany(local_views(f)))
+end
+
+function ParamODEs.has_param_transient(f::DistributedMultiFieldFESpace)
+  ParamODEs.has_param_transient(getany(local_views(f)))
 end
 
 const DistributedSingleFieldParamFESpace = DistributedSingleFieldFESpace{<:AbstractArray{<:SingleFieldParamFESpace}}
-const DistributedMultiFieldParamFESpace{MS} = DistributedMultiFieldFESpace{MS,<:AbstractVector{<:DistributedSingleFieldFESpace}}
+const DistributedMultiFieldParamFESpace{MS,A,B,C,D<:AbstractParamPVector} = DistributedMultiFieldFESpace{MS,A,B,C,D}
 const DistributedParamFESpace = Union{DistributedSingleFieldParamFESpace,DistributedMultiFieldParamFESpace}
 
 function ParamDataStructures.param_length(f::DistributedParamFESpace)
-  getany(map(param_length,local_views(f)))
+  param_length(getany(local_views(f)))
 end
 
-function FESpaces.zero_free_values(f::DistributedSingleFieldParamFESpace)
+function ParamFESpaces.get_vector_type2(f::DistributedSingleFieldParamFESpace)
+  V = ParamFESpaces.get_vector_type2(getany(local_views(f)))
+  typeof(PVector{V}(undef,partition(get_free_dof_ids(f))))
+end
+
+function ParamFESpaces.get_vector_type2(f::DistributedMultiFieldParamFESpace)
+  ParamFESpaces.get_vector_type2(first(f.field_fe_space))
+end
+
+function FESpaces.zero_free_values(f::DistributedParamFESpace)
   param_zero_free_values(f)
+end
+
+function FESpaces.zero_dirichlet_values(f::DistributedParamFESpace)
+  param_zero_dirichlet_values(f)
 end
 
 function FESpaces.zero_free_values(f::DistributedMultiFieldParamFESpace{<:BlockMultiFieldStyle})
   mortar(map(zero_free_values,f.field_fe_space))
+end
+
+function FESpaces.zero_dirichlet_values(f::DistributedMultiFieldParamFESpace{<:BlockMultiFieldStyle})
+  mortar(map(zero_dirichlet_values,f.field_fe_space))
 end
 
 function GridapDistributed.DistributedMultiFieldFEFunction(
@@ -184,8 +210,8 @@ function FESpaces.SparseMatrixAssembler(
   par_strategy=SubAssembledRows()
   )
 
-  PT = getany(map(get_vector_type,local_views(trial)))
-  T  = eltype2(PT)
+  PT = get_vector_type(getany(local_views(trial)))
+  T = eltype2(PT)
   Tm = SparseMatrixCSC{T,Int}
   Tv = Vector{T}
   SparseMatrixAssembler(Tm,Tv,trial,test,par_strategy)
@@ -328,7 +354,7 @@ end
 
 DofMaps.restr_to_fields(A::BlockPArray,i,j,args...) = A[Block(i,j)]
 
-function ParamODEs.collect_param_solutions(sol::ODEParamSolution{<:PVector{T}}) where T
+function ParamODEs.collect_param_solutions(sol::ODEParamSolution{<:PVector})
   u0 = first(sol.us0)
   ncols = num_params(sol.r)*num_times(sol.r)
   sols = ParamODEs._allocate_solutions(u0,ncols)

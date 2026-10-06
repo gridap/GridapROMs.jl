@@ -12,8 +12,16 @@ end
 
 function _assemble_operator(op::EnergyNorm,U::DistributedMultiFieldFESpace,V::DistributedMultiFieldFESpace)
   A = assemble_matrix(op.form,U,V)
-  local_ranges = _get_local_ranges(map(Ui -> partition(get_free_dof_ids(Ui)),U.field_fe_space))
-  map(lr -> _restrict_diag_block(A,lr),local_ranges)
+  if A isa BlockPArray
+    # a BlockMultiFieldStyle U,V (e.g. after _setup/_convert_to_block)
+    # assembles directly into a block-structured matrix, one block per
+    # field pair; no manual row/col restriction needed, unlike the
+    # ConsecutiveMultiFieldStyle case below (monolithic PSparseMatrix)
+    map(i -> A[Block(i,i)],1:num_fields(U))
+  else
+    local_ranges = _get_local_ranges(map(Ui -> partition(get_free_dof_ids(Ui)),U.field_fe_space))
+    map(lr -> _restrict_diag_block(A,lr),local_ranges)
+  end
 end
 
 function _restrict_diag_block(A::PSparseMatrix,local_range)

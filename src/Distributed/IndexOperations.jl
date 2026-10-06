@@ -72,6 +72,16 @@ function RBSteady._evaluate!(a,cellrows,rows::LocalDofs)
   a
 end
 
+function RBSteady._evaluate!(a::VectorBlock,cellrows::VectorBlock,rows::LocalDofs)
+  for i in eachindex(a)
+    if a.touched[i]
+      @check cellrows.touched[i]
+      RBSteady._evaluate!(a.array[i],cellrows.array[i],rows)
+    end
+  end
+  a
+end
+
 function RBSteady._evaluate!(a,cellrows,cellcols,rows::LocalDofs,cols::LocalDofs)
   fill!(a,zero(eltype(a)))
   ncellrows = length(cellrows)
@@ -86,7 +96,17 @@ function RBSteady._evaluate!(a,cellrows,cellcols,rows::LocalDofs,cols::LocalDofs
       end
     end
   end
-  a 
+  a
+end
+
+function RBSteady._evaluate!(a::MatrixBlock,cellrows::VectorBlock,cellcols::VectorBlock,rows::LocalDofs,cols::LocalDofs)
+  for j in axes(a,2), i in axes(a,1)
+    if a.touched[i,j]
+      @check cellrows.touched[i] && cellcols.touched[j]
+      RBSteady._evaluate!(a.array[i,j],cellrows.array[i],cellcols.array[j],rows,cols)
+    end
+  end
+  a
 end
 
 function DofMaps.recast_split_indices(
