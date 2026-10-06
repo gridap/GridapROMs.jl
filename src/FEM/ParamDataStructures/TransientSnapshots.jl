@@ -160,51 +160,19 @@ const TransientSparseSnapshots{T,N,I<:AbstractSparseDofMap,R<:TransientRealisati
 
 # block snapshots
 
-struct StoredParamData{A,B}
-  param_data::A
-  param_data0::B 
-end
-
-get_param_data(s::StoredParamData) = s.param_data
-get_initial_param_data(s::StoredParamData) = s.param_data0
-
-function select_param_data(
-  s::StoredParamData,prange,trange;
-  nparams=Int(param_length(s.param_data)/length(trange))
-  )
-  
-  pd = select_param_data(s.param_data,prange,trange;nparams=nparams)
-  StoredParamData(pd,s.param_data0)
-end
-
-function param_cat(v::AbstractVector{<:StoredParamData})
-  pd = param_cat(map(s -> s.param_data,v))
-  n = length(first(v).param_data0)
-  pd0 = ntuple(j -> param_cat(map(s -> s.param_data0[j],v)),n)
-  StoredParamData(pd,pd0)
-end
-
-const TransientBlockSnapshots{S<:TransientSnapshots,N} = BlockSnapshots{S,N,<:StoredParamData}
+const TransientBlockSnapshots{S<:TransientSnapshots,N} = BlockSnapshots{S,N}
 
 num_times(s::TransientBlockSnapshots) = num_times(get_realisation(s))
-get_param_data(s::TransientBlockSnapshots) = get_param_data(s.param_data)
-get_initial_param_data(s::TransientBlockSnapshots) = get_initial_param_data(s.param_data)
+get_initial_param_data(s::TransientBlockSnapshots) = map(get_initial_param_data,blocks(s)) |> mortar
 
 function select_snapshots(s::TransientBlockSnapshots,pindex)
-  prange = _format_index(pindex)
-  trange = 1:num_times(s)
   array = map(sj -> select_snapshots(sj,pindex),blocks(s))
-  pdata = select_param_data(s.param_data,prange,trange)
-  return BlockSnapshots(array,pdata)
+  return BlockSnapshots(array)
 end
 
 function select_times(s::TransientBlockSnapshots,tindex)
   array = map(sj -> select_times(sj,tindex),blocks(s))
-  np = num_params(s)
-  prange = 1:np
-  trange = _format_index(tindex)
-  pdata = select_param_data(s.param_data,prange,trange;nparams=np)
-  return BlockSnapshots(array,pdata)
+  return BlockSnapshots(array)
 end
 
 function Snapshots(
@@ -221,8 +189,7 @@ function Snapshots(
     data0j = map(d0 -> blocks(d0)[j],data0)
     Snapshots(dataj,data0j,i[j],r)
   end
-  stored_data = StoredParamData(data,data0)
-  BlockSnapshots(array,stored_data)
+  BlockSnapshots(array)
 end
 
 function Snapshots(
@@ -238,8 +205,7 @@ function Snapshots(
     data0j = map(d0 -> get_param_entry(d0,ids[j]...),data0)
     Snapshots(dataj,data0j,ij,r)
   end
-  stored_data = StoredParamData(data,data0)
-  BlockSnapshots(array,stored_data)
+  BlockSnapshots(array)
 end
 
 # mode snapshots

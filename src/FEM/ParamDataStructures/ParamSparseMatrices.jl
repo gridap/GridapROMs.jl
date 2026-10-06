@@ -580,6 +580,17 @@ function SparseArrays.sparse(
   ) where {Tv,Ti<:Integer}
 
   coolen = length(I)
+  if m == 0 || n == 0 || coolen == 0
+    if coolen != 0
+      if n == 0
+        throw(ArgumentError("column indices J[k] must satisfy 1 <= J[k] <= n"))
+      elseif m == 0
+        throw(ArgumentError("row indices I[k] must satisfy 1 <= I[k] <= m"))
+      end
+    end
+    plength = size(V,2)
+    return ConsecutiveParamSparseMatrixCSC(m,n,fill(one(Ti),n+1),Vector{Ti}(),Matrix{Tv}(undef,0,plength))
+  end
   csrrowptr = Vector{Ti}(undef,m+1)
   csrcolval = Vector{Ti}(undef,coolen)
   csrnzval = Matrix{Tv}(undef,coolen,size(V,2))

@@ -110,6 +110,7 @@ Returns the [`Projection`](@ref) spanning the reduced subspace contained in `r`
 get_reduced_subspace(r::RBSpace) = r.subspace
 
 get_basis(r::RBSpace) = get_basis(get_reduced_subspace(r))
+get_norm_matrix(r::RBSpace) = get_norm_matrix(get_reduced_subspace(r))
 num_fe_dofs(r::RBSpace) = num_free_dofs(get_fe_space(r))
 num_reduced_dofs(r::RBSpace) = num_reduced_dofs(get_reduced_subspace(r))
 

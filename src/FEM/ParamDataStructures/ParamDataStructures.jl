@@ -173,7 +173,6 @@ export TransientSparseSnapshots
 export TransientBlockSnapshots
 export UnfoldingTransientSnapshots
 export ModeTransientSnapshots
-export StoredParamData
 export get_initial_param_data
 export select_times
 export get_mode1

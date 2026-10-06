@@ -48,6 +48,12 @@ end
 local_vals(a) = @abstractmethod
 local_vals(a::LocalProjection) = a.projections
 
+# the norm matrix is a property of the (global) problem, not of a specific
+# cluster, so every local projection shares the same one; get_basis/
+# num_fe_dofs don't have an analogous single-valued meaning across clusters
+# (and aren't needed by the current interface), so they're left undefined
+get_norm_matrix(a::LocalProjection) = get_norm_matrix(first(local_vals(a)))
+
 function local_vals(a::BlockProjection)
   litems = map(local_vals,a.array)
   nlitems = length(first(litems))
@@ -307,8 +313,7 @@ end
 
 function _cluster(s::BlockSnapshots,inds::AbstractVector)
   array = map(sj -> _cluster(sj,inds),blocks(s))
-  pdata = _cluster(get_param_data(s),inds)
-  return BlockSnapshots(array,pdata)
+  return BlockSnapshots(array)
 end
 
 function _cluster(a::ConsecutiveParamArray{T,N},inds::AbstractVector) where {T,N}

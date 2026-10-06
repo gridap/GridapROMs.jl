@@ -196,16 +196,18 @@ end
 # multi field interface
 
 """
-    struct BlockSnapshots{S<:Snapshots,N,B} <: AbstractSnapshots{S,N}
+    struct BlockSnapshots{S<:Snapshots,N} <: AbstractSnapshots{S,N}
       array::Array{S,N}
-      param_data::B
     end
 
-Block container for Snapshots in a `MultiField` setting.
+Block container for Snapshots in a `MultiField` setting. Its param data is
+not stored separately; it is always derived from `blocks(s)` (mortared
+together), so that it stays consistent with the blocks under any operation
+(selecting, clustering, concatenating, ...) instead of needing to be kept in
+sync by hand alongside them.
 """
-struct BlockSnapshots{S<:Snapshots,N,B} <: AbstractSnapshots{S,N}
+struct BlockSnapshots{S<:Snapshots,N} <: AbstractSnapshots{S,N}
   array::Array{S,N}
-  param_data::B
 end
 
 function Snapshots(
@@ -220,7 +222,7 @@ function Snapshots(
   array = map(enumerate(block_values)) do (j,dataj)
     Snapshots(dataj,i[j],r)
   end
-  BlockSnapshots(array,data)
+  BlockSnapshots(array)
 end
 
 function Snapshots(
@@ -234,11 +236,11 @@ function Snapshots(
     dataj = get_param_entry(data,ids[j]...)
     Snapshots(dataj,ij,r)
   end
-  BlockSnapshots(array,data)
+  BlockSnapshots(array)
 end
 
 BlockArrays.blocks(s::BlockSnapshots) = s.array
-get_param_data(s::BlockSnapshots) = s.param_data
+get_param_data(s::BlockSnapshots) = map(get_param_data,blocks(s)) |> mortar
 
 Base.size(s::BlockSnapshots) = size(blocks(s))
 Base.getindex(s::BlockSnapshots,i...) = getindex(blocks(s),i...)
@@ -249,10 +251,8 @@ get_dof_map(s::BlockSnapshots) = map(get_dof_map,blocks(s))
 get_realisation(s::BlockSnapshots) = get_realisation(testitem(s))
 
 function select_snapshots(s::BlockSnapshots{<:Any,N},pindex) where N
-  prange = _format_index(pindex)
   array = map(sj -> select_snapshots(sj,pindex),blocks(s))
-  pdata = select_param_data(get_param_data(s),prange)
-  return BlockSnapshots(array,pdata)
+  return BlockSnapshots(array)
 end
 
 function param_cat(v::AbstractVector{<:BlockSnapshots{<:Any,N}}) where N
@@ -261,13 +261,12 @@ function param_cat(v::AbstractVector{<:BlockSnapshots{<:Any,N}}) where N
   array = map(CartesianIndices(blocks(s))) do i
     param_cat(map(sv -> getindex(sv,i),v))
   end
-  pdata = param_cat(map(sv -> get_param_data(sv),v))
-  return BlockSnapshots(collect(array),pdata)
+  return BlockSnapshots(collect(array))
 end
 
 function change_dof_map(s::BlockSnapshots{<:Any,N},i::AbstractArray{<:Any,N}) where N
   array = map(change_dof_map,blocks(s),i)
-  return BlockSnapshots(array,get_param_data(s))
+  return BlockSnapshots(array)
 end
 
 # utils

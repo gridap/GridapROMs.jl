@@ -104,14 +104,22 @@ Base.copyto!(a::ArrayContribution,b::ArrayContribution) = map(copyto!,a.values,b
 
 Base.sum(a::ArrayContribution) = sum(a.values)
 
-function Base.fill!(a::ArrayContribution,v)
+# fill!/fillstored! below are intentionally gated on the bare `Contribution`
+# type, not the narrower `ArrayContribution` alias: when a Contribution spans
+# triangulations whose per-domain value arrays have genuinely different
+# concrete types (e.g. different codimensions in a distributed setting),
+# `eltype(values)` in the Contribution constructor widens to a common
+# supertype (sometimes as loose as the bare `Vector`/`Array`), which no
+# longer matches `ArrayContribution`'s `<:AbstractArray{T,N}` bound even
+# though every individual value is still some concrete array
+function Base.fill!(a::Contribution,v)
   for vals in a.values
     fill!(vals,v)
   end
   a
 end
 
-function LinearAlgebra.fillstored!(a::ArrayContribution,v)
+function LinearAlgebra.fillstored!(a::Contribution,v)
   for vals in a.values
     LinearAlgebra.fillstored!(vals,v)
   end

@@ -128,11 +128,11 @@ end
 # multi-field interface
 
 """
-    const DistributedBlockSnapshots{S<:DistributedSnapshots,N,B} = BlockSnapshots{S,N,B}
+    const DistributedBlockSnapshots{S<:DistributedSnapshots,N} = BlockSnapshots{S,N}
 """
-const DistributedBlockSnapshots{S<:DistributedSnapshots,N,B} = BlockSnapshots{S,N,B}
+const DistributedBlockSnapshots{S<:DistributedSnapshots,N} = BlockSnapshots{S,N}
 
-const DistributedTransientBlockSnapshots{N} = DistributedBlockSnapshots{<:DistributedTransientSnapshots,N,<:StoredParamData}
+const DistributedTransientBlockSnapshots{N} = DistributedBlockSnapshots{<:DistributedTransientSnapshots,N}
 
 function ParamDataStructures.Snapshots(
   data::BlockPArray,
@@ -144,7 +144,7 @@ function ParamDataStructures.Snapshots(
   array = map(enumerate(block_values)) do (j,dataj)
     Snapshots(dataj,i[j],r)
   end
-  BlockSnapshots(array,data)
+  BlockSnapshots(array)
 end
 
 function ParamDataStructures.Snapshots(
@@ -158,7 +158,7 @@ function ParamDataStructures.Snapshots(
     dataj = get_param_entry(data,offsets[j])
     Snapshots(dataj,ij,r)
   end
-  BlockSnapshots(array,data)
+  BlockSnapshots(array)
 end
 
 function ParamDataStructures.Snapshots(
@@ -175,8 +175,7 @@ function ParamDataStructures.Snapshots(
     data0j = map(d0 -> blocks(d0)[j],data0)
     Snapshots(dataj,data0j,i[j],r)
   end
-  stored_data = StoredParamData(data,data0)
-  BlockSnapshots(array,stored_data)
+  BlockSnapshots(array)
 end
 
 function ParamDataStructures.Snapshots(
@@ -192,8 +191,7 @@ function ParamDataStructures.Snapshots(
     data0j = map(d0 -> blocks(d0)[j],data0)
     Snapshots(dataj,data0j,ij,r)
   end
-  stored_data = StoredParamData(data,data0)
-  BlockSnapshots(array,stored_data)
+  BlockSnapshots(array)
 end
 
 function ParamDataStructures.select_param_data(a::PVector,args...;kwargs...)
@@ -239,24 +237,16 @@ end
 function GridapDistributed.to_parray_of_arrays(a::AbstractArray{<:MPIArray{<:Snapshots}})
   indices = linear_indices(first(a))
   map(indices) do i
-    array,data = map(a) do aj
-      s = getany(aj)
-      d = get_param_data(s)
-      s,d
-    end |> tuple_of_arrays
-    BlockSnapshots(array,data)
+    array = map(aj -> getany(aj),a)
+    BlockSnapshots(array)
   end
 end
 
 function GridapDistributed.to_parray_of_arrays(a::AbstractArray{<:DebugArray{<:Snapshots}})
   indices = linear_indices(first(a))
   map(indices) do i
-    array,data = map(a) do aj
-      s = aj.items[i]
-      d = get_param_data(s)
-      s,d
-    end |> tuple_of_arrays
-    BlockSnapshots(array,data)
+    array = map(aj -> aj.items[i],a)
+    BlockSnapshots(array)
   end
 end
 

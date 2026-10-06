@@ -31,8 +31,7 @@ function RBSteady.load_snapshots(dir,ranks::AbstractArray;label="")
     array = map(1:nblocks) do i
       DistributedSnapshots(_pload(dir,SNAPSHOTS_LABEL,ranks;label=_plabel(label,BLOCK_LABEL*"$i")))
     end
-    param_data = mortar(map(get_param_data,array))
-    BlockSnapshots(array,param_data)
+    BlockSnapshots(array)
   else
     snaps = _pload(dir,SNAPSHOTS_LABEL,ranks;label)
     DistributedSnapshots(snaps)

@@ -463,14 +463,13 @@ function projection_error(
   )
 
   μ = get_realisation(s)
-  feop = get_fe_operator(op)
   trial = get_trial(op)(μ)
   x = get_param_data(s)
   x̂ = project(trial,x)
   x̂ = inv_project(trial,x̂)
   i = get_dof_map(trial)
   ŝ = Snapshots(x̂,i,μ)
-  compute_relative_error(solver,feop,s,ŝ)
+  compute_relative_error(trial,s,ŝ)
 end
 
 function projection_error(
