@@ -334,24 +334,6 @@ function DofMaps._get_sparse_dof_map(
   end
 end
 
-function DofMaps.restr_to_fields(
-  A::PSparseMatrix,i,j,
-  U::DistributedMultiFieldFESpace,
-  V::DistributedMultiFieldFESpace
-  )
-
-  local_vals = map(local_values(A),local_views(U),local_views(V)) do Al,Ul,Vl
-    DofMaps.restr_to_fields(Al,i,j,Ul,Vl)
-  end
-  row_ranges = _get_local_ranges(map(Vk -> partition(get_free_dof_ids(Vk)),V.field_fe_space))
-  col_ranges = _get_local_ranges(map(Uk -> partition(get_free_dof_ids(Uk)),U.field_fe_space))
-  row_range = row_ranges[i]
-  col_range = col_ranges[j]
-  _,new_row_partition = _restrict_to_local_range(partition(axes(A,1)),row_range)
-  _,new_col_partition = _restrict_to_local_range(partition(axes(A,2)),col_range)
-  PSparseMatrix(local_vals,new_row_partition,new_col_partition)
-end
-
 DofMaps.restr_to_fields(A::BlockPArray,i,j,args...) = A[Block(i,j)]
 
 function ParamODEs.collect_param_solutions(sol::ODEParamSolution{<:PVector})

@@ -229,13 +229,12 @@ function Snapshots(
   r::AbstractRealisation
   ) where {T,N}
 
-  s = size(i)
   ids = offset_indices(i)
-  array = map(eachindex(i)) do j
+  array = map(enumerate(i)) do (j,ij)
     dataj = get_param_entry(data,ids[j]...)
-    Snapshots(dataj,i[j],r)
+    Snapshots(dataj,ij,r)
   end
-  BlockSnapshots(reshape(array,s),data)
+  BlockSnapshots(array,data)
 end
 
 BlockArrays.blocks(s::BlockSnapshots) = s.array

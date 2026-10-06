@@ -651,34 +651,6 @@ function num_reduced_dofs(a::BlockProjection)
   return dofs
 end
 
-for (f,g) in zip((:to_fe_blocks,:to_reduced_blocks),(:num_fe_dofs,:num_reduced_dofs))
-  @eval begin
-    function $f(x::Union{BlockVector,BlockParamVector},a::BlockProjection,args...)
-      x
-    end
-
-    function $f(x,a::BlockProjection,args...)
-      ids = map($g,a.array)
-      pushfirst!(ids,1)
-      to_blocks(x,cumsum(ids),args...)
-    end
-  end
-end
-
-function to_blocks(x::AbstractVector,o,f=identity)
-  n = length(o)-1
-  map(1:n) do i
-    f(view(x,o[i]:o[i+1]-1))
-  end |> mortar
-end
-
-function to_blocks(x::AbstractParamVector,o,f=identity)
-  n = length(o)-1
-  map(1:n) do i
-    f(get_param_entry(x,o[i]:o[i+1]-1))
-  end |> mortar
-end
-
 for f in (:allocate_in_domain,:allocate_in_range)
   @eval begin
     function Algebra.$f(a::BlockProjection)
@@ -697,8 +669,7 @@ for f in (:allocate_in_domain,:allocate_in_range)
   end
 end
 
-for (f,g) in zip((:project!,:inv_project!),(:to_fe_blocks,:to_reduced_blocks))
-  ginv = g == :to_fe_blocks ? :to_reduced_blocks : :to_fe_blocks
+for f in (:project!,:inv_project!)
   @eval begin
     function $f(
       y::Union{BlockArray,BlockParamArray},
@@ -709,15 +680,6 @@ for (f,g) in zip((:project!,:inv_project!),(:to_fe_blocks,:to_reduced_blocks))
       for i in eachindex(a)
         $f(blocks(y)[i],a[i],blocks(x)[i])
       end
-    end
-
-    function $f(
-      y::Union{AbstractArray,AbstractParamArray},
-      a::BlockProjection,
-      x::Union{AbstractArray,AbstractParamArray}
-      )
-
-      $f($ginv(y,a),a,$g(x,a))
     end
   end
 end

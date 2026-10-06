@@ -192,9 +192,11 @@ function _setup(U,u0)
 end
 
 function _setup(U::MultiFieldRBSpace,u0::ConsecutiveParamVector)
-  f(a) = a
-  f(a::ConsecutiveParamArray) = ConsecutiveParamArray(collect(get_all_data(a)))
-  to_fe_blocks_space(u0,get_reduced_subspace(U),f)
+  offsets = MultiField.compute_field_offsets(U.space)
+  pushlast!(offsets,num_free_dofs(U))
+  map(1:num_fields(U)) do i
+    f(get_param_entry(u0,offsets[i]+1:offsets[i+1]))
+  end |> mortar
 end
 
 _permutelastdims(x::AbstractParamVector;kwargs...) = @notimplemented

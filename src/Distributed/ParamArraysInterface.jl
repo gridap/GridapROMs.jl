@@ -95,97 +95,6 @@ function ParamDataStructures.get_param_entry(a::PVector,local_range)
   PVector(new_values,new_row_partition)
 end
 
-# Row+column restriction of a (param-batched) CSC matrix to a field pair,
-# matching the serial restr_to_fields/_restrict_to_fields/fast_getindex
-# algorithm (FEM/DofMaps/DofMapsBuilders.jl): row_range/col_range are DOF-
-# based (exactly like the PVector case above, not NNZ-based), so scan every
-# column via colptr, and within each one binary-search rowval (sorted) for
-# entries whose row falls in row_range -- the NZ-conversion step -- instead
-# of assuming row_range/col_range are already a contiguous range of NZ
-# positions (which only holds for a trivially-dense field block, and even
-# then only by coincidence of ordering). The result's row/col partitions
-# are built the same way the PVector case builds its row partition, so a
-# residual/state snapshot and a Jacobian snapshot carry matching partitions
-# for the same field, as required by e.g. galerkin_projection.
-function ParamDataStructures.get_param_entry(a::PSparseMatrix{<:ParamSparseMatrixCSC},row_range,col_range)
-  _,new_row_partition = _restrict_to_local_range(row_partition(a),row_range)
-  _,new_col_partition = _restrict_to_local_range(col_partition(a),col_range)
-  new_values = map(partition(a),row_range,col_range) do lvals,rr,cr
-    _param_fast_getindex(lvals,rr,cr)
-  end
-  PSparseMatrix(new_values,new_row_partition,new_col_partition)
-end
-
-function ParamDataStructures.get_param_entry(a::PSparseMatrix{<:ParamSparseMatrixCSR},row_range,col_range)
-  _,new_row_partition = _restrict_to_local_range(row_partition(a),row_range)
-  _,new_col_partition = _restrict_to_local_range(col_partition(a),col_range)
-  new_values = map(partition(a),row_range,col_range) do lvals,rr,cr
-    _param_fast_getindex(lvals,rr,cr)
-  end
-  PSparseMatrix(new_values,new_row_partition,new_col_partition)
-end
-
-function _param_fast_getindex(A::ConsecutiveParamSparseMatrixCSC{Tv},rows::AbstractUnitRange,cols::AbstractUnitRange) where Tv
-  Ti = eltype(A.colptr)
-  m = length(rows); n = length(cols)
-  row_first,row_last = first(rows),last(rows)
-  colptrA,rowvalA = A.colptr,A.rowval
-  new_colptr = Vector{Ti}(undef,n+1)
-  new_colptr[1] = 1
-  lids = Int[]
-  for j_new in 1:n
-    col = cols[j_new]
-    lo,hi = Int(colptrA[col]),Int(colptrA[col+1])-1
-    if lo <= hi
-      r_lo = searchsortedfirst(rowvalA,row_first,lo,hi,Base.Order.Forward)
-      r_hi = searchsortedlast(rowvalA,row_last,lo,hi,Base.Order.Forward)
-      for k in r_lo:r_hi
-        push!(lids,k)
-      end
-      new_colptr[j_new+1] = new_colptr[j_new] + max(0,r_hi-r_lo+1)
-    else
-      new_colptr[j_new+1] = new_colptr[j_new]
-    end
-  end
-  new_rowval = Vector{Ti}(undef,length(lids))
-  for (idx,k) in enumerate(lids)
-    new_rowval[idx] = rowvalA[k] - row_first + 1
-  end
-  new_data = A.data[lids,:]
-  ConsecutiveParamSparseMatrixCSC(m,n,new_colptr,new_rowval,new_data)
-end
-
-function _param_fast_getindex(A::ConsecutiveParamSparseMatrixCSR{Bi},rows::AbstractUnitRange,cols::AbstractUnitRange) where Bi
-  Ti = eltype(A.rowptr)
-  m = length(rows); n = length(cols)
-  col_first,col_last = first(cols),last(cols)
-  rowptrA,colvalA = A.rowptr,A.colval
-  new_rowptr = Vector{Ti}(undef,m+1)
-  new_rowptr[1] = Bi == 0 ? 0 : 1
-  lids = Int[]
-  bi_off = Bi == 0 ? 1 : 0 # colvalA/rowptrA are Bi-based; work in 1-based Julia indices internally
-  for i_new in 1:m
-    row = rows[i_new]
-    lo,hi = Int(rowptrA[row])+bi_off,Int(rowptrA[row+1])-1+bi_off
-    if lo <= hi
-      c_lo = searchsortedfirst(colvalA,col_first-bi_off,lo,hi,Base.Order.Forward)
-      c_hi = searchsortedlast(colvalA,col_last-bi_off,lo,hi,Base.Order.Forward)
-      for k in c_lo:c_hi
-        push!(lids,k)
-      end
-      new_rowptr[i_new+1] = new_rowptr[i_new] + max(0,c_hi-c_lo+1)
-    else
-      new_rowptr[i_new+1] = new_rowptr[i_new]
-    end
-  end
-  new_colval = Vector{Ti}(undef,length(lids))
-  for (idx,k) in enumerate(lids)
-    new_colval[idx] = colvalA[k] - (col_first-bi_off) + (Bi == 0 ? 0 : 1)
-  end
-  new_data = A.data[lids,:]
-  ConsecutiveParamSparseMatrixCSR{Bi}(m,n,new_rowptr,new_colval,new_data)
-end
-
 function PartitionedArrays.default_local_values(
   I,
   V::ConsecutiveParamVector{T},
@@ -520,39 +429,6 @@ end
 
 # utils
 
-function _contiguous(a::AbstractVector)
-  isempty(a) && return a
-  ra = first(a):last(a)
-  for i in eachindex(a)
-    @check a[i] == ra[i]
-  end
-  return ra
-end
-
-# Distributed/Projections.jl's to_blocks (splitting an RB-space PVector into
-# per-field blocks by GLOBAL offset boundaries, unlike the FE-space DOF-based
-# local splitting above) needs a genuinely global-range restriction: filter
-# each rank's own global ids directly against global_range (no local-offset
-# translation, since there is no per-rank-local field-major layout to
-# exploit here -- the RB dimension is just whatever partition x already
-# has), then give the result a fresh, ghost-free numbering the same way
-# _restrict_to_local_range does.
-function _restrict_to_range(a::PVector,global_range::AbstractUnitRange)
-  old_partition = partition(axes(a,1))
-  owners = map(part_id,old_partition)
-  own_positions = map(old_partition) do idx
-    og = own_to_global(idx)
-    mask = [in(g,global_range) for g in og]
-    collect(own_to_local(idx))[mask]
-  end
-  n_owns = map(length,own_positions)
-  new_partition = _new_partition(owners,n_owns)
-  new_values = map(partition(a),own_positions) do lvals,lids
-    lvals isa AbstractParamArray ? get_param_entry(lvals,lids) : lvals[lids]
-  end
-  PVector(new_values,new_partition)
-end
-
 function _new_partition(owners,lcounts)
   inits = scan(+,lcounts;init=1,type=:exclusive)
   ngids = PartitionedArrays.reduction(+,lcounts;destination=:all,init=0)
@@ -563,23 +439,19 @@ function _new_partition(owners,lcounts)
   end
 end
 
-function _ranges_from_sizes(sizes::AbstractVector)
-  nfields = length(sizes)
-  offsets = Vector{Any}(undef,nfields)
-  offsets[1] = map(l -> zero(l),sizes[1])
-  for j in 2:nfields
-    offsets[j] = map(+,offsets[j-1],sizes[j-1])
-  end
-  map(1:nfields) do j
-    map((o,l) -> o+1:o+l,offsets[j],sizes[j])
-  end
-end
-
 function _get_local_ranges(i::AbstractArray{<:AbstractArray})
   llength(a) = length(a)
   llength(a::AbstractLocalIndices) = local_length(a)
   lengths = map(ij -> map(llength,ij),i)
-  _ranges_from_sizes(lengths)
+  nfields = length(lengths)
+  offsets = Vector{Any}(undef,nfields)
+  offsets[1] = map(l -> zero(l),lengths[1])
+  for j in 2:nfields
+    offsets[j] = map(+,offsets[j-1],lengths[j-1])
+  end
+  map(1:nfields) do j
+    map((o,l) -> o+1:o+l,offsets[j],lengths[j])
+  end
 end
 
 function _restrict_to_local_range(old_partition,local_ranges)

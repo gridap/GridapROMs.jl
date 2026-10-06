@@ -64,12 +64,12 @@ struct EnergyNorm{F<:Function} <: NormStyle
   form::F
 end
 
-for T in (:SingleFieldFESpace,:MultiFieldFESpace)
-  @eval begin
-    function _assemble_operator(op::EnergyNorm,U::$T,V::$T) 
-      assemble_matrix(op.form,U,V)
-    end
-  end
+function _assemble_operator(op::EnergyNorm,U::FESpace,V::FESpace) 
+  assemble_matrix(op.form,U,V)
+end
+
+function _assemble_operator(::EnergyNorm,::MultiFieldFESpace,::MultiFieldFESpace) 
+  @notimplemented "Use a BlockOperator of EnergyNorms for MultiFieldFESpaces"
 end
 
 """

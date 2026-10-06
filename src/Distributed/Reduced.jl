@@ -662,14 +662,6 @@ function _best_s_opt_index(basis::GenericPMatrix,P,G,colnorms2,l)
 end
 
 function RBSteady._convert_to_block(V::DistributedMultiFieldFESpace)
-  # V.gids/V.vector_type can't just be carried over from V: unlike evaluate
-  # (which keeps the same MultiFieldStyle), this changes Consecutive -> Block,
-  # which needs a structurally different gids (BlockPRange, not PRange) --
-  # e.g. GridapDistributed's own SparseMatrixAssembler for BlockMultiFieldStyle
-  # does blocks(test.gids), which requires a genuine BlockPRange. Delegate to
-  # GridapDistributed's own factory (mirrors the serial
-  # _convert_to_block(V::MultiFieldFESpace) = MultiFieldFESpace(V.spaces;style=BlockMultiFieldStyle())),
-  # which computes gids/vector_type from scratch for the new style
   MultiFieldFESpace(V.field_fe_space;style=BlockMultiFieldStyle())
 end
 

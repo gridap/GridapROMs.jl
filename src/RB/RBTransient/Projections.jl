@@ -600,26 +600,6 @@ function num_reduced_dofs_space(a::BlockProjection)
   return dofs
 end
 
-function to_fe_blocks_space(x::Union{BlockVector,BlockParamVector},a::BlockProjection,args...)
-  x
-end
-
-function to_fe_blocks_space(x,a::BlockProjection,args...)
-  ids = map(num_fe_dofs_space,a.array)
-  pushfirst!(ids,1)
-  RBSteady.to_blocks(x,cumsum(ids),args...)
-end
-
-function to_reduced_blocks_space(x::Union{BlockVector,BlockParamVector},a::BlockProjection,args...)
-  x
-end
-
-function to_reduced_blocks_space(x,a::BlockProjection,args...)
-  ids = map(num_reduced_dofs_space,a.array)
-  pushfirst!(ids,1)
-  RBSteady.to_blocks(x,cumsum(ids),args...)
-end
-
 for f in (:allocate_in_space_domain,:allocate_in_space_range)
   @eval begin
     function $f(a::BlockProjection)
@@ -633,8 +613,7 @@ for f in (:allocate_in_space_domain,:allocate_in_space_range)
   end
 end
 
-for (f,g) in zip((:project_space!,:inv_project_space!),(:to_fe_blocks_space,:to_reduced_blocks_space))
-  ginv = g == :to_fe_blocks_space ? :to_reduced_blocks_space : :to_fe_blocks_space
+for f in (:project_space!,:inv_project_space!)
   @eval begin
     function $f(
       y::Union{BlockArray,BlockParamArray},
@@ -643,18 +622,8 @@ for (f,g) in zip((:project_space!,:inv_project_space!),(:to_fe_blocks_space,:to_
       )
 
       for i in eachindex(a)
-        yi = blocks(y)[i]
-        $f(yi,a[i],x[Block(i)])
+        $f(blocks(y)[i],a[i],blocks(x)[i])
       end
-    end
-
-    function $f(
-      y::Union{AbstractArray,AbstractParamArray},
-      a::BlockProjection,
-      x::Union{AbstractArray,AbstractParamArray}
-      )
-
-      $f($ginv(y,a),a,$g(x,a))
     end
   end
 end

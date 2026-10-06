@@ -232,15 +232,14 @@ function Snapshots(
   r::TransientRealisation
   )
 
-  s = size(i)
   ids = offset_indices(i)
-  array = map(eachindex(i)) do j
+  array = map(enumerate(i)) do (j,ij)
     dataj = get_param_entry(data,ids[j]...)
     data0j = map(d0 -> get_param_entry(d0,ids[j]...),data0)
-    Snapshots(dataj,data0j,i[j],r)
+    Snapshots(dataj,data0j,ij,r)
   end
   stored_data = StoredParamData(data,data0)
-  BlockSnapshots(reshape(array,s),stored_data)
+  BlockSnapshots(array,stored_data)
 end
 
 # mode snapshots
