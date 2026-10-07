@@ -79,39 +79,24 @@ function set_domains(a::Contribution,trians::Tuple)
 end
 
 """
-    const ArrayContribution{T,N} = Contribution{<:Union{AbstractArray{T,N},ArrayBlock{T,N}}}
+    const ArrayContribution = Contribution{<:Union{AbstractArray,ArrayBlock}}
+"""
+const ArrayContribution = Contribution{<:Union{AbstractArray,ArrayBlock}}
 
-[`Contribution`](@ref) whose field `values` are `AbstractArray`s
-"""
-const ArrayContribution{T,N} = Contribution{<:Union{AbstractArray{T,N},ArrayBlock{T,N}}}
-
-"""
-    const VectorContribution{T} = ArrayContribution{T,1}
-"""
-const VectorContribution{T} = ArrayContribution{T,1}
-
-"""
-    const MatrixContribution{T} = ArrayContribution{T,2}
-"""
-const MatrixContribution{T} = ArrayContribution{T,2}
-
-Base.eltype(::Type{<:ArrayContribution{T}}) where T = T
-Base.ndims(::ArrayContribution{<:Any,N}) where N = N
-Base.ndims(::Type{<:ArrayContribution{<:Any,N}}) where N = N
 Base.copy(a::ArrayContribution) = Contribution(copy.(a.values),a.trians)
 Base.similar(a::ArrayContribution) = Contribution(similar.(a.values),a.trians)
 Base.copyto!(a::ArrayContribution,b::ArrayContribution) = map(copyto!,a.values,b.values)
 
 Base.sum(a::ArrayContribution) = sum(a.values)
 
-function Base.fill!(a::Contribution,v)
+function Base.fill!(a::ArrayContribution,v)
   for vals in a.values
     fill!(vals,v)
   end
   a
 end
 
-function LinearAlgebra.fillstored!(a::Contribution,v)
+function LinearAlgebra.fillstored!(a::ArrayContribution,v)
   for vals in a.values
     LinearAlgebra.fillstored!(vals,v)
   end
@@ -119,8 +104,8 @@ function LinearAlgebra.fillstored!(a::Contribution,v)
 end
 
 function LinearAlgebra.mul!(
-  c::VectorContribution,
-  a::MatrixContribution,
+  c::ArrayContribution,
+  a::ArrayContribution,
   b::AbstractVector,
   α::Number,β::Number
   )
@@ -133,9 +118,9 @@ function LinearAlgebra.mul!(
 end
 
 function LinearAlgebra.mul!(
-  c::VectorContribution,
-  a::MatrixContribution,
-  b::VectorContribution,
+  c::ArrayContribution,
+  a::ArrayContribution,
+  b::ArrayContribution,
   α::Number,β::Number
   )
 
@@ -191,14 +176,13 @@ Base.map(f,a::ContributionTuple) = ContributionTuple(map(f,a.tuple))
 Base.lastindex(a::ContributionTuple) = lastindex(a.tuple)
 
 """
-    const ArrayContributionTuple{T} = ContributionTuple{<:ArrayContribution{T},S} where S
+    const ArrayContributionTuple = ContributionTuple{<:ArrayContribution,S} where S
 
-Specifically allows to deal with tuples of Jacobians in unsteady settings
+Specifically allows to deal with tuples of Jacobians in unsteady settings.
+Left unparameterized by element type for the same reason as
+[`ArrayContribution`](@ref): `eltype` is not defined for it
 """
-const ArrayContributionTuple{T} = ContributionTuple{<:ArrayContribution{T},S} where S
-
-Base.eltype(::ArrayContributionTuple{T}) where T = T
-Base.eltype(::Type{<:ArrayContributionTuple{T}}) where T = T
+const ArrayContributionTuple = ContributionTuple{<:ArrayContribution,S} where S
 
 function CellData.get_domains(a::ArrayContributionTuple)
   trians = ()

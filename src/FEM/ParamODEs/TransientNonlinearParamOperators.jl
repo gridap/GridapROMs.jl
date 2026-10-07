@@ -73,7 +73,7 @@ function Algebra.jacobian!(
   paramcache
   )
 
-  LinearAlgebra.fillstored!(A,zero(eltype(A)))
+  LinearAlgebra.fillstored!(A,false)
   jacobian_add!(A,nlop,r,us,ws,paramcache)
   A
 end

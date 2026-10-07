@@ -7,8 +7,7 @@ Foundational utilities for GridapROMs, providing:
   [`compute_error`](@ref), [`compute_relative_error`](@ref).
 - **Partial derivatives** — [`PartialDerivative`](@ref), [`∂₁`](@ref),
   [`∂₂`](@ref), [`∂₃`](@ref).
-- **Contribution types** — [`ArrayContribution`](@ref),
-  [`VectorContribution`](@ref), [`MatrixContribution`](@ref).
+- **Contribution types** — [`ArrayContribution`](@ref).
 - **FE domain metadata** — [`FEDomains`](@ref), [`OperatorType`](@ref),
   [`JointDomains`](@ref), [`SplitDomains`](@ref),
   [`get_polynomial_order`](@ref).
@@ -64,8 +63,6 @@ include("PartialDerivatives.jl")
 
 export Contribution
 export ArrayContribution
-export VectorContribution
-export MatrixContribution
 export ContributionTuple
 export ArrayContributionTuple
 export contribution

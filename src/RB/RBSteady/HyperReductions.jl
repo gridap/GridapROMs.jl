@@ -292,8 +292,7 @@ function FESpaces.interpolate!(
 end
 
 function reduced_form(red::Reduction,s,trian,args...)
-  hyper_red = HRProjection(red,s,trian,args...)
-  return hyper_red,trian
+  HRProjection(red,s,trian,args...)
 end
 
 """
@@ -323,10 +322,9 @@ function reduced_residual(
 end
 
 function reduced_residual(red::Reduction,test::RBSpace,c::ArrayContribution)
-  a,trians = map(get_domains(c),get_contributions(c)) do trian,values
-    reduced_form(red,values,trian,test)
-  end |> tuple_of_arrays
-  return Contribution(a,trians)
+  map(get_domains(c)) do trian
+    reduced_form(red,c[trian],trian,test)
+  end
 end
 
 function get_background_trian(f::FESpace)
@@ -370,10 +368,9 @@ function reduced_jacobian(
 end
 
 function reduced_jacobian(red::Reduction,trial::RBSpace,test::RBSpace,c::ArrayContribution)
-  a,trians = map(get_domains(c),get_contributions(c)) do trian,values
-    reduced_form(red,values,trian,trial,test)
-  end |> tuple_of_arrays
-  return Contribution(a,trians)
+  map(get_domains(c)) do trian
+    reduced_form(red,c[trian],trian,trial,test)
+  end
 end
 
 function reduced_jacobian(red::Reduction,trial::RBSpace,test::RBSpace,j::AbstractSnapshots)
@@ -511,28 +508,18 @@ end
 
 function reduced_form(red::Reduction,s::BlockSnapshots,trian,test)
   @check length(s) == length(test)
-
   hyper_reds = map(eachindex(s)) do i
-    hyper_red, = reduced_form(red,s[i],trian,test[i])
-    hyper_red
+    reduced_form(red,s[i],trian,test[i])
   end
-
-  hyper_red = BlockHRProjection(hyper_reds)
-
-  return hyper_red,trian
+  BlockHRProjection(hyper_reds)
 end
 
 function reduced_form(red::Reduction,s::BlockSnapshots,trian,trial,test)
   @check size(s,1) == length(test)
   @check size(s,2) == length(trial)
-
   hyper_reds = map(Iterators.product(axes(s)...)) do (i,j)
-    hyper_red, = reduced_form(red,s[i,j],trian,trial[j],test[i])
-    hyper_red
+    reduced_form(red,s[i,j],trian,trial[j],test[i])
   end
-
-  hyper_red = BlockHRProjection(hyper_reds)
-
-  return hyper_red,trian
+  BlockHRProjection(hyper_reds)
 end
 

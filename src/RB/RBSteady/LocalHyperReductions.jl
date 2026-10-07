@@ -86,13 +86,10 @@ function reduced_form(lred::LocalReduction,s,trian,test)
     si = cs[i]
     centerj = view(kr.centers,:,j)
     testj = get_local(test,centerj)
-    hyper_redij, = reduced_form(red,si,trian,testj)
-    hyper_redij
+    reduced_form(red,si,trian,testj)
   end
 
-  hyper_red = LocalHRProjection(hr,(ks,kr))
-
-  return hyper_red,trian
+  return LocalHRProjection(hr,(ks,kr))
 end
 
 function reduced_form(lred::LocalReduction,s,trian,trial,test)
@@ -106,38 +103,25 @@ function reduced_form(lred::LocalReduction,s,trian,trial,test)
     centerj = view(kr.centers,:,j)
     trialj = get_local(trial,centerj)
     testj = get_local(test,centerj)
-    hyper_redij, = reduced_form(red,si,trian,trialj,testj)
-    hyper_redij
+    reduced_form(red,si,trian,trialj,testj)
   end
 
-  hyper_red = LocalHRProjection(hr,(ks,kr))
-
-  return hyper_red,trian
+  return LocalHRProjection(hr,(ks,kr))
 end
 
 function reduced_form(lred::LocalReduction,s::BlockSnapshots,trian,test)
   @check length(s) == length(test)
-
   hyper_reds = map(eachindex(s)) do i
-    hyper_red, = reduced_form(lred,s[i],trian,test[i])
-    hyper_red
+    reduced_form(lred,s[i],trian,test[i])
   end
-
-  hyper_red = BlockHRProjection(collect(hyper_reds))
-
-  return hyper_red,trian
+  return BlockHRProjection(hyper_reds)
 end
 
 function reduced_form(lred::LocalReduction,s::BlockSnapshots,trian,trial,test)
   @check size(s,1) == length(test)
   @check size(s,2) == length(trial)
-
   hyper_reds = map(Iterators.product(axes(s)...)) do (i,j)
-    hyper_red, = reduced_form(lred,s[i,j],trian,trial[j],test[i])
-    hyper_red
+    reduced_form(lred,s[i,j],trian,trial[j],test[i])
   end
-
-  hyper_red = BlockHRProjection(collect(hyper_reds))
-
-  return hyper_red,trian
+  BlockHRProjection(hyper_reds)
 end

@@ -208,8 +208,6 @@ function Algebra.residual!(
   add::Bool=false
   )
 
-  !add && fill!(b,zero(eltype(b)))
-
   uh = EvaluationFunction(paramcache.trial,u)
   test = get_test(op)
   v = get_fe_basis(test)
@@ -219,9 +217,10 @@ function Algebra.residual!(
   res = get_res(op)
   dc = res(μ,uh,v)
 
-  map(b.values,trian_res) do values,trian
+  map(b.values,trian_res) do b,trian
+    !add && fill!(b,zero(eltype(b)))
     vecdata = collect_cell_vector_for_trian(test,dc,trian)
-    assemble_vector_add!(values,assem,vecdata)
+    assemble_vector_add!(b,assem,vecdata)
   end
 
   b
@@ -268,9 +267,9 @@ function ODEs.jacobian_add!(
   trian_jac = get_domains_jac(op)
   jac = get_jac(op)
   dc = jac(μ,uh,du,v)
-  map(A.values,trian_jac) do values,trian
+  map(A.values,trian_jac) do A,trian
     matdata = collect_cell_matrix_for_trian(trial,test,dc,trian)
-    assemble_matrix_add!(values,assem,matdata)
+    assemble_matrix_add!(A,assem,matdata)
   end
 
   A

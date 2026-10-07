@@ -268,17 +268,16 @@ function Algebra.residual!(
   v = get_fe_basis(test)
   assem = get_param_assembler(odeop,r)
 
-  !add && fill!(b,zero(eltype(b)))
-
   μ,t = get_params(r),get_times(r)
 
   trian_res = get_domains_res(odeop)
   res = get_res(odeop)
   dc = res(μ,t,uh,v)
 
-  map(b.values,trian_res) do values,trian
+  map(b.values,trian_res) do b,trian
+    !add && fill!(b,zero(eltype(b)))
     vecdata = collect_cell_vector_for_trian(test,dc,trian)
-    assemble_vector_add!(values,assem,vecdata)
+    assemble_vector_add!(b,assem,vecdata)
   end
   b
 end
@@ -368,9 +367,9 @@ function ODEs.jacobian_add!(
     trian_jac = trian_jacs[k]
     dc = w * jac(μ,t,uh,du,v)
     if num_domains(dc) > 0
-      map(A.values,trian_jac) do values,trian
+      map(A.values,trian_jac) do A,trian
         matdata = collect_cell_matrix_for_trian(trial,test,dc,trian)
-        assemble_matrix_add!(values,assem,matdata)
+        assemble_matrix_add!(A,assem,matdata)
       end
     end
   end
