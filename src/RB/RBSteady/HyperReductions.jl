@@ -322,7 +322,7 @@ function reduced_residual(
 end
 
 function reduced_residual(red::Reduction,test::RBSpace,c::ArrayContribution)
-  map(get_domains(c)) do trian
+  contribution(get_domains(c)) do trian
     reduced_form(red,c[trian],trian,test)
   end
 end
@@ -368,7 +368,7 @@ function reduced_jacobian(
 end
 
 function reduced_jacobian(red::Reduction,trial::RBSpace,test::RBSpace,c::ArrayContribution)
-  map(get_domains(c)) do trian
+  contribution(get_domains(c)) do trian
     reduced_form(red,c[trian],trian,trial,test)
   end
 end

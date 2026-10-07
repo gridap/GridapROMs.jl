@@ -23,18 +23,18 @@ distributed_interface = [
 ]
 
 makedocs(;
-    modules=[GridapROMs],
-    format=Documenter.HTML(size_threshold=nothing),
-    pages=[
-        "Home" => "index.md",
-        "Usage" => ["steady.md","transient.md"],
-        "FEM Interface" => fem_interface,
-        "ROM Interface" => rom_interface,
-        "Distributed Interface" => distributed_interface,
-        "Contributing" => "contributing.md",
-    ],
-    sitename="GridapROMs.jl",
-    warnonly=[:cross_references,:missing_docs],
+  modules=[GridapROMs],
+  format=Documenter.HTML(size_threshold=nothing),
+  pages=[
+    "Home" => "index.md",
+    "Usage" => ["steady.md","transient.md"],
+    "FEM Interface" => fem_interface,
+    "ROM Interface" => rom_interface,
+    "Distributed Interface" => distributed_interface,
+    "Contributing" => "contributing.md",
+  ],
+  sitename="GridapROMs.jl",
+  warnonly=[:cross_references,:missing_docs],
 )
 
 deploydocs(

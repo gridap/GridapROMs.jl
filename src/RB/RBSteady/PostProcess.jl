@@ -196,10 +196,7 @@ function rom_performance(solver::RBSolver,op::ParamOperator,x::AbstractSnapshots
       # it back into blocks explicitly rather than relying on `Snapshots`'
       # dispatch to recognize the mortared array as block-structured, since it
       # need not match the same concrete block-array type in a distributed setting
-      BlockSnapshots(map((d,xi) -> begin
-        println(">>> DEBUG field: size(d)=",size(d)," size(xi)=",size(xi)," local(d)=",map(size,PartitionedArrays.partition(d))," local(xi.snaps)=",map(size,PartitionedArrays.partition(xi.snaps))," dofmap sizes=",map(size,get_dof_map(xi)))
-        Snapshots(d,get_dof_map(xi),get_realisation(xi))
-      end,blocks(_fe_data(x̂)),blocks(x)))
+      BlockSnapshots(map((d,xi) -> Snapshots(d,get_dof_map(xi),get_realisation(xi)),blocks(_fe_data(x̂)),blocks(x)))
     else
       Snapshots(_fe_data(x̂),get_dof_map(x),get_realisation(x))
     end
