@@ -29,8 +29,7 @@ small system for new parameter values.  Main building blocks:
   (`DEIMProjection`, `RBFProjection`, `BlockHRProjection`)
   together with `IntegrationDomain` (DEIM-style reduced integration),
   `Interpolation` (`GreedyInterpolation`, `RBFInterpolation`),
-  and `reduced_triangulation` / `reduced_jacobian` / `reduced_residual` /
-  `reduced_weak_form`.
+  and `reduced_jacobian` / `reduced_residual` / `reduced_weak_form`.
 
 - **Reduced operators** (`ROMOperators.jl`) — `RBOperator`,
   `LinearNonlinearROMOperator`; `reduced_operator`.
@@ -252,7 +251,6 @@ export AffineContribution
 export get_style
 export get_interpolation
 export get_integration_domain
-export reduced_triangulation
 export reduced_jacobian
 export reduced_residual
 export reduced_weak_form

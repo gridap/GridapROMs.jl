@@ -91,9 +91,8 @@ function reduced_form(lred::LocalReduction,s,trian,test)
   end
 
   hyper_red = LocalHRProjection(hr,(ks,kr))
-  red_trian = reduced_triangulation(trian,hyper_red)
 
-  return hyper_red,red_trian
+  return hyper_red,trian
 end
 
 function reduced_form(lred::LocalReduction,s,trian,trial,test)
@@ -112,9 +111,8 @@ function reduced_form(lred::LocalReduction,s,trian,trial,test)
   end
 
   hyper_red = LocalHRProjection(hr,(ks,kr))
-  red_trian = reduced_triangulation(trian,hyper_red)
 
-  return hyper_red,red_trian
+  return hyper_red,trian
 end
 
 function reduced_form(lred::LocalReduction,s::BlockSnapshots,trian,test)
@@ -126,9 +124,8 @@ function reduced_form(lred::LocalReduction,s::BlockSnapshots,trian,test)
   end
 
   hyper_red = BlockHRProjection(collect(hyper_reds))
-  red_trian = reduced_triangulation(trian,hyper_red)
 
-  return hyper_red,red_trian
+  return hyper_red,trian
 end
 
 function reduced_form(lred::LocalReduction,s::BlockSnapshots,trian,trial,test)
@@ -141,7 +138,6 @@ function reduced_form(lred::LocalReduction,s::BlockSnapshots,trian,trial,test)
   end
 
   hyper_red = BlockHRProjection(collect(hyper_reds))
-  red_trian = reduced_triangulation(trian,hyper_red)
 
-  return hyper_red,red_trian
+  return hyper_red,trian
 end

@@ -114,12 +114,12 @@ function def_fe_operator(μ)
   ∫_Ω(a) = ∫(a*dJ)
   ∫_Γ(a) = ∫(a*dJΓ)
 
-  a(μ,u,v,dΩ,dΓ) = (
+  a(μ,u,v) = (
     ∫_Ω( ε_I(v)⊙(σ∘ε_I(u)) )*dΩ +
     ∫_Γ( (γd/hd)*v⋅u - v⋅(_n_Γ⋅(σ∘ε_I(u))) - (_n_Γ⋅(σ∘ε_I(v)))⋅u )dΓ
   )
-  l(μ,v,dΩ) = ∫_Ω(fμ(μ)⋅v)dΩ
-  res(μ,u,v,dΩ) = ∫_Ω( ε_I(v)⊙(σ∘ε_I(u)) )*dΩ - l(μ,v,dΩ)
+  l(μ,v) = ∫_Ω(fμ(μ)⋅v)dΩ
+  res(μ,u,v) = ∫_Ω( ε_I(v)⊙(σ∘ε_I(u)) )*dΩ - l(μ,v)
 
   LinearParamOperator(res,a,pspace,trial,test,domains)
 end
@@ -141,12 +141,12 @@ function def_extended_fe_operator(μ)
   ∫_Ω(a) = ∫(a*dJ)
   ∫_Γ(a) = ∫(a*dJΓ)
 
-  a(μ,u,v,dΩ,dΓ) = (
+  a(μ,u,v) = (
     ∫_Ω( ε_I(v)⊙(σ∘ε_I(u)) )*dΩ +
     ∫_Γ( (γd/hd)*v⋅u - v⋅(_n_Γ⋅(σ∘ε_I(u))) - (_n_Γ⋅(σ∘ε_I(v)))⋅u )dΓ
   )
-  l(μ,v,dΩ) = ∫_Ω(fμ(μ)⋅v)dΩ
-  res(μ,u,v,dΩ) = ∫_Ω( ε_I(v)⊙(σ∘ε_I(u)) )*dΩ - l(μ,v,dΩ)
+  l(μ,v) = ∫_Ω(fμ(μ)⋅v)dΩ
+  res(μ,u,v) = ∫_Ω( ε_I(v)⊙(σ∘ε_I(u)) )*dΩ - l(μ,v)
 
   testbg = FESpace(Ωbg,reffe,conformity=:H1,dirichlet_tags=[1,3,7])
   testext = DirectSumFESpace(testbg,test)

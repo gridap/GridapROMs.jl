@@ -102,8 +102,8 @@ function main(
   Ω = Triangulation(model)
   dΩ = Measure(Ω,degree)
 
-  stiffness(μ,(u,p),(v,q),dΩ) = ∫(aμ(μ)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
-  res(μ,(u,p),(v,q),dΩ) = stiffness(μ,(u,p),(v,q),dΩ)
+  stiffness(μ,(u,p),(v,q)) = ∫(aμ(μ)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
+  res(μ,(u,p),(v,q)) = stiffness(μ,(u,p),(v,q))
 
   trian_res = (Ω,)
   trian_stiffness = (Ω,)

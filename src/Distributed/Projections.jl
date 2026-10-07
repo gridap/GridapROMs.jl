@@ -101,13 +101,8 @@ function GridapDistributed.local_views(a::DistributedNormedProjection)
 end
 
 function GridapDistributed.local_views(a::BlockProjection)
-  indices = linear_indices(first(a.array))
-  map(indices) do i
-    array = map(a) do aj
-      getany(aj)
-    end
-    BlockProjection(array)
-  end
+  array = map(local_views,a.array) |> to_parray_of_arrays
+  map(BlockProjection,array)
 end
 
 const DistributedKroneckerProjection{A<:Union{DistributedProjection,DistributedNormedProjection},B<:Projection} = KroneckerProjection{A,B}

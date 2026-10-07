@@ -128,13 +128,13 @@ FESpaces.get_test(op::ROMOperator) = @abstractmethod
 get_lhs(op::ROMOperator) = @abstractmethod
 get_rhs(op::ROMOperator) = @abstractmethod
 
-function ParamSteady.set_domains(op::ROMOperator,args...) 
+function ParamSteady.set_domains(op::ROMOperator,args...)
   feop = set_domains(get_fe_operator(op),args...)
   ROMOperator(feop,get_trial(op),get_test(op),get_lhs(op),get_rhs(op))
 end
 
-function ParamSteady.change_domains(op::ROMOperator,args...) 
-  feop = set_domains(get_fe_operator(op),args...)
+function ParamSteady.change_domains(op::ROMOperator,args...)
+  feop = change_domains(get_fe_operator(op),args...)
   ROMOperator(feop,get_trial(op),get_test(op),get_lhs(op),get_rhs(op))
 end
 
@@ -225,10 +225,8 @@ end
 
 function change_operator(op::SplitROMOperator,op′::ParamOperator)
   rhs,lhs = get_rhs(op),get_lhs(op)
-  trians_rhs′ = change_triangulation(get_domains_res(op′),get_domains(rhs))
-  trians_lhs′ = change_triangulation(get_domains_jac(op′),get_domains(lhs))
-  rhs′ = change_domains(rhs,trians_rhs′)
-  lhs′ = change_domains(lhs,trians_lhs′)
+  rhs′ = change_domains(rhs,get_domains_res(op′))
+  lhs′ = change_domains(lhs,get_domains_jac(op′))
   ROMOperator(op′,op.trial,op.test,lhs′,rhs′)
 end
 
@@ -258,21 +256,7 @@ struct RBOperator{O,T,A,B} <: ROMOperator{O,T}
 end
 
 function ROMOperator(
-  op::SplitParamOperator,
-  trial::RBSpace,
-  test::RBSpace,
-  lhs::AffineContribution,
-  rhs::AffineContribution
-  )
-
-  trians_rhs = get_domains(rhs)
-  trians_lhs = get_domains(lhs)
-  op′ = change_domains(op,trians_rhs,trians_lhs)
-  RBOperator(op′,trial,test,lhs,rhs)
-end
-
-function ROMOperator(
-  op::JointParamOperator,
+  op::ParamOperator,
   trial::RBSpace,
   test::RBSpace,
   lhs::AffineContribution,

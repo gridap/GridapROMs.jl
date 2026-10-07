@@ -94,10 +94,9 @@ function ParamFEOperator(res::Function,jac::Function,pspace,trial,test)
 end
 
 function ParamFEOperator(res::Function,jac::Function,pspace,trial,test,domains::FEDomains)
-  res′,jac′ = _set_domains(res,jac,test,trial,domains)
   assem = SparseMatrixAssembler(trial,test)
   ParamFEOpFromWeakForm{NonlinearParamEq,SplitDomains}(
-    res′,jac′,pspace,assem,trial,test,domains)
+    res,jac,pspace,assem,trial,test,domains)
 end
 
 """
@@ -123,11 +122,10 @@ function LinearParamFEOperator(
   domains::FEDomains
   )
 
-  jac′(μ,u,du,v,args...) = jac(μ,du,v,args...)
-  res′,jac′′ = _set_domains(res,jac′,test,trial,domains)
+  jac′(μ,u,du,v) = jac(μ,du,v)
   assem = SparseMatrixAssembler(trial,test)
   ParamFEOpFromWeakForm{LinearParamEq,SplitDomains}(
-    res′,jac′′,pspace,assem,trial,test,domains)
+    res,jac′,pspace,assem,trial,test,domains)
 end
 
 for f in (:ParamFEOperator,:LinearParamFEOperator)
@@ -170,79 +168,19 @@ the same [`TriangulationStyle`](@ref) trait as the one of the input
 """
 change_domains(op::JointParamFEOperator,args...) = op
 
-for f in (:set_domains,:change_domains)
-  T = f == :set_domains ? :JointDomains : :SplitDomains
-  @eval begin
-    function $f(op::SplitParamFEOperator)
-      $f(op,get_domains(op))
-    end
+"""
+    set_domains(op::SplitParamFEOperator) -> JointParamFEOperator
 
-    function $f(op::SplitParamFEOperator,domains::FEDomains)
-      $f(op,get_domains_res(domains),get_domains_jac(domains))
-    end
-
-    function $f(op::SplitParamFEOpFromWeakForm{O},trians_res,trians_jac) where O
-      trian_res′ = order_domains(get_domains_res(op),trians_res)
-      trian_jac′ = order_domains(get_domains_jac(op),trians_jac)
-      res′,jac′ = _set_domains(op.res,op.jac,op.trial,op.test,trian_res′,trian_jac′)
-      domains′ = FEDomains(trian_res′,trian_jac′)
-      ParamFEOpFromWeakForm{O,$T}(
-        res′,jac′,op.pspace,op.assem,op.trial,op.test,domains′)
-    end
-  end
+Retags a [`SplitParamFEOperator`](@ref) as a [`JointParamFEOperator`](@ref),
+leaving `res`/`jac` untouched
+"""
+function set_domains(op::SplitParamFEOpFromWeakForm{O}) where O
+  ParamFEOpFromWeakForm{O,JointDomains}(
+    op.res,op.jac,op.pspace,op.assem,op.trial,op.test,op.domains)
 end
 
-function _set_domains(
-  res::Function,
-  jac::Function,
-  test::FESpace,
-  trial::FESpace,
-  trian_res::Tuple,
-  trian_jac::Tuple
-  )
-
-  polyn_order = get_polynomial_order(test)
-  @check polyn_order == get_polynomial_order(trial)
-  res′ = _set_domain_param_res(res,trian_res,polyn_order)
-  jac′ = _set_domain_param_jac(jac,trian_jac,polyn_order)
-  return res′,jac′
-end
-
-function _set_domains(
-  res::Function,
-  jac::Function,
-  test::FESpace,
-  trial::FESpace,
-  domains::FEDomains
-  )
-
-  trian_res = get_domains_res(domains)
-  trian_jac = get_domains_jac(domains)
-  _set_domains(res,jac,test,trial,trian_res,trian_jac)
-end
-
-function _set_domain_param_jac(
-  jac::Function,
-  trian::Tuple,
-  order
-  )
-
-  degree = 2*order
-  meas = Measure.(trian,degree)
-  jac′(μ,u,du,v,args...) = jac(μ,u,du,v,args...)
-  jac′(μ,u,du,v) = jac′(μ,u,du,v,meas...)
-  return jac′
-end
-
-function _set_domain_param_res(
-  res::Function,
-  trian::Tuple,
-  order
-  )
-
-  degree = 2*order
-  meas = Measure.(trian,degree)
-  res′(μ,u,v,args...) = res(μ,u,v,args...)
-  res′(μ,u,v) = res′(μ,u,v,meas...)
-  return res′
+function change_domains(op::SplitParamFEOpFromWeakForm{O},trians_res,trians_jac) where O
+  domains′ = FEDomains(trians_res,trians_jac)
+  ParamFEOpFromWeakForm{O,SplitDomains}(
+    op.res,op.jac,op.pspace,op.assem,op.trial,op.test,domains′)
 end

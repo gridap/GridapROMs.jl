@@ -123,11 +123,11 @@ function def_fe_operator(μ)
   ∫_Ω(a) = ∫(a*dJ)
   ∫_Γ(a) = ∫(a*dJΓ)
 
-  a(μ,(u,p),(v,q),dΩ,dΓ) =
+  a(μ,(u,p),(v,q)) =
     ∫_Ω( ∇_I(v)⊙∇_I(u) - q*(tr∇_I(u)) - (tr∇_I(v))*p ) * dΩ +
     ∫_Γ( (10*γd/hd)*v⋅u - v⋅(_n_Γ⋅∇_I(u)) - (_n_Γ⋅∇_I(v))⋅u + (p*_n_Γ)⋅v + (q*_n_Γ)⋅u ) * dΓ
 
-  res(μ,(u,p),(v,q),dΩ) = ∫_Ω( ∇_I(v)⊙∇_I(u) - q*(tr∇_I(u)) - (tr∇_I(v))*p ) * dΩ
+  res(μ,(u,p),(v,q)) = ∫_Ω( ∇_I(v)⊙∇_I(u) - q*(tr∇_I(u)) - (tr∇_I(v))*p ) * dΩ
 
   LinearParamOperator(res,a,pspace,trial,test,domains)
 end

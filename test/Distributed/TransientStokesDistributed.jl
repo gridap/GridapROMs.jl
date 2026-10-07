@@ -64,9 +64,9 @@ function main(
   p0(μ) = x -> 0.0
   p0μ(μ) = parameterise(p0,μ)
 
-  stiffness(μ,t,(u,p),(v,q),dΩ) = ∫(aμt(μ,t)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
-  mass(μ,t,(uₜ,pₜ),(v,q),dΩ) = ∫(v⋅uₜ)dΩ
-  res(μ,t,(u,p),(v,q),dΩ) = ∫(v⋅∂t(u))dΩ + stiffness(μ,t,(u,p),(v,q),dΩ)
+  stiffness(μ,t,(u,p),(v,q)) = ∫(aμt(μ,t)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
+  mass(μ,t,(uₜ,pₜ),(v,q)) = ∫(v⋅uₜ)dΩ
+  res(μ,t,(u,p),(v,q)) = ∫(v⋅∂t(u))dΩ + stiffness(μ,t,(u,p),(v,q))
 
   trian_res = (Ω,)
   trian_stiffness = (Ω,)

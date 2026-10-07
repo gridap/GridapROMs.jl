@@ -258,11 +258,6 @@ function move_integration_domain(
   IntegrationDomain(ttrian,trial,test,rows,cols)
 end
 
-# triangulation utils 
-
-get_integration_cells(t::Triangulation) = @abstractmethod
-get_integration_cells(t::ChildTriangulation) = t.cell_to_parent_cell
-
 # utils
 
 findrow(v::AbstractVector) = last(findmax(abs,v))

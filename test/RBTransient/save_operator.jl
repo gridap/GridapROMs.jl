@@ -43,20 +43,20 @@ function main(
 
   conv(u,∇u) = (∇u')⋅u
   dconv(du,∇du,u,∇u) = conv(u,∇du)+conv(du,∇u)
-  c(u,v,dΩ) = ∫( v⊙(conv∘(u,∇(u))) )dΩ
-  dc(u,du,v,dΩ) = ∫( v⊙(dconv∘(du,∇(du),u,∇(u))) )dΩ
+  c(u,v) = ∫( v⊙(conv∘(u,∇(u))) )dΩ
+  dc(u,du,v) = ∫( v⊙(dconv∘(du,∇(du),u,∇(u))) )dΩ
 
   u0(μ) = x -> VectorValue(0.0,0.0)
   u0μ(μ) = parameterise(u0,μ)
   p0(μ) = x -> 0.0
   p0μ(μ) = parameterise(p0,μ)
 
-  stiffness(μ,t,(u,p),(v,q),dΩ) = ∫(aμt(μ,t)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
-  mass(μ,t,(uₜ,pₜ),(v,q),dΩ) = ∫(v⋅uₜ)dΩ
-  res(μ,t,(u,p),(v,q),dΩ) = ∫(v⋅∂t(u))dΩ + stiffness(μ,t,(u,p),(v,q),dΩ)
+  stiffness(μ,t,(u,p),(v,q)) = ∫(aμt(μ,t)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
+  mass(μ,t,(uₜ,pₜ),(v,q)) = ∫(v⋅uₜ)dΩ
+  res(μ,t,(u,p),(v,q)) = ∫(v⋅∂t(u))dΩ + stiffness(μ,t,(u,p),(v,q))
 
-  res_nlin(μ,t,(u,p),(v,q),dΩ) = c(u,v,dΩ)
-  jac_nlin(μ,t,(u,p),(du,dp),(v,q),dΩ) = dc(u,du,v,dΩ)
+  res_nlin(μ,t,(u,p),(v,q)) = c(u,v)
+  jac_nlin(μ,t,(u,p),(du,dp),(v,q)) = dc(u,du,v)
 
   trian_res = (Ω,)
   trian_jac = (Ω,)

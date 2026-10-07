@@ -43,14 +43,14 @@ function main(
 
   conv(u,∇u) = (∇u')⋅u
   dconv(du,∇du,u,∇u) = conv(u,∇du)+conv(du,∇u)
-  c(u,v,dΩ) = ∫( v⊙(conv∘(u,∇(u))) )dΩ
-  dc(u,du,v,dΩ) = ∫( v⊙(dconv∘(du,∇(du),u,∇(u))) )dΩ
+  c(u,v) = ∫( v⊙(conv∘(u,∇(u))) )dΩ
+  dc(u,du,v) = ∫( v⊙(dconv∘(du,∇(du),u,∇(u))) )dΩ
 
-  jac_lin(μ,(u,p),(v,q),dΩ) = ∫(aμ(μ)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
-  res_lin(μ,(u,p),(v,q),dΩ) = jac_lin(μ,(u,p),(v,q),dΩ)
+  jac_lin(μ,(u,p),(v,q)) = ∫(aμ(μ)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
+  res_lin(μ,(u,p),(v,q)) = jac_lin(μ,(u,p),(v,q))
 
-  res_nlin(μ,(u,p),(v,q),dΩ) = c(u,v,dΩ)
-  jac_nlin(μ,(u,p),(du,dp),(v,q),dΩ) = dc(u,du,v,dΩ)
+  res_nlin(μ,(u,p),(v,q)) = c(u,v)
+  jac_nlin(μ,(u,p),(du,dp),(v,q)) = dc(u,du,v)
 
   trian_res = (Ω,)
   trian_jac = (Ω,)

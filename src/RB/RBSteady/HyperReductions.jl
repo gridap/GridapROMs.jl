@@ -60,15 +60,6 @@ function FESpaces.interpolate!(
 end
 
 """
-    reduced_triangulation(trian,a::HRProjection)
-
-Returns the triangulation view of `trian` on the integration cells contained in `a`
-"""
-function reduced_triangulation(trian,a::HRProjection)
-  reduced_triangulation(trian,get_interpolation(a))
-end
-
-"""
 """
 const NoHRProjection{A<:Projection} = HRProjection{NoHyperReduction,A}
 
@@ -302,8 +293,7 @@ end
 
 function reduced_form(red::Reduction,s,trian,args...)
   hyper_red = HRProjection(red,s,trian,args...)
-  red_trian = reduced_triangulation(trian,hyper_red)
-  return hyper_red,red_trian
+  return hyper_red,trian
 end
 
 """
@@ -528,9 +518,8 @@ function reduced_form(red::Reduction,s::BlockSnapshots,trian,test)
   end
 
   hyper_red = BlockHRProjection(hyper_reds)
-  red_trian = reduced_triangulation(trian,hyper_red)
 
-  return hyper_red,red_trian
+  return hyper_red,trian
 end
 
 function reduced_form(red::Reduction,s::BlockSnapshots,trian,trial,test)
@@ -543,8 +532,7 @@ function reduced_form(red::Reduction,s::BlockSnapshots,trian,trial,test)
   end
 
   hyper_red = BlockHRProjection(hyper_reds)
-  red_trian = reduced_triangulation(trian,hyper_red)
 
-  return hyper_red,red_trian
+  return hyper_red,trian
 end
 

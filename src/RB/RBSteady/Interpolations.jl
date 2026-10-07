@@ -11,12 +11,6 @@ function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,x::Any)
   cache
 end
 
-function reduced_triangulation(trian,a::Interpolation)
-  red_cells = get_integration_cells(a)
-  red_trian = ChildTriangulation(trian,red_cells)
-  return red_trian
-end
-
 # Empty interpolation
 
 struct EmptyInterpolation{A} <: Interpolation

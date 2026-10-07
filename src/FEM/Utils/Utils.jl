@@ -7,7 +7,6 @@ Foundational utilities for GridapROMs, providing:
   [`compute_error`](@ref), [`compute_relative_error`](@ref).
 - **Partial derivatives** — [`PartialDerivative`](@ref), [`∂₁`](@ref),
   [`∂₂`](@ref), [`∂₃`](@ref).
-- **Triangulation helpers** — [`order_domains`](@ref), [`change_triangulation`](@ref).
 - **Contribution types** — [`ArrayContribution`](@ref),
   [`VectorContribution`](@ref), [`MatrixContribution`](@ref).
 - **FE domain metadata** — [`FEDomains`](@ref), [`OperatorType`](@ref),
@@ -62,11 +61,6 @@ include("Unwrap.jl")
 export PartialDerivative
 export ∂₁, ∂₂, ∂₃
 include("PartialDerivatives.jl")
-
-export ChildTriangulation
-export order_domains
-export change_triangulation
-include("ChildTriangulations.jl")
 
 export Contribution
 export ArrayContribution

@@ -64,10 +64,10 @@ function main(
   Γn = BoundaryTriangulation(model,tags=[8])
   dΓn = Measure(Γn,degree)
 
-  stiffness(μ,t,u,v,dΩ) = ∫(aμt(μ,t)*∇(v)⋅∇(u))dΩ
-  mass(μ,t,uₜ,v,dΩ) = ∫(v*uₜ)dΩ
-  rhs(μ,t,v,dΩ,dΓn) = ∫(fμt(μ,t)*v)dΩ + ∫(hμt(μ,t)*v)dΓn
-  res(μ,t,u,v,dΩ,dΓn) = mass(μ,t,∂t(u),v,dΩ) + stiffness(μ,t,u,v,dΩ) - rhs(μ,t,v,dΩ,dΓn)
+  stiffness(μ,t,u,v) = ∫(aμt(μ,t)*∇(v)⋅∇(u))dΩ
+  mass(μ,t,uₜ,v) = ∫(v*uₜ)dΩ
+  rhs(μ,t,v) = ∫(fμt(μ,t)*v)dΩ + ∫(hμt(μ,t)*v)dΓn
+  res(μ,t,u,v) = mass(μ,t,∂t(u),v) + stiffness(μ,t,u,v) - rhs(μ,t,v)
 
   trian_res = (Ω,Γn)
   trian_stiffness = (Ω,)

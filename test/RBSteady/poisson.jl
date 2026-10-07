@@ -42,9 +42,9 @@ function main(
   h(μ) = x -> abs(cos(μ[3]*x[2]))
   hμ(μ) = parameterise(h,μ)
 
-  stiffness(μ,u,v,dΩ) = ∫(aμ(μ)*∇(v)⋅∇(u))dΩ
-  rhs(μ,v,dΩ,dΓn) = ∫(fμ(μ)*v)dΩ + ∫(hμ(μ)*v)dΓn
-  res(μ,u,v,dΩ,dΓn) = stiffness(μ,u,v,dΩ) - rhs(μ,v,dΩ,dΓn)
+  stiffness(μ,u,v) = ∫(aμ(μ)*∇(v)⋅∇(u))dΩ
+  rhs(μ,v) = ∫(fμ(μ)*v)dΩ + ∫(hμ(μ)*v)dΓn
+  res(μ,u,v) = stiffness(μ,u,v) - rhs(μ,v)
 
   trian_res = (Ω,Γn)
   trian_stiffness = (Ω,)

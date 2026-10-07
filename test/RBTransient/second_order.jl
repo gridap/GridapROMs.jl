@@ -49,11 +49,11 @@ function main(
   a0(μ) = x -> 0.0
   a0μ(μ) = parameterise(a0,μ)
 
-  stiffness(μ,t,u,v,dΩ) = ∫(aμt(μ,t)*∇(v)⋅∇(u))dΩ
-  damping(μ,t,uₜ,v,dΩ) = ∫(dμt(μ,t)*v⋅uₜ)dΩ 
-  mass(μ,t,uₜₜ,v,dΩ) = ∫(v*uₜₜ)dΩ
-  rhs(μ,t,v,dΩ) = ∫(fμt(μ,t)*v)dΩ 
-  res(μ,t,u,v,dΩ) = mass(μ,t,∂tt(u),v,dΩ) + damping(μ,t,∂t(u),v,dΩ) + stiffness(μ,t,u,v,dΩ) - rhs(μ,t,v,dΩ)
+  stiffness(μ,t,u,v) = ∫(aμt(μ,t)*∇(v)⋅∇(u))dΩ
+  damping(μ,t,uₜ,v) = ∫(dμt(μ,t)*v⋅uₜ)dΩ
+  mass(μ,t,uₜₜ,v) = ∫(v*uₜₜ)dΩ
+  rhs(μ,t,v) = ∫(fμt(μ,t)*v)dΩ
+  res(μ,t,u,v) = mass(μ,t,∂tt(u),v) + damping(μ,t,∂t(u),v) + stiffness(μ,t,u,v) - rhs(μ,t,v)
 
   trian_res = (Ω,)
   trian_stiffness = (Ω,)

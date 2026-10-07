@@ -405,10 +405,6 @@ function FESpaces.interpolate!(
   return b̂
 end
 
-function RBSteady.reduced_triangulation(trian::DistributedTriangulation,a::DistributedHRProjection)
-  reduced_triangulation(trian,get_interpolation(a))
-end
-
 function RBSteady.allocate_coefficient(a::DistributedHRProjection)
   map(local_views(a)) do a
     RBSteady.allocate_coefficient(a)
@@ -512,36 +508,6 @@ for T in (:GenericPArray,:DistributedSnapshots)
   end
 end
 
-# trian utils
-
-function Utils.ChildTriangulation(t::DistributedTriangulation,inds::AbstractArray{<:AbstractVector})
-  models = get_background_model(t)
-  trians = map(local_views(t),local_views(inds)) do t,inds
-    ChildTriangulation(t,inds)
-  end
-  DistributedTriangulation(trians,models;metadata=t.metadata)
-end
-
-function Utils.ChildTriangulation(t::DistributedTriangulation,inds::Vector)
-  models = get_background_model(t)
-  trians = map(local_views(t)) do t
-    ChildTriangulation(t,inds)
-  end
-  DistributedTriangulation(trians,models;metadata=t.metadata)
-end
-
-function Utils.is_parent(parent::DistributedTriangulation,child::DistributedTriangulation)
-  x = map(local_views(parent),local_views(child)) do parent,child
-    Utils.is_parent(parent,child)
-  end
-  reduce(&,x)
-end
-
-function RBSteady.get_integration_cells(t::DistributedTriangulation)
-  map(local_views(t)) do t
-    get_integration_cells(t)
-  end
-end
 
 # needed 
 

@@ -44,9 +44,9 @@ function main(
   u0(μ) = x -> VectorValue(0.0,0.0)
   u0μ(μ) = parameterise(u0,μ)
 
-  stiffness(μ,t,u,v,dΩ) = ∫( ε(v) ⊙ (σμt(μ,t)∘ε(u)) )*dΩ
-  mass(μ,t,uₜ,v,dΩ) = ∫(v⋅uₜ)dΩ
-  res(μ,t,u,v,dΩ,dΓn) = ∫(v⋅∂t(u))dΩ + stiffness(μ,t,u,v,dΩ) - ∫(v⋅hμt(μ,t))dΓn
+  stiffness(μ,t,u,v) = ∫( ε(v) ⊙ (σμt(μ,t)∘ε(u)) )*dΩ
+  mass(μ,t,uₜ,v) = ∫(v⋅uₜ)dΩ
+  res(μ,t,u,v) = ∫(v⋅∂t(u))dΩ + stiffness(μ,t,u,v) - ∫(v⋅hμt(μ,t))dΓn
 
   trian_res = (Ω,Γn)
   trian_stiffness = (Ω,)

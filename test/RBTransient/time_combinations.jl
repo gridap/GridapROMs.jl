@@ -561,10 +561,10 @@ function _heat_eq_setup(;nparams=3)
   v0(μ)   = x -> x[1]
   v0μ(μ)  = parameterise(v0,μ)
 
-  stiffness(μ,t,u,v,dΩ) = ∫(aμt(μ,t) * ∇(v) ⋅ ∇(u))dΩ
-  mass(_,_,uₜ,v,dΩ)     = ∫(v * uₜ)dΩ
-  rhs(μ,t,v,dΩ)          = ∫(fμt(μ,t) * v)dΩ
-  res(μ,t,u,v,dΩ)       = mass(μ,t,∂t(u),v,dΩ) + stiffness(μ,t,u,v,dΩ) - rhs(μ,t,v,dΩ)
+  stiffness(μ,t,u,v) = ∫(aμt(μ,t) * ∇(v) ⋅ ∇(u))dΩ
+  mass(_,_,uₜ,v)     = ∫(v * uₜ)dΩ
+  rhs(μ,t,v)          = ∫(fμt(μ,t) * v)dΩ
+  res(μ,t,u,v)       = mass(μ,t,∂t(u),v) + stiffness(μ,t,u,v) - rhs(μ,t,v)
 
   trian_res       = (Ω,)
   trian_stiffness = (Ω,)
@@ -609,10 +609,10 @@ function _wave_eq_setup(;nparams=3)
   a0(μ)   = x -> 2 * x[1]
   a0μ(μ)  = parameterise(a0,μ)
 
-  stiffness(μ,t,u,v,dΩ)  = ∫(aμt(μ,t) * ∇(v) ⋅ ∇(u))dΩ
-  damping(_,_,uₜ,v,dΩ)   = ∫(v * uₜ)dΩ
-  mass(_,_,uₜₜ,v,dΩ)     = ∫(v * uₜₜ)dΩ
-  res(μ,t,u,v,dΩ)        = mass(μ,t,∂tt(u),v,dΩ) + damping(μ,t,∂t(u),v,dΩ) + stiffness(μ,t,u,v,dΩ)
+  stiffness(μ,t,u,v)  = ∫(aμt(μ,t) * ∇(v) ⋅ ∇(u))dΩ
+  damping(_,_,uₜ,v)   = ∫(v * uₜ)dΩ
+  mass(_,_,uₜₜ,v)     = ∫(v * uₜₜ)dΩ
+  res(μ,t,u,v)        = mass(μ,t,∂tt(u),v) + damping(μ,t,∂t(u),v) + stiffness(μ,t,u,v)
 
   trian_res       = (Ω,)
   trian_stiffness = (Ω,)

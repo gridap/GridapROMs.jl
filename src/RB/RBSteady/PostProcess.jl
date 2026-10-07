@@ -90,15 +90,6 @@ function _setup_contribution(vals::Tuple{Vararg{Any}},trian)
   Contribution(vals,trian)
 end
 
-function _setup_contribution(vals::Tuple{Vararg{HRProjection}},trian)
-  @check length(trian)==length(vals)
-  redtrian = ()
-  for i in eachindex(trian)
-    redtrian = (redtrian...,reduced_triangulation(trian[i],vals[i]))
-  end
-  Contribution(vals,redtrian)
-end
-
 """
 """
 function load_contribution(

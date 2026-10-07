@@ -107,8 +107,6 @@ end
   basis = ReducedProjection(zeros(2,1))
   nohr_red = RBSteady.NoHyperReduction()
   nohr = HRProjection(basis,nohr_red,Interpolation(nohr_red,trian))
-  red_trian = reduced_triangulation(trian,nohr)
-  @test num_cells(red_trian) == num_cells(trian)
   @test get_integration_cells(get_interpolation(nohr)) == collect(Int32,1:num_cells(trian))
 end
 
