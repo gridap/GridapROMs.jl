@@ -300,7 +300,7 @@ function DofMaps._get_dof_map(
   b::Union{PVector{<:AbstractVector{<:Number}},BlockPArray{<:AbstractVector{<:Number}}}
   )
 
-  b = GridapDistributed.change_ghost(b,get_free_dof_ids(f))
+  b = change_ghost(b,get_free_dof_ids(f))
   map(1:num_fields(f)) do i
     bi = restrict_to_field(f,b,i)
     DofMaps._get_dof_map(f[i],bi)

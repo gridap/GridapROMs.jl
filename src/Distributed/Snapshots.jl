@@ -106,6 +106,11 @@ PartitionedArrays.own_values(s::DistributedSnapshots) = own_values(s.snaps)
 PartitionedArrays.ghost_values(s::DistributedSnapshots) = ghost_values(s.snaps)
 GridapDistributed.local_views(s::DistributedSnapshots) = partition(s)
 
+function GridapDistributed.change_ghost(s::DistributedSnapshots,ids::PRange;kwargs...)
+  snaps′ = change_ghost(s.snaps,ids;kwargs...)
+  DistributedSnapshots(snaps′)
+end
+
 # sparse interface
 
 const DistributedSparseSnapshots{T,N,I<:AbstractSparseDofMap,R,A} = DistributedSnapshots{T,N,I,R,A}
@@ -275,12 +280,4 @@ for op in (:+,:-)
   @eval function Base.$op(a::DistributedSnapshots,b::DistributedSnapshots)
     $op(a.snaps,b.snaps)
   end
-end
-
-function Utils.compute_relative_error(sol::DistributedSnapshots,sol_approx::DistributedSnapshots,args...)
-  sol_approx′ = change_ghost(sol_approx,axes(sol,1))
-  err_norm = induced_norm(sol-sol_approx′,args...)
-  sol_norm = induced_norm(sol,args...)
-  ε = eps(eltype(sol_norm))
-  return err_norm / max(sol_norm,ε)
 end

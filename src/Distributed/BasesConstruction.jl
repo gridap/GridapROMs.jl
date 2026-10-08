@@ -8,10 +8,10 @@ function LinearAlgebra.ldiv!(S::GenericPMatrix,ns::LinearSolvers.CGNumericalSetu
   mat = _get_matrix(ns)
   S′ = S
   if !PartitionedArrays.matching_ghost_indices(axes(S,1),axes(mat,2))
-    S′ = _change_layout(S,partition(axes(mat,2)))
+    S′ = change_ghost(S,axes(mat,2))
   end
   if !PartitionedArrays.matching_ghost_indices(axes(mat,2),axes(A,1))
-    A = _change_layout(A,partition(axes(mat,2)))
+    A = change_ghost(A,axes(mat,2))
   end
   consistent!(A) |> wait
   map(own_values(S′)) do s

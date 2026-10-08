@@ -407,7 +407,7 @@ function LinearAlgebra.mul!(
   @boundscheck @assert PartitionedArrays.matching_own_indices(axes(c,1),axes(a,1))
   @boundscheck @assert PartitionedArrays.matching_own_indices(axes(a,2),axes(b,1))
   if !PartitionedArrays.matching_ghost_indices(axes(a,2),axes(b,1))
-    b = _change_layout(b,partition(axes(a,2)))
+    b = change_ghost(b,axes(a,2))
   end
   # Start the exchange
   t = consistent!(b)
@@ -464,17 +464,4 @@ function _restrict_to_local_range(old_partition,local_ranges)
   n_owns = map(length,own_positions)
   new_partition = _new_partition(owners,n_owns)
   (own_positions,new_partition)
-end
-
-function _change_layout(b::PVector{<:ConsecutiveParamArray},new_idx_partition)
-  new_parts = map(own_values(b),new_idx_partition) do bo,ra
-    nl = local_length(ra)
-    nparams = param_length(bo)
-    new_lb = ConsecutiveParamArray(similar(bo.data,nl,nparams))
-    @views begin
-      new_lb.data[own_to_local(ra),:] .= bo.data
-    end
-    new_lb
-  end
-  PVector(new_parts,new_idx_partition)
 end

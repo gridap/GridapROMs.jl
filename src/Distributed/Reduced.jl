@@ -488,6 +488,14 @@ end
 
 for T in (:GenericPMatrix,:GenericPArray,:DistributedSnapshots)
   @eval begin
+    function Utils.compute_relative_error(a::$T,b::$T,args...)
+      b′ = change_ghost(b,axes(a,1);make_consistent=true)
+      err_norm = induced_norm(a-b′,args...)
+      sol_norm = induced_norm(a,args...)
+      ε = eps(eltype(sol_norm))
+      return err_norm / max(sol_norm,ε)
+    end
+
     function Utils.induced_norm(a::$T)
       _norm_part(x) = induced_norm(x)^2
       n = reduce(+,map(_norm_part,own_values(a)))
@@ -540,7 +548,7 @@ function _galerkin_mul!(
   @boundscheck @assert PartitionedArrays.matching_own_indices(axes(c,1),axes(a,1))
   @boundscheck @assert PartitionedArrays.matching_own_indices(axes(a,2),axes(b,1))
   if !PartitionedArrays.matching_ghost_indices(axes(a,2),axes(b,1))
-    b = _change_layout(b,partition(axes(a,2)))
+    b = change_ghost(b,axes(a,2))
   end
   # Start the exchange
   t = consistent!(b)

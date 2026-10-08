@@ -346,7 +346,7 @@ function LinearAlgebra.mul!(
   @boundscheck @assert PartitionedArrays.matching_own_indices(axes(c,1),axes(a,1))
   @boundscheck @assert PartitionedArrays.matching_own_indices(axes(a,2),axes(b,1))
   if !PartitionedArrays.matching_ghost_indices(axes(a,2),axes(b,1))
-    b = _change_layout(b,partition(axes(a,2)))
+    b = change_ghost(b,axes(a,2))
   end
   # Start the exchange
   t = consistent!(b)
@@ -563,27 +563,28 @@ function PartitionedArrays.ghost_values(a::ConsecutiveParamArray,indices)
   ConsecutiveParamArray(ghost_values(a.data,indices))
 end
 
+function GridapDistributed.change_ghost(a::GenericPArray{T},ids::PRange;is_consistent=false,make_consistent=false) where T
+  same_partition = (a.index_partition === partition(ids))
+  a_new = same_partition ? a : change_ghost(T,a,ids)
+  if make_consistent && (!same_partition || !is_consistent)
+    consistent!(a_new) |> wait
+  end
+  return a_new
+end
+
+function GridapDistributed.change_ghost(::Type{<:AbstractVector},a::GenericPArray,ids::PRange)
+  a_new = similar(a,eltype(a),(ids,))
+  map(copy!,own_values(a_new),own_values(a))
+  return a_new
+end
+
 # index handling 
 
 flat_row_partition(a::GenericPArray) = flat_row_partition(a.index_partition)
 row_partition(a::GenericPArray) = row_partition(a.index_partition)
 col_partition(a::GenericPArray) = col_partition(a.index_partition)
 
-# utils 
-
-function _change_layout(b::GenericPArray,new_idx_partition)
-  N = ndims(b)
-  usizes = map(length,b.unpartitioned_axes)
-  new_parts = map(own_values(b),new_idx_partition) do bo,ra
-    nl = local_length(ra)
-    new_lb = similar(bo,(nl,usizes...))
-    @views begin
-      new_lb[own_to_local(ra),_ncolons(Val{N-1}())...] .= bo
-    end
-    new_lb
-  end
-  GenericPArray(new_parts,new_idx_partition,b.unpartitioned_axes)
-end
+# utils
 
 second(p::Pair) = p.second
 
