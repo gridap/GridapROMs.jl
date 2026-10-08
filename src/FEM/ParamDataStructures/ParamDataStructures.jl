@@ -180,8 +180,6 @@ export get_mode2
 export change_mode
 include("TransientSnapshots.jl")
 
-include("ParamBroadcasts.jl")
-
 export FetchParam
 export lazy_param_getindex
 export lazy_testitem

@@ -188,19 +188,7 @@ snapshots `fesnaps` and the reduced approximation `x̂`, and returns `solver.tra
 function rom_performance(solver::RBSolver,op::ParamOperator,x::AbstractSnapshots,x̂)
   _to_snaps(x̂) = @abstractmethod
   _to_snaps(x̂::AbstractSnapshots) = x̂
-  function _to_snaps(x̂::RBParamVector)
-    if x isa BlockSnapshots
-      # `_fe_data(x̂)` is a mortared (block) array even though `x̂` is a single
-      # `RBParamVector`: `zero_free_values` for a multi-field RBSpace unfolds
-      # the per-field RBParamVectors into one before `solve!` ever runs. Split
-      # it back into blocks explicitly rather than relying on `Snapshots`'
-      # dispatch to recognize the mortared array as block-structured, since it
-      # need not match the same concrete block-array type in a distributed setting
-      BlockSnapshots(map((d,xi) -> Snapshots(d,get_dof_map(xi),get_realisation(xi)),blocks(_fe_data(x̂)),blocks(x)))
-    else
-      Snapshots(_fe_data(x̂),get_dof_map(x),get_realisation(x))
-    end
-  end
+  _to_snaps(x̂::RBParamVector) = Snapshots(_fe_data(x̂),get_dof_map(x),get_realisation(x))
   compute_error!(solver,op,x,_to_snaps(x̂))
   return solver.tracker
 end

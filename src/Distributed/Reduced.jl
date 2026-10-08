@@ -498,12 +498,23 @@ end
 
 for T in (:GenericPArray,:DistributedSnapshots)
   @eval begin
+    # `a`'s own row partition need not match the one `norm_matrix` was
+    # assembled with (e.g. for a field defined on a boundary/skeleton
+    # triangulation, whose FE space partition differs from the one `a` was
+    # extracted/reconstructed with). Re-partition `a` onto `norm_matrix`'s
+    # row partition before the product, since multiplying with mismatched
+    # ghost layouts silently yields garbage (NaN) rather than erroring.
     function Utils.induced_norm(a::$T,norm_matrix::AbstractMatrix)
-      values = map(local_values(a)) do a 
-        reshape(a,size(a,1),:)
+      nparams = size(a,2)
+      values = map(local_values(a)) do a
+        reshape(a,size(a,1),nparams)
       end
-      a′ = GenericPArray(values,partition(axes(a,1)))
-      sqrtabs(mean(diag(a′'*(norm_matrix*a′))))
+      source_ip = row_partition(a)
+      target_ip = row_partition(norm_matrix)
+      values′ = _repartition_rows(values,source_ip,target_ip)
+      a′ = GenericPArray(values′,target_ip)
+      mv = norm_matrix*a′
+      sqrtabs(mean(diag(a′'*mv)))
     end
   end
 end

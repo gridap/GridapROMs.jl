@@ -247,7 +247,11 @@ MultiField.num_fields(r::MultiFieldRBSpace) = num_fields(get_fe_space(r))
 Base.length(r::MultiFieldRBSpace) = num_fields(r)
 
 function FESpaces.zero_free_values(r::MultiFieldRBSpace)
-  x̂ = mortar(map(zero_free_values,r))
-  unfold(x̂)
+  data_blocks,fe_data_blocks = map(r) do ri
+    fi = get_fe_space(ri)
+    x = zero_free_values(fi)
+    (project(ri,x),x)
+  end |> tuple_of_arrays
+  RBParamVector(mortar(data_blocks),mortar(fe_data_blocks))
 end
 

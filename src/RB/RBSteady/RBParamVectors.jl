@@ -80,12 +80,6 @@ for T in (:SingleFieldFESpace,:MultiFieldFESpace)
   end
 end
 
-function unfold(a::BlockParamVector{T,<:AbstractVector{<:RBParamVector{T}}}) where T
-  data = mortar(map(_data,blocks(a)))
-  fe_data = mortar(map(_fe_data,blocks(a)))
-  RBParamVector(data,fe_data)
-end
-
 # utils
 
 _data(a::RBParamVector) = a.data
