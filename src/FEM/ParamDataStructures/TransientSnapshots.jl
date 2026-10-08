@@ -17,7 +17,7 @@ Base.size(s::TransientSnapshots) = (space_dofs(s)...,num_params(s),num_times(s))
 
 function Snapshots(s::AbstractParamArray,i::TrivialDofMap,r::TransientRealisation)
   data = get_all_data(s)
-  dims = (num_space_dofs(s),num_params(r),num_times(r))
+  dims = (innersize(s)...,num_params(r),num_times(r))
   idata = reshape(data,dims)
   GenericSnapshots(idata,s,i,r)
 end
@@ -26,12 +26,12 @@ function Snapshots(s::AbstractParamArray,i::AbstractDofMap,r::TransientRealisati
   data = get_all_data(s)
   param_data = s
   if _is_one_to(i)
-    dims = (size(i)...,num_params(r),num_times(r))
+    dims = (innersize(s)...,num_params(r),num_times(r))
     idata = reshape(data,dims)
     return GenericSnapshots(idata,param_data,i,r)
   end
   T = eltype2(s)
-  idata = zeros(T,size(i)...,num_params(r),num_times(r))
+  idata = zeros(T,innersize(s)...,num_params(r),num_times(r))
   for it in 1:num_times(r), ip in 1:num_params(r)
     ipt = (it-1)*num_params(r)+ip
     for k in CartesianIndices(i)

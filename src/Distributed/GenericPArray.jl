@@ -577,7 +577,6 @@ function _change_layout(b::GenericPArray,new_idx_partition)
   new_parts = map(own_values(b),new_idx_partition) do bo,ra
     nl = local_length(ra)
     new_lb = similar(bo,(nl,usizes...))
-    println("DEBUG _change_layout: size(bo)=",size(bo)," usizes=",usizes," new_lb size=",size(new_lb)," target region size=",(length(own_to_local(ra)),usizes...)); flush(stdout)
     @views begin
       new_lb[own_to_local(ra),_ncolons(Val{N-1}())...] .= bo
     end

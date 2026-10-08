@@ -188,7 +188,7 @@ function ParamDataStructures.Snapshots(
   offsets = _get_local_ranges(i)
   array = map(enumerate(i)) do (j,ij)
     dataj = get_param_entry(data,offsets[j])
-    data0j = map(d0 -> blocks(d0)[j],data0)
+    data0j = map(d0 -> get_param_entry(d0,offsets[j]),data0)
     Snapshots(dataj,data0j,ij,r)
   end
   BlockSnapshots(array)
@@ -278,38 +278,9 @@ for op in (:+,:-)
 end
 
 function Utils.compute_relative_error(sol::DistributedSnapshots,sol_approx::DistributedSnapshots,args...)
-  sol_approx′ = _match_row_partition(sol,sol_approx)
+  sol_approx′ = change_ghost(sol_approx,axes(sol,1))
   err_norm = induced_norm(sol-sol_approx′,args...)
   sol_norm = induced_norm(sol,args...)
   ε = eps(eltype(sol_norm))
   return err_norm / max(sol_norm,ε)
-end
-
-# Re-row-partitions the columns of `data` (one local block per rank, each
-# `ndofs_local × nparams`) from `source_ip` onto `target_ip`, going through a
-# `PVector`+`change_ghost` per column since that's the only primitive that can
-# re-derive ghost values for an arbitrary target partition.
-function _repartition_rows(data,source_ip,target_ip)
-  target_prange = PRange(target_ip)
-  nparams = size(getany(data),2)
-  new_cols = map(1:nparams) do ip
-    col = map(d -> d[:,ip],data)
-    pv = PVector(col,source_ip)
-    pv′ = GridapDistributed.change_ghost(pv,target_prange;make_consistent=true)
-    local_values(pv′)
-  end
-  map((cols...) -> reduce(hcat,cols),new_cols...)
-end
-
-function _match_row_partition(a::DistributedSnapshots,b::DistributedSnapshots)
-  target_ip = row_partition(a)
-  source_ip = row_partition(b)
-  target_ip == source_ip && return b
-  data = map(get_all_data,partition(b.snaps))
-  new_data = _repartition_rows(data,source_ip,target_ip)
-  new_snaps = map(partition(a.snaps),new_data) do sa,d
-    GenericSnapshots(d,ConsecutiveParamArray(d),get_dof_map(sa),get_realisation(sa))
-  end
-  snaps = GenericPArray(new_snaps,target_ip)
-  DistributedSnapshots(snaps)
 end

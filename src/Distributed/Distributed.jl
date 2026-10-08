@@ -79,7 +79,7 @@ import ArraysOfArrays: innersize,_ncolons
 import BlockArrays
 import BlockArrays: Block,BlockVector,BlockMatrix,BlockArray,AbstractBlockArray,mortar,blocks,blocklength
 import Gridap.Helpers: @abstractmethod,@check,@notimplemented,@notimplementedif
-import GridapDistributed: BlockPMatrix,BlockPVector,BlockPArray,DistributedFESpace,DistributedSingleFieldFESpace,DistributedMultiFieldFESpace,DistributedTriangulation,DistributedDomainContribution,to_parray_of_arrays
+import GridapDistributed: BlockPMatrix,BlockPVector,BlockPArray,DistributedFESpace,DistributedSingleFieldFESpace,DistributedMultiFieldFESpace,DistributedTriangulation,DistributedDomainContribution,change_ghost,to_parray_of_arrays
 import GridapROMs.DofMaps: range_2d,range_1d
 import GridapROMs.ParamAlgebra: ParamBuilder,ParamCounter
 import GridapROMs.RBSteady: SNAPSHOTS_LABEL,PROJECTION_LABEL,findrow,get_at_domain,get_l2_form,get_h1_form,get_div_coupling_form,get_form,l2_norm,h1_norm,div_coupling,_assemble_operator,_unwrap,_meas,select_rank,_truncate_row!,_get_label
