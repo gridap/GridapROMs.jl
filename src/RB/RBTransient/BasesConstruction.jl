@@ -111,7 +111,7 @@ function tucker(
   return bases
 end
 
-first_unfold(A::AbstractArray{T,N}) where {T,N} = reshape(A,size(A,1),:)
+first_unfold(A::AbstractArray{T,N}) where {T,N} = reshape(A,size(A,1),prod(size(A)[2:end]))
 
 function first_unfold(A::SubArray{T,N}) where {T,N}
   skeep = size(A,1)

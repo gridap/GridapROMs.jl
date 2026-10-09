@@ -563,18 +563,12 @@ function PartitionedArrays.ghost_values(a::ConsecutiveParamArray,indices)
   ConsecutiveParamArray(ghost_values(a.data,indices))
 end
 
-function GridapDistributed.change_ghost(a::GenericPArray{T},ids::PRange;is_consistent=false,make_consistent=false) where T
+function GridapDistributed.change_ghost(a::GenericPArray,ids::PRange;is_consistent=false,make_consistent=false)
   same_partition = (a.index_partition === partition(ids))
-  a_new = same_partition ? a : change_ghost(T,a,ids)
+  a_new = same_partition ? a : _change_ghost(a,ids)
   if make_consistent && (!same_partition || !is_consistent)
     consistent!(a_new) |> wait
   end
-  return a_new
-end
-
-function GridapDistributed.change_ghost(::Type{<:AbstractVector},a::GenericPArray,ids::PRange)
-  a_new = similar(a,eltype(a),(ids,))
-  map(copy!,own_values(a_new),own_values(a))
   return a_new
 end
 
@@ -586,7 +580,19 @@ col_partition(a::GenericPArray) = col_partition(a.index_partition)
 
 # utils
 
-second(p::Pair) = p.second
+function _change_ghost(a::GenericPArray,ids::PRange)
+  N = ndims(a)
+  usizes = map(length,a.unpartitioned_axes)
+  new_parts = map(own_values(a),partition(ids)) do ao,ra
+    nl = local_length(ra)
+    new_lb = similar(ao,(nl,usizes...))
+    @views begin
+      new_lb[own_to_local(ra),_ncolons(Val{N-1}())...] .= ao
+    end
+    new_lb
+  end
+  GenericPArray(new_parts,partition(ids),a.unpartitioned_axes)
+end
 
 function _findmin_pairs(f,v,ra;init=typemax(typeof(f(zero(eltype(v))))))
   min_owned = 0

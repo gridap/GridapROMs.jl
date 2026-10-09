@@ -439,27 +439,12 @@ function _new_partition(owners,lcounts)
   end
 end
 
-function _get_local_ranges(i::AbstractArray{<:AbstractArray})
-  llength(a) = length(a)
-  llength(a::AbstractLocalIndices) = local_length(a)
-  lengths = map(ij -> map(llength,ij),i)
-  nfields = length(lengths)
-  offsets = Vector{Any}(undef,nfields)
-  offsets[1] = map(l -> zero(l),lengths[1])
-  for j in 2:nfields
-    offsets[j] = map(+,offsets[j-1],lengths[j-1])
-  end
-  map(1:nfields) do j
-    map((o,l) -> o+1:o+l,offsets[j],lengths[j])
-  end
-end
-
 function _restrict_to_local_range(old_partition,local_ranges)
   owners = map(part_id,old_partition)
   own_positions = map(old_partition,local_ranges) do idx,lr
     l2o = local_to_owner(idx)
     owner_p = part_id(idx)
-    filter(l -> l2o[l]==owner_p,collect(lr))
+    filter(l -> l2o[l]==owner_p,lr)
   end
   n_owns = map(length,own_positions)
   new_partition = _new_partition(owners,n_owns)

@@ -37,7 +37,13 @@ function RBSteady.solution_snapshots(
   sol = solve(fesolver,op,r,args...)
   values,stats = collect(sol)
   initial_values = initial_conditions(sol)
-  i = get_dof_map(op)
+  # the field-intrinsic `get_dof_map(op)` reflects each field's own standalone
+  # FE space partition, which need not match the partition `values` actually
+  # has as embedded in the combined (e.g. `ConsecutiveMultiFieldStyle`)
+  # solution vector. `get_dof_map(get_test(op),values)` derives the per-field
+  # dof maps from `values` itself (via `restrict_to_field`), so they are
+  # guaranteed consistent with how `Snapshots` will go on to split it.
+  i = get_dof_map(get_test(op),values)
   snaps = Snapshots(values,initial_values,i,r)
   return snaps,stats
 end
@@ -192,11 +198,18 @@ function _setup(U,u0)
 end
 
 function _setup(U::MultiFieldRBSpace,u0::ConsecutiveParamVector)
-  offsets = MultiField.compute_field_offsets(U.space)
-  pushlast!(offsets,num_free_dofs(U))
+  offsets = _get_offsets(U.space)
   map(1:num_fields(U)) do i
-    f(get_param_entry(u0,offsets[i]+1:offsets[i+1]))
+    get_param_entry(u0,offsets[i]+1:offsets[i+1])
   end |> mortar
+end
+
+function _get_offsets(U::MultiFieldFESpace)
+  o = (0,)
+  for Ui in U
+    o = (o...,o[end]+num_free_dofs(Ui))
+  end
+  o
 end
 
 _permutelastdims(x::AbstractParamVector;kwargs...) = @notimplemented

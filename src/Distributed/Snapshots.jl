@@ -107,8 +107,18 @@ PartitionedArrays.ghost_values(s::DistributedSnapshots) = ghost_values(s.snaps)
 GridapDistributed.local_views(s::DistributedSnapshots) = partition(s)
 
 function GridapDistributed.change_ghost(s::DistributedSnapshots,ids::PRange;kwargs...)
-  snaps′ = change_ghost(s.snaps,ids;kwargs...)
-  DistributedSnapshots(snaps′)
+  data′ = change_ghost(get_param_data(s),ids;kwargs...)
+  i = get_dof_map(s)
+  r = get_realisation(s)
+  Snapshots(data′,i,r)
+end
+
+function GridapDistributed.change_ghost(s::DistributedTransientSnapshots,ids::PRange;kwargs...)
+  data′ = change_ghost(get_param_data(s),ids;kwargs...)
+  data0′ = map(d0 -> change_ghost(d0,ids;kwargs...),get_initial_param_data(s))
+  i = get_dof_map(s)
+  r = get_realisation(s)
+  Snapshots(data′,data0′,i,r)
 end
 
 # sparse interface
@@ -279,5 +289,22 @@ end
 for op in (:+,:-)
   @eval function Base.$op(a::DistributedSnapshots,b::DistributedSnapshots)
     $op(a.snaps,b.snaps)
+  end
+end
+
+# utils
+
+function _get_local_ranges(i::AbstractArray{<:AbstractArray})
+  llength(a) = length(a)
+  llength(a::AbstractLocalIndices) = local_length(a)
+  lengths = map(ij -> map(llength,ij),i)
+  nfields = length(lengths)
+  offsets = Vector{Any}(undef,nfields)
+  offsets[1] = map(l -> zero(l),lengths[1])
+  for j in 2:nfields
+    offsets[j] = map(+,offsets[j-1],lengths[j-1])
+  end
+  map(1:nfields) do j
+    map((o,l) -> o+1:o+l,offsets[j],lengths[j])
   end
 end

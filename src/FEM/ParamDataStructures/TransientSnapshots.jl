@@ -17,7 +17,7 @@ Base.size(s::TransientSnapshots) = (space_dofs(s)...,num_params(s),num_times(s))
 
 function Snapshots(s::AbstractParamArray,i::TrivialDofMap,r::TransientRealisation)
   data = get_all_data(s)
-  dims = (innersize(s)...,num_params(r),num_times(r))
+  dims = (size(data,1),num_params(r),num_times(r))
   idata = reshape(data,dims)
   GenericSnapshots(idata,s,i,r)
 end
@@ -26,12 +26,12 @@ function Snapshots(s::AbstractParamArray,i::AbstractDofMap,r::TransientRealisati
   data = get_all_data(s)
   param_data = s
   if _is_one_to(i)
-    dims = (innersize(s)...,num_params(r),num_times(r))
+    dims = (size(i)...,num_params(r),num_times(r))
     idata = reshape(data,dims)
     return GenericSnapshots(idata,param_data,i,r)
   end
   T = eltype2(s)
-  idata = zeros(T,innersize(s)...,num_params(r),num_times(r))
+  idata = zeros(T,size(i)...,num_params(r),num_times(r))
   for it in 1:num_times(r), ip in 1:num_params(r)
     ipt = (it-1)*num_params(r)+ip
     for k in CartesianIndices(i)
@@ -163,7 +163,15 @@ const TransientSparseSnapshots{T,N,I<:AbstractSparseDofMap,R<:TransientRealisati
 const TransientBlockSnapshots{S<:TransientSnapshots,N} = BlockSnapshots{S,N}
 
 num_times(s::TransientBlockSnapshots) = num_times(get_realisation(s))
-get_initial_param_data(s::TransientBlockSnapshots) = map(get_initial_param_data,blocks(s)) |> mortar
+function get_initial_param_data(s::TransientBlockSnapshots)
+  x = first(blocks(s))
+  data0 = ()
+  for i in eachindex(get_initial_param_data(x))
+    d0i = map(x -> get_initial_param_data(x)[i],blocks(s))
+    data0 = (data0...,mortar(d0i))
+  end
+  return data0
+end
 
 function select_snapshots(s::TransientBlockSnapshots,pindex)
   array = map(sj -> select_snapshots(sj,pindex),blocks(s))

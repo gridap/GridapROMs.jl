@@ -43,6 +43,17 @@ MultiField.MultiFieldStyle(r::DistributedMultiFieldRBSpace) = MultiFieldStyle(ge
 MultiField.num_fields(r::DistributedMultiFieldRBSpace) = num_fields(get_fe_space(r))
 Base.length(r::DistributedMultiFieldRBSpace) = num_fields(r)
 
+# function FESpaces.zero_free_values(r::DistributedMultiFieldRBSpace)
+#   data_blocks,fe_data_blocks = map(r) do ri
+#     fi = get_fe_space(ri)
+#     x = zero_free_values(fi)
+#     basis = RBTransient.get_basis_space(get_reduced_subspace(ri))
+#     x′ = change_ghost(x,axes(basis,1);make_consistent=true)
+#     (project(ri,x′),x′)
+#   end |> tuple_of_arrays
+#   RBParamVector(mortar(data_blocks),mortar(fe_data_blocks))
+# end
+
 function Utils.collect_cell_vector_for_trian(
   test::Union{DistributedFESpace,DistributedRBSpace},
   a::DistributedDomainContribution,
@@ -511,12 +522,11 @@ for T in (:GenericPArray,:DistributedSnapshots)
       values = map(local_values(a)) do a
         reshape(a,size(a,1),nparams)
       end
-      a′ = change_ghost(GenericPArray(values,axes(a,1)),axes(norm_matrix,1))
+      a′ = change_ghost(GenericPArray(values,partition(axes(a,1))),axes(norm_matrix,1))
       sqrtabs(mean(diag(a′'*(norm_matrix*a′))))
     end
   end
 end
-
 
 # needed 
 
@@ -633,7 +643,7 @@ function _best_s_opt_index(basis::GenericPMatrix,P,G,colnorms2,l)
     end
     best_logS => best_gi
   end
-  return second(reduce(max,best_pairs,init=(-Inf=>0)))
+  return last(reduce(max,best_pairs,init=(-Inf=>0)))
 end
 
 function RBSteady._convert_to_block(V::DistributedMultiFieldFESpace)
@@ -649,9 +659,22 @@ function RBSteady._convert_to_block(op::ParamOperator,V::T,U::T) where T<:Distri
 end
 
 function RBSteady._setup(U::DistributedMultiFieldRBSpace,u0::PVector)
-  map(local_views(U),local_values(u0)) do U,u0
-    RBSteady._setup(U,u0)
+  Uc = MultiFieldFESpace(U.space.field_fe_space)  # consecutive view
+  u0 = change_ghost(u0,get_free_dof_ids(Uc))
+  offsets = RBTransient._get_offsets(Uc)
+  map(1:num_fields(Uc)) do i
+    get_param_entry(u0,offsets[i])
   end |> mortar
+end
+
+function RBTransient._get_offsets(U::DistributedMultiFieldFESpace)
+  nfields = num_fields(U)
+  local_offsets = map(local_views(U)) do U
+    RBTransient._get_offsets(U)
+  end
+  map(1:nfields) do i
+    map(o -> o[i]+1:o[i+1],local_offsets)
+  end
 end
 
 function RBTransient._reduce_vector(u::PVector{<:ConsecutiveParamVector},hr_ids::AbstractVector)
