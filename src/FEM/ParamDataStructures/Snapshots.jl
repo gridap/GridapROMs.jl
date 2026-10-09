@@ -161,7 +161,7 @@ get_param_data(s::GenericSnapshots) = s.param_data
 get_dof_map(s::GenericSnapshots) = s.dof_map
 get_realisation(s::GenericSnapshots) = s.realisation
 
-function select_snapshots(s::GenericSnapshots{T,N},pindex) where {T,N}
+function select_snapshots(s::GenericSnapshots,pindex)
   prange = _format_index(pindex)
   GenericSnapshots(
     select_all_data(s,prange),
@@ -211,10 +211,10 @@ struct BlockSnapshots{S<:Snapshots,N} <: AbstractSnapshots{S,N}
 end
 
 function Snapshots(
-  data::BlockParamArray{T,N},
+  data::BlockParamArray,
   i::AbstractArray{<:AbstractDofMap},
   r::AbstractRealisation
-  ) where {T,N}
+  )
 
   block_values = blocks(data)
   array = map(enumerate(block_values)) do (j,dataj)
@@ -224,10 +224,10 @@ function Snapshots(
 end
 
 function Snapshots(
-  data::AbstractParamArray{T,N},
+  data::AbstractParamArray,
   i::AbstractArray{<:AbstractDofMap},
   r::AbstractRealisation
-  ) where {T,N}
+  )
 
   ids = offset_indices(i)
   array = map(enumerate(i)) do (j,ij)

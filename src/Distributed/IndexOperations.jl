@@ -1,50 +1,210 @@
-struct NZIndexPartition{I<:AbstractLocalIndices,R<:AbstractLocalIndices,C<:AbstractLocalIndices} <: AbstractLocalIndices
-  nz::I
-  row::R
-  col::C
-end
+# general
 
-PartitionedArrays.part_id(a::NZIndexPartition) = part_id(a.nz)
-PartitionedArrays.local_to_global(a::NZIndexPartition) = local_to_global(a.nz)
-PartitionedArrays.local_to_owner(a::NZIndexPartition) = local_to_owner(a.nz)
-PartitionedArrays.own_to_global(a::NZIndexPartition) = own_to_global(a.nz)
-PartitionedArrays.ghost_to_global(a::NZIndexPartition) = ghost_to_global(a.nz)
-PartitionedArrays.ghost_to_owner(a::NZIndexPartition) = ghost_to_owner(a.nz)
-PartitionedArrays.own_to_local(a::NZIndexPartition) = own_to_local(a.nz)
-PartitionedArrays.ghost_to_local(a::NZIndexPartition) = ghost_to_local(a.nz)
-PartitionedArrays.global_to_own(a::NZIndexPartition) = global_to_own(a.nz)
-PartitionedArrays.global_to_local(a::NZIndexPartition) = global_to_local(a.nz)
-PartitionedArrays.global_to_ghost(a::NZIndexPartition) = global_to_ghost(a.nz)
-PartitionedArrays.own_length(a::NZIndexPartition) = own_length(a.nz)
-PartitionedArrays.assembly_cache(a::NZIndexPartition) = PartitionedArrays.assembly_cache(a.nz)
-
-function nz_partition(nz_part,row_partition,col_partition)
-  map(nz_part,row_partition,col_partition) do nzidx,lrow,lcol
-    NZIndexPartition(nzidx,lrow,lcol)
-  end
-end
+flat_row_partition(a) = row_partition(a)
 
 function flat_row_partition(a::PSparseMatrix)
   nnz_local = map(nnz,local_values(a))
   n_nz_global = reduce(+,nnz_local,init=0)
-  nz_part = variable_partition(nnz_local,n_nz_global)
-  nz_partition(nz_part,row_partition(a),col_partition(a))
+  variable_partition(nnz_local,n_nz_global)
 end
-
-flat_row_partition(a) = row_partition(a)
-flat_row_partition(a::AbstractArray{<:NZIndexPartition}) = a
 
 row_partition(a) = a
 row_partition(a::PVector) = a.index_partition
 row_partition(a::PSparseMatrix) = a.row_partition
-row_partition(a::NZIndexPartition) = a.row
-row_partition(a::AbstractArray{<:NZIndexPartition}) = map(row_partition,a)
 
 col_partition(a) = a
 col_partition(a::PVector) = @notimplemented
 col_partition(a::PSparseMatrix) = a.col_partition
-col_partition(a::NZIndexPartition) = a.col
-col_partition(a::AbstractArray{<:NZIndexPartition}) = map(col_partition,a)
+
+# DOF maps
+
+struct PVectorDofMap{A<:PRange,B<:PRange} <: AbstractArray{TrivialDofMap}
+  rows::A
+  rows_space::B
+end
+
+function GridapDistributed.local_views(i::PVectorDofMap)
+  map(local_views(i.rows)) do rows
+    VectorDofMap(local_to_own(rows))
+  end
+end
+
+row_partition(i::PVectorDofMap) = row_partition(i.rows)
+
+struct PSparseMatrixDofMap{A<:PRange,B<:PRange,C<:AbstractArray{<:SparsityPattern}} <: AbstractArray{AbstractSparseDofMap}
+  rows::A
+  cols::A
+  rows_space::B
+  cols_space::B
+  loc_sparsity::C
+end
+
+function GridapDistributed.local_views(i::PSparseMatrixDofMap)
+  map(local_views(i.loc_sparsity)) do sparsity
+    TrivialSparseDofMap(sparsity)
+  end
+end
+
+row_partition(i::PSparseMatrixDofMap) = row_partition(i.rows)
+col_partition(i::PSparseMatrixDofMap) = col_partition(i.cols)
+
+struct BlockPVectorDofMap{A<:AbstractVector{<:PVectorDofMap},B<:Union{PRange,BlockPRange}} <: AbstractVector{AbstractArray{TrivialDofMap}}
+  blocks::A
+  rows_space::B
+end
+
+Base.size(i::BlockPVectorDofMap) = size(i.blocks)
+Base.getindex(i::BlockPVectorDofMap,j::Integer) = i.blocks[j]
+
+struct BlockPSparseMatrixDofMap{A<:AbstractMatrix{<:PSparseMatrixDofMap},B<:Union{PRange,BlockPRange}} <: AbstractMatrix{AbstractArray{AbstractSparseDofMap}}
+  blocks::A
+  rows_space::B
+  cols_space::B
+end
+
+Base.size(i::BlockPSparseMatrixDofMap) = size(i.blocks)
+Base.getindex(i::BlockPSparseMatrixDofMap,j::Integer,k::Integer) = i.blocks[j,k]
+
+function DofMaps.get_dof_map(f::DistributedSingleFieldFESpace)
+  assem = SparseMatrixAssembler(f,f)
+  rows,_,space_rows,_ = get_assembly_maps(assem)
+  PVectorDofMap(rows,space_rows)
+end
+
+function DofMaps.get_dof_map(f::DistributedMultiFieldFESpace)
+  blocks = map(get_dof_map,f.field_fe_space)
+  BlockPVectorDofMap(blocks,get_free_dof_ids(f))
+end
+
+function DofMaps.get_sparse_dof_map(trial::DistributedSingleFieldFESpace,test::DistributedSingleFieldFESpace)
+  assem = SparseMatrixAssembler(trial,test)
+  rows,cols,space_rows,space_cols = get_assembly_maps(assem)
+  loc_sparsity = map(get_sparsity,local_views(trial),local_views(test))
+  PSparseMatrixDofMap(rows,cols,space_rows,space_cols,loc_sparsity)
+end
+
+function DofMaps.get_sparse_dof_map(trial::DistributedMultiFieldFESpace,test::DistributedMultiFieldFESpace)
+  ntest = num_fields(test)
+  ntrial = num_fields(trial)
+  blocks = map(Iterators.product(1:ntest,1:ntrial)) do (i,j)
+    get_sparse_dof_map(trial.field_fe_space[j],test.field_fe_space[i])
+  end
+  BlockPSparseMatrixDofMap(blocks,get_free_dof_ids(trial),get_free_dof_ids(test))
+end
+
+function DofMaps._get_dof_map(f::DistributedSingleFieldFESpace,b::PVector)
+  rows, = axes(b)
+  space_rows = get_free_dof_ids(f)
+  PVectorDofMap(rows,space_rows)
+end
+
+function DofMaps._get_dof_map(f::DistributedMultiFieldFESpace,b::PVector)
+  b′ = change_ghost(b,get_free_dof_ids(f))
+  blocks = map(1:num_fields(f)) do i
+    bi = restrict_to_field(f,b′,i)
+    DofMaps._get_dof_map(f.field_fe_space[i],bi)
+  end
+  BlockPVectorDofMap(blocks,get_free_dof_ids(f))
+end
+
+function DofMaps._get_dof_map(f::DistributedMultiFieldFESpace{<:BlockMultiFieldStyle},b::PVector)
+  DofMaps._get_dof_map(MultiFieldFESpace(f.field_fe_space),b)
+end
+
+function DofMaps._get_dof_map(f::DistributedMultiFieldFESpace,b::BlockPVector)
+  blocks = map(DofMaps._get_dof_map,f.field_fe_space,blocks(b))
+  BlockPVectorDofMap(blocks,get_free_dof_ids(f))
+end
+
+function DofMaps._get_sparse_dof_map(
+  trial::DistributedSingleFieldFESpace,
+  test::DistributedSingleFieldFESpace,
+  A::PSparseMatrix
+  )
+
+  rows,cols = axes(A)
+  space_rows = get_free_dof_ids(test)
+  space_cols = get_free_dof_ids(trial)
+  loc_sparsity = map(get_sparsity,local_values(A))
+  return PSparseMatrixDofMap(rows,cols,space_rows,space_cols,loc_sparsity)
+end
+
+function DofMaps._get_sparse_dof_map(
+  trial::DistributedMultiFieldFESpace,
+  test::DistributedMultiFieldFESpace,
+  A::BlockPMatrix
+  )
+
+  ntest = num_fields(test)
+  ntrial = num_fields(trial)
+  blocks = map(Iterators.product(1:ntest,1:ntrial)) do (i,j)
+    DofMaps._get_sparse_dof_map(trial[j],test[i],A[Block(i,j)])
+  end
+  BlockPSparseMatrixDofMap(blocks,get_free_dof_ids(test),get_free_dof_ids(trial))
+end
+
+function get_assembly_maps(assem::DistributedSparseMatrixAssembler)
+  space_rows = get_rows(assem)
+  space_cols = get_cols(assem)
+  strategy = get_assembly_strategy(assem)
+  builder = get_matrix_builder(assem)
+  counter = nz_counter(builder,(space_rows,space_cols))
+  alloc = nz_allocation(counter)
+  rows,cols = get_assembly_maps(strategy,alloc)
+  return (rows,cols,space_rows,space_cols)
+end
+
+function get_assembly_maps(::FullyAssembledRows,a::DistributedAllocationCOO)
+  I,J, = get_allocations(a)
+  row_gids = get_test_gids(a)
+  col_gids = get_trial_gids(a)
+
+  rows = _setup_prange(row_gids,I;ghost=false,ax=:rows)
+  to_global_indices!(J,col_gids;ax=:cols)
+  cols = _setup_prange(col_gids,J;ax=:cols)
+  to_local_indices!(J,cols;ax=:cols)
+
+  return (rows,cols)
+end
+
+function get_assembly_maps(::SubAssembledRows,a::DistributedAllocationCOO)
+  I,J, = get_allocations(a)
+  row_gids = get_test_gids(a)
+  col_gids = get_trial_gids(a)
+
+  to_global_indices!(I,row_gids;ax=:rows)
+  to_global_indices!(J,col_gids;ax=:cols)
+
+  Jo = get_gid_owners(J,col_gids;ax=:cols)
+  rows = _setup_prange(row_gids,I;ax=:rows)
+  cols = _setup_prange(col_gids,J;ax=:cols,owners=Jo)
+
+  to_local_indices!(I,rows;ax=:cols)
+  to_local_indices!(J,cols;ax=:cols)
+
+  return (rows,cols)
+end
+
+function blockify(b::BlockPVector,i::BlockPVectorDofMap)
+  b
+end
+
+function blockify(b::PVector,i::BlockPVectorDofMap)
+  b′ = change_ghost(b,i.rows_space)
+  map(1:num_fields(f)) do i
+    restrict_to_field(f,b′,i)
+  end |> mortar
+end
+
+function blockify(A::BlockPMatrix,i::BlockPSparseMatrixDofMap)
+  A
+end
+
+function blockify(A::PSparseMatrix,i::BlockPSparseMatrixDofMap)
+  @notimplemented
+end
+
+# DEIM related
 
 struct LocalDofs{Tr,Tc,A<:AbstractLocalIndices} <: AbstractVector{Tr}
   global_rows::Vector{Tr}
@@ -177,9 +337,8 @@ function DofMaps.sparsify_split_indices(
     lj = _remap(j,global_to_local(rcj))
     sl = sparsify_split_indices(li,lj,dof_map)
     _remap!(sl,local_to_global(nzidx))
-    nzparts = NZIndexPartition(nzidx,rci,rcj)
     # the result here is a list of global nz indices
-    LocalDofs(sl,i.global_cols,nzparts)
+    LocalDofs(sl,i.global_cols,nzidx)
   end
 end
 

@@ -130,7 +130,7 @@ end
 
 const TransientGenericSnapshots{T,N,I,R<:TransientRealisation,A,B} = GenericSnapshots{T,N,I,R,A,B}
 
-function select_snapshots(s::TransientGenericSnapshots{T,N},pindex) where {T,N}
+function select_snapshots(s::TransientGenericSnapshots,pindex)
   np = num_params(s)
   prange = _format_index(pindex)
   trange = 1:num_times(s)
@@ -142,7 +142,7 @@ function select_snapshots(s::TransientGenericSnapshots{T,N},pindex) where {T,N}
   )
 end
 
-function select_times(s::TransientGenericSnapshots{T,N},tindex) where {T,N}
+function select_times(s::TransientGenericSnapshots,tindex)
   np = num_params(s)
   prange = 1:np
   trange = _format_index(tindex)
@@ -216,62 +216,6 @@ function Snapshots(
   BlockSnapshots(array)
 end
 
-# mode snapshots
-
-abstract type ModeAxes end
-struct Mode1Axes <: ModeAxes end
-struct Mode2Axes <: ModeAxes end
-
-struct ModeTransientSnapshots{M<:ModeAxes,T,I,R,A<:AbstractMatrix{T}} <: TransientSnapshots{T,2,I,R}
-  mode::M
-  data::A
-  dof_map::I
-  realisation::R
-end
-
-function ModeTransientSnapshots(data,i,r)
-  ModeTransientSnapshots(Mode1Axes(),data,i,r)
-end
-
-Base.size(s::ModeTransientSnapshots) = size(s.data)
-
-get_all_data(s::ModeTransientSnapshots) = s.data
-get_dof_map(s::ModeTransientSnapshots) = s.dof_map
-get_realisation(s::ModeTransientSnapshots) = s.realisation
-
-function Base.getindex(s::ModeTransientSnapshots,i,j)
-  getindex(s.data,i,j)
-end
-
-function Base.setindex!(s::ModeTransientSnapshots,v,i,j)
-  setindex!(s.data,v,i,j)
-end
-
-function get_mode1(s::TransientSnapshots)
-  ns = num_space_dofs(s)
-  data = get_all_data(s)
-  m1 = reshape(data,ns,:)
-  i = get_dof_map(s)
-  r = get_realisation(s)
-  ModeTransientSnapshots(m1,i,r)
-end
-
-function get_mode2(s::TransientSnapshots)
-  mode1 = get_mode1(s)
-  m2 = change_mode(mode1.data,num_params(s))
-  ModeTransientSnapshots(Mode2Axes(),m2,get_dof_map(s),get_realisation(s))
-end
-
-function change_mode(a::AbstractMatrix,np::Integer)
-  n1 = size(a,1)
-  n2 = Int(size(a,2)/np)
-  a′ = zeros(eltype(a),n2,n1*np)
-  @inbounds for i = 1:np
-    @views a′[:,(i-1)*n1+1:i*n1] = a[:,i:np:np*n2]'
-  end
-  return a′
-end
-
 # utils
 
 function Snapshots(
@@ -295,6 +239,16 @@ function change_dof_map(a::ArrayContributionTuple,i::ArrayContributionTuple)
   a′ = ()
   for j in eachindex(a)
     a′ = (a′...,change_dof_map(a[j],i[j]))
+  end
+  return a′
+end
+
+function change_mode(a::AbstractMatrix,np::Integer)
+  n1 = size(a,1)
+  n2 = Int(size(a,2)/np)
+  a′ = zeros(eltype(a),n2,n1*np)
+  @inbounds for i = 1:np
+    @views a′[:,(i-1)*n1+1:i*n1] = a[:,i:np:np*n2]'
   end
   return a′
 end
