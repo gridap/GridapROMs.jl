@@ -37,13 +37,7 @@ function RBSteady.solution_snapshots(
   sol = solve(fesolver,op,r,args...)
   values,stats = collect(sol)
   initial_values = initial_conditions(sol)
-  # the field-intrinsic `get_dof_map(op)` reflects each field's own standalone
-  # FE space partition, which need not match the partition `values` actually
-  # has as embedded in the combined (e.g. `ConsecutiveMultiFieldStyle`)
-  # solution vector. `get_dof_map(get_test(op),values)` derives the per-field
-  # dof maps from `values` itself (via `restrict_to_field`), so they are
-  # guaranteed consistent with how `Snapshots` will go on to split it.
-  i = get_dof_map(get_test(op),values)
+  i = get_dof_map(op)
   snaps = Snapshots(values,initial_values,i,r)
   return snaps,stats
 end

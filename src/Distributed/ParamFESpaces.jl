@@ -186,11 +186,6 @@ function FESpaces.zero_dirichlet_values(f::DistributedParamFESpace)
   param_zero_dirichlet_values(f)
 end
 
-# dirichlet dofs are purely local bookkeeping: there is no combined
-# `get_dirichlet_dof_ids` for the distributed wrapper (mirroring
-# `GridapDistributed.zero_dirichlet_values(U::DistributedSingleFieldFESpace) =
-# map(zero_dirichlet_values,U.spaces)`), so this must recurse per-rank rather
-# than call `param_zero_dirichlet_values` on `f` itself.
 function FESpaces.zero_dirichlet_values(f::DistributedSingleFieldParamFESpace)
   map(zero_dirichlet_values,local_views(f))
 end
@@ -199,13 +194,6 @@ function FESpaces.zero_free_values(f::DistributedMultiFieldParamFESpace{<:BlockM
   mortar(map(zero_free_values,f.field_fe_space))
 end
 
-# dirichlet values are inherently per-field (no combined `get_dirichlet_dof_ids`
-# exists for a multi-field space, under either style), so this applies regardless
-# of `MultiFieldStyle`, unlike `zero_free_values` above. Must stay a plain
-# `Vector` (not `mortar`ed into a `BlockVector`), matching
-# `GridapDistributed.zero_dirichlet_values(f::DistributedMultiFieldFESpace) =
-# map(zero_dirichlet_values,f.field_fe_space)`: `interpolate_everywhere!`
-# dispatches on `dirichlet_values::Vector{<:AbstractArray{<:AbstractVector}}`.
 function FESpaces.zero_dirichlet_values(f::DistributedMultiFieldParamFESpace)
   map(zero_dirichlet_values,f.field_fe_space)
 end

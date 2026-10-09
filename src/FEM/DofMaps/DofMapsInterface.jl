@@ -38,9 +38,8 @@ end
 
 Flattens `i`, the output will be a dof map with ndims == 1
 """
-function flatten(i::AbstractDofMap)
-  @abstractmethod
-end
+flatten(i::AbstractDofMap) = @abstractmeth
+flatten(i::TrivialDofMap) = i
 
 """
     change_dof_map(i::AbstractDofMap,args...) -> AbstractDofMap
@@ -87,9 +86,7 @@ function Base.reshape(i::InverseDofMap,s::Vararg{Int})
   InverseDofMap(reshape(i.dof_map,s...))
 end
 
-function flatten(i::InverseDofMap)
-  InverseDofMap(flatten(i.dof_map))
-end
+flatten(i::InverseDofMap) = InverseDofMap(flatten(i.dof_map))
 
 function change_dof_map(i::InverseDofMap,args...)
   InverseDofMap(change_dof_map(i.dof_map,args...))
@@ -158,9 +155,7 @@ function Base.reshape(i::VectorDofMap,s::Vararg{Int})
   VectorDofMap(s,i.bg_dof_to_act_dof)
 end
 
-function flatten(i::VectorDofMap)
-  VectorDofMap((prod(i.size),),i.bg_dof_to_act_dof)
-end
+flatten(i::VectorDofMap) = VectorDofMap((prod(i.size),),i.bg_dof_to_act_dof)
 
 function change_dof_map(i::VectorDofMap,args...)
   VectorDofMap(i,args...)
@@ -171,13 +166,18 @@ function change_dof_map(i::VectorDofMap,i′::VectorDofMap)
 end
 
 """
-    struct TrivialSparseMatrixDofMap{A<:SparsityPattern} <: TrivialDofMap{Int}
+    abstract type AbstractSparseDofMap{D,Ti} <: AbstractDofMap{D,Ti} end
+"""
+abstract type AbstractSparseDofMap{D,Ti} <: AbstractDofMap{D,Ti} end
+
+"""
+    struct TrivialSparseMatrixDofMap{A<:SparsityPattern} <: AbstractSparseDofMap{1,Int}
       sparsity::A
     end
 
 Index map used to select the nonzero entries of a sparse matrix of sparsity `sparsity`
 """
-struct TrivialSparseMatrixDofMap{A<:SparsityPattern} <: TrivialDofMap{Int}
+struct TrivialSparseMatrixDofMap{A<:SparsityPattern} <: AbstractSparseDofMap{1,Int}
   sparsity::A
 end
 
@@ -195,12 +195,10 @@ SparseDofMapStyle(i::TrivialSparseMatrixDofMap) = SparseDofMapIndexing()
 Base.size(i::TrivialSparseMatrixDofMap) = (nnz(i.sparsity),)
 Base.getindex(i::TrivialSparseMatrixDofMap,j::Integer) = j
 
-function flatten(i::TrivialSparseMatrixDofMap)
-  i
-end
+get_sparsity(i::TrivialSparseMatrixDofMap) = i.sparsity
 
 """
-    struct SparseMatrixDofMap{D,Ti,A<:SparsityPattern} <: AbstractDofMap{D,Ti}
+    struct SparseMatrixDofMap{D,Ti,A<:SparsityPattern} <: AbstractSparseDofMap{D,Ti}
       d_sparse_dofs_to_sparse_dofs::Array{Ti,D}
       d_sparse_dofs_to_full_dofs::Array{Ti,D}
       sparsity::A
@@ -210,7 +208,7 @@ Index map used to select the nonzero entries of a sparse matrix of sparsity `spa
 The nonzero entries are sorted according to the field `d_sparse_dofs_to_sparse_dofs`
 by default. For more details, check the function [`get_d_sparse_dofs_to_full_dofs`](@ref)
 """
-struct SparseMatrixDofMap{D,Ti,A<:SparsityPattern} <: AbstractDofMap{D,Ti}
+struct SparseMatrixDofMap{D,Ti,A<:SparsityPattern} <: AbstractSparseDofMap{D,Ti}
   d_sparse_dofs_to_sparse_dofs::Array{Ti,D}
   d_sparse_dofs_to_full_dofs::Array{Ti,D}
   sparsity::A
@@ -226,14 +224,9 @@ function Base.setindex!(i::SparseMatrixDofMap,v,j::Integer)
   setindex!(i.d_sparse_dofs_to_sparse_dofs,v,j)
 end
 
-function flatten(i::SparseMatrixDofMap)
-  TrivialSparseMatrixDofMap(i.sparsity)
-end
-
-const AbstractSparseDofMap = Union{TrivialSparseMatrixDofMap,SparseMatrixDofMap}
-
-get_sparsity(i::TrivialSparseMatrixDofMap) = i.sparsity
 get_sparsity(i::SparseMatrixDofMap) = i.sparsity
+
+flatten(i::SparseMatrixDofMap) = TrivialSparseMatrixDofMap(i.sparsity)
 
 for f in (:recast,:recast_indices,:recast_split_indices,:sparsify_indices)
   @eval begin

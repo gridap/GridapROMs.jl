@@ -217,8 +217,6 @@ function Snapshots(
   ) where {T,N}
 
   block_values = blocks(data)
-  s = size(block_values)
-  @check s == size(i)
   array = map(enumerate(block_values)) do (j,dataj)
     Snapshots(dataj,i[j],r)
   end

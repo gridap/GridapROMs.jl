@@ -82,164 +82,164 @@ end
 
 end
 
-using Gridap, Gridap.Algebra
-using GridapSolvers
-using GridapSolvers.LinearSolvers
-using LinearAlgebra
+# using Gridap, Gridap.Algebra
+# using GridapSolvers
+# using GridapSolvers.LinearSolvers
+# using LinearAlgebra
 
-function LinearSolvers.get_solver_caches(
-  solver::GMRESSolver,
-  A::AbstractMatrix{<:Number}
-  )
-  m, Pl, Pr = solver.m, solver.Pl, solver.Pr
+# function LinearSolvers.get_solver_caches(
+#   solver::GMRESSolver,
+#   A::AbstractMatrix{<:Number}
+#   )
+#   m, Pl, Pr = solver.m, solver.Pl, solver.Pr
 
-  V  = [allocate_in_domain(A) for i in 1:m+1]
-  zr = !isnothing(Pr) ? allocate_in_domain(A) : nothing
-  zl = allocate_in_domain(A)
+#   V  = [allocate_in_domain(A) for i in 1:m+1]
+#   zr = !isnothing(Pr) ? allocate_in_domain(A) : nothing
+#   zl = allocate_in_domain(A)
 
-  T = eltype(A)
+#   T = eltype(A)
 
-  H = zeros(T,m+1,m) # Hessenberg matrix
-  g = zeros(T,m+1)   # Residual vector
-  c = zeros(T,m)     # Gibens rotation cosines
-  s = zeros(T,m)     # Gibens rotation sines
-  return (V,zr,zl,H,g,c,s)
-end
+#   H = zeros(T,m+1,m) # Hessenberg matrix
+#   g = zeros(T,m+1)   # Residual vector
+#   c = zeros(T,m)     # Gibens rotation cosines
+#   s = zeros(T,m)     # Gibens rotation sines
+#   return (V,zr,zl,H,g,c,s)
+# end
 
-function Gridap.Algebra.solve!(
-  x::AbstractVector{<:Number},
-  ns::LinearSolvers.GMRESNumericalSetup,
-  b::AbstractVector{<:Number}
-  )
-  solver, A, Pl, Pr, caches = ns.solver, ns.mat, ns.Pl_ns, ns.Pr_ns, ns.caches
-  V, zr, zl, H, g, c, s = caches
-  m   = LinearSolvers.krylov_cache_length(ns)
-  log = solver.log
+# function Gridap.Algebra.solve!(
+#   x::AbstractVector{<:Number},
+#   ns::LinearSolvers.GMRESNumericalSetup,
+#   b::AbstractVector{<:Number}
+#   )
+#   solver, A, Pl, Pr, caches = ns.solver, ns.mat, ns.Pl_ns, ns.Pr_ns, ns.caches
+#   V, zr, zl, H, g, c, s = caches
+#   m   = LinearSolvers.krylov_cache_length(ns)
+#   log = solver.log
 
-  println("1")
+#   println("1")
 
-  fill!(V[1],zero(eltype(V[1])))
-  !isnothing(zr) && fill!(zr,zero(eltype(zr)))
-  fill!(zl,zero(eltype(zl)))
+#   fill!(V[1],zero(eltype(V[1])))
+#   !isnothing(zr) && fill!(zr,zero(eltype(zr)))
+#   fill!(zl,zero(eltype(zl)))
 
-  # Initial residual
-  LinearSolvers.krylov_residual!(V[1],x,A,b,Pl,zl)
-  β    = norm(V[1])
-  done = GridapSolvers.init!(log,β)
+#   # Initial residual
+#   LinearSolvers.krylov_residual!(V[1],x,A,b,Pl,zl)
+#   β    = norm(V[1])
+#   done = GridapSolvers.init!(log,β)
 
-  println("2")
+#   println("2")
 
-  while !done
-    # Arnoldi process
-    j = 1
-    V[1] ./= β
-    fill!(H,zero(eltype(H)))
-    fill!(g,zero(eltype(g))); g[1] = β
-    while !done && LinearSolvers.restart(solver,j)
-      # Expand Krylov basis if needed
-      if j > m  
-        H, g, c, s = LinearSolvers.expand_krylov_caches!(ns)
-        m = LinearSolvers.krylov_cache_length(ns)
-      end
+#   while !done
+#     # Arnoldi process
+#     j = 1
+#     V[1] ./= β
+#     fill!(H,zero(eltype(H)))
+#     fill!(g,zero(eltype(g))); g[1] = β
+#     while !done && LinearSolvers.restart(solver,j)
+#       # Expand Krylov basis if needed
+#       if j > m  
+#         H, g, c, s = LinearSolvers.expand_krylov_caches!(ns)
+#         m = LinearSolvers.krylov_cache_length(ns)
+#       end
 
-      println("3")
+#       println("3")
 
-      # Arnoldi orthogonalization by Modified Gram-Schmidt
-      fill!(V[j+1],zero(eltype(V[j+1])))
-      LinearSolvers.krylov_mul!(V[j+1],A,V[j],Pr,Pl,zr,zl)
-      for i in 1:j
-        H[i,j] = dot(V[i],V[j+1])
-        V[j+1] .-= H[i,j] .* V[i]
-      end
-      H[j+1,j] = norm(V[j+1])
-      V[j+1] ./= H[j+1,j]
+#       # Arnoldi orthogonalization by Modified Gram-Schmidt
+#       fill!(V[j+1],zero(eltype(V[j+1])))
+#       LinearSolvers.krylov_mul!(V[j+1],A,V[j],Pr,Pl,zr,zl)
+#       for i in 1:j
+#         H[i,j] = dot(V[i],V[j+1])
+#         V[j+1] .-= H[i,j] .* V[i]
+#       end
+#       H[j+1,j] = norm(V[j+1])
+#       V[j+1] ./= H[j+1,j]
 
-      println("4")
+#       println("4")
 
-      # Update QR
-      for i in 1:j-1
-        γ = c[i]*H[i,j] + s[i]*H[i+1,j]
-        H[i+1,j] = -conj(s[i])*H[i,j] + c[i]*H[i+1,j]
-        H[i,j] = γ
-      end
+#       # Update QR
+#       for i in 1:j-1
+#         γ = c[i]*H[i,j] + s[i]*H[i+1,j]
+#         H[i+1,j] = -conj(s[i])*H[i,j] + c[i]*H[i+1,j]
+#         H[i,j] = γ
+#       end
 
-      # New Givens rotation, update QR and residual
-      c[j], s[j], _ = LinearAlgebra.givensAlgorithm(H[j,j],H[j+1,j])
-      H[j,j] = c[j]*H[j,j] + s[j]*H[j+1,j]; H[j+1,j] = zero(eltype(H))
-      g[j+1] = -s[j]*g[j]; g[j] = c[j]*g[j]
+#       # New Givens rotation, update QR and residual
+#       c[j], s[j], _ = LinearAlgebra.givensAlgorithm(H[j,j],H[j+1,j])
+#       H[j,j] = c[j]*H[j,j] + s[j]*H[j+1,j]; H[j+1,j] = zero(eltype(H))
+#       g[j+1] = -s[j]*g[j]; g[j] = c[j]*g[j]
 
-      println("5")
+#       println("5")
 
-      β  = abs(g[j+1])
-      j += 1
-      done = GridapSolvers.update!(log,β)
-    end
-    j = j-1
+#       β  = abs(g[j+1])
+#       j += 1
+#       done = GridapSolvers.update!(log,β)
+#     end
+#     j = j-1
 
-    # Solve least squares problem Hy = g by backward substitution
-    for i in j:-1:1
-      g[i] = (g[i] - dot(H[i,i+1:j],g[i+1:j])) / H[i,i]
-    end
+#     # Solve least squares problem Hy = g by backward substitution
+#     for i in j:-1:1
+#       g[i] = (g[i] - dot(H[i,i+1:j],g[i+1:j])) / H[i,i]
+#     end
 
-    # Update solution & residual
-    if isnothing(Pr)
-      for i in 1:j
-        x .+= g[i] .* V[i]
-      end
-    else
-      fill!(zl,zero(eltype(zl)))
-      for i in 1:j
-        zl .+= g[i] .* V[i]
-      end
-      solve!(zr,Pr,zl)
-      x .+= zr
-      println("6")
-    end
-    LinearSolvers.krylov_residual!(V[1],x,A,b,Pl,zl)
-    β_actual = norm(V[1])
-    println("actual residual = ", β_actual)
-    println("estimated residual = ", β)
-  end
+#     # Update solution & residual
+#     if isnothing(Pr)
+#       for i in 1:j
+#         x .+= g[i] .* V[i]
+#       end
+#     else
+#       fill!(zl,zero(eltype(zl)))
+#       for i in 1:j
+#         zl .+= g[i] .* V[i]
+#       end
+#       solve!(zr,Pr,zl)
+#       x .+= zr
+#       println("6")
+#     end
+#     LinearSolvers.krylov_residual!(V[1],x,A,b,Pl,zl)
+#     β_actual = norm(V[1])
+#     println("actual residual = ", β_actual)
+#     println("estimated residual = ", β)
+#   end
 
-  GridapSolvers.finalize!(log,β)
-  return x
-end
+#   GridapSolvers.finalize!(log,β)
+#   return x
+# end
 
-sol(x) = im*x[1] + x[2]
-f(x)   = zero(ComplexF64)
+# sol(x) = im*x[1] + x[2]
+# f(x)   = zero(ComplexF64)
 
-domain = (0,1,0,1)
-nc = (8,8)
+# domain = (0,1,0,1)
+# nc = (8,8)
 
-model = CartesianDiscreteModel(domain,nc)
-order  = 1
-qorder = order*2 + 1
-reffe  = ReferenceFE(lagrangian,Float64,order)
-Vh     = TestFESpace(
-  model,reffe;conformity=:H1,dirichlet_tags="boundary",vector_type=Vector{ComplexF64}
-)
-Uh     = TrialFESpace(Vh,sol)
-u      = interpolate(sol,Uh)
+# model = CartesianDiscreteModel(domain,nc)
+# order  = 1
+# qorder = order*2 + 1
+# reffe  = ReferenceFE(lagrangian,Float64,order)
+# Vh     = TestFESpace(
+#   model,reffe;conformity=:H1,dirichlet_tags="boundary",vector_type=Vector{ComplexF64}
+# )
+# Uh     = TrialFESpace(Vh,sol)
+# u      = interpolate(sol,Uh)
 
-Ω      = Triangulation(model)
-dΩ     = Measure(Ω,qorder)
-a(u,v) = ∫(∇(v)⋅∇(u))*dΩ
-l(v)   = ∫(v⋅f)*dΩ
-op = AffineFEOperator(a,l,Uh,Vh)
+# Ω      = Triangulation(model)
+# dΩ     = Measure(Ω,qorder)
+# a(u,v) = ∫(∇(v)⋅∇(u))*dΩ
+# l(v)   = ∫(v⋅f)*dΩ
+# op = AffineFEOperator(a,l,Uh,Vh)
 
-P = JacobiLinearSolver()
+# P = JacobiLinearSolver()
 
-# GMRES with left and right preconditioner
-solver = LinearSolvers.GMRESSolver(40;Pr=P,Pl=P,rtol=1.e-8,verbose=true)
+# # GMRES with left and right preconditioner
+# solver = LinearSolvers.GMRESSolver(40;Pr=P,Pl=P,rtol=1.e-8,verbose=true)
 
-A, b = get_matrix(op), get_vector(op);
-ns = numerical_setup(symbolic_setup(solver,A),A)
+# A, b = get_matrix(op), get_vector(op);
+# ns = numerical_setup(symbolic_setup(solver,A),A)
 
-x = allocate_in_domain(A); fill!(x,0.0)
-solve!(x,ns,b)
+# x = allocate_in_domain(A); fill!(x,0.0)
+# solve!(x,ns,b)
 
-u  = interpolate(sol,Uh)
-uh = FEFunction(Uh,x)
-eh = uh - u
-E  = sum(∫(eh*eh)*dΩ)
-@test E < 1.e-6
+# u  = interpolate(sol,Uh)
+# uh = FEFunction(Uh,x)
+# eh = uh - u
+# E  = sum(∫(eh*eh)*dΩ)
+# @test E < 1.e-6

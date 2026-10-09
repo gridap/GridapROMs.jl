@@ -17,7 +17,7 @@ Base.size(s::TransientSnapshots) = (space_dofs(s)...,num_params(s),num_times(s))
 
 function Snapshots(s::AbstractParamArray,i::TrivialDofMap,r::TransientRealisation)
   data = get_all_data(s)
-  dims = (size(data,1),num_params(r),num_times(r))
+  dims = (innerlength(s),num_params(r),num_times(r))
   idata = reshape(data,dims)
   GenericSnapshots(idata,s,i,r)
 end

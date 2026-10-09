@@ -43,17 +43,6 @@ MultiField.MultiFieldStyle(r::DistributedMultiFieldRBSpace) = MultiFieldStyle(ge
 MultiField.num_fields(r::DistributedMultiFieldRBSpace) = num_fields(get_fe_space(r))
 Base.length(r::DistributedMultiFieldRBSpace) = num_fields(r)
 
-# function FESpaces.zero_free_values(r::DistributedMultiFieldRBSpace)
-#   data_blocks,fe_data_blocks = map(r) do ri
-#     fi = get_fe_space(ri)
-#     x = zero_free_values(fi)
-#     basis = RBTransient.get_basis_space(get_reduced_subspace(ri))
-#     x′ = change_ghost(x,axes(basis,1);make_consistent=true)
-#     (project(ri,x′),x′)
-#   end |> tuple_of_arrays
-#   RBParamVector(mortar(data_blocks),mortar(fe_data_blocks))
-# end
-
 function Utils.collect_cell_vector_for_trian(
   test::Union{DistributedFESpace,DistributedRBSpace},
   a::DistributedDomainContribution,
@@ -277,10 +266,9 @@ end
 function RBSteady.get_interpolation_dofs(a::DistributedInterpolation)
   _unpack(x) = x
   _unpack(x::AbstractArray{<:Tuple}) = tuple_of_arrays(x) 
-  dofs = map(local_views(a)) do a
+  map(local_views(a)) do a
     get_interpolation_dofs(a)
-  end
-  _unpack(dofs)
+  end |> _unpack
 end
 
 function FESpaces.interpolate!(
@@ -659,10 +647,9 @@ function RBSteady._convert_to_block(op::ParamOperator,V::T,U::T) where T<:Distri
 end
 
 function RBSteady._setup(U::DistributedMultiFieldRBSpace,u0::PVector)
-  Uc = MultiFieldFESpace(U.space.field_fe_space)  # consecutive view
-  u0 = change_ghost(u0,get_free_dof_ids(Uc))
-  offsets = RBTransient._get_offsets(Uc)
-  map(1:num_fields(Uc)) do i
+  u0 = change_ghost(u0,get_free_dof_ids(U))
+  offsets = RBTransient._get_offsets(U)
+  map(1:num_fields(U)) do i
     get_param_entry(u0,offsets[i])
   end |> mortar
 end
