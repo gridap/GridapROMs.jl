@@ -319,15 +319,14 @@ num_unconstrained_free_dofs(f::SingleFieldFESpace) = num_free_dofs(f)
 num_unconstrained_free_dofs(f::ZeroMeanFESpace) = num_unconstrained_free_dofs(f.space)
 num_unconstrained_free_dofs(f::FESpaceWithConstantFixed) = num_unconstrained_free_dofs(f.space)
 
-# utils 
+# utils
 
-function _get_dof_map(f::SingleFieldFESpace,b::AbstractVector{<:Number})
-  @check num_free_dofs(f) == length(b)
+_length(x) = length(x)
+_length(x::AbstractParamArray) = innerlength(x)
+
+function _get_dof_map(f::SingleFieldFESpace,b::AbstractVector)
+  @check num_free_dofs(f) == _length(b)
   get_dof_map(f)
-end
-
-function _get_dof_map(f::SingleFieldFESpace,b::AbstractVector{<:AbstractVector})
-  _get_dof_map(f,testitem(b))
 end
 
 function _get_dof_map(f::MultiFieldFESpace,b::AbstractVector)
@@ -343,13 +342,9 @@ function _get_dof_map(f::FESpace,b::Contribution)
   end
 end
 
-function _get_sparse_dof_map(f::SingleFieldFESpace,g::SingleFieldFESpace,A::AbstractMatrix{<:Number})
+function _get_sparse_dof_map(f::SingleFieldFESpace,g::SingleFieldFESpace,A::AbstractMatrix)
   sparsity = get_sparsity(f,g,A)
   get_sparse_dof_map(sparsity,f,g)
-end
-
-function _get_sparse_dof_map(f::SingleFieldFESpace,g::SingleFieldFESpace,A::AbstractMatrix{<:AbstractMatrix})
-  _get_sparse_dof_map(f,g,testitem(A))
 end
 
 function _get_sparse_dof_map(
@@ -361,8 +356,7 @@ function _get_sparse_dof_map(
   ntest = num_fields(test)
   ntrial = num_fields(trial)
   map(Iterators.product(1:ntest,1:ntrial)) do (i,j)
-    Aij = restr_to_fields(A,i,j,trial,test)
-    _get_sparse_dof_map(trial[j],test[i],Aij)
+    _get_sparse_dof_map(trial[j],test[i],A[Block(i,j)])
   end
 end
 
@@ -370,77 +364,4 @@ function _get_sparse_dof_map(f::FESpace,g::FESpace,A::Contribution)
   contribution(A.trians) do trian
     _get_sparse_dof_map(f,g,A[trian])
   end
-end
-
-restr_to_fields(A::AbstractMatrix{<:Number},i,j,U,V) = @notimplemented "This should be a BlockMatrix"
-restr_to_fields(A::BlockMatrix{<:Number},i,j,args...) = A[Block(i,j)]
-restr_to_fields(A::AbstractMatrix{<:AbstractMatrix},args...) = restr_to_fields(testitem(A),args...)
-
-function _restrict_to_fields(
-  A::AbstractMatrix{<:Number},
-  test::MultiFieldFESpace,
-  trial::MultiFieldFESpace,
-  test_field::Int,
-  trial_field::Int
-  )
-
-  row_offsets = _compute_field_offsets(test.spaces)
-  col_offsets = _compute_field_offsets(trial.spaces)
-  row_ini = row_offsets[test_field] + 1
-  row_end = row_offsets[test_field] + num_free_dofs(test[test_field])
-  col_ini = col_offsets[trial_field] + 1
-  col_end = col_offsets[trial_field] + num_free_dofs(trial[trial_field])
-  fast_getindex(A,row_ini:row_end,col_ini:col_end)
-end
-
-fast_getindex(A::AbstractMatrix,rows::AbstractUnitRange,cols::AbstractUnitRange) = view(A,rows,cols)
-
-function fast_getindex(A::SparseMatrixCSC{Tv,Ti},rows::AbstractUnitRange,cols::AbstractUnitRange{Int}) where {Tv,Ti}
-  m = length(rows)
-  n = length(cols)
-  row_first = first(rows)
-  row_last = last(rows)
-  colptrA = SparseArrays.getcolptr(A)
-  rowvalA = rowvals(A)
-  nzvalA = nonzeros(A)
-
-  new_colptr = Vector{Ti}(undef,n+1)
-  new_colptr[1] = 1
-
-  # First pass: count non-zeros in each output column via binary search on sorted rowvals
-  @inbounds for j_new in 1:n
-    col = cols[j_new]
-    lo = Int(colptrA[col])
-    hi = Int(colptrA[col+1]) - 1
-    if lo <= hi
-      r_lo = searchsortedfirst(rowvalA,row_first,lo,hi,Base.Order.Forward)
-      r_hi = searchsortedlast(rowvalA,row_last,lo,hi,Base.Order.Forward)
-      new_colptr[j_new+1] = new_colptr[j_new] + max(0,r_hi-r_lo+1)
-    else
-      new_colptr[j_new+1] = new_colptr[j_new]
-    end
-  end
-
-  nnzS = new_colptr[n+1] - 1
-  new_rowval = Vector{Ti}(undef,nnzS)
-  new_nzval = Vector{Tv}(undef,nnzS)
-
-  # Second pass: fill values, shifting row indices to 1-based local numbering
-  @inbounds for j_new in 1:n
-    col = cols[j_new]
-    lo = Int(colptrA[col])
-    hi = Int(colptrA[col+1]) - 1
-    if lo <= hi
-      r_lo = searchsortedfirst(rowvalA,row_first,lo,hi,Base.Order.Forward)
-      r_hi = searchsortedlast(rowvalA,row_last,lo,hi,Base.Order.Forward)
-      ptr = new_colptr[j_new]
-      for k in r_lo:r_hi
-        new_rowval[ptr] = rowvalA[k] - row_first + 1
-        new_nzval[ptr] = nzvalA[k]
-        ptr += 1
-      end
-    end
-  end
-
-  SparseMatrixCSC(m,n,new_colptr,new_rowval,new_nzval)
 end

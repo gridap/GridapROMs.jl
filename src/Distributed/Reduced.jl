@@ -510,7 +510,7 @@ for T in (:GenericPArray,:DistributedSnapshots)
       values = map(local_values(a)) do a
         reshape(a,size(a,1),nparams)
       end
-      a′ = change_ghost(GenericPArray(values,partition(axes(a,1))),axes(norm_matrix,1))
+      a′ = change_ghost(GenericPArray(values,row_partition(a)),axes(norm_matrix,1))
       sqrtabs(mean(diag(a′'*(norm_matrix*a′))))
     end
   end

@@ -32,15 +32,14 @@ function SparsityPattern(U::FESpace,V::FESpace)
   SparsityPattern(m3)
 end
 
-function SparsityPattern(U::FESpace,V::FESpace,A::AbstractSparseMatrix)
+function SparsityPattern(U::FESpace,V::FESpace,A::AbstractMatrix)
   @check num_free_dofs(V) == size(A,1)
   @check num_free_dofs(U) == size(A,2)
   SparsityPattern(A)
 end
 
-function SparsityPattern(a::AbstractSparseMatrix)
-  @abstractmethod
-end
+SparsityPattern(a::AbstractMatrix) = @abstractmethod
+SparsityPattern(a::AbstractParamSparseMatrix) = SparsityPattern(testitem(a))
 
 get_background_matrix(a::SparsityPattern) = @abstractmethod
 get_background_sparsity(a::SparsityPattern) = SparsityPattern(get_background_matrix(a))
