@@ -114,20 +114,30 @@ end
 
 # integration domains
 
-function RBSteady.DEIM(basis::GenericPMatrix)
+for (f,_f) in zip((:DEIM,:SOPT),(:_DEIM,:_SOPT))
+  @eval begin
+    function RBSteady.$f(A::GenericPMatrix)
+      Iglb,AI = $_f(A)
+      Iloc = map(LocalDofs,row_partition(A))
+      _to_local_dofs!(Iloc,Iglb)
+      Iloc,AI
+    end
+  end
+end
+
+function _DEIM(basis::GenericPMatrix)
   T = eltype(basis)
   m,n = size(basis)
   parts = partition(axes(basis,1))
-  (m == 0 || n == 0) && return map(LocalDofs,parts),zeros(T,0,0)
+  (m == 0 || n == 0) && return zeros(Int,0),zeros(T,0,0)
   I = zeros(Int,n)
-  Iparts = map(LocalDofs,parts)
   basisI = zeros(T,n,n)
   res = GenericPArray{Vector{T}}(undef,parts)
   map(own_values(res),own_values(basis)) do ro,bo
     @. ro = bo[:,1]
   end
   I[1] = findrow(res)
-  _fill_parts!(Iparts,basisI,basis,I,1)
+  _update_matrix!(basisI,basis,I,1)
   for l = 2:n
     PᵀU = view(basisI,1:l-1,1:l-1)
     Pᵀuₗ = view(basisI,1:l-1,l)
@@ -137,25 +147,24 @@ function RBSteady.DEIM(basis::GenericPMatrix)
       mul!(ro,view(bo,:,1:l-1),c,-1.0,1.0)
     end
     I[l] = findrow(res)
-    _fill_parts!(Iparts,basisI,basis,I,l)
+    _update_matrix!(basisI,basis,I,l)
   end
-  return Iparts,basisI
+  return I,basisI
 end
 
-function RBSteady.SOPT(basis::GenericPMatrix)
+function _SOPT(basis::GenericPMatrix)
   T = eltype(basis)
   m,n = size(basis)
   parts = partition(axes(basis,1))
-  (m == 0 || n == 0) && return map(LocalDofs,parts),zeros(T,0,0)
+  (m == 0 || n == 0) && return zeros(Int,0),zeros(T,0,0)
   I = zeros(Int,n)
-  Iparts = map(LocalDofs,parts)
   basisI = zeros(T,n,n)
   res = GenericPArray{Vector{T}}(undef,parts)
   map(own_values(res),own_values(basis)) do ro,bo
     @. ro = bo[:,1]
   end
   I[1] = findrow(res)
-  _fill_parts!(Iparts,basisI,basis,I,1)
+  _update_matrix!(basisI,basis,I,1)
   for l in 2:n
     P = I[1:l-1]
     PᵀU = view(basisI,1:l-1,1:l)
@@ -164,9 +173,9 @@ function RBSteady.SOPT(basis::GenericPMatrix)
     Il = _best_s_opt_index(basis,P,G,colnorms2,l)
     @check Il > 0
     I[l] = Il
-    _fill_parts!(Iparts,basisI,basis,I,l)
+    _update_matrix!(basisI,basis,I,l)
   end
-  return Iparts,basisI
+  return I,basisI
 end
 
 struct DistributedIntegrationDomain{A} <: Interpolation
@@ -304,8 +313,7 @@ end
 function RBSteady.get_at_domain(s::DistributedSnapshots,rows::AbstractVector{<:LocalDofs})
   n = reduce(max,map(r -> isempty(r.global_cols) ? 0 : maximum(r.global_cols),rows))
   np = num_params(s)
-  datav = map(local_values(s),local_views(rows)) do s,rows
-    data = flatten(s)
+  datav = map(local_values(s),local_views(rows)) do data,rows
     x = zeros(eltype(data),n,np)
     g2l = global_to_local(rows.index_parts)
     if !isempty(rows.global_rows)
@@ -330,8 +338,7 @@ function RBTransient.get_at_kron_domain(
   ns = reduce(max,map(r -> isempty(r.global_cols) ? 0 : maximum(r.global_cols),rows))
   nt = length(indices_time)
   np = num_params(s)
-  datav = map(local_values(s),local_views(rows)) do s,rows
-    data = flatten(s)
+  datav = map(local_values(s),local_views(rows)) do data,rows
     x = zeros(eltype(data),ns*nt,np)
     g2l = global_to_local(rows.index_parts)
     if !isempty(rows.global_rows)
@@ -358,8 +365,7 @@ function RBTransient.get_at_seq_domain(
   n = length(indices_time)
   np = num_params(s)
   @check reduce(max,map(r -> isempty(r.global_cols) ? 0 : maximum(r.global_cols),rows)) == n
-  datav = map(local_values(s),local_views(rows)) do s,rows
-    data = flatten(s)
+  datav = map(local_values(s),local_views(rows)) do data,rows
     x = zeros(eltype(data),n,np)
     for i in CartesianIndices(x)
       x[i] = data[rows[i.I[1]],i.I[2],indices_time[i.I[1]]]
@@ -585,23 +591,20 @@ function _subfill!(a::AbstractMatrix,b::AbstractMatrix,ia,ib)
   end
 end
 
-function _fill_parts!(Ip,aI,a,I,l)
-  _fill_index_parts!(Ip,I,l)
-  _update_matrix!(aI,a,I,l)
-end
-
-function _fill_index_parts!(Ip::AbstractArray{<:LocalDofs},I,l)
-  gl = I[l]
-  map(Ip) do a
-    if global_to_local(a.index_parts)[gl] > 0
-      push!(a.global_rows,gl)
-      push!(a.global_cols,l)
+function _to_local_dofs!(Ip::AbstractArray{<:LocalDofs},I)
+  for l in eachindex(I)
+    gl = I[l]
+    map(Ip) do a
+      if global_to_local(a.index_parts)[gl] > 0
+        push!(a.global_rows,gl)
+        push!(a.global_cols,l)
+      end
     end
   end
 end
 
 function _update_matrix!(aI,a,I,l)
-  aI .+= map(own_values(a),partition(axes(a,1))) do oa,ra
+  aI .+= map(own_values(a),row_partition(a)) do oa,ra
     g2o = global_to_own(ra)
     c = similar(aI)
     fill!(c,zero(eltype(c)))
@@ -614,7 +617,7 @@ function _update_matrix!(aI,a,I,l)
 end
 
 function _best_s_opt_index(basis::GenericPMatrix,P,G,colnorms2,l)
-  best_pairs = map(own_values(basis),partition(axes(basis,1))) do bo,ra
+  best_pairs = map(own_values(basis),row_partition(basis)) do bo,ra
     best_logS = -Inf
     best_gi = 0
     for oi in axes(bo,1)
@@ -707,9 +710,5 @@ function RBSteady._union(a::AbstractArray{<:AbstractVector},b::AbstractArray)
 end
 
 function RBSteady._cluster(s::DistributedSnapshots,inds::AbstractVector)
-  data = map(local_views(s)) do s
-    RBSteady._cluster(s,inds)
-  end
-  snaps = GenericPArray(data,flat_row_partition(s))
-  DistributedSnapshots(snaps)
+  select_snapshots(s,inds)
 end

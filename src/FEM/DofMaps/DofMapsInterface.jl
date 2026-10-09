@@ -38,7 +38,7 @@ end
 
 Flattens `i`, the output will be a dof map with ndims == 1
 """
-flatten(i::AbstractDofMap) = @abstractmeth
+flatten(i::AbstractDofMap) = @abstractmethod
 flatten(i::TrivialDofMap) = i
 
 """

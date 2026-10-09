@@ -7,13 +7,25 @@ function RBSteady.check_interpolation(snaps,interp::DistributedInterpolation,_fe
 end
 
 const DOFMAP_LABEL = "dofmap"
+const REALISATION_LABEL = "realisation"
 const HRPROJECTION_LABEL = "hrprojection"
 const NORM_MATRIX_LABEL = "norm"
 const BLOCK_LABEL = "block"
 const TRIAN_LABEL = "trian"
 
 function DrWatson.save(dir,s::DistributedSnapshots;label="")
-  _psave(dir,SNAPSHOTS_LABEL,s.snaps;label)
+  _psave(dir,SNAPSHOTS_LABEL,get_param_data(s);label)
+  _psave_dof_map(dir,SNAPSHOTS_LABEL,get_dof_map(s);label=_plabel(label,DOFMAP_LABEL))
+  map_main(partition(get_param_data(s))) do _
+    serialize(get_filename(dir,SNAPSHOTS_LABEL,_plabel(label,REALISATION_LABEL)),get_realisation(s))
+  end
+end
+
+function DrWatson.save(dir,s::DistributedTransientSnapshotsWithIC;label="")
+  save(dir,s.snaps;label)
+  for k in eachindex(s.initial_param_data)
+    _psave(dir,SNAPSHOTS_LABEL,s.initial_param_data[k];label=_plabel(label,"ic$k"))
+  end
 end
 
 function DrWatson.save(dir,s::DistributedBlockSnapshots;label="")
@@ -29,12 +41,34 @@ function RBSteady.load_snapshots(dir,ranks::AbstractArray;label="")
       nblocks += 1
     end
     array = map(1:nblocks) do i
-      DistributedSnapshots(_pload(dir,SNAPSHOTS_LABEL,ranks;label=_plabel(label,BLOCK_LABEL*"$i")))
+      _load_snapshots(dir,ranks;label=_plabel(label,BLOCK_LABEL*"$i"))
     end
     BlockSnapshots(array)
   else
-    snaps = _pload(dir,SNAPSHOTS_LABEL,ranks;label)
-    DistributedSnapshots(snaps)
+    _load_snapshots(dir,ranks;label)
+  end
+end
+
+# `data` is deliberately not persisted separately: it's fully re-derived on
+# load via `Snapshots(param_data,dof_map,realisation)`, so reconstruction
+# always matches however `Snapshots(...)` is currently defined, rather than
+# duplicating/risking drift from that logic.
+function _load_snapshots(dir,ranks::AbstractArray;label="")
+  param_data = _pload(dir,SNAPSHOTS_LABEL,ranks;label)
+  i = _pload_dof_map(dir,SNAPSHOTS_LABEL,ranks;label=_plabel(label,DOFMAP_LABEL))
+  r = deserialize(get_filename(dir,SNAPSHOTS_LABEL,_plabel(label,REALISATION_LABEL)))
+  snaps = Snapshots(param_data,i,r)
+  if _haspart(dir,SNAPSHOTS_LABEL,ranks;label=_plabel(label,"ic1"))
+    nic = 0
+    while _haspart(dir,SNAPSHOTS_LABEL,ranks;label=_plabel(label,"ic$(nic+1)"))
+      nic += 1
+    end
+    ic = ntuple(nic) do k
+      _pload(dir,SNAPSHOTS_LABEL,ranks;label=_plabel(label,"ic$k"))
+    end
+    TransientSnapshotsWithIC(ic,snaps)
+  else
+    snaps
   end
 end
 
@@ -271,6 +305,24 @@ function _sallocate(
     selectdim(v,1,o2g) .= selectdim(dl,1,o2l)
   end
   v
+end
+
+# `PVectorDofMap` carries two genuinely per-rank `PRange`s (`rows`,
+# `rows_space`); neither `_psave`/`_pload` has a method for it, so it needs
+# its own small pair of helpers, following the same per-rank-file convention.
+function _psave_dof_map(dir,name,i::PVectorDofMap;label="")
+  map(partition(i.rows),partition(i.rows_space)) do rows_ind,rows_space_ind
+    serialize(_part_filename(dir,name,label,part_id(rows_ind)),(rows_ind,rows_space_ind))
+  end
+end
+
+function _pload_dof_map(dir,name,ranks;label="")
+  pieces = map(ranks) do p
+    deserialize(_part_filename(dir,name,label,p))
+  end
+  rows_ind = map(first,pieces)
+  rows_space_ind = map(last,pieces)
+  PVectorDofMap(PRange(rows_ind),PRange(rows_space_ind))
 end
 
 function _sallocate(

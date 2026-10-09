@@ -39,7 +39,6 @@ function SparsityPattern(U::FESpace,V::FESpace,A::AbstractMatrix)
 end
 
 SparsityPattern(a::AbstractMatrix) = @abstractmethod
-SparsityPattern(a::AbstractParamSparseMatrix) = SparsityPattern(testitem(a))
 
 get_background_matrix(a::SparsityPattern) = @abstractmethod
 get_background_sparsity(a::SparsityPattern) = SparsityPattern(get_background_matrix(a))

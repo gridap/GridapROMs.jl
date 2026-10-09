@@ -322,7 +322,6 @@ num_unconstrained_free_dofs(f::FESpaceWithConstantFixed) = num_unconstrained_fre
 # utils
 
 _length(x) = length(x)
-_length(x::AbstractParamArray) = innerlength(x)
 
 function _get_dof_map(f::SingleFieldFESpace,b::AbstractVector)
   @check num_free_dofs(f) == _length(b)

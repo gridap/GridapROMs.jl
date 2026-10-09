@@ -79,10 +79,11 @@ import ArraysOfArrays: innersize,_ncolons
 import BlockArrays
 import BlockArrays: Block,BlockVector,BlockMatrix,BlockArray,AbstractBlockArray,mortar,blocks,blocklength
 import Gridap.Helpers: @abstractmethod,@check,@notimplemented,@notimplementedif
-import GridapDistributed: BlockPMatrix,BlockPVector,BlockPArray,DistributedFESpace,DistributedSingleFieldFESpace,DistributedMultiFieldFESpace,DistributedTriangulation,DistributedDomainContribution,change_ghost,to_parray_of_arrays
+import GridapDistributed: BlockPMatrix,BlockPVector,BlockPArray,BlockPRange,DistributedFESpace,DistributedSingleFieldFESpace,DistributedMultiFieldFESpace,DistributedTriangulation,DistributedDomainContribution,change_ghost,to_parray_of_arrays
+import GridapDistributed: DistributedSparseMatrixAssembler,DistributedAllocationCOO,_setup_prange,get_test_gids,get_trial_gids,get_gid_owners,to_global_indices!,to_local_indices!,get_allocations,get_matrix_builder,get_rows,get_cols
 import GridapROMs.DofMaps: range_2d,range_1d
 import GridapROMs.ParamAlgebra: ParamBuilder,ParamCounter
-import GridapROMs.RBSteady: SNAPSHOTS_LABEL,PROJECTION_LABEL,findrow,get_at_domain,get_l2_form,get_h1_form,get_div_coupling_form,get_form,l2_norm,h1_norm,div_coupling,_assemble_operator,_unwrap,_meas,select_rank,_truncate_row!,_get_label
+import GridapROMs.RBSteady: SNAPSHOTS_LABEL,PROJECTION_LABEL,findrow,get_at_domain,get_l2_form,get_h1_form,get_div_coupling_form,get_form,l2_norm,h1_norm,div_coupling,_assemble_operator,_unwrap,_meas,select_rank,_truncate_row!,_get_label,get_filename
 import GridapROMs.RBTransient: InterpolationStyle,KroneckerStyle,SequentialStyle,get_itimes,get_locations,get_interpolation_style
 import MPI
 import PartitionedArrays: SubSparseMatrix,VectorAssemblyCache,length_to_ptrs!,rewind_ptrs!,getany
@@ -92,6 +93,9 @@ include("OwnAndGhostParamVectors.jl")
 include("ParamJaggedArrays.jl")
 
 include("ParamArraysInterface.jl")
+
+export GenericPArray
+include("GenericPArray.jl")
 
 include("ParamSparseUtils.jl")
 
@@ -104,9 +108,6 @@ include("ParamFESpaces.jl")
 include("ParamSolvers.jl")
 
 include("IndexOperations.jl")
-
-export GenericPArray
-include("GenericPArray.jl")
 
 export DistributedSnapshots
 include("Snapshots.jl")

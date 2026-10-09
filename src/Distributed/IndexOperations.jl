@@ -11,14 +11,16 @@ end
 row_partition(a) = a
 row_partition(a::PVector) = a.index_partition
 row_partition(a::PSparseMatrix) = a.row_partition
+row_partition(a::GenericPArray) = a.index_partition
 
 col_partition(a) = a
 col_partition(a::PVector) = @notimplemented
 col_partition(a::PSparseMatrix) = a.col_partition
+col_partition(a::GenericPArray) = @notimplemented
 
 # DOF maps
 
-struct PVectorDofMap{A<:PRange,B<:PRange} <: AbstractArray{TrivialDofMap}
+struct PVectorDofMap{A<:PRange,B<:PRange} <: AbstractVector{TrivialDofMap{Int}}
   rows::A
   rows_space::B
 end
@@ -31,7 +33,7 @@ end
 
 row_partition(i::PVectorDofMap) = row_partition(i.rows)
 
-struct PSparseMatrixDofMap{A<:PRange,B<:PRange,C<:AbstractArray{<:SparsityPattern}} <: AbstractArray{AbstractSparseDofMap}
+struct PSparseMatrixDofMap{A<:PRange,B<:PRange,C<:AbstractArray{<:SparsityPattern}} <: AbstractVector{AbstractSparseDofMap}
   rows::A
   cols::A
   rows_space::B
@@ -146,7 +148,7 @@ end
 function get_assembly_maps(assem::DistributedSparseMatrixAssembler)
   space_rows = get_rows(assem)
   space_cols = get_cols(assem)
-  strategy = get_assembly_strategy(assem)
+  strategy = FESpaces.get_assembly_strategy(assem)
   builder = get_matrix_builder(assem)
   counter = nz_counter(builder,(space_rows,space_cols))
   alloc = nz_allocation(counter)
@@ -191,8 +193,21 @@ end
 
 function blockify(b::PVector,i::BlockPVectorDofMap)
   b′ = change_ghost(b,i.rows_space)
-  map(1:num_fields(f)) do i
-    restrict_to_field(f,b′,i)
+  nfields = length(i.blocks)
+  rows_k = ntuple(k -> partition(i.blocks[k].rows_space),nfields)
+  # `local_values(b′)` yields `ConsecutiveParamVector`s (param-indexed:
+  # `length` is `nparams`, not `ndofs`), not plain flat vectors — slice the
+  # underlying `(ndofs,nparams)` data matrix by dof-row instead, then
+  # re-wrap each chunk back into a `ConsecutiveParamArray`.
+  data_b = map(get_all_data,local_values(b′))
+  chunks = map(data_b,rows_k...) do db,ranks...
+    lens = map(local_length,ranks)
+    offsets = cumsum((0,lens...))
+    ntuple(k -> db[offsets[k]+1:offsets[k+1],:],nfields)
+  end
+  map(1:nfields) do k
+    values = map(c -> ConsecutiveParamArray(c[k]),chunks)
+    PVector(values,partition(i.blocks[k].rows_space))
   end |> mortar
 end
 

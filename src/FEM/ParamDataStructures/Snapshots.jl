@@ -125,7 +125,7 @@ struct GenericSnapshots{T,N,I,R,A,B} <: Snapshots{T,N,I,R}
     param_data::B,
     dof_map::I,
     realisation::R
-    ) where {T,N,R,A<:AbstractArray{T,N},B,I<:AbstractDofMap}
+    ) where {T,N,R,A<:AbstractArray{T,N},B,I}
 
     new{T,N,I,R,A,B}(data,param_data,dof_map,realisation)
   end

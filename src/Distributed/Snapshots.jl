@@ -2,8 +2,16 @@ const DistributedSnapshots{T,N,I<:AbstractArray{<:AbstractDofMap},R,A<:GenericPA
 
 for T in (:PVector,:PSparseMatrix)
   @eval begin
-    function ParamDataStructures.Snapshots(s::$T,i::AbstractArray{<:AbstractDofMap},r::AbstractRealisation)
+    function ParamDataStructures.Snapshots(s::$T,i::AbstractArray{<:AbstractDofMap},r::Realisation)
       GenericSnapshots(get_all_data(s),s,i,r)
+    end
+
+    function ParamDataStructures.Snapshots(s::$T,i::AbstractArray{<:AbstractDofMap},r::TransientRealisation)
+      data = get_all_data(s)
+      dims(d) = (innerlength(d),num_params(r),num_times(r))
+      idata = map(d -> reshape(d,dims(d)),local_values(data))
+      pidata = GenericPArray(idata,row_partition(data))
+      GenericSnapshots(pidata,s,i,r)
     end
   end
 end
@@ -180,14 +188,14 @@ end
 
 # index handling
 
-flat_row_partition(a::DistributedSnapshots) = flat_row_partition(a.snaps)
-row_partition(a::DistributedSnapshots) = row_partition(a.snaps)
-col_partition(a::DistributedSnapshots) = col_partition(a.snaps)
+flat_row_partition(a::DistributedSnapshots) = flat_row_partition(a.data)
+row_partition(a::DistributedSnapshots) = row_partition(a.data)
+col_partition(a::DistributedSnapshots) = col_partition(a.data)
 
-# linear algebra 
+# linear algebra
 
 _getvals(a) = a
-_getvals(a::DistributedSnapshots) = a.snaps 
+_getvals(a::DistributedSnapshots) = a.data
 
 for S in (:AbstractMatrix,:PSparseMatrix,:GenericPMatrix,:DistributedSnapshots), T in (:AbstractMatrix,:PSparseMatrix,:GenericPMatrix,:DistributedSnapshots)
   !(S == :DistributedSnapshots || T == :DistributedSnapshots) && continue
@@ -201,6 +209,6 @@ end
 
 for op in (:+,:-)
   @eval function Base.$op(a::DistributedSnapshots,b::DistributedSnapshots)
-    $op(a.snaps,b.snaps)
+    $op(a.data,b.data)
   end
 end

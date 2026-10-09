@@ -572,12 +572,6 @@ function GridapDistributed.change_ghost(a::GenericPArray,ids::PRange;is_consiste
   return a_new
 end
 
-# index handling 
-
-flat_row_partition(a::GenericPArray) = flat_row_partition(a.index_partition)
-row_partition(a::GenericPArray) = row_partition(a.index_partition)
-col_partition(a::GenericPArray) = col_partition(a.index_partition)
-
 # utils
 
 function _change_ghost(a::GenericPArray,ids::PRange)
