@@ -16,7 +16,7 @@ for T in (:PVector,:PSparseMatrix)
   end
 end
 
-function ParamDataStructures.select_all_data(s::DistributedSnapshots,args...;kwargs...)
+function ParamDataStructures.select_all_data(s::DistributedSnapshots,args...)
   data = get_all_data(s)
   values = map(local_values(data)) do d
     select_all_data(d,args...;kwargs...)

@@ -95,10 +95,6 @@ function param_getindex(s::SteadySnapshots{T,N},pindex::Integer) where {T,N}
   view(get_all_data(s),_ncolons(Val{N-1}())...,pindex)
 end
 
-function select_all_data(s::SteadySnapshots{T,N},prange) where {T,N}
-  view(get_all_data(s),_ncolons(Val{N-1}())...,prange)
-end
-
 function flatten(s::SteadySnapshots)
   d = get_all_data(s)
   reshape(d,:,num_params(s))
@@ -164,7 +160,7 @@ get_realisation(s::GenericSnapshots) = s.realisation
 function select_snapshots(s::GenericSnapshots,pindex)
   prange = _format_index(pindex)
   GenericSnapshots(
-    select_all_data(s,prange),
+    select_all_data(s.data,prange),
     select_param_data(s.param_data,prange),
     get_dof_map(s),
     get_realisation(s)[prange]
@@ -300,6 +296,10 @@ end
 
 _format_index(i) = i
 _format_index(i::Number) = i:i
+
+function select_all_data(data::AbstractArray{T,N},prange) where {T,N}
+  view(data,_ncolons(Val{N-1}())...,prange)
+end
 
 function select_param_data(pdata::ConsecutiveParamArray{T,N},prange) where {T,N}
   ConsecutiveParamArray(view(pdata.data,_ncolons(Val{N}())...,prange))

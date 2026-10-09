@@ -55,10 +55,6 @@ function param_getindex(
   view(get_all_data(s),_ncolons(Val{N-2}())...,pindex,tindex)
 end
 
-function select_all_data(s::TransientSnapshots{T,N},prange,trange) where {T,N}
-  view(get_all_data(s),_ncolons(Val{N-2}())...,prange,trange)
-end
-
 function flatten(s::TransientSnapshots)
   d = get_all_data(s)
   reshape(d,:,num_params(s),num_times(s))
@@ -135,7 +131,7 @@ function select_snapshots(s::TransientGenericSnapshots,pindex)
   prange = _format_index(pindex)
   trange = 1:num_times(s)
   GenericSnapshots(
-    select_all_data(s,prange,trange),
+    select_all_data(s.data,prange,trange),
     select_param_data(s.param_data,prange,trange;nparams=np),
     get_dof_map(s),
     get_realisation(s)[prange,trange]
@@ -251,6 +247,10 @@ function change_mode(a::AbstractMatrix,np::Integer)
     @views a′[:,(i-1)*n1+1:i*n1] = a[:,i:np:np*n2]'
   end
   return a′
+end
+
+function select_all_data(data::AbstractArray{T,N},prange,trange) where {T,N}
+  view(data,_ncolons(Val{N-2}())...,prange,trange)
 end
 
 function select_param_data(
