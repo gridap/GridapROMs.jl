@@ -512,9 +512,8 @@ end
 for T in (:GenericPArray,:DistributedSnapshots)
   @eval begin
     function Utils.induced_norm(a::$T,norm_matrix::AbstractMatrix)
-      nparams = size(a,2)
       values = map(local_values(a)) do a
-        reshape(a,size(a,1),nparams)
+        reshape(a,size(a,1),:)
       end
       a′ = change_ghost(GenericPArray(values,row_partition(a)),axes(norm_matrix,1))
       sqrtabs(mean(diag(a′'*(norm_matrix*a′))))

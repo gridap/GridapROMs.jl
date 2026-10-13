@@ -25,12 +25,7 @@ struct PVectorDofMap{A<:PRange,B<:PRange} <: AbstractVector{TrivialDofMap{Int}}
   rows_space::B
 end
 
-function GridapDistributed.local_views(i::PVectorDofMap)
-  map(local_views(i.rows)) do rows
-    VectorDofMap(local_to_own(rows))
-  end
-end
-
+GridapDistributed.local_views(i::PVectorDofMap) = local_views(i.rows)
 row_partition(i::PVectorDofMap) = row_partition(i.rows)
 
 struct PSparseMatrixDofMap{A<:PRange,B<:PRange,C<:AbstractArray{<:SparsityPattern}} <: AbstractVector{AbstractSparseDofMap}
@@ -194,20 +189,14 @@ end
 function blockify(b::PVector,i::BlockPVectorDofMap)
   b′ = change_ghost(b,i.rows_space)
   nfields = length(i.blocks)
-  rows_k = ntuple(k -> partition(i.blocks[k].rows_space),nfields)
-  # `local_values(b′)` yields `ConsecutiveParamVector`s (param-indexed:
-  # `length` is `nparams`, not `ndofs`), not plain flat vectors — slice the
-  # underlying `(ndofs,nparams)` data matrix by dof-row instead, then
-  # re-wrap each chunk back into a `ConsecutiveParamArray`.
-  data_b = map(get_all_data,local_values(b′))
-  chunks = map(data_b,rows_k...) do db,ranks...
+  rows = ntuple(k -> partition(i[k].rows_space),nfields)
+  values = map(local_values(b′),rows...) do b′,ranks...
     lens = map(local_length,ranks)
     offsets = cumsum((0,lens...))
-    ntuple(k -> db[offsets[k]+1:offsets[k+1],:],nfields)
+    ntuple(k -> get_param_entry(b′,offsets[k]+1:offsets[k+1]),nfields)
   end
   map(1:nfields) do k
-    values = map(c -> ConsecutiveParamArray(c[k]),chunks)
-    PVector(values,partition(i.blocks[k].rows_space))
+    PVector(values[k],partition(i[k].rows_space))
   end |> mortar
 end
 
