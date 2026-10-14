@@ -13,7 +13,7 @@ using GridapROMs.RBSteady
 using GridapROMs.RBTransient
 
 import GridapROMs.RBTransient: get_time_combination,time_enrichment,get_time_order,
-  get_interpolation_style,get_indices_time,get_integration_domain_space
+  get_interpolation_style,get_indices_time
 
 function _make_realisation(np=3,nt=4)
   params = Realisation([[i*0.1,i*0.2] for i in 1:np])
@@ -166,29 +166,29 @@ end
 
 # ─── TransientIntegrationDomain ───────────────────────────────────────────────
 
-@testset "TransientIntegrationDomain — struct construction and accessors" begin
+@testset "TransientInterpolation — struct construction and accessors" begin
   cells        = Int32[1,2,3]
   cell_row_ids   = Table(Int32[1,2,3],Int32[1,2,3,4])
   rows         = Int32[1,2,3]
   domain_space = GenericDomain(cells,cell_row_ids,rows)
 
   indices_time = Int32[2,4,6]
-  tid = TransientIntegrationDomain(KroneckerStyle(),domain_space,indices_time)
+  tid = TransientInterpolation(KroneckerStyle(),domain_space,indices_time)
 
   @test get_interpolation_style(tid) isa KroneckerStyle
   @test get_indices_time(tid) == indices_time
-  @test get_integration_domain_space(tid) === domain_space
+  @test tid.interp_space === domain_space
   @test get_integration_cells(tid) === cells
 end
 
-@testset "TransientIntegrationDomain — SequentialStyle variant" begin
+@testset "TransientInterpolation — SequentialStyle variant" begin
   cells        = Int32[5,7]
   cell_row_ids   = Table(Int32[10,11,12],Int32[1,3,4])
   rows         = Int32[10,11,12]
   domain_space = GenericDomain(cells,cell_row_ids,rows)
 
   indices_time = Int32[1,3]
-  tid = TransientIntegrationDomain(SequentialStyle(),domain_space,indices_time)
+  tid = TransientInterpolation(SequentialStyle(),domain_space,indices_time)
 
   @test get_interpolation_style(tid) isa SequentialStyle
   @test get_indices_time(tid) == indices_time

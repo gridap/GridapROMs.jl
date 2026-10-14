@@ -87,7 +87,7 @@ function select_snapshots(s::TransientGenericSnapshots,pindex)
   nparams = num_params(s)
   prange = _format_index(pindex)
   trange = 1:num_times(s)
-  tprange = range_1d(prange,trange;nparams)
+  tprange = range_1d(prange,trange,nparams)
   GenericSnapshots(
     select_all_data(s.data,tprange),
     select_param_data(s.param_data,tprange),
@@ -100,7 +100,7 @@ function select_times(s::TransientGenericSnapshots,tindex)
   nparams = num_params(s)
   prange = 1:nparams
   trange = _format_index(tindex)
-  tprange = range_1d(prange,trange;nparams)
+  tprange = range_1d(prange,trange,nparams)
   GenericSnapshots(
     select_all_data(s.data,tprange),
     select_param_data(s.param_data,tprange),

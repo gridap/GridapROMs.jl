@@ -606,9 +606,9 @@ for f in (:allocate_in_space_domain,:allocate_in_space_range)
       mortar(map($f,a.array))
     end
 
-    function $f(a::BlockProjection,x::BlockVector)
+    function $f(a::BlockProjection,x::Union{BlockArray,BlockParamArray})
       @check length(a) == blocklength(x)
-      mortar(map(i -> $f(a[Block(i)],x[Block(i)]),eachindex(a)))
+      mortar(map(i -> $f(a[Block(i)],blocks(x)[i]),eachindex(a)))
     end
   end
 end

@@ -65,7 +65,7 @@ end
 """
     DistributedBlockSnapshots{S<:DistributedSnapshots,N} = BlockSnapshots{S,N}
 """
-const DistributedBlockSnapshots{DistributedSnapshots,N} = BlockSnapshots{S,N}
+const DistributedBlockSnapshots{S<:DistributedSnapshots,N} = BlockSnapshots{S,N}
 
 function ParamDataStructures.Snapshots(
   data::BlockPArray,

@@ -731,7 +731,9 @@ const ConsecutiveParamSparseMatrix{Tv,Ti} = Union{
   ConsecutiveParamSparseMatrixCSC{Tv,Ti},
   ConsecutiveParamSparseMatrixCSR{<:Any,Tv,Ti}}
 
-function DofMaps.SparsityPattern(A::ConsecutiveParamSparseMatrix)
+function DofMaps.SparsityPattern(U::FESpace,V::FESpace,A::ParamSparseMatrix)
+  @check num_free_dofs(V) == innersize(A,1)
+  @check num_free_dofs(U) == innersize(A,2)
   SparsityPattern(testitem(A))
 end
 

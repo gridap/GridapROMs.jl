@@ -69,7 +69,7 @@ select_snapshots(s::Snapshots,pindex) = @abstractmethod
 
 function flatten(s::Snapshots)
   d = get_all_data(s)
-  unfold(d,size(s))
+  reshape(d,:,num_params(s))
 end
 
 function change_dof_map(s::Snapshots,i)
@@ -118,15 +118,16 @@ end
 
 function Snapshots(s::AbstractParamArray,i::AbstractDofMap,r::AbstractRealisation)
   data = get_all_data(s)
+  plength = param_length(s)
   param_data = s
   if _is_one_to(i)
-    dims = (size(i)...,num_params(r))
+    dims = (size(i)...,plength)
     idata = reshape(data,dims)
     return GenericSnapshots(idata,param_data,i,r)
   end
   T = eltype2(s)
-  idata = zeros(T,size(i)...,num_params(r))
-  for ip in 1:num_params(r)
+  idata = zeros(T,size(i)...,plength)
+  for ip in 1:plength
     for k in CartesianIndices(i)
       k′ = i[k]
       if k′ > 0
