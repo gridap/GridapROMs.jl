@@ -494,8 +494,7 @@ end
 for T in (:GenericPMatrix,:GenericPArray,:DistributedSnapshots)
   @eval begin
     function Utils.compute_relative_error(a::$T,b::$T,args...)
-      b′ = change_ghost(b,axes(a,1);make_consistent=true)
-      err_norm = induced_norm(a-b′,args...)
+      err_norm = induced_norm(a-b,args...)
       sol_norm = induced_norm(a,args...)
       ε = eps(eltype(sol_norm))
       return err_norm / max(sol_norm,ε)
@@ -507,10 +506,6 @@ for T in (:GenericPMatrix,:GenericPArray,:DistributedSnapshots)
       sqrt(n)
     end
   end
-end
-
-function Utils.induced_norm(a::DistributedTransientSnapshotsWithIC,norm_matrix::AbstractMatrix)
-  induced_norm(get_all_data(a),norm_matrix)
 end
 
 for T in (:GenericPArray,:DistributedSnapshots)

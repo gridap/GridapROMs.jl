@@ -1,16 +1,9 @@
-const DistributedSnapshots{T,N,I<:AbstractArray{<:AbstractDofMap},R,A<:GenericPArray,B} = GenericSnapshots{T,N,I,R,A,B}
+const DistributedSnapshots{T,N,I<:PartitionedDofMap,R} = Snapshots{T,N,I,R}
 
 for T in (:PVector,:PSparseMatrix)
   @eval begin
-    function ParamDataStructures.Snapshots(s::$T,i::AbstractArray{<:AbstractDofMap},r::Realisation)
+    function ParamDataStructures.Snapshots(s::$T,i::PartitionedDofMap,r::AbstractRealisation)
       GenericSnapshots(get_all_data(s),s,i,r)
-    end
-
-    function ParamDataStructures.Snapshots(s::$T,i::AbstractArray{<:AbstractDofMap},r::TransientRealisation)
-      dims(d) = (size(d,1),num_params(r),num_times(r))
-      data = map(d -> reshape(d,dims(d)),map(get_all_data,local_values(s)))
-      pdata = GenericPArray(data,flat_row_partition(s))
-      GenericSnapshots(pdata,s,i,r)
     end
   end
 end
@@ -24,7 +17,7 @@ end
 
 for f in (:partition,:local_values,:own_values,:ghost_values)
   @eval begin
-    PartitionedArrays.$f(s::DistributedSnapshots) = $f(s.data)
+    PartitionedArrays.$f(s::DistributedSnapshots) = $f(get_all_data(s))
   end
 end
 
@@ -39,7 +32,7 @@ end
 
 # sparse interface
 
-const DistributedSparseSnapshots{T,N,I<:AbstractArray{<:AbstractSparseDofMap},R,A<:GenericPArray,B} = DistributedSnapshots{T,N,I,R,A,B}
+const DistributedSparseSnapshots{T,N,I<:PSparseMatrixDofMap,R} = DistributedSnapshots{T,N,I,R}
 
 function DofMaps.recast(a::GenericPArray,i::PSparseMatrixDofMap)
   values = map(recast,local_values(a),local_views(i))
@@ -48,14 +41,12 @@ end
 
 # transient interface
 
-const DistributedTransientSnapshots{T,N,I<:AbstractArray{<:AbstractDofMap},R<:TransientRealisation,A<:GenericPArray,B} = DistributedSnapshots{T,N,I,R,A,B}
-
-const DistributedTransientSnapshotsWithIC{T,N,I,R,A,B<:DistributedTransientSnapshots} = TransientSnapshotsWithIC{T,N,I,R,A,B}
+const DistributedTransientSnapshots{T,N,I<:PartitionedDofMap,R<:TransientRealisation} = DistributedSnapshots{T,N,I,R}
 
 function ParamDataStructures.Snapshots(
   s::PVector,
   s0::Tuple{Vararg{PVector}},
-  i::AbstractArray{<:AbstractDofMap},
+  i::PartitionedDofMap,
   r::TransientRealisation
   )
 
@@ -63,20 +54,10 @@ function ParamDataStructures.Snapshots(
   TransientSnapshotsWithIC(s0,snaps)
 end
 
-for f in (:partition,:local_values,:own_values,:ghost_values)
-  @eval begin
-    PartitionedArrays.$f(s::DistributedTransientSnapshotsWithIC) = $f(s.snaps)
-  end
-end
-
-GridapDistributed.local_views(s::DistributedTransientSnapshotsWithIC) = partition(s)
-
-function GridapDistributed.change_ghost(s::DistributedTransientSnapshotsWithIC,ids::PRange;kwargs...)
-  data′ = change_ghost(get_param_data(s),ids;kwargs...)
+function GridapDistributed.change_ghost(s::TransientSnapshotsWithIC,ids::PRange;kwargs...)
   data0′ = map(d0 -> change_ghost(d0,ids;kwargs...),get_initial_param_data(s))
-  i = get_dof_map(s)
-  r = get_realisation(s)
-  Snapshots(data′,data0′,i,r)
+  snaps′ = change_ghost(s.snaps,ids;kwargs...)
+  TransientSnapshotsWithIC(data0′,snaps′)
 end
 
 # multi-field interface
@@ -84,15 +65,11 @@ end
 """
     DistributedBlockSnapshots{S<:DistributedSnapshots,N} = BlockSnapshots{S,N}
 """
-const DistributedBlockSnapshots{S<:Union{
-  DistributedSnapshots,
-  DistributedTransientSnapshots,
-  DistributedTransientSnapshotsWithIC},N
-  } = BlockSnapshots{S,N}
+const DistributedBlockSnapshots{DistributedSnapshots,N} = BlockSnapshots{S,N}
 
 function ParamDataStructures.Snapshots(
   data::BlockPArray,
-  i::AbstractArray{<:AbstractArray{<:AbstractDofMap}},
+  i::AbstractArray{<:PartitionedDofMap},
   r::AbstractRealisation
   )
 
@@ -105,7 +82,7 @@ end
 
 function ParamDataStructures.Snapshots(
   data::PVector,
-  i::AbstractArray{<:AbstractArray{<:AbstractDofMap}},
+  i::AbstractArray{<:PartitionedDofMap},
   r::AbstractRealisation
   )
 
@@ -115,7 +92,7 @@ end
 function ParamDataStructures.Snapshots(
   data::BlockPArray,
   data0::Tuple{Vararg{BlockPArray}},
-  i::AbstractArray{<:AbstractArray{<:AbstractDofMap}},
+  i::AbstractArray{<:PartitionedDofMap},
   r::TransientRealisation
   )
 
@@ -130,7 +107,7 @@ end
 function ParamDataStructures.Snapshots(
   data::PVector,
   data0::Tuple{Vararg{PVector}},
-  i::AbstractArray{<:AbstractArray{<:AbstractDofMap}},
+  i::AbstractArray{<:PartitionedDofMap},
   r::TransientRealisation
   )
 
@@ -187,16 +164,14 @@ end
 
 # index handling
 
-flat_row_partition(a::DistributedSnapshots) = flat_row_partition(a.data)
-row_partition(a::DistributedSnapshots) = row_partition(a.data)
-col_partition(a::DistributedSnapshots) = col_partition(a.data)
-# else it dispatches to the generic axes(...)
-Base.axes(a::DistributedSnapshots) = axes(a.data)
+flat_row_partition(a::DistributedSnapshots) = flat_row_partition(get_all_data(a))
+row_partition(a::DistributedSnapshots) = row_partition(get_all_data(a))
+col_partition(a::DistributedSnapshots) = col_partition(get_all_data(a))
 
 # linear algebra
 
 _getvals(a) = a
-_getvals(a::DistributedSnapshots) = a.data
+_getvals(a::DistributedSnapshots) = get_all_data(a)
 
 for S in (:AbstractMatrix,:PSparseMatrix,:GenericPMatrix,:DistributedSnapshots), T in (:AbstractMatrix,:PSparseMatrix,:GenericPMatrix,:DistributedSnapshots)
   !(S == :DistributedSnapshots || T == :DistributedSnapshots) && continue

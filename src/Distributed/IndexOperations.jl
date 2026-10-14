@@ -22,7 +22,9 @@ col_partition(a::PRange) = partition(a)
 
 # DOF maps
 
-struct PVectorDofMap{A<:PRange,B<:PRange} <: AbstractVector{TrivialDofMap{Int}}
+abstract type PartitionedDofMap <: AbstractVector{TrivialDofMap{Int}} end
+
+struct PVectorDofMap{A<:PRange,B<:PRange} <: PartitionedDofMap
   rows::A
   rows_space::B
 end
@@ -31,7 +33,7 @@ GridapDistributed.local_views(i::PVectorDofMap) = local_views(i.rows)
 
 row_partition(i::PVectorDofMap) = row_partition(i.rows)
 
-struct PSparseMatrixDofMap{A<:PRange,B<:PRange,C<:AbstractArray{<:SparsityPattern}} <: AbstractVector{AbstractSparseDofMap}
+struct PSparseMatrixDofMap{A<:PRange,B<:PRange,C<:AbstractArray{<:SparsityPattern}} <: PartitionedDofMap
   rows::A
   cols::A
   rows_space::B
@@ -54,7 +56,7 @@ function flat_row_partition(a::PSparseMatrixDofMap)
   variable_partition(nnz_local,nnz_global)
 end
 
-struct BlockPVectorDofMap{A<:AbstractVector{<:PVectorDofMap},B<:Union{PRange,BlockPRange}} <: AbstractVector{AbstractArray{TrivialDofMap}}
+struct BlockPVectorDofMap{A<:AbstractVector{<:PVectorDofMap},B<:Union{PRange,BlockPRange}} <: AbstractVector{PartitionedDofMap}
   blocks::A
   rows_space::B
 end
@@ -62,7 +64,7 @@ end
 Base.size(i::BlockPVectorDofMap) = size(i.blocks)
 Base.getindex(i::BlockPVectorDofMap,j::Integer) = i.blocks[j]
 
-struct BlockPSparseMatrixDofMap{A<:AbstractMatrix{<:PSparseMatrixDofMap},B<:Union{PRange,BlockPRange}} <: AbstractMatrix{AbstractArray{AbstractSparseDofMap}}
+struct BlockPSparseMatrixDofMap{A<:AbstractMatrix{<:PSparseMatrixDofMap},B<:Union{PRange,BlockPRange}} <: AbstractMatrix{PartitionedDofMap}
   blocks::A
   rows_space::B
   cols_space::B
@@ -293,7 +295,7 @@ end
 
 function DofMaps.recast_split_indices(
   sids::AbstractArray{<:LocalDofs},
-  dof_maps::AbstractArray{<:AbstractSparseDofMap}
+  dof_maps::PSparseMatrixDofMap
   )
 
   row_parts = row_partition(dof_maps)
@@ -338,7 +340,7 @@ end
 function DofMaps.sparsify_split_indices(
   frows::AbstractArray{<:LocalDofs},
   fcols::AbstractArray{<:LocalDofs},
-  dof_maps::AbstractArray{<:AbstractSparseDofMap}
+  dof_maps::PSparseMatrixDofMap
   )
 
   nz_partition = flat_row_partition(dof_maps)
@@ -409,7 +411,7 @@ end
 
 function _remap(x,x_to_y)
   x′ = copy(x)
-  _remap!(x′, x_to_y)
+  _remap!(x′,x_to_y)
   x′
 end
 

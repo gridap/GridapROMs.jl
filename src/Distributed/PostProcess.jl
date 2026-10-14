@@ -21,7 +21,7 @@ function DrWatson.save(dir,s::DistributedSnapshots;label="")
   end
 end
 
-function DrWatson.save(dir,s::DistributedTransientSnapshotsWithIC;label="")
+function DrWatson.save(dir,s::TransientSnapshotsWithIC{T,N,I,R,A,<:DistributedSnapshots} where {T,N,I,R,A};label="")
   save(dir,s.snaps;label)
   for k in eachindex(s.initial_param_data)
     _psave(dir,SNAPSHOTS_LABEL,s.initial_param_data[k];label=_plabel(label,"ic$k"))

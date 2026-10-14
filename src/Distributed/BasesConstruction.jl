@@ -145,17 +145,6 @@ function LinearAlgebra.qr!(A::GenericPMatrix,::ColumnNorm)
   return PQR(Q,R,p)
 end
 
-function RBTransient.first_unfold(A::DistributedSnapshots)
-  values = map(local_values(A)) do A
-    RBTransient.first_unfold(A)
-  end
-  GenericPArray(values,flat_row_partition(A))
-end
-
-function RBTransient.first_unfold(A::DistributedTransientSnapshotsWithIC)
-  RBTransient.first_unfold(A.snaps)
-end
-
 # utils 
 
 function RBSteady._is_rectangular(A::Union{GenericPMatrix,DistributedSnapshots};kwargs...)

@@ -42,10 +42,6 @@ function Snapshots(s::AbstractParamArray,r::AbstractRealisation)
   Snapshots(s,i,r)
 end
 
-function Snapshots(s::AbstractParamArray,i::AbstractDofMap,r::AbstractRealisation)
-  @abstractmethod
-end
-
 get_all_data(s::Snapshots) = @abstractmethod
 
 get_param_data(s::Snapshots) = @abstractmethod
@@ -116,11 +112,11 @@ struct GenericSnapshots{T,N,I,R,A,B} <: Snapshots{T,N,I,R}
   end
 end
 
-function Snapshots(s::AbstractParamArray,i::TrivialDofMap,r::Realisation)
+function Snapshots(s::AbstractParamArray,i::TrivialDofMap,r::AbstractRealisation)
   GenericSnapshots(get_all_data(s),s,i,r)
 end
 
-function Snapshots(s::AbstractParamArray,i::AbstractDofMap,r::Realisation)
+function Snapshots(s::AbstractParamArray,i::AbstractDofMap,r::AbstractRealisation)
   data = get_all_data(s)
   param_data = s
   if _is_one_to(i)
