@@ -154,7 +154,6 @@ include("ParamVectorWithEntries.jl")
 
 export AbstractSnapshots
 export Snapshots
-export SteadySnapshots
 export GenericSnapshots
 export SnapshotsAtIndices
 export SparseSnapshots

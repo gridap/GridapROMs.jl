@@ -174,7 +174,7 @@ end
 update_rom_tracker!(s::RBSolver,args...;kwargs...) = set_rom_tracker!(s,args...;kwargs...)
 
 """
-    solution_snapshots(solver::NonlinearSolver,feop::ParamOperator,r::Realisation) -> SteadySnapshots
+    solution_snapshots(solver::NonlinearSolver,feop::ParamOperator,r::Realisation) -> Snapshots
     solution_snapshots(solver::ODESolver,feop::TransientParamOperator,r::TransientRealisation,u0) -> TransientSnapshots
 
 The problem encoded in the FE operator `feop` is solved several times, and the solution

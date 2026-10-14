@@ -70,7 +70,6 @@ for f in (:partition,:local_values,:own_values,:ghost_values)
 end
 
 GridapDistributed.local_views(s::DistributedTransientSnapshotsWithIC) = partition(s)
-# TEMP-REMOVED-FOR-TESTING: Base.axes(s::DistributedTransientSnapshotsWithIC) = axes(s.snaps)
 
 function GridapDistributed.change_ghost(s::DistributedTransientSnapshotsWithIC,ids::PRange;kwargs...)
   data′ = change_ghost(get_param_data(s),ids;kwargs...)

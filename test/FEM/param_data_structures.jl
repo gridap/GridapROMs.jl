@@ -153,7 +153,7 @@ end
 
 # ─── Snapshots ────────────────────────────────────────────────────────────────
 
-@testset "SteadySnapshots construction and access" begin
+@testset "Snapshots construction and access" begin
   nparams = 4
   p = ParamSpace((0.0,1.0))
   r = realisation(p;nparams)

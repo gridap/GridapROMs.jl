@@ -1,10 +1,10 @@
 function RBSteady.reduction(red::SteadyReduction,A::TransientSnapshots,args...)
-  reduction(red.reduction,first_unfold(A),args...)
+  reduction(red.reduction,A,args...)
 end
 
 function RBSteady.reduction(red::TTSVDReduction,A::TransientSnapshots,args...)
   red_style = ReductionStyle(red)
-  cores,remainder = ttsvd(red_style,A,args...)
+  cores,remainder = ttsvd(red_style,flatten(A),args...)
   add_temporal_core!(cores,red_style[end],remainder)
   return cores
 end
@@ -44,7 +44,7 @@ Returns a `Vector{Matrix{T}}` of orthonormal basis matrices, one per mode.
 """
 function tucker(red::AbstractVector{<:Reduction},A::AbstractArray{T,N}) where {T,N}
   @assert length(red) == N-1
-  remainder = first_unfold(A)
+  remainder = A
   bases = ()
   for n in 1:N-1
     Ur,remainder = tucker_loop(red[n],remainder)
@@ -56,7 +56,7 @@ end
 function tucker(red::AbstractVector{<:Reduction},A::TransientSnapshots{T,N}) where {T,N}
   @assert length(red) == N-1
   nparams = num_params(A)
-  remainder = first_unfold(A)
+  remainder = A
   bases = ()
   for n in 1:N-1
     Ur,remainder = tucker_loop(red[n],remainder)
@@ -83,7 +83,7 @@ function tucker(
 
   @assert length(red) == N-1
   @assert M ≤ N
-  remainder = first_unfold(A)
+  remainder = A
   bases = ()
   for n in 1:N-1
     Ur,remainder = n ≤ M ? tucker_loop(red[n],remainder,X[n]) : tucker_loop(red[n],remainder)
@@ -101,7 +101,7 @@ function tucker(
   @assert length(red) == N-1
   @assert M ≤ N
   nparams = num_params(A)
-  remainder = first_unfold(A)
+  remainder = A
   bases = ()
   for n in 1:N-1
     Ur,remainder = n ≤ M ? tucker_loop(red[n],remainder,X[n]) : tucker_loop(red[n],remainder)
@@ -109,19 +109,4 @@ function tucker(
     bases = (bases...,Ur)
   end
   return bases
-end
-
-first_unfold(A::AbstractArray{T,N}) where {T,N} = reshape(A,size(A,1),prod(size(A)[2:end]))
-
-function first_unfold(A::SubArray{T,N}) where {T,N}
-  skeep = size(A,1)
-  scale = prod(size(A)[2:N-1])
-  iview = A.indices[end]
-  rview = range_1d(1:scale,iview,scale)
-  ncols = prod(size(A.parent)[2:N])
-  view(reshape(A.parent,skeep,ncols),:,rview)
-end
-
-function first_unfold(A::Snapshots)
-  first_unfold(get_all_data(A))
 end

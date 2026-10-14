@@ -9,51 +9,9 @@ Subtypes:
 """
 const TransientSnapshots{T,N,I,R<:TransientRealisation} = Snapshots{T,N,I,R}
 
-space_dofs(s::TransientSnapshots{T,N}) where {T,N} = size(get_all_data(s))[1:N-2]
-
 num_times(s::TransientSnapshots) = num_times(get_realisation(s))
 
-Base.size(s::TransientSnapshots) = (space_dofs(s)...,num_params(s),num_times(s))
-
-function Snapshots(s::AbstractParamArray,i::TrivialDofMap,r::TransientRealisation)
-  data = get_all_data(s)
-  dims = (innerlength(s),num_params(r),num_times(r))
-  idata = reshape(data,dims)
-  GenericSnapshots(idata,s,i,r)
-end
-
-function Snapshots(s::AbstractParamArray,i::AbstractDofMap,r::TransientRealisation)
-  data = get_all_data(s)
-  param_data = s
-  if _is_one_to(i)
-    dims = (size(i)...,num_params(r),num_times(r))
-    idata = reshape(data,dims)
-    return GenericSnapshots(idata,param_data,i,r)
-  end
-  T = eltype2(s)
-  idata = zeros(T,size(i)...,num_params(r),num_times(r))
-  for it in 1:num_times(r), ip in 1:num_params(r)
-    ipt = (it-1)*num_params(r)+ip
-    for k in CartesianIndices(i)
-      k′ = i[k]
-      if k′ > 0
-        idata[k.I...,ip,it] = data[k′,ipt]
-      end
-    end
-  end
-  GenericSnapshots(idata,param_data,i,r)
-end
-
 get_initial_param_data(s::TransientSnapshots) = @abstractmethod
-
-function param_getindex(
-  s::TransientSnapshots{T,N},
-  pindex::Integer,
-  tindex::Integer
-  ) where {T,N}
-
-  view(get_all_data(s),_ncolons(Val{N-2}())...,pindex,tindex)
-end
 
 function flatten(s::TransientSnapshots)
   d = get_all_data(s)
@@ -116,8 +74,7 @@ function select_times(s::TransientSnapshotsWithIC,tindex)
 end
 
 function param_cat(v::AbstractVector{<:TransientSnapshotsWithIC})
-  _get_snaps(s) = s.snaps
-  param_cat(map(_get_snaps,v))
+  param_cat(map(s -> s.snaps,v))
 end
 
 function change_dof_map(s::TransientSnapshotsWithIC,i)
@@ -127,24 +84,26 @@ end
 const TransientGenericSnapshots{T,N,I,R<:TransientRealisation,A,B} = GenericSnapshots{T,N,I,R,A,B}
 
 function select_snapshots(s::TransientGenericSnapshots,pindex)
-  np = num_params(s)
+  nparams = num_params(s)
   prange = _format_index(pindex)
   trange = 1:num_times(s)
+  tprange = range_1d(prange,trange;nparams)
   GenericSnapshots(
-    select_all_data(s.data,prange,trange),
-    select_param_data(s.param_data,prange,trange;nparams=np),
+    select_all_data(s.data,tprange),
+    select_param_data(s.param_data,tprange),
     get_dof_map(s),
     get_realisation(s)[prange,trange]
   )
 end
 
 function select_times(s::TransientGenericSnapshots,tindex)
-  np = num_params(s)
-  prange = 1:np
+  nparams = num_params(s)
+  prange = 1:nparams
   trange = _format_index(tindex)
+  tprange = range_1d(prange,trange;nparams)
   GenericSnapshots(
-    select_all_data(s,prange,trange),
-    select_param_data(s.param_data,prange,trange;nparams=np),
+    select_all_data(s.data,tprange),
+    select_param_data(s.param_data,tprange),
     get_dof_map(s),
     get_realisation(s)[prange,trange]
   )
@@ -249,30 +208,21 @@ function change_mode(a::AbstractMatrix,np::Integer)
   return a′
 end
 
-function select_all_data(data::AbstractArray{T,N},prange,trange) where {T,N}
-  view(data,_ncolons(Val{N-2}())...,prange,trange)
-end
+# utils
 
-function select_param_data(
-  pdata::ConsecutiveParamArray{T,N},
-  prange,trange;
-  nparams=Int(param_length(pdata)/length(trange))
-  ) where {T,N}
-
-  datarange = view(pdata.data,_ncolons(Val{N}())...,range_1d(prange,trange,nparams))
-  ConsecutiveParamArray(datarange)
-end
-
-# in practice, when dealing with the Jacobian, the param data is never fetched
-function select_param_data(
-  pdata::ConsecutiveParamSparseMatrixCSC,prange,trange;
-  nparams=Int(param_length(pdata)/length(trange))
-  )
-
-  datarange = view(pdata.data,:,range_1d(prange,trange,nparams))
-  ConsecutiveParamSparseMatrixCSC(pdata.m,pdata.n,pdata.colptr,pdata.rowval,datarange)
-end
-
-function select_param_data(pdata::BlockParamArray,prange,trange;kwargs...) 
-  mortar(map(p -> select_param_data(p,prange,trange;kwargs...),blocks(pdata)))
+function unfold(A::SubArray{T,N},dims::Dims) where {T,N}
+  @check length(A) == prod(dims)
+  nsplit = length(dims)-N+1
+  nsplit == 1 && return A
+  @check nsplit == 2 "unfold only supports splitting the trailing dimension into (nparams,ntimes)"
+  leading = A.indices[1:end-1]
+  lind = A.indices[end]
+  r2d = lind.parent
+  parent = A.parent
+  leading_dims = size(parent)[1:end-1]
+  ncols = size(parent,ndims(parent))
+  np = r2d.scale
+  nt = ncols ÷ np
+  parent′ = reshape(parent,leading_dims...,np,nt)
+  view(parent′,leading...,r2d.axis1,r2d.axis2)
 end

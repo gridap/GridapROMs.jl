@@ -34,11 +34,6 @@ num_params(s::AbstractSnapshots) = num_params(get_realisation(s))
 Type representing a collection of parametric abstract arrays of eltype `T`,
 that are associated with a realisation of type `R`. Unlike `AbstractParamArray`,
 which are arrays of arrays, subtypes of `Snapshots` are arrays of numbers.
-
-Subtypes:
-
-- [`SteadySnapshots`](@ref)
-- [`TransientSnapshots`](@ref)
 """
 abstract type Snapshots{T,N,I,R} <: AbstractSnapshots{T,N} end
 
@@ -53,15 +48,33 @@ end
 
 get_all_data(s::Snapshots) = @abstractmethod
 
-get_param_data(s::Snapshots) = ConsecutiveParamArray(get_all_data(s))
+get_param_data(s::Snapshots) = @abstractmethod
 
-num_space_dofs(s::Snapshots) = length(get_dof_map(s))
+num_space_dofs(s::Snapshots) = prod(space_dofs(s))
+
+"""
+    space_dofs(s::Snapshots{T,N}) where {T,N} -> NTuple{N-1,Integer}
+
+Returns the spatial size of the snapshots
+"""
+space_dofs(s::Snapshots{T,N}) where {T,N} = size(get_all_data(s))[1:N-1]
+
+Base.size(s::Snapshots) = (space_dofs(s)...,num_params(s))
+
+function param_getindex(s::Snapshots{T,N},pindex::Integer) where {T,N}
+  view(get_all_data(s),_ncolons(Val{N-1}())...,pindex)
+end
 
 function Base.reshape(s::Snapshots,dims::Dims)
   reshape(get_all_data(s),dims...)
 end
 
 select_snapshots(s::Snapshots,pindex) = @abstractmethod
+
+function flatten(s::Snapshots)
+  d = get_all_data(s)
+  unfold(d,size(s))
+end
 
 function change_dof_map(s::Snapshots,i)
   pdata = get_param_data(s)
@@ -74,30 +87,6 @@ function param_cat(v::AbstractVector{<:Snapshots})
   i = get_dof_map(first(v))
   r = param_cat(map(get_realisation,v))
   Snapshots(data,i,r)
-end
-
-"""
-    const SteadySnapshots{T,N,I,R<:Realisation} = Snapshots{T,N,I,R}
-"""
-const SteadySnapshots{T,N,I,R<:Realisation} = Snapshots{T,N,I,R}
-
-"""
-    space_dofs(s::SteadySnapshots{T,N}) where {T,N} -> NTuple{N-1,Integer}
-    space_dofs(s::TransientSnapshots{T,N}) where {T,N} -> NTuple{N-2,Integer}
-
-Returns the spatial size of the snapshots
-"""
-space_dofs(s::SteadySnapshots{T,N}) where {T,N} = size(get_all_data(s))[1:N-1]
-
-Base.size(s::SteadySnapshots) = (space_dofs(s)...,num_params(s))
-
-function param_getindex(s::SteadySnapshots{T,N},pindex::Integer) where {T,N}
-  view(get_all_data(s),_ncolons(Val{N-1}())...,pindex)
-end
-
-function flatten(s::SteadySnapshots)
-  d = get_all_data(s)
-  reshape(d,:,num_params(s))
 end
 
 """
@@ -285,18 +274,6 @@ function change_dof_map(a::ArrayContribution,i::ArrayContribution)
   return Contribution(a′,a.trians)
 end
 
-@inline function _is_one_to(a::AbstractArray{<:Number})
-  @inbounds for i in eachindex(a)
-    if a[i] != i
-      return false
-    end
-  end
-  return true
-end 
-
-_format_index(i) = i
-_format_index(i::Number) = i:i
-
 function select_all_data(data::AbstractArray{T,N},prange) where {T,N}
   view(data,_ncolons(Val{N-1}())...,prange)
 end
@@ -440,3 +417,22 @@ for T in (:ConsecutiveParamArray,:ConsecutiveParamSparseMatrix)
     consec_mul!(C::AbstractArray,A::Union{<:AbstractArray,Adjoint{S,<:AbstractArray}},B::Adjoint{U,<:$T}) where {S,U} = mul!(C,A,adjoint(get_all_data(B.parent)))
   end
 end
+
+# utils
+
+function unfold(A::AbstractArray,dims::Dims)
+  @check length(A) == prod(dims)
+  reshape(A,dims)
+end
+
+@inline function _is_one_to(a::AbstractArray{<:Number})
+  @inbounds for i in eachindex(a)
+    if a[i] != i
+      return false
+    end
+  end
+  return true
+end 
+
+_format_index(i) = i
+_format_index(i::Number) = i:i
