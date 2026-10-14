@@ -190,11 +190,19 @@ for f in (:project_space!,:inv_project_space!)
   end
 end
 
-function RBSteady.GalerkinProjectable(a::A) where A<:AbstractParamPVector
+function RBSteady.union_bases(a::DistributedPODProjection,basis_b::GenericPMatrix,args...)
+  rows = axes(get_basis(a),1)
+  basis_b′ = change_ghost(basis_b,rows;make_consistent=true)
+  basis_a = get_basis(a)
+  basis_ab = gram_schmidt(hcat(basis_b′,basis_a),args...)
+  PODProjection(basis_ab,get_dof_map(a))
+end
+
+function RBSteady.GalerkinProjectable(a::A) where A<:PVector
   GalerkinProjectable{A}(a)
 end
 
-function RBSteady.GalerkinProjectable(a::A) where A<:AbstractParamPSparseMatrix
+function RBSteady.GalerkinProjectable(a::A) where A<:PSparseMatrix
   GalerkinProjectable{A}(a)
 end
 

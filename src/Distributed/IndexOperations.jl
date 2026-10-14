@@ -12,11 +12,13 @@ row_partition(a) = a
 row_partition(a::PVector) = a.index_partition
 row_partition(a::PSparseMatrix) = a.row_partition
 row_partition(a::GenericPArray) = a.index_partition
+row_partition(a::PRange) = partition(a)
 
 col_partition(a) = a
 col_partition(a::PVector) = @notimplemented
 col_partition(a::PSparseMatrix) = a.col_partition
 col_partition(a::GenericPArray) = @notimplemented
+col_partition(a::PRange) = partition(a)
 
 # DOF maps
 
@@ -25,11 +27,7 @@ struct PVectorDofMap{A<:PRange,B<:PRange} <: AbstractVector{TrivialDofMap{Int}}
   rows_space::B
 end
 
-function GridapDistributed.local_views(i::PVectorDofMap)
-  map(local_views(i.rows)) do rows
-    VectorDofMap(local_to_own(rows))
-  end
-end
+GridapDistributed.local_views(i::PVectorDofMap) = local_views(i.rows)
 
 row_partition(i::PVectorDofMap) = row_partition(i.rows)
 
@@ -43,12 +41,18 @@ end
 
 function GridapDistributed.local_views(i::PSparseMatrixDofMap)
   map(local_views(i.loc_sparsity)) do sparsity
-    TrivialSparseDofMap(sparsity)
+    TrivialSparseMatrixDofMap(sparsity)
   end
 end
 
 row_partition(i::PSparseMatrixDofMap) = row_partition(i.rows)
 col_partition(i::PSparseMatrixDofMap) = col_partition(i.cols)
+
+function flat_row_partition(a::PSparseMatrixDofMap)
+  nnz_local = map(nnz,a.loc_sparsity)
+  nnz_global = reduce(+,nnz_local,init=0)
+  variable_partition(nnz_local,nnz_global)
+end
 
 struct BlockPVectorDofMap{A<:AbstractVector{<:PVectorDofMap},B<:Union{PRange,BlockPRange}} <: AbstractVector{AbstractArray{TrivialDofMap}}
   blocks::A
@@ -114,8 +118,8 @@ function DofMaps._get_dof_map(f::DistributedMultiFieldFESpace{<:BlockMultiFieldS
 end
 
 function DofMaps._get_dof_map(f::DistributedMultiFieldFESpace,b::BlockPVector)
-  blocks = map(DofMaps._get_dof_map,f.field_fe_space,blocks(b))
-  BlockPVectorDofMap(blocks,get_free_dof_ids(f))
+  field_blocks = map(DofMaps._get_dof_map,f.field_fe_space,blocks(b))
+  BlockPVectorDofMap(field_blocks,get_free_dof_ids(f))
 end
 
 function DofMaps._get_sparse_dof_map(
@@ -127,7 +131,7 @@ function DofMaps._get_sparse_dof_map(
   rows,cols = axes(A)
   space_rows = get_free_dof_ids(test)
   space_cols = get_free_dof_ids(trial)
-  loc_sparsity = map(get_sparsity,local_values(A))
+  loc_sparsity = map(SparsityPattern,local_values(A))
   return PSparseMatrixDofMap(rows,cols,space_rows,space_cols,loc_sparsity)
 end
 
@@ -194,20 +198,15 @@ end
 function blockify(b::PVector,i::BlockPVectorDofMap)
   b′ = change_ghost(b,i.rows_space)
   nfields = length(i.blocks)
-  rows_k = ntuple(k -> partition(i.blocks[k].rows_space),nfields)
-  # `local_values(b′)` yields `ConsecutiveParamVector`s (param-indexed:
-  # `length` is `nparams`, not `ndofs`), not plain flat vectors — slice the
-  # underlying `(ndofs,nparams)` data matrix by dof-row instead, then
-  # re-wrap each chunk back into a `ConsecutiveParamArray`.
-  data_b = map(get_all_data,local_values(b′))
-  chunks = map(data_b,rows_k...) do db,ranks...
+  rows = ntuple(k -> partition(i[k].rows_space),nfields)
+  chunks = map(local_values(b′),rows...) do b′,ranks...
     lens = map(local_length,ranks)
     offsets = cumsum((0,lens...))
-    ntuple(k -> db[offsets[k]+1:offsets[k+1],:],nfields)
+    ntuple(k -> get_param_entry(b′,offsets[k]+1:offsets[k+1]),nfields)
   end
   map(1:nfields) do k
-    values = map(c -> ConsecutiveParamArray(c[k]),chunks)
-    PVector(values,partition(i.blocks[k].rows_space))
+    values_k = map(c -> c[k],chunks)
+    PVector(values_k,partition(i[k].rows_space))
   end |> mortar
 end
 
@@ -297,12 +296,14 @@ function DofMaps.recast_split_indices(
   dof_maps::AbstractArray{<:AbstractSparseDofMap}
   )
 
-  r,c = map(sids,dof_maps) do i,dof_map
+  row_parts = row_partition(dof_maps)
+  col_parts = col_partition(dof_maps)
+  r,c = map(sids,local_views(dof_maps),row_parts,col_parts) do i,dof_map,rowp,colp
     rci = i.index_parts
     li = _remap(i,global_to_local(rci))
     r,c = recast_split_indices(li,dof_map)
-    _remap!(r,local_to_global(row_partition(rci)))
-    _remap!(c,local_to_global(col_partition(rci)))
+    _remap!(r,local_to_global(rowp))
+    _remap!(c,local_to_global(colp))
     (r,c)
   end |> tuple_of_arrays
 
@@ -322,13 +323,12 @@ function DofMaps.recast_split_indices(
   grows = reduce(op,rcache)
   gcols = reduce(op,ccache)
 
-  R′,C′ = map(sids) do i
-    rci = i.index_parts
-    g2lr = global_to_local(row_partition(rci))
-    g2lc = global_to_local(col_partition(rci))
+  R′,C′ = map(row_parts,col_parts) do rowp,colp
+    g2lr = global_to_local(rowp)
+    g2lc = global_to_local(colp)
     ikeep,rkeep,ckeep = _keep_rows_and_cols(grows,gcols,g2lr,g2lc)
-    R′ = LocalDofs(rkeep,copy(ikeep),row_partition(rci))
-    C′ = LocalDofs(ckeep,copy(ikeep),col_partition(rci))
+    R′ = LocalDofs(rkeep,copy(ikeep),rowp)
+    C′ = LocalDofs(ckeep,copy(ikeep),colp)
     (R′,C′)
   end |> tuple_of_arrays
 
@@ -341,19 +341,17 @@ function DofMaps.sparsify_split_indices(
   dof_maps::AbstractArray{<:AbstractSparseDofMap}
   )
 
-  nnz_local = map(d -> nnz(get_sparsity(d)),dof_maps)
-  n_nz_global = reduce(+,nnz_local,init=0)
-  nz_part = variable_partition(nnz_local,n_nz_global)
-  map(frows,fcols,dof_maps,nz_part) do i,j,dof_map,nzidx
+  nz_partition = flat_row_partition(dof_maps)
+  map(local_views(frows),local_views(fcols),local_views(dof_maps),local_views(nz_partition)) do i,j,dof_map,nzids
     @check i.global_cols == j.global_cols
     rci = i.index_parts
     rcj = j.index_parts
     li = _remap(i,global_to_local(rci))
     lj = _remap(j,global_to_local(rcj))
     sl = sparsify_split_indices(li,lj,dof_map)
-    _remap!(sl,local_to_global(nzidx))
+    _remap!(sl,local_to_global(nzids))
     # the result here is a list of global nz indices
-    LocalDofs(sl,i.global_cols,nzidx)
+    LocalDofs(sl,i.global_cols,nzids)
   end
 end
 
@@ -405,7 +403,7 @@ end
 
 function _remap!(x,x_to_y)
   for (i,xi) in enumerate(x)
-    x[i] = x_to_y[xi]
+    x[i] = iszero(xi) ? xi : x_to_y[xi]
   end
 end
 

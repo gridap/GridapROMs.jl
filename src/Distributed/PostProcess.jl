@@ -15,7 +15,7 @@ const TRIAN_LABEL = "trian"
 
 function DrWatson.save(dir,s::DistributedSnapshots;label="")
   _psave(dir,SNAPSHOTS_LABEL,get_param_data(s);label)
-  _psave_dof_map(dir,SNAPSHOTS_LABEL,get_dof_map(s);label=_plabel(label,DOFMAP_LABEL))
+  _psave(dir,SNAPSHOTS_LABEL,get_dof_map(s);label=_plabel(label,DOFMAP_LABEL))
   map_main(partition(get_param_data(s))) do _
     serialize(get_filename(dir,SNAPSHOTS_LABEL,_plabel(label,REALISATION_LABEL)),get_realisation(s))
   end
@@ -49,13 +49,9 @@ function RBSteady.load_snapshots(dir,ranks::AbstractArray;label="")
   end
 end
 
-# `data` is deliberately not persisted separately: it's fully re-derived on
-# load via `Snapshots(param_data,dof_map,realisation)`, so reconstruction
-# always matches however `Snapshots(...)` is currently defined, rather than
-# duplicating/risking drift from that logic.
 function _load_snapshots(dir,ranks::AbstractArray;label="")
   param_data = _pload(dir,SNAPSHOTS_LABEL,ranks;label)
-  i = _pload_dof_map(dir,SNAPSHOTS_LABEL,ranks;label=_plabel(label,DOFMAP_LABEL))
+  i = _pload(dir,SNAPSHOTS_LABEL,ranks;label=_plabel(label,DOFMAP_LABEL))
   r = deserialize(get_filename(dir,SNAPSHOTS_LABEL,_plabel(label,REALISATION_LABEL)))
   snaps = Snapshots(param_data,i,r)
   if _haspart(dir,SNAPSHOTS_LABEL,ranks;label=_plabel(label,"ic1"))
@@ -167,9 +163,6 @@ function RBSteady.load_contribution(dir,trian::Tuple{Vararg{DistributedTriangula
   RBSteady._setup_contribution(vals,trian)
 end
 
-# `ranks::Vector`: reassemble a serial (non-distributed) contribution, over
-# ordinary (non-distributed) triangulations `trian` matching the ones the
-# distributed problem was solved on.
 function RBSteady.load_contribution(dir,trian::Tuple,ranks::Vector;label="")
   vals = ntuple(length(trian)) do i
     _load_distributed_hr(dir,ranks;label=_plabel(label,"$(TRIAN_LABEL)$i"))
@@ -247,6 +240,22 @@ function _psave(dir,name,x::AbstractArray;label="")
   end
 end
 
+function _psave(dir,name,i::PVectorDofMap;label="")
+  map(partition(i.rows),partition(i.rows_space)) do rows_ind,rows_space_ind
+    serialize(_part_filename(dir,name,label,part_id(rows_ind)),(rows_ind,rows_space_ind))
+  end
+end
+
+function _psave(dir,name,i::PSparseMatrixDofMap;label="")
+  map(
+    partition(i.rows),partition(i.cols),
+    partition(i.rows_space),partition(i.cols_space),
+    i.loc_sparsity
+    ) do rows_ind,cols_ind,rows_space_ind,cols_space_ind,sparsity
+    serialize(_part_filename(dir,name,label,part_id(rows_ind)),(rows_ind,cols_ind,rows_space_ind,cols_space_ind,sparsity))
+  end
+end
+
 function _pload(dir,name,ranks;label="")
   data,inds... = map(ranks) do p
     deserialize(_part_filename(dir,name,label,p))
@@ -286,6 +295,25 @@ function _pallocate(
   PSparseMatrix(d,r,c)
 end
 
+function _pallocate(
+  r::AbstractArray{<:AbstractLocalIndices},
+  r′::AbstractArray{<:AbstractLocalIndices}
+  )
+
+  PVectorDofMap(PRange(r),PRange(r′))
+end
+
+function _pallocate(
+  r::AbstractArray{<:AbstractLocalIndices},
+  c::AbstractArray{<:AbstractLocalIndices},
+  r′::AbstractArray{<:AbstractLocalIndices},
+  c′::AbstractArray{<:AbstractLocalIndices},
+  s::AbstractArray{<:SparsityPattern}
+  )
+
+  PSparseMatrixDofMap(PRange(r),PRange(c),PRange(r′),PRange(c′),s)
+end
+
 function _sallocate(d,i...)
   @abstractmethod
 end
@@ -305,24 +333,6 @@ function _sallocate(
     selectdim(v,1,o2g) .= selectdim(dl,1,o2l)
   end
   v
-end
-
-# `PVectorDofMap` carries two genuinely per-rank `PRange`s (`rows`,
-# `rows_space`); neither `_psave`/`_pload` has a method for it, so it needs
-# its own small pair of helpers, following the same per-rank-file convention.
-function _psave_dof_map(dir,name,i::PVectorDofMap;label="")
-  map(partition(i.rows),partition(i.rows_space)) do rows_ind,rows_space_ind
-    serialize(_part_filename(dir,name,label,part_id(rows_ind)),(rows_ind,rows_space_ind))
-  end
-end
-
-function _pload_dof_map(dir,name,ranks;label="")
-  pieces = map(ranks) do p
-    deserialize(_part_filename(dir,name,label,p))
-  end
-  rows_ind = map(first,pieces)
-  rows_space_ind = map(last,pieces)
-  PVectorDofMap(PRange(rows_ind),PRange(rows_space_ind))
 end
 
 function _sallocate(
@@ -345,6 +355,43 @@ function _sallocate(
     append!(V,vs)
   end
   sparse(I,J,V,nr,nc)
+end
+
+function _sallocate(
+  r::AbstractArray{<:AbstractLocalIndices},
+  r′::AbstractArray{<:AbstractLocalIndices}
+  )
+
+  n = 0 
+  for ri in r
+    n += length(own_to_global(ri))
+  end
+  VectorDofMap(n)
+end
+
+function _sallocate(
+  r::AbstractArray{<:AbstractLocalIndices},
+  c::AbstractArray{<:AbstractLocalIndices},
+  r′::AbstractArray{<:AbstractLocalIndices},
+  c′::AbstractArray{<:AbstractLocalIndices},
+  s::AbstractArray{<:SparsityPattern}
+  )
+
+  nr = maximum(maximum,map(own_to_global,r))
+  nc = maximum(maximum,map(own_to_global,c))
+  T = eltype(get_background_matrix(first(s)))
+  I,J,V = Int[],Int[],T[]
+  for (sl,rl,cl) in zip(s,r,c)
+    o2l_r = own_to_local(rl)
+    o2g_r = own_to_global(rl)
+    l2g_c = local_to_global(cl)
+    is,js,vs = findnz(sparse(get_background_matrix(sl)[o2l_r,:]))
+    append!(I,o2g_r[is])
+    append!(J,l2g_c[js])
+    append!(V,vs)
+  end
+  mat = sparse(I,J,V,nr,nc)
+  SparsityPattern(mat)
 end
 
 function _load_distributed_hrprojection(dir,ranks;label="")

@@ -152,6 +152,10 @@ function RBTransient.first_unfold(A::DistributedSnapshots)
   GenericPArray(values,flat_row_partition(A))
 end
 
+function RBTransient.first_unfold(A::DistributedTransientSnapshotsWithIC)
+  RBTransient.first_unfold(A.snaps)
+end
+
 # utils 
 
 function RBSteady._is_rectangular(A::Union{GenericPMatrix,DistributedSnapshots};kwargs...)

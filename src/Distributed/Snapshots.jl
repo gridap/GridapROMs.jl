@@ -7,19 +7,17 @@ for T in (:PVector,:PSparseMatrix)
     end
 
     function ParamDataStructures.Snapshots(s::$T,i::AbstractArray{<:AbstractDofMap},r::TransientRealisation)
-      data = get_all_data(s)
-      dims(d) = (innerlength(d),num_params(r),num_times(r))
-      idata = map(d -> reshape(d,dims(d)),local_values(data))
-      pidata = GenericPArray(idata,row_partition(data))
-      GenericSnapshots(pidata,s,i,r)
+      dims(d) = (size(d,1),num_params(r),num_times(r))
+      data = map(d -> reshape(d,dims(d)),map(get_all_data,local_values(s)))
+      pdata = GenericPArray(data,flat_row_partition(s))
+      GenericSnapshots(pdata,s,i,r)
     end
   end
 end
 
-function ParamDataStructures.select_all_data(s::DistributedSnapshots,args...)
-  data = get_all_data(s)
+function ParamDataStructures.select_all_data(data::GenericPArray,args...)
   values = map(local_values(data)) do d
-    select_all_data(d,args...;kwargs...)
+    select_all_data(d,args...)
   end
   GenericPArray(values,row_partition(data))
 end
@@ -43,8 +41,9 @@ end
 
 const DistributedSparseSnapshots{T,N,I<:AbstractArray{<:AbstractSparseDofMap},R,A<:GenericPArray,B} = DistributedSnapshots{T,N,I,R,A,B}
 
-function DofMaps.recast(a::GenericPArray,i::AbstractArray{<:AbstractSparseDofMap})
-  PSparseMatrix(partition(a),row_partition(i),col_partition(i))
+function DofMaps.recast(a::GenericPArray,i::PSparseMatrixDofMap)
+  values = map(recast,local_values(a),local_views(i))
+  PSparseMatrix(values,row_partition(i),col_partition(i))
 end
 
 # transient interface
@@ -71,6 +70,7 @@ for f in (:partition,:local_values,:own_values,:ghost_values)
 end
 
 GridapDistributed.local_views(s::DistributedTransientSnapshotsWithIC) = partition(s)
+# TEMP-REMOVED-FOR-TESTING: Base.axes(s::DistributedTransientSnapshotsWithIC) = axes(s.snaps)
 
 function GridapDistributed.change_ghost(s::DistributedTransientSnapshotsWithIC,ids::PRange;kwargs...)
   data′ = change_ghost(get_param_data(s),ids;kwargs...)
@@ -191,6 +191,8 @@ end
 flat_row_partition(a::DistributedSnapshots) = flat_row_partition(a.data)
 row_partition(a::DistributedSnapshots) = row_partition(a.data)
 col_partition(a::DistributedSnapshots) = col_partition(a.data)
+# else it dispatches to the generic axes(...)
+Base.axes(a::DistributedSnapshots) = axes(a.data)
 
 # linear algebra
 
@@ -204,11 +206,5 @@ for S in (:AbstractMatrix,:PSparseMatrix,:GenericPMatrix,:DistributedSnapshots),
     Base.:*(a::Adjoint{<:Any,<:$S},b::$T) = _getvals(a.parent)' * _getvals(b)
     Base.:*(a::$S,b::Adjoint{<:Any,<:$T}) = _getvals(a) * _getvals(b.parent)'
     Base.:*(a::Adjoint{<:Any,<:$S},b::Adjoint{<:Any,<:$T}) = _getvals(a.parent)' * _getvals(b.parent)'
-  end
-end
-
-for op in (:+,:-)
-  @eval function Base.$op(a::DistributedSnapshots,b::DistributedSnapshots)
-    $op(a.data,b.data)
   end
 end

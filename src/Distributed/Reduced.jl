@@ -423,9 +423,9 @@ function RBSteady.allocate_coefficient(a::DistributedHRProjection,r::AbstractRea
 end
 
 function FESpaces.interpolate!(
-  hypred::AbstractArray,
-  coeff::AbstractArray,
-  a::RBSteady.BlockHRProjection,
+  hypred::BlockParamArray,
+  coeff::AbstractArray{<:AbstractArray},
+  a::BlockHRProjection,
   b::BlockPArray
   )
 
@@ -509,12 +509,15 @@ for T in (:GenericPMatrix,:GenericPArray,:DistributedSnapshots)
   end
 end
 
+function Utils.induced_norm(a::DistributedTransientSnapshotsWithIC,norm_matrix::AbstractMatrix)
+  induced_norm(get_all_data(a),norm_matrix)
+end
+
 for T in (:GenericPArray,:DistributedSnapshots)
   @eval begin
     function Utils.induced_norm(a::$T,norm_matrix::AbstractMatrix)
-      nparams = size(a,2)
       values = map(local_values(a)) do a
-        reshape(a,size(a,1),nparams)
+        reshape(a,size(a,1),:)
       end
       a′ = change_ghost(GenericPArray(values,row_partition(a)),axes(norm_matrix,1))
       sqrtabs(mean(diag(a′'*(norm_matrix*a′))))
@@ -539,6 +542,11 @@ function Base.fill!(a::MPIArray,b::Number)
 end
 
 Base.fill!(a::PSparseMatrix,b::Number) = LinearAlgebra.fillstored!(a,b)
+
+function Base.fill!(a::BlockPMatrix,b::Number)
+  map(x -> fill!(x,b),blocks(a))
+  a
+end
 
 # generic utils
 

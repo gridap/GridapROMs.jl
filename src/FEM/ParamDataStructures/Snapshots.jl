@@ -328,6 +328,12 @@ end
 
 # linear algebra
 
+for op in (:+,:-)
+  @eval function Base.$op(a::Snapshots,b::Snapshots)
+    $op(get_all_data(a),get_all_data(b))
+  end
+end
+
 function Base.:*(A::Snapshots{<:Any,2},B::Snapshots{<:Any,2})
   consec_mul(get_all_data(A),get_all_data(B))
 end
