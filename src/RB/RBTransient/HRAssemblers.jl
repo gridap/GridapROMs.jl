@@ -312,6 +312,7 @@ function RBSteady.assemble_hr_array_add!(
 
   @check size(celldofs) == size(cells) == size(locations) == size(A)
   for i in eachindex(celldofs)
+    isempty(cells[i]) && continue
     cellvalsi = fetch_block(cellvals,i)
     assemble_hr_array_add!(A[i],cellvalsi,celldofs[i],cells[i],locations[i],style)
   end

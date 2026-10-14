@@ -173,6 +173,12 @@ function HRProjection(red::AffineHyperReduction,s,trian,trial,test)
   return HRProjection(proj_basis,red,interp)
 end
 
+function EmptyHRProjection(red::Reduction,s,trian,args...)
+  red′ = AffineHyperReduction()
+  s′ = select_snapshots(s,1)
+  HRProjection(red′,s′,trian,args...)
+end
+
 function HRProjection(red::RBFHyperReduction,s,trian,test)
   basis = projection(get_reduction(red),s)
   proj_basis = project(test,basis)
@@ -292,6 +298,7 @@ function FESpaces.interpolate!(
 end
 
 function reduced_form(red::Reduction,s,trian,args...)
+  isempty(s) && return EmptyHRProjection(red,s,trian,args...)
   HRProjection(red,s,trian,args...)
 end
 
@@ -406,13 +413,16 @@ end
 # multi field interface
 
 """
-    struct BlockHRProjection{A<:HyperReduction,B<:Projection,T<:HRProjection{A,B},N} <: HRProjection{A,BlockProjection{T,N}}
+    struct BlockHRProjection{T<:HRProjection,N} <: HRProjection{HyperReduction,BlockProjection{T,N}}
       array::Array{T,N}
     end
 
-Block container for HRProjection in a `MultiField` setting.
+Block container for HRProjection in a `MultiField` setting. Blocks are not required
+to share the same concrete `HyperReduction`/`Projection` type: a structurally-empty
+(all-zero) block is reduced with `NoHyperReduction`, while a non-trivial block uses
+whatever strategy `red` specifies, so `T` is left unconstrained beyond `HRProjection`.
 """
-struct BlockHRProjection{A<:HyperReduction,B<:Projection,T<:HRProjection{A,B},N} <: HRProjection{A,BlockProjection{T,N}}
+struct BlockHRProjection{T<:HRProjection,N} <: HRProjection{HyperReduction,BlockProjection{T,N}}
   array::Array{T,N}
 end
 

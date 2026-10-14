@@ -711,7 +711,3 @@ function RBSteady._union(a::AbstractArray{<:AbstractVector},b::AbstractArray)
     RBSteady._union(a,b)
   end
 end
-
-function RBSteady._cluster(s::DistributedSnapshots,inds::AbstractVector)
-  select_snapshots(s,inds)
-end

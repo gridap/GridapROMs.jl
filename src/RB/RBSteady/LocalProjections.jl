@@ -305,10 +305,8 @@ function _cluster(r::Realisation,inds::AbstractVector)
   r[inds]
 end
 
-function _cluster(s::GenericSnapshots,inds::AbstractVector)
-  sinds = select_snapshots(s,inds)
-  data = collect(get_all_data(sinds)) #TODO: is collect needed?
-  GenericSnapshots(data,get_param_data(sinds),get_dof_map(sinds),get_realisation(sinds))
+function _cluster(s::AbstractSnapshots,inds::AbstractVector)
+  select_snapshots(s,inds)
 end
 
 function _cluster(s::BlockSnapshots,inds::AbstractVector)

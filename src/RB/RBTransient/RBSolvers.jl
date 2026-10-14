@@ -24,7 +24,11 @@ const TransientRBSolver{A<:ODESolver,B,C,D,E} = RBSolver{A,B,C,D,E}
 ParamODEs.TimeCombination(s::TransientRBSolver) = TimeCombination(get_fe_solver(s))
 ParamODEs.TimeCombination(s::TransientRBSolver{<:ODESolver,B,<:SteadyReduction}) where B = TimeMarchingCombination(get_fe_solver(s))
 
-RBSteady.get_reduced_solver(s::TransientRBSolver) = _reduced_solver(get_fe_solver(s))
+RBSteady.get_reduced_solver(::ODESolver) = @abstractmethod
+RBSteady.get_reduced_solver(s::ThetaMethod) = ThetaMethod(get_reduced_solver(s.sysslvr),s.dt,s.θ)
+RBSteady.get_reduced_solver(s::GeneralizedAlpha1) = GeneralizedAlpha1(get_reduced_solver(s.sysslvr),s.dt,s.αf,s.αm,s.γ)
+RBSteady.get_reduced_solver(s::GeneralizedAlpha2) = GeneralizedAlpha2(get_reduced_solver(s.sysslvr),s.dt,s.αf,s.αm,s.γ,s.β)
+
 RBSteady.num_jac_params(s::TransientRBSolver) = maximum(map(num_params,s.jacobian_reduction))
 
 function RBSteady.solution_snapshots(
@@ -181,11 +185,6 @@ get_time_order(::ODESolver) = @abstractmethod
 get_time_order(::ThetaMethod) = 1
 get_time_order(::GeneralizedAlpha1) = 1
 get_time_order(::GeneralizedAlpha2) = 2
-
-_reduced_solver(::ODESolver) = @abstractmethod
-_reduced_solver(s::ThetaMethod) = ThetaMethod(LUSolver(),s.dt,s.θ)
-_reduced_solver(s::GeneralizedAlpha1) = GeneralizedAlpha1(LUSolver(),s.dt,s.αf,s.αm,s.γ)
-_reduced_solver(s::GeneralizedAlpha2) = GeneralizedAlpha2(LUSolver(),s.dt,s.αf,s.αm,s.γ,s.β)
 
 function _setup(U,u0)
   u0

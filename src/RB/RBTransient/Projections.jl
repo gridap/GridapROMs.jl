@@ -251,7 +251,7 @@ function RBSteady.galerkin_projection(
 
   a2 = reshape(proj_a_space,ns_left,ns_right,np,nt) # ns_left x ns_right x Nμ x Nt
   a3 = permutedims(a2,(4,1,2,3)) # Nt x ns_left x ns_right x Nμ
-  a4 = reshape(a3,nt,:) # Nt x ns_left*ns_right*Nμ
+  a4 = reshape(a3,nt,ns_left*ns_right*np) # Nt x ns_left*ns_right*Nμ
   proj_a_spacetime = galerkin_projection(
     get_basis_time(proj_left),
     a4,
