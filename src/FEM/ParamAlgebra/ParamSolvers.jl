@@ -20,11 +20,6 @@ function Algebra.solve!(
 
   A_item = testitem(A)
   x_item = testitem(x)
-  if A_item isa AbstractBlockMatrix
-    open("/tmp/debug_lu.txt","a") do io
-      println(io,"blocksizes=",map(size,blocks(A_item))," norms=",map(norm,blocks(A_item)))
-    end
-  end
   ss = symbolic_setup(ls,A_item)
   ns = numerical_setup(ss,A_item,x_item)
   solve!(x,ns,A,b)

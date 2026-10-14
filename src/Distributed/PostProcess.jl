@@ -129,7 +129,7 @@ function DrWatson.save(dir,a::DistributedHRProjection;label="")
   end
 end
 
-function DrWatson.save(dir,a::BlockHRProjection{<:DistributedHRProjection};label="")
+function DrWatson.save(dir,a::BlockHRProjection{<:HyperReduction,<:Projection,<:DistributedHRProjection};label="")
   for i in eachindex(a)
     save(dir,a[i];label=_plabel(label,BLOCK_LABEL*"$i"))
   end

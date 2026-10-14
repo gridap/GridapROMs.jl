@@ -128,6 +128,25 @@ get_basis(a::GenericHRProjection) = a.basis
 get_style(a::GenericHRProjection) = a.style
 get_interpolation(a::GenericHRProjection) = a.interpolation
 
+# empty cases
+
+function EmptyHRProjection(red::Reduction,s,trian,test)
+  T = get_dof_value_type(test)
+  nrows = num_reduced_dofs(test)
+  basis = ReducedProjection(zeros(T,nrows,1))
+  interp = Interpolation(red)
+  return HRProjection(basis,red,interp)
+end
+
+function EmptyHRProjection(red::Reduction,s,trian,trial,test)
+  T = get_dof_value_type(trial)
+  nrows = num_reduced_dofs(test)
+  ncols = num_reduced_dofs(trial)
+  basis = ReducedProjection(zeros(T,nrows,ncols,1))
+  interp = Interpolation(red)
+  return HRProjection(basis,red,interp)
+end
+
 function HRProjection(red::Reduction,s,trian,test)
   basis = projection(get_reduction(red),s)
   proj_basis = project(test,basis)
@@ -171,12 +190,6 @@ function HRProjection(red::AffineHyperReduction,s,trian,trial,test)
   proj_basis = project(test,basis,trial)
   interp = Interpolation(red)
   return HRProjection(proj_basis,red,interp)
-end
-
-function EmptyHRProjection(red::Reduction,s,trian,args...)
-  red′ = AffineHyperReduction()
-  s′ = select_snapshots(s,1)
-  HRProjection(red′,s′,trian,args...)
 end
 
 function HRProjection(red::RBFHyperReduction,s,trian,test)
@@ -413,16 +426,13 @@ end
 # multi field interface
 
 """
-    struct BlockHRProjection{T<:HRProjection,N} <: HRProjection{HyperReduction,BlockProjection{T,N}}
+    struct BlockHRProjection{A<:HyperReduction,B<:Projection,T<:HRProjection{A,B},N} <: HRProjection{A,BlockProjection{T,N}}
       array::Array{T,N}
     end
 
-Block container for HRProjection in a `MultiField` setting. Blocks are not required
-to share the same concrete `HyperReduction`/`Projection` type: a structurally-empty
-(all-zero) block is reduced with `NoHyperReduction`, while a non-trivial block uses
-whatever strategy `red` specifies, so `T` is left unconstrained beyond `HRProjection`.
+Block container for HRProjection in a `MultiField` setting.
 """
-struct BlockHRProjection{T<:HRProjection,N} <: HRProjection{HyperReduction,BlockProjection{T,N}}
+struct BlockHRProjection{A<:HyperReduction,B<:Projection,T<:HRProjection{A,B},N} <: HRProjection{A,BlockProjection{T,N}}
   array::Array{T,N}
 end
 

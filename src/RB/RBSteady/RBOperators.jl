@@ -67,8 +67,9 @@ function reduced_operator(
 end
 
 function reduced_operator(rbsolver::RBSolver,feop::ParamOperator,s,jac,res)
-  red_trial,red_test = reduced_spaces(rbsolver,feop,s)
-  reduced_operator(rbsolver,feop,red_trial,red_test,jac,res)
+  feop′ = _setup(feop)
+  red_trial,red_test = reduced_spaces(rbsolver,feop′,s)
+  reduced_operator(rbsolver,feop′,red_trial,red_test,jac,res)
 end
 
 function reduced_operator(
