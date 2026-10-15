@@ -1,16 +1,3 @@
-function RBSteady.reduced_operator(
-  solver::RBSolver,
-  odeop::ODEParamOperator{LinearNonlinearParamODE},
-  red_trial::RBSpace,
-  red_test::RBSpace,
-  s::AbstractSnapshots
-  )
-
-  red_op_lin = reduced_operator(solver,get_linear_part(odeop),red_trial,red_test,s)
-  red_op_nlin = reduced_operator(solver,get_nonlinear_part(odeop),red_trial,red_test,s)
-  LinearNonlinearROMOperator(red_op_lin,red_op_nlin)
-end
-
 function RBSteady.ROMOperator(
   odeop::ODEParamOperator,
   trial::RBSpace,
@@ -34,8 +21,6 @@ function RBSteady.ROMOperator(
 end
 
 const TransientROMOperator{O<:ODEParamOperatorType,T} = ROMOperator{O,T}
-const JointTransientROMOperator{O<:ODEParamOperatorType} = TransientROMOperator{O,JointDomains}
-const SplitTransientROMOperator{O<:ODEParamOperatorType} = TransientROMOperator{O,SplitDomains}
 const TransientRBOperator{O<:ODEParamOperatorType,T,A,B} = RBOperator{O,T,A,B}
 
 function Algebra.allocate_residual(
@@ -287,7 +272,64 @@ function Algebra.jacobian!(
   interpolate!(A,op.lhs,r)
 end
 
-const TransientLinearNonlinearROMOperator{T} = RBOperator{LinearNonlinearParamODE,T}
+function Algebra.allocate_residual(
+  op::TransientRBOperator{O,T,A,<:Bundle},
+  r::TransientRealisation,
+  us::Tuple{Vararg{AbstractVector}},
+  paramcache
+  ) where {O,T,A}
+
+  allocate_residual(get_nonlinear_part(op),r,us,paramcache)
+end
+
+function Algebra.allocate_jacobian(
+  op::TransientRBOperator{O,T,<:Bundle,B},
+  r::TransientRealisation,
+  us::Tuple{Vararg{AbstractVector}},
+  paramcache
+  ) where {O,T,B}
+
+  allocate_jacobian(get_nonlinear_part(op),r,us,paramcache)
+end
+
+function Algebra.residual!(
+  b::HRParamArray,
+  op::TransientRBOperator{O,T,A,<:Bundle},
+  r::TransientRealisation,
+  us::Tuple{Vararg{AbstractVector}},
+  paramcache
+  ) where {O,T,A}
+
+  op_nlin = get_nonlinear_part(op)
+  residual!(b,op_nlin,r,us,paramcache)
+
+  op_lin = get_linear_part(op)
+  b_lin = allocate_residual(op_lin,r,us,paramcache)
+  residual!(b_lin,op_lin,r,us,paramcache)
+  axpy!(1,b_lin,b)
+
+  b
+end
+
+function Algebra.jacobian!(
+  A::HRParamArray,
+  op::TransientRBOperator{O,T,<:Bundle,B},
+  r::TransientRealisation,
+  us::Tuple{Vararg{AbstractVector}},
+  ws::Tuple{Vararg{Real}},
+  paramcache
+  ) where {O,T,B}
+
+  op_nlin = get_nonlinear_part(op)
+  jacobian!(A,op_nlin,r,us,ws,paramcache)
+
+  op_lin = get_linear_part(op)
+  A_lin = allocate_jacobian(op_lin,r,us,paramcache)
+  jacobian!(A_lin,op_lin,r,us,ws,paramcache)
+  axpy!(1,A_lin,A)
+
+  A
+end
 
 # snapshots 
 

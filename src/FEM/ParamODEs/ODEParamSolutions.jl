@@ -68,16 +68,6 @@ end
 
 function Algebra.solve(
   solver::ODESolver,
-  odeop::SplitODEParamOperator,
-  r::TransientRealisation,
-  us0::Tuple{Vararg{AbstractVector}}
-  )
-
-  solve(solver,set_domains(odeop),r,us0)
-end
-
-function Algebra.solve(
-  solver::ODESolver,
   odeop::ODEParamOperator,
   r::TransientRealisation,
   uhs0::Tuple{Vararg{Function}}

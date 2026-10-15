@@ -18,31 +18,36 @@ struct LinearParamEq <: UnEvalOperatorType end
 """
 struct NonlinearParamEq <: UnEvalOperatorType end
 
-"""
-    struct LinearNonlinearParamEq <: UnEvalOperatorType end
-"""
-struct LinearNonlinearParamEq <: UnEvalOperatorType end
-
 UnEvalOperatorType(::Type{LinearEq}) = LinearParamEq
 UnEvalOperatorType(::Type{NonlinearEq}) = NonlinearParamEq
-UnEvalOperatorType(::Type{LinearNonlinearEq}) = LinearNonlinearParamEq
 
 """
-    abstract type ParamOperator{O<:UnEvalOperatorType,T<:TriangulationStyle} <: NonlinearParamOperator end
+    abstract type ParamOperator{O<:UnEvalOperatorType,T<:WeakFormStyle} <: NonlinearParamOperator end
 
 Type representing algebraic operators when solving parametric differential problems
 """
-abstract type ParamOperator{O<:UnEvalOperatorType,T<:TriangulationStyle} <: NonlinearParamOperator end
+abstract type ParamOperator{O<:UnEvalOperatorType,T<:WeakFormStyle} <: NonlinearParamOperator end
 
 """
-    const JointParamOperator{O<:UnEvalOperatorType} = ParamOperator{O,JointDomains}
+    const PlainParamOperator{O<:UnEvalOperatorType} = ParamOperator{O,PlainForm}
 """
-const JointParamOperator{O<:UnEvalOperatorType} = ParamOperator{O,JointDomains}
+const PlainParamOperator{O<:UnEvalOperatorType} = ParamOperator{O,PlainForm}
 
 """
-    const SplitParamOperator{O<:UnEvalOperatorType} = ParamOperator{O,SplitDomains}
+    const BundleParamOperator{O<:UnEvalOperatorType} = ParamOperator{O,BundleForm}
+
+A `ParamOperator` whose `res`/`jac` are each a [`Bundle`](@ref) of a linear and a
+nonlinear half
 """
-const SplitParamOperator{O<:UnEvalOperatorType} = ParamOperator{O,SplitDomains}
+const BundleParamOperator{O<:UnEvalOperatorType} = ParamOperator{O,BundleForm}
+
+function Utils.get_linear_part(op::BundleParamOperator)
+  get_algebraic_operator(get_linear_part(get_fe_operator(op)))
+end
+
+function Utils.get_nonlinear_part(op::BundleParamOperator)
+  get_algebraic_operator(get_nonlinear_part(get_fe_operator(op)))
+end
 
 """
     get_fe_operator(op::ParamOperator) -> ParamFEOperator
@@ -104,7 +109,7 @@ function Algebra.zero_initial_guess(op::ParamOperator,μ::AbstractRealisation)
 end
 
 function Algebra.allocate_residual(
-  op::JointParamOperator,
+  op::ParamOperator,
   μ::Realisation,
   u::AbstractVector,
   paramcache
@@ -125,7 +130,7 @@ end
 
 function Algebra.residual!(
   b::AbstractVector,
-  op::JointParamOperator,
+  op::ParamOperator,
   μ::Realisation,
   u::AbstractVector,
   paramcache;
@@ -148,7 +153,7 @@ function Algebra.residual!(
 end
 
 function Algebra.allocate_residual(
-  op::JointParamOperator{LinearParamEq},
+  op::ParamOperator{LinearParamEq},
   μ::Realisation,
   u::AbstractVector,
   paramcache
@@ -170,7 +175,7 @@ end
 
 function Algebra.residual!(
   b::AbstractVector,
-  op::JointParamOperator{LinearParamEq},
+  op::ParamOperator{LinearParamEq},
   μ::Realisation,
   u::AbstractVector,
   paramcache;
@@ -198,7 +203,7 @@ function Algebra.residual!(
 end
 
 function Algebra.allocate_jacobian(
-  op::JointParamOperator,
+  op::ParamOperator,
   μ::Realisation,
   u::AbstractVector,
   paramcache
@@ -220,7 +225,7 @@ end
 
 function ODEs.jacobian_add!(
   A::AbstractMatrix,
-  op::JointParamOperator,
+  op::ParamOperator,
   μ::Realisation,
   u::AbstractVector,
   paramcache
@@ -241,133 +246,47 @@ function ODEs.jacobian_add!(
   A
 end
 
-function Algebra.allocate_residual(
-  op::SplitParamOperator,
-  μ::Realisation,
-  u::AbstractVector,
-  paramcache
-  )
+"""
+    residual!(b,op::ParamOperator,μ,u,paramcache,trian)
+    jacobian_add!(A,op::ParamOperator,μ,u,paramcache,trian)
 
-  uh = EvaluationFunction(paramcache.trial,u)
-  test = get_test(op)
-  v = get_fe_basis(test)
-  assem = get_param_assembler(op,μ)
-
-  trian_res = get_domains_res(op)
-  res = get_res(op)
-  dc = res(μ,uh,v)
-  contribution(trian_res) do trian
-    vecdata = collect_cell_vector_for_trian(test,dc,trian)
-    allocate_vector(assem,vecdata)
-  end
-end
-
+Single-triangulation variants of `residual!`/`jacobian_add!`: assemble into `b`/`A`
+only the contribution of `op`'s residual/jacobian relative to the triangulation
+`trian`. Used by `residual_snapshots`/`jacobian_snapshots` to compute, with a single
+reused cache, the hyper-reduction training data for each triangulation in turn,
+instead of allocating one array per triangulation up front
+"""
 function Algebra.residual!(
-  b::Contribution,
-  op::SplitParamOperator,
+  b::AbstractVector,
+  op::ParamOperator,
   μ::Realisation,
   u::AbstractVector,
-  paramcache;
+  paramcache,
+  trian;
   add::Bool=false
   )
 
+  !add && fill!(b,zero(eltype(b)))
+
   uh = EvaluationFunction(paramcache.trial,u)
   test = get_test(op)
   v = get_fe_basis(test)
   assem = get_param_assembler(op,μ)
 
-  trian_res = get_domains_res(op)
-  res = get_res(op)
-  dc = res(μ,uh,v)
-
-  map(b.values,trian_res) do b,trian
-    !add && fill!(b,zero(eltype(b)))
-    vecdata = collect_cell_vector_for_trian(test,dc,trian)
-    assemble_vector_add!(b,assem,vecdata)
-  end
+  dc = _eval_res(op,μ,uh,v)
+  vecdata = collect_cell_vector_for_trian(test,dc,trian)
+  assemble_vector_add!(b,assem,vecdata)
 
   b
-end
-
-function Algebra.allocate_residual(
-  op::SplitParamOperator{LinearParamEq},
-  μ::Realisation,
-  u::AbstractVector,
-  paramcache
-  )
-
-  uh = EvaluationFunction(paramcache.trial,u)
-  test = get_test(op)
-  v = get_fe_basis(test)
-  assem = get_param_assembler(op,μ)
-
-  trian_res = get_domains_res(op)
-  rhs = get_res(op)
-  jac = get_jac(op)
-  dc = rhs(μ,v) - jac(μ,u,uh,v)
-  contribution(trian_res) do trian
-    vecdata = collect_cell_vector_for_trian(test,dc,trian)
-    allocate_vector(assem,vecdata)
-  end
-end
-
-function Algebra.residual!(
-  b::Contribution,
-  op::SplitParamOperator{LinearParamEq},
-  μ::Realisation,
-  u::AbstractVector,
-  paramcache;
-  add::Bool=false
-  )
-
-  uh = EvaluationFunction(paramcache.trial,u)
-  test = get_test(op)
-  v = get_fe_basis(test)
-  assem = get_param_assembler(op,μ)
-
-  trian_res = get_domains_res(op)
-  rhs = get_res(op)
-  jac = get_jac(op)
-  dc = rhs(μ,v) - jac(μ,u,uh,v)
-
-  map(b.values,trian_res) do b,trian
-    !add && fill!(b,zero(eltype(b)))
-    vecdata = collect_cell_vector_for_trian(test,dc,trian)
-    assemble_vector_add!(b,assem,vecdata)
-  end
-
-  b
-end
-
-function Algebra.allocate_jacobian(
-  op::SplitParamOperator,
-  μ::Realisation,
-  u::AbstractVector,
-  paramcache
-  )
-
-  uh = EvaluationFunction(paramcache.trial,u)
-  trial = get_trial(op)
-  du = get_trial_fe_basis(trial)
-  test = get_test(op)
-  v = get_fe_basis(test)
-  assem = get_param_assembler(op,μ)
-
-  trian_jac = get_domains_jac(op)
-  jac = get_jac(op)
-  dc = jac(μ,uh,du,v)
-  contribution(trian_jac) do trian
-    matdata = collect_cell_matrix_for_trian(trial,test,dc,trian)
-    allocate_matrix(assem,matdata)
-  end
 end
 
 function ODEs.jacobian_add!(
-  A::Contribution,
-  op::SplitParamOperator,
+  A::AbstractMatrix,
+  op::ParamOperator,
   μ::Realisation,
   u::AbstractVector,
-  paramcache
+  paramcache,
+  trian
   )
 
   uh = EvaluationFunction(paramcache.trial,u)
@@ -377,112 +296,12 @@ function ODEs.jacobian_add!(
   v = get_fe_basis(test)
   assem = get_param_assembler(op,μ)
 
-  trian_jac = get_domains_jac(op)
   jac = get_jac(op)
   dc = jac(μ,uh,du,v)
-  map(A.values,trian_jac) do A,trian
-    matdata = collect_cell_matrix_for_trian(trial,test,dc,trian)
-    assemble_matrix_add!(A,assem,matdata)
-  end
+  matdata = collect_cell_matrix_for_trian(trial,test,dc,trian)
+  assemble_matrix_add!(A,assem,matdata)
 
   A
-end
-
-# nonlinear interface
-
-const LinearNonlinearParamOperator{T<:TriangulationStyle} = ParamOperator{LinearNonlinearParamEq,T}
-
-function Utils.get_linear_part(op::LinearNonlinearParamOperator)
-  get_algebraic_operator(get_linear_part(get_fe_operator(op)))
-end
-
-function Utils.get_nonlinear_part(op::LinearNonlinearParamOperator)
-  get_algebraic_operator(get_nonlinear_part(get_fe_operator(op)))
-end
-
-function ParamAlgebra.allocate_paramcache(
-  op::LinearNonlinearParamOperator,
-  μ::AbstractRealisation
-  )
-
-  op_nlin = get_nonlinear_part(op)
-  allocate_paramcache(op_nlin,μ)
-end
-
-function ParamAlgebra.allocate_systemcache(
-  op::LinearNonlinearParamOperator,
-  u::AbstractVector
-  )
-
-  op_nlin = get_nonlinear_part(op)
-  allocate_systemcache(op_nlin,u)
-end
-
-function ParamAlgebra.update_paramcache!(
-  paramcache::AbstractParamCache,
-  op::LinearNonlinearParamOperator,
-  μ::AbstractRealisation
-  )
-
-  op_nlin = get_nonlinear_part(op)
-  update_paramcache!(paramcache,op_nlin,μ)
-end
-
-function ParamDataStructures.parameterise(
-  op::LinearNonlinearParamOperator,
-  μ::AbstractRealisation
-  )
-
-  op_lin = parameterise(get_linear_part(op),μ)
-  op_nlin = parameterise(get_nonlinear_part(op),μ)
-  syscache_lin = allocate_systemcache(op_lin)
-  LinNonlinParamOperator(op_lin,op_nlin,syscache_lin)
-end
-
-function Algebra.allocate_residual(
-  op::LinearNonlinearParamOperator,
-  μ::Realisation,
-  u::AbstractVector,
-  paramcache
-  )
-
-  @notimplemented "This is inefficient. Instead, assemble the nonlinear system
-  by defining a [`LinearNonlinearParamOperator`](@ref)"
-end
-
-function Algebra.allocate_jacobian(
-  op::LinearNonlinearParamOperator,
-  μ::Realisation,
-  u::AbstractVector,
-  paramcache
-  )
-
-  @notimplemented "This is inefficient. Instead, assemble the nonlinear system
-  by defining a [`LinearNonlinearParamOperator`](@ref)"
-end
-
-function Algebra.residual!(
-  b,
-  op::LinearNonlinearParamOperator,
-  μ::Realisation,
-  u::AbstractVector,
-  paramcache
-  )
-
-  @notimplemented "This is inefficient. Instead, assemble the nonlinear system
-  by defining a [`LinearNonlinearParamOperator`](@ref)"
-end
-
-function ODEs.jacobian_add!(
-  A,
-  op::LinearNonlinearParamOperator,
-  μ::Realisation,
-  u::AbstractVector,
-  paramcache
-  )
-
-  @notimplemented "This is inefficient. Instead, assemble the nonlinear system
-  by defining a [`LinearNonlinearParamOperator`](@ref)"
 end
 
 # constructors

@@ -1,5 +1,5 @@
 """
-    abstract type ParamFEOperator{O<:UnEvalOperatorType,T<:TriangulationStyle} <: FEOperator end
+    abstract type ParamFEOperator{O<:UnEvalOperatorType,T<:WeakFormStyle} <: FEOperator end
 
 Parametric extension of a `FEOperator` in [`Gridap`](@ref). Compared to
 a standard FEOperator, there are the following novelties:
@@ -14,17 +14,17 @@ Subtypes:
 - [`ParamFEOpFromWeakForm`](@ref)
 - [`TransientParamFEOperator`](@ref)
 """
-abstract type ParamFEOperator{O<:UnEvalOperatorType,T<:TriangulationStyle} <: FEOperator end
+abstract type ParamFEOperator{O<:UnEvalOperatorType,T<:WeakFormStyle} <: FEOperator end
 
 """
-    const JointParamFEOperator{O<:UnEvalOperatorType} = ParamFEOperator{O,JointDomains}
+    const PlainParamFEOperator{O<:UnEvalOperatorType} = ParamFEOperator{O,PlainForm}
 """
-const JointParamFEOperator{O<:UnEvalOperatorType} = ParamFEOperator{O,JointDomains}
+const PlainParamFEOperator{O<:UnEvalOperatorType} = ParamFEOperator{O,PlainForm}
 
 """
-    const SplitParamFEOperator{O<:UnEvalOperatorType} = ParamFEOperator{O,SplitDomains}
+    const BundleParamFEOperator{O<:UnEvalOperatorType} = ParamFEOperator{O,BundleForm}
 """
-const SplitParamFEOperator{O<:UnEvalOperatorType} = ParamFEOperator{O,SplitDomains}
+const BundleParamFEOperator{O<:UnEvalOperatorType} = ParamFEOperator{O,BundleForm}
 
 function FESpaces.get_test(feop::ParamFEOperator)
   @abstractmethod
@@ -60,7 +60,7 @@ DofMaps.get_dof_map(op::ParamFEOperator,args...) = get_dof_map(get_trial(op),arg
 DofMaps.get_sparse_dof_map(op::ParamFEOperator,args...) = get_sparse_dof_map(get_trial(op),get_test(op),args...)
 
 """
-    struct ParamFEOpFromWeakForm{O<:UnEvalOperatorType,T<:TriangulationStyle} <: ParamFEOperator{O,T}
+    struct ParamFEOpFromWeakForm{O<:UnEvalOperatorType,T<:WeakFormStyle} <: ParamFEOperator{O,T}
       res::Function
       jac::Function
       pspace::ParamSpace
@@ -72,7 +72,7 @@ DofMaps.get_sparse_dof_map(op::ParamFEOperator,args...) = get_sparse_dof_map(get
 
 Most standard instance of a parametric FE operator
 """
-struct ParamFEOpFromWeakForm{O<:UnEvalOperatorType,T<:TriangulationStyle} <: ParamFEOperator{O,T}
+struct ParamFEOpFromWeakForm{O<:UnEvalOperatorType,T<:WeakFormStyle} <: ParamFEOperator{O,T}
   res::Union{Function,Bundle}
   jac::Union{Function,Bundle}
   pspace::ParamSpace
@@ -82,25 +82,25 @@ struct ParamFEOpFromWeakForm{O<:UnEvalOperatorType,T<:TriangulationStyle} <: Par
   domains::Union{FEDomains,Bundle}
 end
 
-const JointParamFEOpFromWeakForm{O<:UnEvalOperatorType} = ParamFEOpFromWeakForm{O,JointDomains}
-const SplitParamFEOpFromWeakForm{O<:UnEvalOperatorType} = ParamFEOpFromWeakForm{O,SplitDomains}
+const PlainParamFEOpFromWeakForm{O<:UnEvalOperatorType} = ParamFEOpFromWeakForm{O,PlainForm}
+const BundleParamFEOpFromWeakForm{O<:UnEvalOperatorType} = ParamFEOpFromWeakForm{O,BundleForm}
 
 function ParamFEOperator(res::Function,jac::Function,pspace,trial,test)
   assem = SparseMatrixAssembler(trial,test)
   domains = FEDomains()
-  ParamFEOpFromWeakForm{NonlinearParamEq,JointDomains}(
+  ParamFEOpFromWeakForm{NonlinearParamEq,PlainForm}(
     res,jac,pspace,assem,trial,test,domains)
 end
 
 function ParamFEOperator(res::Function,jac::Function,pspace,trial,test,domains::FEDomains)
   assem = SparseMatrixAssembler(trial,test)
-  ParamFEOpFromWeakForm{NonlinearParamEq,SplitDomains}(
+  ParamFEOpFromWeakForm{NonlinearParamEq,PlainForm}(
     res,jac,pspace,assem,trial,test,domains)
 end
 
 """
     LinearParamFEOperator(rhs::Function,jac::Function,pspace,trial,test,args...
-      ) -> ParamFEOperator{LinearParamEq,TriangulationStyle}
+      ) -> ParamFEOperator{LinearParamEq,WeakFormStyle}
 
 Returns a linear parametric FE operator. Unlike [`ParamFEOperator`](@ref), which
 takes a residual `res(μ,u,v)`, this takes the right-hand side `rhs(μ,v)` directly:
@@ -113,7 +113,7 @@ function LinearParamFEOperator(rhs::Function,jac::Function,pspace,trial,test)
   jac′(μ,u,du,v) = jac(μ,du,v)
   assem = SparseMatrixAssembler(trial,test)
   domains = FEDomains()
-  ParamFEOpFromWeakForm{LinearParamEq,JointDomains}(
+  ParamFEOpFromWeakForm{LinearParamEq,PlainForm}(
     rhs,jac′,pspace,assem,trial,test,domains)
 end
 
@@ -128,7 +128,7 @@ function LinearParamFEOperator(
 
   jac′(μ,u,du,v) = jac(μ,du,v)
   assem = SparseMatrixAssembler(trial,test)
-  ParamFEOpFromWeakForm{LinearParamEq,SplitDomains}(
+  ParamFEOpFromWeakForm{LinearParamEq,PlainForm}(
     rhs,jac′,pspace,assem,trial,test,domains)
 end
 
@@ -149,20 +149,20 @@ end
 
 """
     ParamFEOperator(res::Bundle,jac::Bundle,pspace,trial,test,domains::Bundle=Bundle(FEDomains(),FEDomains())
-      ) -> ParamFEOperator{LinearNonlinearParamEq,TriangulationStyle}
+      ) -> ParamFEOperator{NonlinearParamEq,WeakFormStyle}
 
 Returns a parametric FE operator that bundles a linear and a nonlinear part
 """
 function ParamFEOperator(res::Bundle,jac::Bundle,pspace,trial,test,domains::Bundle)
   assem = SparseMatrixAssembler(trial,test)
-  ParamFEOpFromWeakForm{LinearNonlinearParamEq,SplitDomains}(
+  ParamFEOpFromWeakForm{NonlinearParamEq,BundleForm}(
     res,jac,pspace,assem,trial,test,domains)
 end
 
 function ParamFEOperator(res::Bundle,jac::Bundle,pspace,trial,test)
   domains = Bundle(FEDomains(),FEDomains())
   assem = SparseMatrixAssembler(trial,test)
-  ParamFEOpFromWeakForm{LinearNonlinearParamEq,JointDomains}(
+  ParamFEOpFromWeakForm{NonlinearParamEq,BundleForm}(
     res,jac,pspace,assem,trial,test,domains)
 end
 
@@ -175,64 +175,54 @@ ODEs.get_assembler(op::ParamFEOpFromWeakForm) = op.assem
 CellData.get_domains(op::ParamFEOpFromWeakForm) = op.domains
 
 """
-    get_linear_part(op::ParamFEOpFromWeakForm{LinearNonlinearParamEq}) -> ParamFEOpFromWeakForm{LinearParamEq}
-    get_nonlinear_part(op::ParamFEOpFromWeakForm{LinearNonlinearParamEq}) -> ParamFEOpFromWeakForm{NonlinearParamEq}
+    get_linear_part(op::ParamFEOpFromWeakForm{NonlinearParamEq,BundleForm}) -> ParamFEOpFromWeakForm{LinearParamEq,BundleForm}
+    get_nonlinear_part(op::ParamFEOpFromWeakForm{NonlinearParamEq,BundleForm}) -> ParamFEOpFromWeakForm{NonlinearParamEq,BundleForm}
+
+Splits a `Bundle`-based linear+nonlinear operator back into its two plainly-tagged
+halves
 """
-function Utils.get_linear_part(op::ParamFEOpFromWeakForm{LinearNonlinearParamEq,T}) where T
-  ParamFEOpFromWeakForm{LinearParamEq,T}(
+function Utils.get_linear_part(op::ParamFEOpFromWeakForm{NonlinearParamEq,BundleForm})
+  ParamFEOpFromWeakForm{LinearParamEq,BundleForm}(
     op.res.linear,op.jac.linear,op.pspace,op.assem,op.trial,op.test,op.domains.linear)
 end
 
-function Utils.get_nonlinear_part(op::ParamFEOpFromWeakForm{LinearNonlinearParamEq,T}) where T
-  ParamFEOpFromWeakForm{NonlinearParamEq,T}(
+function Utils.get_nonlinear_part(op::ParamFEOpFromWeakForm{NonlinearParamEq,BundleForm})
+  ParamFEOpFromWeakForm{NonlinearParamEq,BundleForm}(
     op.res.nonlinear,op.jac.nonlinear,op.pspace,op.assem,op.trial,op.test,op.domains.nonlinear)
 end
 
 # triangulation utils
 
 """
-    set_domains(op::ParamFEOperator,args...) -> JointParamFEOperator
+    set_domains(op::ParamFEOperator,args...) -> ParamFEOperator
 
-Fixes the triangulations for residual/jacobian; the resulting operator will have
-the trait [`JointDomains`](@ref) activated
+A no-op: residual/jacobian assembly no longer depends on whether triangulations
+were explicitly tracked, so there is nothing left to "fix"
 """
-set_domains(op::JointParamFEOperator,args...) = op
+set_domains(op::ParamFEOperator,args...) = op
 
 """
     change_domains(op::ParamFEOperator,args...) -> ParamFEOperator
 
-Changes the triangulations for residual/jacobian; the resulting operator will have
-the same [`TriangulationStyle`](@ref) trait as the one of the input
+Changes the triangulations for residual/jacobian, keeping everything else
+(including the [`WeakFormStyle`](@ref) trait) unchanged
 """
-change_domains(op::JointParamFEOperator,args...) = op
-
-"""
-    set_domains(op::SplitParamFEOperator) -> JointParamFEOperator
-
-Retags a [`SplitParamFEOperator`](@ref) as a [`JointParamFEOperator`](@ref),
-leaving `res`/`jac` untouched
-"""
-function set_domains(op::SplitParamFEOpFromWeakForm{O}) where O
-  ParamFEOpFromWeakForm{O,JointDomains}(
-    op.res,op.jac,op.pspace,op.assem,op.trial,op.test,op.domains)
-end
-
-function change_domains(op::SplitParamFEOpFromWeakForm{O},trians_res,trians_jac) where O
+function change_domains(op::ParamFEOpFromWeakForm{O,T},trians_res,trians_jac) where {O,T}
   domains′ = FEDomains(trians_res,trians_jac)
-  ParamFEOpFromWeakForm{O,SplitDomains}(
+  ParamFEOpFromWeakForm{O,T}(
     op.res,op.jac,op.pspace,op.assem,op.trial,op.test,domains′)
 end
 
 # concrete types
 
 """
-    struct GenericParamOperator{O<:UnEvalOperatorType,T<:TriangulationStyle} <: ParamOperator{O,T}
+    struct GenericParamOperator{O<:UnEvalOperatorType,T<:WeakFormStyle} <: ParamOperator{O,T}
       op::ParamFEOperator{O,T}
     end
 
 Wrapper that transforms a `ParamFEOperator` into an `ParamOperator`
 """
-struct GenericParamOperator{O<:UnEvalOperatorType,T<:TriangulationStyle} <: ParamOperator{O,T}
+struct GenericParamOperator{O<:UnEvalOperatorType,T<:WeakFormStyle} <: ParamOperator{O,T}
   op::ParamFEOperator{O,T}
 end
 

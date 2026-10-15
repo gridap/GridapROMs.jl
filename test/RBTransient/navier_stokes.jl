@@ -95,9 +95,9 @@ function main(
   jacs_lin = ntuple(k -> ((μ,t,u,duk,v) -> forms_lin[k](μ,t,duk,v)),length(forms_lin))
 
   res_bundle = Bundle(res,res_nlin)
-  jacs_bundle = Bundle(jacs_lin,(jac_nlin,))
+  jacs = (Bundle(jacs_lin[1],jac_nlin),jacs_lin[2])
   domains_bundle = Bundle(domains_lin,domains_nlin)
-  feop = TransientParamOperator(res_bundle,jacs_bundle,ptspace,trial,test,domains_bundle)
+  feop = TransientParamOperator(res_bundle,jacs,ptspace,trial,test,domains_bundle)
 
   fesnaps, = solution_snapshots(rbsolver,feop,xh0μ)
   rbop = reduced_operator(rbsolver,feop,fesnaps)

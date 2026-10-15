@@ -26,14 +26,6 @@ function ParamDataStructures.parameterise(op::TransientROMOperator,r::TransientR
   SpaceTimeParamOperator(op,r)
 end
 
-function ParamDataStructures.parameterise(op::TransientLinearNonlinearROMOperator,r::TransientRealisation)
-  nstates = get_order(op)+1
-  op_lin = SpaceTimeParamOperator(get_linear_part(op),r;nstates)
-  op_nlin = SpaceTimeParamOperator(get_nonlinear_part(op),r;nstates)
-  syscache_lin = allocate_systemcache(op_lin)
-  LinNonlinParamOperator(op_lin,op_nlin,syscache_lin)
-end
-
 function Algebra.allocate_residual(
   nlop::SpaceTimeParamOperator,
   x::AbstractVector
@@ -298,14 +290,8 @@ function _set_initial_condition!(nlop::SpaceTimeParamOperator,s::SpaceTimeSolver
   zero_time_combination!(nlop.usx,c,s.us0)
 end
 
-function _set_initial_condition!(nlop::LinNonlinParamOperator,s::SpaceTimeSolver)
-  _set_initial_condition!(nlop.op_linear,s)
-  _set_initial_condition!(nlop.op_nonlinear,s)
-end
-
 _get_realisation(nlop::NonlinearParamOperator) = @abstractmethod
 _get_realisation(nlop::SpaceTimeParamOperator) = nlop.r
-_get_realisation(nlop::LinNonlinParamOperator) = _get_realisation(nlop.op_nonlinear)
 
 function _update_paramcache!(nlop::NonlinearParamOperator,r::TransientRealisation)
   @abstractmethod
@@ -313,11 +299,6 @@ end
 
 function _update_paramcache!(nlop::SpaceTimeParamOperator,r::TransientRealisation)
   update_paramcache!(nlop.paramcache,nlop.op,r)
-end
-
-function _update_paramcache!(nlop::LinNonlinParamOperator,r::TransientRealisation)
-  _update_paramcache!(nlop.op_linear,r)
-  _update_paramcache!(nlop.op_nonlinear,r)
 end
 
 RBSteady._get_param(op::ParamStageOperator) = op.r

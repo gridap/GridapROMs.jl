@@ -55,17 +55,17 @@ end
 
 function reduced_operator(
   solver::RBSolver,
-  op::ParamOperator{LinearNonlinearParamEq},
+  feop::BundleParamOperator,
   red_trial::RBSpace,
   red_test::RBSpace,
   s::AbstractSnapshots
   )
 
-  red_op_lin = reduced_operator(solver,get_linear_part(op),red_trial,red_test,s)
-  red_op_nlin = reduced_operator(solver,get_nonlinear_part(op),red_trial,red_test,s)
+  red_op_lin = reduced_operator(solver,get_linear_part(feop),red_trial,red_test,s)
+  red_op_nlin = reduced_operator(solver,get_nonlinear_part(feop),red_trial,red_test,s)
   lhs = Bundle(get_lhs(red_op_lin),get_lhs(red_op_nlin))
   rhs = Bundle(get_rhs(red_op_lin),get_rhs(red_op_nlin))
-  RBOperator(op,red_trial,red_test,lhs,rhs)
+  RBOperator(feop,red_trial,red_test,lhs,rhs)
 end
 
 function reduced_operator(rbsolver::RBSolver,feop::ParamOperator,s,jac,res)
@@ -91,8 +91,8 @@ function reduced_operator(
 end
 
 function reduced_operator(
-  solver::RBSolver,
-  op::ParamOperator{LinearNonlinearParamEq},
+  rbsolver::RBSolver,
+  feop::BundleParamOperator,
   red_trial::RBSpace,
   red_test::RBSpace,
   jac,
@@ -101,9 +101,11 @@ function reduced_operator(
 
   jac_lin,jac_nlin = jac
   res_lin,res_nlin = res
-  red_op_lin = reduced_operator(solver,get_linear_part(op),red_trial,red_test,jac_lin,res_lin)
-  red_op_nlin = reduced_operator(solver,get_nonlinear_part(op),red_trial,red_test,jac_nlin,res_nlin)
-  LinearNonlinearROMOperator(red_op_lin,red_op_nlin)
+  red_op_lin = reduced_operator(rbsolver,get_linear_part(feop),red_trial,red_test,jac_lin,res_lin)
+  red_op_nlin = reduced_operator(rbsolver,get_nonlinear_part(feop),red_trial,red_test,jac_nlin,res_nlin)
+  lhs = Bundle(get_lhs(red_op_lin),get_lhs(red_op_nlin))
+  rhs = Bundle(get_rhs(red_op_lin),get_rhs(red_op_nlin))
+  RBOperator(feop,red_trial,red_test,lhs,rhs)
 end
 
 """
@@ -118,12 +120,8 @@ framework in steady applications. A ROMOperator should contain the following inf
 Subtypes:
 
 - [`RBOperator`](@ref)
-- [`LinearNonlinearROMOperator`](@ref)
 """
 abstract type ROMOperator{O,T} <: ParamOperator{O,T} end
-
-const JointROMOperator{O} = ROMOperator{O,JointDomains}
-const SplitROMOperator{O} = ROMOperator{O,SplitDomains}
 
 ParamSteady.get_fe_operator(op::ROMOperator) = @abstractmethod
 FESpaces.get_trial(op::ROMOperator) = @abstractmethod
@@ -220,12 +218,16 @@ function Algebra.jacobian!(
   interpolate!(A,lhs)
 end
 
-function change_operator(op::JointROMOperator,op′::ParamOperator)
-  rhs,lhs = get_rhs(op),get_lhs(op)
-  ROMOperator(op′,op.trial,op.test,lhs,rhs)
-end
+"""
+    change_operator(op::ROMOperator,op′::ParamOperator) -> ROMOperator
 
-function change_operator(op::SplitROMOperator,op′::ParamOperator)
+Rebinds `op`'s hyper-reduced `lhs`/`rhs` to a new underlying FE operator `op′`
+(e.g. the same problem at a different geometry, in a moving-domain setting),
+adapting their triangulations to `op′`'s. When `op′`'s domains coincide with
+`op`'s own (the common, non-moving-domain case), `change_domains` is a no-op and
+this just rebinds `op.op` to `op′`
+"""
+function change_operator(op::ROMOperator,op′::ParamOperator)
   rhs,lhs = get_rhs(op),get_lhs(op)
   rhs′ = change_domains(rhs,get_domains_res(op′))
   lhs′ = change_domains(lhs,get_domains_jac(op′))
@@ -311,11 +313,11 @@ end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::RBOperator{O,SplitDomains,A,<:NoHRContribution},
+  op::RBOperator{O,T,A,<:NoHRContribution},
   r::Realisation,
   u::AbstractVector,
   paramcache
-  ) where {O,A}
+  ) where {O,T,A}
 
   fill!(b,zero(eltype(b)))
 
@@ -327,10 +329,13 @@ function Algebra.residual!(
   dc = ParamSteady._eval_res(op,r,uh,v)
   assem = get_param_assembler(op,r)
 
+  # a single FE cache is reused across triangulations: filled fresh, projected,
+  # then moved on to the next, instead of keeping one array per triangulation
   for strian in get_domains(rhs)
+    fill!(b.fecache,zero(eltype(b.fecache)))
     vecdata = collect_cell_vector_for_trian(test,dc,strian)
-    assemble_vector_add!(b.fecache[strian],assem,vecdata)
-    galerkin_projection!(b.coeff[strian],test,b.fecache[strian])
+    assemble_vector_add!(b.fecache,assem,vecdata)
+    galerkin_projection!(b.coeff[strian],test,b.fecache)
   end
 
   interpolate!(b,rhs)
@@ -338,11 +343,11 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::RBOperator{O,SplitDomains,<:NoHRContribution,B},
+  op::RBOperator{O,T,<:NoHRContribution,B},
   r::Realisation,
   u::AbstractVector,
   paramcache
-  ) where {O,B}
+  ) where {O,T,B}
 
   fill!(A,zero(eltype(A)))
 
@@ -358,9 +363,10 @@ function Algebra.jacobian!(
   assem = get_param_assembler(op,r)
 
   for strian in get_domains(lhs)
+    LinearAlgebra.fillstored!(A.fecache,false)
     matdata = collect_cell_matrix_for_trian(trial,test,dc,strian)
-    assemble_matrix_add!(A.fecache[strian],assem,matdata)
-    galerkin_projection!(A.coeff[strian],test,A.fecache[strian],trial)
+    assemble_matrix_add!(A.fecache,assem,matdata)
+    galerkin_projection!(A.coeff[strian],test,A.fecache,trial)
   end
 
   interpolate!(A,lhs)
@@ -415,126 +421,86 @@ function Algebra.jacobian!(
 end
 
 """
-    const LinearNonlinearROMOperator{T} = RBOperator{LinearNonlinearParamEq,T}
+    get_linear_part(op::RBOperator) -> RBOperator
+    get_nonlinear_part(op::RBOperator) -> RBOperator
 
-A linear+nonlinear split ROM operator is just a [`RBOperator`](@ref) whose
-`op`/`lhs`/`rhs` fields are each a [`Bundle`](@ref) of the linear and nonlinear
-halves, sharing the same reduced `trial`/`test`
+Splits a Bundle-`lhs`/`rhs` `RBOperator` (built from a [`BundleParamOperator`](@ref))
+back into its two plainly-tagged halves, sharing the same reduced `trial`/`test`
 """
-const LinearNonlinearROMOperator{T} = RBOperator{LinearNonlinearParamEq,T}
-
-"""
-    const AnyLinearNonlinearROMOperator{T} = Union{RBOperator{LinearNonlinearParamEq,T},RBOperator{LinearNonlinearParamODE,T}}
-
-Covers both the steady ([`LinearNonlinearROMOperator`](@ref)) and transient
-(`TransientLinearNonlinearROMOperator`, defined in `RBTransient`) linear+nonlinear
-split ROM operators, so that the paramcache/`parameterise`/`change_operator`/
-`get_local` machinery below is written once for both
-"""
-const AnyLinearNonlinearROMOperator{T} = Union{RBOperator{LinearNonlinearParamEq,T},RBOperator{LinearNonlinearParamODE,T}}
-
-"""
-    LinearNonlinearROMOperator(op_lin::ROMOperator,op_nlin::ROMOperator) -> LinearNonlinearROMOperator
-
-Merges two plainly-tagged, freshly-built reduced operators (sharing the same
-reduced trial/test) into a single [`Bundle`](@ref)-based `RBOperator`, tagged
-`LinearNonlinearParamEq` or `LinearNonlinearParamODE` as appropriate. Used when
-`op_lin`/`op_nlin` were built independently (e.g. loaded separately from disk);
-when a bundled operator is already in hand, prefer rebuilding its `lhs`/`rhs`
-`Bundle`s directly (see `change_operator`/`get_local` below) instead of calling this
-"""
-function LinearNonlinearROMOperator(
-  op_lin::ROMOperator{OL},op_nlin::ROMOperator{ON}
-  ) where {OL<:Union{LinearParamEq,NonlinearParamEq},ON<:Union{LinearParamEq,NonlinearParamEq}}
-
-  @check get_trial(op_lin) === get_trial(op_nlin)
-  @check get_test(op_lin) === get_test(op_nlin)
-  feop_lin = get_fe_operator(get_fe_operator(op_lin))
-  feop_nlin = get_fe_operator(get_fe_operator(op_nlin))
-  res = Bundle(get_res(feop_lin),get_res(feop_nlin))
-  jac = Bundle(get_jac(feop_lin),get_jac(feop_nlin))
-  domains = Bundle(get_domains(feop_lin),get_domains(feop_nlin))
-  feop = ParamFEOperator(
-    res,jac,get_param_space(feop_nlin),get_trial(feop_nlin),get_test(feop_nlin),domains)
-  op = get_algebraic_operator(feop)
-  lhs = Bundle(get_lhs(op_lin),get_lhs(op_nlin))
-  rhs = Bundle(get_rhs(op_lin),get_rhs(op_nlin))
-  RBOperator(op,get_trial(op_lin),get_test(op_lin),lhs,rhs)
-end
-
-function LinearNonlinearROMOperator(
-  op_lin::ROMOperator{OL},op_nlin::ROMOperator{ON}
-  ) where {OL<:ODEParamOperatorType,ON<:ODEParamOperatorType}
-
-  @check get_trial(op_lin) === get_trial(op_nlin)
-  @check get_test(op_lin) === get_test(op_nlin)
-  feop_lin = get_fe_operator(get_fe_operator(op_lin))
-  feop_nlin = get_fe_operator(get_fe_operator(op_nlin))
-  res = Bundle(get_res(feop_lin),get_res(feop_nlin))
-  jacs = Bundle(get_jacs(feop_lin),get_jacs(feop_nlin))
-  domains = Bundle(get_domains(feop_lin),get_domains(feop_nlin))
-  feop = TransientParamFEOperator(
-    res,jacs,get_param_space(feop_nlin),get_trial(feop_nlin),get_test(feop_nlin),domains)
-  op = get_algebraic_operator(feop)
-  lhs = Bundle(get_lhs(op_lin),get_lhs(op_nlin))
-  rhs = Bundle(get_rhs(op_lin),get_rhs(op_nlin))
-  RBOperator(op,get_trial(op_lin),get_test(op_lin),lhs,rhs)
-end
-
-function Utils.get_linear_part(op::AnyLinearNonlinearROMOperator)
+function Utils.get_linear_part(op::RBOperator)
   RBOperator(get_linear_part(get_fe_operator(op)),op.trial,op.test,op.lhs.linear,op.rhs.linear)
 end
 
-function Utils.get_nonlinear_part(op::AnyLinearNonlinearROMOperator)
+function Utils.get_nonlinear_part(op::RBOperator)
   RBOperator(get_nonlinear_part(get_fe_operator(op)),op.trial,op.test,op.lhs.nonlinear,op.rhs.nonlinear)
 end
 
-function ParamAlgebra.allocate_paramcache(
-  op::AnyLinearNonlinearROMOperator,
-  μ::AbstractRealisation
-  )
+# a Bundle-lhs/rhs RBOperator combines its linear and nonlinear halves *after*
+# integration/hyper-reduction: each half keeps its own hyper-reduced structure
+# (and, for the linear half, could in principle be cached across Newton iterations
+# at a fixed μ, since it does not depend on the current iterate `u`), and the two
+# resulting HRParamArrays are summed only at the very end
 
-  op_nlin = get_nonlinear_part(op)
-  allocate_paramcache(op_nlin,μ)
+function Algebra.allocate_residual(
+  op::RBOperator{O,T,A,<:Bundle},
+  r::Realisation,
+  u::AbstractVector,
+  paramcache
+  ) where {O,T,A}
+
+  allocate_residual(get_nonlinear_part(op),r,u,paramcache)
 end
 
-function ParamAlgebra.allocate_systemcache(
-  op::AnyLinearNonlinearROMOperator,
-  u::AbstractVector
-  )
+function Algebra.allocate_jacobian(
+  op::RBOperator{O,T,<:Bundle,B},
+  r::Realisation,
+  u::AbstractVector,
+  paramcache
+  ) where {O,T,B}
 
-  op_nlin = get_nonlinear_part(op)
-  allocate_systemcache(op_nlin,u)
+  allocate_jacobian(get_nonlinear_part(op),r,u,paramcache)
 end
 
-function ParamAlgebra.update_paramcache!(
-  paramcache::AbstractParamCache,
-  op::AnyLinearNonlinearROMOperator,
-  μ::AbstractRealisation
-  )
+function Algebra.residual!(
+  b::HRParamArray,
+  op::RBOperator{O,T,A,<:Bundle},
+  r::Realisation,
+  u::AbstractVector,
+  paramcache
+  ) where {O,T,A}
 
   op_nlin = get_nonlinear_part(op)
-  update_paramcache!(paramcache,op_nlin,μ)
+  residual!(b,op_nlin,r,u,paramcache)
+
+  op_lin = get_linear_part(op)
+  b_lin = allocate_residual(op_lin,r,u,paramcache)
+  residual!(b_lin,op_lin,r,u,paramcache)
+  axpy!(1,b_lin,b)
+
+  b
 end
 
-function ParamDataStructures.parameterise(
-  op::AnyLinearNonlinearROMOperator,
-  μ::AbstractRealisation
-  )
+function Algebra.jacobian!(
+  A::HRParamArray,
+  op::RBOperator{O,T,<:Bundle,B},
+  r::Realisation,
+  u::AbstractVector,
+  paramcache
+  ) where {O,T,B}
 
-  op_lin = parameterise(get_linear_part(op),μ)
-  op_nlin = parameterise(get_nonlinear_part(op),μ)
-  syscache_lin = allocate_systemcache(op_lin)
-  LinNonlinParamOperator(op_lin,op_nlin,syscache_lin)
+  op_nlin = get_nonlinear_part(op)
+  jacobian!(A,op_nlin,r,u,paramcache)
+
+  op_lin = get_linear_part(op)
+  A_lin = allocate_jacobian(op_lin,r,u,paramcache)
+  jacobian!(A_lin,op_lin,r,u,paramcache)
+  axpy!(1,A_lin,A)
+
+  A
 end
 
 # local
 
-# change_operator/get_local for a Bundle-based linear+nonlinear ROM operator
-# are *not* special-cased here: the generic change_operator(::JointROMOperator/
-# ::SplitROMOperator,...) and get_local(::ROMOperator,...) below already work,
-# as long as get_local/change_domains/get_domains_res/get_domains_jac know how
-# to recurse into a Bundle (see Utils/FEDomains.jl and the extension below)
 get_local(b::Bundle,μ::AbstractVector) = Bundle(get_local(b.linear,μ),get_local(b.nonlinear,μ))
 
 function get_local(op::ROMOperator,μ::AbstractVector)

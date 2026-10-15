@@ -7,7 +7,6 @@ Subtypes:
 
 - [`NonlinearParamODE`](@ref)
 - [`LinearParamODE`](@ref)
-- [`LinearNonlinearParamODE`](@ref)
 """
 abstract type ODEParamOperatorType <: UnEvalOperatorType end
 
@@ -22,26 +21,21 @@ struct NonlinearParamODE <: ODEParamOperatorType end
 struct LinearParamODE <: ODEParamOperatorType end
 
 """
-    struct LinearNonlinearParamODE <: ODEParamOperatorType end
-"""
-struct LinearNonlinearParamODE <: ODEParamOperatorType end
-
-"""
-    const ODEParamOperator{T<:ODEParamOperatorType,T<:TriangulationStyle} = ParamOperator{O,T}
+    const ODEParamOperator{O<:ODEParamOperatorType,T<:WeakFormStyle} = ParamOperator{O,T}
 
 Transient extension of the type [`ParamOperator`](@ref).
 """
-const ODEParamOperator{O<:ODEParamOperatorType,T<:TriangulationStyle} = ParamOperator{O,T}
+const ODEParamOperator{O<:ODEParamOperatorType,T<:WeakFormStyle} = ParamOperator{O,T}
 
 """
-    const JointODEParamOperator{O<:ODEParamOperatorType} = ODEParamOperator{O,JointDomains}
+    const PlainODEParamOperator{O<:ODEParamOperatorType} = ODEParamOperator{O,PlainForm}
 """
-const JointODEParamOperator{O<:ODEParamOperatorType} = ODEParamOperator{O,JointDomains}
+const PlainODEParamOperator{O<:ODEParamOperatorType} = ODEParamOperator{O,PlainForm}
 
 """
-    const SplitODEParamOperator{O<:ODEParamOperatorType} = ODEParamOperator{O,SplitDomains}
+    const BundleODEParamOperator{O<:ODEParamOperatorType} = ODEParamOperator{O,BundleForm}
 """
-const SplitODEParamOperator{O<:ODEParamOperatorType} = ODEParamOperator{O,SplitDomains}
+const BundleODEParamOperator{O<:ODEParamOperatorType} = ODEParamOperator{O,BundleForm}
 
 ODEs.get_jacs(odeop::ODEParamOperator) = get_jacs(get_fe_operator(odeop))
 get_order(odeop::ODEParamOperator) = get_order(get_fe_operator(odeop))
@@ -97,7 +91,7 @@ function ParamAlgebra.allocate_systemcache(
 end
 
 function Algebra.allocate_residual(
-  odeop::JointODEParamOperator,
+  odeop::ODEParamOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -117,7 +111,7 @@ end
 
 function Algebra.residual!(
   b::AbstractVector,
-  odeop::JointODEParamOperator,
+  odeop::ODEParamOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache;
@@ -141,12 +135,23 @@ function Algebra.residual!(
   b
 end
 
+"""
+    residual!(b,odeop::ODEParamOperator,r,us,paramcache,trian)
+    jacobian_add!(A,odeop::ODEParamOperator,r,us,paramcache,k,trian)
+
+Single-triangulation variants of `residual!`/`jacobian_add!`: assemble into `b`/`A`
+only the contribution relative to the triangulation `trian` (for `jacobian_add!`,
+of the `k`-th temporal derivative's jacobian). Used by `residual_snapshots`/
+`jacobian_snapshots` to compute hyper-reduction training data one triangulation at
+a time, reusing a single cache
+"""
 function Algebra.residual!(
   b::AbstractVector,
-  odeop::JointODEParamOperator{LinearParamODE},
+  odeop::ODEParamOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
-  paramcache;
+  paramcache,
+  trian;
   add::Bool=false
   )
 
@@ -159,18 +164,16 @@ function Algebra.residual!(
 
   μ,t = get_params(r),get_times(r)
 
-  # Residual
   res = get_res(odeop)
   dc = res(μ,t,uh,v)
-
-  vecdata = collect_cell_vector(test,dc)
+  vecdata = collect_cell_vector_for_trian(test,dc,trian)
   assemble_vector_add!(b,assem,vecdata)
 
   b
 end
 
 function Algebra.allocate_jacobian(
-  odeop::JointODEParamOperator,
+  odeop::ODEParamOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -197,7 +200,7 @@ end
 
 function ODEs.jacobian_add!(
   A::AbstractMatrix,
-  odeop::JointODEParamOperator,
+  odeop::ODEParamOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
@@ -230,85 +233,19 @@ function ODEs.jacobian_add!(
   A
 end
 
-function Algebra.allocate_residual(
-  odeop::SplitODEParamOperator,
-  r::TransientRealisation,
-  us::Tuple{Vararg{AbstractVector}},
-  paramcache
-  )
+"""
+    allocate_jacobians(odeop::ODEParamOperator,r,us,paramcache) -> Tuple
+    jacobians_add!(As::Tuple,odeop::ODEParamOperator,r,us,ws,paramcache) -> Tuple
 
-  uh = ODEs._make_uh_from_us(odeop,us,paramcache.trial)
-  test = get_test(odeop)
-  v = get_fe_basis(test)
-  assem = get_param_assembler(odeop,r)
-
-  μ,t = get_params(r),get_times(r)
-  trian_res = get_domains_res(odeop)
-  res = get_res(odeop)
-  dc = res(μ,t,uh,v)
-
-  b = contribution(trian_res) do trian
-    vecdata = collect_cell_vector_for_trian(test,dc,trian)
-    allocate_vector(assem,vecdata)
-  end
-  b
-end
-
-function Algebra.residual!(
-  b::ArrayContribution,
-  odeop::SplitODEParamOperator,
-  r::TransientRealisation,
-  us::Tuple{Vararg{AbstractVector}},
-  paramcache;
-  add::Bool=false
-  )
-
-  uh = ODEs._make_uh_from_us(odeop,us,paramcache.trial)
-  test = get_test(odeop)
-  v = get_fe_basis(test)
-  assem = get_param_assembler(odeop,r)
-
-  μ,t = get_params(r),get_times(r)
-
-  trian_res = get_domains_res(odeop)
-  res = get_res(odeop)
-  dc = res(μ,t,uh,v)
-
-  map(b.values,trian_res) do b,trian
-    !add && fill!(b,zero(eltype(b)))
-    vecdata = collect_cell_vector_for_trian(test,dc,trian)
-    assemble_vector_add!(b,assem,vecdata)
-  end
-  b
-end
-
-function Algebra.residual(
-  odeop::SplitODEParamOperator,
-  r::TransientRealisation,
-  us::Tuple{Vararg{AbstractVector}},
-  paramcache
-  )
-
-  uh = ODEs._make_uh_from_us(odeop,us,paramcache.trial)
-  test = get_test(odeop)
-  v = get_fe_basis(test)
-  assem = get_param_assembler(odeop,r)
-
-  μ,t = get_params(r),get_times(r)
-
-  # Residual
-  trian_res = get_domains_res(odeop)
-  res = get_res(odeop)
-  dc = res(μ,t,uh,v)
-
-  contribution(trian_res) do trian
-    vecdata = collect_cell_vector_for_trian(test,dc,trian)
-    assemble_vector(assem,vecdata)
-  end
-end
-
-function Algebra.allocate_jacobian(
-  odeop::SplitODEParamOperator,
+Order-separated variants of `allocate_jacobian`/`jacobian_add!`: instead of summing
+the `order+1` temporal-derivative jacobians (weighted by `ws`) into a single
+matrix, keep one matrix per order. Used where each order needs its own reduced
+basis/hyper-reduction (e.g. [`spacetime_jacobian`](@ref)), unlike the generic
+`allocate_jacobian`/`jacobian_add!`, used for the actual time-marching solve, which
+only ever needs the `ws`-weighted total
+"""
+function allocate_jacobians(
+  odeop::ODEParamOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
@@ -323,25 +260,19 @@ function Algebra.allocate_jacobian(
 
   μ,t = get_params(r),get_times(r)
 
-  trian_jacs = get_domains_jac(odeop)
   jacs = get_jacs(odeop)
   As = ()
   for k in 1:get_order(odeop)+1
-    jac = jacs[k]
-    trian_jac = trian_jacs[k]
-    dc = jac(μ,t,uh,du,v)
-    A = contribution(trian_jac) do trian
-      matdata = collect_cell_matrix_for_trian(trial,test,dc,trian)
-      allocate_matrix(assem,matdata)
-    end
-    As = (As...,A)
+    dc = jacs[k](μ,t,uh,du,v)
+    matdata = collect_cell_matrix(trial,test,dc)
+    As = (As...,allocate_matrix(assem,matdata))
   end
-  ContributionTuple(As)
+  As
 end
 
-function ODEs.jacobian_add!(
-  As::ArrayContributionTuple,
-  odeop::SplitODEParamOperator,
+function jacobians_add!(
+  As::Tuple,
+  odeop::ODEParamOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
@@ -357,32 +288,26 @@ function ODEs.jacobian_add!(
 
   μ,t = get_params(r),get_times(r)
 
-  trian_jacs = get_domains_jac(odeop)
   jacs = get_jacs(odeop)
   for k in 1:get_order(odeop)+1
-    A = As[k]
     w = ws[k]
     iszero(w) && continue
-    jac = jacs[k]
-    trian_jac = trian_jacs[k]
-    dc = w * jac(μ,t,uh,du,v)
-    if num_domains(dc) > 0
-      map(A.values,trian_jac) do A,trian
-        matdata = collect_cell_matrix_for_trian(trial,test,dc,trian)
-        assemble_matrix_add!(A,assem,matdata)
-      end
-    end
+    dc = w*jacs[k](μ,t,uh,du,v)
+    matdata = collect_cell_matrix(trial,test,dc)
+    assemble_matrix_add!(As[k],assem,matdata)
   end
-
   As
 end
 
-function Algebra.jacobian(
-  odeop::SplitODEParamOperator,
+function ODEs.jacobian_add!(
+  A::AbstractMatrix,
+  odeop::ODEParamOperator,
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
-  paramcache
+  paramcache,
+  k::Integer,
+  trian
   )
 
   uh = ODEs._make_uh_from_us(odeop,us,paramcache.trial)
@@ -390,128 +315,19 @@ function Algebra.jacobian(
   du = get_trial_fe_basis(trial)
   test = get_test(odeop)
   v = get_fe_basis(test)
-
   assem = get_param_assembler(odeop,r)
+
   μ,t = get_params(r),get_times(r)
 
-  trian_jacs = get_domains_jac(odeop)
-  jacs = get_jacs(odeop)
-  As = ()
-  for k in 1:get_order(odeop)+1
-    w = ws[k]
-    iszero(w) && continue
-    jac = jacs[k]
-    trian_jac = trian_jacs[k]
-    dc = w * jac(μ,t,uh,du,v)
-    A = contribution(trian_jac) do trian
-      matdata = collect_cell_matrix_for_trian(trial,test,dc,trian)
-      assemble_matrix(assem,matdata)
-    end
-    As = (As...,A)
-  end
+  w = ws[k]
+  iszero(w) && return A
 
-  As
-end
+  jac = get_jacs(odeop)[k]
+  dc = w * jac(μ,t,uh,du,v)
+  matdata = collect_cell_matrix_for_trian(trial,test,dc,trian)
+  assemble_matrix_add!(A,assem,matdata)
 
-# nonlinear interface
-
-const LinearNonlinearODEParamOperator{T<:TriangulationStyle} = ODEParamOperator{LinearNonlinearParamODE,T}
-
-function Utils.get_linear_part(op::LinearNonlinearODEParamOperator)
-  get_algebraic_operator(get_linear_part(get_fe_operator(op)))
-end
-
-function Utils.get_nonlinear_part(op::LinearNonlinearODEParamOperator)
-  get_algebraic_operator(get_nonlinear_part(get_fe_operator(op)))
-end
-
-get_order(op::LinearNonlinearODEParamOperator) = max(get_order(get_linear_part(op)),get_order(get_nonlinear_part(op)))
-
-function ParamAlgebra.allocate_paramcache(
-  op::LinearNonlinearODEParamOperator,
-  r::TransientRealisation
-  )
-
-  op_nlin = get_nonlinear_part(op)
-  allocate_paramcache(op_nlin,r)
-end
-
-function ParamAlgebra.allocate_systemcache(
-  op::LinearNonlinearODEParamOperator,
-  u::AbstractVector
-  )
-  
-  op_nlin = get_nonlinear_part(op)
-  allocate_systemcache(op_nlin,u)
-end
-
-function ParamAlgebra.update_paramcache!(
-  paramcache::AbstractParamCache,
-  op::LinearNonlinearODEParamOperator,
-  r::TransientRealisation
-  )
-
-  op_nlin = get_nonlinear_part(op)
-  update_paramcache!(paramcache,op_nlin,r)
-end
-
-function ParamDataStructures.parameterise(
-  op::LinearNonlinearODEParamOperator,
-  r::TransientRealisation
-  )
-
-  op_lin = parameterise(get_linear_part(op),r)
-  op_nlin = parameterise(get_nonlinear_part(op),r)
-  syscache_lin = allocate_systemcache(op_lin)
-  LinNonlinParamOperator(op_lin,op_nlin,syscache_lin)
-end
-
-function Algebra.allocate_residual(
-  op::LinearNonlinearODEParamOperator,
-  r::TransientRealisation,
-  us::Tuple{Vararg{AbstractVector}},
-  paramcache
-  )
-
-  @notimplemented "This is inefficient. Instead, assemble the nonlinear system
-  by defining a [`LinearNonlinearParamOperator`](@ref)"
-end
-
-function Algebra.allocate_jacobian(
-  op::LinearNonlinearODEParamOperator,
-  r::TransientRealisation,
-  us::Tuple{Vararg{AbstractVector}},
-  paramcache
-  )
-
-  @notimplemented "This is inefficient. Instead, assemble the nonlinear system
-  by defining a [`LinearNonlinearParamOperator`](@ref)"
-end
-
-function Algebra.residual!(
-  b,
-  op::LinearNonlinearODEParamOperator,
-  r::TransientRealisation,
-  us::Tuple{Vararg{AbstractVector}},
-  paramcache;
-  kwargs...
-  )
-
-  @notimplemented "This is inefficient. Instead, assemble the nonlinear system
-  by defining a [`LinearNonlinearParamOperator`](@ref)"
-end
-
-function ODEs.jacobian_add!(
-  A,
-  op::LinearNonlinearODEParamOperator,
-  r::TransientRealisation,
-  us::Tuple{Vararg{AbstractVector}},
-  ws::Tuple{Vararg{Real}},
-  paramcache
-  )
-
-  @notimplemented "This is inefficient. Instead, assemble the nonlinear system
-  by defining a [`LinearNonlinearParamOperator`](@ref)"
+  A
 end
 
 # constructors

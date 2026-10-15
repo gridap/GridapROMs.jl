@@ -62,11 +62,6 @@ function Utils.change_domains(a::HRParamArray,trians)
   HRParamArray(fecache,coeff,hypred)
 end
 
-function ParamAlgebra.compatible_cache(a::HRParamArray,b::HRParamArray)
-  hypred′ = compatible_cache(a.hypred,b.hypred)
-  HRParamArray(a.fecache,a.coeff,hypred′)
-end
-
 # utils 
 
 function Base.fill!(a::Array{<:AbstractArray},b::Number)

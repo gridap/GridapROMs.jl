@@ -110,6 +110,19 @@ function save(dir,op::ROMOperator;label="")
   save(dir,get_lhs(op);label=_get_label(label,LHS_LABEL))
 end
 
+function save(dir,op::RBOperator{O,T,A,<:Bundle};label="") where {O,T,A}
+  op_lin = get_linear_part(op)
+  op_nlin = get_nonlinear_part(op)
+  # test and trial are the same for both the linear and nonlinear operators
+  save(dir,get_test(op_lin);label=_get_label(label,TEST_LABEL))
+  save(dir,get_trial(op_lin);label=_get_label(label,TRIAL_LABEL))
+  # weakform-related quantities are different for the linear and nonlinear operators
+  save(dir,get_rhs(op_lin);label=_get_label(label,LINEAR_LABEL,RHS_LABEL))
+  save(dir,get_lhs(op_lin);label=_get_label(label,LINEAR_LABEL,LHS_LABEL))
+  save(dir,get_rhs(op_nlin);label=_get_label(label,NONLINEAR_LABEL,RHS_LABEL))
+  save(dir,get_lhs(op_nlin);label=_get_label(label,NONLINEAR_LABEL,LHS_LABEL))
+end
+
 """
     load_operator(dir,feop::ParamOperator;kwargs...) -> ROMOperator
 
@@ -127,20 +140,7 @@ function load_operator(dir,feop::ParamOperator;label="")
   return ROMOperator(feop,trial,test,red_lhs,red_rhs)
 end
 
-function save(dir,feop::AnyLinearNonlinearROMOperator;label="")
-  feop_lin = get_linear_part(feop)
-  feop_nlin = get_nonlinear_part(feop)
-  # test and trial are the same for both the linear and nonlinear operators
-  save(dir,get_test(feop_lin);label=_get_label(label,TEST_LABEL))
-  save(dir,get_trial(feop_lin);label=_get_label(label,TRIAL_LABEL))
-  # weakform-related quantities are different for the linear and nonlinear operators
-  save(dir,get_rhs(feop_lin);label=_get_label(label,LINEAR_LABEL,RHS_LABEL))
-  save(dir,get_lhs(feop_lin);label=_get_label(label,LINEAR_LABEL,LHS_LABEL))
-  save(dir,get_rhs(feop_nlin);label=_get_label(label,NONLINEAR_LABEL,RHS_LABEL))
-  save(dir,get_lhs(feop_nlin);label=_get_label(label,NONLINEAR_LABEL,LHS_LABEL))
-end
-
-function load_operator(dir,feop::LinearNonlinearParamOperator;label="")
+function load_operator(dir,feop::BundleParamOperator;label="")
   feop_lin = get_linear_part(feop)
   feop_nlin = get_nonlinear_part(feop)
   # test and trial are the same for both the linear and nonlinear operators
@@ -153,7 +153,9 @@ function load_operator(dir,feop::LinearNonlinearParamOperator;label="")
   red_lhs_nlin = load_contribution(dir,get_domains_jac(feop_nlin);label=_get_label(label,NONLINEAR_LABEL,LHS_LABEL))
   op_lin = ROMOperator(feop_lin,trial,test,red_lhs_lin,red_rhs_lin)
   op_nlin = ROMOperator(feop_nlin,trial,test,red_lhs_nlin,red_rhs_nlin)
-  return LinearNonlinearROMOperator(op_lin,op_nlin)
+  lhs = Bundle(get_lhs(op_lin),get_lhs(op_nlin))
+  rhs = Bundle(get_rhs(op_lin),get_rhs(op_nlin))
+  return RBOperator(feop,trial,test,lhs,rhs)
 end
 
 """

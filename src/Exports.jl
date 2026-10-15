@@ -55,7 +55,6 @@ end
 @publish ParamSteady ParamTrialFESpace
 @publish ParamSteady ParamOperator
 @publish ParamSteady LinearParamOperator
-@publish ParamSteady LinearNonlinearParamOperator
 @publish ParamSteady ParamFEOperator
 @publish ParamSteady LinearParamFEOperator
 

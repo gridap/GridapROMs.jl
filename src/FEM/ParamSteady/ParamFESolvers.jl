@@ -3,7 +3,7 @@ for S in (:NonlinearSolver,:LinearSolver)
     function Algebra.solve!(
       u::AbstractVector,
       solver::$S,
-      op::JointParamOperator,
+      op::ParamOperator,
       r::Realisation
       )
 
@@ -12,16 +12,6 @@ for S in (:NonlinearSolver,:LinearSolver)
       t = @timed solve!(u,solver,nlop,syscache)
       stats = CostTracker(t,name="Solver";nruns=num_params(r))
       stats
-    end
-
-    function Algebra.solve!(
-      u::AbstractVector,
-      solver::$S,
-      op::SplitParamOperator,
-      r::Realisation
-      )
-
-      solve!(u,solver,set_domains(op),r)
     end
   end
 end

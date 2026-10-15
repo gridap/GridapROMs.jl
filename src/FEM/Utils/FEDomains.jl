@@ -40,6 +40,17 @@ struct Bundle{A,B}
 end
 
 """
+    (b::Bundle)(args...)
+
+A `Bundle` of two callables (e.g. two weak-form functions `res(μ,u,v)`) is itself
+callable, and evaluates to the sum of its two halves. This is what lets a
+Bundle-valued `res`/`jac` field be passed, unchanged, to any call site that expects
+a plain weak-form function: the linear and nonlinear contributions are aggregated
+by summation at evaluation time, instead of being cached and combined separately
+"""
+(b::Bundle)(args...) = b.linear(args...) + b.nonlinear(args...)
+
+"""
     get_linear_part(b::Bundle) -> A
     get_nonlinear_part(b::Bundle) -> B
 
@@ -65,7 +76,6 @@ Subtypes:
 
 - [`LinearEq`](@ref)
 - [`NonlinearEq`](@ref)
-- [`LinearNonlinearEq`](@ref)
 """
 abstract type OperatorType <: GridapType end
 
@@ -84,41 +94,30 @@ Trait indicating that a parametric FE operator is nonlinear.
 struct NonlinearEq <: OperatorType end
 
 """
-    struct LinearNonlinearEq <: OperatorType end
-
-Trait indicating that a parametric FE operator is the sum of a linear and a
-nonlinear part (used e.g. for linearised Navier–Stokes or generalised saddle-point
-problems where the linear block is assembled once and the nonlinear block is
-updated at every Newton step).
-"""
-struct LinearNonlinearEq <: OperatorType end
-
-"""
-    abstract type TriangulationStyle <: GridapType end
+    abstract type WeakFormStyle <: GridapType end
 
 Subtypes:
 
-- [`JointDomains`](@ref)
-- [`SplitDomains`](@ref)
+- [`PlainForm`](@ref)
+- [`BundleForm`](@ref)
 """
-abstract type TriangulationStyle <: GridapType end
+abstract type WeakFormStyle <: GridapType end
 
 """
-    struct JointDomains <: TriangulationStyle end
+    struct PlainForm <: WeakFormStyle end
 
-Trait for a FE operator indicating that residuals/Jacobians in this operator
-should be computed summing the contributions relative to each triangulation as
-occurs in [`Gridap`](@ref)
+Trait for a FE operator whose `res`/`jac`/`domains` fields are plain (not a
+[`Bundle`](@ref) of a linear and a nonlinear half)
 """
-struct JointDomains <: TriangulationStyle end
+struct PlainForm <: WeakFormStyle end
 
 """
-    struct SplitDomains <: TriangulationStyle end
+    struct BundleForm <: WeakFormStyle end
 
-Trait for a FE operator indicating that residuals/Jacobians in this operator
-should be computed keeping the contributions relative to each triangulation separate
+Trait for a FE operator whose `res`/`jac`/`domains` fields are each a [`Bundle`](@ref)
+of a linear and a nonlinear half
 """
-struct SplitDomains <: TriangulationStyle end
+struct BundleForm <: WeakFormStyle end
 
 # utils 
 

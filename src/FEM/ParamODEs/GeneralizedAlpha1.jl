@@ -88,62 +88,6 @@ function ODEs.ode_march!(
   (r,statef)
 end
 
-# linear - nonlinear case 
-
-function ODEs.ode_march!(
-  statef::NTuple{2,AbstractVector},
-  solver::GeneralizedAlpha1,
-  odeop::LinearNonlinearODEParamOperator,
-  r::TransientRealisation,
-  state0::NTuple{2,AbstractVector},
-  odecache
-  )
-
-  u0,v0 = state0
-  x = statef[2]
-
-  ((uα_lin,vα_lin),(uα_nlin,vα_nlin),
-  paramcache_lin,paramcache_nlin,
-  syscache_lin,syscache_nlin) = odecache
-  dt,αf,αm,γ = solver.dt,solver.αf,solver.αm,solver.γ
-  ws = (αf*γ*dt,αm)
-
-  mid_shift!(solver,r)
-
-  # linear updates
-  op_lin = get_linear_part(odeop)
-  copyto!(uα_lin,u0)
-  axpy!(αf * (1 - γ) * dt,v0,uα_lin)
-  copyto!(vα_lin,v0)
-  rmul!(vα_lin,1 - αm)
-  state_update_lin(x) = (uα_lin,vα_lin)
-  update_paramcache!(paramcache_lin,op_lin,r)
-  nlop_lin = ParamStageOperator(op_lin,r,state_update_lin,ws,paramcache_lin)
-
-  # nonlinear updates
-  op_nlin = get_nonlinear_part(odeop)
-  function state_update_nlin(x)
-    copyto!(uα_nlin,u0)
-    axpy!(αf * (1 - γ) * dt,v0,uα_nlin)
-    axpy!(αf * γ * dt,x,uα_nlin)
-
-    copyto!(vα_nlin,v0)
-    rmul!(vα_nlin,1 - αm)
-    axpy!(αm,x,vα_nlin)
-    
-    (uα_nlin,vα_nlin)
-  end
-  update_paramcache!(paramcache_nlin,op_nlin,r)
-  nlop_nlin = ParamStageOperator(op_nlin,r,state_update_nlin,ws,paramcache_nlin)
-
-  nlop = LinNonlinParamOperator(nlop_lin,nlop_nlin,syscache_lin)
-  solve!(x,solver.sysslvr,nlop,syscache_nlin)
-  mid_front_shift!(solver,r)
-
-  statef = ODEs._update_alpha1!(statef,state0,dt,x,γ)
-  (r,statef)
-end
-
 function mid_shift!(
   solver::GeneralizedAlpha1,
   r::TransientRealisation

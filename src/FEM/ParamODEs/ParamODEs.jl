@@ -10,15 +10,13 @@ machinery.  Key components:
   `∂t`/`∂tt`, for use inside weak forms.
 - **Transient trial spaces** — `TransientTrialParamFESpace` add time-varying Dirichlet 
   conditions to parametric FE spaces.
-- **ODE operators** — `ODEParamOperator` hierarchy (`JointODEParamOperator`,
-  `SplitODEParamOperator`, `LinearNonlinearODEParamOperator`, …) translate a
-  transient parametric weak form into the residual/Jacobian signature expected by
-  Gridap's time-marching schemes.
+- **ODE operators** — `ODEParamOperator` translates a transient parametric weak form
+  into the residual/Jacobian signature expected by Gridap's time-marching schemes.
 - **Stage operators** — `ParamStageOperator` wraps a single ODE stage solve,
   keeping track of the current time, stage coefficients, and parameter realisation.
 - **Transient FE operators** — `TransientParamFEOperator` and specialisations
-  (`SplitTransientParamFEOperator`, `TransientLinearParamFEOperator`, …) combine
-  the spatial FE machinery with time-derivative information.
+  (`TransientLinearParamFEOperator`, …) combine the spatial FE machinery with
+  time-derivative information.
 - **ODE solutions** — `ODEParamSolution` iterates over time steps, yielding
   `(realisation, FEFunction)` pairs; `TransientParamFESolution` wraps this
   iterator into a `ParamFEFunction` per time step.
@@ -69,11 +67,9 @@ include("TransientNonlinearParamOperators.jl")
 export ODEParamOperatorType
 export NonlinearParamODE
 export LinearParamODE
-export LinearNonlinearParamODE
 export ODEParamOperator
-export JointODEParamOperator
-export SplitODEParamOperator
-export LinearNonlinearODEParamOperator
+export PlainODEParamOperator
+export BundleODEParamOperator
 export TransientLinearParamOperator
 export TransientParamOperator
 include("ODEParamOperators.jl")
@@ -82,8 +78,8 @@ export ParamStageOperator
 include("ParamStageOperators.jl")
 
 export TransientParamFEOperator
-export SplitTransientParamFEOperator
-export JointTransientParamFEOperator
+export PlainTransientParamFEOperator
+export BundleTransientParamFEOperator
 export TransientParamFEOpFromWeakForm
 export TransientLinearParamFEOperator
 export TransientLinearParamFEOpFromWeakForm

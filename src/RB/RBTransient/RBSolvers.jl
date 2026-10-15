@@ -62,7 +62,7 @@ end
 
 function RBSteady.residual_snapshots(
   solver::RBSolver,
-  op::ODEParamOperator{LinearNonlinearParamODE},
+  op::BundleODEParamOperator,
   s::AbstractSnapshots
   )
 
@@ -93,7 +93,7 @@ end
 
 function RBSteady.jacobian_snapshots(
   solver::RBSolver,
-  op::ODEParamOperator{LinearNonlinearParamODE},
+  op::BundleODEParamOperator,
   s::AbstractSnapshots
   )
 

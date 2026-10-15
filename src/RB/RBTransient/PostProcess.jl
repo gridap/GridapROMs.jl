@@ -22,7 +22,7 @@ function RBSteady.load_contribution(
   return ContributionTuple(c)
 end
 
-function RBSteady.load_operator(dir,feop::LinearNonlinearODEParamOperator;label="")
+function RBSteady.load_operator(dir,feop::BundleODEParamOperator;label="")
   feop_lin = get_linear_part(feop)
   feop_nlin = get_nonlinear_part(feop)
   # test and trial are the same for both the linear and nonlinear operators
@@ -35,7 +35,9 @@ function RBSteady.load_operator(dir,feop::LinearNonlinearODEParamOperator;label=
   red_lhs_nlin = load_contribution(dir,get_domains_jac(feop_nlin);label=_get_label(label,NONLINEAR_LABEL,LHS_LABEL))
   op_lin = ROMOperator(feop_lin,trial,test,red_lhs_lin,red_rhs_lin)
   op_nlin = ROMOperator(feop_nlin,trial,test,red_lhs_nlin,red_rhs_nlin)
-  return LinearNonlinearROMOperator(op_lin,op_nlin)
+  lhs = Bundle(get_lhs(op_lin),get_lhs(op_nlin))
+  rhs = Bundle(get_rhs(op_lin),get_rhs(op_nlin))
+  return RBOperator(feop,trial,test,lhs,rhs)
 end
 
 include("Diagnostics.jl")

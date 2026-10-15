@@ -56,12 +56,6 @@ export allocate_systemcache
 export update_systemcache!
 include("NonlinearParamOperators.jl")
 
-export LinearNonlinearParamOperator
-export LinNonlinParamOperator
-export get_linear_systemcache
-export compatible_cache
-include("LinearNonlinearParamOperators.jl")
-
 include("ParamSolvers.jl")
 
 end

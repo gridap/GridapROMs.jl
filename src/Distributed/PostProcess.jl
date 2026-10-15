@@ -192,29 +192,6 @@ function RBSteady.load_operator(dir,feop::ODEParamOperator,ranks::AbstractArray;
   ROMOperator(feop,trial,test,red_lhs,red_rhs)
 end
 
-function RBSteady.load_operator(dir,feop::LinearNonlinearODEParamOperator,ranks::AbstractArray;label="")
-  feop_lin = get_linear_part(feop)
-  feop_nlin = get_nonlinear_part(feop)
-  # test and trial are the same for both the linear and nonlinear operators
-  test = load_subspace(dir,get_test(feop_lin),ranks;label=_plabel(label,RBSteady.TEST_LABEL))
-  trial = load_subspace(dir,get_trial(feop_lin),ranks;label=_plabel(label,RBSteady.TRIAL_LABEL))
-  trian_res_lin = get_domains_res(feop_lin)
-  trian_jacs_lin = get_domains_jac(feop_lin)
-  red_rhs_lin = load_contribution(dir,trian_res_lin,ranks;label=_plabel(label,RBSteady.LINEAR_LABEL,RBSteady.RHS_LABEL))
-  red_lhs_lin = ntuple(length(trian_jacs_lin)) do i
-    load_contribution(dir,trian_jacs_lin[i],ranks;label=_plabel(label,RBSteady.LINEAR_LABEL,RBSteady.LHS_LABEL,i))
-  end
-  trian_res_nlin = get_domains_res(feop_nlin)
-  trian_jacs_nlin = get_domains_jac(feop_nlin)
-  red_rhs_nlin = load_contribution(dir,trian_res_nlin,ranks;label=_plabel(label,RBSteady.NONLINEAR_LABEL,RBSteady.RHS_LABEL))
-  red_lhs_nlin = ntuple(length(trian_jacs_nlin)) do i
-    load_contribution(dir,trian_jacs_nlin[i],ranks;label=_plabel(label,RBSteady.NONLINEAR_LABEL,RBSteady.LHS_LABEL,i))
-  end
-  op_lin = ROMOperator(feop_lin,trial,test,red_lhs_lin,red_rhs_lin)
-  op_nlin = ROMOperator(feop_nlin,trial,test,red_lhs_nlin,red_rhs_nlin)
-  LinearNonlinearROMOperator(op_lin,op_nlin)
-end
-
 # utils
 
 _plabel(name,label...) = foldl(RBSteady._get_label,label;init=name)

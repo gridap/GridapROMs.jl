@@ -147,7 +147,6 @@ include("LocalHyperReductions.jl")
 
 export TransientROMOperator
 export TransientRBOperator
-export TransientLinearNonlinearROMOperator
 include("RBOperators.jl")
 
 export SpaceTimeParamOperator

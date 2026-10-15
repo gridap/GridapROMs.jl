@@ -87,7 +87,7 @@ end
 
 function diagnostic_residual!(
   b::DiagnosticsContribution,
-  op::SplitROMOperator,
+  op::ROMOperator,
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -113,11 +113,11 @@ end
 
 function diagnostic_residual!(
   b::DiagnosticsContribution,
-  op::RBOperator{O,SplitDomains,A,<:NoHRContribution},
+  op::RBOperator{O,T,A,<:NoHRContribution},
   r::Realisation,
   u::AbstractVector,
   paramcache
-  ) where {O,A}
+  ) where {O,T,A}
 
   uh = EvaluationFunction(paramcache.trial,u)
   test = get_test(op)
@@ -128,9 +128,10 @@ function diagnostic_residual!(
   assem = get_param_assembler(op,r)
 
   for strian in get_domains(rhs)
+    fill!(b.fecache,zero(eltype(b.fecache)))
     vecdata = collect_cell_vector_for_trian(test,dc,strian)
-    assemble_vector_add!(b.fecache[strian],assem,vecdata)
-    galerkin_projection!(b.coeff[strian],test,b.fecache[strian])
+    assemble_vector_add!(b.fecache,assem,vecdata)
+    galerkin_projection!(b.coeff[strian],test,b.fecache)
   end
 
   diagnostic_interpolate!(b,rhs)
@@ -170,7 +171,7 @@ end
 
 function diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::SplitROMOperator,
+  op::ROMOperator,
   r::Realisation,
   u::AbstractVector,
   paramcache
@@ -199,11 +200,11 @@ end
 
 function diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::RBOperator{O,SplitDomains,<:NoHRContribution,B},
+  op::RBOperator{O,T,<:NoHRContribution,B},
   r::Realisation,
   u::AbstractVector,
   paramcache
-  ) where {O,B}
+  ) where {O,T,B}
 
   uh = EvaluationFunction(paramcache.trial,u)
   trial = get_trial(op)
@@ -217,9 +218,10 @@ function diagnostic_jacobian!(
   assem = get_param_assembler(op,r)
 
   for strian in get_domains(lhs)
+    LinearAlgebra.fillstored!(A.fecache,false)
     matdata = collect_cell_matrix_for_trian(trial,test,dc,strian)
-    assemble_matrix_add!(A.fecache[strian],assem,matdata)
-    galerkin_projection!(A.coeff[strian],test,A.fecache[strian],trial)
+    assemble_matrix_add!(A.fecache,assem,matdata)
+    galerkin_projection!(A.coeff[strian],test,A.fecache,trial)
   end
 
   diagnostic_interpolate!(A,lhs)
@@ -307,7 +309,6 @@ named tuple:
 - `"rhs dim"` — `Vector{Tuple}`, one `K`-tuple per tolerance (one integer per
   triangulation)
 - `"lhs dim"` — same for the Jacobian contributions
-- For `LinearNonlinearROMOperator`: `"lin_rhs dim"`, `"nlin_lhs dim"`, etc.
 
 **Online** keys:
 - `"projection_error"` — `Vector{Float64}`
@@ -383,18 +384,6 @@ function offline_diagnostics(op::ROMOperator)
   )
 end
 
-function offline_diagnostics(op::AnyLinearNonlinearROMOperator)
-  op_lin = get_linear_part(op)
-  op_nlin = get_nonlinear_part(op)
-  (
-    state=projection_diagnostics(get_trial(op)),
-    lin_rhs=hr_diagnostics(get_rhs(op_lin)),
-    lin_lhs=hr_diagnostics(get_lhs(op_lin)),
-    nlin_rhs=hr_diagnostics(get_rhs(op_nlin)),
-    nlin_lhs=hr_diagnostics(get_lhs(op_nlin)),
-  )
-end
-
 """
     projection_diagnostics(r::RBSpace) -> NamedTuple
 
@@ -447,6 +436,8 @@ end
 function hr_diagnostics(c::AffineContribution)
   Tuple(hr_diagnostics(v) for v in get_contributions(c))
 end
+
+hr_diagnostics(b::Bundle) = Bundle(hr_diagnostics(b.linear),hr_diagnostics(b.nonlinear))
 
 """
     projection_error(solver,op,s) -> Number
@@ -534,8 +525,8 @@ function hr_error(solver::LocalRBSolver,op::ROMOperator,res,jac,s)
   return _mean(err_res),_mean(err_jac)
 end
 
-for T in (:GlobalRBSolver, :LocalRBSolver)
-  @eval function hr_error(solver::$T,op::AnyLinearNonlinearROMOperator,res,jac,s)
+for T in (:GlobalRBSolver,:LocalRBSolver)
+  @eval function hr_error(solver::$T,op::RBOperator{O,Ty,A,<:Bundle},res,jac,s) where {O,Ty,A}
     res_lin,res_nlin = res
     jac_lin,jac_nlin = jac
     op_lin = get_linear_part(op)
@@ -544,7 +535,7 @@ for T in (:GlobalRBSolver, :LocalRBSolver)
     (err_res_nlin,err_jac_nlin) = hr_error(solver,op_nlin,res_nlin,jac_nlin,s)
     return (err_res_lin,err_res_nlin),(err_jac_lin,err_jac_nlin)
   end
-end 
+end
 
 function hr_error_res(
   op::ROMOperator,
@@ -666,7 +657,7 @@ end
 
 for f in (:save_residuals,:save_jacobians)
   @eval begin
-    function $f(dir,feop::LinearNonlinearParamOperator,resjac::Tuple;label="")
+    function $f(dir,feop::BundleParamOperator,resjac::Tuple;label="")
       @assert length(resjac) == 2
       $f(dir,get_linear_part(feop),resjac[1];label=_get_label(label,LINEAR_LABEL))
       $f(dir,get_nonlinear_part(feop),resjac[2];label=_get_label(label,NONLINEAR_LABEL))
@@ -685,7 +676,7 @@ end
 
 for f in (:load_residuals,:load_jacobians)
   @eval begin
-    function $f(dir,feop::LinearNonlinearParamOperator;label="")
+    function $f(dir,feop::BundleParamOperator;label="")
       (
         $f(dir,get_linear_part(feop);label=_get_label(label,LINEAR_LABEL)),
         $f(dir,get_nonlinear_part(feop);label=_get_label(label,NONLINEAR_LABEL)),

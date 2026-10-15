@@ -47,7 +47,7 @@ function main(
   dc(u,du,v) = ∫( v⊙(dconv∘(du,∇(du),u,∇(u))) )dΩ
 
   jac_lin(μ,(u,p),(v,q)) = ∫(aμ(μ)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
-  rhs_lin(μ,(v,q)) = ∫(0*q)dΩ
+  res_lin(μ,(u,p),(v,q)) = jac_lin(μ,(u,p),(v,q))
 
   res_nlin(μ,(u,p),(v,q)) = c(u,v)
   jac_nlin(μ,(u,p),(du,dp),(v,q)) = dc(u,du,v)
@@ -79,7 +79,7 @@ function main(
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy)
 
   jac_lin′(μ,u,du,v) = jac_lin(μ,du,v)
-  res = Bundle(rhs_lin,res_nlin)
+  res = Bundle(res_lin,res_nlin)
   jac = Bundle(jac_lin′,jac_nlin)
   domains = Bundle(domains_lin,domains_nlin)
   feop = ParamOperator(res,jac,pspace,trial,test,domains)
