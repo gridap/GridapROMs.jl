@@ -55,6 +55,19 @@ FESpaces.get_trial(op::ParamOperator) = get_trial(get_fe_operator(op))
 ODEs.get_res(op::ParamOperator) = ODEs.get_res(get_fe_operator(op))
 get_jac(op::ParamOperator) = get_jac(get_fe_operator(op))
 
+"""
+    _eval_res(op::ParamOperator,r,uh,v)
+
+Evaluates the residual form of `op` at `(r,uh,v)`. A genuinely linear operator
+(`O=LinearParamEq`) has no residual to evaluate at a current state `uh` — only a
+right-hand side, independent of `uh` — so `get_res(op)` there is a 2-argument
+`rhs(r,v)` instead of a 3-argument `res(r,uh,v)`
+"""
+function _eval_res(op::ParamOperator{LinearParamEq},r,uh,v)
+  get_res(op)(r,v) - get_jac(op)(r,uh,uh,v)
+end
+_eval_res(op::ParamOperator,r,uh,v) = get_res(op)(r,uh,v)
+
 DofMaps.get_dof_map(op::ParamOperator,args...) = get_dof_map(get_fe_operator(op),args...)
 DofMaps.get_sparse_dof_map(op::ParamOperator,args...) = get_sparse_dof_map(get_fe_operator(op),args...)
 CellData.get_domains(op::ParamOperator) = get_domains(get_fe_operator(op))
@@ -128,6 +141,56 @@ function Algebra.residual!(
 
   res = get_res(op)
   dc = res(μ,uh,v)
+  vecdata = collect_cell_vector(test,dc)
+  assemble_vector_add!(b,assem,vecdata)
+
+  b
+end
+
+function Algebra.allocate_residual(
+  op::JointParamOperator{LinearParamEq},
+  μ::Realisation,
+  u::AbstractVector,
+  paramcache
+  )
+
+  uh = EvaluationFunction(paramcache.trial,u)
+  test = get_test(op)
+  v = get_fe_basis(test)
+  assem = get_param_assembler(op,μ)
+
+  rhs = get_res(op)
+  jac = get_jac(op)
+  dc = rhs(μ,v) - jac(μ,u,uh,v)
+  vecdata = collect_cell_vector(test,dc)
+  b = allocate_vector(assem,vecdata)
+
+  b
+end
+
+function Algebra.residual!(
+  b::AbstractVector,
+  op::JointParamOperator{LinearParamEq},
+  μ::Realisation,
+  u::AbstractVector,
+  paramcache;
+  add::Bool=false
+  )
+
+  !add && fill!(b,zero(eltype(b)))
+
+  uh = EvaluationFunction(paramcache.trial,u)
+  test = get_test(op)
+  v = get_fe_basis(test)
+  assem = get_param_assembler(op,μ)
+
+  # a genuinely linear operator has no residual, only a right-hand side `rhs(μ,v)`;
+  # but with inhomogeneous Dirichlet data, `uh` carries the (μ-dependent) lift, whose
+  # contribution through the bilinear form must still be moved to the right-hand
+  # side, exactly as Gridap's own AffineFEOperator does internally
+  rhs = get_res(op)
+  jac = get_jac(op)
+  dc = rhs(μ,v) - jac(μ,u,uh,v)
   vecdata = collect_cell_vector(test,dc)
   assemble_vector_add!(b,assem,vecdata)
 
@@ -226,6 +289,56 @@ function Algebra.residual!(
   b
 end
 
+function Algebra.allocate_residual(
+  op::SplitParamOperator{LinearParamEq},
+  μ::Realisation,
+  u::AbstractVector,
+  paramcache
+  )
+
+  uh = EvaluationFunction(paramcache.trial,u)
+  test = get_test(op)
+  v = get_fe_basis(test)
+  assem = get_param_assembler(op,μ)
+
+  trian_res = get_domains_res(op)
+  rhs = get_res(op)
+  jac = get_jac(op)
+  dc = rhs(μ,v) - jac(μ,u,uh,v)
+  contribution(trian_res) do trian
+    vecdata = collect_cell_vector_for_trian(test,dc,trian)
+    allocate_vector(assem,vecdata)
+  end
+end
+
+function Algebra.residual!(
+  b::Contribution,
+  op::SplitParamOperator{LinearParamEq},
+  μ::Realisation,
+  u::AbstractVector,
+  paramcache;
+  add::Bool=false
+  )
+
+  uh = EvaluationFunction(paramcache.trial,u)
+  test = get_test(op)
+  v = get_fe_basis(test)
+  assem = get_param_assembler(op,μ)
+
+  trian_res = get_domains_res(op)
+  rhs = get_res(op)
+  jac = get_jac(op)
+  dc = rhs(μ,v) - jac(μ,u,uh,v)
+
+  map(b.values,trian_res) do b,trian
+    !add && fill!(b,zero(eltype(b)))
+    vecdata = collect_cell_vector_for_trian(test,dc,trian)
+    assemble_vector_add!(b,assem,vecdata)
+  end
+
+  b
+end
+
 function Algebra.allocate_jacobian(
   op::SplitParamOperator,
   μ::Realisation,
@@ -279,20 +392,20 @@ end
 
 const LinearNonlinearParamOperator{T<:TriangulationStyle} = ParamOperator{LinearNonlinearParamEq,T}
 
-function get_fe_operator(op::LinearNonlinearParamOperator)
-  feop_lin = get_fe_operator(get_linear_operator(op))
-  feop_nlin = get_fe_operator(get_nonlinear_operator(op))
-  LinearNonlinearParamFEOperator(feop_lin,feop_nlin)
-end 
+function Utils.get_linear_part(op::LinearNonlinearParamOperator)
+  get_algebraic_operator(get_linear_part(get_fe_operator(op)))
+end
 
-join_operators(op::LinearNonlinearParamOperator) = get_algebraic_operator(join_operators(get_fe_operator(op)))
+function Utils.get_nonlinear_part(op::LinearNonlinearParamOperator)
+  get_algebraic_operator(get_nonlinear_part(get_fe_operator(op)))
+end
 
 function ParamAlgebra.allocate_paramcache(
   op::LinearNonlinearParamOperator,
   μ::AbstractRealisation
   )
 
-  op_nlin = get_nonlinear_operator(op)
+  op_nlin = get_nonlinear_part(op)
   allocate_paramcache(op_nlin,μ)
 end
 
@@ -301,7 +414,7 @@ function ParamAlgebra.allocate_systemcache(
   u::AbstractVector
   )
 
-  op_nlin = get_nonlinear_operator(op)
+  op_nlin = get_nonlinear_part(op)
   allocate_systemcache(op_nlin,u)
 end
 
@@ -311,7 +424,7 @@ function ParamAlgebra.update_paramcache!(
   μ::AbstractRealisation
   )
 
-  op_nlin = get_nonlinear_operator(op)
+  op_nlin = get_nonlinear_part(op)
   update_paramcache!(paramcache,op_nlin,μ)
 end
 
@@ -320,8 +433,8 @@ function ParamDataStructures.parameterise(
   μ::AbstractRealisation
   )
 
-  op_lin = parameterise(get_linear_operator(op),μ)
-  op_nlin = parameterise(get_nonlinear_operator(op),μ)
+  op_lin = parameterise(get_linear_part(op),μ)
+  op_nlin = parameterise(get_nonlinear_part(op),μ)
   syscache_lin = allocate_systemcache(op_lin)
   LinNonlinParamOperator(op_lin,op_nlin,syscache_lin)
 end
@@ -388,12 +501,5 @@ end
 
 function ParamOperator(args...;kwargs...)
   feop = ParamFEOperator(args...;kwargs...)
-  get_algebraic_operator(feop)
-end
-
-function LinearNonlinearParamOperator(op_lin::ParamOperator,op_nlin::ParamOperator)
-  feop_lin = get_fe_operator(op_lin)
-  feop_nlin = get_fe_operator(op_nlin)
-  feop = LinearNonlinearParamFEOperator(feop_lin,feop_nlin)
   get_algebraic_operator(feop)
 end

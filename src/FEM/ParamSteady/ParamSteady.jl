@@ -14,9 +14,11 @@ samples).  The module introduces:
   `SplitParamOperator`, `LinearParamOperator`, `LinearNonlinearParamOperator` wrap
   assembled matrices/vectors and expose the `residual!`/`jacobian!` interface at
   parameter level.
-- **FE-level operators** — `ParamFEOperator` (joint or split), `LinearParamFEOperator`,
-  `LinearNonlinearParamFEOperator` manage Gridap assemblers, FE domains, and
-  parameter-to-sample dispatch.
+- **FE-level operators** — `ParamFEOperator` (joint or split), `LinearParamFEOperator`
+  manage Gridap assemblers, FE domains, and parameter-to-sample dispatch. A linear +
+  nonlinear split operator (`O=LinearNonlinearParamEq`) is just a `ParamFEOperator`
+  whose `res`/`jac`/`domains` fields are each a `Bundle` of the linear and nonlinear
+  halves; `get_linear_part`/`get_nonlinear_part` split it back apart.
 - **Solvers** — thin wrappers in `ParamFESolvers.jl` dispatch parametric solves to
   the underlying Gridap / GridapSolvers linear or nonlinear solvers.
 
@@ -74,18 +76,10 @@ export ParamFEOperator
 export SplitParamFEOperator
 export JointParamFEOperator
 export LinearParamFEOperator
-export FEDomains
+export GenericParamOperator
 export get_param_space
 export get_param_assembler
 include("ParamFEOperators.jl")
-
-export LinearNonlinearParamFEOperator
-export join_operators
-include("LinearNonlinearParamFEOperators.jl")
-
-export GenericParamOperator
-export GenericLinearNonlinearParamOperator
-include("GenericParamOperators.jl")
 
 include("ParamFESolvers.jl")
 

@@ -61,9 +61,11 @@ function reduced_operator(
   s::AbstractSnapshots
   )
 
-  red_op_lin = reduced_operator(solver,get_linear_operator(op),red_trial,red_test,s)
-  red_op_nlin = reduced_operator(solver,get_nonlinear_operator(op),red_trial,red_test,s)
-  LinearNonlinearROMOperator(red_op_lin,red_op_nlin)
+  red_op_lin = reduced_operator(solver,get_linear_part(op),red_trial,red_test,s)
+  red_op_nlin = reduced_operator(solver,get_nonlinear_part(op),red_trial,red_test,s)
+  lhs = Bundle(get_lhs(red_op_lin),get_lhs(red_op_nlin))
+  rhs = Bundle(get_rhs(red_op_lin),get_rhs(red_op_nlin))
+  RBOperator(op,red_trial,red_test,lhs,rhs)
 end
 
 function reduced_operator(rbsolver::RBSolver,feop::ParamOperator,s,jac,res)
@@ -99,8 +101,8 @@ function reduced_operator(
 
   jac_lin,jac_nlin = jac
   res_lin,res_nlin = res
-  red_op_lin = reduced_operator(solver,get_linear_operator(op),red_trial,red_test,jac_lin,res_lin)
-  red_op_nlin = reduced_operator(solver,get_nonlinear_operator(op),red_trial,red_test,jac_nlin,res_nlin)
+  red_op_lin = reduced_operator(solver,get_linear_part(op),red_trial,red_test,jac_lin,res_lin)
+  red_op_nlin = reduced_operator(solver,get_nonlinear_part(op),red_trial,red_test,jac_nlin,res_nlin)
   LinearNonlinearROMOperator(red_op_lin,red_op_nlin)
 end
 
@@ -175,8 +177,7 @@ function Algebra.residual!(
 
   trian_res = get_domains_res(op)
   rhs = get_rhs(op)
-  res = get_res(op)
-  dc = res(r,uh,v)
+  dc = ParamSteady._eval_res(op,r,uh,v)
 
   for strian in trian_res
     b_strian = b.fecache[strian]
@@ -267,6 +268,17 @@ function ROMOperator(
   RBOperator(op,trial,test,lhs,rhs)
 end
 
+function ROMOperator(
+  op::ParamOperator,
+  trial::RBSpace,
+  test::RBSpace,
+  lhs::Bundle,
+  rhs::Bundle
+  )
+
+  RBOperator(op,trial,test,lhs,rhs)
+end
+
 ParamSteady.get_fe_operator(op::RBOperator) = op.op
 FESpaces.get_trial(op::RBOperator) = op.trial
 FESpaces.get_test(op::RBOperator) = op.test
@@ -312,8 +324,7 @@ function Algebra.residual!(
   v = get_fe_basis(test)
 
   rhs = get_rhs(op)
-  res = get_res(op)
-  dc = res(r,uh,v)
+  dc = ParamSteady._eval_res(op,r,uh,v)
   assem = get_param_assembler(op,r)
 
   for strian in get_domains(rhs)
@@ -404,92 +415,127 @@ function Algebra.jacobian!(
 end
 
 """
-    struct LinearNonlinearROMOperator{O,T} <: ROMOperator{O,T}
-      op_linear::ROMOperator
-      op_nonlinear::ROMOperator
-    end
+    const LinearNonlinearROMOperator{T} = RBOperator{LinearNonlinearParamEq,T}
 
-Extends the concept of [`RBOperator`](@ref) to accommodate the linear/nonlinear
-splitting of terms in nonlinear applications
+A linear+nonlinear split ROM operator is just a [`RBOperator`](@ref) whose
+`op`/`lhs`/`rhs` fields are each a [`Bundle`](@ref) of the linear and nonlinear
+halves, sharing the same reduced `trial`/`test`
 """
-struct LinearNonlinearROMOperator{O,T} <: ROMOperator{O,T}
-  op_linear::ROMOperator
-  op_nonlinear::ROMOperator
+const LinearNonlinearROMOperator{T} = RBOperator{LinearNonlinearParamEq,T}
 
-  function LinearNonlinearROMOperator(
-    op_linear::ROMOperator{OL,T},
-    op_nonlinear::ROMOperator{ON,T}
-    ) where {OL,ON,T}
+"""
+    const AnyLinearNonlinearROMOperator{T} = Union{RBOperator{LinearNonlinearParamEq,T},RBOperator{LinearNonlinearParamODE,T}}
 
-    new{LinearNonlinearParamEq,T}(op_linear,op_nonlinear)
-  end
+Covers both the steady ([`LinearNonlinearROMOperator`](@ref)) and transient
+(`TransientLinearNonlinearROMOperator`, defined in `RBTransient`) linear+nonlinear
+split ROM operators, so that the paramcache/`parameterise`/`change_operator`/
+`get_local` machinery below is written once for both
+"""
+const AnyLinearNonlinearROMOperator{T} = Union{RBOperator{LinearNonlinearParamEq,T},RBOperator{LinearNonlinearParamODE,T}}
 
-  function LinearNonlinearROMOperator(
-    op_linear::ROMOperator{OL,T},
-    op_nonlinear::ROMOperator{ON,T}
-    ) where {OL<:ODEParamOperatorType,ON<:ODEParamOperatorType,T}
+"""
+    LinearNonlinearROMOperator(op_lin::ROMOperator,op_nlin::ROMOperator) -> LinearNonlinearROMOperator
 
-    new{LinearNonlinearParamODE,T}(op_linear,op_nonlinear)
-  end
+Merges two plainly-tagged, freshly-built reduced operators (sharing the same
+reduced trial/test) into a single [`Bundle`](@ref)-based `RBOperator`, tagged
+`LinearNonlinearParamEq` or `LinearNonlinearParamODE` as appropriate. Used when
+`op_lin`/`op_nlin` were built independently (e.g. loaded separately from disk);
+when a bundled operator is already in hand, prefer rebuilding its `lhs`/`rhs`
+`Bundle`s directly (see `change_operator`/`get_local` below) instead of calling this
+"""
+function LinearNonlinearROMOperator(
+  op_lin::ROMOperator{OL},op_nlin::ROMOperator{ON}
+  ) where {OL<:Union{LinearParamEq,NonlinearParamEq},ON<:Union{LinearParamEq,NonlinearParamEq}}
+
+  @check get_trial(op_lin) === get_trial(op_nlin)
+  @check get_test(op_lin) === get_test(op_nlin)
+  feop_lin = get_fe_operator(get_fe_operator(op_lin))
+  feop_nlin = get_fe_operator(get_fe_operator(op_nlin))
+  res = Bundle(get_res(feop_lin),get_res(feop_nlin))
+  jac = Bundle(get_jac(feop_lin),get_jac(feop_nlin))
+  domains = Bundle(get_domains(feop_lin),get_domains(feop_nlin))
+  feop = ParamFEOperator(
+    res,jac,get_param_space(feop_nlin),get_trial(feop_nlin),get_test(feop_nlin),domains)
+  op = get_algebraic_operator(feop)
+  lhs = Bundle(get_lhs(op_lin),get_lhs(op_nlin))
+  rhs = Bundle(get_rhs(op_lin),get_rhs(op_nlin))
+  RBOperator(op,get_trial(op_lin),get_test(op_lin),lhs,rhs)
 end
 
-ParamAlgebra.get_linear_operator(op::LinearNonlinearROMOperator) = op.op_linear
-ParamAlgebra.get_nonlinear_operator(op::LinearNonlinearROMOperator) = op.op_nonlinear
-FESpaces.get_trial(op::LinearNonlinearROMOperator) = get_trial(get_nonlinear_operator(op))
-FESpaces.get_test(op::LinearNonlinearROMOperator) = get_test(get_nonlinear_operator(op))
+function LinearNonlinearROMOperator(
+  op_lin::ROMOperator{OL},op_nlin::ROMOperator{ON}
+  ) where {OL<:ODEParamOperatorType,ON<:ODEParamOperatorType}
 
-function ParamSteady.get_fe_operator(op::LinearNonlinearROMOperator)
-  feop_lin = get_fe_operator(get_linear_operator(op))
-  feop_nlin = get_fe_operator(get_nonlinear_operator(op))
-  LinearNonlinearParamOperator(feop_lin,feop_nlin)
-end 
+  @check get_trial(op_lin) === get_trial(op_nlin)
+  @check get_test(op_lin) === get_test(op_nlin)
+  feop_lin = get_fe_operator(get_fe_operator(op_lin))
+  feop_nlin = get_fe_operator(get_fe_operator(op_nlin))
+  res = Bundle(get_res(feop_lin),get_res(feop_nlin))
+  jacs = Bundle(get_jacs(feop_lin),get_jacs(feop_nlin))
+  domains = Bundle(get_domains(feop_lin),get_domains(feop_nlin))
+  feop = TransientParamFEOperator(
+    res,jacs,get_param_space(feop_nlin),get_trial(feop_nlin),get_test(feop_nlin),domains)
+  op = get_algebraic_operator(feop)
+  lhs = Bundle(get_lhs(op_lin),get_lhs(op_nlin))
+  rhs = Bundle(get_rhs(op_lin),get_rhs(op_nlin))
+  RBOperator(op,get_trial(op_lin),get_test(op_lin),lhs,rhs)
+end
+
+function Utils.get_linear_part(op::AnyLinearNonlinearROMOperator)
+  RBOperator(get_linear_part(get_fe_operator(op)),op.trial,op.test,op.lhs.linear,op.rhs.linear)
+end
+
+function Utils.get_nonlinear_part(op::AnyLinearNonlinearROMOperator)
+  RBOperator(get_nonlinear_part(get_fe_operator(op)),op.trial,op.test,op.lhs.nonlinear,op.rhs.nonlinear)
+end
 
 function ParamAlgebra.allocate_paramcache(
-  op::LinearNonlinearROMOperator,
+  op::AnyLinearNonlinearROMOperator,
   μ::AbstractRealisation
   )
 
-  op_nlin = get_nonlinear_operator(op)
+  op_nlin = get_nonlinear_part(op)
   allocate_paramcache(op_nlin,μ)
 end
 
 function ParamAlgebra.allocate_systemcache(
-  op::LinearNonlinearROMOperator,
+  op::AnyLinearNonlinearROMOperator,
   u::AbstractVector
   )
 
-  op_nlin = get_nonlinear_operator(op)
+  op_nlin = get_nonlinear_part(op)
   allocate_systemcache(op_nlin,u)
 end
 
 function ParamAlgebra.update_paramcache!(
   paramcache::AbstractParamCache,
-  op::LinearNonlinearROMOperator,
+  op::AnyLinearNonlinearROMOperator,
   μ::AbstractRealisation
   )
 
-  op_nlin = get_nonlinear_operator(op)
+  op_nlin = get_nonlinear_part(op)
   update_paramcache!(paramcache,op_nlin,μ)
 end
 
 function ParamDataStructures.parameterise(
-  op::LinearNonlinearROMOperator,
+  op::AnyLinearNonlinearROMOperator,
   μ::AbstractRealisation
   )
 
-  op_lin = parameterise(get_linear_operator(op),μ)
-  op_nlin = parameterise(get_nonlinear_operator(op),μ)
+  op_lin = parameterise(get_linear_part(op),μ)
+  op_nlin = parameterise(get_nonlinear_part(op),μ)
   syscache_lin = allocate_systemcache(op_lin)
   LinNonlinParamOperator(op_lin,op_nlin,syscache_lin)
 end
 
-function change_operator(op::LinearNonlinearROMOperator,op′::LinearNonlinearParamOperator)
-  op_lin′ = change_operator(get_linear_operator(op),get_linear_operator(op′))
-  op_nlin′ = change_operator(get_nonlinear_operator(op),get_nonlinear_operator(op′))
-  LinearNonlinearROMOperator(op_lin′,op_nlin′)
-end
-
 # local
+
+# change_operator/get_local for a Bundle-based linear+nonlinear ROM operator
+# are *not* special-cased here: the generic change_operator(::JointROMOperator/
+# ::SplitROMOperator,...) and get_local(::ROMOperator,...) below already work,
+# as long as get_local/change_domains/get_domains_res/get_domains_jac know how
+# to recurse into a Bundle (see Utils/FEDomains.jl and the extension below)
+get_local(b::Bundle,μ::AbstractVector) = Bundle(get_local(b.linear,μ),get_local(b.nonlinear,μ))
 
 function get_local(op::ROMOperator,μ::AbstractVector)
   trialμ = get_local(op.trial,μ)
@@ -497,12 +543,6 @@ function get_local(op::ROMOperator,μ::AbstractVector)
   lhsμ = get_local(op.lhs,μ)
   rhsμ = get_local(op.rhs,μ)
   ROMOperator(op.op,trialμ,testμ,lhsμ,rhsμ)
-end
-
-function get_local(op::LinearNonlinearROMOperator,μ::AbstractVector)
-  opμ_linear = get_local(get_linear_operator(op),μ)
-  opμ_nlinear = get_local(get_nonlinear_operator(op),μ)
-  LinearNonlinearROMOperator(opμ_linear,opμ_nlinear)
 end
 
 # snapshots 
@@ -526,12 +566,6 @@ function _setup(op)
   V = get_test(op)
   U = get_trial(op)
   _convert_to_block(op,V,U)
-end
-
-function _setup(op::LinearNonlinearParamOperator)
-  op_lin = _setup(get_linear_operator(op))
-  op_nlin = _setup(get_nonlinear_operator(op))
-  LinearNonlinearParamOperator(op_lin,op_nlin)
 end
 
 function _convert_to_block(op,V,U)

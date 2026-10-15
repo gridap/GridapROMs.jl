@@ -103,7 +103,7 @@ function main(
   dΩ = Measure(Ω,degree)
 
   stiffness(μ,(u,p),(v,q)) = ∫(aμ(μ)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
-  res(μ,(u,p),(v,q)) = stiffness(μ,(u,p),(v,q))
+  rhs(μ,(v,q)) = ∫(0*q)dΩ
 
   trian_res = (Ω,)
   trian_stiffness = (Ω,)
@@ -125,7 +125,7 @@ function main(
   fesolver = build_fesolver(Q,dΩ)
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy)
 
-  feop = LinearParamOperator(res,stiffness,pspace,X,Y,domains)
+  feop = LinearParamOperator(rhs,stiffness,pspace,X,Y,domains)
 
   dir = datadir("diagnostics_stokes_distributed")
   if i_am_main(ranks)

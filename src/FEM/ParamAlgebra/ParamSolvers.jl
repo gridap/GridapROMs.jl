@@ -36,7 +36,6 @@ function Algebra.solve!(
     Ai = param_getindex(A,i)
     xi = param_getindex(x,i)
     bi = param_getindex(b,i)
-    rmul!(bi,-1)
     numerical_setup!(ns,Ai)
     solve!(xi,ns,bi)
   end

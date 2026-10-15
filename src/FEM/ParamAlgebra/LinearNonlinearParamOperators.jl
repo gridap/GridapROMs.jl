@@ -1,16 +1,16 @@
 """
-    get_linear_operator(op::NonlinearParamOperator) -> NonlinearParamOperator
+    get_linear_part(op::NonlinearParamOperator) -> NonlinearParamOperator
 
 Returns the linear part of the operator `op`
 """
-get_linear_operator(op::NonlinearParamOperator) = @abstractmethod
+Utils.get_linear_part(op::NonlinearParamOperator) = @abstractmethod
 
 """
-    get_nonlinear_operator(op::NonlinearParamOperator) -> NonlinearParamOperator
+    get_nonlinear_part(op::NonlinearParamOperator) -> NonlinearParamOperator
 
 Returns the nonlinear part of the operator `op`
 """
-get_nonlinear_operator(op::NonlinearParamOperator) = @abstractmethod
+Utils.get_nonlinear_part(op::NonlinearParamOperator) = @abstractmethod
 
 """
     get_linear_systemcache(op::NonlinearParamOperator) -> AbstractParamCache
@@ -39,18 +39,18 @@ struct LinNonlinParamOperator{A,B} <: NonlinearParamOperator
   cache_linear::AbstractParamCache
 end
 
-get_linear_operator(op::LinNonlinParamOperator) = op.op_linear
-get_nonlinear_operator(op::LinNonlinParamOperator) = op.op_nonlinear
+Utils.get_linear_part(op::LinNonlinParamOperator) = op.op_linear
+Utils.get_nonlinear_part(op::LinNonlinParamOperator) = op.op_nonlinear
 get_linear_systemcache(op::LinNonlinParamOperator) = op.cache_linear
 
 function allocate_paramcache(op::LinNonlinParamOperator,μ::AbstractRealisation)
-  op_nlin = get_nonlinear_operator(op)
+  op_nlin = get_nonlinear_part(op)
   allocate_paramcache(op_nlin,μ)
 end
 
 function allocate_systemcache(op::LinNonlinParamOperator,x::AbstractVector)
   cache_linear = get_linear_systemcache(op)
-  op_nlin = get_nonlinear_operator(op)
+  op_nlin = get_nonlinear_part(op)
   cache_nonlinear = allocate_systemcache(op_nlin,x)
   compatible_cache(cache_nonlinear,cache_linear)
 end
@@ -61,14 +61,14 @@ function update_paramcache!(
   μ::AbstractRealisation
   )
 
-  op_nlin = get_nonlinear_operator(op)
+  op_nlin = get_nonlinear_part(op)
   update_paramcache!(paramcache,op_nlin,μ)
 end
 
 # x is not used for the res/jac updates; rather, the x (which is identically zero) stored 
 # within the linear cache is used 
 function update_systemcache!(op::LinNonlinParamOperator,x::AbstractVector)
-  op_lin = get_linear_operator(op)
+  op_lin = get_linear_part(op)
   syscache_lin = get_linear_systemcache(op)
   residual!(syscache_lin.b,op_lin,syscache_lin.x)
   jacobian!(syscache_lin.A,op_lin,syscache_lin.x)
@@ -104,7 +104,7 @@ function Algebra.residual!(
   A_lin = get_matrix(syscache_lin)
   b_lin = get_vector(syscache_lin)
 
-  op_nlin = get_nonlinear_operator(op)
+  op_nlin = get_nonlinear_part(op)
   residual!(b,op_nlin,x)
   mul!(b,A_lin,x,1,1)
   axpy!(1,b_lin,b)
@@ -121,7 +121,7 @@ function Algebra.jacobian!(
   syscache_lin = get_linear_systemcache(op)
   A_lin = get_matrix(syscache_lin)
 
-  op_nlin = get_nonlinear_operator(op)
+  op_nlin = get_nonlinear_part(op)
   jacobian!(A,op_nlin,x)
   axpy!(1,A_lin,A)
 

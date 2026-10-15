@@ -417,21 +417,22 @@ end
 
 const LinearNonlinearODEParamOperator{T<:TriangulationStyle} = ODEParamOperator{LinearNonlinearParamODE,T}
 
-function ParamSteady.get_fe_operator(op::LinearNonlinearODEParamOperator)
-  feop_lin = get_fe_operator(get_linear_operator(op))
-  feop_nlin = get_fe_operator(get_nonlinear_operator(op))
-  LinearNonlinearParamFEOperator(feop_lin,feop_nlin)
-end 
+function Utils.get_linear_part(op::LinearNonlinearODEParamOperator)
+  get_algebraic_operator(get_linear_part(get_fe_operator(op)))
+end
 
-ParamSteady.join_operators(op::LinearNonlinearODEParamOperator) = get_algebraic_operator(join_operators(get_fe_operator(op)))
-get_order(op::LinearNonlinearODEParamOperator) = max(get_order(get_linear_operator(op)),get_order(get_nonlinear_operator(op)))
+function Utils.get_nonlinear_part(op::LinearNonlinearODEParamOperator)
+  get_algebraic_operator(get_nonlinear_part(get_fe_operator(op)))
+end
+
+get_order(op::LinearNonlinearODEParamOperator) = max(get_order(get_linear_part(op)),get_order(get_nonlinear_part(op)))
 
 function ParamAlgebra.allocate_paramcache(
   op::LinearNonlinearODEParamOperator,
   r::TransientRealisation
   )
 
-  op_nlin = get_nonlinear_operator(op)
+  op_nlin = get_nonlinear_part(op)
   allocate_paramcache(op_nlin,r)
 end
 
@@ -440,7 +441,7 @@ function ParamAlgebra.allocate_systemcache(
   u::AbstractVector
   )
   
-  op_nlin = get_nonlinear_operator(op)
+  op_nlin = get_nonlinear_part(op)
   allocate_systemcache(op_nlin,u)
 end
 
@@ -450,7 +451,7 @@ function ParamAlgebra.update_paramcache!(
   r::TransientRealisation
   )
 
-  op_nlin = get_nonlinear_operator(op)
+  op_nlin = get_nonlinear_part(op)
   update_paramcache!(paramcache,op_nlin,r)
 end
 
@@ -459,8 +460,8 @@ function ParamDataStructures.parameterise(
   r::TransientRealisation
   )
 
-  op_lin = parameterise(get_linear_operator(op),r)
-  op_nlin = parameterise(get_nonlinear_operator(op),r)
+  op_lin = parameterise(get_linear_part(op),r)
+  op_nlin = parameterise(get_nonlinear_part(op),r)
   syscache_lin = allocate_systemcache(op_lin)
   LinNonlinParamOperator(op_lin,op_nlin,syscache_lin)
 end
@@ -522,13 +523,6 @@ end
 
 function TransientParamOperator(args...;kwargs...)
   feop = TransientParamFEOperator(args...;kwargs...)
-  get_algebraic_operator(feop)
-end
-
-function LinearNonlinearTransientParamOperator(op_lin::ParamOperator,op_nlin::ParamOperator)
-  feop_lin = get_fe_operator(op_lin)
-  feop_nlin = get_fe_operator(op_nlin)
-  feop = LinearNonlinearTransientParamFEOperator(feop_lin,feop_nlin)
   get_algebraic_operator(feop)
 end
 

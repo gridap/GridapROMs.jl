@@ -35,6 +35,7 @@ using GridapSolvers.NonlinearSolvers
 using GridapSolvers.MultilevelTools
 using GridapSolvers.BlockSolvers
 
+using GridapROMs.Utils
 using GridapROMs.ParamDataStructures
 
 import ArraysOfArrays: innersize
@@ -57,8 +58,6 @@ include("NonlinearParamOperators.jl")
 
 export LinearNonlinearParamOperator
 export LinNonlinParamOperator
-export get_linear_operator
-export get_nonlinear_operator
 export get_linear_systemcache
 export compatible_cache
 include("LinearNonlinearParamOperators.jl")

@@ -47,7 +47,7 @@ function main(
   dc(u,du,v) = ∫( v⊙(dconv∘(du,∇(du),u,∇(u))) )dΩ
 
   jac_lin(μ,(u,p),(v,q)) = ∫(aμ(μ)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
-  res_lin(μ,(u,p),(v,q)) = jac_lin(μ,(u,p),(v,q))
+  rhs_lin(μ,(v,q)) = ∫(0*q)dΩ
 
   res_nlin(μ,(u,p),(v,q)) = c(u,v)
   jac_nlin(μ,(u,p),(du,dp),(v,q)) = dc(u,du,v)
@@ -78,9 +78,11 @@ function main(
   fesolver = NewtonSolver(LUSolver();rtol=1e-10,maxiter=20,verbose=true)
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy)
 
-  feop_lin = LinearParamOperator(res_lin,jac_lin,pspace,trial,test,domains_lin)
-  feop_nlin = ParamOperator(res_nlin,jac_nlin,pspace,trial,test,domains_nlin)
-  feop = LinearNonlinearParamOperator(feop_lin,feop_nlin)
+  jac_lin′(μ,u,du,v) = jac_lin(μ,du,v)
+  res = Bundle(rhs_lin,res_nlin)
+  jac = Bundle(jac_lin′,jac_nlin)
+  domains = Bundle(domains_lin,domains_nlin)
+  feop = ParamOperator(res,jac,pspace,trial,test,domains)
   fesnaps, = solution_snapshots(rbsolver,feop)
   rbop = reduced_operator(rbsolver,feop,fesnaps)
 

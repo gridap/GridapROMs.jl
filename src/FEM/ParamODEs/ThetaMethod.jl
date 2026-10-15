@@ -91,13 +91,13 @@ function ODEs.ode_march!(
   mid_shift!(solver,r)
 
   # linear updates
-  op_lin = get_linear_operator(odeop)
+  op_lin = get_linear_part(odeop)
   state_update_lin(x) = (u0,x)
   update_paramcache!(paramcache_lin,op_lin,r)
   nlop_lin = ParamStageOperator(op_lin,r,state_update_lin,ws,paramcache_lin)
 
   # nonlinear updates
-  op_nlin = get_nonlinear_operator(odeop)
+  op_nlin = get_nonlinear_part(odeop)
   function state_update_nlin(x)
     copy!(uθ_nlin,u0)
     axpy!(dt*θ,x,uθ_nlin)

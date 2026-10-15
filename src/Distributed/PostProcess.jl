@@ -193,8 +193,8 @@ function RBSteady.load_operator(dir,feop::ODEParamOperator,ranks::AbstractArray;
 end
 
 function RBSteady.load_operator(dir,feop::LinearNonlinearODEParamOperator,ranks::AbstractArray;label="")
-  feop_lin = get_linear_operator(feop)
-  feop_nlin = get_nonlinear_operator(feop)
+  feop_lin = get_linear_part(feop)
+  feop_nlin = get_nonlinear_part(feop)
   # test and trial are the same for both the linear and nonlinear operators
   test = load_subspace(dir,get_test(feop_lin),ranks;label=_plabel(label,RBSteady.TEST_LABEL))
   trial = load_subspace(dir,get_trial(feop_lin),ranks;label=_plabel(label,RBSteady.TRIAL_LABEL))

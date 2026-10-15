@@ -29,6 +29,34 @@ get_domains_res(d::FEDomains) = d.domains_res
 get_domains_jac(d::FEDomains) = d.domains_jac
 
 """
+    struct Bundle{A,B}
+      linear::A
+      nonlinear::B
+    end
+"""
+struct Bundle{A,B}
+  linear::A
+  nonlinear::B
+end
+
+"""
+    get_linear_part(b::Bundle) -> A
+    get_nonlinear_part(b::Bundle) -> B
+
+Return the linear/nonlinear half of a [`Bundle`](@ref). Extended, for the
+relevant operator types, to split a `Bundle`-based linear+nonlinear operator
+back into its two plainly-tagged halves (see e.g. `ParamFEOpFromWeakForm`,
+`TransientParamFEOpFromWeakForm`, `RBOperator`)
+"""
+get_linear_part(b::Bundle) = b.linear
+get_nonlinear_part(b::Bundle) = b.nonlinear
+
+get_domains_res(b::Bundle) = Bundle(get_domains_res(b.linear),get_domains_res(b.nonlinear))
+get_domains_jac(b::Bundle) = Bundle(get_domains_jac(b.linear),get_domains_jac(b.nonlinear))
+
+change_domains(a::Bundle,trians::Bundle) = Bundle(change_domains(a.linear,trians.linear),change_domains(a.nonlinear,trians.nonlinear))
+
+"""
     abstract type OperatorType <: GridapType end
 
 Trait encoding the linearity structure of a parametric FE operator.

@@ -99,8 +99,7 @@ function diagnostic_residual!(
 
   trian_res = get_domains_res(op)
   rhs = get_rhs(op)
-  res = get_res(op)
-  dc = res(r,uh,v)
+  dc = ParamSteady._eval_res(op,r,uh,v)
 
   for strian in trian_res
     b_strian = b.fecache[strian]
@@ -125,8 +124,7 @@ function diagnostic_residual!(
   v = get_fe_basis(test)
 
   rhs = get_rhs(op)
-  res = get_res(op)
-  dc = res(r,uh,v)
+  dc = ParamSteady._eval_res(op,r,uh,v)
   assem = get_param_assembler(op,r)
 
   for strian in get_domains(rhs)
@@ -385,9 +383,9 @@ function offline_diagnostics(op::ROMOperator)
   )
 end
 
-function offline_diagnostics(op::LinearNonlinearROMOperator)
-  op_lin = get_linear_operator(op)
-  op_nlin = get_nonlinear_operator(op)
+function offline_diagnostics(op::AnyLinearNonlinearROMOperator)
+  op_lin = get_linear_part(op)
+  op_nlin = get_nonlinear_part(op)
   (
     state=projection_diagnostics(get_trial(op)),
     lin_rhs=hr_diagnostics(get_rhs(op_lin)),
@@ -537,11 +535,11 @@ function hr_error(solver::LocalRBSolver,op::ROMOperator,res,jac,s)
 end
 
 for T in (:GlobalRBSolver, :LocalRBSolver)
-  @eval function hr_error(solver::$T,op::LinearNonlinearROMOperator,res,jac,s)
+  @eval function hr_error(solver::$T,op::AnyLinearNonlinearROMOperator,res,jac,s)
     res_lin,res_nlin = res
     jac_lin,jac_nlin = jac
-    op_lin = get_linear_operator(op)
-    op_nlin = get_nonlinear_operator(op)
+    op_lin = get_linear_part(op)
+    op_nlin = get_nonlinear_part(op)
     (err_res_lin,err_jac_lin) = hr_error(solver,op_lin,res_lin,jac_lin,s)
     (err_res_nlin,err_jac_nlin) = hr_error(solver,op_nlin,res_nlin,jac_nlin,s)
     return (err_res_lin,err_res_nlin),(err_jac_lin,err_jac_nlin)
@@ -670,8 +668,8 @@ for f in (:save_residuals,:save_jacobians)
   @eval begin
     function $f(dir,feop::LinearNonlinearParamOperator,resjac::Tuple;label="")
       @assert length(resjac) == 2
-      $f(dir,get_linear_operator(feop),resjac[1];label=_get_label(label,LINEAR_LABEL))
-      $f(dir,get_nonlinear_operator(feop),resjac[2];label=_get_label(label,NONLINEAR_LABEL))
+      $f(dir,get_linear_part(feop),resjac[1];label=_get_label(label,LINEAR_LABEL))
+      $f(dir,get_nonlinear_part(feop),resjac[2];label=_get_label(label,NONLINEAR_LABEL))
       return
     end
   end
@@ -689,8 +687,8 @@ for f in (:load_residuals,:load_jacobians)
   @eval begin
     function $f(dir,feop::LinearNonlinearParamOperator;label="")
       (
-        $f(dir,get_linear_operator(feop);label=_get_label(label,LINEAR_LABEL)),
-        $f(dir,get_nonlinear_operator(feop);label=_get_label(label,NONLINEAR_LABEL)),
+        $f(dir,get_linear_part(feop);label=_get_label(label,LINEAR_LABEL)),
+        $f(dir,get_nonlinear_part(feop);label=_get_label(label,NONLINEAR_LABEL)),
       )
     end
   end

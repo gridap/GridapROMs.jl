@@ -84,15 +84,14 @@ function get_deformation_map(μ)
   dΓ = Measure(Γ,2*degree)
 
   a(μ,u,v) = ∫( ε(v) ⊙ (σ∘ε(u)) )*dΩ + ∫( (γd/hd)*v⋅u - v⋅(n_Γ⋅(σ∘ε(u))) - (n_Γ⋅(σ∘ε(v)))⋅u )dΓ
-  l(μ,v) = ∫( (γd/hd)*v⋅φμ(μ) - (n_Γ⋅(σ∘ε(v)))⋅φμ(μ) )dΓ
-  res(μ,u,v) = ∫( ε(v) ⊙ (σ∘ε(u)) )*dΩ - l(μ,v)
+  rhs(μ,v) = ∫( (γd/hd)*v⋅φμ(μ) - (n_Γ⋅(σ∘ε(v)))⋅φμ(μ) )dΓ
 
   reffeφ = ReferenceFE(lagrangian,VectorValue{2,Float64},2*order)
   Vφact = FESpace(Ωact,reffeφ,conformity=:H1,dirichlet_tags="boundary")
   Vφ = AgFEMSpace(Vφact,aggregates)
   Uφ = ParamTrialFESpace(Vφ)
 
-  feop = LinearParamOperator(res,a,pspace,Uφ,Vφ)
+  feop = LinearParamOperator(rhs,a,pspace,Uφ,Vφ)
   d, = solve(LUSolver(),feop,μ)
   FEFunction(Uφ(μ),d)
 end
@@ -118,10 +117,9 @@ function def_fe_operator(μ)
     ∫_Ω( ε_I(v)⊙(σ∘ε_I(u)) )*dΩ +
     ∫_Γ( (γd/hd)*v⋅u - v⋅(_n_Γ⋅(σ∘ε_I(u))) - (_n_Γ⋅(σ∘ε_I(v)))⋅u )dΓ
   )
-  l(μ,v) = ∫_Ω(fμ(μ)⋅v)dΩ
-  res(μ,u,v) = ∫_Ω( ε_I(v)⊙(σ∘ε_I(u)) )*dΩ - l(μ,v)
+  rhs(μ,v) = ∫_Ω(fμ(μ)⋅v)dΩ
 
-  LinearParamOperator(res,a,pspace,trial,test,domains)
+  LinearParamOperator(rhs,a,pspace,trial,test,domains)
 end
 
 function def_extended_fe_operator(μ)
@@ -145,13 +143,12 @@ function def_extended_fe_operator(μ)
     ∫_Ω( ε_I(v)⊙(σ∘ε_I(u)) )*dΩ +
     ∫_Γ( (γd/hd)*v⋅u - v⋅(_n_Γ⋅(σ∘ε_I(u))) - (_n_Γ⋅(σ∘ε_I(v)))⋅u )dΓ
   )
-  l(μ,v) = ∫_Ω(fμ(μ)⋅v)dΩ
-  res(μ,u,v) = ∫_Ω( ε_I(v)⊙(σ∘ε_I(u)) )*dΩ - l(μ,v)
+  rhs(μ,v) = ∫_Ω(fμ(μ)⋅v)dΩ
 
   testbg = FESpace(Ωbg,reffe,conformity=:H1,dirichlet_tags=[1,3,7])
   testext = DirectSumFESpace(testbg,test)
   trialext = ParamTrialFESpace(testext,gμ)
-  LinearParamOperator(res,a,pspace,trialext,testext,domains)
+  LinearParamOperator(rhs,a,pspace,trialext,testext,domains)
 end
 
 get_feop = method==:ttsvd ? def_extended_fe_operator : def_fe_operator

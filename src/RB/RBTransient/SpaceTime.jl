@@ -28,8 +28,8 @@ end
 
 function ParamDataStructures.parameterise(op::TransientLinearNonlinearROMOperator,r::TransientRealisation)
   nstates = get_order(op)+1
-  op_lin = SpaceTimeParamOperator(get_linear_operator(op),r;nstates)
-  op_nlin = SpaceTimeParamOperator(get_nonlinear_operator(op),r;nstates)
+  op_lin = SpaceTimeParamOperator(get_linear_part(op),r;nstates)
+  op_nlin = SpaceTimeParamOperator(get_nonlinear_part(op),r;nstates)
   syscache_lin = allocate_systemcache(op_lin)
   LinNonlinParamOperator(op_lin,op_nlin,syscache_lin)
 end
@@ -261,7 +261,7 @@ function _st_solve_nr!(
   log = nls.log
   RBSteady.change_tols!(log)
 
-  nlop = get_nonlinear_operator(op)
+  nlop = get_nonlinear_part(op)
   trial = RBSteady._get_trial(op)
 
   res = norm(b)

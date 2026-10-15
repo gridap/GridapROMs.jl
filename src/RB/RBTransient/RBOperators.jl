@@ -6,8 +6,8 @@ function RBSteady.reduced_operator(
   s::AbstractSnapshots
   )
 
-  red_op_lin = reduced_operator(solver,get_linear_operator(odeop),red_trial,red_test,s)
-  red_op_nlin = reduced_operator(solver,get_nonlinear_operator(odeop),red_trial,red_test,s)
+  red_op_lin = reduced_operator(solver,get_linear_part(odeop),red_trial,red_test,s)
+  red_op_nlin = reduced_operator(solver,get_nonlinear_part(odeop),red_trial,red_test,s)
   LinearNonlinearROMOperator(red_op_lin,red_op_nlin)
 end
 
@@ -17,6 +17,17 @@ function RBSteady.ROMOperator(
   test::RBSpace,
   lhs::AffineContributionTuple,
   rhs::AffineContribution
+  )
+
+  RBOperator(odeop,trial,test,lhs,rhs)
+end
+
+function RBSteady.ROMOperator(
+  odeop::ODEParamOperator,
+  trial::RBSpace,
+  test::RBSpace,
+  lhs::Bundle,
+  rhs::Bundle
   )
 
   RBOperator(odeop,trial,test,lhs,rhs)
@@ -276,7 +287,7 @@ function Algebra.jacobian!(
   interpolate!(A,op.lhs,r)
 end
 
-const TransientLinearNonlinearROMOperator{T} = LinearNonlinearROMOperator{LinearNonlinearParamODE,T}
+const TransientLinearNonlinearROMOperator{T} = RBOperator{LinearNonlinearParamODE,T}
 
 # snapshots 
 
@@ -296,18 +307,7 @@ end
 
 # utils
 
-function _setup(op::LinearNonlinearODEParamOperator)
-  op_lin = _setup(get_linear_operator(op))
-  op_nlin = _setup(get_nonlinear_operator(op))
-  LinearNonlinearTransientParamOperator(op_lin,op_nlin)
-end
-
-function _convert_to_block(feop::TransientParamFEOperator,U,V) 
-  assem = SparseMatrixAssembler(U,V)
-  typeof(feop)(feop.res,feop.jacs,feop.tpspace,assem,U,V,feop.domains,feop.order)
-end
-
-function _convert_to_block(feop::TransientParamFEOperator{LinearParamODE},U,V) 
+function _convert_to_block(feop::TransientParamFEOperator,U,V)
   assem = SparseMatrixAssembler(U,V)
   typeof(feop)(feop.res,feop.jacs,feop.constant_forms,feop.tpspace,assem,U,V,feop.domains,feop.order)
 end

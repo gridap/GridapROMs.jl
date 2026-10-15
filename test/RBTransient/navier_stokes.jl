@@ -91,11 +91,13 @@ function main(
 
   ptspace = TransientParamSpace(pdomain,tdomain)
 
-  feop_lin = TransientLinearParamOperator(res,(stiffness,mass),ptspace,
-    trial,test,domains_lin)
-  feop_nlin = TransientParamOperator(res_nlin,jac_nlin,ptspace,
-    trial,test,domains_nlin)
-  feop = LinearNonlinearTransientParamOperator(feop_lin,feop_nlin)
+  forms_lin = (stiffness,mass)
+  jacs_lin = ntuple(k -> ((μ,t,u,duk,v) -> forms_lin[k](μ,t,duk,v)),length(forms_lin))
+
+  res_bundle = Bundle(res,res_nlin)
+  jacs_bundle = Bundle(jacs_lin,(jac_nlin,))
+  domains_bundle = Bundle(domains_lin,domains_nlin)
+  feop = TransientParamOperator(res_bundle,jacs_bundle,ptspace,trial,test,domains_bundle)
 
   fesnaps, = solution_snapshots(rbsolver,feop,xh0μ)
   rbop = reduced_operator(rbsolver,feop,fesnaps)

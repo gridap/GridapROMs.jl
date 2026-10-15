@@ -57,7 +57,6 @@ function main(
 
   stiffness(μ,u,v) = ∫(aμ(μ)*∇(v)⋅∇(u))dΩ
   rhs(μ,v) = ∫(fμ(μ)*v)dΩ + ∫(hμ(μ)*v)dΓn
-  res(μ,u,v) = stiffness(μ,u,v) - rhs(μ,v)
 
   trian_res = (Ω,Γn)
   trian_stiffness = (Ω,)
@@ -72,7 +71,7 @@ function main(
   fesolver = LUSolver()
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy)
 
-  feop = LinearParamOperator(res,stiffness,pspace,trial,test,domains)
+  feop = LinearParamOperator(rhs,stiffness,pspace,trial,test,domains)
   fesnaps, = solution_snapshots(rbsolver,feop)
   rbop = reduced_operator(rbsolver,feop,fesnaps)
 

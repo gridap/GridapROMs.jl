@@ -72,6 +72,9 @@ export set_domains
 include("Contributions.jl")
 
 export FEDomains
+export Bundle
+export get_linear_part
+export get_nonlinear_part
 export OperatorType
 export LinearEq
 export NonlinearEq

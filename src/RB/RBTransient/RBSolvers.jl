@@ -66,8 +66,8 @@ function RBSteady.residual_snapshots(
   s::AbstractSnapshots
   )
 
-  res_lin = residual_snapshots(solver,get_linear_operator(op),s)
-  res_nlin = residual_snapshots(solver,get_nonlinear_operator(op),s)
+  res_lin = residual_snapshots(solver,get_linear_part(op),s)
+  res_nlin = residual_snapshots(solver,get_nonlinear_part(op),s)
   return (res_lin,res_nlin)
 end
 
@@ -97,8 +97,8 @@ function RBSteady.jacobian_snapshots(
   s::AbstractSnapshots
   )
 
-  jac_lin = jacobian_snapshots(solver,get_linear_operator(op),s)
-  jac_nlin = jacobian_snapshots(solver,get_nonlinear_operator(op),s)
+  jac_lin = jacobian_snapshots(solver,get_linear_part(op),s)
+  jac_nlin = jacobian_snapshots(solver,get_nonlinear_part(op),s)
   return (jac_lin,jac_nlin)
 end
 

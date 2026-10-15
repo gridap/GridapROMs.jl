@@ -11,6 +11,7 @@ end
 @publish Utils ∂₂
 @publish Utils ∂₃
 @publish Utils FEDomains
+@publish Utils Bundle
 
 @publish DofMaps slow_index
 @publish DofMaps fast_index
@@ -57,16 +58,13 @@ end
 @publish ParamSteady LinearNonlinearParamOperator
 @publish ParamSteady ParamFEOperator
 @publish ParamSteady LinearParamFEOperator
-@publish ParamSteady LinearNonlinearParamFEOperator
 
 @publish ParamODEs ODEParamOperator
 @publish ParamODEs TransientLinearParamOperator
 @publish ParamODEs TransientParamOperator
-@publish ParamODEs LinearNonlinearTransientParamOperator
 @publish ParamODEs TransientTrialParamFESpace
 @publish ParamODEs TransientParamFEOperator
 @publish ParamODEs TransientLinearParamFEOperator
-@publish ParamODEs LinearNonlinearTransientParamFEOperator
 using GridapROMs.ParamODEs: ∂ₚt,∂ₚtt; export ∂ₚt,∂ₚtt
 
 @publish Extensions DirectSumFESpace

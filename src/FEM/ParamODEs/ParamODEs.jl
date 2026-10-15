@@ -76,7 +76,6 @@ export SplitODEParamOperator
 export LinearNonlinearODEParamOperator
 export TransientLinearParamOperator
 export TransientParamOperator
-export LinearNonlinearTransientParamOperator
 include("ODEParamOperators.jl")
 
 export ParamStageOperator

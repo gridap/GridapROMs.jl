@@ -122,7 +122,7 @@ function ODEs.ode_march!(
   mid_shift!(solver,r)
 
   # linear updates
-  op_lin = get_linear_operator(odeop)
+  op_lin = get_linear_part(odeop)
   copyto!(uα_lin,u0)
   axpy!((1 - αf) * dt,v0,uα_lin)
   axpy!((1 - αf) * (1 - 2 * β) * dt^2 / 2,a0,uα_lin)
@@ -135,7 +135,7 @@ function ODEs.ode_march!(
   nlop_lin = ParamStageOperator(op_lin,r,state_update_lin,ws,paramcache_lin)
 
   # nonlinear updates
-  op_nlin = get_nonlinear_operator(odeop)
+  op_nlin = get_nonlinear_part(odeop)
   function state_update_nlin(x)
     copyto!(uα_nlin,u0)
     axpy!((1 - αf) * dt,v0,uα_nlin)
