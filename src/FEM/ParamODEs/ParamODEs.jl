@@ -72,6 +72,8 @@ export PlainODEParamOperator
 export BundleODEParamOperator
 export TransientLinearParamOperator
 export TransientParamOperator
+export allocate_jacobians
+export jacobians_add!
 include("ODEParamOperators.jl")
 
 export ParamStageOperator
@@ -83,6 +85,7 @@ export BundleTransientParamFEOperator
 export TransientParamFEOpFromWeakForm
 export TransientLinearParamFEOperator
 export TransientLinearParamFEOpFromWeakForm
+export wrap_bilinear_jacs
 include("TransientParamFEOperators.jl")
 
 export add_initial_conditions

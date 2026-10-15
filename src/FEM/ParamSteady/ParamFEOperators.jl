@@ -175,20 +175,30 @@ ODEs.get_assembler(op::ParamFEOpFromWeakForm) = op.assem
 CellData.get_domains(op::ParamFEOpFromWeakForm) = op.domains
 
 """
-    get_linear_part(op::ParamFEOpFromWeakForm{NonlinearParamEq,BundleForm}) -> ParamFEOpFromWeakForm{LinearParamEq,BundleForm}
-    get_nonlinear_part(op::ParamFEOpFromWeakForm{NonlinearParamEq,BundleForm}) -> ParamFEOpFromWeakForm{NonlinearParamEq,BundleForm}
+    get_linear_part(op::ParamFEOpFromWeakForm{NonlinearParamEq,BundleForm}) -> ParamFEOpFromWeakForm{NonlinearParamEq,PlainForm}
+    get_nonlinear_part(op::ParamFEOpFromWeakForm{NonlinearParamEq,BundleForm}) -> ParamFEOpFromWeakForm{NonlinearParamEq,PlainForm}
 
 Splits a `Bundle`-based linear+nonlinear operator back into its two plainly-tagged
-halves
+halves. Both halves are tagged `NonlinearParamEq` (not `LinearParamEq`, even for
+the mathematically-linear half): `op.res.linear`/`op.jac.linear` are ordinary
+3-argument weak-form functions, called with the same `(μ,u,v)` signature as the
+nonlinear half when the `Bundle` is evaluated as a whole (see [`Bundle`](@ref)) —
+not the 2-argument `rhs(μ,v)` convention `LinearParamEq` expects
 """
 function Utils.get_linear_part(op::ParamFEOpFromWeakForm{NonlinearParamEq,BundleForm})
-  ParamFEOpFromWeakForm{LinearParamEq,BundleForm}(
-    op.res.linear,op.jac.linear,op.pspace,op.assem,op.trial,op.test,op.domains.linear)
+  res = get_linear_part(op.res)
+  jacs = get_linear_part(op.jac)
+  domains = get_linear_part(op.domains)
+  ParamFEOpFromWeakForm{LinearParamEq,PlainForm}(
+    res,jacs,op.pspace,op.assem,op.trial,op.test,domains)
 end
 
 function Utils.get_nonlinear_part(op::ParamFEOpFromWeakForm{NonlinearParamEq,BundleForm})
-  ParamFEOpFromWeakForm{NonlinearParamEq,BundleForm}(
-    op.res.nonlinear,op.jac.nonlinear,op.pspace,op.assem,op.trial,op.test,op.domains.nonlinear)
+  res = get_nonlinear_part(op.res)
+  jacs = get_nonlinear_part(op.jac)
+  domains = get_nonlinear_part(op.domains)
+  ParamFEOpFromWeakForm{NonlinearParamEq,PlainForm}(
+    res,jacs,op.pspace,op.assem,op.trial,op.test,domains)
 end
 
 # triangulation utils

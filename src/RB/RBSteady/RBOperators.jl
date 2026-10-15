@@ -99,8 +99,8 @@ function reduced_operator(
   res
   )
 
-  jac_lin,jac_nlin = jac
-  res_lin,res_nlin = res
+  jac_lin,jac_nlin = jac.linear,jac.nonlinear
+  res_lin,res_nlin = res.linear,res.nonlinear
   red_op_lin = reduced_operator(rbsolver,get_linear_part(feop),red_trial,red_test,jac_lin,res_lin)
   red_op_nlin = reduced_operator(rbsolver,get_nonlinear_part(feop),red_trial,red_test,jac_nlin,res_nlin)
   lhs = Bundle(get_lhs(red_op_lin),get_lhs(red_op_nlin))
@@ -175,7 +175,7 @@ function Algebra.residual!(
 
   trian_res = get_domains_res(op)
   rhs = get_rhs(op)
-  dc = ParamSteady._eval_res(op,r,uh,v)
+  dc = ParamSteady.get_eval_res(op)(r,uh,v)
 
   for strian in trian_res
     b_strian = b.fecache[strian]
@@ -294,7 +294,10 @@ function Algebra.allocate_residual(
   paramcache
   ) where {O,T,B}
 
-  b = allocate_residual(op.op,r,u,paramcache)
+  b0 = allocate_residual(op.op,r,u,paramcache)
+  b = contribution(get_domains(get_rhs(op))) do trian
+    similar(b0)
+  end
   b̂ = allocate_hypred_cache(get_rhs(op),r)
   HRParamArray(b,b̂.coeff,b̂.hypred)
 end
@@ -306,7 +309,10 @@ function Algebra.allocate_jacobian(
   paramcache
   ) where {O,T,B}
 
-  A = allocate_jacobian(op.op,r,u,paramcache)
+  A0 = allocate_jacobian(op.op,r,u,paramcache)
+  A = contribution(get_domains(get_lhs(op))) do trian
+    similar(A0)
+  end
   Â = allocate_hypred_cache(get_lhs(op),r)
   HRParamArray(A,Â.coeff,Â.hypred)
 end
@@ -326,16 +332,13 @@ function Algebra.residual!(
   v = get_fe_basis(test)
 
   rhs = get_rhs(op)
-  dc = ParamSteady._eval_res(op,r,uh,v)
+  dc = ParamSteady.get_eval_res(op)(r,uh,v)
   assem = get_param_assembler(op,r)
 
-  # a single FE cache is reused across triangulations: filled fresh, projected,
-  # then moved on to the next, instead of keeping one array per triangulation
   for strian in get_domains(rhs)
-    fill!(b.fecache,zero(eltype(b.fecache)))
     vecdata = collect_cell_vector_for_trian(test,dc,strian)
-    assemble_vector_add!(b.fecache,assem,vecdata)
-    galerkin_projection!(b.coeff[strian],test,b.fecache)
+    assemble_vector_add!(b.fecache[strian],assem,vecdata)
+    galerkin_projection!(b.coeff[strian],test,b.fecache[strian])
   end
 
   interpolate!(b,rhs)
@@ -363,10 +366,9 @@ function Algebra.jacobian!(
   assem = get_param_assembler(op,r)
 
   for strian in get_domains(lhs)
-    LinearAlgebra.fillstored!(A.fecache,false)
     matdata = collect_cell_matrix_for_trian(trial,test,dc,strian)
-    assemble_matrix_add!(A.fecache,assem,matdata)
-    galerkin_projection!(A.coeff[strian],test,A.fecache,trial)
+    assemble_matrix_add!(A.fecache[strian],assem,matdata)
+    galerkin_projection!(A.coeff[strian],test,A.fecache[strian],trial)
   end
 
   interpolate!(A,lhs)
@@ -428,18 +430,22 @@ Splits a Bundle-`lhs`/`rhs` `RBOperator` (built from a [`BundleParamOperator`](@
 back into its two plainly-tagged halves, sharing the same reduced `trial`/`test`
 """
 function Utils.get_linear_part(op::RBOperator)
-  RBOperator(get_linear_part(get_fe_operator(op)),op.trial,op.test,op.lhs.linear,op.rhs.linear)
+  RBOperator(
+    get_linear_part(get_fe_operator(op)),
+    op.trial,op.test,
+    get_linear_part(op.lhs),
+    get_linear_part(op.rhs)
+  )
 end
 
 function Utils.get_nonlinear_part(op::RBOperator)
-  RBOperator(get_nonlinear_part(get_fe_operator(op)),op.trial,op.test,op.lhs.nonlinear,op.rhs.nonlinear)
+  RBOperator(
+    get_nonlinear_part(get_fe_operator(op)),
+    op.trial,op.test,
+    get_nonlinear_part(op.lhs),
+    get_nonlinear_part(op.rhs)
+  )
 end
-
-# a Bundle-lhs/rhs RBOperator combines its linear and nonlinear halves *after*
-# integration/hyper-reduction: each half keeps its own hyper-reduced structure
-# (and, for the linear half, could in principle be cached across Newton iterations
-# at a fixed μ, since it does not depend on the current iterate `u`), and the two
-# resulting HRParamArrays are summed only at the very end
 
 function Algebra.allocate_residual(
   op::RBOperator{O,T,A,<:Bundle},

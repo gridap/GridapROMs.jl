@@ -64,6 +64,7 @@ end
 @publish ParamODEs TransientTrialParamFESpace
 @publish ParamODEs TransientParamFEOperator
 @publish ParamODEs TransientLinearParamFEOperator
+@publish ParamODEs wrap_bilinear_jacs
 using GridapROMs.ParamODEs: ∂ₚt,∂ₚtt; export ∂ₚt,∂ₚtt
 
 @publish Extensions DirectSumFESpace

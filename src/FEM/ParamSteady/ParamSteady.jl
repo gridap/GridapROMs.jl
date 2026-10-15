@@ -67,6 +67,7 @@ export BundleParamOperator
 export LinearParamOperator
 export get_fe_operator
 export get_jac
+export get_eval_res
 include("ParamOperators.jl")
 
 export ParamFEOperator

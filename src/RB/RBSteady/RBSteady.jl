@@ -31,8 +31,7 @@ small system for new parameter values.  Main building blocks:
   `Interpolation` (`GreedyInterpolation`, `RBFInterpolation`),
   and `reduced_jacobian` / `reduced_residual` / `reduced_weak_form`.
 
-- **Reduced operators** (`ROMOperators.jl`) — `RBOperator`,
-  `LinearNonlinearROMOperator`; `reduced_operator`.
+- **Reduced operators** (`ROMOperators.jl`) — `RBOperator`; `reduced_operator`.
 
 - **RB solvers** (`RBSolvers.jl`) — `RBSolver` orchestrates snapshot collection,
   offline reduction, and online solve; `solution_snapshots`, `residual_snapshots`,
@@ -279,7 +278,6 @@ include("LocalHyperReductions.jl")
 
 export ROMOperator
 export RBOperator
-export LinearNonlinearROMOperator
 export reduced_operator
 export change_operator
 include("RBOperators.jl")
@@ -301,6 +299,8 @@ export load_residuals
 export load_jacobians
 export load_snapshots
 export load_contribution
+export load_bundle_contribution
+export save_bundle_contribution
 export load_projection
 export load_subspace
 export load_operator

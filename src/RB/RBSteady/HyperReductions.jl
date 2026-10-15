@@ -315,6 +315,29 @@ function reduced_form(red::Reduction,s,trian,args...)
   HRProjection(red,s,trian,args...)
 end
 
+function reduced_forms!(cache,red,op::PlainParamOperator,trians,red_test)
+  contribution(trians) do trian
+    res = _residual_for_trian!(cache,op,trian)
+    reduced_form(red,res,trian,red_test)
+  end
+end
+
+function reduced_forms!(cache,red,op::PlainParamOperator,trians,red_trial,red_test)
+  contribution(trians) do trian
+    jac = _jacobian_for_trian!(cache,op,trian)
+    reduced_form(red,jac,trian,red_trial,red_test)
+  end
+end
+
+function reduced_forms!(cache,red,op::BundleParamOperator,args...)
+  cache_lin,cache_nlin = cache
+  op_lin = get_linear_part(op)
+  op_nlin = get_nonlinear_part(op)
+  red_form_lin = reduced_forms!(cache_lin,red,op_lin,args...)
+  red_form_nlin = reduced_forms!(cache_nlin,red,op_nlin,args...)
+  return Bundle(red_form_lin,red_form_nlin)
+end
+
 """
     reduced_residual(
       solver::RBSolver,
@@ -334,27 +357,14 @@ function reduced_residual(
   s::AbstractSnapshots
   )
 
-  res = residual_snapshots(solver,op,s)
   res_red = get_residual_reduction(solver)
-  t = @timed red_res = reduced_residual(res_red,red_test,res)
+  trians = get_domains_res(op)
+  t = @timed begin
+    resdata = _prepare_residual(solver,op,s)
+    red_res = reduced_forms!(resdata,res_red,op,trians,red_test)
+  end
   set_residual_tracker!(solver,t)
   return red_res
-end
-
-function reduced_residual(red::Reduction,test::RBSpace,c::ArrayContribution)
-  contribution(get_domains(c)) do trian
-    reduced_form(red,c[trian],trian,test)
-  end
-end
-
-function get_background_trian(f::FESpace)
-  model = get_background_model(get_triangulation(f))
-  Triangulation(model)
-end
-
-function reduced_residual(red::Reduction,test::RBSpace,r::AbstractSnapshots)
-  trian = get_background_trian(test)
-  reduced_residual(red,test,Contribution(r,trian))
 end
 
 """
@@ -380,22 +390,14 @@ function reduced_jacobian(
   s::AbstractSnapshots
   )
 
-  jac = jacobian_snapshots(solver,op,s)
   jac_red = get_jacobian_reduction(solver)
-  t = @timed red_jac = reduced_jacobian(jac_red,red_trial,red_test,jac)
+  trians = get_domains_jac(op)
+  t = @timed begin
+    jacdata = _prepare_jacobian(solver,op,s)
+    red_jac = reduced_forms!(jacdata,jac_red,op,trians,red_trial,red_test)
+  end
   set_jacobian_tracker!(solver,t)
   return red_jac
-end
-
-function reduced_jacobian(red::Reduction,trial::RBSpace,test::RBSpace,c::ArrayContribution)
-  contribution(get_domains(c)) do trian
-    reduced_form(red,c[trian],trian,trial,test)
-  end
-end
-
-function reduced_jacobian(red::Reduction,trial::RBSpace,test::RBSpace,j::AbstractSnapshots)
-  trian = get_background_trian(test)
-  reduced_jacobian(red,trial,test,Contribution(j,trian))
 end
 
 """
@@ -543,3 +545,132 @@ function reduced_form(red::Reduction,s::BlockSnapshots,trian,trial,test)
   BlockHRProjection(hyper_reds)
 end
 
+# utils
+
+function _prepare_residual(
+  solver::RBSolver,
+  op::ParamOperator,
+  s::AbstractSnapshots
+  )
+
+  sres = select_snapshots(s,res_params(solver))
+  us_res = get_param_data(sres)
+  r_res = get_realisation(sres)
+  islinear(op) && fill!(us_res,zero(eltype2(us_res)))
+
+  paramcache = allocate_paramcache(op,r_res)
+  uh = EvaluationFunction(paramcache.trial,us_res)
+  test = get_test(op)
+  v = get_fe_basis(test)
+  assem = get_param_assembler(op,r)
+
+  dc = ParamSteady.get_eval_res(op)(r,uh,v)
+  vecdata = collect_cell_vector(test,dc)
+  b = allocate_vector(assem,vecdata)
+
+  return b,dc,assem,r_res
+end
+
+function _prepare_residual(
+  solver::RBSolver,
+  op::BundleParamOperator,
+  s::AbstractSnapshots
+  )
+
+  sres = select_snapshots(s,res_params(solver))
+  us_res = get_param_data(sres)
+  r_res = get_realisation(sres)
+  islinear(op) && fill!(us_res,zero(eltype2(us_res)))
+
+  paramcache = allocate_paramcache(op,r_res)
+  uh = EvaluationFunction(paramcache.trial,us_res)
+  test = get_test(op)
+  v = get_fe_basis(test)
+  assem = get_param_assembler(op,r)
+
+  dc_lin = get_linear_part(get_res(op))(r,uh,v)
+  dc_nlin = get_nonlinear_part(get_res(op))(r,uh,v)
+  vecdata = collect_cell_vector(test,dc_nlin)
+  b = allocate_vector(assem,vecdata)
+
+  data_lin = b,dc_lin,assem,r_res
+  data_nlin = b,dc_nlin,assem,r_res
+
+  return data_lin,data_nlin
+end
+
+function _prepare_jacobian(
+  solver::RBSolver,
+  op::ParamOperator,
+  s::AbstractSnapshots
+  )
+
+  sjac = select_snapshots(s,jac_params(solver))
+  us_jac = get_param_data(sjac)
+  r_jac = get_realisation(sjac)
+
+  paramcache = allocate_paramcache(op,r_jac)
+  uh = EvaluationFunction(paramcache.trial,us_jac)
+  trial = get_trial(op)
+  du = get_trial_fe_basis(trial)
+  test = get_test(op)
+  v = get_fe_basis(test)
+  assem = get_param_assembler(op,r)
+
+  dc = get_jac(op)(r,uh,du,v)
+  matdata = collect_cell_matrix(trial,test,dc)
+  A = allocate_matrix(assem,matdata)
+
+  return A,dc,assem,r_jac
+end
+
+function _prepare_jacobian(
+  solver::RBSolver,
+  op::ParamOperator,
+  s::AbstractSnapshots
+  )
+
+  sjac = select_snapshots(s,jac_params(solver))
+  us_jac = get_param_data(sjac)
+  r_jac = get_realisation(sjac)
+
+  paramcache = allocate_paramcache(op,r_jac)
+  uh = EvaluationFunction(paramcache.trial,us_jac)
+  trial = get_trial(op)
+  du = get_trial_fe_basis(trial)
+  test = get_test(op)
+  v = get_fe_basis(test)
+  assem = get_param_assembler(op,r)
+
+  dc_lin = get_linear_part(get_jac(op))(r,uh,du,v)
+  dc_nlin = get_nonlinear_part(get_jac(op))(r,uh,du,v)
+  matdata = collect_cell_matrix(trial,test,dc_nlin)
+  A = allocate_matrix(assem,matdata)
+
+  data_lin = A,dc_lin,assem,r_jac
+  data_nlin = A,dc_nlin,assem,r_jac
+
+  return data_lin,data_nlin
+end
+
+function _residual_for_trian!(resdata,op,trian)
+  b,dc,assem,r = resdata
+  test = get_test(op)
+  vecdata = collect_cell_vector_for_trian(test,dc,trian)
+  assemble_vector!(b,assem,vecdata)
+  bmap = get_dof_map(op,b)
+  Snapshots(b,bmap,r)
+end
+
+function _jacobian_for_trian!(jacdata,op,trian)
+  A,dc,assem,r = jacdata
+  trial = get_trial(op)
+  test = get_test(op)
+  matdata = collect_cell_matrix_for_trian(trial,test,dc,trian)
+  assemble_matrix!(A,assem,matdata)
+  Amap = get_dof_map(op,A)
+  Snapshots(A,Amap,r)
+end
+
+islinear(::ParamOperator) = false
+islinear(::ParamOperator{LinearParamEq}) = true

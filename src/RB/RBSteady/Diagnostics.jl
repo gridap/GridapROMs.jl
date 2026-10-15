@@ -47,8 +47,11 @@ function allocate_diagnostic_residual(
   paramcache
   ) where {O,T,B}
 
-  rhs = get_rhs(op) 
-  b = allocate_residual(op.op,r,u,paramcache)
+  rhs = get_rhs(op)
+  b0 = allocate_residual(op.op,r,u,paramcache)
+  b = contribution(get_domains(rhs)) do trian
+    similar(b0)
+  end
   b̂ = allocate_dcontribution(rhs,r)
   DiagnosticsContribution(b,b̂.coeff,b̂.hypred)
 end
@@ -76,7 +79,10 @@ function allocate_diagnostic_jacobian(
   ) where {O,T,B}
 
   lhs = get_lhs(op)
-  A = allocate_jacobian(op.op,r,u,paramcache)
+  A0 = allocate_jacobian(op.op,r,u,paramcache)
+  A = contribution(get_domains(lhs)) do trian
+    similar(A0)
+  end
   Â = allocate_dcontribution(lhs,r)
   DiagnosticsContribution(A,Â.coeff,Â.hypred)
 end
@@ -99,7 +105,7 @@ function diagnostic_residual!(
 
   trian_res = get_domains_res(op)
   rhs = get_rhs(op)
-  dc = ParamSteady._eval_res(op,r,uh,v)
+  dc = ParamSteady.get_eval_res(op)(r,uh,v)
 
   for strian in trian_res
     b_strian = b.fecache[strian]
@@ -124,14 +130,13 @@ function diagnostic_residual!(
   v = get_fe_basis(test)
 
   rhs = get_rhs(op)
-  dc = ParamSteady._eval_res(op,r,uh,v)
+  dc = ParamSteady.get_eval_res(op)(r,uh,v)
   assem = get_param_assembler(op,r)
 
   for strian in get_domains(rhs)
-    fill!(b.fecache,zero(eltype(b.fecache)))
     vecdata = collect_cell_vector_for_trian(test,dc,strian)
-    assemble_vector_add!(b.fecache,assem,vecdata)
-    galerkin_projection!(b.coeff[strian],test,b.fecache)
+    assemble_vector_add!(b.fecache[strian],assem,vecdata)
+    galerkin_projection!(b.coeff[strian],test,b.fecache[strian])
   end
 
   diagnostic_interpolate!(b,rhs)
@@ -218,10 +223,9 @@ function diagnostic_jacobian!(
   assem = get_param_assembler(op,r)
 
   for strian in get_domains(lhs)
-    LinearAlgebra.fillstored!(A.fecache,false)
     matdata = collect_cell_matrix_for_trian(trial,test,dc,strian)
-    assemble_matrix_add!(A.fecache,assem,matdata)
-    galerkin_projection!(A.coeff[strian],test,A.fecache,trial)
+    assemble_matrix_add!(A.fecache[strian],assem,matdata)
+    galerkin_projection!(A.coeff[strian],test,A.fecache[strian],trial)
   end
 
   diagnostic_interpolate!(A,lhs)
@@ -527,8 +531,8 @@ end
 
 for T in (:GlobalRBSolver,:LocalRBSolver)
   @eval function hr_error(solver::$T,op::RBOperator{O,Ty,A,<:Bundle},res,jac,s) where {O,Ty,A}
-    res_lin,res_nlin = res
-    jac_lin,jac_nlin = jac
+    res_lin,res_nlin = res.linear,res.nonlinear
+    jac_lin,jac_nlin = jac.linear,jac.nonlinear
     op_lin = get_linear_part(op)
     op_nlin = get_nonlinear_part(op)
     (err_res_lin,err_jac_lin) = hr_error(solver,op_lin,res_lin,jac_lin,s)
@@ -648,41 +652,19 @@ function load_snapshots(dir,rbsolver,feop,args...;label="",kwargs...)
 end
 
 function save_residuals(dir,feop,res;label="")
-  save(dir,res;label=_get_label(label,RESIDUALS_LABEL))
+  save_bundle_contribution(dir,res;label=_get_label(label,RESIDUALS_LABEL))
 end
 
 function save_jacobians(dir,feop,jac;label="")
-  save(dir,jac;label=_get_label(label,JACOBIANS_LABEL))
-end
-
-for f in (:save_residuals,:save_jacobians)
-  @eval begin
-    function $f(dir,feop::BundleParamOperator,resjac::Tuple;label="")
-      @assert length(resjac) == 2
-      $f(dir,get_linear_part(feop),resjac[1];label=_get_label(label,LINEAR_LABEL))
-      $f(dir,get_nonlinear_part(feop),resjac[2];label=_get_label(label,NONLINEAR_LABEL))
-      return
-    end
-  end
+  save_bundle_contribution(dir,jac;label=_get_label(label,JACOBIANS_LABEL))
 end
 
 function load_residuals(dir,feop::ParamOperator;label="")
-  load_contribution(dir,get_domains_res(feop);label=_get_label(label,RESIDUALS_LABEL))
+  load_bundle_contribution(dir,get_domains_res(feop);label=_get_label(label,RESIDUALS_LABEL))
 end
 
 function load_jacobians(dir,feop::ParamOperator;label="")
-  load_contribution(dir,get_domains_jac(feop);label=_get_label(label,JACOBIANS_LABEL))
-end
-
-for f in (:load_residuals,:load_jacobians)
-  @eval begin
-    function $f(dir,feop::BundleParamOperator;label="")
-      (
-        $f(dir,get_linear_part(feop);label=_get_label(label,LINEAR_LABEL)),
-        $f(dir,get_nonlinear_part(feop);label=_get_label(label,NONLINEAR_LABEL)),
-      )
-    end
-  end
+  load_bundle_contribution(dir,get_domains_jac(feop);label=_get_label(label,JACOBIANS_LABEL))
 end
 
 function load_residuals(dir,rbsolver,feop,fesnaps;label=ONLINE_LABEL)

@@ -131,7 +131,10 @@ function Algebra.allocate_residual(
   paramcache
   ) where {O,T,B}
 
-  b = allocate_residual(op.op,r,us,paramcache)
+  b0 = allocate_residual(op.op,r,us,paramcache)
+  b = contribution(get_domains(get_rhs(op))) do trian
+    similar(b0)
+  end
   b̂ = allocate_hypred_cache(get_rhs(op),r)
   HRParamArray(b,b̂.coeff,b̂.hypred)
 end
@@ -143,7 +146,13 @@ function Algebra.allocate_jacobian(
   paramcache
   ) where {O,T,B}
 
-  A = allocate_jacobian(op.op,r,us,paramcache)
+  A0 = allocate_jacobians(op.op,r,us,paramcache)
+  lhss = get_lhs(op)
+  A = ContributionTuple(ntuple(length(lhss)) do k
+    contribution(get_domains(lhss[k])) do trian
+      similar(A0[k])
+    end
+  end)
   Â = allocate_hypred_cache(get_lhs(op),r)
   HRParamArray(A,Â.coeff,Â.hypred)
 end

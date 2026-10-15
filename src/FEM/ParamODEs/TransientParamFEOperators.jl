@@ -189,6 +189,17 @@ CellData.get_domains(op::TransientParamFEOpFromWeakForm) = op.domains
 const TransientLinearParamFEOpFromWeakForm{T} = TransientParamFEOpFromWeakForm{LinearParamODE,T}
 
 """
+    wrap_bilinear_jacs(forms::Tuple{Vararg{Function}}) -> Tuple{Vararg{Function}}
+
+Wraps a tuple of bilinear forms `forms[k](μ,t,duk,v)` (one per temporal derivative
+order, Gridap's own convention for a linear operator) into the 5-argument
+`jacs[k](μ,t,u,duk,v)` convention expected by [`TransientParamFEOpFromWeakForm`](@ref)
+(the extra `u` argument is ignored, since a bilinear form does not depend on the
+current state)
+"""
+wrap_bilinear_jacs(forms::Tuple{Vararg{Function}}) = ntuple(k -> ((μ,t,u,duk,v) -> forms[k](μ,t,duk,v)),length(forms))
+
+"""
   TransientLinearParamFEOperator(res::Function,forms::Tuple{Vararg{Function}},
     tpspace,trial,test;kwargs...) -> TransientLinearParamFEOpFromWeakForm{WeakFormStyle}
 
@@ -200,7 +211,7 @@ function TransientLinearParamFEOperator(
   )
 
   order = length(forms)-1
-  jacs = ntuple(k -> ((μ,t,u,duk,v) -> forms[k](μ,t,duk,v)),length(forms))
+  jacs = wrap_bilinear_jacs(forms)
   assem = SparseMatrixAssembler(trial,test)
   domains = FEDomains()
   TransientParamFEOpFromWeakForm{LinearParamODE,PlainForm}(
@@ -213,7 +224,7 @@ function TransientLinearParamFEOperator(
   )
 
   order = length(forms) - 1
-  jacs = ntuple(k -> ((μ,t,u,duk,v) -> forms[k](μ,t,duk,v)),length(forms))
+  jacs = wrap_bilinear_jacs(forms)
   assem = SparseMatrixAssembler(trial,test)
   TransientParamFEOpFromWeakForm{LinearParamODE,PlainForm}(
     res,jacs,constant_forms,tpspace,assem,trial,test,domains,order)
@@ -267,15 +278,19 @@ entry is reused as-is for the linear half, and replaced with a zero contribution
 (of the same shape) for the nonlinear half
 """
 function Utils.get_linear_part(op::TransientParamFEOpFromWeakForm{NonlinearParamODE,BundleForm})
-  jacs = map(j -> j isa Bundle ? j.linear : j,op.jacs)
-  TransientParamFEOpFromWeakForm{LinearParamODE,BundleForm}(
-    op.res.linear,jacs,op.constant_forms,op.tpspace,op.assem,op.trial,op.test,op.domains.linear,length(jacs)-1)
+  res = get_linear_part(op.res)
+  jacs = map(get_linear_part,op.jacs)
+  domains = get_linear_part(op.domains)
+  TransientParamFEOpFromWeakForm{LinearParamODE,PlainForm}(
+    res,jacs,op.constant_forms,op.tpspace,op.assem,op.trial,op.test,domains,length(jacs)-1)
 end
 
 function Utils.get_nonlinear_part(op::TransientParamFEOpFromWeakForm{NonlinearParamODE,BundleForm})
-  jacs = map(j -> j isa Bundle ? j.nonlinear : _zero_jac(j),op.jacs)
-  TransientParamFEOpFromWeakForm{NonlinearParamODE,BundleForm}(
-    op.res.nonlinear,jacs,op.constant_forms,op.tpspace,op.assem,op.trial,op.test,op.domains.nonlinear,length(jacs)-1)
+  res = get_nonlinear_part(op.res)
+  jacs = map(get_nonlinear_part,op.jacs)
+  domains = get_nonlinear_part(op.domains)
+  TransientParamFEOpFromWeakForm{NonlinearParamODE,PlainForm}(
+    res,jacs,op.constant_forms,op.tpspace,op.assem,op.trial,op.test,domains,length(jacs)-1)
 end
 
 _zero_jac(jac::Function) = (args...) -> 0*jac(args...)

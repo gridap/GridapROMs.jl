@@ -263,6 +263,10 @@ function select_snapshots(a::ArrayContribution,pindex)
   end
 end
 
+function select_snapshots(a::Bundle,pindex)
+  Bundle(select_snapshots(a.linear,pindex),select_snapshots(a.nonlinear,pindex))
+end
+
 function change_dof_map(a::ArrayContribution,i::ArrayContribution)
   a′ = ()
   for j in eachindex(a)

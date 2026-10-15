@@ -228,16 +228,6 @@ end
 Returns a residual `Contribution` relative to the FE operator `op`. The
 quantity `s` denotes the solution snapshots in which we evaluate the residual
 """
-function _residual_snapshots_contribution(op::ParamOperator,r_res::Realisation,us_res::AbstractVector)
-  paramcache = allocate_paramcache(op,r_res)
-  b = allocate_residual(op,r_res,us_res,paramcache)
-  contribution(get_domains_res(op)) do trian
-    fill!(b,zero(eltype(b)))
-    residual!(b,op,r_res,us_res,paramcache,trian)
-    copy(b)
-  end
-end
-
 function residual_snapshots(
   solver::RBSolver,
   op::ParamOperator,
@@ -245,24 +235,10 @@ function residual_snapshots(
   )
 
   sres = select_snapshots(s,res_params(solver))
-  us_res = get_param_data(sres)
-  r_res = get_realisation(sres)
-  b = _residual_snapshots_contribution(op,r_res,us_res)
-  ib = get_dof_map(op,b)
-  return Snapshots(b,ib,r_res)
-end
-
-function residual_snapshots(
-  solver::RBSolver,
-  op::ParamOperator{LinearParamEq},
-  s::AbstractSnapshots
-  )
-
-  sres = select_snapshots(s,res_params(solver))
   us_res = get_param_data(sres) |> similar
-  fill!(us_res,zero(eltype2(us_res)))
+  islinear(op) && fill!(us_res,zero(eltype2(us_res)))
   r_res = get_realisation(sres)
-  b = _residual_snapshots_contribution(op,r_res,us_res)
+  b = Algebra.residual(op,r_res,us_res)
   ib = get_dof_map(op,b)
   return Snapshots(b,ib,r_res)
 end
@@ -275,7 +251,7 @@ function residual_snapshots(
 
   res_lin = residual_snapshots(solver,get_linear_part(op),args...)
   res_nlin = residual_snapshots(solver,get_nonlinear_part(op),args...)
-  return (res_lin,res_nlin)
+  return Bundle(res_lin,res_nlin)
 end
 
 """
@@ -287,16 +263,6 @@ quantity `s` denotes the solution snapshots in which we evaluate the jacobian.
 In transient settings, the output is a tuple whose `n`th element is the Jacobian
 relative to the `n`th temporal derivative
 """
-function _jacobian_snapshots_contribution(op::ParamOperator,r_jac::Realisation,us_jac::AbstractVector)
-  paramcache = allocate_paramcache(op,r_jac)
-  A = allocate_jacobian(op,r_jac,us_jac,paramcache)
-  contribution(get_domains_jac(op)) do trian
-    LinearAlgebra.fillstored!(A,false)
-    jacobian_add!(A,op,r_jac,us_jac,paramcache,trian)
-    copy(A)
-  end
-end
-
 function jacobian_snapshots(
   solver::RBSolver,
   op::ParamOperator,
@@ -306,22 +272,7 @@ function jacobian_snapshots(
   sjac = select_snapshots(s,jac_params(solver))
   us_jac = get_param_data(sjac)
   r_jac = get_realisation(sjac)
-  A = _jacobian_snapshots_contribution(op,r_jac,us_jac)
-  iA = get_sparse_dof_map(op,A)
-  return Snapshots(A,iA,r_jac)
-end
-
-function jacobian_snapshots(
-  solver::RBSolver,
-  op::ParamOperator{LinearParamEq},
-  s::AbstractSnapshots
-  )
-
-  sjac = select_snapshots(s,jac_params(solver))
-  us_jac = get_param_data(sjac) |> similar
-  fill!(us_jac,zero(eltype2(us_jac)))
-  r_jac = get_realisation(sjac)
-  A = _jacobian_snapshots_contribution(op,r_jac,us_jac)
+  A = Algebra.jacobian(op,r_jac,us_jac)
   iA = get_sparse_dof_map(op,A)
   return Snapshots(A,iA,r_jac)
 end
@@ -334,8 +285,11 @@ function jacobian_snapshots(
 
   jac_lin = jacobian_snapshots(solver,get_linear_part(op),s)
   jac_nlin = jacobian_snapshots(solver,get_nonlinear_part(op),s)
-  return (jac_lin,jac_nlin)
+  return Bundle(jac_lin,jac_nlin)
 end
+
+islinear(::ParamOperator) = false
+islinear(::ParamOperator{LinearParamEq}) = true
 
 # solvers 
 
@@ -416,6 +370,7 @@ _get_param(op::NonlinearParamOperator) = @notimplemented
 _get_param(op::GenericParamNonlinearOperator) = op.μ
 
 _get_trial(op) = @notimplemented
+_get_trial(op::GenericParamNonlinearOperator) = op.paramcache.trial
 
 function change_tols!(log::ConvergenceLog)
   log.tols.rtol = 1e-6

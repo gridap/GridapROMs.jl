@@ -41,6 +41,22 @@ ODEs.get_jacs(odeop::ODEParamOperator) = get_jacs(get_fe_operator(odeop))
 get_order(odeop::ODEParamOperator) = get_order(get_fe_operator(odeop))
 ODEs.is_form_constant(odeop::ODEParamOperator,k::Integer) = is_form_constant(get_fe_operator(odeop),k)
 
+"""
+    get_eval_res(odeop::ODEParamOperator) -> Function
+
+Transient counterpart of `ParamSteady.get_eval_res`. Currently always returns
+`get_res(odeop)` unchanged: unlike the steady `LinearParamEq` case, a transient
+`LinearParamODE` operator's `res` field is still the full `res(μ,t,u,v)` form
+(not a 2-argument `rhs(μ,t,v)`), so no lift correction is needed here — `uh`
+already carries the Dirichlet lift through the ordinary residual evaluation.
+This is kept as its own function (rather than inlining `get_res`) so that
+transient call sites read the same way as their steady counterparts, and so
+that a `LinearParamODE`-specific lift-corrected closure can be added here later
+without touching any call site, if the "truly linear" `rhs`-only convention is
+ever extended to transient operators
+"""
+get_eval_res(odeop::ODEParamOperator) = get_res(odeop)
+
 # basic interface
 
 function ParamAlgebra.allocate_paramcache(

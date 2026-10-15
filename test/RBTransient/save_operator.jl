@@ -62,7 +62,7 @@ function main(
   trian_jac = (Ω,)
   trian_jac_t = (Ω,)
   domains_lin = FEDomains(trian_res,(trian_jac,trian_jac_t))
-  domains_nlin = FEDomains(trian_res,(trian_jac,))
+  domains_nlin = FEDomains(trian_res,(trian_jac,trian_jac_t))
 
   reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
   reffe_p = ReferenceFE(lagrangian,Float64,order-1)
@@ -94,8 +94,7 @@ function main(
 
   ptspace = TransientParamSpace(pdomain,tdomain)
 
-  forms_lin = (stiffness,mass)
-  jacs_lin = ntuple(k -> ((μ,t,u,duk,v) -> forms_lin[k](μ,t,duk,v)),length(forms_lin))
+  jacs_lin = wrap_bilinear_jacs((stiffness,mass))
 
   res_bundle = Bundle(res,res_nlin)
   jacs = (Bundle(jacs_lin[1],jac_nlin),jacs_lin[2])

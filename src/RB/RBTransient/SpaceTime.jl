@@ -293,6 +293,16 @@ end
 _get_realisation(nlop::NonlinearParamOperator) = @abstractmethod
 _get_realisation(nlop::SpaceTimeParamOperator) = nlop.r
 
+function Utils.get_linear_part(nlop::SpaceTimeParamOperator)
+  SpaceTimeParamOperator(get_linear_part(nlop.op),nlop.r,nlop.usx,nlop.ws,nlop.paramcache)
+end
+
+function Utils.get_nonlinear_part(nlop::SpaceTimeParamOperator)
+  SpaceTimeParamOperator(get_nonlinear_part(nlop.op),nlop.r,nlop.usx,nlop.ws,nlop.paramcache)
+end
+
+RBSteady._get_trial(nlop::SpaceTimeParamOperator) = get_trial(nlop.op)
+
 function _update_paramcache!(nlop::NonlinearParamOperator,r::TransientRealisation)
   @abstractmethod
 end

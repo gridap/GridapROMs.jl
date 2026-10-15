@@ -39,26 +39,10 @@ struct Bundle{A,B}
   nonlinear::B
 end
 
-"""
-    (b::Bundle)(args...)
-
-A `Bundle` of two callables (e.g. two weak-form functions `res(μ,u,v)`) is itself
-callable, and evaluates to the sum of its two halves. This is what lets a
-Bundle-valued `res`/`jac` field be passed, unchanged, to any call site that expects
-a plain weak-form function: the linear and nonlinear contributions are aggregated
-by summation at evaluation time, instead of being cached and combined separately
-"""
 (b::Bundle)(args...) = b.linear(args...) + b.nonlinear(args...)
 
-"""
-    get_linear_part(b::Bundle) -> A
-    get_nonlinear_part(b::Bundle) -> B
-
-Return the linear/nonlinear half of a [`Bundle`](@ref). Extended, for the
-relevant operator types, to split a `Bundle`-based linear+nonlinear operator
-back into its two plainly-tagged halves (see e.g. `ParamFEOpFromWeakForm`,
-`TransientParamFEOpFromWeakForm`, `RBOperator`)
-"""
+get_linear_part(b) = b
+get_nonlinear_part(b) = b
 get_linear_part(b::Bundle) = b.linear
 get_nonlinear_part(b::Bundle) = b.nonlinear
 

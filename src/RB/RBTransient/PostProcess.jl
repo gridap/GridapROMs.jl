@@ -22,22 +22,4 @@ function RBSteady.load_contribution(
   return ContributionTuple(c)
 end
 
-function RBSteady.load_operator(dir,feop::BundleODEParamOperator;label="")
-  feop_lin = get_linear_part(feop)
-  feop_nlin = get_nonlinear_part(feop)
-  # test and trial are the same for both the linear and nonlinear operators
-  test = load_subspace(dir,get_test(feop_lin);label=_get_label(label,TEST_LABEL))
-  trial = load_subspace(dir,get_trial(feop_lin);label=_get_label(label,TRIAL_LABEL))
-  # weakform-related quantities are different for the linear and nonlinear operators
-  red_rhs_lin = load_contribution(dir,get_domains_res(feop_lin);label=_get_label(label,LINEAR_LABEL,RHS_LABEL))
-  red_lhs_lin = load_contribution(dir,get_domains_jac(feop_lin);label=_get_label(label,LINEAR_LABEL,LHS_LABEL))
-  red_rhs_nlin = load_contribution(dir,get_domains_res(feop_nlin);label=_get_label(label,NONLINEAR_LABEL,RHS_LABEL))
-  red_lhs_nlin = load_contribution(dir,get_domains_jac(feop_nlin);label=_get_label(label,NONLINEAR_LABEL,LHS_LABEL))
-  op_lin = ROMOperator(feop_lin,trial,test,red_lhs_lin,red_rhs_lin)
-  op_nlin = ROMOperator(feop_nlin,trial,test,red_lhs_nlin,red_rhs_nlin)
-  lhs = Bundle(get_lhs(op_lin),get_lhs(op_nlin))
-  rhs = Bundle(get_rhs(op_lin),get_rhs(op_nlin))
-  return RBOperator(feop,trial,test,lhs,rhs)
-end
-
 include("Diagnostics.jl")

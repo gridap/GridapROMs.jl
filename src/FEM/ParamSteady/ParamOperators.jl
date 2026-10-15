@@ -61,17 +61,18 @@ ODEs.get_res(op::ParamOperator) = ODEs.get_res(get_fe_operator(op))
 get_jac(op::ParamOperator) = get_jac(get_fe_operator(op))
 
 """
-    _eval_res(op::ParamOperator,r,uh,v)
+    get_eval_res(op::ParamOperator) -> Function
 
-Evaluates the residual form of `op` at `(r,uh,v)`. A genuinely linear operator
-(`O=LinearParamEq`) has no residual to evaluate at a current state `uh` — only a
-right-hand side, independent of `uh` — so `get_res(op)` there is a 2-argument
-`rhs(r,v)` instead of a 3-argument `res(r,uh,v)`
+Returns a function `(r,uh,v) -> dc`, suitable for evaluating `op`'s residual at
+a current state `uh`. A genuinely linear operator (`O=LinearParamEq`) has no
+residual to evaluate at `uh` — only a right-hand side, independent of `uh` — so
+`get_res(op)` there is a 2-argument `rhs(r,v)` instead of a 3-argument
+`res(r,uh,v)`; the lift's contribution through the bilinear form must then be
+moved to the right-hand side, exactly as Gridap's own `AffineFEOperator` does
+internally. For any other operator, this is just `get_res(op)` itself
 """
-function _eval_res(op::ParamOperator{LinearParamEq},r,uh,v)
-  get_res(op)(r,v) - get_jac(op)(r,uh,uh,v)
-end
-_eval_res(op::ParamOperator,r,uh,v) = get_res(op)(r,uh,v)
+get_eval_res(op::ParamOperator{LinearParamEq}) = (r,uh,v) -> get_res(op)(r,v) - get_jac(op)(r,uh,uh,v)
+get_eval_res(op::ParamOperator) = get_res(op)
 
 DofMaps.get_dof_map(op::ParamOperator,args...) = get_dof_map(get_fe_operator(op),args...)
 DofMaps.get_sparse_dof_map(op::ParamOperator,args...) = get_sparse_dof_map(get_fe_operator(op),args...)
@@ -164,9 +165,7 @@ function Algebra.allocate_residual(
   v = get_fe_basis(test)
   assem = get_param_assembler(op,μ)
 
-  rhs = get_res(op)
-  jac = get_jac(op)
-  dc = rhs(μ,v) - jac(μ,u,uh,v)
+  dc = get_eval_res(op)(μ,uh,v)
   vecdata = collect_cell_vector(test,dc)
   b = allocate_vector(assem,vecdata)
 
@@ -189,13 +188,7 @@ function Algebra.residual!(
   v = get_fe_basis(test)
   assem = get_param_assembler(op,μ)
 
-  # a genuinely linear operator has no residual, only a right-hand side `rhs(μ,v)`;
-  # but with inhomogeneous Dirichlet data, `uh` carries the (μ-dependent) lift, whose
-  # contribution through the bilinear form must still be moved to the right-hand
-  # side, exactly as Gridap's own AffineFEOperator does internally
-  rhs = get_res(op)
-  jac = get_jac(op)
-  dc = rhs(μ,v) - jac(μ,u,uh,v)
+  dc = get_eval_res(op)(μ,uh,v)
   vecdata = collect_cell_vector(test,dc)
   assemble_vector_add!(b,assem,vecdata)
 
@@ -273,7 +266,7 @@ function Algebra.residual!(
   v = get_fe_basis(test)
   assem = get_param_assembler(op,μ)
 
-  dc = _eval_res(op,μ,uh,v)
+  dc = get_eval_res(op)(μ,uh,v)
   vecdata = collect_cell_vector_for_trian(test,dc,trian)
   assemble_vector_add!(b,assem,vecdata)
 
