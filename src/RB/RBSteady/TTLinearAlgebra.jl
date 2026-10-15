@@ -352,9 +352,6 @@ function galerkin_projection(
   cores::Vector{<:AbstractArray{T,3}}
   ) where T
 
-  # if any(isempty,cores)
-  #   cores = map(c -> zeros(T,size(c)...),cores_left)
-  # end
   rcores = map(contraction,cores_left,cores)
   rcore = sequential_product(rcores...)
   dropdims(rcore;dims=(1,2))

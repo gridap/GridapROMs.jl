@@ -5,8 +5,9 @@ end
 function RBSteady.reduction(red::TTSVDReduction,A::TransientSnapshots,args...)
   red_style = ReductionStyle(red)
   nparams = num_params(A)
+  ntimes = num_times(A)
   cores,remainder = ttsvd(red_style,get_all_data(A),args...)
-  remainder = reshape(remainder,size(remainder,1),nparams,:)
+  remainder = reshape(remainder,size(remainder,1),nparams,ntimes)
   add_temporal_core!(cores,red_style[end],remainder)
   return cores
 end

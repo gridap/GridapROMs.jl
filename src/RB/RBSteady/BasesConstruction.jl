@@ -37,10 +37,11 @@ function select_rank(red_style::SearchSVDRank,S::AbstractVector)
   isempty(S) && return 0
   tol = red_style.tol
   energies = cumsum(S.^2;dims=1)
-  iszero(energies[end]) && return 0
+  E = energies[end]
+  iszero(E) && return 0
   rank = 0
   for outer rank in eachindex(energies)
-    energies[rank] >= (1-tol^2)*energies[end] && break
+    energies[rank] >= (1-tol^2)*E && break
   end
   return rank
 end
@@ -49,10 +50,20 @@ function truncated_svd(red_style::ReductionStyle,A::AbstractMatrix;issquare=fals
   U,S,V = svd(A)
   issquare && _root!(S)
   rank = select_rank(red_style,S)
+  issquare && (rank = min(rank,_numerical_rank(S)))
   Ur = _truncate_col!(U,rank)
   Sr = _truncate!(S,rank)
   Vr = _truncate_row!(V',rank)
   return Ur,Sr,Vr'
+end
+
+# The singular values of A'*A (or A*A') are accurate to an absolute error of order
+# eps()*opnorm(A'*A), so singular values below S[1]*sqrt(eps()) are numerically
+# indistinguishable from round-off in A'*A
+function _numerical_rank(S::AbstractVector)
+  isempty(S) && return 0
+  floor = S[1]*sqrt(length(S)*eps(eltype(S)))
+  count(>(floor),S)
 end
 
 function _root!(S)
