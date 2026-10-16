@@ -340,7 +340,25 @@ function Algebra.jacobian!(
   A
 end
 
-# snapshots 
+# snapshots
+
+function RBSteady.solution_snapshots(
+  solver::TransientRBSolver,
+  op::TransientROMOperator,
+  r::TransientRealisation,
+  args...
+  )
+
+  stats = @timed begin
+    i = get_dof_map(op)
+    sol = solve(solver,op,r,args...)
+    values = collect(sol)
+    initial_values = initial_conditions(sol)
+  end
+  set_rom_tracker!(solver,stats,nruns=num_params(r))
+  snaps = Snapshots(values,initial_values,i,r)
+  return snaps
+end
 
 function RBSteady.solution_snapshots(
   solver::TransientRBSolver{A,B,<:SteadyReduction},
@@ -350,9 +368,8 @@ function RBSteady.solution_snapshots(
   ) where {A,B}
 
   fesolver = get_fe_solver(solver)
-  x̂ = solve(fesolver,op,r,args...) |> collect
-  i = get_dof_map(op)
-  snaps = Snapshots(_fe_data(x̂),i,r)
+  stats = @timed snaps = solution_snapshots(fesolver,op,r,args...)
+  set_rom_tracker!(solver,stats,nruns=num_params(r))
   return snaps
 end
 

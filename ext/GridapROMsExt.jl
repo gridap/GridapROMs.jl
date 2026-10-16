@@ -15,7 +15,7 @@ import Gridap.FESpaces: get_trial
 import Gridap.Helpers: @abstractmethod
 import GridapROMs.ParamFESpaces: UnEvalTrialFESpace
 import GridapROMs.ParamSteady: get_fe_operator
-import GridapROMs.RBSteady: get_state_reduction,get_residual_reduction,get_jacobian_reduction,_fe_data
+import GridapROMs.RBSteady: get_state_reduction,get_residual_reduction,get_jacobian_reduction
 
 function GridapROMs.try_loading_fe_snapshots(dir,rbsolver,feop,args...;label="",kwargs...)
   try
@@ -150,7 +150,7 @@ function GridapROMs.run_test(
     rbop = try_loading_reduced_operator(dir_tolrank,rbsolver,feop,fesnaps)
 
     μ = get_realisation(x)
-    x̂ = solve(rbsolver,rbop,μ,args...)
+    x̂ = solution_snapshots(rbsolver,rbop,μ,args...)
     rom_performance(rbsolver,rbop,x,x̂)
   end
 
@@ -205,20 +205,6 @@ function GridapROMs.plot_solutions(
   for i in eachindex(sol)
     plot_solutions(dir,trials[i],sol[i],sol_approx[i];field=i,kwargs...)
   end
-end
-
-function GridapROMs.plot_solutions(
-  dir::String,
-  rbop::ROMOperator,
-  fesnaps::AbstractSnapshots,
-  x̂::AbstractParamVector;
-  kwargs...
-  )
-
-  i = get_dof_map(fesnaps)
-  r = get_realisation(fesnaps)
-  rbsnaps = Snapshots(_fe_data(x̂),i,r)
-  plot_solutions(dir,rbop,fesnaps,rbsnaps;kwargs...)
 end
 
 function _plot_solutions(dir,trian,uh,ûh,r::Realisation;field=1)

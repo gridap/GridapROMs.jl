@@ -43,7 +43,7 @@ small system for new parameter values.  Main building blocks:
 - **Local / cluster-based projections** (`LocalProjections.jl`) — `LocalProjection`,
   `cluster`, `get_clusters`, `get_local`, `local_vals`.
 
-- **Post-processing** (`PostProcess.jl`) — `RBPerformanceTracker`, `compute_error!`,
+- **Post-processing** (`PostProcess.jl`) — `RBPerformanceTracker`,
   I/O helpers (`load_snapshots`, `load_contribution`, `load_operator`, …).
 
 The `RBTransient` module extends all of the above to the time-dependent setting.
@@ -284,7 +284,6 @@ include("RBOperators.jl")
 
 export RBPerformanceTracker
 export OfflineCostTracker
-export compute_error!
 export rom_performance
 export rom_diagnostics
 export RBDiagnostics

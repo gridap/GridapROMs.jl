@@ -162,7 +162,7 @@ function local_solver(rbsolver,rbop,μ,x)
   for (μi,xi) in zip(μsplit,xsplit)
     feopi = get_feop(μi)
     rbopi = change_operator(get_local(rbop,first(μi)),feopi)
-    x̂ = solve(gsolver,rbopi,μi)
+    x̂ = solution_snapshots(gsolver,rbopi,μi)
     perf = rom_performance(rbsolver,rbopi,xi,x̂)
     push!(perfs,deepcopy(perf))
   end
@@ -192,7 +192,7 @@ rbop = reduced_operator(rbsolver,feop,fesnaps)
 
 if compression == :global
   rbop′ = change_operator(rbop,feopon)
-  x̂ = solve(rbsolver,rbop′,μon)
+  x̂ = solution_snapshots(rbsolver,rbop′,μon)
   perf = rom_performance(rbsolver,rbop′,x,x̂)
 else
   perf = local_solver(rbsolver,rbop,μon,x)

@@ -161,40 +161,21 @@ function load_operator(dir,feop::ParamOperator;label="")
 end
 
 """
-    compute_error!(
-      solver::RBSolver,
-      op::ParamOperator,
-      x::AbstractSnapshots
-      x̂::AbstractSnapshots,
-      ) -> RBPerformanceTracker
-
-Updates `solver.tracker.error` in place with the (relative) error between the
-full-order snapshots `fesnaps` and the reduced approximation `x̂`
-"""
-function compute_error!(solver::RBSolver,op::ParamOperator,x::AbstractSnapshots,x̂::AbstractSnapshots)
-  trial = get_trial(op)
-  tracker = solver.tracker
-  tracker.error = compute_relative_error(trial,x,x̂)
-  return tracker
-end
-
-"""
     rom_performance(
       solver::RBSolver,
       op::ROMOperator,
       x::AbstractSnapshots,
-      x̂
+      x̂::AbstractSnapshots
       ) -> RBPerformanceTracker
 
 Updates `solver.tracker.error` from the (relative) error between the full-order
 snapshots `fesnaps` and the reduced approximation `x̂`, and returns `solver.tracker`
 """
-function rom_performance(solver::RBSolver,op::ParamOperator,x::AbstractSnapshots,x̂)
-  _to_snaps(x̂) = @abstractmethod
-  _to_snaps(x̂::AbstractSnapshots) = x̂
-  _to_snaps(x̂::RBParamVector) = Snapshots(_fe_data(x̂),get_dof_map(x),get_realisation(x))
-  compute_error!(solver,op,x,_to_snaps(x̂))
-  return solver.tracker
+function rom_performance(solver::RBSolver,op::ParamOperator,x::AbstractSnapshots,x̂::AbstractSnapshots)
+  trial = get_trial(op)
+  tracker = solver.tracker
+  tracker.error = compute_relative_error(trial,x,x̂)
+  return tracker
 end
 
 function save(dir,perf::RBPerformanceTracker;label="")

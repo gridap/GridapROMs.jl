@@ -205,7 +205,9 @@ function solution_snapshots(
   )
 
   fesolver = get_fe_solver(solver)
-  solution_snapshots(fesolver,feop,r,args...)
+  stats = @timed snaps = solution_snapshots(fesolver,feop,r,args...)
+  set_fom_tracker!(solver,stats,nruns=num_params(r))
+  return snaps
 end
 
 function solution_snapshots(
@@ -230,8 +232,7 @@ function Algebra.solve(solver::GlobalRBSolver,op::NonlinearOperator,r::Realisati
   syscache = allocate_systemcache(nlop,x̂)
 
   s = get_reduced_solver(solver)
-  t = @timed solve!(x̂,s,nlop,syscache)
-  update_rom_tracker!(solver,t,nruns=num_params(r))
+  solve!(x̂,s,nlop,syscache)
 
   inv_project!(x̂,trial)
 

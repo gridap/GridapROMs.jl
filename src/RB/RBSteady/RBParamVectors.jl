@@ -33,8 +33,8 @@ for I in (:AbstractDofMap,:TrivialDofMap,:AbstractArray)
 end
 
 function ParamDataStructures.param_cat(a::Vector{<:RBParamVector})
-  data = param_cat(map(_data,a))
-  fe_data = param_cat(map(_fe_data,a))
+  data = param_cat(map(x -> x.data,a))
+  fe_data = param_cat(map(x -> x.fe_data,a))
   RBParamVector(data,fe_data)
 end
 
@@ -91,8 +91,3 @@ for T in (:SingleFieldFESpace,:MultiFieldFESpace)
     end
   end
 end
-
-# utils
-
-_data(a::RBParamVector) = a.data
-_fe_data(a::RBParamVector) = a.fe_data

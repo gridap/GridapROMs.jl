@@ -107,7 +107,7 @@ function main(
   save(dir,rbop)
 
   μon = realisation(feop;nparams=10,sampling=:uniform)
-  x̂ = solve(rbsolver,rbop,μon,xh0μ)
+  x̂ = solution_snapshots(rbsolver,rbop,μon,xh0μ)
   x = solution_snapshots(rbsolver,feop,μon,xh0μ)
   perf = rom_performance(rbsolver,rbop,x,x̂)
   error = perf.error

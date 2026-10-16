@@ -38,10 +38,10 @@ function RBSteady.solution_snapshots(
   args...
   )
 
+  i = get_dof_map(op)
   sol = solve(fesolver,op,r,args...)
   values = collect(sol)
   initial_values = initial_conditions(sol)
-  i = get_dof_map(op)
   snaps = Snapshots(values,initial_values,i,r)
   return snaps
 end
@@ -60,12 +60,10 @@ function Algebra.solve(
   nlop = parameterise(op,r)
   syscache = allocate_systemcache(nlop,x̂)
 
-  t = @timed solve!(x̂,fesolver,nlop,syscache)
-  update_rom_tracker!(solver,t,nruns=num_params(r))
-
+  solve!(x̂,fesolver,nlop,syscache)
   inv_project!(x̂,trial)
 
-  return x̂
+  return ODERBParamVector(x̂,us0)
 end
 
 function Algebra.solve(

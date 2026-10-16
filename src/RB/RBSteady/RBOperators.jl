@@ -469,15 +469,15 @@ end
 function solution_snapshots(
   solver::RBSolver,
   op::ROMOperator,
-  r::AbstractRealisation,
-  args...
+  r::Realisation
   )
 
-  x̂ = solve(solver,op,r,args...)
-  i = get_dof_map(op)
-  Snapshots(_fe_data(x̂),i,r)
+  dof_map = get_dof_map(op)
+  stats = @timed values = solve(solver,op,r)
+  set_rom_tracker!(solver,stats,nruns=num_params(r))
+  snaps = Snapshots(values,dof_map,r)
+  return snaps
 end
-
 
 # utils 
 

@@ -120,7 +120,7 @@ function ParamODEs.time_combination!(
   us0::NTuple{N,RBParamVector}
   ) where N
 
-  time_combination!(map(_fe_data,usx),c,_fe_data(u),map(_fe_data,us0))
+  time_combination!(map(x -> x.fe_data,usx),c,u.fe_data,map(x -> x.fe_data,us0))
 end
 
 function ParamODEs.zero_time_combination!(
@@ -129,7 +129,7 @@ function ParamODEs.zero_time_combination!(
   us0::NTuple{N,RBParamVector}
   ) where N
 
-  zero_time_combination!(map(_fe_data,usx),c,map(_fe_data,us0))
+  zero_time_combination!(map(x -> x.fe_data,usx),c,map(x -> x.fe_data,us0))
 end
 
 # utils

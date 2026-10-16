@@ -145,7 +145,6 @@ using GridapROMs.Extensions: ⊕; export ⊕
 
 @publish RBSteady RBPerformanceTracker
 @publish RBSteady OfflineCostTracker
-@publish RBSteady compute_error!
 @publish RBSteady rom_performance
 @publish RBSteady rom_diagnostics
 @publish RBSteady load_snapshots
