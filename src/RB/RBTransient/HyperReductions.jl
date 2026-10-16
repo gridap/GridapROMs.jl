@@ -50,20 +50,6 @@ function RBSteady.HRProjection(red::TransientRBFHyperReduction,s,trian,trial,tes
   return HRProjection(proj_basis,red,interp)
 end
 
-function RBSteady.reduced_jacobian(
-  red::Tuple{Vararg{Reduction}},
-  trial::RBSpace,
-  test::RBSpace,
-  contribs::ContributionTuple
-  )
-
-  a = ()
-  for i in eachindex(contribs)
-    a = (a...,reduced_jacobian(red[i],trial,test,contribs[i]))
-  end
-  return ContributionTuple(a)
-end
-
 const TransientNoHRProjection{A<:Projection} = HRProjection{<:TransientNoHyperReduction,A}
 const TransientAffineHRProjection{A<:Projection} = HRProjection{<:TransientAffineHyperReduction,A}
 const TransientDEIMProjection{A<:Projection} = HRProjection{<:TransientDEIMHyperReduction,A}
@@ -202,4 +188,181 @@ function get_common_time_domain(a::BlockHRProjection...)
     end
   end
   union(time_ids...)
+end
+
+function RBSteady.reduced_jacobian!(cache,red,op::ODEParamOperator,red_trial,red_test)
+  ContributionTuple(ntuple(length(jacdata)) do k
+    contribution(get_domains_jac(op)[k]) do trian
+      jac = RBSteady._jacobian_for_trian!(cache[k],op,trian)
+      reduced_form(red[k],jac,trian,red_trial,red_test)
+    end
+  end)
+end
+
+function RBSteady.reduced_jacobian!(cache,red,op::LinearNonlinearODEParamOperator,args...)
+  op_lin = get_linear_part(op)
+  op_nlin = get_nonlinear_part(op)
+  cache_lin,cache_nlin = cache
+  red_lin = RBSteady.reduced_jacobian!(cache_lin,red,op_lin,args...)
+  red_nlin = RBSteady.reduced_jacobian!(cache_nlin,red,op_nlin,args...)
+  Bundle(red_lin,red_nlin)
+end
+
+# utils
+
+function RBSteady._prepare_residual(
+  op::ODEParamOperator,
+  c::TimeCombination,
+  r::TransientRealisation,
+  u::AbstractVector,
+  us0::Tuple{Vararg{AbstractVector}}
+  )
+
+  b,usx,paramcache = ParamODEs.allocate_spacetime_residual(c,op,r,u,us0)
+
+  _time_combination!(usx,op,c,u,us0)
+  ParamODEs.to_stencil!(r,c)
+  uh = ODEs._make_uh_from_us(op,usx,paramcache.trial)
+  test = get_test(op)
+  v = get_fe_basis(test)
+  assem = get_param_assembler(op,r)
+  μ,t = get_params(r),get_times(r)
+  dc = get_res(op)(μ,t,uh,v)
+  ParamODEs.from_stencil!(r,c)
+
+  return b,dc,assem,r
+end
+
+function RBSteady._prepare_residual(
+  op::LinearNonlinearODEParamOperator,
+  c::TimeCombination,
+  r::TransientRealisation,
+  u::AbstractVector,
+  us0::Tuple{Vararg{AbstractVector}}
+  )
+
+  op_lin = get_linear_part(op)
+  op_nlin = get_nonlinear_part(op)
+
+  b,usx,paramcache = ParamODEs.allocate_spacetime_residual(c,op,r,u,us0)
+
+  time_combination!(usx,c,u,us0)
+  ParamODEs.to_stencil!(r,c)
+  uh = ODEs._make_uh_from_us(op,usx,paramcache.trial)
+  test = get_test(op)
+  v = get_fe_basis(test)
+  assem = get_param_assembler(op,r)
+  μ,t = get_params(r),get_times(r)
+  dc_lin = get_res(op_lin)(μ,t,uh,v)
+  dc_nlin = get_res(op_nlin)(μ,t,uh,v)
+  ParamODEs.from_stencil!(r,c)
+
+  data_lin = b,dc_lin,assem,r
+  data_nlin = b,dc_nlin,assem,r
+
+  return data_lin,data_nlin
+end
+
+function RBSteady._prepare_residual(
+  solver::RBSolver,
+  op::ODEParamOperator,
+  s::AbstractSnapshots
+  )
+
+  c = TimeCombination(solver)
+  sres = select_snapshots(s,RBSteady.res_params(solver))
+  r = get_realisation(sres)
+  u = get_param_data(sres)
+  us0 = get_initial_param_data(sres)
+  RBSteady._prepare_residual(op,c,r,u,us0)
+end
+
+function RBSteady._prepare_jacobian(
+  op::ODEParamOperator,
+  c::TimeCombination,
+  r::TransientRealisation,
+  u::AbstractVector,
+  us0::Tuple{Vararg{AbstractVector}}
+  )
+
+  A,usx,paramcache = ParamODEs.allocate_spacetime_jacobian(c,op,r,u,us0)
+
+  _time_combination!(usx,op,c,u,us0)
+  ParamODEs.to_stencil!(r,c)
+  uh = ODEs._make_uh_from_us(op,usx,paramcache.trial)
+  trial = get_trial(op)
+  du = get_trial_fe_basis(trial)
+  test = get_test(op)
+  v = get_fe_basis(test)
+  assem = get_param_assembler(op,r)
+  μ,t = get_params(r),get_times(r)
+  jacs = get_jacs(op)
+
+  data = ntuple(get_order(op)+1) do k
+    dc_k = jacs[k](μ,t,uh,du,v)
+    (A[k],dc_k,assem,r)
+  end
+  ParamODEs.from_stencil!(r,c)
+
+  return data
+end
+
+function RBSteady._prepare_jacobian(
+  op::LinearNonlinearODEParamOperator,
+  c::TimeCombination,
+  r::TransientRealisation,
+  u::AbstractVector,
+  us0::Tuple{Vararg{AbstractVector}}
+  )
+
+  op_lin = get_linear_part(op)
+  op_nlin = get_nonlinear_part(op)
+
+  A,usx,paramcache = ParamODEs.allocate_spacetime_jacobian(c,op,r,u,us0)
+
+  time_combination!(usx,c,u,us0)
+  ParamODEs.to_stencil!(r,c)
+  uh = ODEs._make_uh_from_us(op,usx,paramcache.trial)
+  trial = get_trial(op)
+  du = get_trial_fe_basis(trial)
+  test = get_test(op)
+  v = get_fe_basis(test)
+  assem = get_param_assembler(op,r)
+  μ,t = get_params(r),get_times(r)
+  jacs_lin = filter(!isnothing,get_jacs(op_lin))
+  jacs_nlin = filter(!isnothing,get_jacs(op_nlin))
+
+  data_lin = ntuple(eachindex(jacs_lin)) do k
+    dc_k = jacs_lin[k](μ,t,uh,du,v)
+    (A,dc_k,assem,r)
+  end
+  data_nlin = ntuple(eachindex(jacs_nlin)) do k
+    dc_k = jacs_nlin[k](μ,t,uh,du,v)
+    (A,dc_k,assem,r)
+  end
+  ParamODEs.from_stencil!(r,c)
+
+  return data_lin,data_nlin
+end
+
+function RBSteady._prepare_jacobian(
+  solver::RBSolver,
+  op::ODEParamOperator,
+  s::AbstractSnapshots
+  )
+
+  c = TimeCombination(solver)
+  sjac = select_snapshots(s,RBSteady.jac_params(solver))
+  r = get_realisation(sjac)
+  u = get_param_data(sjac)
+  us0 = get_initial_param_data(sjac)
+  RBSteady._prepare_jacobian(op,c,r,u,us0)
+end
+
+function _time_combination!(usx,op::ODEParamOperator,c,u,us0)
+  time_combination!(usx,c,u,us0)
+end
+
+function _time_combination!(usx,op::ODEParamOperator{LinearParamODE},c,u,us0)
+  zero_time_combination!(usx,c,us0)
 end

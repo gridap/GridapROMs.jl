@@ -64,7 +64,6 @@ end
 @publish ParamODEs TransientTrialParamFESpace
 @publish ParamODEs TransientParamFEOperator
 @publish ParamODEs TransientLinearParamFEOperator
-@publish ParamODEs wrap_bilinear_jacs
 using GridapROMs.ParamODEs: ∂ₚt,∂ₚtt; export ∂ₚt,∂ₚtt
 
 @publish Extensions DirectSumFESpace
@@ -106,8 +105,6 @@ using GridapROMs.Extensions: ⊕; export ⊕
 @publish RBSteady ROMSolver
 @publish RBSteady RBSolver
 @publish RBSteady solution_snapshots
-@publish RBSteady residual_snapshots
-@publish RBSteady jacobian_snapshots
 
 @publish RBSteady reduction
 @publish RBSteady tpod
@@ -151,10 +148,6 @@ using GridapROMs.Extensions: ⊕; export ⊕
 @publish RBSteady compute_error!
 @publish RBSteady rom_performance
 @publish RBSteady rom_diagnostics
-@publish RBSteady save_residuals
-@publish RBSteady save_jacobians
-@publish RBSteady load_residuals
-@publish RBSteady load_jacobians
 @publish RBSteady load_snapshots
 @publish RBSteady load_operator
 @publish RBSteady load_results

@@ -32,14 +32,13 @@ include("Exports.jl")
 # become available once `Plots` is loaded (`using Plots`).
 function try_loading_fe_snapshots end
 function try_loading_online_fe_snapshots end
-function try_loading_fe_jac_res end
 function try_loading_reduced_operator end
 function update_reduction end
 function update_solver end
 function run_test end
 function plot_solutions end
 function plot_errors end
-export try_loading_fe_snapshots, try_loading_online_fe_snapshots, try_loading_fe_jac_res
+export try_loading_fe_snapshots, try_loading_online_fe_snapshots
 export try_loading_reduced_operator, update_reduction, update_solver, run_test
 export plot_solutions, plot_errors
 

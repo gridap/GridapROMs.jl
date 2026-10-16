@@ -53,63 +53,8 @@ function reduced_operator(
   ROMOperator(feop,red_trial,red_test,red_lhs,red_rhs)
 end
 
-function reduced_operator(
-  solver::RBSolver,
-  feop::BundleParamOperator,
-  red_trial::RBSpace,
-  red_test::RBSpace,
-  s::AbstractSnapshots
-  )
-
-  red_op_lin = reduced_operator(solver,get_linear_part(feop),red_trial,red_test,s)
-  red_op_nlin = reduced_operator(solver,get_nonlinear_part(feop),red_trial,red_test,s)
-  lhs = Bundle(get_lhs(red_op_lin),get_lhs(red_op_nlin))
-  rhs = Bundle(get_rhs(red_op_lin),get_rhs(red_op_nlin))
-  RBOperator(feop,red_trial,red_test,lhs,rhs)
-end
-
-function reduced_operator(rbsolver::RBSolver,feop::ParamOperator,s,jac,res)
-  feop′ = _setup(feop)
-  red_trial,red_test = reduced_spaces(rbsolver,feop′,s)
-  reduced_operator(rbsolver,feop′,red_trial,red_test,jac,res)
-end
-
-function reduced_operator(
-  rbsolver::RBSolver,
-  feop::ParamOperator,
-  red_trial::RBSpace,
-  red_test::RBSpace,
-  jac,
-  res
-  )
-
-  jac_red = get_jacobian_reduction(rbsolver)
-  red_lhs = reduced_jacobian(jac_red,red_trial,red_test,jac)
-  res_red = get_residual_reduction(rbsolver)
-  red_rhs = reduced_residual(res_red,red_test,res)
-  ROMOperator(feop,red_trial,red_test,red_lhs,red_rhs)
-end
-
-function reduced_operator(
-  rbsolver::RBSolver,
-  feop::BundleParamOperator,
-  red_trial::RBSpace,
-  red_test::RBSpace,
-  jac,
-  res
-  )
-
-  jac_lin,jac_nlin = jac.linear,jac.nonlinear
-  res_lin,res_nlin = res.linear,res.nonlinear
-  red_op_lin = reduced_operator(rbsolver,get_linear_part(feop),red_trial,red_test,jac_lin,res_lin)
-  red_op_nlin = reduced_operator(rbsolver,get_nonlinear_part(feop),red_trial,red_test,jac_nlin,res_nlin)
-  lhs = Bundle(get_lhs(red_op_lin),get_lhs(red_op_nlin))
-  rhs = Bundle(get_rhs(red_op_lin),get_rhs(red_op_nlin))
-  RBOperator(feop,red_trial,red_test,lhs,rhs)
-end
-
 """
-    abstract type ROMOperator{O,T} <: ParamOperator{O,T} end
+    abstract type ROMOperator{O} <: ParamOperator{O} end
 
 Type representing reduced algebraic operators used within a reduced order modelling
 framework in steady applications. A ROMOperator should contain the following information:
@@ -121,7 +66,7 @@ Subtypes:
 
 - [`RBOperator`](@ref)
 """
-abstract type ROMOperator{O,T} <: ParamOperator{O,T} end
+abstract type ROMOperator{O} <: ParamOperator{O} end
 
 ParamSteady.get_fe_operator(op::ROMOperator) = @abstractmethod
 FESpaces.get_trial(op::ROMOperator) = @abstractmethod
@@ -175,7 +120,8 @@ function Algebra.residual!(
 
   trian_res = get_domains_res(op)
   rhs = get_rhs(op)
-  dc = ParamSteady.get_eval_res(op)(r,uh,v)
+  res = get_res(op)
+  dc = res(r,uh,v)
 
   for strian in trian_res
     b_strian = b.fecache[strian]
@@ -235,8 +181,8 @@ function change_operator(op::ROMOperator,op′::ParamOperator)
 end
 
 """
-    struct RBOperator{O,T,A,B} <: ROMOperator{O,T}
-      op::ParamOperator{O,T}
+    struct RBOperator{O,A,B} <: ROMOperator{O}
+      op::ParamOperator{O}
       trial::RBSpace
       test::RBSpace
       lhs::A
@@ -251,8 +197,8 @@ Fields:
 - `lhs`: hyper-reduced left hand side
 - `rhs`: hyper-reduced right hand side
 """
-struct RBOperator{O,T,A,B} <: ROMOperator{O,T}
-  op::ParamOperator{O,T}
+struct RBOperator{O,A,B} <: ROMOperator{O}
+  op::ParamOperator{O}
   trial::RBSpace
   test::RBSpace
   lhs::A
@@ -288,11 +234,11 @@ get_lhs(op::RBOperator) = op.lhs
 get_rhs(op::RBOperator) = op.rhs
 
 function Algebra.allocate_residual(
-  op::RBOperator{O,T,B,<:NoHRContribution},
+  op::RBOperator{O,B,<:NoHRContribution},
   r::Realisation,
   u::AbstractVector,
   paramcache
-  ) where {O,T,B}
+  ) where {O,B}
 
   b0 = allocate_residual(op.op,r,u,paramcache)
   b = contribution(get_domains(get_rhs(op))) do trian
@@ -303,11 +249,11 @@ function Algebra.allocate_residual(
 end
 
 function Algebra.allocate_jacobian(
-  op::RBOperator{O,T,<:NoHRContribution,B},
+  op::RBOperator{O,<:NoHRContribution,B},
   r::Realisation,
   u::AbstractVector,
   paramcache
-  ) where {O,T,B}
+  ) where {O,B}
 
   A0 = allocate_jacobian(op.op,r,u,paramcache)
   A = contribution(get_domains(get_lhs(op))) do trian
@@ -319,11 +265,11 @@ end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::RBOperator{O,T,A,<:NoHRContribution},
+  op::RBOperator{O,A,<:NoHRContribution},
   r::Realisation,
   u::AbstractVector,
   paramcache
-  ) where {O,T,A}
+  ) where {O,A}
 
   fill!(b,zero(eltype(b)))
 
@@ -332,7 +278,8 @@ function Algebra.residual!(
   v = get_fe_basis(test)
 
   rhs = get_rhs(op)
-  dc = ParamSteady.get_eval_res(op)(r,uh,v)
+  res = get_res(op)
+  dc = res(r,uh,v)
   assem = get_param_assembler(op,r)
 
   for strian in get_domains(rhs)
@@ -346,11 +293,11 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::RBOperator{O,T,<:NoHRContribution,B},
+  op::RBOperator{O,<:NoHRContribution,B},
   r::Realisation,
   u::AbstractVector,
   paramcache
-  ) where {O,T,B}
+  ) where {O,B}
 
   fill!(A,zero(eltype(A)))
 
@@ -376,11 +323,11 @@ end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::RBOperator{O,T,A,<:AffineHRContribution},
+  op::RBOperator{O,A,<:AffineHRContribution},
   r::Realisation,
   u::AbstractVector,
   paramcache
-  ) where {O,T,A}
+  ) where {O,A}
 
   fill!(b,zero(eltype(b)))
   interpolate!(b,op.rhs)
@@ -388,11 +335,11 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::RBOperator{O,T,<:AffineHRContribution,B},
+  op::RBOperator{O,<:AffineHRContribution,B},
   r::Realisation,
   u::AbstractVector,
   paramcache
-  ) where {O,T,B}
+  ) where {O,B}
 
   fill!(A,zero(eltype(A)))
   interpolate!(A,op.lhs)
@@ -400,11 +347,11 @@ end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::RBOperator{O,T,A,<:RBFContribution},
+  op::RBOperator{O,A,<:RBFContribution},
   r::Realisation,
   u::AbstractVector,
   paramcache
-  ) where {O,T,A}
+  ) where {O,A}
 
   fill!(b,zero(eltype(b)))
   interpolate!(b,op.rhs,r)
@@ -412,11 +359,11 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::RBOperator{O,T,<:RBFContribution,B},
+  op::RBOperator{O,<:RBFContribution,B},
   r::Realisation,
   u::AbstractVector,
   paramcache
-  ) where {O,T,B}
+  ) where {O,B}
 
   fill!(A,zero(eltype(A)))
   interpolate!(A,op.lhs,r)
@@ -426,7 +373,7 @@ end
     get_linear_part(op::RBOperator) -> RBOperator
     get_nonlinear_part(op::RBOperator) -> RBOperator
 
-Splits a Bundle-`lhs`/`rhs` `RBOperator` (built from a [`BundleParamOperator`](@ref))
+Splits a Bundle-`lhs`/`rhs` `RBOperator` (built from a [`LinearNonlinearParamOperator`](@ref))
 back into its two plainly-tagged halves, sharing the same reduced `trial`/`test`
 """
 function Utils.get_linear_part(op::RBOperator)
@@ -448,32 +395,32 @@ function Utils.get_nonlinear_part(op::RBOperator)
 end
 
 function Algebra.allocate_residual(
-  op::RBOperator{O,T,A,<:Bundle},
+  op::RBOperator{O,A,<:Bundle},
   r::Realisation,
   u::AbstractVector,
   paramcache
-  ) where {O,T,A}
+  ) where {O,A}
 
   allocate_residual(get_nonlinear_part(op),r,u,paramcache)
 end
 
 function Algebra.allocate_jacobian(
-  op::RBOperator{O,T,<:Bundle,B},
+  op::RBOperator{O,<:Bundle,B},
   r::Realisation,
   u::AbstractVector,
   paramcache
-  ) where {O,T,B}
+  ) where {O,B}
 
   allocate_jacobian(get_nonlinear_part(op),r,u,paramcache)
 end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::RBOperator{O,T,A,<:Bundle},
+  op::RBOperator{O,A,<:Bundle},
   r::Realisation,
   u::AbstractVector,
   paramcache
-  ) where {O,T,A}
+  ) where {O,A}
 
   op_nlin = get_nonlinear_part(op)
   residual!(b,op_nlin,r,u,paramcache)
@@ -488,11 +435,11 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::RBOperator{O,T,<:Bundle,B},
+  op::RBOperator{O,<:Bundle,B},
   r::Realisation,
   u::AbstractVector,
   paramcache
-  ) where {O,T,B}
+  ) where {O,B}
 
   op_nlin = get_nonlinear_part(op)
   jacobian!(A,op_nlin,r,u,paramcache)

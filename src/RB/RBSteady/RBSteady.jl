@@ -168,8 +168,6 @@ export LocalRBSolver
 export get_fe_solver
 export get_reduced_solver
 export solution_snapshots
-export residual_snapshots
-export jacobian_snapshots
 export update_rom_tracker!
 include("RBSolvers.jl")
 
@@ -253,6 +251,8 @@ export get_integration_domain
 export reduced_jacobian
 export reduced_residual
 export reduced_weak_form
+export residual_contribution
+export jacobian_contribution
 export allocate_hypred_cache
 export allocate_hrtrian_cache
 include("HyperReductions.jl")
@@ -293,10 +293,6 @@ export projection_error
 export projection_diagnostics
 export hr_diagnostics
 export hr_error
-export save_residuals
-export save_jacobians
-export load_residuals
-export load_jacobians
 export load_snapshots
 export load_contribution
 export load_bundle_contribution

@@ -20,8 +20,8 @@ function RBSteady.ROMOperator(
   RBOperator(odeop,trial,test,lhs,rhs)
 end
 
-const TransientROMOperator{O<:ODEParamOperatorType,T} = ROMOperator{O,T}
-const TransientRBOperator{O<:ODEParamOperatorType,T,A,B} = RBOperator{O,T,A,B}
+const TransientROMOperator{O<:ODEParamOperatorType} = ROMOperator{O}
+const TransientRBOperator{O<:ODEParamOperatorType,A,B} = RBOperator{O,A,B}
 
 function Algebra.allocate_residual(
   op::TransientROMOperator,
@@ -125,11 +125,11 @@ function Algebra.jacobian!(
 end
 
 function Algebra.allocate_residual(
-  op::TransientRBOperator{O,T,B,<:TransientNoHRContribution},
+  op::TransientRBOperator{O,B,<:TransientNoHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
-  ) where {O,T,B}
+  ) where {O,B}
 
   b0 = allocate_residual(op.op,r,us,paramcache)
   b = contribution(get_domains(get_rhs(op))) do trian
@@ -140,17 +140,17 @@ function Algebra.allocate_residual(
 end
 
 function Algebra.allocate_jacobian(
-  op::TransientRBOperator{O,T,<:TransientNoHRContributionTuple,B},
+  op::TransientRBOperator{O,<:TransientNoHRContributionTuple,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
-  ) where {O,T,B}
+  ) where {O,B}
 
-  A0 = allocate_jacobians(op.op,r,us,paramcache)
+  A0 = allocate_jacobian(op.op,r,us,paramcache)
   lhss = get_lhs(op)
   A = ContributionTuple(ntuple(length(lhss)) do k
     contribution(get_domains(lhss[k])) do trian
-      similar(A0[k])
+      similar(A0)
     end
   end)
   Â = allocate_hypred_cache(get_lhs(op),r)
@@ -159,11 +159,11 @@ end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::TransientRBOperator{O,T,A,<:TransientNoHRContribution},
+  op::TransientRBOperator{O,A,<:TransientNoHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
-  ) where {O,T,A}
+  ) where {O,A}
 
   fill!(b,zero(eltype(b)))
 
@@ -189,12 +189,12 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::TransientRBOperator{O,T,<:TransientNoHRContributionTuple,B},
+  op::TransientRBOperator{O,<:TransientNoHRContributionTuple,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
   paramcache
-  ) where {O,T,B}
+  ) where {O,B}
 
   fill!(A,zero(eltype(A)))
 
@@ -233,11 +233,11 @@ end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::TransientRBOperator{O,T,A,<:TransientAffineHRContribution},
+  op::TransientRBOperator{O,A,<:TransientAffineHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
-  ) where {O,T,A}
+  ) where {O,A}
 
   fill!(b,zero(eltype(b)))
   interpolate!(b,op.rhs)
@@ -245,12 +245,12 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::TransientRBOperator{O,T,<:TransientAffineHRContributionTuple,B},
+  op::TransientRBOperator{O,<:TransientAffineHRContributionTuple,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
   paramcache
-  ) where {O,T,B}
+  ) where {O,B}
 
   fill!(A,zero(eltype(A)))
   interpolate!(A,op.lhs)
@@ -258,11 +258,11 @@ end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::TransientRBOperator{O,T,A,<:TransientRBFContribution},
+  op::TransientRBOperator{O,A,<:TransientRBFContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
-  ) where {O,T,A}
+  ) where {O,A}
 
   fill!(b,zero(eltype(b)))
   interpolate!(b,op.rhs,r)
@@ -270,44 +270,44 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::TransientRBOperator{O,T,<:TransientRBFContributionTuple,B},
+  op::TransientRBOperator{O,<:TransientRBFContributionTuple,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
   paramcache
-  ) where {O,T,B}
+  ) where {O,B}
 
   fill!(A,zero(eltype(A)))
   interpolate!(A,op.lhs,r)
 end
 
 function Algebra.allocate_residual(
-  op::TransientRBOperator{O,T,A,<:Bundle},
+  op::TransientRBOperator{O,A,<:Bundle},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
-  ) where {O,T,A}
+  ) where {O,A}
 
   allocate_residual(get_nonlinear_part(op),r,us,paramcache)
 end
 
 function Algebra.allocate_jacobian(
-  op::TransientRBOperator{O,T,<:Bundle,B},
+  op::TransientRBOperator{O,<:Bundle,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
-  ) where {O,T,B}
+  ) where {O,B}
 
   allocate_jacobian(get_nonlinear_part(op),r,us,paramcache)
 end
 
 function Algebra.residual!(
   b::HRParamArray,
-  op::TransientRBOperator{O,T,A,<:Bundle},
+  op::TransientRBOperator{O,A,<:Bundle},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
-  ) where {O,T,A}
+  ) where {O,A}
 
   op_nlin = get_nonlinear_part(op)
   residual!(b,op_nlin,r,us,paramcache)
@@ -322,12 +322,12 @@ end
 
 function Algebra.jacobian!(
   A::HRParamArray,
-  op::TransientRBOperator{O,T,<:Bundle,B},
+  op::TransientRBOperator{O,<:Bundle,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
   paramcache
-  ) where {O,T,B}
+  ) where {O,B}
 
   op_nlin = get_nonlinear_part(op)
   jacobian!(A,op_nlin,r,us,ws,paramcache)

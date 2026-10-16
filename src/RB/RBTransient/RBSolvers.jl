@@ -46,62 +46,6 @@ function RBSteady.solution_snapshots(
   return snaps,stats
 end
 
-function RBSteady.residual_snapshots(
-  solver::RBSolver,
-  odeop::ODEParamOperator,
-  s::AbstractSnapshots
-  )
-
-  c = TimeCombination(solver)
-  sres = select_snapshots(s,RBSteady.res_params(solver))
-  rres = get_realisation(sres)
-  b = spacetime_residual(c,odeop,sres)
-  ib = get_dof_map(odeop,b)
-  return Snapshots(b,ib,rres)
-end
-
-function RBSteady.residual_snapshots(
-  solver::RBSolver,
-  op::BundleODEParamOperator,
-  s::AbstractSnapshots
-  )
-
-  res_lin = residual_snapshots(solver,get_linear_part(op),s)
-  res_nlin = residual_snapshots(solver,get_nonlinear_part(op),s)
-  return (res_lin,res_nlin)
-end
-
-function RBSteady.jacobian_snapshots(
-  solver::RBSolver,
-  odeop::ODEParamOperator,
-  s::AbstractSnapshots
-  )
-
-  c = TimeCombination(solver)
-  sjac = select_snapshots(s,RBSteady.jac_params(solver))
-  rjac = get_realisation(sjac)
-  A = spacetime_jacobian(c,odeop,sjac)
-  jac_reduction = RBSteady.get_jacobian_reduction(solver)
-  sA = ()
-  for (reda,a) in zip(jac_reduction,A)
-    ia = get_sparse_dof_map(odeop,a)
-    sa = Snapshots(a,ia,rjac)
-    sA = (sA...,select_snapshots(sa,1:num_params(reda)))
-  end
-  return ContributionTuple(sA)
-end
-
-function RBSteady.jacobian_snapshots(
-  solver::RBSolver,
-  op::BundleODEParamOperator,
-  s::AbstractSnapshots
-  )
-
-  jac_lin = jacobian_snapshots(solver,get_linear_part(op),s)
-  jac_nlin = jacobian_snapshots(solver,get_nonlinear_part(op),s)
-  return (jac_lin,jac_nlin)
-end
-
 function Algebra.solve(
   solver::GlobalRBSolver,
   op::NonlinearOperator,

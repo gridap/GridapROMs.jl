@@ -21,41 +21,33 @@ struct NonlinearParamODE <: ODEParamOperatorType end
 struct LinearParamODE <: ODEParamOperatorType end
 
 """
-    const ODEParamOperator{O<:ODEParamOperatorType,T<:WeakFormStyle} = ParamOperator{O,T}
+    struct LinearNonlinearParamODE <: ODEParamOperatorType end
+"""
+struct LinearNonlinearParamODE <: ODEParamOperatorType end
+
+"""
+    const ODEParamOperator{O<:ODEParamOperatorType} = ParamOperator{O}
 
 Transient extension of the type [`ParamOperator`](@ref).
 """
-const ODEParamOperator{O<:ODEParamOperatorType,T<:WeakFormStyle} = ParamOperator{O,T}
+const ODEParamOperator{O<:ODEParamOperatorType} = ParamOperator{O}
 
 """
-    const PlainODEParamOperator{O<:ODEParamOperatorType} = ODEParamOperator{O,PlainForm}
+    const LinearNonlinearODEParamOperator = ODEParamOperator{LinearNonlinearParamODE}
 """
-const PlainODEParamOperator{O<:ODEParamOperatorType} = ODEParamOperator{O,PlainForm}
+const LinearNonlinearODEParamOperator = ODEParamOperator{LinearNonlinearParamODE}
 
-"""
-    const BundleODEParamOperator{O<:ODEParamOperatorType} = ODEParamOperator{O,BundleForm}
-"""
-const BundleODEParamOperator{O<:ODEParamOperatorType} = ODEParamOperator{O,BundleForm}
+function Utils.get_linear_part(odeop::LinearNonlinearODEParamOperator)
+  get_algebraic_operator(get_linear_part(get_fe_operator(odeop)))
+end
+
+function Utils.get_nonlinear_part(odeop::LinearNonlinearODEParamOperator)
+  get_algebraic_operator(get_nonlinear_part(get_fe_operator(odeop)))
+end
 
 ODEs.get_jacs(odeop::ODEParamOperator) = get_jacs(get_fe_operator(odeop))
 get_order(odeop::ODEParamOperator) = get_order(get_fe_operator(odeop))
 ODEs.is_form_constant(odeop::ODEParamOperator,k::Integer) = is_form_constant(get_fe_operator(odeop),k)
-
-"""
-    get_eval_res(odeop::ODEParamOperator) -> Function
-
-Transient counterpart of `ParamSteady.get_eval_res`. Currently always returns
-`get_res(odeop)` unchanged: unlike the steady `LinearParamEq` case, a transient
-`LinearParamODE` operator's `res` field is still the full `res(μ,t,u,v)` form
-(not a 2-argument `rhs(μ,t,v)`), so no lift correction is needed here — `uh`
-already carries the Dirichlet lift through the ordinary residual evaluation.
-This is kept as its own function (rather than inlining `get_res`) so that
-transient call sites read the same way as their steady counterparts, and so
-that a `LinearParamODE`-specific lift-corrected closure can be added here later
-without touching any call site, if the "truly linear" `rhs`-only convention is
-ever extended to transient operators
-"""
-get_eval_res(odeop::ODEParamOperator) = get_res(odeop)
 
 # basic interface
 
@@ -151,43 +143,6 @@ function Algebra.residual!(
   b
 end
 
-"""
-    residual!(b,odeop::ODEParamOperator,r,us,paramcache,trian)
-    jacobian_add!(A,odeop::ODEParamOperator,r,us,paramcache,k,trian)
-
-Single-triangulation variants of `residual!`/`jacobian_add!`: assemble into `b`/`A`
-only the contribution relative to the triangulation `trian` (for `jacobian_add!`,
-of the `k`-th temporal derivative's jacobian). Used by `residual_snapshots`/
-`jacobian_snapshots` to compute hyper-reduction training data one triangulation at
-a time, reusing a single cache
-"""
-function Algebra.residual!(
-  b::AbstractVector,
-  odeop::ODEParamOperator,
-  r::TransientRealisation,
-  us::Tuple{Vararg{AbstractVector}},
-  paramcache,
-  trian;
-  add::Bool=false
-  )
-
-  uh = ODEs._make_uh_from_us(odeop,us,paramcache.trial)
-  test = get_test(odeop)
-  v = get_fe_basis(test)
-  assem = get_param_assembler(odeop,r)
-
-  !add && fill!(b,zero(eltype(b)))
-
-  μ,t = get_params(r),get_times(r)
-
-  res = get_res(odeop)
-  dc = res(μ,t,uh,v)
-  vecdata = collect_cell_vector_for_trian(test,dc,trian)
-  assemble_vector_add!(b,assem,vecdata)
-
-  b
-end
-
 function Algebra.allocate_jacobian(
   odeop::ODEParamOperator,
   r::TransientRealisation,
@@ -245,103 +200,6 @@ function ODEs.jacobian_add!(
     matdata = collect_cell_matrix(trial,test,dc)
     assemble_matrix_add!(A,assem,matdata)
   end
-
-  A
-end
-
-"""
-    allocate_jacobians(odeop::ODEParamOperator,r,us,paramcache) -> Tuple
-    jacobians_add!(As::Tuple,odeop::ODEParamOperator,r,us,ws,paramcache) -> Tuple
-
-Order-separated variants of `allocate_jacobian`/`jacobian_add!`: instead of summing
-the `order+1` temporal-derivative jacobians (weighted by `ws`) into a single
-matrix, keep one matrix per order. Used where each order needs its own reduced
-basis/hyper-reduction (e.g. [`spacetime_jacobian`](@ref)), unlike the generic
-`allocate_jacobian`/`jacobian_add!`, used for the actual time-marching solve, which
-only ever needs the `ws`-weighted total
-"""
-function allocate_jacobians(
-  odeop::ODEParamOperator,
-  r::TransientRealisation,
-  us::Tuple{Vararg{AbstractVector}},
-  paramcache
-  )
-
-  uh = ODEs._make_uh_from_us(odeop,us,paramcache.trial)
-  trial = get_trial(odeop)
-  du = get_trial_fe_basis(trial)
-  test = get_test(odeop)
-  v = get_fe_basis(test)
-  assem = get_param_assembler(odeop,r)
-
-  μ,t = get_params(r),get_times(r)
-
-  jacs = get_jacs(odeop)
-  As = ()
-  for k in 1:get_order(odeop)+1
-    dc = jacs[k](μ,t,uh,du,v)
-    matdata = collect_cell_matrix(trial,test,dc)
-    As = (As...,allocate_matrix(assem,matdata))
-  end
-  As
-end
-
-function jacobians_add!(
-  As::Tuple,
-  odeop::ODEParamOperator,
-  r::TransientRealisation,
-  us::Tuple{Vararg{AbstractVector}},
-  ws::Tuple{Vararg{Real}},
-  paramcache
-  )
-
-  uh = ODEs._make_uh_from_us(odeop,us,paramcache.trial)
-  trial = get_trial(odeop)
-  du = get_trial_fe_basis(trial)
-  test = get_test(odeop)
-  v = get_fe_basis(test)
-  assem = get_param_assembler(odeop,r)
-
-  μ,t = get_params(r),get_times(r)
-
-  jacs = get_jacs(odeop)
-  for k in 1:get_order(odeop)+1
-    w = ws[k]
-    iszero(w) && continue
-    dc = w*jacs[k](μ,t,uh,du,v)
-    matdata = collect_cell_matrix(trial,test,dc)
-    assemble_matrix_add!(As[k],assem,matdata)
-  end
-  As
-end
-
-function ODEs.jacobian_add!(
-  A::AbstractMatrix,
-  odeop::ODEParamOperator,
-  r::TransientRealisation,
-  us::Tuple{Vararg{AbstractVector}},
-  ws::Tuple{Vararg{Real}},
-  paramcache,
-  k::Integer,
-  trian
-  )
-
-  uh = ODEs._make_uh_from_us(odeop,us,paramcache.trial)
-  trial = get_trial(odeop)
-  du = get_trial_fe_basis(trial)
-  test = get_test(odeop)
-  v = get_fe_basis(test)
-  assem = get_param_assembler(odeop,r)
-
-  μ,t = get_params(r),get_times(r)
-
-  w = ws[k]
-  iszero(w) && return A
-
-  jac = get_jacs(odeop)[k]
-  dc = w * jac(μ,t,uh,du,v)
-  matdata = collect_cell_matrix_for_trian(trial,test,dc,trian)
-  assemble_matrix_add!(A,assem,matdata)
 
   A
 end

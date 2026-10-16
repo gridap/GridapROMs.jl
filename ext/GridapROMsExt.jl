@@ -17,10 +17,6 @@ import GridapROMs.ParamFESpaces: UnEvalTrialFESpace
 import GridapROMs.ParamSteady: get_fe_operator
 import GridapROMs.RBSteady: get_state_reduction,get_residual_reduction,get_jacobian_reduction,_fe_data
 
-# ---------------------------------------------------------------------------
-# offline/online driver helpers (moved from examples/ExamplesInterface.jl)
-# ---------------------------------------------------------------------------
-
 function GridapROMs.try_loading_fe_snapshots(dir,rbsolver,feop,args...;label="",kwargs...)
   try
     fesnaps = load_snapshots(dir;label)
@@ -59,30 +55,14 @@ function GridapROMs.try_loading_online_fe_snapshots(
   return x,festats,μon
 end
 
-function GridapROMs.try_loading_fe_jac_res(dir,rbsolver,feop,fesnaps)
-  try
-    jac = load_jacobians(dir,feop)
-    res = load_residuals(dir,feop)
-    println("Load res/jac at $dir succeeded!")
-    return jac,res
-  catch
-    println("Load res/jac at $dir failed, must compute them")
-    jac = jacobian_snapshots(rbsolver,feop,fesnaps)
-    res = residual_snapshots(rbsolver,feop,fesnaps)
-    save_jacobians(dir,feop,jac)
-    save_residuals(dir,feop,res)
-    return jac,res
-  end
-end
-
-function GridapROMs.try_loading_reduced_operator(dir_tolrank,rbsolver,feop,fesnaps,jac,res)
+function GridapROMs.try_loading_reduced_operator(dir_tolrank,rbsolver,feop,fesnaps)
   try
     rbop = load_operator(dir_tolrank,feop)
     println("Load reduced operator at $dir_tolrank succeeded!")
     return rbop
   catch
     println("Load reduced operator at $dir_tolrank failed, must run offline phase")
-    rbop = reduced_operator(rbsolver,feop,fesnaps,jac,res)
+    rbop = reduced_operator(rbsolver,feop,fesnaps)
     save(dir_tolrank,rbop)
     return rbop
   end
@@ -182,7 +162,6 @@ function GridapROMs.run_test(
   args...;nparams=10,reuse_online=false,sampling=:uniform,kwargs...)
 
   fesnaps, = try_loading_fe_snapshots(dir,rbsolver,feop,args...)
-  jac,res = try_loading_fe_jac_res(dir,rbsolver,feop,fesnaps)
   x,_,μon = try_loading_online_fe_snapshots(
     dir,rbsolver,feop,args...;nparams,reuse_online,sampling)
 
@@ -193,7 +172,7 @@ function GridapROMs.run_test(
     mkpath(dir_tolrank)
 
     rbsolver = update_solver(rbsolver,tolrank)
-    rbop = try_loading_reduced_operator(dir_tolrank,rbsolver,feop,fesnaps,jac,res)
+    rbop = try_loading_reduced_operator(dir_tolrank,rbsolver,feop,fesnaps)
 
     x̂ = solve(rbsolver,rbop,μon,args...)
     rom_performance(rbsolver,rbop,x,x̂)
@@ -207,10 +186,6 @@ function GridapROMs.run_test(
 
   return perfs
 end
-
-# ---------------------------------------------------------------------------
-# visualization
-# ---------------------------------------------------------------------------
 
 function GridapROMs.plot_solutions(
   dir::String,

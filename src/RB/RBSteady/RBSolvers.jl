@@ -221,77 +221,7 @@ function solution_snapshots(
   return snaps,stats
 end
 
-"""
-    residual_snapshots(solver::RBSolver,op::ParamOperator,s::AbstractSnapshots) -> Contribution
-    residual_snapshots(solver::RBSolver,op::ODEParamOperator,s::AbstractSnapshots) -> Contribution
-
-Returns a residual `Contribution` relative to the FE operator `op`. The
-quantity `s` denotes the solution snapshots in which we evaluate the residual
-"""
-function residual_snapshots(
-  solver::RBSolver,
-  op::ParamOperator,
-  s::AbstractSnapshots
-  )
-
-  sres = select_snapshots(s,res_params(solver))
-  us_res = get_param_data(sres) |> similar
-  islinear(op) && fill!(us_res,zero(eltype2(us_res)))
-  r_res = get_realisation(sres)
-  b = Algebra.residual(op,r_res,us_res)
-  ib = get_dof_map(op,b)
-  return Snapshots(b,ib,r_res)
-end
-
-function residual_snapshots(
-  solver::RBSolver,
-  op::BundleParamOperator,
-  args...
-  )
-
-  res_lin = residual_snapshots(solver,get_linear_part(op),args...)
-  res_nlin = residual_snapshots(solver,get_nonlinear_part(op),args...)
-  return Bundle(res_lin,res_nlin)
-end
-
-"""
-    jacobian_snapshots(solver::RBSolver,op::ParamOperator,s::AbstractSnapshots) -> Contribution
-    jacobian_snapshots(solver::RBSolver,op::ODEParamOperator,s::AbstractSnapshots) -> Tuple{Vararg{Contribution}}
-
-Returns a Jacobian `Contribution` relative to the FE operator `op`. The
-quantity `s` denotes the solution snapshots in which we evaluate the jacobian.
-In transient settings, the output is a tuple whose `n`th element is the Jacobian
-relative to the `n`th temporal derivative
-"""
-function jacobian_snapshots(
-  solver::RBSolver,
-  op::ParamOperator,
-  s::AbstractSnapshots
-  )
-
-  sjac = select_snapshots(s,jac_params(solver))
-  us_jac = get_param_data(sjac)
-  r_jac = get_realisation(sjac)
-  A = Algebra.jacobian(op,r_jac,us_jac)
-  iA = get_sparse_dof_map(op,A)
-  return Snapshots(A,iA,r_jac)
-end
-
-function jacobian_snapshots(
-  solver::RBSolver,
-  op::BundleParamOperator,
-  s::AbstractSnapshots
-  )
-
-  jac_lin = jacobian_snapshots(solver,get_linear_part(op),s)
-  jac_nlin = jacobian_snapshots(solver,get_nonlinear_part(op),s)
-  return Bundle(jac_lin,jac_nlin)
-end
-
-islinear(::ParamOperator) = false
-islinear(::ParamOperator{LinearParamEq}) = true
-
-# solvers 
+# solvers
 
 function Algebra.solve(solver::GlobalRBSolver,op::NonlinearOperator,r::Realisation)
   trial = get_trial(op)(r)
@@ -370,7 +300,7 @@ _get_param(op::NonlinearParamOperator) = @notimplemented
 _get_param(op::GenericParamNonlinearOperator) = op.μ
 
 _get_trial(op) = @notimplemented
-_get_trial(op::GenericParamNonlinearOperator) = op.paramcache.trial
+_get_trial(op::GenericParamNonlinearOperator) = get_trial(op.op)
 
 function change_tols!(log::ConvergenceLog)
   log.tols.rtol = 1e-6

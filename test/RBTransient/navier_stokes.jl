@@ -91,10 +91,8 @@ function main(
 
   ptspace = TransientParamSpace(pdomain,tdomain)
 
-  jacs_lin = wrap_bilinear_jacs((stiffness,mass))
-
   res_bundle = Bundle(res,res_nlin)
-  jacs = (Bundle(jacs_lin[1],jac_nlin),jacs_lin[2])
+  jacs = (Bundle(stiffness,jac_nlin),Bundle(mass,nothing))
   domains_bundle = Bundle(domains_lin,domains_nlin)
   feop = TransientParamOperator(res_bundle,jacs,ptspace,trial,test,domains_bundle)
 

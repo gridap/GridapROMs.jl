@@ -9,7 +9,6 @@ Foundational utilities for GridapROMs, providing:
   [`∂₂`](@ref), [`∂₃`](@ref).
 - **Contribution types** — [`ArrayContribution`](@ref).
 - **FE domain metadata** — [`FEDomains`](@ref), [`OperatorType`](@ref),
-  [`PlainForm`](@ref), [`BundleForm`](@ref),
   [`get_polynomial_order`](@ref).
 """
 module Utils
@@ -78,9 +77,6 @@ export get_nonlinear_part
 export OperatorType
 export LinearEq
 export NonlinearEq
-export WeakFormStyle
-export PlainForm
-export BundleForm
 export get_domains_res
 export get_domains_jac
 export get_polynomial_order

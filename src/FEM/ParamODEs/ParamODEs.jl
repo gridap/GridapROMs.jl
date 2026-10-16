@@ -67,25 +67,20 @@ include("TransientNonlinearParamOperators.jl")
 export ODEParamOperatorType
 export NonlinearParamODE
 export LinearParamODE
+export LinearNonlinearParamODE
 export ODEParamOperator
-export PlainODEParamOperator
-export BundleODEParamOperator
+export LinearNonlinearODEParamOperator
 export TransientLinearParamOperator
 export TransientParamOperator
-export allocate_jacobians
-export jacobians_add!
 include("ODEParamOperators.jl")
 
 export ParamStageOperator
 include("ParamStageOperators.jl")
 
 export TransientParamFEOperator
-export PlainTransientParamFEOperator
-export BundleTransientParamFEOperator
 export TransientParamFEOpFromWeakForm
 export TransientLinearParamFEOperator
 export TransientLinearParamFEOpFromWeakForm
-export wrap_bilinear_jacs
 include("TransientParamFEOperators.jl")
 
 export add_initial_conditions

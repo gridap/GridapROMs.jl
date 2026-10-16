@@ -40,6 +40,12 @@ struct Bundle{A,B}
 end
 
 (b::Bundle)(args...) = b.linear(args...) + b.nonlinear(args...)
+(b::Bundle{A,Nothing} where A)(args...) = b.linear(args...)
+(b::Bundle{Nothing,B} where B)(args...) = b.nonlinear(args...)
+
+Base.iterate(b::Bundle) = (b.linear,1)
+Base.iterate(b::Bundle,state) = state == 1 ? (b.nonlinear,2) : nothing
+Base.length(b::Bundle) = 2
 
 get_linear_part(b) = b
 get_nonlinear_part(b) = b
@@ -77,33 +83,7 @@ Trait indicating that a parametric FE operator is nonlinear.
 """
 struct NonlinearEq <: OperatorType end
 
-"""
-    abstract type WeakFormStyle <: GridapType end
-
-Subtypes:
-
-- [`PlainForm`](@ref)
-- [`BundleForm`](@ref)
-"""
-abstract type WeakFormStyle <: GridapType end
-
-"""
-    struct PlainForm <: WeakFormStyle end
-
-Trait for a FE operator whose `res`/`jac`/`domains` fields are plain (not a
-[`Bundle`](@ref) of a linear and a nonlinear half)
-"""
-struct PlainForm <: WeakFormStyle end
-
-"""
-    struct BundleForm <: WeakFormStyle end
-
-Trait for a FE operator whose `res`/`jac`/`domains` fields are each a [`Bundle`](@ref)
-of a linear and a nonlinear half
-"""
-struct BundleForm <: WeakFormStyle end
-
-# utils 
+# utils
 
 """
     get_polynomial_order(f::FESpace) -> Integer

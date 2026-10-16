@@ -14,11 +14,11 @@ function RBSteady.allocate_diagnostic_residual(
 end
 
 function RBSteady.allocate_diagnostic_residual(
-  op::TransientRBOperator{O,T,B,<:TransientNoHRContribution},
+  op::TransientRBOperator{O,B,<:TransientNoHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
-  ) where {O,T,B}
+  ) where {O,B}
 
   rhs = get_rhs(op)
   b = allocate_residual(op.op,r,us,paramcache)
@@ -59,11 +59,11 @@ function RBSteady.allocate_diagnostic_jacobian(
 end
 
 function RBSteady.allocate_diagnostic_jacobian(
-  op::TransientRBOperator{O,T,<:TransientNoHRContributionTuple,B},
+  op::TransientRBOperator{O,<:TransientNoHRContributionTuple,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
-  ) where {O,T,B}
+  ) where {O,B}
 
   lhs = get_lhs(op)
   A = allocate_jacobian(op.op,r,us,paramcache)
@@ -146,11 +146,11 @@ end
 
 function RBSteady.diagnostic_residual!(
   b::DiagnosticsContribution,
-  op::TransientRBOperator{O,T,A,<:TransientNoHRContribution},
+  op::TransientRBOperator{O,A,<:TransientNoHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
-  ) where {O,T,A}
+  ) where {O,A}
 
   uh = ODEs._make_uh_from_us(op,us,paramcache.trial)
   test = get_test(op)
@@ -176,22 +176,22 @@ end
 
 function RBSteady.diagnostic_residual!(
   b::DiagnosticsContribution,
-  op::TransientRBOperator{O,T,A,<:TransientAffineHRContribution},
+  op::TransientRBOperator{O,A,<:TransientAffineHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
-  ) where {O,T,A}
+  ) where {O,A}
 
   RBSteady.diagnostic_interpolate!(b,op.rhs)
 end
 
 function RBSteady.diagnostic_residual!(
   b::DiagnosticsContribution,
-  op::TransientRBOperator{O,T,A,<:TransientRBFContribution},
+  op::TransientRBOperator{O,A,<:TransientRBFContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
-  ) where {O,T,A}
+  ) where {O,A}
 
   RBSteady.diagnostic_interpolate!(b,op.rhs,r)
 end
@@ -246,12 +246,12 @@ end
 
 function RBSteady.diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::TransientRBOperator{O,T,<:TransientNoHRContributionTuple,B},
+  op::TransientRBOperator{O,<:TransientNoHRContributionTuple,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
   paramcache
-  ) where {O,T,B}
+  ) where {O,B}
 
   uh = ODEs._make_uh_from_us(op,us,paramcache.trial)
   trial = get_trial(op)
@@ -288,24 +288,24 @@ end
 
 function RBSteady.diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::TransientRBOperator{O,T,<:TransientAffineHRContributionTuple,B},
+  op::TransientRBOperator{O,<:TransientAffineHRContributionTuple,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
   paramcache
-  ) where {O,T,B}
+  ) where {O,B}
 
   RBSteady.diagnostic_interpolate!(A,op.lhs)
 end
 
 function RBSteady.diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::TransientRBOperator{O,T,<:TransientRBFContributionTuple,B},
+  op::TransientRBOperator{O,<:TransientRBFContributionTuple,B},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   ws::Tuple{Vararg{Real}},
   paramcache
-  ) where {O,T,B}
+  ) where {O,B}
 
   RBSteady.diagnostic_interpolate!(A,op.lhs,r)
 end
@@ -422,24 +422,81 @@ function RBSteady.hr_error(solver::GlobalRBSolver,op::TransientROMOperator,res,j
   return err_res,err_jac
 end
 
-function RBSteady.save_jacobians(dir,feop::ODEParamOperator,jacs::ContributionTuple;label="")
-  for (i,jac) in enumerate(jacs)
-    save_jacobians(dir,feop,jac;label=_get_label(label,i))
+# utils
+
+function RBSteady.residual_contribution(solver::RBSolver,op::ODEParamOperator,s::AbstractSnapshots)
+  c = TimeCombination(solver)
+  r = get_realisation(s)
+  u = get_param_data(s)
+  us0 = get_initial_param_data(s)
+
+  trians = get_domains_res(op)
+  resdata = RBSteady._prepare_residual(op,c,r,u,us0)
+  contribution(trians) do trian
+    RBSteady._residual_for_trian!(resdata,op,trian)
   end
 end
 
-function RBSteady.load_jacobians(dir,feop::ODEParamOperator;label="")
-  jacs = ()
-  for i in 1:get_order(feop)+1
-    dom_jaci = get_domains_jac(feop)[i]
-    labi = _get_label(label,i,JACOBIANS_LABEL)
-    jaci = load_contribution(dir,dom_jaci;label=labi)
-    jacs = (jacs...,jaci)
+function RBSteady.residual_contribution(solver::RBSolver,op::LinearNonlinearODEParamOperator,s::AbstractSnapshots)
+  c = TimeCombination(solver)
+  r = get_realisation(s)
+  u = get_param_data(s)
+  us0 = get_initial_param_data(s)
+
+  op_lin = get_linear_part(op)
+  op_nlin = get_nonlinear_part(op)
+  data_lin,data_nlin = RBSteady._prepare_residual(op,c,r,u,us0)
+
+  trians_lin = get_domains_res(op_lin)
+  trians_nlin = get_domains_res(op_nlin)
+  res_lin = contribution(trians_lin) do trian
+    RBSteady._residual_for_trian!(data_lin,op_lin,trian)
   end
-  return ContributionTuple(jacs)
+  res_nlin = contribution(trians_nlin) do trian
+    RBSteady._residual_for_trian!(data_nlin,op_nlin,trian)
+  end
+  Bundle(res_lin,res_nlin)
 end
 
-# utils 
+function RBSteady.jacobian_contribution(solver::RBSolver,op::ODEParamOperator,s::AbstractSnapshots)
+  c = TimeCombination(solver)
+  r = get_realisation(s)
+  u = get_param_data(s)
+  us0 = get_initial_param_data(s)
+
+  trians = get_domains_jac(op)
+  jacdata = RBSteady._prepare_jacobian(op,c,r,u,us0)
+  ContributionTuple(ntuple(length(jacdata)) do k
+    contribution(trians[k]) do trian
+      RBSteady._jacobian_for_trian!(jacdata[k],op,trian)
+    end
+  end)
+end
+
+function RBSteady.jacobian_contribution(solver::RBSolver,op::LinearNonlinearODEParamOperator,s::AbstractSnapshots)
+  c = TimeCombination(solver)
+  r = get_realisation(s)
+  u = get_param_data(s)
+  us0 = get_initial_param_data(s)
+
+  op_lin = get_linear_part(op)
+  op_nlin = get_nonlinear_part(op)
+  data_lin,data_nlin = RBSteady._prepare_jacobian(op,c,r,u,us0)
+
+  trians_lin = get_domains_jac(op_lin)
+  trians_nlin = get_domains_jac(op_nlin)
+  jac_lin = ContributionTuple(ntuple(length(data_lin)) do k
+    contribution(trians_lin[k]) do trian
+      RBSteady._jacobian_for_trian!(data_lin[k],op_lin,trian)
+    end
+  end)
+  jac_nlin = ContributionTuple(ntuple(length(data_nlin)) do k
+    contribution(trians_nlin[k]) do trian
+      RBSteady._jacobian_for_trian!(data_nlin[k],op_nlin,trian)
+    end
+  end)
+  Bundle(jac_lin,jac_nlin)
+end
 
 function RBSteady.set_params(red::SteadyReduction;kwargs...)
   SteadyReduction(RBSteady.set_params(red.reduction;kwargs...))

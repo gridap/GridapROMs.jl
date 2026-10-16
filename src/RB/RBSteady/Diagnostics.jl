@@ -41,11 +41,11 @@ function allocate_diagnostic_residual(
 end
 
 function allocate_diagnostic_residual(
-  op::RBOperator{O,T,<:NoHRContribution,B},
+  op::RBOperator{O,<:NoHRContribution,B},
   r::Realisation,
   u::AbstractVector,
   paramcache
-  ) where {O,T,B}
+  ) where {O,B}
 
   rhs = get_rhs(op)
   b0 = allocate_residual(op.op,r,u,paramcache)
@@ -72,11 +72,11 @@ function allocate_diagnostic_jacobian(
 end
 
 function allocate_diagnostic_jacobian(
-  op::RBOperator{O,T,B,<:NoHRContribution},
+  op::RBOperator{O,B,<:NoHRContribution},
   r::Realisation,
   u::AbstractVector,
   paramcache
-  ) where {O,T,B}
+  ) where {O,B}
 
   lhs = get_lhs(op)
   A0 = allocate_jacobian(op.op,r,u,paramcache)
@@ -105,7 +105,8 @@ function diagnostic_residual!(
 
   trian_res = get_domains_res(op)
   rhs = get_rhs(op)
-  dc = ParamSteady.get_eval_res(op)(r,uh,v)
+  res = get_res(op)
+  dc = res(r,uh,v)
 
   for strian in trian_res
     b_strian = b.fecache[strian]
@@ -119,18 +120,19 @@ end
 
 function diagnostic_residual!(
   b::DiagnosticsContribution,
-  op::RBOperator{O,T,A,<:NoHRContribution},
+  op::RBOperator{O,A,<:NoHRContribution},
   r::Realisation,
   u::AbstractVector,
   paramcache
-  ) where {O,T,A}
+  ) where {O,A}
 
   uh = EvaluationFunction(paramcache.trial,u)
   test = get_test(op)
   v = get_fe_basis(test)
 
   rhs = get_rhs(op)
-  dc = ParamSteady.get_eval_res(op)(r,uh,v)
+  res = get_res(op)
+  dc = res(r,uh,v)
   assem = get_param_assembler(op,r)
 
   for strian in get_domains(rhs)
@@ -144,22 +146,22 @@ end
 
 function diagnostic_residual!(
   b::DiagnosticsContribution,
-  op::RBOperator{O,T,A,<:AffineHRContribution},
+  op::RBOperator{O,A,<:AffineHRContribution},
   r::Realisation,
   u::AbstractVector,
   paramcache
-  ) where {O,T,A}
+  ) where {O,A}
 
   diagnostic_interpolate!(b,op.rhs)
 end
 
 function diagnostic_residual!(
   b::DiagnosticsContribution,
-  op::RBOperator{O,T,A,<:RBFContribution},
+  op::RBOperator{O,A,<:RBFContribution},
   r::Realisation,
   u::AbstractVector,
   paramcache
-  ) where {O,T,A}
+  ) where {O,A}
 
   diagnostic_interpolate!(b,op.rhs,r)
 end
@@ -205,11 +207,11 @@ end
 
 function diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::RBOperator{O,T,<:NoHRContribution,B},
+  op::RBOperator{O,<:NoHRContribution,B},
   r::Realisation,
   u::AbstractVector,
   paramcache
-  ) where {O,T,B}
+  ) where {O,B}
 
   uh = EvaluationFunction(paramcache.trial,u)
   trial = get_trial(op)
@@ -233,22 +235,22 @@ end
 
 function diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::RBOperator{O,T,<:AffineHRContribution,B},
+  op::RBOperator{O,<:AffineHRContribution,B},
   r::Realisation,
   u::AbstractVector,
   paramcache
-  ) where {O,T,B}
+  ) where {O,B}
 
   diagnostic_interpolate!(A,op.lhs)
 end
 
 function diagnostic_jacobian!(
   A::DiagnosticsContribution,
-  op::RBOperator{O,T,<:RBFContribution,B},
+  op::RBOperator{O,<:RBFContribution,B},
   r::Realisation,
   u::AbstractVector,
   paramcache
-  ) where {O,T,B}
+  ) where {O,B}
 
   diagnostic_interpolate!(A,op.lhs,r)
 end
@@ -530,9 +532,9 @@ function hr_error(solver::LocalRBSolver,op::ROMOperator,res,jac,s)
 end
 
 for T in (:GlobalRBSolver,:LocalRBSolver)
-  @eval function hr_error(solver::$T,op::RBOperator{O,Ty,A,<:Bundle},res,jac,s) where {O,Ty,A}
-    res_lin,res_nlin = res.linear,res.nonlinear
-    jac_lin,jac_nlin = jac.linear,jac.nonlinear
+  @eval function hr_error(solver::$T,op::RBOperator{O,A,<:Bundle},res,jac,s) where {O,A}
+    res_lin,res_nlin = res
+    jac_lin,jac_nlin = jac
     op_lin = get_linear_part(op)
     op_nlin = get_nonlinear_part(op)
     (err_res_lin,err_jac_lin) = hr_error(solver,op_lin,res_lin,jac_lin,s)
@@ -651,44 +653,15 @@ function load_snapshots(dir,rbsolver,feop,args...;label="",kwargs...)
   end
 end
 
-function save_residuals(dir,feop,res;label="")
-  save_bundle_contribution(dir,res;label=_get_label(label,RESIDUALS_LABEL))
-end
+"""
+    load_problem_snapshots(dir,rbsolver,feop,args...;nparams=:all,label=ONLINE_LABEL,kwargs...)
+      -> (AbstractSnapshots,ArrayContribution,ArrayContribution)
 
-function save_jacobians(dir,feop,jac;label="")
-  save_bundle_contribution(dir,jac;label=_get_label(label,JACOBIANS_LABEL))
-end
-
-function load_residuals(dir,feop::ParamOperator;label="")
-  load_bundle_contribution(dir,get_domains_res(feop);label=_get_label(label,RESIDUALS_LABEL))
-end
-
-function load_jacobians(dir,feop::ParamOperator;label="")
-  load_bundle_contribution(dir,get_domains_jac(feop);label=_get_label(label,JACOBIANS_LABEL))
-end
-
-function load_residuals(dir,rbsolver,feop,fesnaps;label=ONLINE_LABEL)
-  try
-    res = load_residuals(dir,feop;label)
-    select_snapshots(res,res_params(rbsolver))
-  catch
-    res = residual_snapshots(rbsolver,feop,fesnaps)
-    save_residuals(dir,feop,res;label)
-    res
-  end
-end
-
-function load_jacobians(dir,rbsolver,feop,fesnaps;label=ONLINE_LABEL)
-  try
-    jac = load_jacobians(dir,feop;label)
-    select_snapshots(jac,jac_params(rbsolver))
-  catch
-    jac = jacobian_snapshots(rbsolver,feop,fesnaps)
-    save_jacobians(dir,feop,jac;label)
-    jac
-  end
-end
-
+Loads the solution snapshots (cached to `dir`) and computes the residual/Jacobian
+`Contribution`s used for diagnostics on the fly (via [`residual_contribution`](@ref)/
+[`jacobian_contribution`](@ref)), at the subset of parameters used to train the
+residual/Jacobian hyper-reduction
+"""
 function load_problem_snapshots(
   dir,rbsolver,feop,args...;
   nparams=:all,label=ONLINE_LABEL,kwargs...
@@ -701,9 +674,74 @@ function load_problem_snapshots(
   catch
     s = select_snapshots(s,1:1)
   end
-  jac = load_jacobians(dir,rbsolver,feop,s;label)
-  res = load_residuals(dir,rbsolver,feop,s;label)
+  jac = jacobian_contribution(rbsolver,feop,sjac)
+  res = residual_contribution(rbsolver,feop,sres)
   return s,jac,res
+end
+
+function residual_contribution(solver::RBSolver,op::ParamOperator,s::AbstractSnapshots)
+  sres = select_snapshots(s,res_params(solver))
+  us_res = get_param_data(sres)
+  r_res = get_realisation(sres)
+  islinear(op) && fill!(us_res,zero(eltype2(us_res)))
+
+  trians = get_domains_res(op)
+  resdata = _prepare_residual(op,r_res,us_res)
+  contribution(trians) do trian
+    _residual_for_trian!(resdata,op,trian)
+  end
+end
+
+function residual_contribution(solver::RBSolver,op::LinearNonlinearParamOperator,s::AbstractSnapshots)
+  sres = select_snapshots(s,res_params(solver))
+  us_res = get_param_data(sres)
+  r_res = get_realisation(sres)
+
+  op_lin = get_linear_part(op)
+  op_nlin = get_nonlinear_part(op)
+  data_lin,data_nlin = _prepare_residual(op,r_res,us_res)
+
+  trians_lin = get_domains_res(op_lin)
+  trians_nlin = get_domains_res(op_nlin)
+  res_lin = contribution(trians_lin) do trian
+    _residual_for_trian!(data_lin,op_lin,trian)
+  end
+  res_nlin = contribution(trians_nlin) do trian
+    _residual_for_trian!(data_nlin,op_nlin,trian)
+  end
+  Bundle(res_lin,res_nlin)
+end
+
+function jacobian_contribution(solver::RBSolver,op::ParamOperator,s::AbstractSnapshots)
+  sjac = select_snapshots(s,jac_params(solver))
+  us_jac = get_param_data(sjac)
+  r_jac = get_realisation(sjac)
+
+  trians = get_domains_jac(op)
+  jacdata = _prepare_jacobian(op,r_jac,us_jac)
+  contribution(trians) do trian
+    _jacobian_for_trian!(jacdata,op,trian)
+  end
+end
+
+function jacobian_contribution(solver::RBSolver,op::LinearNonlinearParamOperator,s::AbstractSnapshots)
+  sjac = select_snapshots(s,jac_params(solver))
+  us_jac = get_param_data(sjac)
+  r_jac = get_realisation(sjac)
+
+  op_lin = get_linear_part(op)
+  op_nlin = get_nonlinear_part(op)
+  data_lin,data_nlin = _prepare_jacobian(op,r_jac,us_jac)
+
+  trians_lin = get_domains_jac(op_lin)
+  trians_nlin = get_domains_jac(op_nlin)
+  jac_lin = contribution(trians_lin) do trian
+    _jacobian_for_trian!(data_lin,op_lin,trian)
+  end
+  jac_nlin = contribution(trians_nlin) do trian
+    _jacobian_for_trian!(data_nlin,op_nlin,trian)
+  end
+  Bundle(jac_lin,jac_nlin)
 end
 
 # utils

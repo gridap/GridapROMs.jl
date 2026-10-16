@@ -7,17 +7,17 @@ Extends Gridap's `FEOperator`/`FESpaces` layer with parameter awareness, so that
 residuals and Jacobians can be evaluated at a `Realisation` (a batch of parameter
 samples).  The module introduces:
 
-- **Operator types** — `LinearParamEq`, `NonlinearParamEq`, 
+- **Operator types** — `LinearParamEq`, `NonlinearParamEq`, `LinearNonlinearParamEq`
   tag whether a parametric operator is linear, nonlinear, or a split linear + nonlinear
   combination.
-- **Low-level algebraic operators** — `ParamOperator`, `LinearParamOperator`, wrap
-  assembled matrices/vectors and expose the `residual!`/`jacobian!` interface at
-  parameter level.
+- **Low-level algebraic operators** — `ParamOperator`, `LinearParamOperator`,
+  `LinearNonlinearParamOperator` wrap assembled matrices/vectors and expose the
+  `residual!`/`jacobian!` interface at parameter level.
 - **FE-level operators** — `ParamFEOperator`, `LinearParamFEOperator`
   manage Gridap assemblers, FE domains, and parameter-to-sample dispatch. A linear +
-  nonlinear split operator is just a `ParamFEOperator`
+  nonlinear split operator is just a `ParamFEOperator` (`O=LinearNonlinearParamEq`)
   whose `res`/`jac`/`domains` fields are each a `Bundle` of the linear and nonlinear
-  halves (`T=BundleForm`); `get_linear_part`/`get_nonlinear_part` split it back apart.
+  halves; `get_linear_part`/`get_nonlinear_part` split it back apart.
 - **Solvers** — thin wrappers in `ParamFESolvers.jl` dispatch parametric solves to
   the underlying Gridap / GridapSolvers linear or nonlinear solvers.
 
@@ -61,18 +61,15 @@ import GridapROMs.Utils: CostTracker,change_domains,set_domains
 export UnEvalOperatorType
 export NonlinearParamEq
 export LinearParamEq
+export LinearNonlinearParamEq
 export ParamOperator
-export PlainParamOperator
-export BundleParamOperator
+export LinearNonlinearParamOperator
 export LinearParamOperator
 export get_fe_operator
 export get_jac
-export get_eval_res
 include("ParamOperators.jl")
 
 export ParamFEOperator
-export PlainParamFEOperator
-export BundleParamFEOperator
 export LinearParamFEOperator
 export GenericParamOperator
 export get_param_space

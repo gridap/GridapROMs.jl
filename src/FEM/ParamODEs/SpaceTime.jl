@@ -1,10 +1,5 @@
 include("TimeCombinations.jl")
 
-function _jacobians!(As::Tuple,odeop::ODEParamOperator,r,us,ws,paramcache)
-  foreach(A -> LinearAlgebra.fillstored!(A,false),As)
-  jacobians_add!(As,odeop,r,us,ws,paramcache)
-end
-
 function spacetime_residual(c::TimeCombination,odeop::ODEParamOperator,s)
   r = get_realisation(s)
   u = get_param_data(s)
@@ -42,7 +37,7 @@ function allocate_spacetime_residual(
 end
 
 function spacetime_residual!(
-  b,
+  b::AbstractVector,
   c::TimeCombination,
   odeop::ODEParamOperator,
   r::TransientRealisation,
@@ -60,7 +55,7 @@ function spacetime_residual!(
 end
 
 function spacetime_residual!(
-  b,
+  b::AbstractVector,
   c::TimeCombination,
   odeop::ODEParamOperator{LinearParamODE},
   r::TransientRealisation,
@@ -109,12 +104,12 @@ function allocate_spacetime_jacobian(
   paramcache = allocate_paramcache(odeop,r;evaluated=true)
   from_stencil!(r,c)
   usx = allocate_time_combination(u,us0)
-  A = allocate_jacobians(odeop,r,usx,paramcache)
+  A = allocate_jacobian(odeop,r,usx,paramcache)
   return A,usx,paramcache
 end
 
 function spacetime_jacobian!(
-  A,
+  A::AbstractMatrix,
   c::TimeCombination,
   odeop::ODEParamOperator,
   r::TransientRealisation,
@@ -127,13 +122,13 @@ function spacetime_jacobian!(
   ws = ntuple(_ -> 1,Val(length(us0)))
   time_combination!(usx,c,u,us0)
   to_stencil!(r,c)
-  _jacobians!(A,odeop,r,usx,ws,paramcache)
+  jacobian!(A,odeop,r,usx,ws,paramcache)
   from_stencil!(r,c)
   return A
 end
 
 function spacetime_jacobian!(
-  A,
+  A::AbstractMatrix,
   c::TimeCombination,
   odeop::ODEParamOperator{LinearParamODE},
   r::TransientRealisation,
@@ -146,7 +141,7 @@ function spacetime_jacobian!(
   ws = ntuple(_ -> 1,Val(length(us0)))
   zero_time_combination!(usx,c,us0)
   to_stencil!(r,c)
-  _jacobians!(A,odeop,r,usx,ws,paramcache)
+  jacobian!(A,odeop,r,usx,ws,paramcache)
   from_stencil!(r,c)
   return A
 end
@@ -154,7 +149,7 @@ end
 # time marching 
 
 function spacetime_residual!(
-  b,
+  b::AbstractVector,
   c::TimeMarchingCombination,
   odeop::ODEParamOperator,
   r::TransientRealisation,
@@ -172,7 +167,7 @@ function spacetime_residual!(
 end
 
 function spacetime_residual!(
-  b,
+  b::AbstractVector,
   c::TimeMarchingCombination,
   odeop::ODEParamOperator{LinearParamODE},
   r::TransientRealisation,
@@ -190,7 +185,7 @@ function spacetime_residual!(
 end
 
 function spacetime_jacobian!(
-  A,
+  A::AbstractMatrix,
   c::TimeMarchingCombination,
   odeop::ODEParamOperator,
   r::TransientRealisation,
@@ -203,13 +198,13 @@ function spacetime_jacobian!(
   ws = ntuple(_ -> 1,Val(length(us0)))
   time_combination!(usx,c,u,us0)
   to_stencil!(r,c)
-  _jacobians!(A,odeop,r,usx,ws,paramcache)
+  jacobian!(A,odeop,r,usx,ws,paramcache)
   from_stencil!(r,c)
   return A
 end
 
 function spacetime_jacobian!(
-  A,
+  A::AbstractMatrix,
   c::TimeMarchingCombination,
   odeop::ODEParamOperator{LinearParamODE},
   r::TransientRealisation,
@@ -222,7 +217,7 @@ function spacetime_jacobian!(
   ws = ntuple(_ -> 1,Val(length(us0)))
   lin_time_combination!(usx,c,u,us0)
   to_stencil!(r,c)
-  _jacobians!(A,odeop,r,usx,ws,paramcache)
+  jacobian!(A,odeop,r,usx,ws,paramcache)
   from_stencil!(r,c)
   return A
 end
