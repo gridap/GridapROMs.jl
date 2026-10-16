@@ -212,7 +212,7 @@ end
 Base.reverse(a::ParamSparseMatrixAssemblyCache) = ParamSparseMatrixAssemblyCache(reverse(a.cache))
 
 function PartitionedArrays.copy_cache(a::ParamSparseMatrixAssemblyCache)
-  ParamSparseMatrixAssemblyCache(copy_cache(a.cache))
+  ParamSparseMatrixAssemblyCache(PartitionedArrays.copy_cache(a.cache))
 end
 
 function ParamDataStructures.param_getindex(a::ParamSparseMatrixAssemblyCache,i::Integer)
@@ -250,7 +250,7 @@ end
 Base.reverse(a::ParamJaggedArrayAssemblyCache) = ParamJaggedArrayAssemblyCache(reverse(a.cache))
 
 function PartitionedArrays.copy_cache(a::ParamJaggedArrayAssemblyCache)
-  ParamJaggedArrayAssemblyCache(copy_cache(a.cache))
+  ParamJaggedArrayAssemblyCache(PartitionedArrays.copy_cache(a.cache))
 end
 
 function ParamDataStructures.param_getindex(a::ParamJaggedArrayAssemblyCache,i::Integer)

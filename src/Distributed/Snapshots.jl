@@ -60,6 +60,8 @@ function GridapDistributed.change_ghost(s::TransientSnapshotsWithIC,ids::PRange;
   TransientSnapshotsWithIC(data0′,snaps′)
 end
 
+const DistributedTransientSparseSnapshots{T,N,I<:PSparseMatrixDofMap,R<:TransientRealisation} = DistributedTransientSnapshots{T,N,I,R}
+
 # multi-field interface
 
 """
@@ -167,18 +169,3 @@ end
 flat_row_partition(a::DistributedSnapshots) = flat_row_partition(get_all_data(a))
 row_partition(a::DistributedSnapshots) = row_partition(get_all_data(a))
 col_partition(a::DistributedSnapshots) = col_partition(get_all_data(a))
-
-# linear algebra
-
-_getvals(a) = a
-_getvals(a::DistributedSnapshots) = get_all_data(a)
-
-for S in (:AbstractMatrix,:PSparseMatrix,:GenericPMatrix,:DistributedSnapshots), T in (:AbstractMatrix,:PSparseMatrix,:GenericPMatrix,:DistributedSnapshots)
-  !(S == :DistributedSnapshots || T == :DistributedSnapshots) && continue
-  @eval begin
-    Base.:*(a::$S,b::$T) = _getvals(a) * _getvals(b)
-    Base.:*(a::Adjoint{<:Any,<:$S},b::$T) = _getvals(a.parent)' * _getvals(b)
-    Base.:*(a::$S,b::Adjoint{<:Any,<:$T}) = _getvals(a) * _getvals(b.parent)'
-    Base.:*(a::Adjoint{<:Any,<:$S},b::Adjoint{<:Any,<:$T}) = _getvals(a.parent)' * _getvals(b.parent)'
-  end
-end

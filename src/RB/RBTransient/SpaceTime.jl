@@ -143,13 +143,7 @@ function _st_solve!(
   cache::SystemCache
   )
 
-  fill!(x,zero(eltype(x)))
-  @unpack A,b = cache
-  residual!(b,op,x)
-  jacobian!(A,op,x)
-  rmul!(b,-1)
-  solve!(x,get_solver(s),A,b)
-  cache
+  solve!(x,get_solver(s),op,cache)
 end
 
 function _st_solve!(

@@ -167,6 +167,22 @@ FESpaces.get_trial(op::TransientParamFEOpFromWeakForm) = op.trial
 get_order(op::TransientParamFEOpFromWeakForm) = op.order
 ODEs.get_res(op::TransientParamFEOpFromWeakForm) = op.res
 ODEs.get_jacs(op::TransientParamFEOpFromWeakForm) = op.jacs
+
+function ODEs.get_res(op::TransientParamFEOpFromWeakForm{LinearParamODE})
+  jacs = op.jacs
+  order = op.order
+  function res(μ,t,u,v)
+    ∂tku = u
+    dc = jacs[1](μ,t,u,∂tku,v)
+    for k in 1:order
+      ∂tku = ∂t(∂tku)
+      dc = dc + jacs[k+1](μ,t,u,∂tku,v)
+    end
+    dc - op.res(μ,t,v)
+  end
+  res
+end
+
 ODEs.get_assembler(op::TransientParamFEOpFromWeakForm) = op.assem
 ODEs.is_form_constant(op::TransientParamFEOpFromWeakForm,k::Integer) = op.constant_forms[k]
 ParamSteady.get_param_space(op::TransientParamFEOpFromWeakForm) = op.tpspace

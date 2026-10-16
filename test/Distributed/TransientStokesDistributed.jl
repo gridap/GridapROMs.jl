@@ -56,6 +56,8 @@ function main(
   a(μ,t) = x -> μ[1]*exp(sin(t))
   aμt(μ,t) = parameterise(a,μ,t)
 
+  f(x) = VectorValue(0.0,0.0)
+
   g(μ,t) = x -> VectorValue(-μ[2]*x[2]*(1.0-x[2])*t,0.0)*(x[1]==0.0)
   gμt(μ,t) = parameterise(g,μ,t)
 
@@ -66,12 +68,12 @@ function main(
 
   stiffness(μ,t,(u,p),(v,q)) = ∫(aμt(μ,t)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
   mass(μ,t,(uₜ,pₜ),(v,q)) = ∫(v⋅uₜ)dΩ
-  res(μ,t,(u,p),(v,q)) = ∫(v⋅∂t(u))dΩ + stiffness(μ,t,(u,p),(v,q))
+  rhs(μ,t,(v,q)) = ∫(v⋅f)dΩ
 
-  trian_res = (Ω,)
+  trian_rhs = (Ω,)
   trian_stiffness = (Ω,)
   trian_mass = (Ω,)
-  domains = FEDomains(trian_res,(trian_stiffness,trian_mass))
+  domains = FEDomains(trian_rhs,(trian_stiffness,trian_mass))
 
   reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
   reffe_p = ReferenceFE(lagrangian,Float64,order-1)
@@ -99,7 +101,7 @@ function main(
   fesolver = ThetaMethod(StokesDistributed.build_fesolver(test_p,dΩ),dt,θ)
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jacs=(nparams_jac,nparams_jac),hypred_strategy,verbose=i_am_main(parts))
 
-  feop = TransientLinearParamOperator(res,(stiffness,mass),ptspace,trial,test,domains)
+  feop = TransientLinearParamOperator(rhs,(stiffness,mass),ptspace,trial,test,domains)
   println("  feop built, starting run_test"); flush(stdout)
 
   dir = datadir("diagnostics_transient_stokes_distributed")

@@ -312,110 +312,22 @@ for op in (:+,:-)
   end
 end
 
-function Base.:*(A::Snapshots{<:Any,2},B::Snapshots{<:Any,2})
-  consec_mul(get_all_data(A),get_all_data(B))
-end
+const SnapshotsMatrix{T} = Snapshots{T,2}
 
-function Base.:*(A::Snapshots{<:Any,2},B::Adjoint{<:Any,<:Snapshots})
-  consec_mul(get_all_data(A),adjoint(get_all_data(B.parent)))
-end
+fetch_data(A::AbstractMatrix) = A
+fetch_data(A::SnapshotsMatrix) = get_all_data(A)
+fetch_data(A::Adjoint{<:Any,<:SnapshotsMatrix}) = adjoint(get_all_data(A.parent))
 
-function Base.:*(A::Snapshots{<:Any,2},B::AbstractMatrix)
-  consec_mul(get_all_data(A),B)
-end
+for S in (:SnapshotsMatrix,:AbstractMatrix), T in (:SnapshotsMatrix,:AbstractMatrix)
+  S == :AbstractMatrix && T == :AbstractMatrix && continue
+  for AS in (:(Adjoint{<:Any,<:$S}),S), AT in (:(Adjoint{<:Any,<:$T}),T)
+    @eval begin
+      Base.:*(A::$AS,B::$AT) = *(fetch_data(A),fetch_data(B))
 
-function Base.:*(A::Snapshots{<:Any,2},B::Adjoint{<:Any,<:AbstractMatrix})
-  *(get_all_data(A),B)
-end
-
-function Base.:*(A::Adjoint{<:Any,<:Snapshots{<:Any,2}},B::Snapshots{<:Any,2})
-  consec_mul(adjoint(get_all_data(A.parent)),get_all_data(B))
-end
-
-function Base.:*(A::AbstractMatrix,B::Snapshots{<:Any,2})
-  consec_mul(A,get_all_data(B))
-end
-
-function Base.:*(A::Adjoint{<:Any,<:AbstractMatrix},B::Snapshots{<:Any,2})
-  consec_mul(A,get_all_data(B))
-end
-
-function LinearAlgebra.mul!(
-  C::AbstractMatrix,
-  A::Snapshots{<:Any,2},
-  B::Snapshots{<:Any,2}
-  )
-
-  consec_mul!(C,get_all_data(A),get_all_data(B))
-end
-
-function LinearAlgebra.mul!(
-  C::AbstractMatrix,
-  A::Snapshots{<:Any,2},
-  B::Adjoint{<:Any,<:Snapshots}
-  )
-
-  consec_mul!(C,get_all_data(A),adjoint(get_all_data(B.parent)))
-end
-
-function LinearAlgebra.mul!(
-  C::AbstractMatrix,
-  A::Snapshots{<:Any,2},
-  B::AbstractMatrix
-  )
-
-  consec_mul!(C,get_all_data(A),B)
-end
-
-function LinearAlgebra.mul!(
-  C::AbstractMatrix,
-  A::Snapshots{<:Any,2},
-  B::Adjoint{<:Any,<:AbstractMatrix}
-  )
-
-  consec_mul!(C,get_all_data(A),B)
-end
-
-function LinearAlgebra.mul!(
-  C::AbstractMatrix,
-  A::Adjoint{<:Any,<:Snapshots{<:Any,2}},
-  B::Snapshots{<:Any,2}
-  )
-
-  consec_mul!(C,adjoint(get_all_data(A.parent)),get_all_data(B))
-end
-
-function LinearAlgebra.mul!(
-  C::AbstractMatrix,
-  A::AbstractMatrix,
-  B::Snapshots{<:Any,2}
-  )
-
-  consec_mul!(C,A,get_all_data(B))
-end
-
-function LinearAlgebra.mul!(
-  C::AbstractMatrix,
-  A::Adjoint{<:Any,<:AbstractMatrix},
-  B::Snapshots{<:Any,2}
-  )
-
-  consec_mul!(C,A,get_all_data(B))
-end
-
-consec_mul(A::AbstractArray,B::AbstractArray) = A*B
-consec_mul!(C::AbstractArray,A::AbstractArray,B::AbstractArray) = mul!(C,A,B)
-
-for T in (:ConsecutiveParamArray,:ConsecutiveParamSparseMatrix)
-  @eval begin
-    consec_mul(A::$T,B::Union{<:AbstractArray,Adjoint{S,<:AbstractArray}}) where S = get_all_data(A)*B
-    consec_mul(A::Adjoint{S,<:$T},B::Union{<:AbstractArray,Adjoint{U,<:AbstractArray}}) where {S,U} = adjoint(get_all_data(A.parent))*B
-    consec_mul(A::Union{<:AbstractArray,Adjoint{S,<:AbstractArray}},B::$T) where S = A*get_all_data(B)
-    consec_mul(A::Union{<:AbstractArray,Adjoint{S,<:AbstractArray}},B::Adjoint{U,<:$T}) where {S,U} = A*adjoint(get_all_data(B.parent))
-    consec_mul!(C::AbstractArray,A::$T,B::Union{<:AbstractArray,Adjoint{S,<:AbstractArray}}) where S = mul!(C,get_all_data(A),B)
-    consec_mul!(C::AbstractArray,A::Adjoint{S,<:$T},B::Union{<:AbstractArray,Adjoint{U,<:AbstractArray}}) where {S,U} = mul!(C,adjoint(get_all_data(A.parent)),B)
-    consec_mul!(C::AbstractArray,A::Union{<:AbstractArray,Adjoint{S,<:AbstractArray}},B::$T) where S = mul!(C,A,get_all_data(B))
-    consec_mul!(C::AbstractArray,A::Union{<:AbstractArray,Adjoint{S,<:AbstractArray}},B::Adjoint{U,<:$T}) where {S,U} = mul!(C,A,adjoint(get_all_data(B.parent)))
+      function LinearAlgebra.mul!(C::AbstractMatrix,A::$AS,B::$AT)
+        mul!(C,fetch_data(A),fetch_data(B))
+      end
+    end
   end
 end
 

@@ -164,7 +164,7 @@ ODEs.get_assembler(op::ParamFEOpFromWeakForm) = op.assem
 CellData.get_domains(op::ParamFEOpFromWeakForm) = op.domains
 
 function ODEs.get_res(op::ParamFEOpFromWeakForm{LinearParamEq})
-  (μ,u,v) -> op.jac(μ,u,u,v) + op.res(μ,v)
+  (μ,u,v) -> op.jac(μ,u,u,v) - op.res(μ,v)
 end
 
 function ODEs.get_res(op::ParamFEOpFromWeakForm{LinearNonlinearParamEq})

@@ -65,6 +65,7 @@ function Algebra.solve!(
   @unpack A,b = cache
   residual!(b,op,x)
   jacobian!(A,op,x)
+  rmul!(b,-1)
   solve!(x,ls,A,b)
   cache
 end
@@ -80,6 +81,7 @@ function Algebra.solve!(
   @unpack A,b,ns = cache
   residual!(b,op,x)
   jacobian!(A,op,x)
+  rmul!(b,-1)
   solve!(x,ns,A,b)
   cache
 end

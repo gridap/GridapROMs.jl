@@ -38,6 +38,8 @@ function main(
   a(μ) = x -> μ[1]/Re*exp(-x[1])
   aμ(μ) = parameterise(a,μ)
 
+  f(x) = VectorValue(0.0,0.0)
+
   g(μ) = x -> VectorValue(-(μ[2]*x[2]+μ[3])*x[2]*(1.0-x[2]),0.0)*(x[1]==0.0)
   gμ(μ) = parameterise(g,μ)
 
@@ -47,7 +49,7 @@ function main(
   dc(u,du,v) = ∫( v⊙(dconv∘(du,∇(du),u,∇(u))) )dΩ
 
   jac_lin(μ,(u,p),(v,q)) = ∫(aμ(μ)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
-  rhs_lin(μ,(v,q)) = ∫(0*q)dΩ
+  rhs_lin(μ,(v,q)) = ∫(f⋅v)dΩ
 
   res_nlin(μ,(u,p),(v,q)) = c(u,v)
   jac_nlin(μ,(u,p),(du,dp),(v,q)) = dc(u,du,v)

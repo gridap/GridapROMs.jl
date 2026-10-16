@@ -13,18 +13,26 @@ using GridapROMs.RBTransient
 
 import Gridap.FESpaces: get_trial
 import Gridap.Helpers: @abstractmethod
+import GridapROMs.ParamDataStructures: get_sampling_style
 import GridapROMs.ParamFESpaces: UnEvalTrialFESpace
-import GridapROMs.ParamSteady: get_fe_operator
-import GridapROMs.RBSteady: get_state_reduction,get_residual_reduction,get_jacobian_reduction
+import GridapROMs.ParamSteady: get_fe_operator,get_param_space
+import GridapROMs.RBSteady: get_state_reduction,get_residual_reduction,get_jacobian_reduction,num_offline_params
 
-function GridapROMs.try_loading_fe_snapshots(dir,rbsolver,feop,args...;label="",kwargs...)
+function GridapROMs.try_loading_fe_snapshots(
+  dir,rbsolver,feop,args...;
+  label="",
+  sampling=get_sampling_style(get_param_space(feop)),
+  nparams=num_offline_params(rbsolver)
+  )
+
   try
     fesnaps = load_snapshots(dir;label)
     println("Load snapshots at $dir succeeded!")
     return fesnaps
   catch
     println("Load snapshots at $dir failed, must compute them")
-    fesnaps = solution_snapshots(rbsolver,feop,args...;kwargs...)
+    r = realisation(feop;sampling,nparams)
+    fesnaps = solution_snapshots(rbsolver,feop,r,args...)
     save(dir,fesnaps;label)
     return fesnaps
   end

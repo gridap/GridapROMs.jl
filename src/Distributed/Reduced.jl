@@ -375,6 +375,29 @@ function RBTransient.get_at_seq_domain(
   ConsecutiveParamArray(datav)
 end
 
+function RBSteady.get_at_domain(s::DistributedSparseSnapshots,rowscols::Tuple)
+  rows,cols = rowscols
+  dof_map = get_dof_map(s)
+  inds = sparsify_split_indices(rows,cols,dof_map)
+  get_at_domain(s,inds)
+end
+
+for f in (:get_at_kron_domain,:get_at_seq_domain)
+  @eval begin
+    function RBTransient.$f(
+      s::DistributedTransientSparseSnapshots,
+      rowscols::Tuple,
+      indices_time::AbstractVector{<:Integer}
+      )
+
+      rows,cols = rowscols
+      dof_map = get_dof_map(s)
+      inds = sparsify_split_indices(rows,cols,dof_map)
+      RBTransient.$f(s,inds,indices_time)
+    end
+  end
+end
+
 const DistributedHRProjection{A<:HyperReduction} = GenericHRProjection{A,<:Projection,<:Union{DistributedInterpolation,TransientDistributedInterpolation}}
 
 function GridapDistributed.local_views(a::DistributedHRProjection)
@@ -478,6 +501,13 @@ for T in (:MPIArray,:DebugArray)
     function RBSteady.assemble_hr_array_add!(A::$T,cellvals::$T,celldofs::$T,cells::$T,args...)
       map(A,cellvals,celldofs,cells) do A,cellvals,celldofs,cells
         assemble_hr_array_add!(A,cellvals,celldofs,cells,args...)
+      end
+    end
+
+    function RBSteady.assemble_hr_array_add!(
+      A::$T,cellvals::$T,celldofs::$T,cells::$T,locations::AbstractArray,style::InterpolationStyle)
+      map(A,cellvals,celldofs,cells) do A,cellvals,celldofs,cells
+        assemble_hr_array_add!(A,cellvals,celldofs,cells,locations,style)
       end
     end
 
@@ -660,6 +690,13 @@ function RBSteady._setup(U::DistributedMultiFieldRBSpace,u0::PVector)
   end |> mortar
 end
 
+function RBTransient._permutelastdims(a::PVector;kwargs...)
+  vector_partition = map(a.vector_partition) do values
+    RBTransient._permutelastdims(values;kwargs...)
+  end
+  PVector(vector_partition,a.index_partition,a.cache)
+end
+
 function RBTransient._get_offsets(U::DistributedMultiFieldFESpace)
   nfields = num_fields(U)
   local_offsets = map(local_views(U)) do U
@@ -670,7 +707,7 @@ function RBTransient._get_offsets(U::DistributedMultiFieldFESpace)
   end
 end
 
-function RBTransient._reduce_vector(u::PVector{<:ConsecutiveParamVector},hr_ids::AbstractVector)
+function RBTransient._reduce_vector(u::PVector,hr_ids::AbstractVector)
   vector_partition = map(partition(u)) do lu
     RBTransient._reduce_vector(lu,hr_ids)
   end

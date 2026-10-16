@@ -24,7 +24,7 @@ function ParamDataStructures.Snapshots(a::RBParamVector,r::AbstractRealisation)
   Snapshots(a.fe_data,r)
 end
 
-for I in (:AbstractDofMap,:TrivialDofMap,:AbstractArray)
+for I in (:AbstractDofMap,:TrivialDofMap,:(AbstractArray{<:AbstractDofMap}))
   @eval begin
     function ParamDataStructures.Snapshots(a::RBParamVector,i::$I,r::AbstractRealisation)
       Snapshots(a.fe_data,i,r)

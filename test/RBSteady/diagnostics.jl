@@ -43,7 +43,7 @@ function main(
   gμ(μ) = parameterise(g,μ)
 
   stiffness(μ,(u,p),(v,q)) = ∫(aμ(μ)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
-  rhs(μ,(v,q)) = ∫(0*q)dΩ
+  rhs(μ,(v,q)) = ∫(f⋅v)dΩ
 
   trian_res = (Ω,)
   trian_stiffness = (Ω,)

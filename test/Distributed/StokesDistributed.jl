@@ -93,6 +93,8 @@ function main(
   a(μ) = x -> μ[1]*exp(-x[1])
   aμ(μ) = parameterise(a,μ)
 
+  f(x) = VectorValue(0.0,0.0)
+
   g(μ) = x -> VectorValue(-μ[2]*x[2]*(1.0-x[2]),0.0)*(x[1]==0.0)
   gμ(μ) = parameterise(g,μ)
 
@@ -103,11 +105,11 @@ function main(
   dΩ = Measure(Ω,degree)
 
   stiffness(μ,(u,p),(v,q)) = ∫(aμ(μ)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
-  rhs(μ,(v,q)) = ∫(0*q)dΩ
+  rhs(μ,(v,q)) = ∫(f⋅v)dΩ
 
-  trian_res = (Ω,)
+  trian_rhs = (Ω,)
   trian_stiffness = (Ω,)
-  domains = FEDomains(trian_res,trian_stiffness)
+  domains = FEDomains(trian_rhs,trian_stiffness)
 
   reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
   reffe_p = ReferenceFE(lagrangian,Float64,order-1)

@@ -182,6 +182,17 @@ function Base.similar(A::ConsecutiveParamSparseMatrixCSC)
   ConsecutiveParamSparseMatrixCSC(A.m,A.n,A.colptr,A.rowval,similar(A.data))
 end
 
+function Base.similar(
+  A::ConsecutiveParamSparseMatrixCSC,::Type{SparseMatrixCSC{Tv,Ti}},m::Integer,n::Integer
+  ) where {Tv,Ti}
+
+  if (m,n) == innersize(A)
+    ConsecutiveParamSparseMatrixCSC(A.m,A.n,A.colptr,A.rowval,similar(Tv,A.data))
+  else
+    ConsecutiveParamSparseMatrixCSC(m,n,ones(Ti,n+1),zeros(Ti,0),zeros(Tv,0,param_length(A)))
+  end
+end
+
 function Base.copy(A::ConsecutiveParamSparseMatrixCSC)
   ConsecutiveParamSparseMatrixCSC(A.m,A.n,A.colptr,A.rowval,copy(A.data))
 end
@@ -428,6 +439,17 @@ end
 
 function Base.similar(A::ConsecutiveParamSparseMatrixCSR{Bi}) where Bi
   ConsecutiveParamSparseMatrixCSR{Bi}(A.m,A.n,A.rowptr,A.colval,similar(A.data))
+end
+
+function Base.similar(
+  A::ConsecutiveParamSparseMatrixCSR{Bi},::Type{SparseMatrixCSR{Bi,Tv,Ti}},m::Integer,n::Integer
+  ) where {Bi,Tv,Ti}
+
+  if (m,n) == innersize(A)
+    ConsecutiveParamSparseMatrixCSR{Bi}(A.m,A.n,A.rowptr,A.colval,similar(Tv,A.data))
+  else
+    ConsecutiveParamSparseMatrixCSR{Bi}(m,n,ones(Ti,m+1),zeros(Ti,0),zeros(Tv,0,param_length(A)))
+  end
 end
 
 function Base.copy(A::ConsecutiveParamSparseMatrixCSR{Bi}) where Bi
@@ -736,6 +758,8 @@ function DofMaps.SparsityPattern(U::FESpace,V::FESpace,A::ParamSparseMatrix)
   @check num_free_dofs(U) == innersize(A,2)
   SparsityPattern(testitem(A))
 end
+
+DofMaps.SparsityPattern(A::ParamSparseMatrix) = SparsityPattern(testitem(A))
 
 function ConsecutiveParamSparseMatrixCSC(A::GenericParamSparseMatrixCSC)
   plength = param_length(A)
