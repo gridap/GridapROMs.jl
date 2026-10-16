@@ -30,7 +30,6 @@ struct PVectorDofMap{A<:PRange,B<:PRange} <: PartitionedDofMap
 end
 
 GridapDistributed.local_views(i::PVectorDofMap) = local_views(i.rows)
-
 row_partition(i::PVectorDofMap) = row_partition(i.rows)
 
 struct PSparseMatrixDofMap{A<:PRange,B<:PRange,C<:AbstractArray{<:SparsityPattern}} <: PartitionedDofMap
@@ -201,14 +200,13 @@ function blockify(b::PVector,i::BlockPVectorDofMap)
   b′ = change_ghost(b,i.rows_space)
   nfields = length(i.blocks)
   rows = ntuple(k -> partition(i[k].rows_space),nfields)
-  chunks = map(local_values(b′),rows...) do b′,ranks...
+  values = map(local_values(b′),rows...) do b′,ranks...
     lens = map(local_length,ranks)
     offsets = cumsum((0,lens...))
     ntuple(k -> get_param_entry(b′,offsets[k]+1:offsets[k+1]),nfields)
   end
   map(1:nfields) do k
-    values_k = map(c -> c[k],chunks)
-    PVector(values_k,partition(i[k].rows_space))
+    PVector(values[k],partition(i[k].rows_space))
   end |> mortar
 end
 
