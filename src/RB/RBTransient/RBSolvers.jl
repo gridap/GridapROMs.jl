@@ -3,7 +3,7 @@ function RBSteady.RBSolver(
   reduction::Reduction;
   nparams_res=20,
   nparams_jacs=ntuple(_ -> 20,get_time_order(fesolver)+1),
-  verbose=default_verbose(),
+  verbose=true,
   kwargs...
   )
 
@@ -39,11 +39,11 @@ function RBSteady.solution_snapshots(
   )
 
   sol = solve(fesolver,op,r,args...)
-  values,stats = collect(sol)
+  values = collect(sol)
   initial_values = initial_conditions(sol)
   i = get_dof_map(op)
   snaps = Snapshots(values,initial_values,i,r)
-  return snaps,stats
+  return snaps
 end
 
 function Algebra.solve(

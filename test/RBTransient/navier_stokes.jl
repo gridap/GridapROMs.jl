@@ -91,17 +91,20 @@ function main(
 
   ptspace = TransientParamSpace(pdomain,tdomain)
 
+  stiffness′(μ,t,u,du,v) = stiffness(μ,t,du,v)
+  mass′(μ,t,u,du,v) = mass(μ,t,du,v)
+
   res_bundle = Bundle(res,res_nlin)
-  jacs = (Bundle(stiffness,jac_nlin),Bundle(mass,nothing))
+  jacs = (Bundle(stiffness′,jac_nlin),Bundle(mass′,nothing))
   domains_bundle = Bundle(domains_lin,domains_nlin)
   feop = TransientParamOperator(res_bundle,jacs,ptspace,trial,test,domains_bundle)
 
-  fesnaps, = solution_snapshots(rbsolver,feop,xh0μ)
+  fesnaps = solution_snapshots(rbsolver,feop,xh0μ)
   rbop = reduced_operator(rbsolver,feop,fesnaps)
 
   μon = realisation(feop;nparams=10,sampling=:uniform)
   x̂ = solve(rbsolver,rbop,μon,xh0μ)
-  x, = solution_snapshots(rbsolver,feop,μon,xh0μ)
+  x = solution_snapshots(rbsolver,feop,μon,xh0μ)
   println(rom_performance(rbsolver,rbop,x,x̂))
 end
 

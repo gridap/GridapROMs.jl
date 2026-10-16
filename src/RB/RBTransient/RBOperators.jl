@@ -110,7 +110,7 @@ function Algebra.jacobian!(
     lhs = lhss[k]
     jac = jacs[k]
     w = ws[k]
-    iszero(w) && continue
+    (iszero(w) || isnothing(jac)) && continue
     dc = w * jac(μ,hr_t,hr_uh,du,v)
     trian_jac = trian_jacs[k]
     for strian in trian_jac
@@ -217,7 +217,7 @@ function Algebra.jacobian!(
     lhs = lhss[k]
     jac = jacs[k]
     w = ws[k]
-    iszero(w) && continue
+    (iszero(w) || isnothing(jac)) && continue
     dc = w * jac(μ,t,uh,du,v)
     for strian in trian_jacs[k]
       red = get_style(lhs[strian])
@@ -350,10 +350,10 @@ function RBSteady.solution_snapshots(
   ) where {A,B}
 
   fesolver = get_fe_solver(solver)
-  x̂,stats = solve(fesolver,op,r,args...) |> collect
+  x̂ = solve(fesolver,op,r,args...) |> collect
   i = get_dof_map(op)
   snaps = Snapshots(_fe_data(x̂),i,r)
-  return snaps,stats
+  return snaps
 end
 
 # utils

@@ -92,7 +92,7 @@ function get_deformation_map(μ)
   Uφ = ParamTrialFESpace(Vφ)
 
   feop = LinearParamOperator(rhs,a,pspace,Uφ,Vφ)
-  d, = solve(LUSolver(),feop,μ)
+  d = solve(LUSolver(),feop,μ)
   FEFunction(Uφ(μ),d)
 end
 
@@ -182,11 +182,11 @@ rbsolver = RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reducti
 
 μ = realisation(pspace;nparams)
 feop = get_feop(μ)
-fesnaps, = solution_snapshots(rbsolver,feop,μ)
+fesnaps = solution_snapshots(rbsolver,feop,μ)
 
 μon = realisation(pspace;nparams=10,sampling=:uniform)
 feopon = get_feop(μon)
-x, = solution_snapshots(rbsolver,feopon,μon)
+x = solution_snapshots(rbsolver,feopon,μon)
 
 rbop = reduced_operator(rbsolver,feop,fesnaps)
 

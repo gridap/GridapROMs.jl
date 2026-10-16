@@ -362,10 +362,9 @@ function reduced_residual(
   )
 
   res_red = get_residual_reduction(solver)
-  trians = get_domains_res(op)
   t = @timed begin
     resdata = _prepare_residual(solver,op,s)
-    red_res = reduced_residual!(resdata,res_red,op,trians,red_test)
+    red_res = reduced_residual!(resdata,res_red,op,red_test)
   end
   set_residual_tracker!(solver,t)
   return red_res
@@ -395,10 +394,9 @@ function reduced_jacobian(
   )
 
   jac_red = get_jacobian_reduction(solver)
-  trians = get_domains_jac(op)
   t = @timed begin
     jacdata = _prepare_jacobian(solver,op,s)
-    red_jac = reduced_jacobian!(jacdata,jac_red,op,trians,red_trial,red_test)
+    red_jac = reduced_jacobian!(jacdata,jac_red,op,red_trial,red_test)
   end
   set_jacobian_tracker!(solver,t)
   return red_jac

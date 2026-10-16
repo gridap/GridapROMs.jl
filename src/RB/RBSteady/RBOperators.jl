@@ -12,7 +12,7 @@ function reduced_operator(
   kwargs...
   )
 
-  fesnaps,festats = solution_snapshots(solver,feop,args...;kwargs...)
+  fesnaps = solution_snapshots(solver,feop,args...;kwargs...)
   rbop = reduced_operator(solver,feop,fesnaps)
   save(dir,fesnaps)
   save(dir,rbop)
@@ -26,7 +26,7 @@ function reduced_operator(
   kwargs...
   )
 
-  fesnaps,festats = solution_snapshots(solver,feop,args...;kwargs...)
+  fesnaps = solution_snapshots(solver,feop,args...;kwargs...)
   reduced_operator(solver,feop,fesnaps)
 end
 

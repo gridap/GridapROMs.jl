@@ -97,7 +97,7 @@ function main(
   state_reduction = TransientReduction(coupling,tol,energy;nparams,compression,ncentroids)
 
   fesolver = ThetaMethod(StokesDistributed.build_fesolver(test_p,dΩ),dt,θ)
-  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jacs=(nparams_jac,nparams_jac),hypred_strategy)
+  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jacs=(nparams_jac,nparams_jac),hypred_strategy,verbose=i_am_main(parts))
 
   feop = TransientLinearParamOperator(res,(stiffness,mass),ptspace,trial,test,domains)
   println("  feop built, starting run_test"); flush(stdout)

@@ -102,13 +102,13 @@ function main(
   dir = datadir("navier_stokes_test")
   mkpath(dir)
 
-  fesnaps, = solution_snapshots(rbsolver,feop,xh0μ)
+  fesnaps = solution_snapshots(rbsolver,feop,xh0μ)
   rbop = reduced_operator(rbsolver,feop,fesnaps)
   save(dir,rbop)
 
   μon = realisation(feop;nparams=10,sampling=:uniform)
   x̂ = solve(rbsolver,rbop,μon,xh0μ)
-  x, = solution_snapshots(rbsolver,feop,μon,xh0μ)
+  x = solution_snapshots(rbsolver,feop,μon,xh0μ)
   perf = rom_performance(rbsolver,rbop,x,x̂)
   error = perf.error
 

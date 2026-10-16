@@ -48,7 +48,7 @@ function mean(cs::AbstractVector{<:CostTracker})
   CostTracker(name,time,nallocs,nruns)
 end
 
-function reset_tracker!(t::CostTracker)
+function set_tracker!(t::CostTracker)
   t.time = 0.0
   t.nallocs = 0.0
   t.nruns = 0
@@ -89,6 +89,18 @@ function set_residual_tracker!(t::OfflineCostTracker,args...;kwargs...)
   t.residual = CostTracker(args...;name=get_name(t.residual),kwargs...)
 end
 
+function update_subspace_tracker!(t::OfflineCostTracker,args...;kwargs...)
+  update_tracker!(t.subspace,args...;kwargs...)
+end
+
+function update_jacobian_tracker!(t::OfflineCostTracker,args...;kwargs...)
+  update_tracker!(t.jacobian,args...;kwargs...)
+end
+
+function update_residual_tracker!(t::OfflineCostTracker,args...;kwargs...)
+  update_tracker!(t.residual,args...;kwargs...)
+end
+
 function OfflineCostTracker()
   OfflineCostTracker(
     CostTracker(name="subspace generation"),
@@ -109,18 +121,10 @@ mutable struct RBPerformanceTracker <: PerformanceTracker
   full_order::CostTracker
   reduced_order::CostTracker
   offline::OfflineCostTracker
-  # scalar for a single-field FE operator, `Vector`/`Array` for a multi-field
-  # one (one entry per block); not known until `compute_error!` is first
-  # called, long after the tracker itself is constructed, hence untyped
   error::Any
 end
 
-const _default_verbose = Ref{Function}(() -> true)
-
-default_verbose() = _default_verbose[]()
-set_default_verbose!(f::Function) = (_default_verbose[] = f)
-
-function RBPerformanceTracker(;verbose=default_verbose())
+function RBPerformanceTracker(;verbose=true)
   RBPerformanceTracker(
     verbose,
     CostTracker(name="full_order"),
@@ -161,6 +165,31 @@ end
 
 function set_residual_tracker!(p::RBPerformanceTracker,args...;kwargs...)
   set_residual_tracker!(p.offline,args...;kwargs...)
+  p.verbose && show(p.offline.residual)
+end
+
+function update_fom_tracker!(p::RBPerformanceTracker,args...;kwargs...)
+  update_tracker!(p.full_order,args...;kwargs...)
+  p.verbose && show(p.full_order)
+end
+
+function update_rom_tracker!(p::RBPerformanceTracker,args...;kwargs...)
+  update_tracker!(p.reduced_order,args...;kwargs...)
+  p.verbose && show(p.reduced_order)
+end
+
+function update_subspace_tracker!(p::RBPerformanceTracker,args...;kwargs...)
+  update_subspace_tracker!(p.offline,args...;kwargs...)
+  p.verbose && show(p.offline.subspace)
+end
+
+function update_jacobian_tracker!(p::RBPerformanceTracker,args...;kwargs...)
+  update_jacobian_tracker!(p.offline,args...;kwargs...)
+  p.verbose && show(p.offline.jacobian)
+end
+
+function update_residual_tracker!(p::RBPerformanceTracker,args...;kwargs...)
+  update_residual_tracker!(p.offline,args...;kwargs...)
   p.verbose && show(p.offline.residual)
 end
 

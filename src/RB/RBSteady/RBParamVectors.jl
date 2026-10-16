@@ -20,6 +20,18 @@ ParamDataStructures.param_length(a::RBParamVector) = param_length(a.data)
 ParamDataStructures.get_all_data(a::RBParamVector) = get_all_data(a.data)
 ParamDataStructures.param_getindex(a::RBParamVector,i::Integer) = param_getindex(a.data,i)
 
+function ParamDataStructures.Snapshots(a::RBParamVector,r::AbstractRealisation)
+  Snapshots(a.fe_data,r)
+end
+
+for I in (:AbstractDofMap,:TrivialDofMap,:AbstractArray)
+  @eval begin
+    function ParamDataStructures.Snapshots(a::RBParamVector,i::$I,r::AbstractRealisation)
+      Snapshots(a.fe_data,i,r)
+    end
+  end
+end
+
 function ParamDataStructures.param_cat(a::Vector{<:RBParamVector})
   data = param_cat(map(_data,a))
   fe_data = param_cat(map(_fe_data,a))

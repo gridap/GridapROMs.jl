@@ -113,9 +113,9 @@ function Algebra.solve!(
 end
 
 function Algebra.solve(solver::ExtensionSolver,op::ParamOperator,r::Realisation)
-  u,stats = solve(solver.solver,op,r)
+  u = solve(solver.solver,op,r)
   u_bg = extend_solution(solver.extension,get_trial(op)(r),u)
-  return u_bg,stats
+  return u_bg
 end
 
 # transient
@@ -152,9 +152,9 @@ function ParamODEs.ODEParamSolution(
 end
 
 function Base.collect(sol::ExtensionODEParamSolution)
-  u,stats = collect(sol.odesol)
+  u = collect(sol.odesol)
   u_bg = extend_solution(sol.extension,get_trial(sol.odesol.odeop)(sol.odesol.r),u)
-  return u_bg,stats
+  return u_bg
 end
 
 function ParamODEs.initial_conditions(sol::ExtensionODEParamSolution)

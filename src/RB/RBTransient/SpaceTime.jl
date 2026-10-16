@@ -140,10 +140,16 @@ function _st_solve!(
   x::AbstractParamVector,
   s::SpaceTimeLinearSolver,
   op::NonlinearParamOperator,
-  cache
+  cache::SystemCache
   )
-    
-  solve!(x,get_solver(s),op,cache)
+
+  fill!(x,zero(eltype(x)))
+  @unpack A,b = cache
+  residual!(b,op,x)
+  jacobian!(A,op,x)
+  rmul!(b,-1)
+  solve!(x,get_solver(s),A,b)
+  cache
 end
 
 function _st_solve!(

@@ -239,7 +239,7 @@ using GridapROMs.ParamSteady
 using GridapROMs.RBSteady 
 
 # compute the solution snapshots 
-fesnaps, = solution_snapshots(rbsolver,feop) 
+fesnaps = solution_snapshots(rbsolver,feop) 
 # compute the reduced trial and test spaces 
 Û,V̂ = reduced_spaces(rbsolver,feop,fesnaps)
 # compute the hyper-reduction for LHS & RHS

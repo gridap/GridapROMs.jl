@@ -123,7 +123,7 @@ function main(
   state_reduction = SupremizerReduction(coupling,tol,energy;nparams,compression,ncentroids)
 
   fesolver = build_fesolver(Q,dΩ)
-  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy)
+  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy,verbose=i_am_main(parts))
 
   feop = LinearParamOperator(rhs,stiffness,pspace,X,Y,domains)
 

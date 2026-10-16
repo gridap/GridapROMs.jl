@@ -31,9 +31,9 @@ end
   @test Utils.get_name(t) == "bar"
 end
 
-@testset "reset_tracker! and update_tracker!" begin
+@testset "set_tracker! and update_tracker!" begin
   t = CostTracker(;name="x",time=5.0,nallocs=2.0,nruns=1)
-  reset_tracker!(t)
+  set_tracker!(t)
   @test Utils.get_time(t) == 0.0
   @test Utils.get_nallocs(t) == 0.0
   @test Utils.get_nruns(t) == 0

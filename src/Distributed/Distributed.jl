@@ -57,9 +57,6 @@ using Gridap.ODEs
 
 using GridapDistributed
 
-using GridapPETSc
-using GridapPETSc.PETSC
-
 using GridapSolvers
 using GridapSolvers.LinearSolvers
 using GridapSolvers.NonlinearSolvers
@@ -121,16 +118,5 @@ include("Projections.jl")
 include("Reduced.jl")
 
 include("PostProcess.jl")
-
-# top-level statements only run once, at package precompile time, and their
-# side effects on mutable global state (here, `_default_verbose`) are then
-# frozen into the precompiled package image; `__init__` is guaranteed to run
-# every time the package is *loaded* instead, which is what we actually need
-# here since rank/MPI-initialization state is only known at that point
-function __init__()
-  # only the main MPI rank prints offline/online cost information by default,
-  # to avoid nranks-fold repetition in the log
-  set_default_verbose!(() -> !MPI.Initialized() || MPI.Comm_rank(MPI.COMM_WORLD) == 0)
-end
 
 end

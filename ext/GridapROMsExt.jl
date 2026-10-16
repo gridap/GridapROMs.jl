@@ -20,39 +20,14 @@ import GridapROMs.RBSteady: get_state_reduction,get_residual_reduction,get_jacob
 function GridapROMs.try_loading_fe_snapshots(dir,rbsolver,feop,args...;label="",kwargs...)
   try
     fesnaps = load_snapshots(dir;label)
-    festats = load_stats(dir;label)
     println("Load snapshots at $dir succeeded!")
-    return fesnaps,festats
+    return fesnaps
   catch
     println("Load snapshots at $dir failed, must compute them")
-    fesnaps,festats = solution_snapshots(rbsolver,feop,args...;kwargs...)
+    fesnaps = solution_snapshots(rbsolver,feop,args...;kwargs...)
     save(dir,fesnaps;label)
-    save(dir,festats;label)
-    return fesnaps,festats
+    return fesnaps
   end
-end
-
-function GridapROMs.try_loading_online_fe_snapshots(
-  dir,rbsolver,feop,args...;
-  nparams=10,reuse_online=false,sampling=:uniform,label=ONLINE_LABEL,kwargs...
-  )
-
-  if reuse_online
-    try
-      x = load_snapshots(dir;label)
-      festats = load_stats(dir;label)
-      μon = get_realisation(x)
-      println("Load online snapshots at $dir succeeded!")
-      return x,festats,μon
-    catch
-      println("Load online snapshots at $dir failed, must compute them")
-    end
-  end
-  μon = realisation(feop;nparams,sampling)
-  x,festats = solution_snapshots(rbsolver,feop,μon,args...;kwargs...)
-  save(dir,x;label)
-  save(dir,festats;label)
-  return x,festats,μon
 end
 
 function GridapROMs.try_loading_reduced_operator(dir_tolrank,rbsolver,feop,fesnaps)
@@ -161,9 +136,9 @@ function GridapROMs.run_test(
   dir::String,rbsolver::RBSolver,feop::ParamOperator,tolranks=[1e-1,1e-2,1e-3,1e-4,1e-5],
   args...;nparams=10,reuse_online=false,sampling=:uniform,kwargs...)
 
-  fesnaps, = try_loading_fe_snapshots(dir,rbsolver,feop,args...)
-  x,_,μon = try_loading_online_fe_snapshots(
-    dir,rbsolver,feop,args...;nparams,reuse_online,sampling)
+  fesnaps = try_loading_fe_snapshots(dir,rbsolver,feop,args...)
+  x = try_loading_fe_snapshots(
+    dir,rbsolver,feop,args...;nparams,reuse_online,sampling,label=ONLINE_LABEL)
 
   perfs = map(tolranks) do tolrank
     println("Running test $dir with tolrank = $tolrank")
@@ -174,7 +149,8 @@ function GridapROMs.run_test(
     rbsolver = update_solver(rbsolver,tolrank)
     rbop = try_loading_reduced_operator(dir_tolrank,rbsolver,feop,fesnaps)
 
-    x̂ = solve(rbsolver,rbop,μon,args...)
+    μ = get_realisation(x)
+    x̂ = solve(rbsolver,rbop,μ,args...)
     rom_performance(rbsolver,rbop,x,x̂)
   end
 

@@ -158,23 +158,10 @@ end
 FESpaces.get_test(op::ParamFEOpFromWeakForm) = op.test
 FESpaces.get_trial(op::ParamFEOpFromWeakForm) = op.trial
 get_param_space(op::ParamFEOpFromWeakForm) = op.pspace
+ODEs.get_res(op::ParamFEOpFromWeakForm) = op.res
 get_jac(op::ParamFEOpFromWeakForm) = op.jac
 ODEs.get_assembler(op::ParamFEOpFromWeakForm) = op.assem
 CellData.get_domains(op::ParamFEOpFromWeakForm) = op.domains
-
-"""
-    get_res(op::ParamFEOpFromWeakForm{NonlinearParamEq}) -> Function
-    get_res(op::ParamFEOpFromWeakForm{LinearParamEq}) -> Function
-    get_res(op::ParamFEOpFromWeakForm{LinearNonlinearParamEq}) -> Function
-
-Returns the residual `res(μ,u,v)` of `op`. For a nonlinear operator, this is
-simply the stored `res` field. For a linear operator, `op.res` only stores the
-right-hand side `rhs(μ,v)` (see [`LinearParamFEOperator`](@ref)): the returned
-closure applies the lift correction `rhs(μ,v) - jac(μ,u,u,v)`, so that it
-vanishes at the solution like any other residual. For a linear+nonlinear split
-operator, the two halves' own (correctly tagged) residuals are summed
-"""
-ODEs.get_res(op::ParamFEOpFromWeakForm{NonlinearParamEq}) = op.res
 
 function ODEs.get_res(op::ParamFEOpFromWeakForm{LinearParamEq})
   (μ,u,v) -> op.jac(μ,u,u,v) + op.res(μ,v)
@@ -186,6 +173,11 @@ function ODEs.get_res(op::ParamFEOpFromWeakForm{LinearNonlinearParamEq})
   (μ,u,v) -> res_lin(μ,u,v) + res_nlin(μ,u,v)
 end
 
+function get_jac(op::ParamFEOpFromWeakForm{LinearNonlinearParamEq})
+  jac_lin,jac_nlin = op.jac
+  (μ,u,du,v) -> jac_lin(μ,du,v) + jac_nlin(μ,u,du,v)
+end
+
 """
     get_linear_part(op::ParamFEOpFromWeakForm{LinearNonlinearParamEq}) -> ParamFEOpFromWeakForm{LinearParamEq}
     get_nonlinear_part(op::ParamFEOpFromWeakForm{LinearNonlinearParamEq}) -> ParamFEOpFromWeakForm{NonlinearParamEq}
@@ -195,7 +187,8 @@ halves
 """
 function Utils.get_linear_part(op::ParamFEOpFromWeakForm{LinearNonlinearParamEq})
   res = get_linear_part(op.res)
-  jac = get_linear_part(op.jac)
+  jac_bilin = get_linear_part(op.jac)
+  jac(μ,u,du,v) = jac_bilin(μ,du,v)
   domains = get_linear_part(op.domains)
   ParamFEOpFromWeakForm{LinearParamEq}(
     res,jac,op.pspace,op.assem,op.trial,op.test,domains)

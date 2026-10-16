@@ -91,12 +91,12 @@ function main(
   )
 
   feop = TransientLinearParamOperator(res,(stiffness,damping,mass),ptspace,trial,test,domains)
-  fesnaps, = solution_snapshots(rbsolver,feop,(uh0μ,vh0μ,ah0μ))
+  fesnaps = solution_snapshots(rbsolver,feop,(uh0μ,vh0μ,ah0μ))
   rbop = reduced_operator(rbsolver,feop,fesnaps)
 
   μon = realisation(feop;nparams=10,sampling=:uniform)
   x̂ = solve(rbsolver,rbop,μon,(uh0μ,vh0μ,ah0μ))
-  x, = solution_snapshots(rbsolver,feop,μon,(uh0μ,vh0μ,ah0μ))
+  x = solution_snapshots(rbsolver,feop,μon,(uh0μ,vh0μ,ah0μ))
   println(rom_performance(rbsolver,rbop,x,x̂))
 end
 

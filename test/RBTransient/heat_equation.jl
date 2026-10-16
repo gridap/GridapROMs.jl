@@ -78,12 +78,12 @@ function main(
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jacs=(nparams_jac,nparams_jac),hypred_strategy)
 
   feop = TransientLinearParamOperator(res,(stiffness,mass),ptspace,trial,test,domains)
-  fesnaps, = solution_snapshots(rbsolver,feop,uh0μ)
+  fesnaps = solution_snapshots(rbsolver,feop,uh0μ)
   rbop = reduced_operator(rbsolver,feop,fesnaps)
 
   μon = realisation(feop;nparams=10,sampling=:uniform)
   x̂ = solve(rbsolver,rbop,μon,uh0μ)
-  x, = solution_snapshots(rbsolver,feop,μon,uh0μ)
+  x = solution_snapshots(rbsolver,feop,μon,uh0μ)
   println(rom_performance(rbsolver,rbop,x,x̂))
 end
 

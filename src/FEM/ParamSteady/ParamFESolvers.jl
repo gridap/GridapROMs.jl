@@ -9,17 +9,15 @@ for S in (:NonlinearSolver,:LinearSolver)
 
       nlop = parameterise(op,r)
       syscache = allocate_systemcache(nlop,u)
-      t = @timed solve!(u,solver,nlop,syscache)
-      stats = CostTracker(t,name="Solver";nruns=num_params(r))
-      stats
+      solve!(u,solver,nlop,syscache)
     end
   end
 end
 
 function Algebra.solve(solver::NonlinearSolver,op::ParamOperator,r::Realisation)
   u = zero_initial_guess(op,r)
-  stats = solve!(u,solver,op,r)
-  u,stats
+  solve!(u,solver,op,r)
+  u
 end
 
 for S in (:FESolver,:LinearFESolver)
@@ -28,8 +26,8 @@ for S in (:FESolver,:LinearFESolver)
       u = get_free_dof_values(uh)
       solver = get_solver(fesolver)
       op = get_algebraic_operator(feop)
-      stats = solve!(u,solver,op,r)
-      uh,stats
+      solve!(u,solver,op,r)
+      uh
     end
   end
 end

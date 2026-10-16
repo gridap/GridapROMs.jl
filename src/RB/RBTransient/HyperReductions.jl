@@ -191,21 +191,25 @@ function get_common_time_domain(a::BlockHRProjection...)
 end
 
 function RBSteady.reduced_jacobian!(cache,red,op::ODEParamOperator,red_trial,red_test)
-  ContributionTuple(ntuple(length(jacdata)) do k
+  ContributionTuple(ntuple(length(cache)) do k
     contribution(get_domains_jac(op)[k]) do trian
       jac = RBSteady._jacobian_for_trian!(cache[k],op,trian)
-      reduced_form(red[k],jac,trian,red_trial,red_test)
+      RBSteady.reduced_form(red[k],jac,trian,red_trial,red_test)
     end
   end)
 end
 
-function RBSteady.reduced_jacobian!(cache,red,op::LinearNonlinearODEParamOperator,args...)
-  op_lin = get_linear_part(op)
-  op_nlin = get_nonlinear_part(op)
-  cache_lin,cache_nlin = cache
-  red_lin = RBSteady.reduced_jacobian!(cache_lin,red,op_lin,args...)
-  red_nlin = RBSteady.reduced_jacobian!(cache_nlin,red,op_nlin,args...)
-  Bundle(red_lin,red_nlin)
+for f in (:reduced_residual!,:reduced_jacobian!)
+  @eval begin
+    function RBSteady.$f(cache,red,op::LinearNonlinearODEParamOperator,args...)
+      op_lin = get_linear_part(op)
+      op_nlin = get_nonlinear_part(op)
+      cache_lin,cache_nlin = cache
+      red_lin = RBSteady.$f(cache_lin,red,op_lin,args...)
+      red_nlin = RBSteady.$f(cache_nlin,red,op_nlin,args...)
+      Bundle(red_lin,red_nlin)
+    end
+  end
 end
 
 # utils
@@ -300,7 +304,7 @@ function RBSteady._prepare_jacobian(
 
   data = ntuple(get_order(op)+1) do k
     dc_k = jacs[k](μ,t,uh,du,v)
-    (A[k],dc_k,assem,r)
+    (A,dc_k,assem,r)
   end
   ParamODEs.from_stencil!(r,c)
 
@@ -329,14 +333,14 @@ function RBSteady._prepare_jacobian(
   v = get_fe_basis(test)
   assem = get_param_assembler(op,r)
   μ,t = get_params(r),get_times(r)
-  jacs_lin = filter(!isnothing,get_jacs(op_lin))
-  jacs_nlin = filter(!isnothing,get_jacs(op_nlin))
+  jacs_lin = get_jacs(op_lin)
+  jacs_nlin = get_jacs(op_nlin)
 
-  data_lin = ntuple(eachindex(jacs_lin)) do k
+  data_lin = ntuple(get_order(op_lin)+1) do k
     dc_k = jacs_lin[k](μ,t,uh,du,v)
     (A,dc_k,assem,r)
   end
-  data_nlin = ntuple(eachindex(jacs_nlin)) do k
+  data_nlin = ntuple(get_order(op_nlin)+1) do k
     dc_k = jacs_nlin[k](μ,t,uh,du,v)
     (A,dc_k,assem,r)
   end

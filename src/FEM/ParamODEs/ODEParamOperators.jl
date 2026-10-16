@@ -163,6 +163,7 @@ function Algebra.allocate_jacobian(
   dc = DomainContribution()
   for k in 1:get_order(odeop)+1
     jac = jacs[k]
+    isnothing(jac) && continue
     dc = dc + jac(μ,t,uh,du,v)
   end
   matdata = collect_cell_matrix(trial,test,dc)
@@ -191,8 +192,8 @@ function ODEs.jacobian_add!(
   dc = DomainContribution()
   for k in 1:get_order(odeop)+1
     w = ws[k]
-    iszero(w) && continue
     jac = jacs[k]
+    (iszero(w) || isnothing(jac)) && continue
     dc = dc + w * jac(μ,t,uh,du,v)
   end
 

@@ -67,12 +67,12 @@ function main(
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy)
 
   feop = LinearParamOperator(rhs,stiffness,pspace,trial,test,domains)
-  fesnaps, = solution_snapshots(rbsolver,feop)
+  fesnaps = solution_snapshots(rbsolver,feop)
   rbop = reduced_operator(rbsolver,feop,fesnaps)
 
   μon = realisation(feop;nparams=10,sampling=:uniform)
   x̂ = solve(rbsolver,rbop,μon)
-  x, = solution_snapshots(rbsolver,feop,μon)
+  x = solution_snapshots(rbsolver,feop,μon)
   println(rom_performance(rbsolver,rbop,x,x̂))
 end
 

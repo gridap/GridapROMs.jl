@@ -646,9 +646,8 @@ function load_snapshots(dir,rbsolver,feop,args...;label="",kwargs...)
   try
     load_snapshots(dir;label)
   catch
-    s,stats = solution_snapshots(rbsolver,feop,args...;kwargs...)
+    s = solution_snapshots(rbsolver,feop,args...;kwargs...)
     save(dir,s;label)
-    save(dir,stats;label)
     s
   end
 end
@@ -674,8 +673,8 @@ function load_problem_snapshots(
   catch
     s = select_snapshots(s,1:1)
   end
-  jac = jacobian_contribution(rbsolver,feop,sjac)
-  res = residual_contribution(rbsolver,feop,sres)
+  jac = jacobian_contribution(rbsolver,feop,s)
+  res = residual_contribution(rbsolver,feop,s)
   return s,jac,res
 end
 

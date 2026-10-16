@@ -42,7 +42,7 @@ Fields:
   information across the offline (subspace, jacobian and residual
   hyper-reduction) and online (reduced solve) phases
 
-    RBSolver(fesolver,reduction::Reduction;nparams_res=20,nparams_jac=20,verbose=default_verbose(),kwargs...)
+    RBSolver(fesolver,reduction::Reduction;nparams_res=20,nparams_jac=20,verbose=true,kwargs...)
     RBSolver(fesolver,style::ReductionStyle,args...;nparams=100,kwargs...)
 
 The most convenient way to build a `RBSolver`: `reduction` (or `style`, from which
@@ -114,7 +114,7 @@ function RBSolver(
   reduction::Reduction;
   nparams_res=20,
   nparams_jac=20,
-  verbose=default_verbose(),
+  verbose=true,
   kwargs...
   )
 
@@ -168,15 +168,14 @@ function change_context(s::LocalRBSolver)
   GlobalRBSolver(get_fe_solver(s),get_state_reduction(s),get_residual_reduction(s),get_jacobian_reduction(s))
 end
 
-for f in (:set_fom_tracker!,:set_rom_tracker!,:set_subspace_tracker!,:set_jacobian_tracker!,:set_residual_tracker!)
+for f in (:set_fom_tracker!,:set_rom_tracker!,:set_subspace_tracker!,:set_jacobian_tracker!,:set_residual_tracker!,
+          :update_fom_tracker!,:update_rom_tracker!,:update_subspace_tracker!,:update_jacobian_tracker!,:update_residual_tracker!)
   @eval begin
     function Utils.$f(s::RBSolver,args...;kwargs...)
       Utils.$f(s.tracker,args...;kwargs...)
     end
   end
 end
-
-update_rom_tracker!(s::RBSolver,args...;kwargs...) = set_rom_tracker!(s,args...;kwargs...)
 
 """
     solution_snapshots(solver::NonlinearSolver,feop::ParamOperator,r::Realisation) -> Snapshots
@@ -216,9 +215,9 @@ function solution_snapshots(
   )
 
   dof_map = get_dof_map(op)
-  values,stats = solve(fesolver,op,r)
+  values = solve(fesolver,op,r)
   snaps = Snapshots(values,dof_map,r)
-  return snaps,stats
+  return snaps
 end
 
 # solvers
@@ -241,13 +240,12 @@ end
 
 function Algebra.solve(solver::LocalRBSolver,op::NonlinearOperator,r::AbstractRealisation,args...)
   gsolver = change_context(solver)
-  t = @timed x̂vec = map(get_params(r)) do _μ
+  x̂vec = map(get_params(r)) do _μ
     opμ = get_local(op,_μ)
     μ = to_realisation(r,_μ)
     solve(gsolver,opμ,μ,args...)
   end
   x̂ = to_param_array(r,x̂vec)
-  update_rom_tracker!(solver,t,nruns=num_params(r))
   return x̂
 end
 
@@ -284,7 +282,7 @@ function Algebra._solve_nr!(
 
     inv_project!(x,trial)
     residual!(b,op,x)
-    res  = norm(b)
+    res = norm(b)
     done = LinearSolvers.update!(log,res)
 
     if !done
