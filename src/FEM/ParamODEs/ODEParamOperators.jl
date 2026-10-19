@@ -47,7 +47,6 @@ end
 
 ODEs.get_jacs(odeop::ODEParamOperator) = get_jacs(get_fe_operator(odeop))
 get_order(odeop::ODEParamOperator) = get_order(get_fe_operator(odeop))
-ODEs.is_form_constant(odeop::ODEParamOperator,k::Integer) = is_form_constant(get_fe_operator(odeop),k)
 
 # basic interface
 

@@ -144,7 +144,7 @@ get_fe_solver(s::RBSolver) = s.fesolver
 get_reduced_solver(s::RBSolver) = get_reduced_solver(get_fe_solver(s))
 
 get_reduced_solver(nls::NonlinearSolver) = @abstractmethod
-get_reduced_solver(ls::LinearSolver) = ls
+get_reduced_solver(ls::LinearSolver) = LUSolver()
 get_reduced_solver(nls::NewtonSolver) = NewtonSolver(nls.ls,nls.log) 
 
 get_state_reduction(s::RBSolver) = s.state_reduction

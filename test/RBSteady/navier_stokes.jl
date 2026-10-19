@@ -48,7 +48,7 @@ function main(
   c(u,v) = ∫( v⊙(conv∘(u,∇(u))) )dΩ
   dc(u,du,v) = ∫( v⊙(dconv∘(du,∇(du),u,∇(u))) )dΩ
 
-  jac_lin(μ,(u,p),(v,q)) = ∫(aμ(μ)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
+  jac_lin(μ,(du,dp),(v,q)) = ∫(aμ(μ)*∇(v)⊙∇(du))dΩ - ∫(dp*(∇⋅(v)))dΩ + ∫(q*(∇⋅(du)))dΩ
   rhs_lin(μ,(v,q)) = ∫(f⋅v)dΩ
 
   res_nlin(μ,(u,p),(v,q)) = c(u,v)

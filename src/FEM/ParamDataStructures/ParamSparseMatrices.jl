@@ -187,7 +187,7 @@ function Base.similar(
   ) where {Tv,Ti}
 
   if (m,n) == innersize(A)
-    ConsecutiveParamSparseMatrixCSC(A.m,A.n,A.colptr,A.rowval,similar(Tv,A.data))
+    ConsecutiveParamSparseMatrixCSC(A.m,A.n,A.colptr,A.rowval,similar(A.data,Tv))
   else
     ConsecutiveParamSparseMatrixCSC(m,n,ones(Ti,n+1),zeros(Ti,0),zeros(Tv,0,param_length(A)))
   end
@@ -446,7 +446,7 @@ function Base.similar(
   ) where {Bi,Tv,Ti}
 
   if (m,n) == innersize(A)
-    ConsecutiveParamSparseMatrixCSR{Bi}(A.m,A.n,A.rowptr,A.colval,similar(Tv,A.data))
+    ConsecutiveParamSparseMatrixCSR{Bi}(A.m,A.n,A.rowptr,A.colval,similar(A.data,Tv))
   else
     ConsecutiveParamSparseMatrixCSR{Bi}(m,n,ones(Ti,m+1),zeros(Ti,0),zeros(Tv,0,param_length(A)))
   end

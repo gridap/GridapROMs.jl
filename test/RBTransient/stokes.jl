@@ -41,12 +41,12 @@ function main(
 
   stiffness(μ,t,(u,p),(v,q)) = ∫(aμt(μ,t)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
   mass(μ,t,(uₜ,pₜ),(v,q)) = ∫(v⋅uₜ)dΩ
-  res(μ,t,(u,p),(v,q)) = ∫(v⋅∂t(u))dΩ + stiffness(μ,t,(u,p),(v,q))
+  rhs(μ,t,(u,p),(v,q)) = ∫(v⋅f)dΩ
 
-  trian_res = (Ω,)
+  trian_rhs = (Ω,)
   trian_stiffness = (Ω,)
   trian_mass = (Ω,)
-  domains = FEDomains(trian_res,(trian_stiffness,trian_mass))
+  domains = FEDomains(trian_rhs,(trian_stiffness,trian_mass))
 
   reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
   reffe_p = ReferenceFE(lagrangian,Float64,order-1)
@@ -78,7 +78,7 @@ function main(
   fesolver = ThetaMethod(LUSolver(),dt,θ)
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jacs=(nparams_jac,nparams_jac),hypred_strategy)
 
-  feop = TransientLinearParamOperator(res,(stiffness,mass),ptspace,trial,test,domains)
+  feop = TransientLinearParamOperator(rhs,(stiffness,mass),ptspace,trial,test,domains)
   fesnaps = solution_snapshots(rbsolver,feop,xh0μ)
   rbop = reduced_operator(rbsolver,feop,fesnaps)
 

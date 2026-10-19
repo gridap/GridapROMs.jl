@@ -154,7 +154,8 @@ function Algebra.allocate_jacobian(
   assem = get_param_assembler(op,μ)
 
   jac = get_jac(op)
-  matdata = collect_cell_matrix(trial,test,jac(μ,uh,du,v))
+  dc = jac(μ,uh,du,v)
+  matdata = collect_cell_matrix(trial,test,dc)
   A = allocate_matrix(assem,matdata)
 
   A

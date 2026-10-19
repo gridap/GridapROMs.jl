@@ -59,7 +59,7 @@ trian_res = (Ω,Γn)
 trian_stiffness = (Ω,)
 domains = FEDomains(trian_res,trian_stiffness)
 
-feop = LinearParamOperator(res,stiffness,pspace,trial,test,domains)
+feop = LinearParamOperator(rhs,stiffness,pspace,trial,test,domains)
 
 fesolver = LUSolver()
 

@@ -146,7 +146,7 @@ function GridapROMs.run_test(
 
   fesnaps = try_loading_fe_snapshots(dir,rbsolver,feop,args...)
   x = try_loading_fe_snapshots(
-    dir,rbsolver,feop,args...;nparams,reuse_online,sampling,label=ONLINE_LABEL)
+    dir,rbsolver,feop,args...;nparams,sampling,label=ONLINE_LABEL)
 
   perfs = map(tolranks) do tolrank
     println("Running test $dir with tolrank = $tolrank")

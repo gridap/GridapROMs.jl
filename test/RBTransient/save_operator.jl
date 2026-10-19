@@ -38,6 +38,8 @@ function main(
   a(μ,t) = x -> μ[1]*exp(sin(t))
   aμt(μ,t) = parameterise(a,μ,t)
 
+  f(x) = VectorValue(0.0,0.0)
+
   g(μ,t) = x -> VectorValue(-(μ[2]*x[2]+μ[3])*x[2]*(1.0-x[2])*t,0.0)*(x[1]==0.0)
   gμt(μ,t) = parameterise(g,μ,t)
 
@@ -53,7 +55,7 @@ function main(
 
   stiffness(μ,t,(u,p),(v,q)) = ∫(aμt(μ,t)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
   mass(μ,t,(uₜ,pₜ),(v,q)) = ∫(v⋅uₜ)dΩ
-  res(μ,t,(u,p),(v,q)) = ∫(v⋅∂t(u))dΩ + stiffness(μ,t,(u,p),(v,q))
+  rhs_lin(μ,t,(v,q)) = ∫(v⋅f)dΩ
 
   res_nlin(μ,t,(u,p),(v,q)) = c(u,v)
   jac_nlin(μ,t,(u,p),(du,dp),(v,q)) = dc(u,du,v)
@@ -94,10 +96,10 @@ function main(
 
   ptspace = TransientParamSpace(pdomain,tdomain)
 
-  res_bundle = Bundle(res,res_nlin)
-  jacs = (Bundle(stiffness,jac_nlin),Bundle(mass,nothing))
+  res_bundle = Bundle(rhs_lin,res_nlin)
+  jacs_bundle = (Bundle(stiffness,jac_nlin),Bundle(mass,nothing))
   domains_bundle = Bundle(domains_lin,domains_nlin)
-  feop = TransientParamOperator(res_bundle,jacs,ptspace,trial,test,domains_bundle)
+  feop = TransientParamOperator(res_bundle,jacs_bundle,ptspace,trial,test,domains_bundle)
 
   dir = datadir("navier_stokes_test")
   mkpath(dir)

@@ -63,9 +63,8 @@ function Algebra.solve!(
 
   fill!(x,zero(eltype(x)))
   @unpack A,b = cache
-  residual!(b,op,x)
   jacobian!(A,op,x)
-  rmul!(b,-1)
+  linear_residual!(b,op,x)
   solve!(x,ls,A,b)
   cache
 end
@@ -79,9 +78,8 @@ function Algebra.solve!(
 
   fill!(x,zero(eltype(x)))
   @unpack A,b,ns = cache
-  residual!(b,op,x)
   jacobian!(A,op,x)
-  rmul!(b,-1)
+  linear_residual!(b,op,x)
   solve!(x,ns,A,b)
   cache
 end
@@ -109,8 +107,8 @@ function Algebra.solve!(
   update_systemcache!(op,x)
 
   @unpack A,b = cache
-  residual!(b,op,x)
   jacobian!(A,op,x)
+  residual!(b,op,x)
 
   A_item = testitem(A)
   x_item = testitem(x)
@@ -133,8 +131,8 @@ function Algebra.solve!(
   update_systemcache!(op,x)
 
   @unpack A,b,dx,ns = cache
-  residual!(b,op,x)
   jacobian!(A,op,x)
+  residual!(b,op,x)
 
   Algebra._solve_nr!(x,A,b,dx,ns,nls,op)
   return cache

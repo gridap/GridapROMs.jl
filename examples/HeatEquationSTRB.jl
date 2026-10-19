@@ -70,7 +70,7 @@ energy(du,v) = ∫(du*v)dΩ + ∫(∇(v)⋅∇(du))dΩ
 reffe = ReferenceFE(lagrangian,Float64,order)
 test = TestFESpace(model,reffe;conformity=:H1,dirichlet_tags=["dirichlet"])
 trial = TransientTrialParamFESpace(test,gμt)
-feop = TransientLinearParamOperator(res,(stiffness,mass),ptspace,trial,test,domains)
+feop = TransientLinearParamOperator(rhs,(stiffness,mass),ptspace,trial,test,domains)
 uh0μ(μ) = interpolate_everywhere(u0μ(μ),trial(μ,t0))
 
 fesolver = ThetaMethod(LUSolver(),dt,θ)

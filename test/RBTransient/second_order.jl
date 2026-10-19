@@ -53,13 +53,12 @@ function main(
   damping(μ,t,uₜ,v) = ∫(dμt(μ,t)*v⋅uₜ)dΩ
   mass(μ,t,uₜₜ,v) = ∫(v*uₜₜ)dΩ
   rhs(μ,t,v) = ∫(fμt(μ,t)*v)dΩ
-  res(μ,t,u,v) = mass(μ,t,∂tt(u),v) + damping(μ,t,∂t(u),v) + stiffness(μ,t,u,v) - rhs(μ,t,v)
 
-  trian_res = (Ω,)
+  trian_rhs = (Ω,)
   trian_stiffness = (Ω,)
   trian_damping = (Ω,)
   trian_mass = (Ω,)
-  domains = FEDomains(trian_res,(trian_stiffness,trian_damping,trian_mass))
+  domains = FEDomains(trian_rhs,(trian_stiffness,trian_damping,trian_mass))
 
   reffe = ReferenceFE(lagrangian,Float64,order)
   test = TestFESpace(Ω,reffe;conformity=:H1,dirichlet_tags=[1,3,7])
@@ -90,7 +89,7 @@ function main(
     hypred_strategy
   )
 
-  feop = TransientLinearParamOperator(res,(stiffness,damping,mass),ptspace,trial,test,domains)
+  feop = TransientLinearParamOperator(rhs,(stiffness,damping,mass),ptspace,trial,test,domains)
   fesnaps = solution_snapshots(rbsolver,feop,(uh0μ,vh0μ,ah0μ))
   rbop = reduced_operator(rbsolver,feop,fesnaps)
 

@@ -32,7 +32,6 @@ end
     struct TransientParamFEOpFromWeakForm{O<:ODEParamOperatorType} <: TransientParamFEOperator{O}
       res::Union{Function,Bundle}
       jacs::Tuple{Vararg{Union{Function,Bundle,Nothing}}}
-      constant_forms::Tuple{Vararg{Bool}}
       tpspace::TransientParamSpace
       assem::Assembler
       trial::FESpace
@@ -52,7 +51,6 @@ mass term is purely linear)
 struct TransientParamFEOpFromWeakForm{O<:ODEParamOperatorType} <: TransientParamFEOperator{O}
   res::Union{Function,Bundle}
   jacs::Tuple{Vararg{Union{Function,Bundle,Nothing}}}
-  constant_forms::Tuple{Vararg{Bool}}
   tpspace::TransientParamSpace
   assem::Assembler
   trial::FESpace
@@ -68,9 +66,8 @@ function TransientParamFEOperator(
   order = length(jacs) - 1
   assem = SparseMatrixAssembler(trial,test)
   domains = FEDomains()
-  constant_forms = ntuple(_ -> false,order+1)
   TransientParamFEOpFromWeakForm{NonlinearParamODE}(
-    res,jacs,constant_forms,tpspace,assem,trial,test,domains,order)
+    res,jacs,tpspace,assem,trial,test,domains,order)
 end
 
 function TransientParamFEOperator(
@@ -79,9 +76,8 @@ function TransientParamFEOperator(
 
   order = length(jacs) - 1
   assem = SparseMatrixAssembler(trial,test)
-  constant_forms = ntuple(_ -> false,order+1)
   TransientParamFEOpFromWeakForm{NonlinearParamODE}(
-    res,jacs,constant_forms,tpspace,assem,trial,test,domains,order)
+    res,jacs,tpspace,assem,trial,test,domains,order)
 end
 
 """
@@ -98,18 +94,16 @@ function TransientParamFEOperator(
 
   order = length(jacs) - 1
   assem = SparseMatrixAssembler(trial,test)
-  constant_forms = ntuple(_ -> false,order+1)
   TransientParamFEOpFromWeakForm{LinearNonlinearParamODE}(
-    res,jacs,constant_forms,tpspace,assem,trial,test,domains,order)
+    res,jacs,tpspace,assem,trial,test,domains,order)
 end
 
 function TransientParamFEOperator(res::Bundle,jacs::Tuple{Vararg{Bundle}},tpspace,trial,test)
   domains = Bundle(FEDomains(),FEDomains())
   order = length(jacs) - 1
   assem = SparseMatrixAssembler(trial,test)
-  constant_forms = ntuple(_ -> false,order+1)
   TransientParamFEOpFromWeakForm{LinearNonlinearParamODE}(
-    res,jacs,constant_forms,tpspace,assem,trial,test,domains,order)
+    res,jacs,tpspace,assem,trial,test,domains,order)
 end
 
 function TransientParamFEOperator(
@@ -173,18 +167,33 @@ function ODEs.get_res(op::TransientParamFEOpFromWeakForm{LinearParamODE})
   order = op.order
   function res(μ,t,u,v)
     ∂tku = u
-    dc = jacs[1](μ,t,u,∂tku,v)
+    dc = jacs[1](μ,t,∂tku,v)
     for k in 1:order
       ∂tku = ∂t(∂tku)
-      dc = dc + jacs[k+1](μ,t,u,∂tku,v)
+      dc = dc + jacs[k+1](μ,t,∂tku,v)
     end
     dc - op.res(μ,t,v)
   end
   res
 end
 
+function ODEs.get_res(op::TransientParamFEOpFromWeakForm{LinearNonlinearParamODE})
+  res_lin = get_res(get_linear_part(op))
+  res_nlin = get_res(get_nonlinear_part(op))
+  (μ,t,u,v) -> res_lin(μ,t,u,v) + res_nlin(μ,t,u,v)
+end
+
+function ODEs.get_jacs(op::TransientParamFEOpFromWeakForm{LinearParamODE})
+  ntuple(k -> (μ,t,u,du,v) -> op.jacs[k](μ,t,du,v),op.order+1)
+end
+
+function ODEs.get_jacs(op::TransientParamFEOpFromWeakForm{LinearNonlinearParamODE})
+  jac_lin = get_jacs(get_linear_part(op))
+  jac_nlin = get_jacs(get_nonlinear_part(op))
+  ntuple(k -> (μ,t,u,du,v) -> jac_lin[k](μ,t,du,v) + jac_nlin[k](μ,t,du,v),op.order+1)
+end
+
 ODEs.get_assembler(op::TransientParamFEOpFromWeakForm) = op.assem
-ODEs.is_form_constant(op::TransientParamFEOpFromWeakForm,k::Integer) = op.constant_forms[k]
 ParamSteady.get_param_space(op::TransientParamFEOpFromWeakForm) = op.tpspace
 CellData.get_domains(op::TransientParamFEOpFromWeakForm) = op.domains
 
@@ -199,50 +208,31 @@ const TransientLinearParamFEOpFromWeakForm = TransientParamFEOpFromWeakForm{Line
 
 Returns a linear parametric FE operator
 """
-function TransientLinearParamFEOperator(
-  res::Function,forms::Tuple{Vararg{Function}},tpspace,trial,test;
-  constant_forms::Tuple{Vararg{Bool}}=ntuple(_ -> false,length(forms))
-  )
-
+function TransientLinearParamFEOperator(res::Function,forms::Tuple{Vararg{Function}},tpspace,trial,test)
   order = length(forms)-1
-  jacs = _wrap_jacobians(forms)
   assem = SparseMatrixAssembler(trial,test)
   domains = FEDomains()
   TransientParamFEOpFromWeakForm{LinearParamODE}(
-    res,jacs,constant_forms,tpspace,assem,trial,test,domains,order)
+    res,jacs,tpspace,assem,trial,test,domains,order)
 end
 
-function TransientLinearParamFEOperator(
-  res::Function,forms::Tuple{Vararg{Function}},tpspace,trial,test,domains::FEDomains;
-  constant_forms::Tuple{Vararg{Bool}}=ntuple(_ -> false,length(forms))
-  )
-
+function TransientLinearParamFEOperator(res::Function,forms::Tuple{Vararg{Function}},tpspace,trial,test,domains::FEDomains)
   order = length(forms) - 1
-  jacs = _wrap_jacobians(forms)
   assem = SparseMatrixAssembler(trial,test)
   TransientParamFEOpFromWeakForm{LinearParamODE}(
-    res,jacs,constant_forms,tpspace,assem,trial,test,domains,order)
+    res,jacs,tpspace,assem,trial,test,domains,order)
 end
 
-function TransientLinearParamFEOperator(
-  res::Function,forms::Tuple{Vararg{Function}},tpspace,trial,test,trians...;kwargs...
-  )
-
+function TransientLinearParamFEOperator(res::Function,forms::Tuple{Vararg{Function}},tpspace,trial,test,trians...;kwargs...)
   domains = FEDomains(trians...)
   TransientLinearParamFEOperator(res,forms,tpspace,trial,test,domains;kwargs...)
 end
 
-function TransientLinearParamFEOperator(
-  res::Function,mass::Function,tpspace,trial,test,args...;kwargs...
-  )
-
+function TransientLinearParamFEOperator(res::Function,mass::Function,tpspace,trial,test,args...;kwargs...)
   TransientLinearParamFEOperator(res,(mass,),tpspace,trial,test,args...;kwargs...)
 end
 
-function TransientLinearParamFEOperator(
-  res::Function,stiffness::Function,mass::Function,tpspace,trial,test,args...;kwargs...
-  )
-
+function TransientLinearParamFEOperator(res::Function,stiffness::Function,mass::Function,tpspace,trial,test,args...;kwargs...)
   TransientLinearParamFEOperator(res,(stiffness,mass),tpspace,trial,test,args...;kwargs...)
 end
 
@@ -259,7 +249,7 @@ end
 function ParamSteady.change_domains(op::TransientParamFEOpFromWeakForm{O},trian_res,trian_jacs) where O
   domains′ = FEDomains(trian_res,trian_jacs)
   TransientParamFEOpFromWeakForm{O}(
-    op.res,op.jacs,op.constant_forms,op.tpspace,op.assem,op.trial,op.test,domains′,op.order)
+    op.res,op.jacs,op.tpspace,op.assem,op.trial,op.test,domains′,op.order)
 end
 
 """
@@ -277,7 +267,7 @@ function Utils.get_linear_part(op::TransientParamFEOpFromWeakForm{LinearNonlinea
   jacs = map(get_linear_part,op.jacs)
   domains = get_linear_part(op.domains)
   TransientParamFEOpFromWeakForm{LinearParamODE}(
-    res,jacs,op.constant_forms,op.tpspace,op.assem,op.trial,op.test,domains,_find_order(jacs))
+    res,jacs,op.tpspace,op.assem,op.trial,op.test,domains,_find_order(jacs))
 end
 
 function Utils.get_nonlinear_part(op::TransientParamFEOpFromWeakForm{LinearNonlinearParamODE})
@@ -285,29 +275,10 @@ function Utils.get_nonlinear_part(op::TransientParamFEOpFromWeakForm{LinearNonli
   jacs = map(get_nonlinear_part,op.jacs)
   domains = get_nonlinear_part(op.domains)
   TransientParamFEOpFromWeakForm{NonlinearParamODE}(
-    res,jacs,op.constant_forms,op.tpspace,op.assem,op.trial,op.test,domains,_find_order(jacs))
+    res,jacs,op.tpspace,op.assem,op.trial,op.test,domains,_find_order(jacs))
 end
 
 # utils
-
-function _wrap_jacobian(f::Function)
-  (μ,t,u,duk,v) -> f(μ,t,duk,v)
-end
-
-function _wrap_jacobian(f::Bundle)
-  flin,fnlin = f
-  if isa(flin,Function) && isa(fnlin,Function)
-    (μ,t,u,duk,v) -> flin(μ,t,duk,v) + fnlin(μ,t,u,duk,v)
-  elseif isa(flin,Function) && isnothing(fnlin)
-    (μ,t,u,duk,v) -> flin(μ,t,duk,v)
-  elseif isnothing(flin) && isa(fnlin,Function)
-    fnlin
-  end
-end
-
-function _wrap_jacobians(forms::Tuple)
-  ntuple(k -> _wrap_jacobian(forms[k]),length(forms))
-end
 
 function _find_order(jacs::Tuple)
   o = findlast(!isnothing,jacs)

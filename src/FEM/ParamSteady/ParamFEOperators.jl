@@ -99,11 +99,10 @@ only a (μ-dependent, but not u-dependent) jacobian and right-hand side. Assembl
 `rhs(μ,v)`, and solving accounts for the sign accordingly (see [`ParamSolvers`](@ref))
 """
 function LinearParamFEOperator(rhs::Function,jac::Function,pspace,trial,test)
-  jac′(μ,u,du,v) = jac(μ,du,v)
   assem = SparseMatrixAssembler(trial,test)
   domains = FEDomains()
   ParamFEOpFromWeakForm{LinearParamEq}(
-    rhs,jac′,pspace,assem,trial,test,domains)
+    rhs,jac,pspace,assem,trial,test,domains)
 end
 
 function LinearParamFEOperator(
@@ -115,10 +114,9 @@ function LinearParamFEOperator(
   domains::FEDomains
   )
 
-  jac′(μ,u,du,v) = jac(μ,du,v)
   assem = SparseMatrixAssembler(trial,test)
   ParamFEOpFromWeakForm{LinearParamEq}(
-    rhs,jac′,pspace,assem,trial,test,domains)
+    rhs,jac,pspace,assem,trial,test,domains)
 end
 
 function LinearParamFEOperator(rhs::Function,jac::Function,pspace,trial,test,trians...)
@@ -132,7 +130,7 @@ function ParamFEOperator(res::Function,jac::Function,pspace,trial,test,trians...
 end
 
 function ParamFEOperator(res::Function,pspace,trial,test,args...)
-  jac(μ,u,du,dv) = jacobian(x->res(μ,x,dv),u)
+  jac(μ,u,du,v) = jacobian(x->res(μ,x,v),u)
   ParamFEOperator(res,jac,pspace,trial,test,args...)
 end
 
@@ -164,7 +162,7 @@ ODEs.get_assembler(op::ParamFEOpFromWeakForm) = op.assem
 CellData.get_domains(op::ParamFEOpFromWeakForm) = op.domains
 
 function ODEs.get_res(op::ParamFEOpFromWeakForm{LinearParamEq})
-  (μ,u,v) -> op.jac(μ,u,u,v) - op.res(μ,v)
+  (μ,u,v) -> op.jac(μ,u,v) - op.res(μ,v)
 end
 
 function ODEs.get_res(op::ParamFEOpFromWeakForm{LinearNonlinearParamEq})
@@ -173,9 +171,14 @@ function ODEs.get_res(op::ParamFEOpFromWeakForm{LinearNonlinearParamEq})
   (μ,u,v) -> res_lin(μ,u,v) + res_nlin(μ,u,v)
 end
 
+function get_jac(op::ParamFEOpFromWeakForm{LinearParamEq})
+  (μ,u,du,v) -> op.jac(μ,du,v)
+end
+
 function get_jac(op::ParamFEOpFromWeakForm{LinearNonlinearParamEq})
-  jac_lin,jac_nlin = op.jac
-  (μ,u,du,v) -> jac_lin(μ,du,v) + jac_nlin(μ,u,du,v)
+  jac_lin = get_jac(get_linear_part(op))
+  jac_nlin = get_jac(get_nonlinear_part(op))
+  (μ,u,du,v) -> jac_lin(μ,u,du,v) + jac_nlin(μ,u,du,v)
 end
 
 """
@@ -187,8 +190,7 @@ halves
 """
 function Utils.get_linear_part(op::ParamFEOpFromWeakForm{LinearNonlinearParamEq})
   res = get_linear_part(op.res)
-  jac_bilin = get_linear_part(op.jac)
-  jac(μ,u,du,v) = jac_bilin(μ,du,v)
+  jac = get_linear_part(op.jac)
   domains = get_linear_part(op.domains)
   ParamFEOpFromWeakForm{LinearParamEq}(
     res,jac,op.pspace,op.assem,op.trial,op.test,domains)

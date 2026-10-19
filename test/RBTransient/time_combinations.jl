@@ -580,7 +580,7 @@ function _heat_eq_setup(;nparams=3)
   pdomain = (1,10)
   ptspace = TransientParamSpace(pdomain,tdomain)
 
-  feop  = TransientLinearParamOperator(res,(stiffness,mass),ptspace,trial,test,domains)
+  feop  = TransientLinearParamOperator(rhs,(stiffness,mass),ptspace,trial,test,domains)
   uh0μ(μ) = interpolate_everywhere(u0μ(μ),trial(μ,t0))
   vh0μ(μ) = interpolate_everywhere(v0μ(μ),trial(μ,t0))
 
@@ -629,7 +629,7 @@ function _wave_eq_setup(;nparams=3)
   pdomain = (1,10)
   ptspace = TransientParamSpace(pdomain,tdomain)
 
-  feop  = TransientLinearParamOperator(res,(stiffness,damping,mass),ptspace,trial,test,domains)
+  feop  = TransientLinearParamOperator(rhs,(stiffness,damping,mass),ptspace,trial,test,domains)
   uh0μ(μ) = interpolate_everywhere(u0μ(μ),trial(μ,t0))
   vh0μ(μ) = interpolate_everywhere(v0μ(μ),trial(μ,t0))
   ah0μ(μ) = interpolate_everywhere(a0μ(μ),trial(μ,t0))
