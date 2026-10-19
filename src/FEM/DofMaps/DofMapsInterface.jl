@@ -42,15 +42,6 @@ flatten(i::AbstractDofMap) = @abstractmethod
 flatten(i::TrivialDofMap) = i
 
 """
-    change_dof_map(i::AbstractDofMap,args...) -> AbstractDofMap
-
-Creates a new dof map from an old dof map `i`
-"""
-function change_dof_map(i::AbstractDofMap,args...)
-  @abstractmethod
-end
-
-"""
     invert(i::AbstractDofMap) -> InverseDofMap
 
 Retruns an [`InverseDofMap`](@ref) object out of an existing dof map `i`
@@ -88,11 +79,7 @@ end
 
 flatten(i::InverseDofMap) = InverseDofMap(flatten(i.dof_map))
 
-function change_dof_map(i::InverseDofMap,args...)
-  InverseDofMap(change_dof_map(i.dof_map,args...))
-end
-
-for f in (:vectorize,:flatten,:invert,:change_dof_map)
+for f in (:vectorize,:flatten,:invert)
   @eval begin
     function $f(i::AbstractArray{<:AbstractDofMap,N},args...) where N
       map(x -> $f(x,args...),i)
@@ -128,42 +115,19 @@ to which we reindex FE vectors. We follow the convention that, when indexed by z
 the FE vectors return a zero. This is acceptable, since the FE vector does not
 actually hold a value when indexed at an inactive DOF.
 """
-struct VectorDofMap{D,I<:AbstractVector{<:Integer}} <: AbstractDofMap{D,Int32}
-  size::Dims{D}
-  bg_dof_to_act_dof::I
+struct VectorDofMap{D,Tv,A<:AbstractArray{Tv,D}} <: AbstractDofMap{D,Int32}
+  indices::A
 end
 
-VectorDofMap(s::Dims) = VectorDofMap(s,IdentityVector(prod(s)))
-VectorDofMap(l::Integer,args...) = VectorDofMap((l,),args...)
-
-function VectorDofMap(s::Dims,bg_dof_to_mask::AbstractVector{<:Bool})
-  bg_dof_to_act_dof = get_mask_to_act_dof(bg_dof_to_mask,prod(s))
-  VectorDofMap(s,bg_dof_to_act_dof)
-end
-
+VectorDofMap(s::Dims) = VectorDofMap(LinearIndices(s))
+VectorDofMap(l::Integer) = VectorDofMap((l,))
 VectorDofMap(i::VectorDofMap) = i
-VectorDofMap(i::VectorDofMap,args...) = VectorDofMap(i.size,args...)
 
-Base.size(i::VectorDofMap) = i.size
-
-Base.getindex(i::VectorDofMap,j::Integer) = getindex(i.bg_dof_to_act_dof,j)
-
-Base.setindex!(i::VectorDofMap,v,j::Integer) = setindex!(i.bg_dof_to_act_dof,v,j)
-
-function Base.reshape(i::VectorDofMap,s::Vararg{Int})
-  @assert prod(s) == length(i)
-  VectorDofMap(s,i.bg_dof_to_act_dof)
-end
+Base.size(i::VectorDofMap) = size(i.indices)
+Base.getindex(i::VectorDofMap,j::Integer) = getindex(i.indices,j)
+Base.setindex!(i::VectorDofMap,v,j::Integer) = setindex!(i.indices,v,j)
 
 flatten(i::VectorDofMap) = VectorDofMap((prod(i.size),),i.bg_dof_to_act_dof)
-
-function change_dof_map(i::VectorDofMap,args...)
-  VectorDofMap(i,args...)
-end
-
-function change_dof_map(i::VectorDofMap,i′::VectorDofMap)
-  i′
-end
 
 """
     abstract type AbstractSparseDofMap{D,Ti} <: AbstractDofMap{D,Ti} end

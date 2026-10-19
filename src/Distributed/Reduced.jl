@@ -23,6 +23,18 @@ for T in (:DistributedSingleFieldFESpace,:DistributedMultiFieldFESpace)
   end
 end
 
+for I in (:PartitionedDofMap,:(AbstractArray{<:PartitionedDofMap}))
+  @eval begin
+    function ParamDataStructures.Snapshots(a::RBParamVector,i::$I,r::AbstractRealisation)
+      Snapshots(a.fe_data,i,r)
+    end
+
+    function ParamDataStructures.Snapshots(a::RBParamVector,a0::Tuple{Vararg{RBParamVector}},i::$I,r::TransientRealisation)
+      Snapshots(a.fe_data,map(x -> x.fe_data,a0),i,r)
+    end
+  end
+end
+
 function Base.getindex(r::DistributedMultiFieldRBSpace,i::Integer)
   mfe = get_fe_space(r)
   rsp = get_reduced_subspace(r)

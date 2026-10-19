@@ -91,8 +91,8 @@ function PartitionedArrays.nziterator(a::ConsecutiveParamSparseMatrixCSC)
   PartitionedArrays.NZIteratorCSC(a)
 end
 
-function PartitionedArrays.nzindex(a::ParamSparseMatrix,args...)
-  PartitionedArrays.nzindex(testitem(a),args...)
+function PartitionedArrays.nzindex(a::ParamSparseMatrix,i::Integer,j::Integer)
+  Algebra.nz_index(a,i,j)
 end
 
 function PartitionedArrays.compresscoo(

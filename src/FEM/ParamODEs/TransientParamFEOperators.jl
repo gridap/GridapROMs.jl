@@ -213,14 +213,14 @@ function TransientLinearParamFEOperator(res::Function,forms::Tuple{Vararg{Functi
   assem = SparseMatrixAssembler(trial,test)
   domains = FEDomains()
   TransientParamFEOpFromWeakForm{LinearParamODE}(
-    res,jacs,tpspace,assem,trial,test,domains,order)
+    res,forms,tpspace,assem,trial,test,domains,order)
 end
 
 function TransientLinearParamFEOperator(res::Function,forms::Tuple{Vararg{Function}},tpspace,trial,test,domains::FEDomains)
   order = length(forms) - 1
   assem = SparseMatrixAssembler(trial,test)
   TransientParamFEOpFromWeakForm{LinearParamODE}(
-    res,jacs,tpspace,assem,trial,test,domains,order)
+    res,forms,tpspace,assem,trial,test,domains,order)
 end
 
 function TransientLinearParamFEOperator(res::Function,forms::Tuple{Vararg{Function}},tpspace,trial,test,trians...;kwargs...)

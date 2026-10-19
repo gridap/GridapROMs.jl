@@ -16,13 +16,12 @@ reduced-basis and tensor-product machinery.  Main components:
 
 - **Sparsity patterns** (`SparsityPatterns.jl`) — `SparsityCSC` and
   `TProductSparsity` represent the non-zero structure of FE matrices and their
-  tensor-product counterparts.  `get_sparsity` / `get_common_sparsity` extract
+  tensor-product counterparts.  `get_sparsity` / extract
   patterns from assembled FE operators.
 
 - **DOF-map interface** (`DofMapsInterface.jl`) — `AbstractDofMap` hierarchy:
   `TrivialDofMap`, `InverseDofMap`, `VectorDofMap`, `TrivialSparseMatrixDofMap`,
-  `SparseMatrixDofMap`.  Core operations: `invert`, `vectorize`, `flatten`,
-  `change_dof_map`.
+  `SparseMatrixDofMap`.  Core operations: `invert`, `vectorize`, `flatten`.
 
 - **DOF-map builders** (`DofMapsBuilders.jl`) — high-level constructors that
   extract DOF maps from Gridap FE spaces and embedded meshes:
@@ -86,7 +85,6 @@ export SparsityPattern
 export SparsityCSC
 export TProductSparsity
 export get_sparsity
-export get_common_sparsity
 export get_dof_eltype
 include("SparsityPatterns.jl")
 
@@ -100,7 +98,6 @@ export SparseMatrixDofMap
 export invert
 export vectorize
 export flatten
-export change_dof_map
 include("DofMapsInterface.jl")
 
 export get_dof_map

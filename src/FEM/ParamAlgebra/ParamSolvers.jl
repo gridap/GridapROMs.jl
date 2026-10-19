@@ -64,7 +64,8 @@ function Algebra.solve!(
   fill!(x,zero(eltype(x)))
   @unpack A,b = cache
   jacobian!(A,op,x)
-  linear_residual!(b,op,x)
+  residual!(b,op,x)
+  rmul!(b,-1)
   solve!(x,ls,A,b)
   cache
 end
@@ -79,7 +80,8 @@ function Algebra.solve!(
   fill!(x,zero(eltype(x)))
   @unpack A,b,ns = cache
   jacobian!(A,op,x)
-  linear_residual!(b,op,x)
+  residual!(b,op,x)
+  rmul!(b,-1)
   solve!(x,ns,A,b)
   cache
 end

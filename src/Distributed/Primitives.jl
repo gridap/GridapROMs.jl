@@ -332,7 +332,7 @@ for T in (:AbstractMatrix,:ConsecutiveParamVector,:ParamJaggedArray)
   end
 end
 
-for T in (:AbstractArray,:ConsecutiveParamVector)
+for T in (:AbstractArray,:ConsecutiveParamArray)
   @eval begin
     function PartitionedArrays.reduction!(op,b::MPIArray,a::MPIArray{<:$T{<:Number}};destination=PartitionedArrays.MAIN,init=nothing)
       @assert a.comm === b.comm
@@ -379,7 +379,7 @@ nzreduce(a) = reduce((x,y) -> ifelse.(iszero.(x),y,x),a)
 # utils
 
 _data(a::AbstractArray{<:Number}) = a
-_data(a::ConsecutiveParamVector) = get_all_data(a)
+_data(a::ConsecutiveParamArray) = get_all_data(a)
 _data(a::ParamJaggedArray) = a.data
 
 _param_eachindex(a) = 1:_get_plength(a)

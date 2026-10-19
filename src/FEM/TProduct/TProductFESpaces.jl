@@ -182,25 +182,27 @@ end
 
 function DofMaps.get_dof_map(V::TProductFESpace)
   T = get_dof_eltype(V)
-  dof_map = get_dof_map(V.space)
-  get_tp_dof_map(T,V.spaces_1d,dof_map)
+  s = map(num_free_dofs,V.spaces_1d)
+  inds = _get_indices(T,s)
+  VectorDofMap(inds)
 end
 
 function DofMaps.get_dof_map(V::TProductFESpace,args...)
   T = get_dof_eltype(V)
-  dof_map = get_dof_map(V.space,args...)
-  get_tp_dof_map(T,V.spaces_1d,dof_map)
+  s = map(num_free_dofs,V.spaces_1d)
+  inds = _get_indices(T,s)
+  VectorDofMap(inds)
 end
 
-function get_tp_dof_map(::Type{T},spaces_1d,dof_map) where T
-  nnodes_1d = map(num_free_dofs,spaces_1d)
-  reshape(dof_map,nnodes_1d...)
+function _get_indices(::Type{T},s) where T
+  LinearIndices(Tuple(s))
 end
 
-function get_tp_dof_map(::Type{T},spaces_1d,dof_map) where T<:MultiValue
-  nnodes_1d = map(num_free_dofs,spaces_1d)
-  ncomps = Int(length(dof_map)/prod(nnodes_1d))
-  reshape(dof_map,nnodes_1d...,ncomps)
+function _get_indices(::Type{T},s) where T<:MultiValue
+  D = num_components(T)
+  inds = LinearIndices((D,s...))
+  perm = circshift(1:length(s)+1,-1)
+  permutedims(inds,perm)
 end
 
 for F in (:get_bg_dof_to_dof,:get_dof_to_bg_dof)

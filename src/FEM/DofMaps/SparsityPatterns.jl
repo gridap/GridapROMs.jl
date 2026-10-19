@@ -63,11 +63,6 @@ function sparsify_split_indices(A::AbstractArray,B::AbstractArray,a::SparsityPat
   sparsify_split_indices(A,B,get_background_matrix(a))
 end
 
-function get_common_sparsity(a::SparsityPattern...)
-  common_matrix = get_common_sparsity(map(get_background_matrix,a)...)
-  SparsityPattern(common_matrix)
-end
-
 """
     struct SparsityCSC{Tv,Ti} <: SparsityPattern
       matrix::SparseMatrixCSC{Tv,Ti}
@@ -198,8 +193,8 @@ function _multivalue_d_sparse_dofs_to_full_dofs(
   dsd2fd = zeros(Int,nnz_sizes...,ncomps)
 
   for k in eachindex(I)
-    I_node,I_comp = _fast_and_slow_index(I[k],nrows_no_comps)
-    J_node,J_comp = _fast_and_slow_index(J[k],ncols_no_comps)
+    I_comp,I_node = _fast_and_slow_index(I[k],nrows_no_comps)
+    J_comp,J_node = _fast_and_slow_index(J[k],ncols_no_comps)
     comp = I_comp+(J_comp-1)*ncomps_row
     rows_1d = _index_to_d_indices(I_node,rows_no_comps)
     cols_1d = _index_to_d_indices(J_node,cols_no_comps)
@@ -211,16 +206,6 @@ function _multivalue_d_sparse_dofs_to_full_dofs(
 end
 
 # utils
-
-function get_common_sparsity(a::AbstractSparseMatrix...)
-  for ai in a
-    nzi = nonzeros(ai)
-    fill!(nzi,one(eltype(ai)))
-  end
-  b = sum(a)
-  fill!(b,zero(eltype(b)))
-  return b
-end
 
 """
     get_dof_eltype(f::FESpace) -> Type

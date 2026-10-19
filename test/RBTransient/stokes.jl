@@ -31,6 +31,8 @@ function main(
   a(μ,t) = x -> μ[1]*exp(sin(t))
   aμt(μ,t) = parameterise(a,μ,t)
 
+  f(x) = VectorValue(0.0,0.0)
+
   g(μ,t) = x -> VectorValue(-(μ[2]*x[2]+μ[3])*x[2]*(1.0-x[2])*t,0.0)*(x[1]==0.0)
   gμt(μ,t) = parameterise(g,μ,t)
 
@@ -41,7 +43,7 @@ function main(
 
   stiffness(μ,t,(u,p),(v,q)) = ∫(aμt(μ,t)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
   mass(μ,t,(uₜ,pₜ),(v,q)) = ∫(v⋅uₜ)dΩ
-  rhs(μ,t,(u,p),(v,q)) = ∫(v⋅f)dΩ
+  rhs(μ,t,(v,q)) = ∫(v⋅f)dΩ
 
   trian_rhs = (Ω,)
   trian_stiffness = (Ω,)

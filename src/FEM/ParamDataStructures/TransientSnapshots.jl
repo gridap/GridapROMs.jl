@@ -77,10 +77,6 @@ function param_cat(v::AbstractVector{<:TransientSnapshotsWithIC})
   param_cat(map(s -> s.snaps,v))
 end
 
-function change_dof_map(s::TransientSnapshotsWithIC,i)
-  TransientSnapshotsWithIC(s.initial_param_data,change_dof_map(s.snaps,i))
-end
-
 const TransientGenericSnapshots{T,N,I,R<:TransientRealisation,A,B} = GenericSnapshots{T,N,I,R,A,B}
 
 function select_snapshots(s::TransientGenericSnapshots,pindex)
@@ -188,14 +184,6 @@ end
 
 function select_times(a::ArrayContributionTuple,tindex)
   map(ai->select_times(ai,tindex),a)
-end
-
-function change_dof_map(a::ArrayContributionTuple,i::ArrayContributionTuple)
-  a′ = ()
-  for j in eachindex(a)
-    a′ = (a′...,change_dof_map(a[j],i[j]))
-  end
-  return a′
 end
 
 function change_mode(a::AbstractMatrix,np::Integer)

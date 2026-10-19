@@ -306,6 +306,8 @@ struct TransientParamSpace{P<:ParamSpace,T} <: AbstractSet{TransientRealisation}
   temporal_domain::T
 end
 
+get_sampling_style(p::TransientParamSpace) = get_sampling_style(p.parametric_space)
+
 function TransientParamSpace(
   param_domain::Union{Tuple,AbstractVector},
   temporal_domain::AbstractVector{<:Real},

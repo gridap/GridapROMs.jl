@@ -67,14 +67,6 @@ function FESpaces.gather_free_and_dirichlet_values(f::SingleFieldParamFESpace,cv
   gather_free_and_dirichlet_values!(fv,dv,f,cv)
 end
 
-function DofMaps.get_dof_map(f::SingleFieldParamFESpace)
-  get_dof_map(get_fe_space(f))
-end
-
-function DofMaps.get_sparsity(f::SingleFieldParamFESpace,g::SingleFieldFESpace)
-  get_sparsity(get_fe_space(f),g)
-end
-
 get_dirichlet_cells(f::SingleFieldParamFESpace) = get_dirichlet_cells(get_fe_space(f))
 
 # These functions allow us to use global ParamArrays

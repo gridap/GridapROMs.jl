@@ -49,7 +49,7 @@ function local_vals(a::BlockHRProjection)
   litems = map(local_vals,a.array)
   nlitems = length(first(litems))
   map(1:nlitems) do i
-    BlockHRProjection(getindex.(litems,i))
+    BlockHRProjection(map(x -> getindex(x,i),litems))
   end
 end
 

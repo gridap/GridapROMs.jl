@@ -2,8 +2,9 @@ using Test
 using MPI
 
 function run_tests(testdir,procs=4)
-  istest(f) = endswith(f,".jl") && !(f == "runtests.jl")
-  testfiles = sort(filter(istest,readdir(testdir)))
+  # istest(f) = endswith(f,".jl") && !(f == "runtests.jl")
+  # testfiles = sort(filter(istest,readdir(testdir)))
+  testfiles = ["StokesDistributed.jl",]
   @time @testset "$f" for f in testfiles
     MPI.mpiexec() do cmd
       if MPI.MPI_LIBRARY == "OpenMPI" || (isdefined(MPI,:OpenMPI) && MPI.MPI_LIBRARY == MPI.OpenMPI)

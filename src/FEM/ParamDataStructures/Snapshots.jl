@@ -72,12 +72,6 @@ function flatten(s::Snapshots)
   reshape(d,:,num_params(s))
 end
 
-function change_dof_map(s::Snapshots,i)
-  pdata = get_param_data(s)
-  r = get_realisation(s)
-  Snapshots(pdata,i,r)
-end
-
 function param_cat(v::AbstractVector{<:Snapshots})
   data = param_cat(map(get_param_data,v))
   i = get_dof_map(first(v))
@@ -244,11 +238,6 @@ function param_cat(v::AbstractVector{<:BlockSnapshots{<:Any,N}}) where N
   return BlockSnapshots(collect(array))
 end
 
-function change_dof_map(s::BlockSnapshots{<:Any,N},i::AbstractArray{<:Any,N}) where N
-  array = map(change_dof_map,blocks(s),i)
-  return BlockSnapshots(array)
-end
-
 # utils
 
 function Snapshots(a::ArrayContribution,i::ArrayContribution,r::AbstractRealisation)
@@ -265,14 +254,6 @@ end
 
 function select_snapshots(a::Bundle,pindex)
   Bundle(select_snapshots(a.linear,pindex),select_snapshots(a.nonlinear,pindex))
-end
-
-function change_dof_map(a::ArrayContribution,i::ArrayContribution)
-  a′ = ()
-  for j in eachindex(a)
-    a′ = (a′...,change_dof_map(a[j],i[j]))
-  end
-  return Contribution(a′,a.trians)
 end
 
 function select_all_data(data::AbstractArray{T,N},prange) where {T,N}
