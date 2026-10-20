@@ -206,7 +206,9 @@ function blockify(b::PVector,i::BlockPVectorDofMap)
     ntuple(k -> get_param_entry(b′,offsets[k]+1:offsets[k+1]),nfields)
   end
   map(1:nfields) do k
-    PVector(values[k],partition(i[k].rows_space))
+    values_k = map(v -> v[k],values)
+    indices_k = partition(i[k].rows_space)
+    PVector(values_k,indices_k)
   end |> mortar
 end
 

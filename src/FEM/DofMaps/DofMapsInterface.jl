@@ -127,7 +127,7 @@ Base.size(i::VectorDofMap) = size(i.indices)
 Base.getindex(i::VectorDofMap,j::Integer) = getindex(i.indices,j)
 Base.setindex!(i::VectorDofMap,v,j::Integer) = setindex!(i.indices,v,j)
 
-flatten(i::VectorDofMap) = VectorDofMap((prod(i.size),),i.bg_dof_to_act_dof)
+flatten(i::VectorDofMap) = VectorDofMap(vec(i.indices))
 
 """
     abstract type AbstractSparseDofMap{D,Ti} <: AbstractDofMap{D,Ti} end

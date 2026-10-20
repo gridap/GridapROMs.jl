@@ -553,10 +553,19 @@ end
 for T in (:GenericPArray,:DistributedSnapshots)
   @eval begin
     function Utils.induced_norm(a::$T,norm_matrix::AbstractMatrix)
-      values = map(local_values(a)) do a
-        reshape(a,size(a,1),:)
+      # size(al,1) can be 0 on ranks that own none of this field's dofs (e.g. a
+      # small boundary field under a partition where some ranks own nothing);
+      # reshape(al,size(al,1),:) can't infer the column count from 0 rows and
+      # silently collapses it to 0, losing the param dimension globally once
+      # GenericPArray infers its (replicated) column count from an arbitrary
+      # rank. Get the true (replicated) column count via a proper distributed
+      # max over ranks instead of local shape inference.
+      np = reduce(max,map(al -> size(al,1) == 0 ? 0 : div(length(al),size(al,1)),local_values(a)))
+      values = map(local_values(a)) do al
+        reshape(al,size(al,1),np)
       end
-      a′ = change_ghost(GenericPArray(values,row_partition(a)),axes(norm_matrix,1))
+      a0 = GenericPArray(values,row_partition(a))
+      a′ = change_ghost(a0,axes(norm_matrix,1))
       sqrtabs(mean(diag(a′'*(norm_matrix*a′))))
     end
   end

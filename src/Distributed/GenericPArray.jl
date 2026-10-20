@@ -442,13 +442,18 @@ function LinearAlgebra.mul!(
 
   cd = get_all_data(c)
   bd = get_all_data(b)
+  N = ndims(cd)
   if β != 1
     β != 0 ? rmul!(cd,β) : fill!(cd,zero(eltype(cd)))
   end
-  map(own_values(a),partition(axes(a,1))) do ao,rows
+  lc = map(own_values(a),partition(axes(a,1))) do ao,rows
     o2g = own_to_global(rows)
-    @views cd[o2g,:] .+= α .* (ao*bd)
+    lc = zeros(eltype(cd),size(cd))
+    cache = view(lc,o2g,_ncolons(Val{N-1}())...)
+    mul!(cache,ao,bd,α,0)
+    lc
   end
+  cd .+= sreduce(lc)
   c
 end
 

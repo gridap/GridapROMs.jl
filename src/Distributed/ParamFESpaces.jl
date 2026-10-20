@@ -198,6 +198,10 @@ function FESpaces.zero_dirichlet_values(f::DistributedMultiFieldParamFESpace)
   map(zero_dirichlet_values,f.field_fe_space)
 end
 
+function FESpaces.get_dof_value_type(f::DistributedFESpace)
+  get_dof_value_type(getany(local_views(f)))
+end
+
 function GridapDistributed.DistributedMultiFieldFEFunction(
   field_fe_fun::AbstractVector{<:GridapDistributed.DistributedSingleFieldFEFunction},
   part_fe_fun::AbstractArray{<:MultiFieldParamFEFunction},

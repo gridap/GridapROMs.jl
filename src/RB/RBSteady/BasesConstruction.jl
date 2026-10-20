@@ -119,6 +119,25 @@ function method_of_snapshots_col(red_style::ReductionStyle,A::AbstractMatrix)
 end
 
 function method_of_snapshots_col(red_style::ReductionStyle,A::AbstractMatrix,X::AbstractMatrix)
+  if get(ENV,"GRIDAPROMS_DEBUG_PART","0") == "1"
+    try
+      open("/tmp/debug_part_pid$(getpid()).txt","a") do io
+        pa = Main.GridapROMs.Distributed.flat_row_partition(A)
+        px = Main.GridapROMs.Distributed.row_partition(X)
+        la = Main.GridapROMs.Distributed.PartitionedArrays.getany(map(Main.GridapROMs.Distributed.PartitionedArrays.local_length,pa))
+        lx = Main.GridapROMs.Distributed.PartitionedArrays.getany(map(Main.GridapROMs.Distributed.PartitionedArrays.local_length,px))
+        oa = Main.GridapROMs.Distributed.PartitionedArrays.getany(map(Main.GridapROMs.Distributed.PartitionedArrays.own_length,pa))
+        ox = Main.GridapROMs.Distributed.PartitionedArrays.getany(map(Main.GridapROMs.Distributed.PartitionedArrays.own_length,px))
+        println(io,"size(A)=",size(A)," size(X)=",size(X)," local_length(A_part)=",la," local_length(X_part)=",lx," own_length(A_part)=",oa," own_length(X_part)=",ox)
+        flush(io)
+      end
+    catch e
+      open("/tmp/debug_part_pid$(getpid()).txt","a") do io
+        println(io,"ERR: ",e)
+        flush(io)
+      end
+    end
+  end
   _method_of_snapshots_col(red_style,A,A'*(X*A))
 end
 

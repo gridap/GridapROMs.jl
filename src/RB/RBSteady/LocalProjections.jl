@@ -58,7 +58,7 @@ function local_vals(a::BlockProjection)
   litems = map(local_vals,a.array)
   nlitems = length(first(litems))
   map(1:nlitems) do i
-    BlockProjection(getindex.(litems,i))
+    BlockProjection(map(x -> getindex(x,i),litems))
   end
 end
 
@@ -307,11 +307,6 @@ end
 
 function _cluster(s::AbstractSnapshots,inds::AbstractVector)
   select_snapshots(s,inds)
-end
-
-function _cluster(s::BlockSnapshots,inds::AbstractVector)
-  array = map(sj -> _cluster(sj,inds),blocks(s))
-  return BlockSnapshots(array)
 end
 
 function _cluster(a::ConsecutiveParamArray{T,N},inds::AbstractVector) where {T,N}

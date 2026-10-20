@@ -181,8 +181,6 @@ function _multivalue_d_sparse_dofs_to_full_dofs(
   nnz_sizes = univariate_nnz(a)
   rows_no_comps = univariate_num_rows(a)
   cols_no_comps = univariate_num_cols(a)
-  nrows_no_comps = prod(rows_no_comps)
-  ncols_no_comps = prod(cols_no_comps)
   ncomps = ncomps_row*ncomps_col
 
   i,j, = univariate_findnz(a)
@@ -193,8 +191,8 @@ function _multivalue_d_sparse_dofs_to_full_dofs(
   dsd2fd = zeros(Int,nnz_sizes...,ncomps)
 
   for k in eachindex(I)
-    I_comp,I_node = _fast_and_slow_index(I[k],nrows_no_comps)
-    J_comp,J_node = _fast_and_slow_index(J[k],ncols_no_comps)
+    I_comp,I_node = _fast_and_slow_index(I[k],ncomps_row)
+    J_comp,J_node = _fast_and_slow_index(J[k],ncomps_col)
     comp = I_comp+(J_comp-1)*ncomps_row
     rows_1d = _index_to_d_indices(I_node,rows_no_comps)
     cols_1d = _index_to_d_indices(J_node,cols_no_comps)
