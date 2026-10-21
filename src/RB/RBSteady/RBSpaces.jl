@@ -136,7 +136,8 @@ DofMaps.get_sparse_dof_map(r1::RBSpace,r2::RBSpace,args...) = get_sparse_dof_map
 ParamDataStructures.param_length(r::RBSpace) = param_length(get_fe_space(r))
 
 function FESpaces.zero_free_values(r::RBSpace)
-  x = zero_free_values(get_fe_space(r))
+  f = get_fe_space(r)
+  x = zero_free_values(f)
   x̂ = project(r,x)
   RBParamVector(x̂,x)
 end

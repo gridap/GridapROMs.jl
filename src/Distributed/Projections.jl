@@ -115,19 +115,24 @@ end
 
 RBTransient.fe_space_dof_ids(a::DistributedKroneckerProjection) = axes(get_basis_space(a),1)
 
+# formula: Ps' * X * ( data[:,:,ip] * Pt ) for ip = 1...Nμ
 function RBSteady.project!(
   x̂::ConsecutiveParamVector,
   a::TransientProjection,
-  x::PVector{<:ConsecutiveParamVector}
+  x::PVector
   )
 
-  lx̂ = map(local_values(x),local_views(a)) do x,ap
-    ŷ = similar(x̂)
-    project!(ŷ,ap,x)
-    ŷ
-  end
-  copyto!(x̂,sreduce(lx̂))
-  x̂
+  nt = num_times(a)
+  np = param_length(x̂)
+  @check Int(param_length(x) / np) == nt
+
+  tmp1 = get_basis_space(a)' * (get_norm_matrix(a) * x) # ns x Np*Nt
+  ns = innerlength(tmp1)
+  tmp2 = change_mode(get_all_data(tmp1),np) # Nt x ns*Np
+  tmp3 = get_basis_time(a) * tmp2 # nt x ns*Np
+  tmp4 = reshape(tmp3,size(tmp3,1),ns,np) # nt x ns x Np
+  tmp5 = permutedims(tmp4,(2,1,3)) # ns x nt x Np
+  copyto!(get_all_data(x̂),reshape(tmp5,:,np))
 end
 
 function RBSteady.inv_project!(
@@ -136,8 +141,8 @@ function RBSteady.inv_project!(
   x̂::ConsecutiveParamVector
   )
 
-  map(local_values(x),local_views(a)) do x,ap
-    inv_project!(x,ap,x̂)
+  map(local_values(x),local_views(a)) do x,a
+    inv_project!(x,a,x̂)
   end
   x
 end

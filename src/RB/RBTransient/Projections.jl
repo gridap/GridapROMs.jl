@@ -37,8 +37,8 @@ function RBSteady.project!(
   )
 
   nt = num_times(a)
-  @check Int(param_length(x) / param_length(x̂)) == nt
   np = param_length(x̂)
+  @check Int(param_length(x) / np) == nt
   @inbounds for ip in eachindex(x̂)
     ipt = ip:np:np*nt
     xpt = vec(view(x.data,:,ipt))
@@ -54,8 +54,8 @@ function RBSteady.inv_project!(
   )
 
   nt = num_times(a)
-  @check Int(param_length(x) / param_length(x̂)) == nt
   np = param_length(x̂)
+  @check Int(param_length(x) / np) == nt
   @inbounds for ip in eachindex(x̂)
     ipt = ip:np:np*nt
     xpt = vec(view(x.data,:,ipt))
