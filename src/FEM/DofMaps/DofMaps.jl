@@ -75,10 +75,12 @@ export get_group_to_labels
 export get_group_to_ilabels
 include("IndexOperations.jl")
 
-export Range2D
 export Range1D
+export Range2D
 export range_1d
 export range_2d
+export shuffled_range_1d
+export shuffled_range_2d
 include("Ranges.jl")
 
 export SparsityPattern

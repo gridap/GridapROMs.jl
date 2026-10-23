@@ -352,16 +352,14 @@ abstract type AbstractParamFunction{P<:Realisation} <: Function end
 param_length(f::AbstractParamFunction) = length(f)
 param_getindex(f::AbstractParamFunction,i::Integer) = getindex(f,i)
 Arrays.testitem(f::AbstractParamFunction) = param_getindex(f,1)
-Arrays.evaluate!(cache,f::AbstractParamFunction,x) = pteval(f,x)
 Arrays.evaluate!(cache,f::AbstractParamFunction,x::CellPoint) = CellField(f,get_triangulation(x))(x)
 (f::AbstractParamFunction)(x) = evaluate(f,x)
 
 function Arrays.return_cache(f::AbstractParamFunction,x)
-  v = return_value(f,x)
-  V = eltype(v)
+  V = return_type(testitem(f),x)
   plength = param_length(f)
   cache = Vector{V}(undef,plength)
-  return cache
+  return GenericParamBlock(cache)
 end
 
 (-)(f::AbstractParamFunction) = (-1) * f
@@ -439,16 +437,12 @@ for op in (:gradient,:symmetric_gradient,:divergence,:curl,:laplacian)
 end
 
 # when iterating over a ParamFunction{P}, we return return f(eltype(P)) ∀ index i
-function pteval(f::ParamFunction,x)
-  T = return_type(f,x)
-  v = Vector{T}(undef,length(f))
+function Arrays.evaluate!(cache,f::ParamFunction,x)
   @inbounds for (i,μ) in enumerate(get_params(f))
-    v[i] = f.fun(μ)(x)
+    cache.data[i] = f.fun(μ)(x)
   end
-  return v
+  cache
 end
-
-Arrays.return_value(f::ParamFunction,x) = f.fun(testitem(_get_params(f)))(x)
 
 """
     struct TransientParamFunction{F,P,T} <: AbstractParamFunction{P}
@@ -528,17 +522,13 @@ for op in (:gradient,:symmetric_gradient,:divergence,:curl,:laplacian)
   end
 end
 
-function pteval(f::TransientParamFunction,x)
+function Arrays.evaluate!(cache,f::TransientParamFunction,x)
   iterator = Iterators.product(_get_params(f),get_times(f))
-  T = return_type(f,x)
-  v = Vector{T}(undef,length(f))
   @inbounds for (i,(μ,t)) in enumerate(iterator)
-    v[i] = f.fun(μ,t)(x)
+    cache.data[i] = f.fun(μ,t)(x)
   end
-  return v
+  cache
 end
-
-Arrays.return_value(f::TransientParamFunction,x) = f.fun(testitem(_get_params(f)),testitem(get_times(f)))(x)
 
 # trivial param functions 
 

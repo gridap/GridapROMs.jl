@@ -60,6 +60,7 @@ FESpaces.get_dirichlet_dof_ids(f::UnEvalTrialFESpace) = get_dirichlet_dof_ids(f.
 FESpaces.num_dirichlet_tags(f::UnEvalTrialFESpace) = num_dirichlet_tags(f.space)
 FESpaces.get_dirichlet_dof_tag(f::UnEvalTrialFESpace) = get_dirichlet_dof_tag(f.space)
 FESpaces.get_dof_value_type(f::UnEvalTrialFESpace) = get_dof_value_type(f.space)
+
 function FESpaces.scatter_free_and_dirichlet_values(
   f::UnEvalTrialFESpace,
   free_values,
@@ -68,6 +69,7 @@ function FESpaces.scatter_free_and_dirichlet_values(
 
   scatter_free_and_dirichlet_values(f.space,free_values,dirichlet_values)
 end
+
 function FESpaces.gather_free_and_dirichlet_values!(
   free_values,
   dirichlet_values,

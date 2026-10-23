@@ -115,24 +115,28 @@ end
 
 RBTransient.fe_space_dof_ids(a::DistributedKroneckerProjection) = axes(get_basis_space(a),1)
 
-# formula: Ps' * X * ( data[:,:,ip] * Pt ) for ip = 1...Nμ
 function RBSteady.project!(
   x̂::ConsecutiveParamVector,
-  a::TransientProjection,
+  a::DistributedKroneckerProjection,
   x::PVector
   )
 
-  nt = num_times(a)
-  np = param_length(x̂)
-  @check Int(param_length(x) / np) == nt
+  Nt = num_times(a)
+  Np = param_length(x̂)
+  ns = num_reduced_dofs(a.projection_space)
+  nt = num_reduced_dofs(a.projection_time)
+  @check Int(param_length(x) / Np) == Nt
 
-  tmp1 = get_basis_space(a)' * (get_norm_matrix(a) * x) # ns x Np*Nt
-  ns = innerlength(tmp1)
-  tmp2 = change_mode(get_all_data(tmp1),np) # Nt x ns*Np
-  tmp3 = get_basis_time(a) * tmp2 # nt x ns*Np
-  tmp4 = reshape(tmp3,size(tmp3,1),ns,np) # nt x ns x Np
-  tmp5 = permutedims(tmp4,(2,1,3)) # ns x nt x Np
-  copyto!(get_all_data(x̂),reshape(tmp5,:,np))
+  x̂s = project(a.projection_space,x)
+  X̂s = change_mode(get_all_data(x̂s),Np)
+  @inbounds @views for ip in param_eachindex(x̂)
+    isp = (ip-1)*ns + 1 : ip*ns
+    X̂sp = X̂s[:,isp]
+    x̂p = reshape(x̂.data[:,ip],ns,nt)
+    mul!(transpose(x̂p),get_basis_time(a),X̂sp)
+  end
+
+  x̂
 end
 
 function RBSteady.inv_project!(
