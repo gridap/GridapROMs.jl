@@ -58,14 +58,12 @@ function Base.iterate(sol::TransientParamFESolution,state)
   uhf,state
 end
 
-function Base.collect(sol::TransientParamFESolution{V}) where V
-  odesol = sol.odesol
-  ntimes = num_times(odesol.r)
-
-  free_values = Vector{V}(undef,ntimes)
-  for (k,uhk) in enumerate(sol)
-    free_values[k] = copy(get_free_dof_values(uhk))
-  end
-
-  return free_values,odesol.tracker
+function Algebra.solve(
+  solver::ODESolver,
+  op::TransientParamFEOperator,
+  r::TransientRealisation,
+  u0
+  )
+  
+  TransientParamFESolution(solver,op,r,u0)
 end
