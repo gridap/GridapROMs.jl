@@ -3,7 +3,29 @@ function LexicographicFESpace(args...;kwargs...)
 end
 
 function LexicographicFESpace(f::FESpace)
-  reindex_free_dof_ids(f,:coordinates;by=p->Tuple(p)[end:-1:1])
+  coords = get_free_dof_coordinates(f)
+  comps = get_free_dof_components(f)
+  by(i) = (comps[i],Tuple(coords[i])[end:-1:1])
+  perm = invperm(sortperm(1:length(coords);by=by))
+  reindex_free_dof_ids(f,perm)
+end
+
+"""
+    get_free_dof_components(f::SingleFieldFESpace) -> Vector{Int}
+
+Returns, for every free dof of `f`, the component it is associated to (always
+1 for scalar-valued spaces). Mirrors Gridap's own (private)
+`get_free_and_dirichlet_dof_coordinates`, gathering `get_dof_to_comp` instead
+of physical dof coordinates.
+"""
+function get_free_dof_components(f::SingleFieldFESpace)
+  cell_dof_basis = get_fe_dof_basis(f)
+  cell_dof_bases = get_data(cell_dof_basis)
+  cell_dof_to_comp = lazy_map(get_dof_to_comp,cell_dof_bases)
+  free_comps = zeros(Int,num_free_dofs(f))
+  dir_comps = zeros(Int,num_dirichlet_dofs(f))
+  gather_free_and_dirichlet_values!(free_comps,dir_comps,f,cell_dof_to_comp)
+  free_comps
 end
 
 """
@@ -194,16 +216,8 @@ function DofMaps.get_dof_map(V::TProductFESpace,args...)
   VectorDofMap(inds)
 end
 
-function _get_indices(::Type{T},s) where T
-  LinearIndices(Tuple(s))
-end
-
-function _get_indices(::Type{T},s) where T<:MultiValue
-  D = num_components(T)
-  inds = LinearIndices((D,s...))
-  perm = circshift(1:length(s)+1,-1)
-  permutedims(inds,perm)
-end
+_get_indices(::Type{T},s) where T = LinearIndices(Tuple(s))
+_get_indices(::Type{T},s) where T<:MultiValue = LinearIndices((s...,num_components(T)))
 
 for F in (:get_bg_dof_to_dof,:get_dof_to_bg_dof)
   for T in (:SingleFieldFESpace,:FESpaceWithLinearConstraints)

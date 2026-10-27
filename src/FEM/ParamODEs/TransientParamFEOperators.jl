@@ -190,7 +190,7 @@ end
 function ODEs.get_jacs(op::TransientParamFEOpFromWeakForm{LinearNonlinearParamODE})
   jac_lin = get_jacs(get_linear_part(op))
   jac_nlin = get_jacs(get_nonlinear_part(op))
-  ntuple(k -> (μ,t,u,du,v) -> jac_lin[k](μ,t,du,v) + jac_nlin[k](μ,t,du,v),op.order+1)
+  ntuple(k -> Bundle(jac_lin[k],jac_nlin[k]),op.order+1)
 end
 
 ODEs.get_assembler(op::TransientParamFEOpFromWeakForm) = op.assem

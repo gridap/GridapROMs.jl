@@ -142,7 +142,7 @@ end
 
 function GridapROMs.run_test(
   dir::String,rbsolver::RBSolver,feop::ParamOperator,tolranks=[1e-1,1e-2,1e-3,1e-4,1e-5],
-  args...;nparams=10,reuse_online=false,sampling=:uniform,kwargs...)
+  args...;nparams=10,sampling=:uniform,kwargs...)
 
   fesnaps = try_loading_fe_snapshots(dir,rbsolver,feop,args...)
   x = try_loading_fe_snapshots(

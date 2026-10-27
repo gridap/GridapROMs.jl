@@ -365,7 +365,7 @@ function RBSteady.solution_snapshots(
   op::TransientROMOperator,
   r::TransientRealisation,
   args...
-  ) where {A,B}
+  ) where {A<:ODESolver,B}
 
   fesolver = get_fe_solver(solver)
   stats = @timed snaps = solution_snapshots(fesolver,op,r,args...)

@@ -119,16 +119,13 @@ function first_unfold(A::AbstractArray{T,N}) where {T,N}
 end
 
 function first_unfold(A::SubArray{T,N}) where {T,N}
-  skeep = size(A,1)
   scale = prod(size(A)[2:N-1])
   iview = A.indices[end]
   rview = range_1d(1:scale,iview,scale)
-  # reshape(A.parent,skeep,:) can't infer the column count when skeep==0
-  # (length(A.parent) is then also 0, so the ':' dimension is ambiguous and
-  # silently collapses to 0 instead of the intended column count); compute it
-  # directly from the parent's own shape instead, which needs no division.
+  rowrange = A.indices[1]
+  parent_rows = size(A.parent,1)
   ncols = prod(size(A.parent)[2:end])
-  view(reshape(A.parent,skeep,ncols),:,rview)
+  view(reshape(A.parent,parent_rows,ncols),rowrange,rview)
 end
 
 function first_unfold(A::Snapshots)

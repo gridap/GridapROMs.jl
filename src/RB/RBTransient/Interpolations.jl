@@ -141,11 +141,12 @@ function get_at_kron_domain(
   )
 
   data = flatten(s)
-  datav = zeros(eltype(s),length(rows)*length(indices_time),num_params(s))
+  inds = RBSteady.get_inds_at_domain(s,rows)
+  datav = zeros(eltype(s),length(inds)*length(indices_time),num_params(s))
   for (j,itime) in enumerate(indices_time)
-    for (i,row) in enumerate(rows)
+    for (i,id) in enumerate(inds)
       for k in 1:num_params(s)
-        datav[(j-1)*length(rows)+i,k] = data[row,k,itime]
+        datav[(j-1)*length(inds)+i,k] = data[id,k,itime]
       end
     end
   end
@@ -160,9 +161,10 @@ function get_at_seq_domain(
 
   @check length(rows) == length(indices_time)
   data = flatten(s)
-  datav = zeros(eltype(s),length(rows),num_params(s))
+  inds = RBSteady.get_inds_at_domain(s,rows)
+  datav = zeros(eltype(s),length(inds),num_params(s))
   for i in CartesianIndices(datav)
-    datav[i] = data[rows[i.I[1]],i.I[2],indices_time[i.I[1]]]
+    datav[i] = data[inds[i.I[1]],i.I[2],indices_time[i.I[1]]]
   end
   ConsecutiveParamArray(datav)
 end

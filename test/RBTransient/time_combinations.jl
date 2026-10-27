@@ -730,7 +730,7 @@ end
 
   for (fesolver,ic) in zip(fesolvers,ics)
     sol    = solve(fesolver,feop,r,ic)
-    vals,_  = collect(sol)
+    vals   = collect(sol)
     initial_vals = initial_conditions(sol)
     i      = get_dof_map(feop)
     snaps  = Snapshots(vals,initial_vals,i,r)
@@ -810,7 +810,7 @@ end
   feop,r,uh0μ,vh0μ,ah0μ = _wave_eq_setup(;nparams=2)
 
   sol          = solve(fesolver,feop,r,(uh0μ,vh0μ,ah0μ))
-  vals,_       = collect(sol)
+  vals         = collect(sol)
   initial_vals = initial_conditions(sol)
   i            = get_dof_map(feop)
   snaps        = Snapshots(vals,initial_vals,i,r)

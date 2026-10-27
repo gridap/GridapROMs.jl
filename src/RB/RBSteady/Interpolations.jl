@@ -192,7 +192,8 @@ end
 
 function get_at_domain(s::Snapshots,rows::AbstractVector)
   data = flatten(s)
-  get_at_domain(data,rows)
+  inds = get_inds_at_domain(s,rows)
+  get_at_domain(data,inds)
 end
 
 function get_at_domain(s::SparseSnapshots,rowscols::Tuple)
@@ -205,6 +206,16 @@ end
 function get_at_domain(data::AbstractArray,rows::AbstractVector)
   datav = view(data,rows,:)
   ConsecutiveParamArray(datav)
+end
+
+get_inds_at_domain(s,rows) = _inds_at_domain(get_dof_map(s),rows)
+get_inds_at_domain(s::SparseSnapshots,rows) = rows
+
+_inds_at_domain(dof_map::TrivialDofMap,rows) = rows
+
+function _inds_at_domain(dof_map::AbstractDofMap,rows)
+  vals = vec(dof_map)
+  map(row -> findfirst(==(row),vals),rows)
 end
 
 # multi field

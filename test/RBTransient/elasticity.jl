@@ -46,7 +46,7 @@ function main(
 
   stiffness(μ,t,u,v) = ∫( ε(v) ⊙ (σμt(μ,t)∘ε(u)) )*dΩ
   mass(μ,t,uₜ,v) = ∫(v⋅uₜ)dΩ
-  rhs(μ,t,u,v) = ∫(v⋅hμt(μ,t))dΓn
+  rhs(μ,t,v) = ∫(v⋅hμt(μ,t))dΓn
 
   trian_rhs = (Ω,Γn)
   trian_stiffness = (Ω,)

@@ -335,7 +335,12 @@ Returns a basis in a matrix format from a list of tensor train cores `cores`. Wh
 also supplying the indexing strategy `dof_map`, the result is reindexed accordingly
 """
 function cores2basis(core::AbstractArray{T,3}) where T
-  reshape(core,:,size(core,3))
+  # reshape(core,:,size(core,3)) can't infer the row count when size(core,3)==0
+  # (length(core) is then also 0, so the ':' dimension is ambiguous and silently
+  # collapses to 0 instead of the intended size(core,1)*size(core,2)); compute it
+  # directly from core's own shape instead, which needs no division.
+  nrows = size(core,1)*size(core,2)
+  reshape(core,nrows,size(core,3))
 end
 
 function cores2basis(cores::AbstractArray{T,3}...) where T
