@@ -127,8 +127,8 @@ end
 function RBPerformanceTracker(;verbose=true)
   RBPerformanceTracker(
     verbose,
-    CostTracker(name="full_order"),
-    CostTracker(name="reduced_order"),
+    CostTracker(name="full order"),
+    CostTracker(name="reduced order"),
     OfflineCostTracker(),
     0.0
   )

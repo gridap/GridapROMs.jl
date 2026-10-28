@@ -2,6 +2,8 @@ module SteadyStokesPOD
 
 using DrWatson
 using Gridap
+using Gridap.MultiField
+using GridapEmbedded
 using Serialization
 using Test
 
@@ -58,19 +60,19 @@ gμ(μ) = parameterise(g,μ)
 f(μ) = x -> VectorValue(0.0,0.0)
 fμ(μ) = parameterise(f,μ)
 
-a(μ,(u,p),(v,q),dΩ,dΓ) = (
+a(μ,(u,p),(v,q)) = (
   ∫( νμ(μ)*∇(v)⊙∇(u) - p*(∇⋅(v)) - q*(∇⋅(u)) )dΩ +
   ∫( - v⋅(n_Γ⋅∇(u))*νμ(μ) + (n_Γ⋅∇(v))⋅u*νμ(μ) + (p*n_Γ)⋅v + (q*n_Γ)⋅u )dΓ
 )
 
-l(μ,(u,p),(v,q),dΩ) = ∫( νμ(μ)*∇(v)⊙∇(u) - p*(∇⋅(v)) - q*(∇⋅(u)) )dΩ
+l(μ,(v,q)) = ∫( v⋅fμ(μ) )dΩ
 
 trian_res = (Ω,)
 trian_jac = (Ω,Γ)
 domains = FEDomains(trian_res,trian_jac)
 
-coupling((du,dp),(v,q)) = ∫(dp*(∇⋅(v)))dΩbg
-energy((du,dp),(v,q)) = ∫(du⋅v)dΩ + ∫(dp*q)dΩ + ∫(∇(v)⊙∇(du))dΩ + ∫((γd/hd)*du⋅v)dΓ
+coupling = DivCoupling()
+energy = BlockNorm((H1(),L2()))
 
 reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
 test_u = TestFESpace(Ωbg,reffe_u;conformity=:H1,dirichlet_tags="dirichlet")

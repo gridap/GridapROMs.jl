@@ -41,11 +41,11 @@ function allocate_diagnostic_residual(
 end
 
 function allocate_diagnostic_residual(
-  op::RBOperator{O,<:NoHRContribution,B},
+  op::RBOperator{O,A,<:NoHRContribution},
   r::Realisation,
   u::AbstractVector,
   paramcache
-  ) where {O,B}
+  ) where {O,A}
 
   rhs = get_rhs(op)
   b0 = allocate_residual(op.op,r,u,paramcache)
@@ -72,7 +72,7 @@ function allocate_diagnostic_jacobian(
 end
 
 function allocate_diagnostic_jacobian(
-  op::RBOperator{O,B,<:NoHRContribution},
+  op::RBOperator{O,<:NoHRContribution,B},
   r::Realisation,
   u::AbstractVector,
   paramcache

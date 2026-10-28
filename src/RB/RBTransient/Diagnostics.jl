@@ -14,14 +14,17 @@ function RBSteady.allocate_diagnostic_residual(
 end
 
 function RBSteady.allocate_diagnostic_residual(
-  op::TransientRBOperator{O,B,<:TransientNoHRContribution},
+  op::TransientRBOperator{O,A,<:TransientNoHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
-  ) where {O,B}
+  ) where {O,A}
 
   rhs = get_rhs(op)
-  b = allocate_residual(op.op,r,us,paramcache)
+  b0 = allocate_residual(op.op,r,us,paramcache)
+  b = contribution(get_domains(rhs)) do trian
+    similar(b0)
+  end
   b̂ = RBSteady.allocate_dcontribution(rhs,r)
   DiagnosticsContribution(b,b̂.coeff,b̂.hypred)
 end
@@ -66,7 +69,12 @@ function RBSteady.allocate_diagnostic_jacobian(
   ) where {O,B}
 
   lhs = get_lhs(op)
-  A = allocate_jacobian(op.op,r,us,paramcache)
+  A0 = allocate_jacobian(op.op,r,us,paramcache)
+  A = map(lhs) do lhsk
+    contribution(get_domains(lhsk)) do trian
+      similar(A0)
+    end
+  end
   Â = RBSteady.allocate_dcontribution(lhs,r)
   DiagnosticsContribution(A,Â.coeff,Â.hypred)
 end

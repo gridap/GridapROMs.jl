@@ -1,0 +1,6 @@
+[deps]
+GridapEmbedded = "8838a6a3-0006-4405-b874-385995508d5d"
+GridapROMs = "9ec1d169-1b02-4ed6-9618-ff21f43ad569"
+
+[sources]
+GridapROMs = {path = "../../.."}

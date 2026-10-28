@@ -35,7 +35,7 @@ end
 
 function select_rank(red_style::SearchSVDRank,S::AbstractVector)
   isempty(S) && return 0
-  tol = red_style.tol
+  tol = max(red_style.tol,1e-6)
   energies = cumsum(S.^2;dims=1)
   E = energies[end]
   iszero(E) && return 0
@@ -50,20 +50,10 @@ function truncated_svd(red_style::ReductionStyle,A::AbstractMatrix;issquare=fals
   U,S,V = svd(A)
   issquare && _root!(S)
   rank = select_rank(red_style,S)
-  rank = min(rank,_numerical_rank(S))
   Ur = _truncate_col!(U,rank)
   Sr = _truncate!(S,rank)
   Vr = _truncate_row!(V',rank)
   return Ur,Sr,Vr'
-end
-
-# The singular values of A'*A (or A*A') are accurate to an absolute error of order
-# eps()*||A'*A||, so singular values below S[1]*sqrt(eps()) are numerically
-# indistinguishable from round-off in A'*A
-function _numerical_rank(S::AbstractVector)
-  isempty(S) && return 0
-  floor = S[1]*sqrt(length(S)*eps(eltype(S)))
-  count(>(floor),S)
 end
 
 function _root!(S)

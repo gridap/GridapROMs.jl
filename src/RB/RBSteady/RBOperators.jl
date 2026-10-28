@@ -234,11 +234,11 @@ get_lhs(op::RBOperator) = op.lhs
 get_rhs(op::RBOperator) = op.rhs
 
 function Algebra.allocate_residual(
-  op::RBOperator{O,B,<:NoHRContribution},
+  op::RBOperator{O,A,<:NoHRContribution},
   r::Realisation,
   u::AbstractVector,
   paramcache
-  ) where {O,B}
+  ) where {O,A}
 
   b0 = allocate_residual(op.op,r,u,paramcache)
   b = contribution(get_domains(get_rhs(op))) do trian

@@ -5,6 +5,7 @@ using Gridap
 using Serialization
 using Test
 
+using GridapEmbedded
 using GridapROMs
 using GridapROMs.DofMaps
 using GridapROMs.ParamDataStructures

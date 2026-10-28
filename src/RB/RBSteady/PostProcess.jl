@@ -85,19 +85,9 @@ function save(dir,contrib::Contribution;label="")
   serialize(contrib_dir,get_contributions(contrib))
 end
 
-"""
-    save_bundle_contribution(dir,c;label="")
-
-Like `save`, but when `c` is a [`Bundle`](@ref) (i.e. `c.linear`/`c.nonlinear`
-are each independently saveable), saves the two halves under the
-[`LINEAR_LABEL`](@ref)/[`NONLINEAR_LABEL`](@ref)-tagged labels instead of trying
-to save the `Bundle` itself
-"""
-save_bundle_contribution(dir,c;label="") = save(dir,c;label)
-
-function save_bundle_contribution(dir,c::Bundle;label="")
-  save_bundle_contribution(dir,c.linear;label=_get_label(label,LINEAR_LABEL))
-  save_bundle_contribution(dir,c.nonlinear;label=_get_label(label,NONLINEAR_LABEL))
+function save(dir,contrib::Bundle;label="")
+  save(dir,contrib.linear;label=_get_label(label,LINEAR_LABEL))
+  save(dir,contrib.nonlinear;label=_get_label(label,NONLINEAR_LABEL))
 end
 
 function _setup_contribution(vals::Tuple{Vararg{Any}},trian)
@@ -118,29 +108,17 @@ function load_contribution(
   _setup_contribution(vals,trian)
 end
 
-"""
-    load_bundle_contribution(dir,trians;label="")
-
-Like `load_contribution`, but when `trians` is a [`Bundle`](@ref) (i.e. `feop`
-was built from `res::Bundle`/`jac::Bundle`), loads the linear and nonlinear
-halves separately (under the [`LINEAR_LABEL`](@ref)/[`NONLINEAR_LABEL`](@ref)-tagged
-labels used by [`save_bundle_contribution`](@ref)) and returns a `Bundle` of the
-two, instead of requiring the caller to split `feop` into `get_linear_part`/
-`get_nonlinear_part` beforehand
-"""
-load_bundle_contribution(dir,trians;label="") = load_contribution(dir,trians;label)
-
-function load_bundle_contribution(dir,trians::Bundle;label="")
-  lin = load_bundle_contribution(dir,trians.linear;label=_get_label(label,LINEAR_LABEL))
-  nlin = load_bundle_contribution(dir,trians.nonlinear;label=_get_label(label,NONLINEAR_LABEL))
+function load_contribution(dir,trians::Bundle;label="")
+  lin = load_contribution(dir,trians.linear;label=_get_label(label,LINEAR_LABEL))
+  nlin = load_contribution(dir,trians.nonlinear;label=_get_label(label,NONLINEAR_LABEL))
   Bundle(lin,nlin)
 end
 
 function save(dir,op::ROMOperator;label="")
   save(dir,get_test(op);label=_get_label(label,TEST_LABEL))
   save(dir,get_trial(op);label=_get_label(label,TRIAL_LABEL))
-  save_bundle_contribution(dir,get_rhs(op);label=_get_label(label,RHS_LABEL))
-  save_bundle_contribution(dir,get_lhs(op);label=_get_label(label,LHS_LABEL))
+  save(dir,get_rhs(op);label=_get_label(label,RHS_LABEL))
+  save(dir,get_lhs(op);label=_get_label(label,LHS_LABEL))
 end
 
 """
@@ -155,8 +133,8 @@ function load_operator(dir,feop::ParamOperator;label="")
   trial = load_subspace(dir,get_trial(feop);label=_get_label(label,TRIAL_LABEL))
   trian_res = get_domains_res(feop)
   trian_jac = get_domains_jac(feop)
-  red_rhs = load_bundle_contribution(dir,trian_res;label=_get_label(label,RHS_LABEL))
-  red_lhs = load_bundle_contribution(dir,trian_jac;label=_get_label(label,LHS_LABEL))
+  red_rhs = load_contribution(dir,trian_res;label=_get_label(label,RHS_LABEL))
+  red_lhs = load_contribution(dir,trian_jac;label=_get_label(label,LHS_LABEL))
   return ROMOperator(feop,trial,test,red_lhs,red_rhs)
 end
 

@@ -63,8 +63,8 @@ dΓ1 = Measure(Γ1,degree)
 dΓ2 = Measure(Γ2,degree)
 dΓ3 = Measure(Γ3,degree)
 
-a(μ,u,v,dΩ) = ∫( ε(v) ⊙ (σμ(μ)∘ε(u)) )*dΩ
-l(μ,u,v,dΓ1,dΓ2,dΓ3) = ∫(v⋅h1μ(μ))dΓ1 + ∫(v⋅h2μ(μ))dΓ2 + ∫(v⋅h3μ(μ))dΓ3
+a(μ,u,v) = ∫( ε(v) ⊙ (σμ(μ)∘ε(u)) )*dΩ
+l(μ,v) = ∫(v⋅h1μ(μ))dΓ1 + ∫(v⋅h2μ(μ))dΓ2 + ∫(v⋅h3μ(μ))dΓ3
 
 trian_l,trian_a = (Γ1,Γ2,Γ3),(Ω,)
 domains = FEDomains(trian_l,trian_a)
@@ -74,7 +74,7 @@ fesolver = LUSolver()
 
 tol = fill(1e-5,4)
 energy(du,v) = ∫(v⋅du)dΩ + ∫(∇(v)⊙∇(du))dΩ
-state_reduction = Reduction(tol,energy;nparams=80)
+state_reduction = Reduction(tol,EnergyNorm(energy);nparams=80)
 rbsolver = RBSolver(fesolver,state_reduction;nparams_res=40,nparams_jac=40)
 
 dir = datadir("elasticity_ttsvd")

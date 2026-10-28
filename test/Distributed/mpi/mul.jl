@@ -1,6 +1,6 @@
 module MulMPI
 
-using MPI, PartitionedArrays
+using PartitionedArrays
 include("../mul.jl")
 
 with_mpi() do distribute

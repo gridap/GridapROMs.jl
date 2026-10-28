@@ -294,8 +294,6 @@ export hr_diagnostics
 export hr_error
 export load_snapshots
 export load_contribution
-export load_bundle_contribution
-export save_bundle_contribution
 export load_projection
 export load_subspace
 export load_operator

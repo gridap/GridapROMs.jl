@@ -55,17 +55,14 @@ degree = 2*order+1
 dΩ = Measure(Ω,degree)
 dΓn = Measure(Γn,degree)
 
-stiffness(μ,t,u,v,dΩ) = ∫(νμt(μ,t)*∇(v)⋅∇(u))dΩ
-mass(μ,t,uₜ,v,dΩ) = ∫(v*uₜ)dΩ
-rhs(μ,t,v,dΩ,dΓn) = ∫(fμt(μ,t)*v)dΩ + ∫(hμt(μ,t)*v)dΓn
-res(μ,t,u,v,dΩ,dΓn) = mass(μ,t,∂t(u),v,dΩ) + stiffness(μ,t,u,v,dΩ) - rhs(μ,t,v,dΩ,dΓn)
+stiffness(μ,t,u,v) = ∫(νμt(μ,t)*∇(v)⋅∇(u))dΩ
+mass(μ,t,uₜ,v) = ∫(v*uₜ)dΩ
+rhs(μ,t,v) = ∫(fμt(μ,t)*v)dΩ + ∫(hμt(μ,t)*v)dΓn
 
 trian_res = (Ω,Γn)
 trian_stiffness = (Ω,)
 trian_mass = (Ω,)
 domains = FEDomains(trian_res,(trian_stiffness,trian_mass))
-
-energy(du,v) = ∫(du*v)dΩ + ∫(∇(v)⋅∇(du))dΩ
 
 reffe = ReferenceFE(lagrangian,Float64,order)
 test = TestFESpace(model,reffe;conformity=:H1,dirichlet_tags=["dirichlet"])
@@ -77,7 +74,7 @@ fesolver = ThetaMethod(LUSolver(),dt,θ)
 
 tol = 1e-5
 energy(du,v) = ∫(∇(v)⊙∇(du))dΩ
-state_reduction = TransientReduction(tol,energy;nparams=40)
+state_reduction = TransientReduction(tol,EnergyNorm(energy);nparams=40)
 rbsolver = RBSolver(fesolver,state_reduction;nparams_res=20,nparams_jacs=(20,1))
 
 dir = datadir("heateq_pod")

@@ -27,6 +27,7 @@ get_realisation(s::AbstractSnapshots) = @abstractmethod
 get_dof_map(s::AbstractSnapshots) = @abstractmethod
 
 num_params(s::AbstractSnapshots) = num_params(get_realisation(s))
+param_length(s::AbstractSnapshots) = param_length(get_realisation(s))
 
 """
     abstract type Snapshots{T,N,I,R} <: AbstractSnapshots{T,N} end
@@ -55,7 +56,7 @@ Returns the spatial size of the snapshots
 """
 space_dofs(s::Snapshots{T,N}) where {T,N} = size(get_all_data(s))[1:N-1]
 
-Base.size(s::Snapshots) = (space_dofs(s)...,num_params(s))
+Base.size(s::Snapshots) = (space_dofs(s)...,param_length(s))
 
 function param_getindex(s::Snapshots{T,N},pindex::Integer) where {T,N}
   view(get_all_data(s),_ncolons(Val{N-1}())...,pindex)

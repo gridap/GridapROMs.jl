@@ -31,8 +31,8 @@ LocalPreferences.toml
 # IDE settings
 .vscode
 
-# Folder where the results are stored
-/data
+# Folders where the results are stored
+**/data/
 
 # Folder with deprecated source code
 /src/deprecated

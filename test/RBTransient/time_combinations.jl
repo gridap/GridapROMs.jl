@@ -556,15 +556,14 @@ function _heat_eq_setup(;nparams=3)
   fμt(μ,t) = parameterise(f,μ,t)
   g(μ,t) = x -> x[1] * (1 + t)
   gμt(μ,t) = parameterise(g,μ,t)
-  u0(μ)   = x -> g(μ,0.0)(x)
-  u0μ(μ)  = parameterise(u0,μ)
-  v0(μ)   = x -> x[1]
-  v0μ(μ)  = parameterise(v0,μ)
+  u0(μ) = x -> g(μ,0.0)(x)
+  u0μ(μ) = parameterise(u0,μ)
+  v0(μ) = x -> x[1]
+  v0μ(μ) = parameterise(v0,μ)
 
-  stiffness(μ,t,u,v) = ∫(aμt(μ,t) * ∇(v) ⋅ ∇(u))dΩ
-  mass(_,_,uₜ,v)     = ∫(v * uₜ)dΩ
-  rhs(μ,t,v)          = ∫(fμt(μ,t) * v)dΩ
-  res(μ,t,u,v)       = mass(μ,t,∂t(u),v) + stiffness(μ,t,u,v) - rhs(μ,t,v)
+  stiffness(μ,t,u,v) = ∫(aμt(μ,t)*∇(v)⋅∇(u))dΩ
+  mass(μ,t,uₜ,v) = ∫(v*uₜ)dΩ
+  rhs(μ,t,v) = ∫(fμt(μ,t)*v)dΩ
 
   trian_res       = (Ω,)
   trian_stiffness = (Ω,)
@@ -602,22 +601,22 @@ function _wave_eq_setup(;nparams=3)
   aμt(μ,t) = parameterise(a,μ,t)
   g(μ,t) = x -> x[1] * (1 + t)^2
   gμt(μ,t) = parameterise(g,μ,t)
-  u0(μ)   = x -> x[1]
-  u0μ(μ)  = parameterise(u0,μ)
-  v0(μ)   = x -> 2 * x[1] * (1 + 0.0)
-  v0μ(μ)  = parameterise(v0,μ)
-  a0(μ)   = x -> 2 * x[1]
-  a0μ(μ)  = parameterise(a0,μ)
+  u0(μ) = x -> x[1]
+  u0μ(μ) = parameterise(u0,μ)
+  v0(μ) = x -> 2 * x[1] * (1 + 0.0)
+  v0μ(μ) = parameterise(v0,μ)
+  a0(μ) = x -> 2 * x[1]
+  a0μ(μ) = parameterise(a0,μ)
 
-  stiffness(μ,t,u,v)  = ∫(aμt(μ,t) * ∇(v) ⋅ ∇(u))dΩ
-  damping(_,_,uₜ,v)   = ∫(v * uₜ)dΩ
-  mass(_,_,uₜₜ,v)     = ∫(v * uₜₜ)dΩ
-  res(μ,t,u,v)        = mass(μ,t,∂tt(u),v) + damping(μ,t,∂t(u),v) + stiffness(μ,t,u,v)
+  stiffness(μ,t,u,v) = ∫(aμt(μ,t)*∇(v)⋅∇(u))dΩ
+  damping(μ,t,uₜ,v) = ∫(v*uₜ)dΩ
+  mass(μ,t,uₜₜ,v) = ∫(v*uₜₜ)dΩ
+  rhs(μ,t,v) = ∫(0.0*v)dΩ
 
-  trian_res       = (Ω,)
+  trian_res = (Ω,)
   trian_stiffness = (Ω,)
-  trian_damping   = (Ω,)
-  trian_mass      = (Ω,)
+  trian_damping = (Ω,)
+  trian_mass = (Ω,)
   domains = FEDomains(trian_res,(trian_stiffness,trian_damping,trian_mass))
 
   reffe = ReferenceFE(lagrangian,Float64,order)
@@ -659,8 +658,8 @@ function _compare_with_gridap_heateq(odeslvr,snaps,b)
   tf = get_final_time(r)
 
   for (ip,μ) in enumerate(get_params(r))
-    at(_) = x -> μ[1]
-    ft(_) = x -> 1.0
+    at(t) = x -> μ[1]
+    ft(t) = x -> 1.0
     gt(t) = x -> x[1] * (1 + t)
     vt(t) = x -> x[1]
 
@@ -668,14 +667,14 @@ function _compare_with_gridap_heateq(odeslvr,snaps,b)
     f = TimeSpaceFunction(ft)
     g = TimeSpaceFunction(gt)
 
-    stiffness(t,u,v) = ∫(a(t) * ∇(v) ⋅ ∇(u))dΩ
-    mass(_,uₜ,v)     = ∫(v * uₜ)dΩ
-    rhs(t,v)         = ∫(f(t) * v)dΩ
+    stiffness(t,u,v) = ∫(a(t)*∇(v)⋅∇(u))dΩ
+    mass(t,uₜ,v) = ∫(v*uₜ)dΩ
+    rhs(t,v) = ∫(f(t)*v)dΩ
 
-    trial  = TransientTrialFESpace(test,g)
-    gfeop  = TransientLinearFEOperator((stiffness,mass),rhs,trial,test)
-    uh0    = interpolate_everywhere(gt(t0),trial(t0))
-    vh0    = interpolate_everywhere(vt(t0),trial(t0))
+    trial = TransientTrialFESpace(test,g)
+    gfeop = TransientLinearFEOperator((stiffness,mass),rhs,trial,test)
+    uh0 = interpolate_everywhere(gt(t0),trial(t0))
+    vh0 = interpolate_everywhere(vt(t0),trial(t0))
 
     if isa(odeslvr,ThetaMethod)
       fesltn = solve(odeslvr,gfeop,t0,tf,uh0)
@@ -690,8 +689,7 @@ function _compare_with_gridap_heateq(odeslvr,snaps,b)
     end
   end
 
-  b_sum  = sum(b.values)
-  b_data = get_all_data(b_sum)
+  b_data = get_all_data(b)
   nt = num_times(r)
   for ip in 1:np,it in 1:nt
     ipt = (it-1)*np + ip
@@ -729,26 +727,24 @@ end
   ics = ((uh0μ,vh0μ),)
 
   for (fesolver,ic) in zip(fesolvers,ics)
-    sol    = solve(fesolver,feop,r,ic)
-    vals   = collect(sol)
+    sol = solve(fesolver,feop,r,ic)
+    vals = collect(sol)
     initial_vals = initial_conditions(sol)
-    i      = get_dof_map(feop)
-    snaps  = Snapshots(vals,initial_vals,i,r)
+    i = get_dof_map(feop)
+    snaps = Snapshots(vals,initial_vals,i,r)
 
     tcomb = TimeCombination(fesolver)
     b = _spacetime_residual(tcomb,feop,snaps)
     A = spacetime_jacobian(tcomb,feop,snaps)
 
-    @test isa(b,ArrayContribution)
-    @test isa(A,ArrayContributionTuple)
     _compare_with_gridap_heateq(fesolver,snaps,b)
   end
 end
 
 function _compare_with_gridap_waveeq(odeslvr,snaps,b)
-  domain    = (0,1,0,1)
+  domain  = (0,1,0,1)
   partition = (6,6)
-  model     = CartesianDiscreteModel(domain,partition)
+  model = CartesianDiscreteModel(domain,partition)
 
   order = 2
   degree = 2*order
@@ -759,31 +755,31 @@ function _compare_with_gridap_waveeq(odeslvr,snaps,b)
   test  = TestFESpace(Ω,reffe; conformity=:H1,dirichlet_tags="boundary")
 
   data = get_param_data(snaps)
-  r    = get_realisation(snaps)
-  np   = num_params(r)
+  r = get_realisation(snaps)
+  np = num_params(r)
 
   t0 = get_initial_time(r)
   tf = get_final_time(r)
 
   for (ip,μ) in enumerate(get_params(r))
-    at(_)  = x -> μ[1]
-    gt(t)  = x -> x[1] * (1 + t)^2
-    vt(t)  = x -> 2 * x[1] * (1 + t)
-    aat(t)  = x -> 2 * x[1]
+    at(t) = x -> μ[1]
+    gt(t) = x -> x[1] * (1 + t)^2
+    vt(t) = x -> 2 * x[1] * (1 + t)
+    aat(t) = x -> 2 * x[1]
 
     a = TimeSpaceFunction(at)
     g = TimeSpaceFunction(gt)
 
-    stiffness(t,u,v)   = ∫(a(t) * ∇(v) ⋅ ∇(u))dΩ
-    damping(_,uₜ,v)    = ∫(v * uₜ)dΩ
-    mass(_,uₜₜ,v)      = ∫(v * uₜₜ)dΩ
-    rhs(_,v)           = ∫(0.0 * v)dΩ
+    stiffness(t,u,v) = ∫(a(t) * ∇(v) ⋅ ∇(u))dΩ
+    damping(t,uₜ,v) = ∫(v * uₜ)dΩ
+    mass(t,uₜₜ,v) = ∫(v * uₜₜ)dΩ
+    rhs(t,v) = ∫(0.0 * v)dΩ
 
-    trial  = TransientTrialFESpace(test,g)
-    gfeop  = TransientLinearFEOperator((stiffness,damping,mass),rhs,trial,test)
-    uh0    = interpolate_everywhere(gt(0.0),trial(t0))
-    vh0    = interpolate_everywhere(vt(0.0),trial(t0))
-    ah0    = interpolate_everywhere(aat(0.0),trial(t0))
+    trial = TransientTrialFESpace(test,g)
+    gfeop = TransientLinearFEOperator((stiffness,damping,mass),rhs,trial,test)
+    uh0 = interpolate_everywhere(gt(0.0),trial(t0))
+    vh0 = interpolate_everywhere(vt(0.0),trial(t0))
+    ah0 = interpolate_everywhere(aat(0.0),trial(t0))
 
     fesltn = solve(odeslvr,gfeop,t0,tf,(uh0,vh0,ah0))
 
@@ -794,8 +790,7 @@ function _compare_with_gridap_waveeq(odeslvr,snaps,b)
     end
   end
 
-  b_sum  = sum(b.values)
-  b_data = get_all_data(b_sum)
+  b_data = get_all_data(b)
   nt = num_times(r)
   for ip in 1:np,it in 1:nt
     ipt = (it-1)*np + ip
@@ -809,18 +804,16 @@ end
 
   feop,r,uh0μ,vh0μ,ah0μ = _wave_eq_setup(;nparams=2)
 
-  sol          = solve(fesolver,feop,r,(uh0μ,vh0μ,ah0μ))
-  vals         = collect(sol)
+  sol = solve(fesolver,feop,r,(uh0μ,vh0μ,ah0μ))
+  vals = collect(sol)
   initial_vals = initial_conditions(sol)
-  i            = get_dof_map(feop)
-  snaps        = Snapshots(vals,initial_vals,i,r)
+  i = get_dof_map(feop)
+  snaps = Snapshots(vals,initial_vals,i,r)
 
   tcomb = TimeCombination(fesolver)
   b = _spacetime_residual(tcomb,feop,snaps)
   A = spacetime_jacobian(tcomb,feop,snaps)
 
-  @test isa(b,ArrayContribution)
-  @test isa(A,ArrayContributionTuple)
   _compare_with_gridap_waveeq(fesolver,snaps,b)
 end
 

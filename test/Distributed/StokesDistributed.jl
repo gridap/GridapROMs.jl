@@ -6,12 +6,9 @@ using Gridap.Algebra
 using Gridap.FESpaces
 using Gridap.MultiField
 using GridapDistributed
-using GridapPETSc
 using GridapROMs
 using GridapROMs.RBSteady
 using GridapSolvers
-using MPI
-using GridapSolvers.LinearSolvers
 using GridapSolvers.BlockSolvers
 using PartitionedArrays
 using Plots
@@ -21,24 +18,22 @@ using GridapROMs.ParamAlgebra
 using GridapROMs.ParamDataStructures
 using GridapROMs.Distributed
 
-function petsc_asm_setup(ksp)
-  pc = Ref{GridapPETSc.PETSC.PC}()
-  @check_error_code GridapPETSc.PETSC.KSPSetType(ksp[],GridapPETSc.PETSC.KSPCG)
-  @check_error_code GridapPETSc.PETSC.KSPGetPC(ksp[],pc)
-  @check_error_code GridapPETSc.PETSC.PCSetType(pc[],GridapPETSc.PETSC.PCASM)
+# `BlockPArray` (the distributed saddle-point matrix built from a
+# `BlockMultiFieldStyle` FE space) has no generic `lu`/`getindex` support, so a
+# bare `LUSolver()` cannot factorize it monolithically: some block
+# decomposition is structurally required before any leaf solve can run. This
+# uses the minimal non-PETSc decomposition (`BlockTriangularSolver` wrapped in
+# `FGMRESSolver`, from `GridapSolvers`), with plain `LUSolver()` as the actual
+# linear-algebra kernel on each (non-block, plain distributed) extracted block.
+function build_fesolver(Q,dΩ)
+  solver_u = LUSolver()
+  solver_p = LUSolver()
+
+  blocks = [LinearSystemBlock() LinearSystemBlock();
+            LinearSystemBlock() BiformBlock((p,q) -> ∫(p*q)dΩ,Q,Q)]
+  prec = BlockTriangularSolver(blocks,[solver_u,solver_p])
+  FGMRESSolver(30,prec;rtol=1.e-6,verbose=false)
 end
-
-ASMSolver() = PETScLinearSolver(petsc_asm_setup)
-
-function petsc_cg_jacobi_setup(ksp)
-  pc = Ref{GridapPETSc.PETSC.PC}()
-  @check_error_code GridapPETSc.PETSC.KSPSetType(ksp[],GridapPETSc.PETSC.KSPCG)
-  @check_error_code GridapPETSc.PETSC.KSPGetPC(ksp[],pc)
-  @check_error_code GridapPETSc.PETSC.PCSetType(pc[],GridapPETSc.PETSC.PCJACOBI)
-  @check_error_code GridapPETSc.PETSC.KSPSetTolerances(ksp[],1.e-6,1e-14,GridapPETSc.PETSC.PETSC_DEFAULT,20)
-end
-
-PressureSolver() = PETScLinearSolver(petsc_cg_jacobi_setup)
 
 function Gridap.Algebra.solve!(
   x::GridapROMs.Distributed.AbstractParamPVector,
@@ -57,16 +52,6 @@ function Gridap.Algebra.solve!(
   solve!(x_fixed,ns,A,b)
   copy!(x,x_fixed)
   ns
-end
-
-function build_fesolver(Q,dΩ)
-  solver_u = ASMSolver()
-  solver_p = PressureSolver()
-
-  blocks = [LinearSystemBlock() LinearSystemBlock();
-            LinearSystemBlock() BiformBlock((p,q) -> ∫(p*q)dΩ,Q,Q)]
-  prec = BlockTriangularSolver(blocks,[solver_u,solver_p])
-  FGMRESSolver(30,prec;rtol=1.e-6,verbose=false)
 end
 
 function main(
@@ -134,7 +119,7 @@ function main(
     isdir(dir) && rm(dir;recursive=true)
     mkpath(dir)
   end
-  MPI.Initialized() && MPI.Barrier(MPI.COMM_WORLD)
+  PartitionedArrays.barrier(ranks)
 
   tols = [1e-1,1e-3,1e-5]
   run_test(dir,rbsolver,feop,tols)

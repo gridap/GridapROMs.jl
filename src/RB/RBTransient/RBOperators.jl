@@ -125,11 +125,11 @@ function Algebra.jacobian!(
 end
 
 function Algebra.allocate_residual(
-  op::TransientRBOperator{O,B,<:TransientNoHRContribution},
+  op::TransientRBOperator{O,A,<:TransientNoHRContribution},
   r::TransientRealisation,
   us::Tuple{Vararg{AbstractVector}},
   paramcache
-  ) where {O,B}
+  ) where {O,A}
 
   b0 = allocate_residual(op.op,r,us,paramcache)
   b = contribution(get_domains(get_rhs(op))) do trian

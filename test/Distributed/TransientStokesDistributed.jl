@@ -6,14 +6,9 @@ using Gridap.Algebra
 using Gridap.FESpaces
 using Gridap.MultiField
 using GridapDistributed
-using GridapPETSc
 using GridapROMs
 using GridapROMs.RBSteady
 using GridapROMs.RBTransient
-using GridapSolvers
-using GridapSolvers.LinearSolvers
-using GridapSolvers.BlockSolvers
-using MPI
 using PartitionedArrays
 using Plots
 using Test
@@ -22,8 +17,8 @@ using GridapROMs.ParamAlgebra
 using GridapROMs.ParamDataStructures
 using GridapROMs.Distributed
 
-# reuses `build_fesolver`/`ASMSolver`/`PressureSolver` and the custom
-# `Gridap.Algebra.solve!` override for param-batched distributed systems
+# reuses `build_fesolver` and the custom `Gridap.Algebra.solve!` override for
+# param-batched distributed block (saddle-point) systems
 include("StokesDistributed.jl")
 
 function main(
@@ -36,14 +31,13 @@ function main(
   compression = compression ∈ (:global,:local) ? compression : :global
   hypred_strategy = hypred_strategy ∈ (:deim,:sopt,:rbf,:none,:affine) ? hypred_strategy : :deim
 
-  println("Running test with $compression (pod, $hypred_strategy) strategy"); flush(stdout)
+  println("Running test with $compression (pod, $hypred_strategy) strategy")
 
   ranks = distribute(LinearIndices((prod(parts),)))
 
   domain = (0,1,0,1)
   partition = (8,8)
   model = CartesianDiscreteModel(ranks,parts,domain,partition)
-  println("  model built"); flush(stdout)
 
   pdomain = (1,10,1,10)
 
@@ -83,7 +77,6 @@ function main(
   trial_p = TransientTrialParamFESpace(test_p)
   test = MultiFieldFESpace([test_u,test_p];style=BlockMultiFieldStyle())
   trial = MultiFieldFESpace([trial_u,trial_p];style=BlockMultiFieldStyle())
-  println("  fe spaces built"); flush(stdout)
 
   θ = 0.5
   dt = 0.01
@@ -102,21 +95,19 @@ function main(
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jacs=(nparams_jac,nparams_jac),hypred_strategy,verbose=i_am_main(parts))
 
   feop = TransientLinearParamOperator(rhs,(stiffness,mass),ptspace,trial,test,domains)
-  println("  feop built, starting run_test"); flush(stdout)
 
   dir = datadir("diagnostics_transient_stokes_distributed")
   if i_am_main(ranks)
     isdir(dir) && rm(dir;recursive=true)
     mkpath(dir)
   end
-  MPI.Initialized() && MPI.Barrier(MPI.COMM_WORLD)
+  PartitionedArrays.barrier(ranks)
 
   tols = [1e-1,1e-3,1e-5]
   run_test(dir,rbsolver,feop,tols,xh0μ)
-  println("  run_test done"); flush(stdout)
 
   dgn = rom_diagnostics(dir,rbsolver,feop,xh0μ)
-  println(dgn); flush(stdout)
+  println(dgn)
 end
 
 end

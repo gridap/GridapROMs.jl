@@ -1,16 +1,11 @@
 module StokesDistributedMPI
 
-using MPI, PartitionedArrays, GridapPETSc
+using PartitionedArrays
 include("../StokesDistributed.jl")
 
-petsc_options = "-sub_pc_type jacobi"
-
 with_mpi() do distribute
-  GridapPETSc.with(;args=split(petsc_options)) do
-    for compression in (:local,:global), hypred_strategy in (:deim,)
-      StokesDistributed.main(distribute,(2,2),compression,hypred_strategy)
-      GridapPETSc.gridap_petsc_gc()
-    end
+  for compression in (:local,:global), hypred_strategy in (:deim,)
+    StokesDistributed.main(distribute,(2,2),compression,hypred_strategy)
   end
 end
 

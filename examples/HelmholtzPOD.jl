@@ -97,18 +97,18 @@ end
 τ = CellField(tags,Ω)
 Λf = Λ(σ,k,LH,d_pml)
 
-a(μ,u,v,dΩ) = ∫(  (∇.*(Λf*v))⊙((ξμ(μ)∘τ)*(Λf.*∇(u))) - (k^2*(v*u))  )dΩ
-b(μ,u,v,dΩ,dΓ) = a(μ,u,v,dΩ) - ∫(v)*dΓ
+a(μ,u,v) = ∫(  (∇.*(Λf*v))⊙((ξμ(μ)∘τ)*(Λf.*∇(u))) - (k^2*(v*u))  )dΩ
+rhs(μ,v) = ∫(v)dΓ
 
 domains = FEDomains((Ω,Γ),(Ω,))
-feop = LinearParamOperator(b,a,pspace,trial,test,domains)
+feop = LinearParamOperator(rhs,a,pspace,trial,test,domains)
 
 fesolver = LUSolver()
 
 energy(du,v) = ∫(∇(v)⊙∇(du))dΩ
 
 tol = 1e-5
-state_reduction = Reduction(tol,energy;nparams=80)
+state_reduction = Reduction(tol,EnergyNorm(energy);nparams=80)
 rbsolver = RBSolver(fesolver,state_reduction;nparams_res=40,nparams_jac=40)
 
 dir = datadir("helmholtz_pod")

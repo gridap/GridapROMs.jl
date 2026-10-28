@@ -51,9 +51,8 @@ degree = 2*order
 dΩ = Measure(Ω,degree)
 dΓn = Measure(Γn,degree)
 
-stiffness(μ,u,v,dΩ) = ∫(aμ(μ)*∇(v)⋅∇(u) + v*(bμ(μ)⋅∇(u)))dΩ
-rhs(μ,v,dΩ,dΓn) = ∫(fμ(μ)*v)dΩ + ∫(hμ(μ)*v)dΓn
-res(μ,u,v,dΩ,dΓn) = stiffness(μ,u,v,dΩ) - rhs(μ,v,dΩ,dΓn)
+stiffness(μ,u,v) = ∫(aμ(μ)*∇(v)⋅∇(u) + v*(bμ(μ)⋅∇(u)))dΩ
+rhs(μ,v) = ∫(fμ(μ)*v)dΩ + ∫(hμ(μ)*v)dΓn
 
 trian_res = (Ω,Γn)
 trian_stiffness = (Ω,)
@@ -63,9 +62,9 @@ feop = LinearParamOperator(rhs,stiffness,pspace,trial,test,domains)
 
 fesolver = LUSolver()
 
-tol = fill(1e-5,4)
+tol = fill(1e-5,3)
 energy(du,v) = ∫(v⋅du)dΩ + ∫(∇(v)⊙∇(du))dΩ
-state_reduction = Reduction(tol,energy;nparams=80)
+state_reduction = Reduction(tol,EnergyNorm(energy);nparams=80)
 rbsolver = RBSolver(fesolver,state_reduction;nparams_res=40,nparams_jac=40)
 
 dir = datadir("adv_diff_ttsvd")

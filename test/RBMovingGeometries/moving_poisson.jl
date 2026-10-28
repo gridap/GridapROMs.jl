@@ -2,7 +2,13 @@ module MovingPoisson
 
 using DrWatson
 using Gridap
+
+# GridapEmbedded is not a direct dependency of the main project environment;
+# resolve it from the dedicated env below instead of changing the active project.
+push!(LOAD_PATH,joinpath(@__DIR__,"embedded_env"))
 using GridapEmbedded
+pop!(LOAD_PATH)
+
 using GridapROMs
 
 using Gridap.Geometry

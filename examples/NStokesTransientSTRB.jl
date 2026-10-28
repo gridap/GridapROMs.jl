@@ -2,6 +2,7 @@ module NStokesTransientSTRB
 
 using DrWatson
 using Gridap
+using Gridap.MultiField
 using Serialization
 using Test
 
@@ -40,10 +41,12 @@ a(x,μ,t) = μ[1]/Re
 a(μ,t) = x->a(x,μ,t)
 aμt(μ,t) = parameterise(a,μ,t)
 
+f(x) = VectorValue(0.0,0.0)
+
 conv(u,∇u) = (∇u')⋅u
 dconv(du,∇du,u,∇u) = conv(u,∇du)+conv(du,∇u)
-c(u,v,dΩ) = ∫( v⊙(conv∘(u,∇(u))) )dΩ
-dc(u,du,v,dΩ) = ∫( v⊙(dconv∘(du,∇(du),u,∇(u))) )dΩ
+c(u,v) = ∫( v⊙(conv∘(u,∇(u))) )dΩ
+dc(u,du,v) = ∫( v⊙(dconv∘(du,∇(du),u,∇(u))) )dΩ
 
 const Lb = 0.2
 const Ub = 0.4
@@ -60,12 +63,12 @@ u0μ(μ) = parameterise(u0,μ)
 p0(μ) = x -> 0.0
 p0μ(μ) = parameterise(p0,μ)
 
-stiffness(μ,t,(u,p),(v,q),dΩ) = ∫(aμt(μ,t)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
-mass(μ,t,(uₜ,pₜ),(v,q),dΩ) = ∫(v⋅uₜ)dΩ
-res(μ,t,(u,p),(v,q),dΩ) = ∫(v⋅∂t(u))dΩ + stiffness(μ,t,(u,p),(v,q),dΩ)
+rhs(μ,t,(v,q)) = ∫(v⋅f)dΩ
+stiffness(μ,t,(u,p),(v,q)) = ∫(aμt(μ,t)*∇(v)⊙∇(u))dΩ - ∫(p*(∇⋅(v)))dΩ + ∫(q*(∇⋅(u)))dΩ
+mass(μ,t,(uₜ,pₜ),(v,q)) = ∫(v⋅uₜ)dΩ
 
-res_nlin(μ,t,(u,p),(v,q),dΩ) = c(u,v,dΩ)
-jac_nlin(μ,t,(u,p),(du,dp),(v,q),dΩ) = dc(u,du,v,dΩ)
+res_nlin(μ,t,(u,p),(v,q)) = c(u,v)
+jac_nlin(μ,t,(u,p),(du,dp),(v,q)) = dc(u,du,v)
 
 trian_res = (Ω,)
 trian_jac = (Ω,)
@@ -73,8 +76,10 @@ trian_jac_t = (Ω,)
 domains_lin = FEDomains(trian_res,(trian_jac,trian_jac_t))
 domains_nlin = FEDomains(trian_res,(trian_jac,))
 
-coupling((du,dp),(v,q)) = ∫(dp*(∇⋅(v)))dΩ
-energy((du,dp),(v,q)) = ∫(du⋅v)dΩ + ∫(∇(v)⊙∇(du))dΩ + ∫(dp*q)dΩ
+coupling = DivCoupling()
+energy_u(du,v) = ∫(du⋅v)dΩ + ∫(∇(v)⊙∇(du))dΩ
+energy_p(dp,q) = ∫(dp*q)dΩ
+energy = BlockNorm((EnergyNorm(energy_u),EnergyNorm(energy_p)))
 
 reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
 test_u = TestFESpace(model,reffe_u;conformity=:H1,dirichlet_tags=["inlet","walls"])
@@ -85,10 +90,10 @@ trial_p = TransientTrialParamFESpace(test_p)
 test = MultiFieldFESpace([test_u,test_p];style=BlockMultiFieldStyle())
 trial = MultiFieldFESpace([trial_u,trial_p];style=BlockMultiFieldStyle())
 
-feop_lin = TransientLinearParamOperator(rhs,(stiffness,mass),ptspace,trial,test,domains_lin)
-feop_nlin = TransientParamOperator(res_nlin,jac_nlin,ptspace,
-  trial,test,domains_nlin)
-feop = LinearNonlinearTransientParamOperator(feop_lin,feop_nlin)
+res_bundle = Bundle(rhs,res_nlin)
+jacs_bundle = (Bundle(stiffness,jac_nlin),Bundle(mass,nothing))
+domains_bundle = Bundle(domains_lin,domains_nlin)
+feop = TransientParamOperator(res_bundle,jacs_bundle,ptspace,trial,test,domains_bundle)
 
 fesolver = ThetaMethod(NewtonSolver(LUSolver();rtol=1e-10,maxiter=20,verbose=true),dt,θ)
 xh0μ(μ) = interpolate_everywhere([u0μ(μ),p0μ(μ)],trial(μ,t0))

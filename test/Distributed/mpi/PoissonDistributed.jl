@@ -1,6 +1,6 @@
 module PoissonDistributedMPI
 
-using MPI, PartitionedArrays
+using PartitionedArrays
 include("../PoissonDistributed.jl")
 
 with_mpi() do distribute

@@ -64,7 +64,7 @@ function main(
   trian_jac = (Ω,)
   trian_jac_t = (Ω,)
   domains_lin = FEDomains(trian_res,(trian_jac,trian_jac_t))
-  domains_nlin = FEDomains(trian_res,(trian_jac,trian_jac_t))
+  domains_nlin = FEDomains(trian_res,(trian_jac,))
 
   reffe_u = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
   reffe_p = ReferenceFE(lagrangian,Float64,order-1)
@@ -102,6 +102,7 @@ function main(
   feop = TransientParamOperator(res_bundle,jacs_bundle,ptspace,trial,test,domains_bundle)
 
   dir = datadir("navier_stokes_test")
+  isdir(dir) && rm(dir;recursive=true)
   mkpath(dir)
 
   fesnaps = solution_snapshots(rbsolver,feop,xh0μ)
@@ -112,13 +113,12 @@ function main(
   x̂ = solution_snapshots(rbsolver,rbop,μon,xh0μ)
   x = solution_snapshots(rbsolver,feop,μon,xh0μ)
   perf = rom_performance(rbsolver,rbop,x,x̂)
-  error = perf.error
 
   rbop_load = load_operator(dir,feop)
   x̂_load = solution_snapshots(rbsolver,rbop_load,μon,xh0μ)
   perf_load = rom_performance(rbsolver,rbop_load,x,x̂_load)
 
-  @test all(perf_load.error .≈ error)
+  @test all(perf_load.error .≈ perf.error)
 end
 
 for method in (:pod,:ttsvd), compression in (:local,:global), hypred_strategy in (:deim,:sopt,:rbf,:none,:affine)
