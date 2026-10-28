@@ -114,20 +114,20 @@ function Algebra.solve!(
 end
 
 function ParamODEs.time_combination!(
-  usx::NTuple{N,RBParamVector},
+  usx::NTuple{M,RBParamVector},
   c::TimeCombination,
   u::RBParamVector,
   us0::NTuple{N,RBParamVector}
-  ) where N
+  ) where {M,N}
 
   time_combination!(map(x -> x.fe_data,usx),c,u.fe_data,map(x -> x.fe_data,us0))
 end
 
 function ParamODEs.zero_time_combination!(
-  usx::NTuple{N,RBParamVector},
+  usx::NTuple{M,RBParamVector},
   c::TimeCombination,
   us0::NTuple{N,RBParamVector}
-  ) where N
+  ) where {M,N}
 
   zero_time_combination!(map(x -> x.fe_data,usx),c,map(x -> x.fe_data,us0))
 end
@@ -290,8 +290,15 @@ function _set_initial_condition!(nlop::SpaceTimeParamOperator,s::SpaceTimeSolver
   zero_time_combination!(nlop.usx,c,s.us0)
 end
 
+function _set_initial_condition!(nlop::LinNonlinParamOperator,s::SpaceTimeSolver)
+  c = TimeCombination(s)
+  zero_time_combination!(nlop.op_linear.usx,c,s.us0)
+  zero_time_combination!(nlop.op_nonlinear.usx,c,s.us0)
+end
+
 _get_realisation(nlop::NonlinearParamOperator) = @abstractmethod
 _get_realisation(nlop::SpaceTimeParamOperator) = nlop.r
+_get_realisation(nlop::LinNonlinParamOperator) = _get_realisation(nlop.op_nonlinear)
 
 function Utils.get_linear_part(nlop::SpaceTimeParamOperator)
   SpaceTimeParamOperator(get_linear_part(nlop.op),nlop.r,nlop.usx,nlop.ws,nlop.paramcache)
@@ -309,6 +316,11 @@ end
 
 function _update_paramcache!(nlop::SpaceTimeParamOperator,r::TransientRealisation)
   update_paramcache!(nlop.paramcache,nlop.op,r)
+end
+
+function _update_paramcache!(nlop::LinNonlinParamOperator,r::TransientRealisation)
+  _update_paramcache!(nlop.op_linear,r)
+  _update_paramcache!(nlop.op_nonlinear,r)
 end
 
 RBSteady._get_param(op::ParamStageOperator) = op.r

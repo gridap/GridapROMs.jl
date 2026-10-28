@@ -553,13 +553,13 @@ function _prepare_residual(solver::RBSolver,op::ParamOperator,s::AbstractSnapsho
   sres = select_snapshots(s,res_params(solver))
   us_res = get_param_data(sres)
   r_res = get_realisation(sres)
-  islinear(op) && fill!(us_res,zero(eltype2(us_res)))
   _prepare_residual(op,r_res,us_res)
 end
 
 function _prepare_residual(op::ParamOperator,r_res::AbstractRealisation,us_res)
   paramcache = allocate_paramcache(op,r_res)
-  uh = EvaluationFunction(paramcache.trial,us_res)
+  us = islinear(op) ? fill!(similar(us_res),zero(eltype(us_res))) : us_res
+  uh = EvaluationFunction(paramcache.trial,us)
   test = get_test(op)
   v = get_fe_basis(test)
   assem = get_param_assembler(op,r_res)
@@ -576,14 +576,16 @@ function _prepare_residual(op::LinearNonlinearParamOperator,r_res::AbstractReali
   op_nlin = get_nonlinear_part(op)
 
   paramcache = allocate_paramcache(op,r_res)
+  us0_res = fill!(similar(us_res),zero(eltype(us_res)))
+  uh0 = EvaluationFunction(paramcache.trial,us0_res)
   uh = EvaluationFunction(paramcache.trial,us_res)
   test = get_test(op)
   v = get_fe_basis(test)
   assem = get_param_assembler(op,r_res)
 
-  dc_lin = get_res(op_lin)(r_res,uh,v)
+  dc_lin = get_res(op_lin)(r_res,uh0,v)
   dc_nlin = get_res(op_nlin)(r_res,uh,v)
-  vecdata = collect_cell_vector(test,dc_nlin)
+  vecdata = collect_cell_vector(test,dc_lin+dc_nlin)
   b = allocate_vector(assem,vecdata)
 
   data_lin = b,dc_lin,assem,r_res
@@ -629,7 +631,7 @@ function _prepare_jacobian(op::LinearNonlinearParamOperator,r_jac::AbstractReali
 
   dc_lin = get_jac(op_lin)(r_jac,uh,du,v)
   dc_nlin = get_jac(op_nlin)(r_jac,uh,du,v)
-  matdata = collect_cell_matrix(trial,test,dc_nlin)
+  matdata = collect_cell_matrix(trial,test,dc_lin+dc_nlin)
   A = allocate_matrix(assem,matdata)
 
   data_lin = A,dc_lin,assem,r_jac

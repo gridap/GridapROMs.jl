@@ -281,63 +281,11 @@ function Algebra.jacobian!(
   interpolate!(A,op.lhs,r)
 end
 
-function Algebra.allocate_residual(
-  op::TransientRBOperator{O,A,<:Bundle},
-  r::TransientRealisation,
-  us::Tuple{Vararg{AbstractVector}},
-  paramcache
-  ) where {O,A}
-
-  allocate_residual(get_nonlinear_part(op),r,us,paramcache)
-end
-
-function Algebra.allocate_jacobian(
-  op::TransientRBOperator{O,<:Bundle,B},
-  r::TransientRealisation,
-  us::Tuple{Vararg{AbstractVector}},
-  paramcache
-  ) where {O,B}
-
-  allocate_jacobian(get_nonlinear_part(op),r,us,paramcache)
-end
-
-function Algebra.residual!(
-  b::HRParamArray,
-  op::TransientRBOperator{O,A,<:Bundle},
-  r::TransientRealisation,
-  us::Tuple{Vararg{AbstractVector}},
-  paramcache
-  ) where {O,A}
-
-  op_nlin = get_nonlinear_part(op)
-  residual!(b,op_nlin,r,us,paramcache)
-
-  op_lin = get_linear_part(op)
-  b_lin = allocate_residual(op_lin,r,us,paramcache)
-  residual!(b_lin,op_lin,r,us,paramcache)
-  axpy!(1,b_lin,b)
-
-  b
-end
-
-function Algebra.jacobian!(
-  A::HRParamArray,
-  op::TransientRBOperator{O,<:Bundle,B},
-  r::TransientRealisation,
-  us::Tuple{Vararg{AbstractVector}},
-  ws::Tuple{Vararg{Real}},
-  paramcache
-  ) where {O,B}
-
-  op_nlin = get_nonlinear_part(op)
-  jacobian!(A,op_nlin,r,us,ws,paramcache)
-
-  op_lin = get_linear_part(op)
-  A_lin = allocate_jacobian(op_lin,r,us,paramcache)
-  jacobian!(A_lin,op_lin,r,us,ws,paramcache)
-  axpy!(1,A_lin,A)
-
-  A
+function ParamDataStructures.parameterise(op::TransientRBOperator{LinearNonlinearParamODE},μ::TransientRealisation)
+  op_lin = parameterise(get_linear_part(op),μ)
+  op_nlin = parameterise(get_nonlinear_part(op),μ)
+  syscache_lin = allocate_systemcache(op_lin)
+  LinNonlinParamOperator(op_lin,op_nlin,syscache_lin)
 end
 
 # snapshots

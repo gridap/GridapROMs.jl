@@ -115,7 +115,7 @@ function main(
   error = perf.error
 
   rbop_load = load_operator(dir,feop)
-  x̂_load = solve(rbsolver,rbop_load,μon,xh0μ)
+  x̂_load = solution_snapshots(rbsolver,rbop_load,μon,xh0μ)
   perf_load = rom_performance(rbsolver,rbop_load,x,x̂_load)
 
   @test all(perf_load.error .≈ error)

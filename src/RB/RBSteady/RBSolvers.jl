@@ -297,9 +297,11 @@ end
 
 _get_param(op::NonlinearParamOperator) = @notimplemented
 _get_param(op::GenericParamNonlinearOperator) = op.μ
+_get_param(op::LinNonlinParamOperator) = _get_param(op.op_nonlinear)
 
 _get_trial(op) = @notimplemented
 _get_trial(op::GenericParamNonlinearOperator) = get_trial(op.op)
+_get_trial(op::LinNonlinParamOperator) = _get_trial(op.op_nonlinear)
 
 function change_tols!(log::ConvergenceLog)
   log.tols.rtol = 1e-6

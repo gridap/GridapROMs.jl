@@ -6,7 +6,6 @@ Algebraic infrastructure for parametric operators and solvers.
 - [`NonlinearParamOperator`](@ref) — abstract parametric nonlinear operator;
   residual and Jacobian are assembled for all parameter values simultaneously.
 - [`GenericParamNonlinearOperator`](@ref) — generic concrete implementation.
-- [`LazyParamNonlinearOperator`](@ref) — lazily-evaluated variant.
 - [`ParamCache`](@ref) / [`SystemCache`](@ref) — caches for operator
   evaluations (residuals and Jacobians).
 - Solver extensions: `solve!` overloads for `LinearSolver` and `NewtonSolver`
@@ -43,7 +42,7 @@ include("ParamAlgebraInterfaces.jl")
 
 export NonlinearParamOperator
 export GenericParamNonlinearOperator
-export LazyParamNonlinearOperator
+export LinNonlinParamOperator
 export AbstractParamCache
 export ParamCache
 export SystemCache

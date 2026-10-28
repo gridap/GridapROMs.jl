@@ -50,7 +50,7 @@ function truncated_svd(red_style::ReductionStyle,A::AbstractMatrix;issquare=fals
   U,S,V = svd(A)
   issquare && _root!(S)
   rank = select_rank(red_style,S)
-  issquare && (rank = min(rank,_numerical_rank(S)))
+  rank = min(rank,_numerical_rank(S))
   Ur = _truncate_col!(U,rank)
   Sr = _truncate!(S,rank)
   Vr = _truncate_row!(V',rank)
@@ -58,7 +58,7 @@ function truncated_svd(red_style::ReductionStyle,A::AbstractMatrix;issquare=fals
 end
 
 # The singular values of A'*A (or A*A') are accurate to an absolute error of order
-# eps()*opnorm(A'*A), so singular values below S[1]*sqrt(eps()) are numerically
+# eps()*||A'*A||, so singular values below S[1]*sqrt(eps()) are numerically
 # indistinguishable from round-off in A'*A
 function _numerical_rank(S::AbstractVector)
   isempty(S) && return 0
@@ -560,6 +560,7 @@ function _backward_cholesky(Ã::AbstractMatrix,L::AbstractSparseMatrix,p::Abstr
 end
 
 function _truncate!(v::AbstractVector,rank)
+  @check rank ≤ length(v) "cannot truncate a length-$(length(v)) vector to rank $rank"
   rank == length(v) && return v
   Base.deleteat!(v,rank+1:length(v))
   v
@@ -570,6 +571,7 @@ function _truncate!(A::AbstractMatrix,rank)
 end
 
 function _truncate_row!(A::AbstractMatrix,rank)
+  @check rank ≤ size(A,1) "cannot truncate a $(size(A))-shaped matrix to $rank rows"
   rank == size(A,1) && return A
   nrows = size(A,1)
   ncols = size(A,2)
@@ -580,6 +582,7 @@ function _truncate_row!(A::AbstractMatrix,rank)
 end
 
 function _truncate_col!(A::AbstractMatrix,rank)
+  @check rank ≤ size(A,2) "cannot truncate a $(size(A))-shaped matrix to $rank columns"
   rank == size(A,2) && return A
   nrows = size(A,1)
   inds = nrows*rank+1:length(A)

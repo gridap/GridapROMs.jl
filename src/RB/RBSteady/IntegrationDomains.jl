@@ -27,11 +27,6 @@ end
 function SOPT(basis::AbstractMatrix{T}) where T
   m,n = size(basis)
   (m == 0 || n == 0) && return zeros(Int,0),zeros(T,0,0)
-  open("/tmp/debug_sopt_basis.txt","a") do io
-    orthog_err = opnorm(basis'*basis - LinearAlgebra.I)
-    nzero_rows = count(i -> all(iszero,view(basis,i,:)), 1:m)
-    println(io,"SOPT: size(basis)=",(m,n)," orthog_err=",orthog_err," rank=",rank(basis)," nzero_rows=",nzero_rows)
-  end
   I = zeros(Int,n)
   basisI = zeros(T,n,n)
   @inbounds @views begin

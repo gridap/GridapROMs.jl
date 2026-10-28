@@ -394,62 +394,11 @@ function Utils.get_nonlinear_part(op::RBOperator)
   )
 end
 
-function Algebra.allocate_residual(
-  op::RBOperator{O,A,<:Bundle},
-  r::Realisation,
-  u::AbstractVector,
-  paramcache
-  ) where {O,A}
-
-  allocate_residual(get_nonlinear_part(op),r,u,paramcache)
-end
-
-function Algebra.allocate_jacobian(
-  op::RBOperator{O,<:Bundle,B},
-  r::Realisation,
-  u::AbstractVector,
-  paramcache
-  ) where {O,B}
-
-  allocate_jacobian(get_nonlinear_part(op),r,u,paramcache)
-end
-
-function Algebra.residual!(
-  b::HRParamArray,
-  op::RBOperator{O,A,<:Bundle},
-  r::Realisation,
-  u::AbstractVector,
-  paramcache
-  ) where {O,A}
-
-  op_nlin = get_nonlinear_part(op)
-  residual!(b,op_nlin,r,u,paramcache)
-
-  op_lin = get_linear_part(op)
-  b_lin = allocate_residual(op_lin,r,u,paramcache)
-  residual!(b_lin,op_lin,r,u,paramcache)
-  axpy!(1,b_lin,b)
-
-  b
-end
-
-function Algebra.jacobian!(
-  A::HRParamArray,
-  op::RBOperator{O,<:Bundle,B},
-  r::Realisation,
-  u::AbstractVector,
-  paramcache
-  ) where {O,B}
-
-  op_nlin = get_nonlinear_part(op)
-  jacobian!(A,op_nlin,r,u,paramcache)
-
-  op_lin = get_linear_part(op)
-  A_lin = allocate_jacobian(op_lin,r,u,paramcache)
-  jacobian!(A_lin,op_lin,r,u,paramcache)
-  axpy!(1,A_lin,A)
-
-  A
+function ParamDataStructures.parameterise(op::RBOperator{LinearNonlinearParamEq},μ::Realisation)
+  op_lin = parameterise(get_linear_part(op),μ)
+  op_nlin = parameterise(get_nonlinear_part(op),μ)
+  syscache_lin = allocate_systemcache(op_lin)
+  LinNonlinParamOperator(op_lin,op_nlin,syscache_lin)
 end
 
 # local

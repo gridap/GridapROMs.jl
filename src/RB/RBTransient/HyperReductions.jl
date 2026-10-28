@@ -222,7 +222,7 @@ function RBSteady._prepare_residual(
   us0::Tuple{Vararg{AbstractVector}}
   )
 
-  b,usx,paramcache = ParamODEs.allocate_spacetime_residual(c,op,r,u,us0)
+  usx,paramcache = ParamODEs.allocate_spacetime_cache(c,op,r,u,us0)
 
   _time_combination!(usx,op,c,u,us0)
   ParamODEs.to_stencil!(r,c)
@@ -232,6 +232,8 @@ function RBSteady._prepare_residual(
   assem = get_param_assembler(op,r)
   μ,t = get_params(r),get_times(r)
   dc = get_res(op)(μ,t,uh,v)
+  vecdata = collect_cell_vector(test,dc)
+  b = allocate_vector(assem,vecdata)
   ParamODEs.from_stencil!(r,c)
 
   return b,dc,assem,r
@@ -248,7 +250,7 @@ function RBSteady._prepare_residual(
   op_lin = get_linear_part(op)
   op_nlin = get_nonlinear_part(op)
 
-  b,usx,paramcache = ParamODEs.allocate_spacetime_residual(c,op,r,u,us0)
+  usx,paramcache = ParamODEs.allocate_spacetime_cache(c,op,r,u,us0)
 
   time_combination!(usx,c,u,us0)
   ParamODEs.to_stencil!(r,c)
@@ -259,6 +261,8 @@ function RBSteady._prepare_residual(
   μ,t = get_params(r),get_times(r)
   dc_lin = get_res(op_lin)(μ,t,uh,v)
   dc_nlin = get_res(op_nlin)(μ,t,uh,v)
+  vecdata = collect_cell_vector(test,dc_lin+dc_nlin)
+  b = allocate_vector(assem,vecdata)
   ParamODEs.from_stencil!(r,c)
 
   data_lin = b,dc_lin,assem,r
@@ -289,7 +293,7 @@ function RBSteady._prepare_jacobian(
   us0::Tuple{Vararg{AbstractVector}}
   )
 
-  A,usx,paramcache = ParamODEs.allocate_spacetime_jacobian(c,op,r,u,us0)
+  usx,paramcache = ParamODEs.allocate_spacetime_cache(c,op,r,u,us0)
 
   _time_combination!(usx,op,c,u,us0)
   ParamODEs.to_stencil!(r,c)
@@ -302,10 +306,10 @@ function RBSteady._prepare_jacobian(
   μ,t = get_params(r),get_times(r)
   jacs = get_jacs(op)
 
-  data = ntuple(get_order(op)+1) do k
-    dc_k = jacs[k](μ,t,uh,du,v)
-    (A,dc_k,assem,r)
-  end
+  dcs = ntuple(k -> jacs[k](μ,t,uh,du,v),get_order(op)+1)
+  matdata = collect_cell_matrix(trial,test,sum(dcs))
+  A = allocate_matrix(assem,matdata)
+  data = ntuple(k -> (A,dcs[k],assem,r),get_order(op)+1)
   ParamODEs.from_stencil!(r,c)
 
   return data
@@ -322,7 +326,7 @@ function RBSteady._prepare_jacobian(
   op_lin = get_linear_part(op)
   op_nlin = get_nonlinear_part(op)
 
-  A,usx,paramcache = ParamODEs.allocate_spacetime_jacobian(c,op,r,u,us0)
+  usx,paramcache = ParamODEs.allocate_spacetime_cache(c,op,r,u,us0)
 
   time_combination!(usx,c,u,us0)
   ParamODEs.to_stencil!(r,c)
@@ -336,14 +340,13 @@ function RBSteady._prepare_jacobian(
   jacs_lin = get_jacs(op_lin)
   jacs_nlin = get_jacs(op_nlin)
 
-  data_lin = ntuple(get_order(op_lin)+1) do k
-    dc_k = jacs_lin[k](μ,t,uh,du,v)
-    (A,dc_k,assem,r)
-  end
-  data_nlin = ntuple(get_order(op_nlin)+1) do k
-    dc_k = jacs_nlin[k](μ,t,uh,du,v)
-    (A,dc_k,assem,r)
-  end
+  dcs_lin = ntuple(k -> jacs_lin[k](μ,t,uh,du,v),get_order(op_lin)+1)
+  dcs_nlin = ntuple(k -> jacs_nlin[k](μ,t,uh,du,v),get_order(op_nlin)+1)
+  matdata = collect_cell_matrix(trial,test,sum(dcs_lin)+sum(dcs_nlin))
+  A = allocate_matrix(assem,matdata)
+
+  data_lin = ntuple(k -> (A,dcs_lin[k],assem,r),get_order(op_lin)+1)
+  data_nlin = ntuple(k -> (A,dcs_nlin[k],assem,r),get_order(op_nlin)+1)
   ParamODEs.from_stencil!(r,c)
 
   return data_lin,data_nlin

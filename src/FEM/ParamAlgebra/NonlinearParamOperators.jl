@@ -247,3 +247,99 @@ function allocate_systemcache(nlop::GenericParamNonlinearOperator)
   x = get_free_dof_values(xh)
   allocate_systemcache(nlop,x)
 end
+
+"""
+    struct LinNonlinParamOperator{A,B} <: NonlinearParamOperator
+      op_linear::A
+      op_nonlinear::B
+      cache_linear::AbstractParamCache
+    end
+
+Interface that allows to split the linear part of a parametric, nonlinear, differential
+operator from the nonlinear part.
+Fields:
+- `op_linear`: linear part of the operator
+- `op_nonlinear`: nonlinear part of the operator
+- `cache_linear`: cache related to the linear part of the operator
+"""
+struct LinNonlinParamOperator{A,B} <: NonlinearParamOperator
+  op_linear::A
+  op_nonlinear::B
+  cache_linear::AbstractParamCache
+end
+
+Utils.get_linear_part(op::LinNonlinParamOperator) = op.op_linear
+Utils.get_nonlinear_part(op::LinNonlinParamOperator) = op.op_nonlinear
+
+function allocate_paramcache(op::LinNonlinParamOperator,μ::AbstractRealisation)
+  allocate_paramcache(op.op_nonlinear,μ)
+end
+
+function allocate_systemcache(op::LinNonlinParamOperator,x::AbstractVector)
+  allocate_systemcache(op.op_nonlinear,x)
+end
+
+function update_paramcache!(
+  paramcache::AbstractParamCache,
+  op::LinNonlinParamOperator,
+  μ::AbstractRealisation
+  )
+
+  update_paramcache!(paramcache,op.op_nonlinear,μ)
+end
+
+# x is not used for the res/jac updates; rather, the x (which is identically zero) stored 
+# within the linear cache is used 
+function update_systemcache!(op::LinNonlinParamOperator,x::AbstractVector)
+  residual!(op.cache_linear.b,op.op_linear,op.cache_linear.x)
+  jacobian!(op.cache_linear.A,op.op_linear,op.cache_linear.x)
+end
+
+function Algebra.allocate_residual(
+  op::LinNonlinParamOperator,
+  x::AbstractVector
+  )
+
+  b_lin = get_vector(op.cache_linear)
+  similar(b_lin)
+end
+
+function Algebra.allocate_jacobian(
+  op::LinNonlinParamOperator,
+  x::AbstractVector
+  )
+
+  A_lin = get_matrix(op.cache_linear)
+  similar(A_lin)
+end
+
+function Algebra.residual!(
+  b::AbstractVector,
+  op::LinNonlinParamOperator,
+  x::AbstractVector
+  )
+
+  b_lin = get_vector(op.cache_linear)
+  A_lin = get_matrix(op.cache_linear)
+  residual!(b,op.op_nonlinear,x)
+  mul!(b,A_lin,x,1,1)
+  axpy!(1,b_lin,b)
+  b
+end
+
+function Algebra.jacobian!(
+  A::AbstractMatrix,
+  op::LinNonlinParamOperator,
+  x::AbstractVector
+  )
+
+  A_lin = get_matrix(op.cache_linear)
+  jacobian!(A,op.op_nonlinear,x)
+  axpy!(1,A_lin,A)
+  A
+end
+
+function Algebra.zero_initial_guess(op::LinNonlinParamOperator)
+  v = get_vector(op.cache_linear)
+  copy(v)
+end

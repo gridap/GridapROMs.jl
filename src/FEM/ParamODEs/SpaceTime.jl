@@ -28,12 +28,34 @@ function allocate_spacetime_residual(
   us0::Tuple{Vararg{AbstractVector}}
   )
 
+  usx,paramcache = allocate_spacetime_cache(c,odeop,r,u,us0)
+  b = allocate_residual(odeop,r,usx,paramcache)
+  return b,usx,paramcache
+end
+
+"""
+    allocate_spacetime_cache(c,odeop,r,u,us0) -> (usx,paramcache)
+
+Like [`allocate_spacetime_residual`](@ref)/[`allocate_spacetime_jacobian`](@ref),
+but stops short of allocating the residual/jacobian itself. Callers that need to
+evaluate the weak form anyway (e.g. to then `allocate_vector`/`allocate_matrix`
+from its own `vecdata`/`matdata`) should use this instead, to avoid evaluating
+the same `DomainContribution` twice: once (discarded) inside `allocate_residual`/
+`allocate_jacobian` just to learn its shape, and again for the real values
+"""
+function allocate_spacetime_cache(
+  c::TimeCombination,
+  odeop::ODEParamOperator,
+  r::TransientRealisation,
+  u::AbstractVector,
+  us0::Tuple{Vararg{AbstractVector}}
+  )
+
   to_stencil!(r,c)
   paramcache = allocate_paramcache(odeop,r;evaluated=true)
   from_stencil!(r,c)
   usx = allocate_time_combination(u,us0)
-  b = allocate_residual(odeop,r,usx,paramcache)
-  return b,usx,paramcache
+  return usx,paramcache
 end
 
 function spacetime_residual!(
@@ -100,10 +122,7 @@ function allocate_spacetime_jacobian(
   us0::Tuple{Vararg{AbstractVector}}
   )
 
-  to_stencil!(r,c)
-  paramcache = allocate_paramcache(odeop,r;evaluated=true)
-  from_stencil!(r,c)
-  usx = allocate_time_combination(u,us0)
+  usx,paramcache = allocate_spacetime_cache(c,odeop,r,u,us0)
   A = allocate_jacobian(odeop,r,usx,paramcache)
   return A,usx,paramcache
 end
