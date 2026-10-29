@@ -1,21 +1,56 @@
-function collect_cell_hr_matrix(trial,test,a,strian,interp)
-  cell_idofs = get_cell_idofs(interp)
-  cells = get_owned_integration_cells(interp,strian)
+# function _owned_integration_cells_and_idofs(interp,test,strian,trian)
+#   get_cell_idofs(interp),get_owned_integration_cells(interp,strian)
+# end
+
+# function _owned_integration_cells_and_idofs(interp::GreedyInterpolation,test,strian,trian)
+#   trian === strian && return get_cell_idofs(interp),get_owned_integration_cells(interp,strian)
+#   domain = move_integration_domain(interp.domain,test,trian)
+#   get_cell_idofs(domain),get_integration_cells(domain)
+# end
+
+# function _owned_integration_cells_and_idofs(interp,trial,test,strian,trian_moved)
+#   get_cell_idofs(interp),get_owned_integration_cells(interp,strian)
+# end
+
+# function _owned_integration_cells_and_idofs(interp::GreedyInterpolation,trial,test,strian,trian_moved)
+#   trian_moved === strian && return get_cell_idofs(interp),get_owned_integration_cells(interp,strian)
+#   domain = move_integration_domain(interp.domain,trial,test,trian_moved)
+#   get_cell_idofs(domain),get_integration_cells(domain)
+# end
+
+# function _owned_integration_cells_and_idofs(interp::BlockInterpolation{<:Interpolation,1},test,strian,trian_moved)
+#   out = map(i -> _owned_integration_cells_and_idofs(interp[i],test[i],strian,trian_moved),1:length(interp))
+#   map(first,out),map(last,out)
+# end
+
+# function _owned_integration_cells_and_idofs(interp::BlockInterpolation{<:Interpolation,2},trial,test,strian,trian_moved)
+#   ni,nj = size(interp)
+#   out = map(Iterators.product(1:ni,1:nj)) do (i,j)
+#     _owned_integration_cells_and_idofs(interp[i,j],trial[j],test[i],strian,trian_moved)
+#   end
+#   map(first,out),map(last,out)
+# end
+
+function collect_cell_hr_matrix(trial,test,a,strian,sinterp)
   scell_mat = get_contribution(a,strian)
   cell_mat,trian = move_contributions(scell_mat,strian)
   @assert ndims(eltype(cell_mat)) == 2
   cell_mat_c = attach_constraints_cols(trial,cell_mat,trian)
   cell_mat_rc = attach_constraints_rows(test,cell_mat_c,trian)
+  interp = move_integration_domain(sinterp,strian,trian)
+  cell_idofs = get_cell_idofs(interp)
+  cells = get_integration_cells(interp)
   (cell_mat_rc,cell_idofs,cells)
 end
 
 function collect_cell_hr_vector(test,a,strian,interp)
-  cell_idofs = get_cell_idofs(interp)
-  cells = get_owned_integration_cells(interp,strian)
   scell_vec = get_contribution(a,strian)
   cell_vec,trian = move_contributions(scell_vec,strian)
   @assert ndims(eltype(cell_vec)) == 1
   cell_vec_r = attach_constraints_rows(test,cell_vec,trian)
+  reindex_map = get_reindex_map(cell_vec_r)
+  cell_idofs = move_idofs(get_cell_idofs(interp),reindex_map)
+  cells = move_cells(get_integration_cells(interp),reindex_map)
   (cell_vec_r,cell_idofs,cells)
 end
 
@@ -189,6 +224,15 @@ end
 end
 
 # utils
+
+get_reindex_map(a) = @abstractmethod
+get_reindex_map(a::LazyArray) = IdentityVector(length(a))
+get_reindex_map(a::LazyArray{<:Fill{<:Reindex}}) = a.args[1].args[1]
+get_reindex_map(a::LazyArray{<:Fill{<:Geometry.CombineContributionsMap}}) = a.args[1].args[1]
+
+move_cells(cells::AbstractVector{<:Number},i::IdentityVector) = cells
+move_cells(cells::AbstractVector{<:Number},i::AbstractVector) = view(cells,i)
+move_cells(cells::AbstractVector{<:Number},i::Table) = view(cells,union(i))
 
 function fetch_block(a::AbstractArray,i::Int)
   T = eltype(eltype(a))

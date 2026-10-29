@@ -207,3 +207,228 @@ end
 println(perf)
 
 end
+
+using DrWatson
+using Gridap
+
+# GridapEmbedded is not a direct dependency of the main project environment;
+# resolve it from the dedicated env below instead of changing the active project.
+push!(LOAD_PATH,joinpath(@__DIR__,"embedded_env"))
+using GridapEmbedded
+pop!(LOAD_PATH)
+
+using GridapROMs
+
+using Gridap.Geometry
+using Gridap.CellData
+using Gridap.FESpaces
+using GridapROMs.RBSteady
+using GridapROMs.Extensions
+
+import Gridap.Geometry: push_normal
+import GridapROMs.RBSteady: change_context
+
+method = :pod
+tol = 1e-4
+nparams = 30
+compression = :local
+ncentroids = 2
+
+const L = 2
+const W = 2
+const n = 20
+const γd = 10.0
+const hd = max(L,W)/n
+
+domain = (0,L,0,W)
+partition = (n,n)
+bgmodel = method==:ttsvd ? TProductDiscreteModel(domain,partition) : CartesianDiscreteModel(domain,partition)
+
+order = 1
+degree = 2*order
+
+pdomain = (0.6,1.4,0.25,0.35)
+pspace = ParamSpace(pdomain)
+
+# quantities on the base configuration
+
+μ0 = (1.0,0.3)
+x0 = Point(μ0[1],μ0[1])
+geo = !disk(μ0[2],x0=x0)
+cutgeo = cut(bgmodel,geo)
+
+Ωbg = Triangulation(bgmodel)
+Ωact = Triangulation(cutgeo,ACTIVE)
+Ω = Triangulation(cutgeo,PHYSICAL)
+Γ = EmbeddedBoundary(cutgeo)
+
+dΩbg = Measure(Ωbg,degree)
+dΩ = Measure(Ω,degree)
+dΓ = Measure(Γ,degree)
+
+energy = NitscheH1(Γ,γd,hd)
+
+n_Γ = get_normal_vector(Γ)
+strategy = AggregateAllCutCells()
+aggregates = aggregate(strategy,cutgeo)
+
+domains = FEDomains((Ω,),(Ω,Γ))
+
+const E = 1
+const ν = 0.33
+const λ = E*ν/((1+ν)*(1-2*ν))
+const p = E/(2(1+ν))
+σ(ε) = λ*tr(ε)*one(ε) + 2*p*ε
+
+f(μ) = x -> VectorValue(x[1]*x[2],0.0)
+fμ(μ) = parameterise(f,μ)
+g(μ) = x -> VectorValue(0.0,0.0)
+gμ(μ) = parameterise(g,μ)
+
+reffe = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
+testact = FESpace(Ωact,reffe,conformity=:H1,dirichlet_tags=[1,3,7])
+test = AgFEMSpace(testact,aggregates)
+trial = ParamTrialFESpace(test,gμ)
+
+function get_deformation_map(μ)
+  φ(μ) = x -> VectorValue(μ[1]-x[1] + (μ[2]/μ0[2])*(x[1]-μ0[1]),μ[1]-x[2] + (μ[2]/μ0[2])*(x[2]-μ0[1]))
+  φμ(μ) = parameterise(φ,μ)
+
+  dΩ = Measure(Ω,2*degree)
+  dΓ = Measure(Γ,2*degree)
+
+  a(μ,u,v) = ∫( ε(v) ⊙ (σ∘ε(u)) )*dΩ + ∫( (γd/hd)*v⋅u - v⋅(n_Γ⋅(σ∘ε(u))) - (n_Γ⋅(σ∘ε(v)))⋅u )dΓ
+  rhs(μ,v) = ∫( (γd/hd)*v⋅φμ(μ) - (n_Γ⋅(σ∘ε(v)))⋅φμ(μ) )dΓ
+
+  reffeφ = ReferenceFE(lagrangian,VectorValue{2,Float64},2*order)
+  Vφact = FESpace(Ωact,reffeφ,conformity=:H1,dirichlet_tags="boundary")
+  Vφ = AgFEMSpace(Vφact,aggregates)
+  Uφ = ParamTrialFESpace(Vφ)
+
+  feop = LinearParamOperator(rhs,a,pspace,Uφ,Vφ)
+  d = solve(LUSolver(),feop,μ)
+  FEFunction(Uφ(μ),d)
+end
+
+function def_fe_operator(μ)
+  φh = get_deformation_map(μ)
+  Ωactφ = mapped_grid(Ωact,φh)
+
+  ϕ = get_cell_map(Ωactφ)
+  ϕh = GenericCellField(ϕ,Ωact,ReferenceDomain())
+  dJ = det∘(∇(ϕh))
+  dJΓn(j,c,n) = j*√(n⋅inv(c)⋅n)
+  C = (j->j⋅j')∘(∇(ϕh))
+  invJt = inv∘∇(ϕh)
+  ∇_I(a) = dot∘(invJt,∇(a))
+  ε_I(a) = Operation(symmetric_part)(∇_I(a))
+  _n_Γ = push_normal∘(invJt,n_Γ)
+  dJΓ = dJΓn∘(dJ,C,_n_Γ)
+  ∫_Ω(a) = ∫(a*dJ)
+  ∫_Γ(a) = ∫(a*dJΓ)
+
+  a(μ,u,v) = (
+    ∫_Ω( ε_I(v)⊙(σ∘ε_I(u)) )*dΩ +
+    ∫_Γ( (γd/hd)*v⋅u - v⋅(_n_Γ⋅(σ∘ε_I(u))) - (_n_Γ⋅(σ∘ε_I(v)))⋅u )dΓ
+  )
+  rhs(μ,v) = ∫_Ω(fμ(μ)⋅v)dΩ
+
+  LinearParamOperator(rhs,a,pspace,trial,test,domains)
+end
+
+function def_extended_fe_operator(μ)
+  φh = get_deformation_map(μ)
+  Ωactφ = mapped_grid(Ωact,φh)
+
+  ϕ = get_cell_map(Ωactφ)
+  ϕh = GenericCellField(ϕ,Ωact,ReferenceDomain())
+  dJ = det∘(∇(ϕh))
+  dJΓn(j,c,n) = j*√(n⋅inv(c)⋅n)
+  C = (j->j⋅j')∘(∇(ϕh))
+  invJt = inv∘∇(ϕh)
+  ∇_I(a) = dot∘(invJt,∇(a))
+  ε_I(a) = Operation(symmetric_part)(∇_I(a))
+  _n_Γ = push_normal∘(invJt,n_Γ)
+  dJΓ = dJΓn∘(dJ,C,_n_Γ)
+  ∫_Ω(a) = ∫(a*dJ)
+  ∫_Γ(a) = ∫(a*dJΓ)
+
+  a(μ,u,v) = (
+    ∫_Ω( ε_I(v)⊙(σ∘ε_I(u)) )*dΩ +
+    ∫_Γ( (γd/hd)*v⋅u - v⋅(_n_Γ⋅(σ∘ε_I(u))) - (_n_Γ⋅(σ∘ε_I(v)))⋅u )dΓ
+  )
+  rhs(μ,v) = ∫_Ω(fμ(μ)⋅v)dΩ
+
+  testbg = FESpace(Ωbg,reffe,conformity=:H1,dirichlet_tags=[1,3,7])
+  testext = DirectSumFESpace(testbg,test)
+  trialext = ParamTrialFESpace(testext,gμ)
+  LinearParamOperator(rhs,a,pspace,trialext,testext,domains)
+end
+
+get_feop = method==:ttsvd ? def_extended_fe_operator : def_fe_operator
+
+function local_solver(rbsolver,rbop,μ,x)
+  gsolver = change_context(rbsolver)
+  k, = get_clusters(rbop.test)
+  μsplit = cluster(μ,k)
+  xsplit = cluster(x,k)
+  perfs = RBPerformanceTracker[]
+  for (μi,xi) in zip(μsplit,xsplit)
+    feopi = get_feop(μi)
+    rbopi = change_operator(get_local(rbop,first(μi)),feopi)
+    x̂ = solution_snapshots(gsolver,rbopi,μi)
+    perf = rom_performance(rbsolver,rbopi,xi,x̂)
+    push!(perfs,deepcopy(perf))
+  end
+  return RBSteady.mean(perfs)
+end
+
+fesolver = LUSolver()
+if method == :ttsvd
+  tol = fill(tol,3)
+  fesolver = ExtensionSolver(fesolver)
+end
+hr = compression == :global ? HyperReduction : LocalHyperReduction
+state_reduction = Reduction(tol,energy;nparams,compression,ncentroids)
+residual_reduction = hr(tol.*1e-2;nparams,ncentroids)
+jacobian_reduction = hr(tol.*1e-2;nparams,ncentroids)
+rbsolver = RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
+
+μ = realisation(pspace;nparams)
+feop = get_feop(μ)
+fesnaps = solution_snapshots(rbsolver,feop,μ)
+
+μon = realisation(pspace;nparams=10,sampling=:uniform)
+feopon = get_feop(μon)
+x = solution_snapshots(rbsolver,feopon,μon)
+
+rbop = reduced_operator(rbsolver,feop,fesnaps)
+
+# perf = local_solver(rbsolver,rbop,μon,x)
+gsolver = change_context(rbsolver)
+k, = get_clusters(rbop.test)
+μsplit = cluster(μ,k)
+xsplit = cluster(x,k)
+perfs = RBPerformanceTracker[]
+
+μi,xi = first(μsplit),first(xsplit)
+feopi = get_feop(μi)
+rbopi = change_operator(get_local(rbop,first(μi)),feopi)
+x̂ = solution_snapshots(gsolver,rbopi,μi)
+
+using GridapROMs.ParamSteady
+using GridapROMs.Utils
+
+v = get_fe_basis(get_test(feopi))
+du = get_trial_fe_basis(get_test(feopi))
+dco = get_jac(feopi)(μi,du,du,v)
+trian_jac = get_domains_jac(rbopi)
+strian = last(trian_jac)
+lhs_strian = get_interpolation(rbopi.lhs[strian])
+cellvals,celldofs,cells = collect_cell_hr_matrix(get_test(rbopi),get_test(rbopi),dco,strian,lhs_strian);
+
+cell_mat,trian = move_contributions(dco[strian],strian);
+@assert ndims(eltype(cell_mat)) == 2
+cell_mat_c = attach_constraints_cols(get_test(rbopi),cell_mat,trian)
+cell_mat_rc = attach_constraints_rows(get_test(rbopi),cell_mat_c,trian)
+(cell_mat_rc,cell_idofs,cells)

@@ -278,12 +278,6 @@ for f in (:get_integration_cells,:get_cell_idofs)
   end
 end
 
-function RBSteady.get_owned_integration_cells(a::DistributedInterpolation,args...)
-  map(local_views(a)) do a
-    get_owned_integration_cells(a,args...)
-  end
-end
-
 function RBSteady.get_interpolation_dofs(a::DistributedInterpolation)
   _unpack(x) = x
   _unpack(x::AbstractArray{<:Tuple}) = tuple_of_arrays(x) 
@@ -478,16 +472,16 @@ function RBSteady.collect_cell_hr_matrix(
   interp::Interpolation
   )
 
-  cell_idofs = get_cell_idofs(interp)
-  cells = get_owned_integration_cells(interp,strian)
-  cell_mat_rc = map(local_views(trial),local_views(test),local_views(a),local_views(strian)) do trial,test,a,strian
+  out = map(local_views(trial),local_views(test),local_views(a),local_views(strian)) do trial,test,a,strian
     scell_mat = get_contribution(a,strian)
     cell_mat,trian = move_contributions(scell_mat,strian)
     @assert ndims(eltype(cell_mat)) == 2
     cell_mat_c = attach_constraints_cols(trial,cell_mat,trian)
-    attach_constraints_rows(test,cell_mat_c,trian)
+    cell_mat_rc = attach_constraints_rows(test,cell_mat_c,trian)
+    cell_idofs,cells = RBSteady._owned_integration_cells_and_idofs(interp,trial,test,strian,trian)
+    (cell_mat_rc,cell_idofs,cells)
   end
-  (cell_mat_rc,cell_idofs,cells)
+  map(first,out),map(x->x[2],out),map(last,out)
 end
 
 function RBSteady.collect_cell_hr_vector(
@@ -497,15 +491,15 @@ function RBSteady.collect_cell_hr_vector(
   interp::Interpolation
   )
 
-  cell_idofs = get_cell_idofs(interp)
-  cells = get_owned_integration_cells(interp,strian)
-  cell_vec_r = map(local_views(test),local_views(a),local_views(strian)) do test,a,strian
+  out = map(local_views(test),local_views(a),local_views(strian)) do test,a,strian
     scell_vec = get_contribution(a,strian)
     cell_vec,trian = move_contributions(scell_vec,strian)
     @assert ndims(eltype(cell_vec)) == 1
-    attach_constraints_rows(test,cell_vec,trian)
+    cell_vec_r = attach_constraints_rows(test,cell_vec,trian)
+    cell_idofs,cells = RBSteady._owned_integration_cells_and_idofs(interp,test,strian,trian)
+    (cell_vec_r,cell_idofs,cells)
   end
-  (cell_vec_r,cell_idofs,cells)
+  map(first,out),map(x->x[2],out),map(last,out)
 end
 
 for T in (:MPIArray,:DebugArray)

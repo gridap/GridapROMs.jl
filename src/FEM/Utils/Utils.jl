@@ -88,6 +88,4 @@ export collect_cell_matrix_for_trian
 export collect_cell_vector_for_trian
 include("FEDomains.jl")
 
-include("GridapFixes.jl")
-
 end

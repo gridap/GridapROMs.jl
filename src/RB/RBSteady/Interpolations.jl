@@ -3,9 +3,9 @@ abstract type Interpolation end
 Interpolation(args...) = @abstractmethod
 
 get_integration_cells(a::Interpolation) = Int32[]
-get_owned_integration_cells(a::Interpolation,args...) = get_integration_cells(a)
 get_cell_idofs(a::Interpolation) = empty_table(Int,Int32,0)
 get_interpolation_dofs(a::Interpolation) = Int64[]
+move_integration_domain(a::Interpolation,args...) = a
 
 function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,x::Any)
   cache
@@ -36,6 +36,11 @@ function Interpolation(red::NoHyperReduction,trian,args...)
 end
 
 get_integration_cells(a::FullInterpolation) = a.cells
+
+function move_integration_domain(i::FullInterpolation,strian::Triangulation,ttrian::Triangulation)
+  rows = i.dofs
+  IntegrationDomain(ttrian,test,rows)
+end
 
 # EIM interpolation
 
@@ -238,20 +243,12 @@ Arrays.testitem(a::BlockInterpolation) = first(a.interp)
 Base.getindex(a::BlockInterpolation,i::Block) = getindex(a,i.n...)
 Base.setindex!(a::BlockInterpolation,v,i::Block) = setindex!(a,v,i.n...)
 
-function get_cell_idofs(a::BlockInterpolation{N}) where N
+function get_cell_idofs(a::BlockInterpolation)
   map(get_cell_idofs,a.interp)
 end
 
 function get_integration_cells(a::BlockInterpolation)
-  cells = get_integration_cells(a.interp[1])
-  for i in 2:length(a)
-    cells = _union(cells,get_integration_cells(a.interp[i]))
-  end
-  return cells
-end
-
-function get_owned_integration_cells(a::BlockInterpolation,args...)
-  map(x -> get_owned_integration_cells(x,args...),a.interp)
+  map(get_integration_cells,a.interp)
 end
 
 #utils

@@ -13,25 +13,6 @@ function get_local(a::LocalInterpolation,μ::AbstractVector)
   local_vals(a)[labk,labl]
 end
 
-function get_cell_idofs(a::LocalInterpolation) 
-  data = map(get_cell_idofs,local_vals(a))
-  return Table(data)
-end
-
-function get_integration_cells(a::LocalInterpolation)
-  vals = local_vals(a)
-  isempty(vals) && return Int32[]
-  cells = get_integration_cells(vals[1])
-  for i in 2:length(vals)
-    cells = _union(cells,get_integration_cells(vals[i]))
-  end
-  return cells
-end
-
-function get_owned_integration_cells(a::LocalInterpolation,args...)
-  map(i -> get_owned_integration_cells(i,args...),local_vals(a))
-end
-
 struct LocalHRProjection <: HRProjection{HyperReduction,Projection}
   reductions::AbstractMatrix
   k::NTuple{2,KmeansResult}

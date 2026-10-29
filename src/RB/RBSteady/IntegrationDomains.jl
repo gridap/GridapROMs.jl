@@ -237,25 +237,10 @@ get_integration_cells(i::GenericDomain) = i.cells
 get_cell_idofs(i::GenericDomain) = i.cell_idofs
 get_interpolation_dofs(i::GenericDomain) = i.dofs
 
-function move_integration_domain(
-  i::GenericDomain,
-  test::FESpace,
-  ttrian::Triangulation,
-  )
-
+function move_integration_domain(i::GenericDomain,strian::Triangulation,ttrian::Triangulation)
   rows = i.dofs
+  scell_to_tcell = move_trian_ids(strian,ttrian)
   IntegrationDomain(ttrian,test,rows)
-end
-
-function move_integration_domain(
-  i::GenericDomain,
-  trial::FESpace,
-  test::FESpace,
-  ttrian::Triangulation,
-  )
-
-  rows,cols = i.dofs
-  IntegrationDomain(ttrian,trial,test,rows,cols)
 end
 
 # utils
@@ -429,4 +414,24 @@ function _evaluate!(a::MatrixBlock,cellrows::VectorBlock,cellcols::VectorBlock,r
     end
   end
   a
+end
+
+function move_trian_ids(strian::Triangulation,ttrian::Triangulation)
+  D = num_cell_dims(ttrian)
+  sglue = get_glue(strian,Val(D))
+  tglue = get_glue(ttrian,Val(D))
+  move_trian_ids(sglue,tglue)
+end
+
+function move_trian_ids(sglue::FaceToFaceGlue,tglue::FaceToFaceGlue)
+  move_trian_ids(sglue,tglue,sglue.mface_to_tface)
+end
+
+function move_trian_ids(
+  sglue::FaceToFaceGlue,
+  tglue::FaceToFaceGlue,
+  mcell_to_scell::AbstractArray
+  )
+
+  tglue.tface_to_mface
 end

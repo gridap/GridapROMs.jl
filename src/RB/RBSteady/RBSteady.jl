@@ -236,7 +236,6 @@ export FullInterpolation
 export GreedyInterpolation
 export RBFInterpolation
 export BlockInterpolation
-export get_owned_integration_cells
 include("Interpolations.jl")
 
 export HRProjection
