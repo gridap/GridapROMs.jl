@@ -162,6 +162,11 @@ end
 Algebra.get_matrix(c::SystemCache) = c.A
 Algebra.get_vector(c::SystemCache) = c.b
 
+"""
+    allocate_systemcache(nlop::NonlinearParamOperator[,x::AbstractVector]) -> SystemCache
+
+Allocates the Jacobian, residual and solution vector of `nlop`
+"""
 function allocate_systemcache(nlop::NonlinearParamOperator)
   @abstractmethod
 end
@@ -173,7 +178,12 @@ function allocate_systemcache(nlop::NonlinearParamOperator,x::AbstractVector)
   return SystemCache(A,b,y)
 end
 
-# This operator does not store a system cache
+"""
+    update_systemcache!(nlop::NonlinearParamOperator,x::AbstractVector)
+
+Updates the system cache stored in `nlop`, if any. For a [`LinNonlinParamOperator`](@ref),
+assembles its linear part
+"""
 function update_systemcache!(nlop::NonlinearParamOperator,x::AbstractVector)
   nothing 
 end

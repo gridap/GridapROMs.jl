@@ -206,11 +206,29 @@ end
 
 # constructors
 
+"""
+    TransientLinearParamOperator(rhs,jacs,tpspace,trial,test[,domains]) -> ODEParamOperator
+
+Linear transient parametric operator, built from the right-hand side `rhs(μ,t,v)`,
+the tuple of Jacobians `jacs`, with respect to `u`, `∂t(u)`, ..., in the form
+`jac(μ,t,du,v)`, a [`TransientParamSpace`](@ref) `tpspace`, the trial and test spaces,
+and optionally the [`FEDomains`](@ref) on which `rhs` and `jacs` are integrated
+"""
 function TransientLinearParamOperator(args...;kwargs...)
   feop = TransientLinearParamFEOperator(args...;kwargs...)
   get_algebraic_operator(feop)
 end
 
+"""
+    TransientParamOperator(res,jacs,tpspace,trial,test[,domains]) -> ODEParamOperator
+
+Transient parametric operator, built from the residual `res(μ,t,u,v)`, the tuple of
+Jacobians `jacs`, with respect to `u`, `∂t(u)`, ..., in the form `jac(μ,t,u,du,v)`, a
+[`TransientParamSpace`](@ref) `tpspace`, the trial and test spaces, and optionally the
+[`FEDomains`](@ref) on which `res` and `jacs` are integrated. When `res`, the entries
+of `jacs` and `domains` are [`Bundle`](@ref)s, the operator is split into a linear
+and a nonlinear part
+"""
 function TransientParamOperator(args...;kwargs...)
   feop = TransientParamFEOperator(args...;kwargs...)
   get_algebraic_operator(feop)

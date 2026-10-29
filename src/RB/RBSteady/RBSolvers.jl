@@ -2,6 +2,11 @@ abstract type SolverContext end
 struct GlobalContext <: SolverContext end
 struct LocalContext <: SolverContext end
 
+"""
+    abstract type ROMSolver <: GridapType end
+
+Supertype of the solvers of reduced order models. See [`RBSolver`](@ref)
+"""
 abstract type ROMSolver <: GridapType end
 
 """
@@ -42,12 +47,18 @@ Fields:
   information across the offline (subspace, jacobian and residual
   hyper-reduction) and online (reduced solve) phases
 
-    RBSolver(fesolver,reduction::Reduction;nparams_res=20,nparams_jac=20,verbose=true,kwargs...)
+    RBSolver(fesolver,reduction::Reduction;nparams_res=20,nparams_jac=20,hypred_strategy=:deim,verbose=true)
+    RBSolver(fesolver::ODESolver,reduction::Reduction;nparams_res=20,nparams_jacs=(20,20),hypred_strategy=:deim,verbose=true)
     RBSolver(fesolver,style::ReductionStyle,args...;nparams=100,kwargs...)
+    RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction)
 
 The most convenient way to build a `RBSolver`: `reduction` (or `style`, from which
 a `Reduction` is built using `nparams` snapshots) governs the state subspace,
-while `nparams_res`/`nparams_jac` set the number of snapshots used for hyper-reduction.
+while `nparams_res`/`nparams_jac` set the number of snapshots used for hyper-reduction
+(`nparams_jacs`, one per Jacobian, in transient problems), and `hypred_strategy`
+the hyper-reduction method (see [`HyperReduction`](@ref)). The hyper-reductions
+inherit the tolerance (or rank) of `reduction`; to set them independently, pass them
+explicitly, as in the last constructor.
 `verbose` controls whether `solver.tracker` prints cost information as it is
 populated during the offline/online phases (through [`set_subspace_tracker!`](@ref),
 [`set_jacobian_tracker!`](@ref), [`set_residual_tracker!`](@ref) and
@@ -75,6 +86,11 @@ function RBSolver(
   RBSolver(fesolver,context,state_reduction,residual_reduction,jacobian_reduction,tracker)
 end
 
+"""
+    const GlobalRBSolver{A,C,D,E} = RBSolver{A,GlobalContext,C,D,E}
+
+[`RBSolver`](@ref) computing a single (global) reduced operator
+"""
 const GlobalRBSolver{A,C,D,E} = RBSolver{A,GlobalContext,C,D,E}
 
 function GlobalRBSolver(fesolver,args...;kwargs...)
@@ -92,6 +108,12 @@ function RBSolver(
   GlobalRBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction;kwargs...)
 end
 
+"""
+    const LocalRBSolver{A,C,D,E} = RBSolver{A,LocalContext,C,D,E}
+
+[`RBSolver`](@ref) computing local reduced operators, one per cluster of the parameter
+space. Built automatically from a [`LocalReduction`](@ref)
+"""
 const LocalRBSolver{A,C,D,E} = RBSolver{A,LocalContext,C,D,E}
 
 function LocalRBSolver(fesolver,args...;kwargs...)
@@ -141,6 +163,14 @@ end
 Returns the underlying `NonlinearSolver` from a [`RBSolver`](@ref) `s`
 """
 get_fe_solver(s::RBSolver) = s.fesolver
+
+"""
+    get_reduced_solver(s) -> NonlinearSolver
+
+Solver of the reduced problems, derived from the FE solver of `s`: a dense LU solver
+for linear problems, a Newton method for nonlinear ones, and the same time-marching
+scheme for transient ones
+"""
 get_reduced_solver(s::RBSolver) = get_reduced_solver(get_fe_solver(s))
 
 get_reduced_solver(nls::NonlinearSolver) = @abstractmethod
@@ -178,13 +208,16 @@ for f in (:set_fom_tracker!,:set_rom_tracker!,:set_subspace_tracker!,:set_jacobi
 end
 
 """
+    solution_snapshots(solver::RBSolver,feop::ParamOperator[,r::AbstractRealisation],args...;nparams) -> AbstractSnapshots
+    solution_snapshots(solver::RBSolver,rbop::ROMOperator,r::AbstractRealisation,args...) -> AbstractSnapshots
     solution_snapshots(solver::NonlinearSolver,feop::ParamOperator,r::Realisation) -> Snapshots
-    solution_snapshots(solver::ODESolver,feop::TransientParamOperator,r::TransientRealisation,u0) -> TransientSnapshots
+    solution_snapshots(solver::ODESolver,feop::ODEParamOperator,r::TransientRealisation,u0) -> TransientSnapshots
 
-The problem encoded in the FE operator `feop` is solved several times, and the solution
-snapshots are returned along with the information related to the computational
-cost of the FE method. In transient settings, an initial condition `u0` should be
-provided.
+Solves the FE problem `feop` (or the reduced problem `rbop`) for every parameter in `r`,
+and returns the solutions as snapshots. Given an [`RBSolver`](@ref), the cost of the
+solves is recorded in its tracker, and `r` defaults to a realisation of the number of
+parameters needed offline. In transient problems, the initial condition `u0`, a
+function of the parameter, must be provided
 """
 function solution_snapshots(
   solver::RBSolver,

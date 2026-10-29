@@ -57,6 +57,11 @@ function time_combination(
   return usx
 end
 
+"""
+    time_combination!(usx,c::TimeCombination,u,us0) -> Tuple
+
+In-place version of [`time_combination`](@ref)
+"""
 function time_combination!(
   usx::NTuple{M,AbstractVector},
   c::TimeCombination,
@@ -76,7 +81,12 @@ function time_combination!(
   return usx
 end
 
-# used in linear cases, and usually only accounts for initial conditions 
+"""
+    zero_time_combination(c::TimeCombination,u,us0) -> Tuple
+
+Same as [`time_combination`](@ref), with a zero solution `u`: only the initial
+conditions `us0` contribute. Used in linear problems
+"""
 function zero_time_combination(
   c::TimeCombination,
   u::AbstractVector,
@@ -88,6 +98,11 @@ function zero_time_combination(
   return usx
 end
 
+"""
+    zero_time_combination!(usx,c::TimeCombination,us0) -> Tuple
+
+In-place version of [`zero_time_combination`](@ref)
+"""
 function zero_time_combination!(
   usx::NTuple{M,AbstractVector},
   c::TimeCombination,
@@ -102,6 +117,11 @@ function zero_time_combination!(
   return usx
 end
 
+"""
+    allocate_time_combination(u::AbstractVector,us0::Tuple) -> Tuple
+
+Allocates the output of [`time_combination`](@ref)
+"""
 function allocate_time_combination(
   u::AbstractVector, 
   us0::NTuple{N,AbstractVector}
@@ -194,6 +214,14 @@ function TimeCombination(odesolver::GeneralizedAlpha2)
   )
 end
 
+"""
+    struct TimeMarchingCombination{A<:TimeCombination} <: TimeCombination
+      combination::A
+    end
+
+Wrapper of a [`TimeCombination`](@ref) used by ROMs that are reduced in space only,
+and thus still march in time online
+"""
 struct TimeMarchingCombination{A<:TimeCombination} <: TimeCombination
   combination::A
 end

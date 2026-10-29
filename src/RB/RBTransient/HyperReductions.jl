@@ -85,6 +85,9 @@ function FESpaces.interpolate!(
 end
 
 const TransientNoHRContribution = AffineContribution{<:TransientNoHRProjection}
+"""
+    const TransientAffineHRContribution = AffineContribution{<:TransientAffineHRProjection}
+"""
 const TransientAffineHRContribution = AffineContribution{<:TransientAffineHRProjection}
 const TransientDEIMContribution = AffineContribution{<:TransientDEIMProjection}
 const TransientSOPTContribution = AffineContribution{<:TransientSOPTProjection}
@@ -99,6 +102,9 @@ order in unsteady settings.
 """
 const AffineContributionTuple = ContributionTuple{<:AffineContribution,T} where T
 const TransientNoHRContributionTuple = ContributionTuple{<:TransientNoHRContribution,T} where T
+"""
+    const TransientAffineHRContributionTuple = ContributionTuple{<:TransientAffineHRContribution,T} where T
+"""
 const TransientAffineHRContributionTuple = ContributionTuple{<:TransientAffineHRContribution,T} where T
 const TransientDEIMContributionTuple = ContributionTuple{<:TransientDEIMContribution,T} where T
 const TransientSOPTContributionTuple = ContributionTuple{<:TransientSOPTContribution,T} where T
@@ -162,6 +168,11 @@ function RBSteady.allocate_hypred_cache(a::AffineContributionTuple,args...)
   return HRParamArray(fecache,coeffs,hypred)
 end
 
+"""
+    get_common_time_domain(a...) -> AbstractVector{Int}
+
+Union of the time steps selected by the hyper-reductions `a`
+"""
 function get_common_time_domain(a::HRProjection...)
   time_ids = ()
   for ai in a

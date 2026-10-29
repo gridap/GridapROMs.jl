@@ -1,3 +1,9 @@
+"""
+    add_initial_conditions(solver::ODESolver,odeop::ODEParamOperator,r::TransientRealisation,us0) -> Tuple
+
+Completes the initial conditions `us0` with the additional states required by the
+time-marching scheme of `solver`
+"""
 function add_initial_conditions(
   solver::ThetaMethod,
   odeop::ODEParamOperator,

@@ -1,3 +1,9 @@
+"""
+    unwrap_and_setsize!(a,b[,c]) -> AbstractArray
+
+Resizes the cached array (or block of cached arrays) `a` to the size of `b` (or of
+`b ⊗ c`), and returns the underlying array
+"""
 function unwrap_and_setsize!(a::CachedVector,b::AbstractVector)
   setsize!(a,size(b))
   a.array

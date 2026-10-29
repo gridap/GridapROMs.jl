@@ -5,12 +5,16 @@ Transient specialization of a `Snapshots`
 
 Subtypes:
 - [`TransientSnapshotsWithIC`](@ref)
-- [`ModeTransientSnapshots`](@ref)
 """
 const TransientSnapshots{T,N,I,R<:TransientRealisation} = Snapshots{T,N,I,R}
 
 num_times(s::TransientSnapshots) = num_times(get_realisation(s))
 
+"""
+    get_initial_param_data(s::TransientSnapshots) -> AbstractParamArray
+
+Initial conditions of the transient snapshots `s`
+"""
 get_initial_param_data(s::TransientSnapshots) = @abstractmethod
 
 function flatten(s::TransientSnapshots)
@@ -68,6 +72,11 @@ function select_snapshots(s::TransientSnapshotsWithIC,pindex)
   TransientSnapshotsWithIC(d0range,srange)
 end
 
+"""
+    select_times(s::TransientSnapshots,tindex) -> TransientSnapshots
+
+Restriction of `s` to the time steps of index `tindex`
+"""
 function select_times(s::TransientSnapshotsWithIC,tindex)
   srange = select_times(s.snaps,tindex)
   TransientSnapshotsWithIC(s.initial_param_data,srange)
@@ -77,6 +86,9 @@ function param_cat(v::AbstractVector{<:TransientSnapshotsWithIC})
   param_cat(map(s -> s.snaps,v))
 end
 
+"""
+    const TransientGenericSnapshots{T,N,I,R<:TransientRealisation,A,B} = GenericSnapshots{T,N,I,R,A,B}
+"""
 const TransientGenericSnapshots{T,N,I,R<:TransientRealisation,A,B} = GenericSnapshots{T,N,I,R,A,B}
 
 function select_snapshots(s::TransientGenericSnapshots,pindex)
@@ -106,11 +118,17 @@ function select_times(s::TransientGenericSnapshots,tindex)
 end
 
 """
+    const TransientSparseSnapshots{T,N,I<:AbstractSparseDofMap,R<:TransientRealisation} = TransientSnapshots{T,N,I,R}
+
+Transient version of [`SparseSnapshots`](@ref)
 """
 const TransientSparseSnapshots{T,N,I<:AbstractSparseDofMap,R<:TransientRealisation} = TransientSnapshots{T,N,I,R}
 
 # block snapshots
 
+"""
+    const TransientBlockSnapshots{S<:TransientSnapshots,N} = BlockSnapshots{S,N}
+"""
 const TransientBlockSnapshots{S<:TransientSnapshots,N} = BlockSnapshots{S,N}
 
 num_times(s::TransientBlockSnapshots) = num_times(get_realisation(s))
@@ -186,6 +204,12 @@ function select_times(a::ArrayContributionTuple,tindex)
   map(ai->select_times(ai,tindex),a)
 end
 
+"""
+    change_mode(a::AbstractMatrix,np::Integer) -> AbstractMatrix
+
+Converts the space-mode unfolding `a` of transient snapshots with `np` parameters
+into their time-mode unfolding (time steps × (space DOFs, parameters))
+"""
 function change_mode(a::AbstractMatrix,np::Integer)
   n1 = size(a,1)
   n2 = Int(size(a,2)/np)

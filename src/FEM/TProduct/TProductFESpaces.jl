@@ -1,3 +1,10 @@
+"""
+    LexicographicFESpace(args...;kwargs...) -> FESpace
+    LexicographicFESpace(f::FESpace) -> FESpace
+
+FE space whose free DOFs are numbered lexicographically, i.e. sorted by component
+and then by the coordinates of the DOFs, from the last to the first
+"""
 function LexicographicFESpace(args...;kwargs...)
   LexicographicFESpace(FESpace(args...;kwargs...))
 end

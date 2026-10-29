@@ -1,15 +1,39 @@
+"""
+    abstract type PerformanceTracker end
+
+Supertype of the structures recording the computational cost (and, for
+[`RBPerformanceTracker`](@ref), the accuracy) of FE and RB solvers
+"""
 abstract type PerformanceTracker end
 
 function Base.show(io::IO,t::PerformanceTracker)
   show(io,MIME"text/plain"(),t)
 end
 
+"""
+    mutable struct CostTracker <: PerformanceTracker
+      name::String
+      time::Float64
+      nallocs::Float64
+      nruns::Int
+    end
+
+Records the wall time (in seconds) and the memory allocations (in Mb) of `nruns`
+runs of an algorithm
+"""
 mutable struct CostTracker <: PerformanceTracker
   name::String
   time::Float64
   nallocs::Float64
   nruns::Int
 end
+
+"""
+    get_name(t::PerformanceTracker) -> String
+
+Name of the tracker `t`
+"""
+function get_name end
 
 get_name(c::CostTracker) = c.name
 get_time(c::CostTracker) = c.time
@@ -48,12 +72,23 @@ function mean(cs::AbstractVector{<:CostTracker})
   CostTracker(name,time,nallocs,nruns)
 end
 
+"""
+    set_tracker!(t::CostTracker)
+
+Resets `t`
+"""
 function set_tracker!(t::CostTracker)
   t.time = 0.0
   t.nallocs = 0.0
   t.nruns = 0
 end
 
+"""
+    update_tracker!(t::CostTracker,stats::NamedTuple;msg="")
+
+Adds the time and allocations in `stats`, the output of `@timed`, to `t`. If `msg`
+is not empty, it is printed together with `t`
+"""
 function update_tracker!(t::CostTracker,stats::NamedTuple;msg="")
   time = stats[:time]
   nallocs = stats[:bytes] / 1e6
@@ -71,6 +106,16 @@ function get_stats(t::CostTracker)
   return avg_time,avg_nallocs
 end
 
+"""
+    mutable struct OfflineCostTracker <: PerformanceTracker
+      subspace::CostTracker
+      jacobian::CostTracker
+      residual::CostTracker
+    end
+
+Costs of the offline phase of a RB method: construction of the reduced subspace, and
+hyper-reduction of the Jacobian and of the residual
+"""
 mutable struct OfflineCostTracker <: PerformanceTracker
   subspace::CostTracker
   jacobian::CostTracker
@@ -116,6 +161,19 @@ function mean(cs::AbstractVector{<:OfflineCostTracker})
   OfflineCostTracker(subspace,jacobian,residual)
 end
 
+"""
+    mutable struct RBPerformanceTracker <: PerformanceTracker
+      verbose::Bool
+      full_order::CostTracker
+      reduced_order::CostTracker
+      offline::OfflineCostTracker
+      error::Any
+    end
+
+Costs of the full order solver, of the online and offline phases of a RB solver, and
+error of the RB approximation (see `rom_performance`). When `verbose`, costs
+are printed as soon as they are recorded
+"""
 mutable struct RBPerformanceTracker <: PerformanceTracker
   verbose::Bool
   full_order::CostTracker
@@ -193,6 +251,32 @@ function update_residual_tracker!(p::RBPerformanceTracker,args...;kwargs...)
   p.verbose && show(p.offline.residual)
 end
 
+for (phase,what) in (
+  (:fom,"full order solver"),
+  (:rom,"online phase of the reduced solver"),
+  (:subspace,"construction of the reduced subspace"),
+  (:jacobian,"hyper-reduction of the Jacobian"),
+  (:residual,"hyper-reduction of the residual"))
+  set! = Symbol("set_",phase,"_tracker!")
+  update! = Symbol("update_",phase,"_tracker!")
+  @eval begin
+    """
+        $($(string(set!)))(t::PerformanceTracker,stats::NamedTuple;kwargs...)
+
+    Overwrites the cost of the $($what) recorded in `t` with `stats`, the output
+    of `@timed`
+    """
+    $set!
+
+    """
+        $($(string(update!)))(t::PerformanceTracker,stats::NamedTuple;kwargs...)
+
+    Adds `stats`, the output of `@timed`, to the cost of the $($what) recorded in `t`
+    """
+    $update!
+  end
+end
+
 function mean(p::AbstractVector{<:RBPerformanceTracker})
   verbose = first(p).verbose
   full_order = mean(map(p->p.full_order,p))
@@ -202,6 +286,16 @@ function mean(p::AbstractVector{<:RBPerformanceTracker})
   RBPerformanceTracker(verbose,full_order,reduced_order,offline,error)
 end
 
+"""
+    struct Speedup <: PerformanceTracker
+      name::String
+      speedup_time::Float64
+      speedup_memory::Float64
+    end
+
+Speedup in time and memory of one algorithm with respect to another. See
+[`compute_speedup`](@ref)
+"""
 struct Speedup <: PerformanceTracker
   name::String
   speedup_time::Float64
@@ -242,9 +336,21 @@ function compute_speedup(t1::CostTracker,t2::CostTracker)
   return Speedup(name,speedup_time,speedup_memory)
 end
 
+"""
+    sqrtabs(x) -> Number
+
+Square root of `x`, or of its modulus when `x` is complex
+"""
 sqrtabs(x) = sqrt(x)
 sqrtabs(x::Complex) = sqrt(abs(x))
 
+"""
+    induced_norm(v::AbstractVector[,X::AbstractMatrix]) -> Number
+    induced_norm(A::AbstractArray[,X::AbstractMatrix]) -> Number
+
+Norm of `v` induced by the norm matrix `X` (Euclidean if not provided). For an
+array `A`, the mean of the (squared) norms of its columns
+"""
 induced_norm(v::AbstractVector) = norm(v)
 induced_norm(A::AbstractMatrix) = mean(map(norm,eachcol(A)))
 

@@ -58,6 +58,12 @@ get_fe_operator(op::ParamOperator) = @abstractmethod
 FESpaces.get_test(op::ParamOperator) = get_test(get_fe_operator(op))
 FESpaces.get_trial(op::ParamOperator) = get_trial(get_fe_operator(op))
 ODEs.get_res(op::ParamOperator) = ODEs.get_res(get_fe_operator(op))
+"""
+    get_jac(op) -> Function
+
+Jacobian of the operator `op`, as a function `(μ,u,du,v) -> ...` (with an additional
+time argument in transient problems)
+"""
 get_jac(op::ParamOperator) = get_jac(get_fe_operator(op))
 
 DofMaps.get_dof_map(op::ParamOperator,args...) = get_dof_map(get_fe_operator(op),args...)
@@ -73,6 +79,12 @@ get_param_space(op::ParamOperator) = get_param_space(get_fe_operator(op))
 ParamDataStructures.realisation(op::ParamOperator;kwargs...) = realisation(get_fe_operator(op);kwargs...)
 
 ODEs.get_assembler(op::ParamOperator) = get_assembler(get_fe_operator(op))
+"""
+    get_param_assembler(op,r::AbstractRealisation) -> Assembler
+
+Assembler of `op`, parameterised to assemble parameterised arrays of length
+`param_length(r)`
+"""
 get_param_assembler(op::ParamOperator,r::AbstractRealisation) = parameterise(get_assembler(op),r)
 FESpaces.assemble_matrix(op::ParamOperator,form::Function) = assemble_matrix(get_fe_operator(op),form)
 
@@ -187,17 +199,26 @@ end
 # constructors
 
 """
-    LinearParamOperator(args...; kwargs...)
+    LinearParamOperator(rhs,jac,pspace,trial,test[,domains]) -> ParamOperator
 
-Convenience constructor that builds a linear parametric algebraic operator.
-Internally creates a `LinearParamFEOperator` from the given arguments and
-returns its algebraic counterpart via `get_algebraic_operator`.
+Linear parametric algebraic operator, built from the right-hand side `rhs(μ,v)`, the
+bilinear form `jac(μ,du,v)`, a [`ParamSpace`](@ref) `pspace`, the trial and test spaces,
+and optionally the [`FEDomains`](@ref) on which `rhs` and `jac` are integrated
 """
 function LinearParamOperator(args...;kwargs...)
   feop = LinearParamFEOperator(args...;kwargs...)
   get_algebraic_operator(feop)
 end
 
+"""
+    ParamOperator(res,jac,pspace,trial,test[,domains]) -> ParamOperator
+
+Nonlinear parametric algebraic operator, built from the residual `res(μ,u,v)`, the
+Jacobian `jac(μ,u,du,v)`, a [`ParamSpace`](@ref) `pspace`, the trial and test spaces,
+and optionally the [`FEDomains`](@ref) on which `res` and `jac` are integrated. When
+`res`, `jac` and `domains` are [`Bundle`](@ref)s, the operator is split into a linear
+part (written as in [`LinearParamOperator`](@ref)) and a nonlinear part
+"""
 function ParamOperator(args...;kwargs...)
   feop = ParamFEOperator(args...;kwargs...)
   get_algebraic_operator(feop)

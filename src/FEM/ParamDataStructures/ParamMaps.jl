@@ -162,6 +162,13 @@ for T in (:ParamReindex,:PosNegParamReindex)
 end
 
 
+"""
+    struct FetchParam <: Map
+      index::Int
+    end
+
+Map extracting the `index`-th parameter from a parameterised cell array
+"""
 struct FetchParam <: Map
   index::Int
 end
@@ -170,10 +177,20 @@ function Arrays.lazy_map(k::FetchParam,a::LazyArray{<:Fill{FetchParam}})
   lazy_map(k,a.args...)
 end
 
+"""
+    lazy_param_getindex(a,index::Int) -> AbstractArray
+
+Lazily extracts the `index`-th parameter from the parameterised cell array `a`
+"""
 function lazy_param_getindex(a,index::Int)
   lazy_map(FetchParam(index),a)
 end
 
+"""
+    lazy_testitem(a) -> AbstractArray
+
+Same as `lazy_param_getindex(a,1)`
+"""
 function lazy_testitem(a)
   lazy_param_getindex(a,1)
 end

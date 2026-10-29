@@ -1,17 +1,92 @@
+"""
+    SNAPSHOTS_LABEL
+
+Label of the files storing snapshots
+"""
 const SNAPSHOTS_LABEL = "snaps"
+"""
+    RESIDUALS_LABEL
+
+Label of the files storing residual snapshots
+"""
 const RESIDUALS_LABEL = "res"
+"""
+    JACOBIANS_LABEL
+
+Label of the files storing Jacobian snapshots
+"""
 const JACOBIANS_LABEL = "jac"
+"""
+    RHS_LABEL
+
+Label of the files storing hyper-reduced residuals
+"""
 const RHS_LABEL = "rhs"
+"""
+    LHS_LABEL
+
+Label of the files storing hyper-reduced Jacobians
+"""
 const LHS_LABEL = "lhs"
+"""
+    TEST_LABEL
+
+Label of the files storing reduced test spaces
+"""
 const TEST_LABEL = "test"
+"""
+    TRIAL_LABEL
+
+Label of the files storing reduced trial spaces
+"""
 const TRIAL_LABEL = "trial"
+"""
+    STATISTICS_LABEL
+
+Label of the files storing performance statistics
+"""
 const STATISTICS_LABEL = "stats"
+"""
+    RESULTS_LABEL
+
+Label of the files storing results of [`rom_performance`](@ref)
+"""
 const RESULTS_LABEL = "results"
+"""
+    PROJECTION_LABEL
+
+Label of the files storing projections
+"""
 const PROJECTION_LABEL = "projection"
+"""
+    CONTRIBUTIONS_LABEL
+
+Label of the files storing contributions
+"""
 const CONTRIBUTIONS_LABEL = "contributions"
+"""
+    LINEAR_LABEL
+
+Label of the files storing linear parts of a `Bundle`
+"""
 const LINEAR_LABEL = "lin"
+"""
+    NONLINEAR_LABEL
+
+Label of the files storing nonlinear parts of a `Bundle`
+"""
 const NONLINEAR_LABEL = "nlin"
+"""
+    OFFLINE_LABEL
+
+Label of the files storing offline quantities
+"""
 const OFFLINE_LABEL = "offline"
+"""
+    ONLINE_LABEL
+
+Label of the files storing online quantities
+"""
 const ONLINE_LABEL = "online"
 
 _get_label(name::String,label) = _get_label(name,string(label))
@@ -56,6 +131,11 @@ function save(dir,stats::PerformanceTracker;label="")
   serialize(stats_dir,stats)
 end
 
+"""
+    load_stats(dir;label="") -> PerformanceTracker
+
+Loads the performance statistics stored in `dir`
+"""
 function load_stats(dir;label="")
   load(dir,STATISTICS_LABEL;label)
 end
@@ -65,6 +145,11 @@ function save(dir,b::Projection;label="")
   serialize(proj_dir,b)
 end
 
+"""
+    load_projection(dir;label="") -> Projection
+
+Loads the projection stored in `dir`
+"""
 function load_projection(dir;label="")
   load(dir,PROJECTION_LABEL;label)
 end
@@ -74,6 +159,9 @@ function save(dir,r::RBSpace;label="")
 end
 
 """
+    load_subspace(dir,f::FESpace;label="") -> RBSpace
+
+Loads the reduced subspace of `f` stored in `dir`
 """
 function load_subspace(dir,f::FESpace;label="")
   basis = load_projection(dir;label)
@@ -96,6 +184,10 @@ function _setup_contribution(vals::Tuple{Vararg{Any}},trian)
 end
 
 """
+    load_contribution(dir,trians;label="") -> Contribution
+
+Loads the hyper-reduced contributions stored in `dir`, and associates them with the
+triangulations `trians` (a tuple, or a [`Bundle`](@ref) of tuples)
 """
 function load_contribution(
   dir,
@@ -162,6 +254,9 @@ function save(dir,perf::RBPerformanceTracker;label="")
 end
 
 """
+    load_results(dir;label="") -> RBPerformanceTracker
+
+Loads the results of [`rom_performance`](@ref) stored in `dir`
 """
 function load_results(dir;label="")
   results_dir = get_filename(dir,RESULTS_LABEL,label)

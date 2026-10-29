@@ -162,24 +162,13 @@ M \frac{u_{n+1} - u_n}{\Delta t}
 = f_{n+\theta},
 ```
 
-which can be rewritten as
+which can be rewritten as the one-step scheme
 
 ```math
 \left( \frac{1}{\Delta t} M + \theta\, A \right) u_{n+1}
 =
 \left( \frac{1}{\Delta t} M - (1-\theta)\, A \right) u_n
 + f_{n+\theta}.
-```
-
-The scheme is therefore purely one-step:
-
-```math
-\boxed{
-\left( \frac{1}{\Delta t} M + \theta\, A \right) u_{n+1}
-=
-\left( \frac{1}{\Delta t} M - (1-\theta)\, A \right) u_n
-+ f_{n+\theta}.
-}
 ```
 
 Within the ROM framework the two operators ``A`` and ``M`` are associated
@@ -199,11 +188,11 @@ Factory for transient high-dimensional hyper-reduction strategies.
 
 Supported `hypred_strategy` values:
 
-- `:deim` (existing)
-- `:sopt` (existing)
-- `:rbf` (existing)
-- `:none` (new, aliases: `:no`, `:nohr`) -> [`TransientNoHyperReduction`](@ref)
-- `:affine` (new) -> [`TransientAffineHyperReduction`](@ref)
+- `:deim`
+- `:sopt`
+- `:rbf`
+- `:none` (aliases: `:no`, `:nohr`) -> [`TransientNoHyperReduction`](@ref)
+- `:affine` -> [`TransientAffineHyperReduction`](@ref)
 
 When `compression=:local`, this dispatches to
 [`TransientLocalHyperReduction`](@ref) with the selected strategy.
@@ -275,6 +264,11 @@ function TransientHyperReduction(r::LocalReduction,combination::TimeCombination;
   TransientLocalHyperReduction(combination,get_reduction(r);ncentroids,kwargs...)
 end
 
+"""
+    get_time_combination(r::TransientHyperReduction) -> TimeCombination
+
+Time combination of the time-marching scheme associated with `r`
+"""
 get_time_combination(r::TransientHyperReduction) = @abstractmethod
 
 function TransientHyperReduction(
@@ -296,6 +290,11 @@ function TransientHyperReduction(
   _replace_reduction(hr)
 end
 
+"""
+    abstract type TransientTrivialHyperReduction <: TransientHyperReduction{NoReductionStyle} end
+
+Transient counterpart of [`TrivialHyperReduction`](@ref)
+"""
 abstract type TransientTrivialHyperReduction <: TransientHyperReduction{NoReductionStyle} end
 
 RBSteady.get_reduction(r::TransientTrivialHyperReduction) = NoReduction()
@@ -412,6 +411,11 @@ get_time_combination(r::TransientRBFHyperReduction) = r.combination
 
 # local
 
+"""
+    TransientLocalHyperReduction(args...;ncentroids=10,kwargs...) -> LocalReduction
+
+Local version of a [`TransientHyperReduction`](@ref). See [`LocalReduction`](@ref)
+"""
 function TransientLocalHyperReduction(args...;ncentroids=10,kwargs...)
   reduction = TransientHyperReduction(args...;kwargs...)
   LocalReduction(reduction,ncentroids)

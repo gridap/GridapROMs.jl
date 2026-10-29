@@ -28,6 +28,13 @@ end
 
 """
     const ParamTrialFESpace = UnEvalTrialFESpace
+
+    ParamTrialFESpace(space::SingleFieldFESpace[,dirichlet]) -> UnEvalTrialFESpace
+
+Trial space of the test space `space`, with parameterised Dirichlet datum `dirichlet`
+(a function `μ -> ParamFunction`, or a vector of them, one per Dirichlet tag).
+Without `dirichlet`, the datum is zero. Evaluate it at a realisation, `U(μ)`, to
+obtain a FE space
 """
 const ParamTrialFESpace = UnEvalTrialFESpace
 
@@ -117,8 +124,17 @@ ODEs.allocate_space(U::FESpace,r) = U
 Arrays.evaluate!(Upt::FESpace,U::FESpace,r::AbstractRealisation) = U
 Arrays.evaluate(U::FESpace,r) = U
 
-# Useful for dispatching
+"""
+    const AbstractTrialFESpace{S} = Union{
+      SingleFieldParamFESpace{S},
+      UnEvalTrialFESpace{S},
+      TransientTrialFESpace{S},
+      TrialFESpace{S}
+      }
 
+Trial spaces (parameterised or not, evaluated or not) wrapping a space of type `S`.
+Useful for dispatching
+"""
 const AbstractTrialFESpace{S} = Union{
   SingleFieldParamFESpace{S},
   UnEvalTrialFESpace{S},

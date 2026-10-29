@@ -1,3 +1,9 @@
+"""
+    struct ConsecutiveMultiFieldExtensionStyle <: MultiFieldStyle end
+
+Same as `ConsecutiveMultiFieldStyle`, for multi-field spaces made of
+[`DirectSumFESpace`](@ref)s
+"""
 struct ConsecutiveMultiFieldExtensionStyle <: MultiFieldStyle end
 
 function FESpaces.get_free_dof_ids(
@@ -55,6 +61,12 @@ function FESpaces.SparseMatrixAssembler(
   ExtensionAssembler(mat,vec,trial,test,strategy)
 end
 
+"""
+    struct BlockMultiFieldExtensionStyle{NB,SB,P} <: MultiFieldStyle end
+
+Same as `BlockMultiFieldStyle`, for multi-field spaces made of
+[`DirectSumFESpace`](@ref)s
+"""
 struct BlockMultiFieldExtensionStyle{NB,SB,P} <: MultiFieldStyle end
 
 BlockMultiFieldExtensionStyle() = BlockMultiFieldExtensionStyle{0,0,0}()
@@ -182,6 +194,11 @@ function FESpaces.get_cell_dof_ids(
   lazy_map(BlockMap(nfields,active_block_ids),active_block_data...)
 end
 
+"""
+    BlockExtensionSparseMatrixAssembler(trial,test,matrix_builder,vector_builder[,strategy]) -> Assembler
+
+Block assembler for multi-field spaces with [`BlockMultiFieldExtensionStyle`](@ref)
+"""
 function BlockExtensionSparseMatrixAssembler(
   trial::MultiFieldFESpace,
   test::MultiFieldFESpace,

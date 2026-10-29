@@ -1,3 +1,9 @@
+"""
+    collect_cell_hr_matrix(trial,test,a::DomainContribution,trian,interp) -> Tuple
+
+Cell matrices of `a` on `trian`, with the cell-wise interpolation DOFs and the
+integration cells of `interp`
+"""
 function collect_cell_hr_matrix(trial,test,a,trian,interp)
   cell_mat = get_contribution(a,trian)
   @assert ndims(eltype(cell_mat)) == 2
@@ -8,6 +14,12 @@ function collect_cell_hr_matrix(trial,test,a,trian,interp)
   (cell_mat_rc,cell_idofs,cells)
 end
 
+"""
+    collect_cell_hr_vector(test,a::DomainContribution,trian,interp) -> Tuple
+
+Cell vectors of `a` on `trian`, with the cell-wise interpolation DOFs and the
+integration cells of `interp`
+"""
 function collect_cell_hr_vector(test,a,trian,interp)
   cell_vec = get_contribution(a,trian)
   @assert ndims(eltype(cell_vec)) == 1
@@ -147,6 +159,12 @@ end
   Algebra._add_entries!(vi,combine,A,vs,is)
 end
 
+"""
+    assemble_hr_array_add!(A,cellvals,celldofs,cells)
+
+Adds to `A` the entries of the cell arrays `cellvals` corresponding to the
+interpolation DOFs `celldofs` in the integration cells `cells`
+"""
 function assemble_hr_array_add!(
   A::AbstractArray{<:AbstractArray},
   cellvals,
@@ -188,6 +206,11 @@ end
 
 # utils
 
+"""
+    fetch_block(a::AbstractArray,i::Int) -> AbstractArray
+
+Lazily extracts the `i`-th block from the array of cell blocks `a`
+"""
 function fetch_block(a::AbstractArray,i::Int)
   T = eltype(eltype(a))
   lazy_map(FetchBlockMap(i),T,a)

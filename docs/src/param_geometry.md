@@ -2,7 +2,7 @@
 CurrentModule = GridapROMs.ParamGeometry
 ```
 
-# GridapROMs.ParamFESpaces 
+# GridapROMs.ParamGeometry
 
 ```@autodocs
 Modules = [ParamGeometry,]

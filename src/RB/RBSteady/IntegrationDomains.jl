@@ -170,8 +170,26 @@ Subtypes:
 """
 abstract type IntegrationDomain end
 
+"""
+    get_integration_cells(i) -> AbstractVector
+
+Cells of the reduced integration domain of `i`
+"""
 get_integration_cells(i::IntegrationDomain) = @abstractmethod
+
+"""
+    get_cell_idofs(i) -> AbstractVector
+
+For every integration cell of `i`, the local indices of the interpolation DOFs it contains
+"""
 get_cell_idofs(i::IntegrationDomain) = @abstractmethod
+
+"""
+    get_interpolation_dofs(i) -> AbstractVector
+
+Interpolation DOFs (rows, or rows and columns for Jacobians) selected by the
+hyper-reduction
+"""
 get_interpolation_dofs(i::IntegrationDomain) = @abstractmethod
 
 function IntegrationDomain(args...)

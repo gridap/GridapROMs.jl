@@ -2,7 +2,7 @@
 CurrentModule = GridapROMs.Extensions
 ```
 
-# GridapROMs.ParamFESpaces 
+# GridapROMs.Extensions
 
 ```@autodocs
 Modules = [Extensions,]

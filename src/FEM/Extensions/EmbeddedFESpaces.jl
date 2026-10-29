@@ -89,9 +89,19 @@ end
 
 # extended interface
 
+"""
+    get_emb_space(f::SingleFieldFESpace) -> EmbeddedFESpace
+    get_act_space(f::SingleFieldFESpace) -> SingleFieldFESpace
+    get_bg_space(f::SingleFieldFESpace) -> SingleFieldFESpace
+
+Embedded space, active space (defined on the active domain) and background space
+underlying `f`
+"""
+function get_emb_space end
+@doc (@doc get_emb_space) get_act_space(f::SingleFieldFESpace) = @abstractmethod
+@doc (@doc get_emb_space) get_bg_space(f::SingleFieldFESpace) = @abstractmethod
+
 get_emb_space(f::SingleFieldFESpace) = @abstractmethod
-get_act_space(f::SingleFieldFESpace) = @abstractmethod
-get_bg_space(f::SingleFieldFESpace) = @abstractmethod
 
 get_emb_space(f::EmbeddedFESpace) = f
 get_act_space(f::EmbeddedFESpace) = f.space
@@ -355,6 +365,11 @@ function _set_bgcelldof!(r::ArrayBlock,fdofs::ArrayBlock,ddofs::ArrayBlock,ids::
   end
 end
 
+"""
+    get_bg_cell_dof_ids(f::SingleFieldFESpace[,trian::Triangulation]) -> AbstractArray
+
+Cell-wise DOF ids of `f`, expressed in the DOF numbering of its background space
+"""
 function get_bg_cell_dof_ids(f::EmbeddedFESpace)
   f.bg_cell_dof_ids
 end

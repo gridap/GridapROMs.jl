@@ -94,6 +94,12 @@ get_factor(a::GenericRankTensor,d::Integer,k::Integer) = get_factors(get_decompo
 Base.size(a::GenericRankTensor) = (rank(a),)
 Base.getindex(a::GenericRankTensor,k::Integer) = get_decomposition(a,k)
 
+"""
+    get_crossnorm(a::GenericRankTensor) -> Rank1Tensor
+
+Rank-1 term of `a` associated with its largest 1D dimension. It is used as a cheap
+rank-1 (cross norm) surrogate of `a`, e.g. to compute Cholesky factors
+"""
 function get_crossnorm(a::GenericRankTensor{D,K}) where {D,K}
   sd = 0
   dim = 1

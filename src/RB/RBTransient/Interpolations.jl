@@ -1,12 +1,44 @@
+"""
+    get_indices_time(a::Interpolation) -> AbstractVector{Int}
+
+Time steps selected by the (space-time) hyper-reduction `a`
+"""
 get_indices_time(a::Interpolation) = Int[]
 get_itimes(a::Interpolation,ids::AbstractVector) = Int[]
 get_locations(a::Interpolation,ids::Range2D) = range_2d(ids.axis1,Int[])
+"""
+    get_interpolation_style(a::Interpolation) -> InterpolationStyle
+
+Whether `a` interpolates in space and time separately or jointly
+"""
 get_interpolation_style(a::Interpolation) = KroneckerStyle()
 get_itimes(a::Interpolation,ids::Range1D) = error("should not be here")
 get_locations(a::Interpolation,ids::Range1D) = get_locations(a,ids.parent)
 
+"""
+    abstract type InterpolationStyle end
+
+Structure of a space-time interpolation. Subtypes:
+
+- [`KroneckerStyle`](@ref)
+- [`SequentialStyle`](@ref)
+"""
 abstract type InterpolationStyle end
+
+"""
+    struct KroneckerStyle <: InterpolationStyle end
+
+Space-time interpolation with independent spatial and temporal indices, as for
+a [`KroneckerProjection`](@ref)
+"""
 struct KroneckerStyle <: InterpolationStyle end
+
+"""
+    struct SequentialStyle <: InterpolationStyle end
+
+Space-time interpolation with jointly selected space-time indices, as for
+a [`SequentialProjection`](@ref)
+"""
 struct SequentialStyle <: InterpolationStyle end
 
 InterpolationStyle(x) = InterpolationStyle(typeof(x))
@@ -14,6 +46,16 @@ InterpolationStyle(::Type{T}) where T = @abstractmethod
 InterpolationStyle(::Type{<:KroneckerProjection}) = KroneckerStyle()
 InterpolationStyle(::Type{<:SequentialProjection}) = SequentialStyle()
 
+"""
+    struct TransientInterpolation{A,B,C} <: Interpolation
+      style::A
+      interp_space::B
+      indices_time::C
+    end
+
+Space-time interpolation: a spatial interpolation `interp_space`, and the selected
+time steps `indices_time`
+"""
 struct TransientInterpolation{A,B,C} <: Interpolation
   style::A
   interp_space::B
@@ -90,6 +132,9 @@ end
 
 # RBF interpolation
 
+"""
+    const TransientRBFInterpolation{A} = RBFInterpolation{A}
+"""
 const TransientRBFInterpolation{A} = RBFInterpolation{A}
 
 function RBSteady.Interpolation(red::TransientRBFHyperReduction,a::TransientProjection,args...)
@@ -261,18 +306,18 @@ function get_interpolation_style(a::BlockInterpolation)
   get_interpolation_style(first(a.interp))
 end
 
-function get_indices_time(a::BlockInterpolation{N}) where N
+function get_indices_time(a::BlockInterpolation)
   map(get_indices_time,a.interp)
 end
 
-function get_itimes(a::BlockInterpolation{N},ids::Vector) where N
+function get_itimes(a::BlockInterpolation,ids::Vector)
   map(itp -> get_itimes(itp,ids),a.interp)
 end
 
-function get_itimes(a::BlockInterpolation{N},ids::Range2D) where N
+function get_itimes(a::BlockInterpolation,ids::Range2D)
   map(itp -> get_itimes(itp,ids),a.interp)
 end
 
-function get_locations(a::BlockInterpolation{N},ids::Range2D) where N
+function get_locations(a::BlockInterpolation,ids::Range2D)
   map(itp -> get_locations(itp,ids),a.interp)
 end

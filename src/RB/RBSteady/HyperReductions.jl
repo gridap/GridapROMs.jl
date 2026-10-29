@@ -30,7 +30,18 @@ Subtypes:
 """
 abstract type HRProjection{A<:HyperReduction,B<:Projection} <: Projection end
 
+"""
+    const HRVecProjection{A<:HyperReduction} = HRProjection{A,<:ReducedVecProjection}
+
+Hyper-reduction of a residual
+"""
 const HRVecProjection{A<:HyperReduction} = HRProjection{A,<:ReducedVecProjection}
+
+"""
+    const HRMatProjection{A<:HyperReduction} = HRProjection{A,<:ReducedMatProjection}
+
+Hyper-reduction of a Jacobian
+"""
 const HRMatProjection{A<:HyperReduction} = HRProjection{A,<:ReducedMatProjection}
 
 HRProjection(::Reduction,args...) = @abstractmethod
@@ -60,6 +71,7 @@ function FESpaces.interpolate!(
 end
 
 """
+    const NoHRProjection{A<:Projection} = HRProjection{NoHyperReduction,A}
 """
 const NoHRProjection{A<:Projection} = HRProjection{NoHyperReduction,A}
 
@@ -76,6 +88,7 @@ function FESpaces.interpolate!(
 end
 
 """
+    const AffineHRProjection{A<:Projection} = HRProjection{AffineHyperReduction,A}
 """
 const AffineHRProjection{A<:Projection} = HRProjection{AffineHyperReduction,A}
 
@@ -94,14 +107,17 @@ function FESpaces.interpolate!(
 end
 
 """
+    const DEIMProjection{A<:Projection} = HRProjection{<:DEIMHyperReduction,A}
 """
 const DEIMProjection{A<:Projection} = HRProjection{<:DEIMHyperReduction,A}
 
 """
+    const SOPTProjection{A<:Projection} = HRProjection{<:SOPTHyperReduction,A}
 """
 const SOPTProjection{A<:Projection} = HRProjection{<:SOPTHyperReduction,A}
 
 """
+    const RBFProjection{A<:Projection} = HRProjection{<:RBFHyperReduction,A}
 """
 const RBFProjection{A<:Projection} = HRProjection{<:RBFHyperReduction,A}
 
@@ -125,6 +141,11 @@ function HRProjection(basis::ReducedProjection,style::HyperReduction,interp::Int
 end
 
 get_basis(a::GenericHRProjection) = a.basis
+"""
+    get_style(a::HRProjection) -> HyperReduction
+
+Hyper-reduction strategy of `a`
+"""
 get_style(a::GenericHRProjection) = a.style
 get_interpolation(a::GenericHRProjection) = a.interpolation
 
@@ -244,22 +265,27 @@ end
 const AffineContribution{V<:HRProjection} = Contribution{V}
 
 """
+    const NoHRContribution = AffineContribution{<:NoHRProjection}
 """
 const NoHRContribution = AffineContribution{<:NoHRProjection}
 
 """
+    const AffineHRContribution = AffineContribution{<:AffineHRProjection}
 """
 const AffineHRContribution = AffineContribution{<:AffineHRProjection}
 
 """
+    const DEIMContribution = AffineContribution{<:DEIMProjection}
 """
 const DEIMContribution = AffineContribution{<:DEIMProjection}
 
 """
+    const SOPTContribution = AffineContribution{<:SOPTProjection}
 """
 const SOPTContribution = AffineContribution{<:SOPTProjection}
 
 """
+    const RBFContribution = AffineContribution{<:RBFProjection}
 """
 const RBFContribution = AffineContribution{<:RBFProjection}
 
@@ -273,6 +299,12 @@ function allocate_hyper_reduction(a::AffineContribution,args...)
   allocate_hyper_reduction(first(get_contributions(a)),args...)
 end
 
+"""
+    allocate_hypred_cache(a,args...) -> HRParamArray
+
+Allocates the [`HRParamArray`](@ref) storing the online evaluation of the
+hyper-reduction `a`
+"""
 function allocate_hypred_cache(a,args...)
   fecache = allocate_coefficient(a,args...)
   coeffs = allocate_coefficient(a,args...)

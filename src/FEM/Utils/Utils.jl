@@ -3,13 +3,14 @@
 
 Foundational utilities for GridapROMs, providing:
 
-- **Performance tracking** — [`CostTracker`](@ref), [`Speedup`](@ref),
-  [`compute_error`](@ref), [`compute_relative_error`](@ref).
+- **Performance tracking** — [`CostTracker`](@ref), [`RBPerformanceTracker`](@ref),
+  [`Speedup`](@ref), [`compute_error`](@ref), [`compute_relative_error`](@ref).
 - **Partial derivatives** — [`PartialDerivative`](@ref), [`∂₁`](@ref),
   [`∂₂`](@ref), [`∂₃`](@ref).
-- **Contribution types** — [`ArrayContribution`](@ref).
-- **FE domain metadata** — [`FEDomains`](@ref), [`OperatorType`](@ref),
-  [`get_polynomial_order`](@ref).
+- **Contributions** — [`Contribution`](@ref), [`ArrayContribution`](@ref): values
+  indexed by triangulation.
+- **Integration domains** — [`FEDomains`](@ref), [`Bundle`](@ref),
+  [`OperatorType`](@ref), [`get_polynomial_order`](@ref).
 """
 module Utils
 

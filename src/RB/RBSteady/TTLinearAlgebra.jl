@@ -362,6 +362,12 @@ function galerkin_projection(
   dropdims(rcore;dims=(1,2))
 end
 
+"""
+    unbalanced_contractions(cores_left,cores,cores_right) -> Vector{<:AbstractArray}
+
+Contractions of the TT `cores` with `cores_left` and `cores_right`, which may have
+fewer cores than `cores`: unassigned entries are skipped
+"""
 function unbalanced_contractions(
   cores_left::Vector{<:AbstractArray{T,3}},
   cores::Vector{<:AbstractArray{T,3}},

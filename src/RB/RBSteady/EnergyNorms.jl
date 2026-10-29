@@ -1,3 +1,10 @@
+"""
+    abstract type AssembleOperator end
+
+Recipe for a matrix assembled from the trial and test spaces of a FE operator:
+either a norm ([`NormStyle`](@ref)) or a coupling ([`CouplingStyle`](@ref)), possibly
+per field ([`BlockOperator`](@ref)). See [`assemble_operator`](@ref).
+"""
 abstract type AssembleOperator end
 
 function _assemble_operator(a::AssembleOperator,U::FESpace,V::FESpace)
@@ -8,6 +15,11 @@ function _assemble_operator(a::AssembleOperator,U::DirectSumFESpace,V::DirectSum
   _assemble_operator(a,get_bg_space(U),get_bg_space(V))
 end
 
+"""
+    assemble_operator(a::AssembleOperator,feop) -> AbstractMatrix
+
+Assembles the matrix represented by `a` on the trial and test spaces of `feop`
+"""
 function assemble_operator(a::AssembleOperator,feop)
   _assemble_operator(a,_unwrap(get_trial(feop)),get_test(feop))
 end
@@ -20,11 +32,29 @@ Subtypes:
 - [`L2`](@ref)
 - [`H1`](@ref)
 - [`NitscheH1`](@ref)
+- [`EnergyNorm`](@ref)
 """
 abstract type NormStyle <: AssembleOperator end
 
+"""
+    struct ℓ2 <: NormStyle end
+
+Euclidean norm of the vectors of DOF values. No matrix is assembled
+"""
 struct ℓ2 <: NormStyle end
+
+"""
+    struct L2 <: NormStyle end
+
+L2 norm, with matrix assembled from `∫(v⋅u)dΩ`
+"""
 struct L2 <: NormStyle end
+
+"""
+    struct H1 <: NormStyle end
+
+H1 norm, with matrix assembled from `∫(v⋅u)dΩ + ∫(∇(v)⊙∇(u))dΩ`
+"""
 struct H1 <: NormStyle end
 
 """
@@ -60,6 +90,14 @@ function _assemble_operator(op::NitscheH1,U::SingleFieldFESpace,V::SingleFieldFE
   assemble_matrix(form,U,V)
 end
 
+"""
+    struct EnergyNorm{F<:Function} <: NormStyle
+      form::F
+    end
+
+Norm induced by a user-defined bilinear form `form(u,v)`, e.g.
+`EnergyNorm((u,v) -> ∫(∇(v)⋅∇(u))dΩ)`
+"""
 struct EnergyNorm{F<:Function} <: NormStyle
   form::F
 end
@@ -155,6 +193,18 @@ end
 
 for (f,g) in zip((:l2_norm,:h1_norm,:div_coupling),(:get_l2_form,:get_h1_form,:get_div_coupling_form))
   @eval $f(U::SingleFieldFESpace,V::SingleFieldFESpace) = assemble_matrix($g(U,V),U,V)
+end
+
+for (f,op) in zip((:l2_norm,:h1_norm,:div_coupling),("L2","H1","DivCoupling"))
+  @eval begin
+    """
+        $($(string(f)))(U::FESpace,V::FESpace) -> AbstractMatrix
+
+    Assembles the matrix of [`$($op)`](@ref) on the spaces `U`, `V`. On
+    `TProductFESpace`s, the output is a rank tensor of 1D matrices
+    """
+    $f
+  end
 end
 
 function get_l2_form(U::SingleFieldFESpace,V::SingleFieldFESpace)

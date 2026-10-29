@@ -678,6 +678,12 @@ function load_problem_snapshots(
   return s,jac,res
 end
 
+"""
+    residual_contribution(solver::RBSolver,op::ParamOperator,s::AbstractSnapshots) -> Contribution
+
+Residual snapshots of `op` used for hyper-reduction, evaluated at the snapshots `s`,
+one per residual triangulation
+"""
 function residual_contribution(solver::RBSolver,op::ParamOperator,s::AbstractSnapshots)
   sres = select_snapshots(s,res_params(solver))
   us_res = get_param_data(sres)
@@ -711,6 +717,12 @@ function residual_contribution(solver::RBSolver,op::LinearNonlinearParamOperator
   Bundle(res_lin,res_nlin)
 end
 
+"""
+    jacobian_contribution(solver::RBSolver,op::ParamOperator,s::AbstractSnapshots) -> Contribution
+
+Jacobian snapshots of `op` used for hyper-reduction, evaluated at the snapshots `s`,
+one per Jacobian triangulation
+"""
 function jacobian_contribution(solver::RBSolver,op::ParamOperator,s::AbstractSnapshots)
   sjac = select_snapshots(s,jac_params(solver))
   us_jac = get_param_data(sjac)

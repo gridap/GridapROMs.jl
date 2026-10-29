@@ -43,17 +43,38 @@ one `N`, returns `n`
 """
 num_reduced_dofs(a::Projection) = _num_reduced_dofs(get_basis(a))
 
+"""
+    isnull(a) -> Bool
+
+Whether the projection (or array) `a` is empty or zero
+"""
 isnull(a::AbstractArray) = isempty(a) || iszero(a)
 isnull(a::Projection) = (num_reduced_dofs(a) == 0 || isnull(get_basis(a)))
 
 reduced_dof_ids(a::Projection) = Base.OneTo(num_reduced_dofs(a))
 
+"""
+    get_cores(a::Projection) -> Vector{<:AbstractArray{T,3}}
+
+Tensor-train cores of `a`, when `a` is computed with a TT-SVD
+"""
 get_cores(a::Projection) = @notimplemented
 
 DofMaps.get_dof_map(a::Projection) = @abstractmethod
 
+"""
+    get_recast_basis(a::Projection) -> AbstractArray
+
+Basis of `a`, recast according to the DOF map of `a` (e.g. as a sparse matrix, for
+a projection of Jacobians)
+"""
 get_recast_basis(a::Projection) = recast(get_basis(a),get_dof_map(a))
 
+"""
+    get_recast_cores(a::Projection) -> Vector{<:AbstractArray}
+
+Same as [`get_recast_basis`](@ref), for the cores of a TT projection
+"""
 get_recast_cores(a::Projection) = recast(get_cores(a),get_dof_map(a))
 
 """
@@ -213,6 +234,12 @@ union_bases(a::Projection,b::Projection,args...) = @abstractmethod
 
 gram_schmidt(a::Projection,b::Projection,args...) = gram_schmidt(get_basis(a),get_basis(b),args...)
 
+"""
+    get_norm_matrix(a) -> AbstractMatrix
+
+Norm matrix with respect to which the basis of `a` is orthonormal (the identity for
+a Euclidean projection)
+"""
 get_norm_matrix(a::Projection) = I(num_fe_dofs(a))
 
 Base.:+(a::Projection,b::Projection) = union_bases(a,b)
@@ -305,7 +332,18 @@ Subtypes:
 """
 abstract type ReducedProjection{A<:AbstractArray} <: Projection end
 
+"""
+    const ReducedVecProjection = ReducedProjection{<:AbstractMatrix}
+
+Galerkin projection of a basis of vectors (e.g. residuals)
+"""
 const ReducedVecProjection = ReducedProjection{<:AbstractMatrix}
+
+"""
+    const ReducedMatProjection = ReducedProjection{<:AbstractArray{<:Any,3}}
+
+Galerkin projection of a basis of matrices (e.g. Jacobians)
+"""
 const ReducedMatProjection = ReducedProjection{<:AbstractArray{<:Any,3}}
 
 function project!(x̂::AbstractVector,a::ReducedProjection,x::AbstractVector)
@@ -342,6 +380,11 @@ num_reduced_dofs_left_projector(a::ReducedProjection) = first(size(get_basis(a))
 num_reduced_dofs_right_projector(a::ReducedMatProjection) = size(get_basis(a),2)
 
 """
+    struct ReducedAlgebraicProjection{A<:AbstractArray} <: ReducedProjection{A}
+      basis::A
+    end
+
+[`ReducedProjection`](@ref) storing the projected basis as a plain array
 """
 struct ReducedAlgebraicProjection{A<:AbstractArray} <: ReducedProjection{A}
   basis::A
@@ -769,6 +812,12 @@ function enrich!(
   return
 end
 
+"""
+    supremizers(ns,C::AbstractMatrix,ϕ::AbstractMatrix) -> AbstractMatrix
+
+Supremizers `X⁻¹ C ϕ` of the dual basis `ϕ`, where `C` is the coupling matrix and
+`ns` a solver for the primal norm matrix `X` (see [`gram_solver`](@ref))
+"""
 function supremizers(ns,C::AbstractMatrix,ϕ::AbstractMatrix)
   tmp = C*ϕ
   s = similar(tmp)
@@ -790,6 +839,14 @@ function copy_projection!(cache,a::Projection)
   copy_projection!(cache,get_basis(a))
 end
 
+"""
+    struct GalerkinProjectable{A<:AbstractArray} <: Projection
+      array::A
+    end
+
+Wraps an array (e.g. a snapshot of a residual or a Jacobian) so that it can be
+Galerkin-projected as if it were a basis
+"""
 struct GalerkinProjectable{A<:AbstractArray} <: Projection
   array::A
 end

@@ -1,40 +1,22 @@
 """
     module RBTransient
 
-Reduced-basis infrastructure for transient parametric PDEs.
+Extension of `RBSteady` to transient parametric PDEs. Snapshots span space and
+time, and so do reduced bases and hyper-reductions. Main building blocks:
 
-Extends `RBSteady` to the space–time setting.  The additional complexity arises
-from the time dimension: snapshots are matrices (space × time) and bases must
-capture temporal as well as spatial structure.  Key extensions:
-
-- **Reduction methods** — `TransientReduction`, `KroneckerReduction`,
-  `SequentialReduction` extend the steady reductions; `TransientReduction`,
-  `SteadyReduction` handle the "high-dimensional" (full-space) and purely-spatial
-  cases.  Corresponding hyper-reduction variants: `TransientHyperReduction`,
-  `TransientDEIMHyperReduction`, `TransientSOPTHyperReduction`,
-  `TransientRBFHyperReduction`.
-
-- **Tucker / Kronecker bases** (`BasesConstruction.jl`) — `tucker` computes a
-  Tucker decomposition, used for Kronecker-product basis representations.
-
-- **Transient projections** (`Projections.jl`) — `TransientProjection` wraps a
-  spatial projection with a temporal one.
-
-- **Transient interpolations** (`Interpolations.jl`) —
-  `TransientInterpolation` extends DEIM-style reduced integration to include
-  a reduced time-index set; `TransientRBFInterpolation`.
-
-- **Transient operators** (`ROMOperators.jl`) — `TransientROMOperator` adds
-  time-stepping to the reduced operator interface.
-
-- **Time marching** (`ParamTimeMarching.jl`) — hooks into `ParamODEs` to drive
-  the online transient solve with the reduced operator.
-
-- **Post-processing and I/O** (`PostProcess.jl`) — transient counterpart of the
-  steady post-processing utilities.
-
-All space-only functionality (RB spaces, hyper-reduction infrastructure, linear
-algebra) is imported directly from `RBSteady`.
+- **Reduction methods** (`ReductionMethods.jl`) — [`TransientReduction`](@ref), which builds a
+  [`KroneckerReduction`](@ref) (space-time POD, a Kronecker product of spatial and temporal
+  bases), a [`SequentialReduction`](@ref) (TT-SVD) or a [`SteadyReduction`](@ref) (spatial
+  reduction only, with time marching online); the corresponding
+  [`TransientHyperReduction`](@ref)s.
+- **Projections** (`Projections.jl`, `BasesConstruction.jl`) — [`TransientProjection`](@ref),
+  [`KroneckerProjection`](@ref), [`SequentialProjection`](@ref).
+- **Hyper-reduction** (`HyperReductions.jl`, `Interpolations.jl`) — space-time interpolation
+  ([`TransientInterpolation`](@ref)), with time combinations of the time-marching scheme.
+- **Reduced operators and solvers** (`RBOperators.jl`, `RBSolvers.jl`, `SpaceTime.jl`,
+  `ParamTimeMarching.jl`) — [`TransientRBOperator`](@ref), solved as a single space-time
+  system ([`SpaceTimeSolver`](@ref)), or by time marching for steady reductions.
+- **Post-processing and I/O** (`PostProcess.jl`, `Diagnostics.jl`).
 """
 module RBTransient
 
@@ -88,7 +70,6 @@ export SteadyReduction
 export TransientReduction
 export KroneckerReduction
 export SequentialReduction
-export SteadyHyperReduction
 export TransientHyperReduction
 export TransientTrivialHyperReduction
 export TransientNoHyperReduction

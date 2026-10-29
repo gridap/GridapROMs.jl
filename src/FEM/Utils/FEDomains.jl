@@ -25,7 +25,20 @@ end
 
 FEDomains(args...) = FEDomains(nothing,nothing)
 
+"""
+    get_domains_res(a) -> Tuple{Vararg{Triangulation}}
+
+Triangulations on which the residual of `a` is integrated. `a` can be a
+[`FEDomains`](@ref), a [`Bundle`](@ref) of them, or an operator
+"""
 get_domains_res(d::FEDomains) = d.domains_res
+
+"""
+    get_domains_jac(a) -> Tuple{Vararg{Triangulation}}
+
+Triangulations on which the Jacobian of `a` is integrated. `a` can be a
+[`FEDomains`](@ref), a [`Bundle`](@ref) of them, or an operator
+"""
 get_domains_jac(d::FEDomains) = d.domains_jac
 
 """
@@ -33,6 +46,10 @@ get_domains_jac(d::FEDomains) = d.domains_jac
       linear::A
       nonlinear::B
     end
+
+Pair of a linear and a nonlinear quantity (residuals, Jacobians, domains, reduced
+contributions) of a problem split into its linear and nonlinear parts. Calling a
+`Bundle` of functions returns the sum of the two parts
 """
 struct Bundle{A,B}
   linear::A
@@ -47,7 +64,20 @@ Base.iterate(b::Bundle) = (b.linear,1)
 Base.iterate(b::Bundle,state) = state == 1 ? (b.nonlinear,2) : nothing
 Base.length(b::Bundle) = 2
 
+"""
+    get_linear_part(a)
+
+Linear part of a [`Bundle`](@ref), or of an operator built from `Bundle`s. Returns
+`a` itself for any other input
+"""
 get_linear_part(b) = b
+
+"""
+    get_nonlinear_part(a)
+
+Nonlinear part of a [`Bundle`](@ref), or of an operator built from `Bundle`s.
+Returns `a` itself for any other input
+"""
 get_nonlinear_part(b) = b
 get_linear_part(b::Bundle) = b.linear
 get_nonlinear_part(b::Bundle) = b.nonlinear

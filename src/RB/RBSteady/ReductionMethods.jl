@@ -13,6 +13,11 @@ abstract type ReductionStyle end
 
 ReductionStyle(args...;kwargs...) = @abstractmethod
 
+"""
+    struct NoReductionStyle <: ReductionStyle end
+
+Reduction style of a [`NoReduction`](@ref)
+"""
 struct NoReductionStyle <: ReductionStyle end
 
 """
@@ -107,6 +112,11 @@ Subtypes:
 """
 abstract type Reduction{A<:ReductionStyle,B<:AssembleOperator} end
 
+"""
+    struct NoReduction <: Reduction{NoReductionStyle,EuclideanNorm} end
+
+Trivial reduction: the snapshots are not compressed
+"""
 struct NoReduction <: Reduction{NoReductionStyle,EuclideanNorm} end
 
 """
@@ -120,8 +130,22 @@ Subtypes:
 - [`TTSVDReduction`](@ref)
 """
 abstract type DirectReduction{A,B} <: Reduction{A,B} end
+"""
+    abstract type GreedyReduction{A,B} <: Reduction{A,B} end
+
+Type representing greedy reduction methods, which select the snapshots adaptively.
+Subtypes:
+
+- [`AdaptiveReduction`](@ref)
+"""
 abstract type GreedyReduction{A,B} <: Reduction{A,B} end
 
+"""
+    get_reduction(r::Reduction) -> Reduction
+
+Reduction wrapped by `r` (e.g. by a [`SupremizerReduction`](@ref), a
+[`LocalReduction`](@ref) or a [`HyperReduction`](@ref)), or `r` itself
+"""
 get_reduction(r::Reduction) = r
 ReductionStyle(r::Reduction) = @abstractmethod
 NormStyle(r::Reduction) = @abstractmethod
@@ -194,6 +218,10 @@ ParamDataStructures.num_params(r::TTSVDReduction) = r.nparams
       reduction::R
       ncentroids::Int
     end
+
+Local version of `reduction`: the snapshots are clustered in `ncentroids` clusters of
+the parameter space with k-means, and each cluster is reduced separately. Obtained with
+the keyword `compression=:local` in [`Reduction`](@ref) and [`HyperReduction`](@ref)
 """
 struct LocalReduction{A,B,R<:Reduction{A,B}} <: Reduction{A,B}
   reduction::R
@@ -293,6 +321,19 @@ function Reduction(
   end
 end
 
+"""
+    Reduction(tolrank,norm::AssembleOperator=EuclideanNorm();nparams=50,compression=:global,ncentroids=10) -> Reduction
+    Reduction(coupling::CouplingStyle,tolrank,norm;kwargs...) -> SupremizerReduction
+
+Builds the reduction of `nparams` snapshots, orthonormal in `norm`:
+
+- a truncated POD ([`PODReduction`](@ref)) when `tolrank` is a tolerance (`Float64`)
+  or a rank (`Int`)
+- a TT-SVD ([`TTSVDReduction`](@ref)) when `tolrank` is a vector of tolerances (or
+  ranks), one per dimension of the snapshots
+- a [`LocalReduction`](@ref) with `ncentroids` clusters when `compression=:local`
+- a [`SupremizerReduction`](@ref) when the first argument is a coupling
+"""
 function Reduction(
   tolrank::Union{Float64,Int,AbstractVector},
   args...;
@@ -330,20 +371,20 @@ Subtypes:
 abstract type HyperReduction{A<:ReductionStyle} <: Reduction{A,EuclideanNorm} end
 
 """
-  HyperReduction(args...; compression=:global, hypred_strategy=:deim, kwargs...)
+    HyperReduction(args...;compression=:global,hypred_strategy=:deim,kwargs...) -> HyperReduction
 
-Factory for steady hyper-reduction strategies.
+Builds a steady hyper-reduction strategy. `args` and `kwargs` define the underlying
+[`Reduction`](@ref) (e.g. a tolerance and the number of snapshots `nparams`), or `args`
+is the state reduction, whose tolerance (or rank) is inherited. Supported values of
+`hypred_strategy`:
 
-Supported `hypred_strategy` values:
+- `:deim` -> [`DEIMHyperReduction`](@ref)
+- `:sopt` -> [`SOPTHyperReduction`](@ref)
+- `:rbf` -> [`RBFHyperReduction`](@ref)
+- `:none` (aliases: `:no`, `:nohr`) -> [`NoHyperReduction`](@ref)
+- `:affine` -> [`AffineHyperReduction`](@ref)
 
-- `:deim` (existing)
-- `:sopt` (existing)
-- `:rbf` (existing)
-- `:none` (new, aliases: `:no`, `:nohr`) -> [`NoHyperReduction`](@ref)
-- `:affine` (new) -> [`AffineHyperReduction`](@ref)
-
-When `compression=:local`, this dispatches to [`LocalHyperReduction`](@ref)
-with the selected strategy.
+When `compression=:local`, the output is a [`LocalHyperReduction`](@ref)
 """
 function HyperReduction(args...;compression=:global,hypred_strategy=:deim,kwargs...)
   if hypred_strategy in (:no,:none,:nohr)
@@ -384,6 +425,14 @@ ReductionStyle(r::HyperReduction) = ReductionStyle(get_reduction(r))
 NormStyle(r::HyperReduction) = NormStyle(get_reduction(r))
 ParamDataStructures.num_params(r::HyperReduction) = num_params(get_reduction(r))
 
+"""
+    abstract type TrivialHyperReduction <: HyperReduction{NoReductionStyle} end
+
+Hyper-reductions that do not compress residuals and Jacobians. Subtypes:
+
+- [`NoHyperReduction`](@ref)
+- [`AffineHyperReduction`](@ref)
+"""
 abstract type TrivialHyperReduction <: HyperReduction{NoReductionStyle} end
 
 get_reduction(r::TrivialHyperReduction) = NoReduction()
@@ -394,19 +443,16 @@ ParamDataStructures.num_params(r::TrivialHyperReduction) = 1
 """
     struct NoHyperReduction <: TrivialHyperReduction end
 
-Reduction employed when the input data is independent with respect to the
-considered realisation. Therefore, simply considering a number of parameters
-equal to 1 suffices for this type of reduction
+No hyper-reduction: residuals and Jacobians are assembled on the whole domain online,
+and then projected onto the reduced subspaces
 """
 struct NoHyperReduction <: TrivialHyperReduction end
 
 """
     struct AffineHyperReduction <: TrivialHyperReduction end
 
-Reduction employed when reduced contributions are affine with respect to
-parameter-independent (μ-independent) structures. As in the no-hyper-reduction
-case, this uses a single effective parameter sample (`num_params = 1`) for the
-hyper-reduction stage.
+Residuals and Jacobians are computed for a single parameter and projected offline;
+online, the projections are reused. Exact for μ-independent residuals and Jacobians
 """
 struct AffineHyperReduction <: TrivialHyperReduction end
 
@@ -415,7 +461,9 @@ struct AffineHyperReduction <: TrivialHyperReduction end
       reduction::Reduction{A,EuclideanNorm}
     end
 
-DEIM struct employed in steady problems
+Hyper-reduction by means of the (matrix) discrete empirical interpolation method:
+residuals/Jacobians are compressed with `reduction`, and interpolated at entries
+selected with a greedy algorithm (see [`DEIM`](@ref))
 """
 struct DEIMHyperReduction{A} <: HyperReduction{A}
   reduction::Reduction{A,EuclideanNorm}
@@ -433,7 +481,8 @@ get_reduction(r::DEIMHyperReduction) = r.reduction
       reduction::Reduction{A,EuclideanNorm}
     end
 
-S-OPT struct employed in steady problems
+Same as [`DEIMHyperReduction`](@ref), with interpolation entries selected according
+to the S-optimality criterion (see [`SOPT`](@ref))
 """
 struct SOPTHyperReduction{A} <: HyperReduction{A}
   reduction::Reduction{A,EuclideanNorm}
@@ -451,6 +500,11 @@ get_reduction(r::SOPTHyperReduction) = r.reduction
       reduction::Reduction{A,EuclideanNorm}
       strategy::AbstractRadialBasis
     end
+
+Non-intrusive hyper-reduction: residuals/Jacobians are compressed with `reduction`,
+and the coefficients of the expansion are interpolated in the parameter space with
+radial basis functions `strategy` (by default, polyharmonic splines). No integration
+is performed online
 """
 struct RBFHyperReduction{A} <: HyperReduction{A}
   reduction::Reduction{A,EuclideanNorm}
@@ -467,6 +521,11 @@ interp_strategy(r::RBFHyperReduction) = r.strategy
 
 # local
 
+"""
+    const LocalHyperReduction{A} = LocalReduction{A,EuclideanNorm,<:HyperReduction{A}}
+
+Local version of a [`HyperReduction`](@ref). See [`LocalReduction`](@ref)
+"""
 const LocalHyperReduction{A} = LocalReduction{A,EuclideanNorm,<:HyperReduction{A}}
 
 function LocalHyperReduction(args...;ncentroids=10,kwargs...)

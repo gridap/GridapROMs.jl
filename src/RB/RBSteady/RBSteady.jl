@@ -1,50 +1,30 @@
 """
     module RBSteady
 
-Reduced-basis infrastructure for steady parametric PDEs.
+Reduced-basis infrastructure for steady parametric PDEs: offline reduction and
+hyper-reduction, and online solution of the reduced problems. Main building blocks:
 
-Implements the offline–online decomposition for parameter-dependent FE problems.
-The offline stage compresses high-fidelity snapshots into a low-dimensional basis
-and constructs hyper-reduced operators; the online stage solves the resulting
-small system for new parameter values.  Main building blocks:
-
-- **Reduction methods** (`ReductionMethods.jl`) — `PODReduction` (SVD-based),
-  `TTSVDReduction` (tensor-train SVD), `GreedyReduction`, `SupremizerReduction`,
-  `DEIMHyperReduction`, `SOPTHyperReduction`, `RBFHyperReduction`,
-  `LocalHyperReduction` (cluster-local variants), and composites.  Rank/tolerance
-  criteria expressed via `SearchSVDRank`, `FixedSVDRank`, `TTSVDRanks`.
-
-- **Bases construction** (`BasesConstruction.jl`) — `tpod` (truncated POD),
-  `ttsvd` (tensor-train SVD), `gram_schmidt` / `orth_complement!`, `orth_projection`.
-
-- **Projections** (`Projections.jl`) — `PODProjection`, `TTSVDProjection`,
-  `NormedProjection` (energy norm), `BlockProjection`, `ReducedProjection`.
-  Core operations: `project`/`project!`, `inv_project`/`inv_project!`,
-  `union_bases`, `enrich!`.
-
-- **RB spaces** (`RBSpaces.jl`) — `SingleFieldRBSpace`, `MultiFieldRBSpace`,
-  `reduced_subspace`, `reduced_basis`.
-
-- **Hyper-reduction** (`HyperReductions.jl`) — `HRProjection` hierarchy
-  (`DEIMProjection`, `RBFProjection`, `BlockHRProjection`)
-  together with `IntegrationDomain` (DEIM-style reduced integration),
-  `Interpolation` (`GreedyInterpolation`, `RBFInterpolation`),
-  and `reduced_jacobian` / `reduced_residual` / `reduced_weak_form`.
-
-- **Reduced operators** (`ROMOperators.jl`) — `RBOperator`; `reduced_operator`.
-
-- **RB solvers** (`RBSolvers.jl`) — `RBSolver` orchestrates snapshot collection,
-  offline reduction, and online solve; `solution_snapshots`, `residual_snapshots`,
-  `jacobian_snapshots`.
-
-- **Tensor-train linear algebra** (`TTLinearAlgebra.jl`) — `contraction`,
-  `unbalanced_contractions`, `sequential_product`, `cores2basis`, `TTCores`.
-
-- **Local / cluster-based projections** (`LocalProjections.jl`) — `LocalProjection`,
-  `cluster`, `get_clusters`, `get_local`, `local_vals`.
-
-- **Post-processing** (`PostProcess.jl`) — `RBPerformanceTracker`,
-  I/O helpers (`load_snapshots`, `load_contribution`, `load_operator`, …).
+- **Reduction methods** (`ReductionMethods.jl`) — [`Reduction`](@ref), [`PODReduction`](@ref),
+  [`TTSVDReduction`](@ref), [`LocalReduction`](@ref), [`SupremizerReduction`](@ref), and the
+  hyper-reductions [`DEIMHyperReduction`](@ref), [`SOPTHyperReduction`](@ref),
+  [`RBFHyperReduction`](@ref), [`NoHyperReduction`](@ref), [`AffineHyperReduction`](@ref).
+- **Norms and couplings** (`EnergyNorms.jl`) — [`L2`](@ref), [`H1`](@ref), [`EnergyNorm`](@ref),
+  [`DivCoupling`](@ref), [`BlockNorm`](@ref).
+- **Bases construction** (`BasesConstruction.jl`) — [`tpod`](@ref), [`ttsvd`](@ref),
+  [`gram_schmidt`](@ref), [`orth_projection`](@ref).
+- **Projections and RB spaces** (`Projections.jl`, `RBSpaces.jl`) — [`Projection`](@ref),
+  [`RBSpace`](@ref), [`reduced_spaces`](@ref), [`project`](@ref), [`inv_project`](@ref),
+  [`galerkin_projection`](@ref).
+- **Hyper-reduction** (`HyperReductions.jl`, `IntegrationDomains.jl`, `Interpolations.jl`) —
+  [`HRProjection`](@ref), [`DEIM`](@ref), [`SOPT`](@ref), [`reduced_weak_form`](@ref).
+- **Local ROMs** (`LocalProjections.jl`, `LocalHyperReductions.jl`) — [`LocalProjection`](@ref),
+  [`get_local`](@ref), [`compute_ncentroids`](@ref).
+- **Reduced operators and solvers** (`RBOperators.jl`, `RBSolvers.jl`) — [`RBSolver`](@ref),
+  [`RBOperator`](@ref), [`reduced_operator`](@ref), [`solution_snapshots`](@ref).
+- **Tensor-train linear algebra** (`TTCores.jl`, `TTLinearAlgebra.jl`) — [`contraction`](@ref),
+  [`sequential_product`](@ref), [`cores2basis`](@ref).
+- **Post-processing and I/O** (`PostProcess.jl`, `Diagnostics.jl`) — [`rom_performance`](@ref),
+  [`rom_diagnostics`](@ref), [`load_operator`](@ref), [`load_snapshots`](@ref).
 
 The `RBTransient` module extends all of the above to the time-dependent setting.
 """
@@ -136,7 +116,6 @@ export RBFHyperReduction
 export LocalHyperReduction
 export AdaptiveReduction
 export get_reduction
-export get_strategy
 include("ReductionMethods.jl")
 
 export galerkin_projection
@@ -244,14 +223,12 @@ export GenericHRProjection
 export AffineContribution
 export get_style
 export get_interpolation
-export get_integration_domain
 export reduced_jacobian
 export reduced_residual
 export reduced_weak_form
 export residual_contribution
 export jacobian_contribution
 export allocate_hypred_cache
-export allocate_hrtrian_cache
 include("HyperReductions.jl")
 
 export collect_cell_hr_matrix

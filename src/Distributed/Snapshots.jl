@@ -1,3 +1,9 @@
+"""
+    const DistributedSnapshots{T,N,I<:PartitionedDofMap,R} = Snapshots{T,N,I,R}
+
+Snapshots of distributed FE quantities: the data is a [`GenericPArray`](@ref),
+partitioned by rows as the DOFs of the FE space
+"""
 const DistributedSnapshots{T,N,I<:PartitionedDofMap,R} = Snapshots{T,N,I,R}
 
 for T in (:PVector,:PSparseMatrix)

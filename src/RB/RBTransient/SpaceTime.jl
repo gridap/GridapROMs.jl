@@ -1,3 +1,15 @@
+"""
+    struct SpaceTimeParamOperator <: NonlinearParamOperator
+      op::ODEParamOperator
+      r::TransientRealisation
+      usx::Tuple{Vararg{AbstractParamVector}}
+      ws::Tuple{Vararg{Real}}
+      paramcache::AbstractParamCache
+    end
+
+Transient reduced operator `op` evaluated at `r`, seen as a single (space-time)
+nonlinear operator
+"""
 struct SpaceTimeParamOperator <: NonlinearParamOperator
   op::ODEParamOperator
   r::TransientRealisation
@@ -74,6 +86,15 @@ function ParamAlgebra.allocate_systemcache(nlop::SpaceTimeParamOperator)
   allocate_systemcache(nlop,x)
 end
 
+"""
+    struct SpaceTimeSolver{A<:ODESolver,B<:NonlinearSolver} <: NonlinearSolver
+      solver::A
+      us0::Tuple{Vararg{AbstractParamVector}}
+    end
+
+Solver of a [`SpaceTimeParamOperator`](@ref), given the time-marching scheme `solver`
+and the initial conditions `us0`
+"""
 struct SpaceTimeSolver{A<:ODESolver,B<:NonlinearSolver} <: NonlinearSolver
   solver::A
   us0::Tuple{Vararg{AbstractParamVector}}

@@ -68,6 +68,12 @@ ParamArray(args...) = @abstractmethod
 ParamArray(A::AbstractArray{<:Number}) = ParamNumber(A)
 ParamArray(A::AbstractParamArray) = A
 
+"""
+    GenericParamArray(A::AbstractArray{<:AbstractArray}) -> AbstractParamArray
+
+Parameterised array whose entries are the arrays in `A`, one per parameter. Unlike a
+[`ConsecutiveParamArray`](@ref), the entries can have different sizes
+"""
 GenericParamArray(args...) = @abstractmethod
 GenericParamArray(A::AbstractArray{<:Number}) = ParamNumber(A)
 GenericParamArray(A::AbstractParamArray) = A
@@ -108,6 +114,13 @@ Returns a vector of the entries of `A` at index `i`, for every parameter. The
 length of the output is equals to `param_length(A)`
 """
 get_param_entry(A::AbstractParamArray,i...) = @abstractmethod
+
+"""
+    get_param_entry!(v::AbstractVector,A::AbstractParamArray,i...) -> AbstractVector
+
+In-place version of [`get_param_entry`](@ref)
+"""
+function get_param_entry! end
 
 # small hack, zero(::Type{<:AbstractArray}) is not implemented in Base
 function Base.zero(::Type{<:AbstractArray{T,N}}) where {T<:Number,N}

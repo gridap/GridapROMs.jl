@@ -1,3 +1,8 @@
+"""
+    const MultiFieldParamFESpace{MS,CS,V<:AbstractParamVector} = MultiFieldFESpace{MS,CS,V}
+
+Multi-field FE space whose DOF values are parameterised vectors
+"""
 const MultiFieldParamFESpace{MS,CS,V<:AbstractParamVector} = MultiFieldFESpace{MS,CS,V}
 
 function MultiField.MultiFieldFESpace(

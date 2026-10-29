@@ -20,7 +20,19 @@ function RBSteady.ROMOperator(
   RBOperator(odeop,trial,test,lhs,rhs)
 end
 
+"""
+    const TransientROMOperator{O<:ODEParamOperatorType} = ROMOperator{O}
+
+Reduced operator of a transient problem
+"""
 const TransientROMOperator{O<:ODEParamOperatorType} = ROMOperator{O}
+
+"""
+    const TransientRBOperator{O<:ODEParamOperatorType,A,B} = RBOperator{O,A,B}
+
+[`RBOperator`](@ref) of a transient problem. Its Jacobian `lhs` stores one
+hyper-reduction per time derivative
+"""
 const TransientRBOperator{O<:ODEParamOperatorType,A,B} = RBOperator{O,A,B}
 
 function Algebra.allocate_residual(

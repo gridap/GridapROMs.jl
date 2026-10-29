@@ -1,3 +1,12 @@
+"""
+    struct PosZeroNegReindex{A,B} <: Map
+      values_pos::A
+      values_neg::B
+    end
+
+Map returning `values_pos[i]` for a positive index `i`, `values_neg[-i]` for a
+negative one, and zero for `i = 0`
+"""
 struct PosZeroNegReindex{A,B} <: Map
   values_pos::A
   values_neg::B

@@ -469,6 +469,12 @@ function _reduce_columns(A::AbstractMatrix)
   size(A,1) > size(A,2)
 end
 
+"""
+    symcholesky(X) -> Factorization
+
+Cholesky factorization of the norm matrix `X`, after symmetrising it (see
+[`symmetrise!`](@ref)). For a rank tensor, the factorization of its 1D factors
+"""
 function symcholesky(X::AbstractSparseMatrix;kwargs...)
   issymmetric(X) && return cholesky(X;check=false)
   @check symmetrise!(X;kwargs...)
@@ -478,8 +484,20 @@ end
 symcholesky(X::Rank1Tensor) = symcholesky.(get_factors(X))
 symcholesky(X::GenericRankTensor) = symcholesky(get_crossnorm(X))
 
+"""
+    gram_solver(X;kwargs...)
+
+Solver for the norm (Gram) matrix `X`: a Cholesky factorization in serial, a
+preconditioned conjugate gradient in distributed settings
+"""
 gram_solver(X;kwargs...) = symcholesky(X;kwargs...)
 
+"""
+    symmetrise!(A::AbstractMatrix;atol=1e-12,rtol=1e-8) -> Bool
+
+Replaces `A` with its symmetric part, if `A` is symmetric up to the given
+tolerances. Returns whether this is the case
+"""
 function symmetrise!(A::AbstractMatrix;atol=1e-12,rtol=1e-8)
   n,m = size(A)
   n == m || return false

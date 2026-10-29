@@ -83,6 +83,12 @@ function sparsify_indices(fids::AbstractArray)
   sids
 end
 
+"""
+    sparsify_split_indices(frows::AbstractArray,fcols::AbstractArray,a) -> AbstractArray
+
+Indices in the vector of nonzero entries of the sparse matrix (or sparsity
+pattern) `a` corresponding to the pairs of rows `frows` and columns `fcols`
+"""
 function sparsify_split_indices(
   frows::AbstractArray,
   fcols::AbstractArray,
@@ -100,6 +106,12 @@ function sparsify_split_indices(
   return sids
 end
 
+"""
+    change_matrix_sparsity(A::AbstractSparseMatrix,old_rows_to_rows,old_cols_to_cols) -> AbstractSparseMatrix
+
+Returns the matrix `A` with rows and columns renumbered according to the maps
+`old_rows_to_rows` and `old_cols_to_cols`
+"""
 function change_matrix_sparsity(
   A::AbstractSparseMatrix,
   old_rows_to_rows::AbstractVector,

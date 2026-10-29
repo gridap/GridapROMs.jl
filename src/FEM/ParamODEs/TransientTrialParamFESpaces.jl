@@ -1,5 +1,12 @@
 """
     const TransientTrialParamFESpace = UnEvalTrialFESpace
+
+    TransientTrialParamFESpace(space::SingleFieldFESpace[,dirichlet]) -> UnEvalTrialFESpace
+
+Transient trial space of the test space `space`, with Dirichlet datum `dirichlet` (a
+function `(μ,t) -> TransientParamFunction`, or a vector of them, one per Dirichlet
+tag). Without `dirichlet`, the datum is zero. Evaluate it at a realisation and a
+time, `U(μ,t)`, to obtain a FE space
 """
 const TransientTrialParamFESpace = UnEvalTrialFESpace
 

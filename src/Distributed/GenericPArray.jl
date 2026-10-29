@@ -577,6 +577,12 @@ function GridapDistributed.change_ghost(a::GenericPArray,ids::PRange;is_consiste
   return a_new
 end
 
+# param data interface
+
+function ParamDataStructures.param_length(a::GenericPArray)
+  prod(a.unpartitioned_axes)
+end
+
 # utils
 
 function _change_ghost(a::GenericPArray,ids::PRange)

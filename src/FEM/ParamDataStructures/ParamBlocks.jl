@@ -2255,6 +2255,12 @@ for T in (:Nothing,:Number,:Field)
   end
 end
 
+"""
+    local_parameterise(a,plength::Integer) -> GenericParamBlock
+
+Cell-wise parameterisation of `a`: a block storing `plength` independent copies of
+`a` (or the entries of `a`, if it is already a collection of `plength` arrays)
+"""
 function local_parameterise(a::AbstractArray{<:AbstractArray},plength::Integer)
   @check length(a) == plength
   GenericParamBlock(a)

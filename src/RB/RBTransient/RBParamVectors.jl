@@ -1,3 +1,12 @@
+"""
+    struct ODERBParamVector{T,A<:RBParamVector{T},B<:Tuple{Vararg{RBParamVector{T}}}} <: ParamArray{T,1}
+      data::A
+      data0::B
+    end
+
+Solution of a transient reduced problem, `data`, together with its initial
+conditions `data0`
+"""
 struct ODERBParamVector{T,A<:RBParamVector{T},B<:Tuple{Vararg{RBParamVector{T}}}} <: ParamArray{T,1}
   data::A
   data0::B

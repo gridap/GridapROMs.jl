@@ -1,3 +1,8 @@
+"""
+    get_dirichlet_cells(f::FESpace) -> AbstractVector
+
+Cells of `f` containing at least one Dirichlet DOF
+"""
 function get_dirichlet_cells end
 get_dirichlet_cells(f::FESpace) = @abstractmethod
 get_dirichlet_cells(f::UnconstrainedFESpace) = f.dirichlet_cells

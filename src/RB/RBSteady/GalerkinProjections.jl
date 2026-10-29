@@ -41,8 +41,11 @@ function galerkin_projection(
   return proj_basis
 end
 
-# not really in-place 
+"""
+    galerkin_projection!(cache,args...) -> AbstractArray
 
+Same as [`galerkin_projection`](@ref), storing the output in `cache`
+"""
 function galerkin_projection!(cache,args...)
   proj_basis = galerkin_projection(args...)
   copy_projection!(cache,proj_basis)

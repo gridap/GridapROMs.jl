@@ -1,3 +1,12 @@
+"""
+    struct LocalProjection{A<:Projection,N} <: Projection
+      projections::Array{A,N}
+      k::NTuple{N,KmeansResult}
+    end
+
+Collection of projections, one per cluster of the parameter space, together with the
+k-means clustering(s) `k` that define the clusters. See [`get_local`](@ref)
+"""
 struct LocalProjection{A<:Projection,N} <: Projection
   projections::Array{A,N}
   k::NTuple{N,KmeansResult}
@@ -45,6 +54,11 @@ function galerkin_projection(
   LocalProjection(b̂,b.k)
 end
 
+"""
+    local_vals(a) -> AbstractArray
+
+Local (per-cluster) quantities stored in `a`
+"""
 local_vals(a) = @abstractmethod
 local_vals(a::LocalProjection) = a.projections
 
@@ -71,11 +85,24 @@ end
 local_proj_to_proj(a::Projection,b::AbstractVector{<:Projection}) = @abstractmethod
 local_proj_to_proj(a::LocalProjection,b::AbstractVector{<:Projection}) = LocalProjection(b,a.k)
 
+"""
+    get_clusters(a) -> Tuple{Vararg{KmeansResult}}
+
+k-means clustering(s) of the parameter space defining the local quantities in `a`
+"""
 get_clusters(a) = @abstractmethod
 get_clusters(a::LocalProjection) = a.k
 get_clusters(a::BlockProjection) = get_clusters(testitem(a))
 get_clusters(a::RBSpace) = get_clusters(get_reduced_subspace(a))
 
+"""
+    get_local(a,μ::AbstractVector)
+    get_local(a,r::Realisation)
+
+Local quantity (projection, reduced space, hyper-reduction or reduced operator) of
+`a` relative to the cluster of the parameter `μ`, i.e. the cluster with the closest
+centroid. For a realisation, one per parameter
+"""
 function get_local(a,r::Realisation)
   map(r) do μ
     get_local(a,μ)
@@ -158,6 +185,14 @@ function enrich!(
   a[1] = local_proj_to_proj(a_primal,a_primal_loc)
   return
 end
+
+"""
+    cluster(a,k) -> Vector
+
+Splits `a` (e.g. snapshots) according to the clusters of its parameters. `k` can be
+a [`LocalReduction`](@ref), a k-means result, or a vector of labels
+"""
+function cluster end
 
 for f in (:cluster,:cluster_sort)
   @eval begin
@@ -247,6 +282,12 @@ function centroid_distances(k::KmeansResult,x::AbstractMatrix)
   return dists
 end
 
+"""
+    compute_ncentroids(r::AbstractRealisation;init=min(4,num_params(r)),iend=min(16,num_params(r)÷2)) -> Int
+
+Number of clusters, between `init` and `iend`, suggested by the elbow criterion on the
+variance of k-means clusterings of the parameters in `r`
+"""
 function compute_ncentroids(
   r::AbstractRealisation;
   init=min(4,num_params(r)),

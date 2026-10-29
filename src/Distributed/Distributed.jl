@@ -32,8 +32,13 @@ in parallel.  Key components:
   `PVector`-like container for generic parallel data; `DistributedSnapshots`
   wraps `Snapshots` for the distributed case.
 
-Requires `GridapDistributed` and MPI; not loaded unless `Distributed` is
-explicitly used.
+- **Distributed reduction and hyper-reduction** — method-of-snapshots POD,
+  Householder and norm-weighted QR decompositions, supremizer enrichment, DEIM and
+  S-OPT on row-partitioned bases, per-process reduced integration domains,
+  Galerkin projections, and parallel I/O of snapshots and reduced operators.
+
+The distributed versions are selected by dispatch: running the code of a serial
+ROM on a distributed model (see `GridapDistributed`) runs it in parallel.
 """
 module Distributed
 

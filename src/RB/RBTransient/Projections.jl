@@ -13,12 +13,34 @@ and provides methods to project and reconstruct space–time snapshot vectors.
 """
 abstract type TransientProjection <: Projection end
 
+"""
+    get_projection_space(a::Projection) -> Projection
+
+Spatial projection of `a` (`a` itself, if not transient)
+"""
 get_projection_space(a::Projection) = a
+
+"""
+    get_projection_time(a::Projection) -> Projection
+
+Temporal projection of `a`
+"""
 get_projection_time(a::Projection) = @notimplemented
 get_projection_space(a::TransientProjection) = @abstractmethod
 get_projection_time(a::TransientProjection) = @abstractmethod
 
+"""
+    get_basis_space(a::Projection) -> AbstractMatrix
+
+Spatial basis of `a`
+"""
 get_basis_space(a::Projection) = get_basis(get_projection_space(a))
+
+"""
+    get_basis_time(a::Projection) -> AbstractMatrix
+
+Temporal basis of `a`
+"""
 get_basis_time(a::Projection) = get_basis(get_projection_time(a))
 
 ParamDataStructures.num_space_dofs(a::Projection) = num_fe_dofs(get_projection_space(a))
@@ -284,6 +306,14 @@ end
 
 # tt interface
 
+"""
+    struct SequentialProjection{A<:Projection} <: TransientProjection
+      projection::A
+    end
+
+Space-time projection computed with a TT-SVD of the snapshots, whose last core
+spans the time dimension. Output of a [`SequentialReduction`](@ref)
+"""
 struct SequentialProjection{A<:Projection} <: TransientProjection
   projection::A
 end

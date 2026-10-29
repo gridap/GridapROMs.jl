@@ -91,6 +91,11 @@ end
 
 # utils
 
+"""
+    initial_conditions(sol) -> Tuple
+
+Initial conditions of the transient solution `sol`
+"""
 initial_conditions(sol::ODEParamSolution) = sol.us0
 
 function collect_param_solutions(sol)

@@ -22,6 +22,11 @@ Contribution(v,t) = Contribution((v,),(t,))
 
 CellData.get_domains(a::Contribution) = a.trians
 
+"""
+    get_contributions(a::Contribution) -> Tuple
+
+Values of `a`, one per triangulation
+"""
 get_contributions(a::Contribution) = a.values
 
 Base.length(a::Contribution) = length(a.values)

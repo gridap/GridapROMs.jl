@@ -59,7 +59,6 @@ include("TimeDerivatives.jl")
 include("TransientParamCellFields.jl")
 
 export TransientTrialParamFESpace
-export TransientMultiFieldParamFESpace
 include("TransientTrialParamFESpaces.jl")
 
 include("TransientNonlinearParamOperators.jl")

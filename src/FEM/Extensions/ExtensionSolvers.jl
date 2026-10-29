@@ -92,6 +92,15 @@ function extend_solution(f::FESpace,u::AbstractVector)
   extend_solution(HarmonicExtension(),f,u)
 end
 
+"""
+    struct ExtensionSolver <: NonlinearSolver
+      solver::NonlinearSolver
+      extension::ExtensionStyle
+    end
+
+Solves a problem on an active domain with `solver`, and extends the solution to the
+background domain according to `extension` (by default, a [`HarmonicExtension`](@ref))
+"""
 struct ExtensionSolver <: NonlinearSolver
   solver::NonlinearSolver
   extension::ExtensionStyle
@@ -120,6 +129,14 @@ end
 
 # transient
 
+"""
+    struct ExtensionODESolver <: ODESolver
+      solver::ODESolver
+      extension::ExtensionStyle
+    end
+
+Transient counterpart of [`ExtensionSolver`](@ref)
+"""
 struct ExtensionODESolver <: ODESolver
   solver::ODESolver
   extension::ExtensionStyle

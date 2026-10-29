@@ -28,6 +28,11 @@ end
 # #TODO do not actually need the following, but the current implementation of
 # Gridap's time_derivative won't allow multiple dispatching
 
+"""
+    ∂ₚt(f) -> Function
+
+Time derivative of a [`TransientParamFunction`](@ref), or of a parameterised FE function
+"""
 function ∂ₚt(f)
   time_derivative_param_fun(f)
 end
@@ -36,6 +41,12 @@ function ∂ₚt(f,::Val{k}) where k
   time_derivative_param_fun(f,Val(k))
 end
 
+"""
+    ∂ₚtt(f) -> Function
+
+Second time derivative of a [`TransientParamFunction`](@ref), or of a parameterised
+FE function
+"""
 function ∂ₚtt(f)
   time_derivative_param_fun(f,Val(2))
 end

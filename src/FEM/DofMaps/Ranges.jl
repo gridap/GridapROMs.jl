@@ -35,6 +35,11 @@ Base.copy(r::Range2D{O}) where O = Range2D{O}(copy(r.axis1),copy(r.axis2),r.scal
 Constructor of a [`Range2D`](@ref) object
 """
 range_2d(i::AbstractVector,j::AbstractVector,scale=length(i)) = Range2D{Ordered}(i,j,scale)
+"""
+    shuffled_range_2d(i::AbstractVector,j::AbstractVector,scale=length(i)) -> Range2D
+
+Same as [`range_2d`](@ref), with the order of the two axes swapped
+"""
 shuffled_range_2d(i::AbstractVector,j::AbstractVector,scale=length(i)) = Range2D{Shuffled}(i,j,scale)
 
 """
@@ -54,6 +59,11 @@ end
 Vectorization operation of a [`Range2D`](@ref) object
 """
 range_1d(i::AbstractVector,j::AbstractVector,args...) = Range1D(range_2d(i,j,args...))
+"""
+    shuffled_range_1d(i::AbstractVector,j::AbstractVector,args...) -> AbstractVector{Int}
+
+Vectorization of a [`shuffled_range_2d`](@ref)
+"""
 shuffled_range_1d(i::AbstractVector,j::AbstractVector,args...) = Range1D(shuffled_range_2d(i,j,args...))
 
 Base.size(r::Range1D) = (length(r.parent),)

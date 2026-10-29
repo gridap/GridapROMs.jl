@@ -47,6 +47,11 @@ get_all_data(s::Snapshots) = @abstractmethod
 
 get_param_data(s::Snapshots) = @abstractmethod
 
+"""
+    num_space_dofs(s::Snapshots) -> Integer
+
+Total number of spatial DOFs of `s`, i.e. `prod(space_dofs(s))`
+"""
 num_space_dofs(s::Snapshots) = prod(space_dofs(s))
 
 """
@@ -66,6 +71,11 @@ function Base.reshape(s::Snapshots,dims::Dims)
   reshape(get_all_data(s),dims...)
 end
 
+"""
+    select_snapshots(s::AbstractSnapshots,pindex) -> AbstractSnapshots
+
+Restriction of `s` to the parameters of index `pindex`
+"""
 select_snapshots(s::Snapshots,pindex) = @abstractmethod
 
 function flatten(s::Snapshots)
@@ -159,6 +169,9 @@ end
 # sparse interface
 
 """
+    const SparseSnapshots{T,N,I<:AbstractSparseDofMap,R} = Snapshots{T,N,I,R}
+
+Snapshots of sparse matrices (e.g. Jacobians), storing their nonzero entries
 """
 const SparseSnapshots{T,N,I<:AbstractSparseDofMap,R} = Snapshots{T,N,I,R}
 
@@ -257,10 +270,20 @@ function select_snapshots(a::Bundle,pindex)
   Bundle(select_snapshots(a.linear,pindex),select_snapshots(a.nonlinear,pindex))
 end
 
+"""
+    select_all_data(data::AbstractArray,prange) -> AbstractArray
+
+Restriction of the snapshot data `data` to the parameters of index `prange`
+"""
 function select_all_data(data::AbstractArray{T,N},prange) where {T,N}
   view(data,_ncolons(Val{N-1}())...,prange)
 end
 
+"""
+    select_param_data(data::AbstractParamArray,prange) -> AbstractParamArray
+
+Restriction of the parameterised snapshot data `data` to the parameters of index `prange`
+"""
 function select_param_data(pdata::ConsecutiveParamArray{T,N},prange) where {T,N}
   ConsecutiveParamArray(view(pdata.data,_ncolons(Val{N}())...,prange))
 end

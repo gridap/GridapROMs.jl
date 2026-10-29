@@ -1,3 +1,13 @@
+"""
+    abstract type Interpolation end
+
+Online evaluation of the coefficients of a hyper-reduction. Subtypes:
+
+- [`EmptyInterpolation`](@ref)
+- [`GreedyInterpolation`](@ref)
+- [`RBFInterpolation`](@ref)
+- [`BlockInterpolation`](@ref)
+"""
 abstract type Interpolation end
 
 Interpolation(args...) = @abstractmethod
@@ -12,6 +22,13 @@ end
 
 # Empty interpolation
 
+"""
+    struct EmptyInterpolation{A} <: Interpolation
+      dofs::A
+    end
+
+Interpolation of trivial hyper-reductions, which do not interpolate
+"""
 struct EmptyInterpolation{A} <: Interpolation
   dofs::A
 end
@@ -26,6 +43,15 @@ end
 
 # EIM interpolation
 
+"""
+    struct GreedyInterpolation{A,B<:IntegrationDomain} <: Interpolation
+      interpolation::A
+      domain::B
+    end
+
+Interpolation of DEIM and S-OPT hyper-reductions: the factorized interpolation
+matrix, and the reduced integration domain
+"""
 struct GreedyInterpolation{A,B<:IntegrationDomain} <: Interpolation
   interpolation::A
   domain::B
@@ -65,6 +91,13 @@ end
 
 # RBF interpolation
 
+"""
+    struct RBFInterpolation{A<:Interpolator} <: Interpolation
+      interpolation::A
+    end
+
+Radial basis function interpolator of the coefficients, in the parameter space
+"""
 struct RBFInterpolation{A<:Interpolator} <: Interpolation
   interpolation::A
 end
@@ -207,6 +240,13 @@ end
 
 # multi field
 
+"""
+    struct BlockInterpolation{I<:Interpolation,N} <: Interpolation
+      interp::Array{I,N}
+    end
+
+Interpolations of a multi-field problem, one per block
+"""
 struct BlockInterpolation{I<:Interpolation,N} <: Interpolation
   interp::Array{I,N}
 end

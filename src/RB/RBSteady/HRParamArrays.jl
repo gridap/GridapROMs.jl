@@ -1,3 +1,14 @@
+"""
+    struct HRParamArray{T,N,A,B,C<:ParamArray{T,N}} <: ParamArray{T,N}
+      fecache::A
+      coeff::B
+      hypred::C
+    end
+
+Hyper-reduced residual or Jacobian. Stores the FE quantities integrated on the reduced
+integration domains (`fecache`), the coefficients of the affine expansion (`coeff`),
+and the resulting reduced array (`hypred`), which defines the array interface
+"""
 struct HRParamArray{T,N,A,B,C<:ParamArray{T,N}} <: ParamArray{T,N}
   fecache::A
   coeff::B

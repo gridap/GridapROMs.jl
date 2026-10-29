@@ -1,5 +1,13 @@
 include("TimeCombinations.jl")
 
+"""
+    spacetime_residual(c::TimeCombination,odeop::ODEParamOperator,s) -> AbstractParamVector
+    spacetime_residual(c::TimeCombination,odeop::ODEParamOperator,r,u,us0) -> AbstractParamVector
+
+Residuals of `odeop` at every time step, evaluated at the states obtained by
+combining the solution snapshots `s` (or the values `u` and the initial
+conditions `us0`) according to the time-marching scheme `c`
+"""
 function spacetime_residual(c::TimeCombination,odeop::ODEParamOperator,s)
   r = get_realisation(s)
   u = get_param_data(s)
@@ -94,6 +102,13 @@ function spacetime_residual!(
   return b
 end
 
+"""
+    spacetime_jacobian(c::TimeCombination,odeop::ODEParamOperator,s) -> Tuple
+    spacetime_jacobian(c::TimeCombination,odeop::ODEParamOperator,r,u,us0) -> Tuple
+
+Same as [`spacetime_residual`](@ref), for the Jacobians of `odeop`, one per time
+derivative
+"""
 function spacetime_jacobian(c::TimeCombination,odeop::ODEParamOperator,s)
   r = get_realisation(s)
   u = get_param_data(s)

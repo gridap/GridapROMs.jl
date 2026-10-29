@@ -65,6 +65,12 @@ function Base.zero(r::Realisation)
   Realisation(zeros(eltype(μ1),length(μ1)) .+ eps())
 end
 
+"""
+    param_cat(a::AbstractVector) -> Any
+
+Concatenates along the parameter dimension a vector of realisations, parameterised
+arrays or snapshots
+"""
 function param_cat(r::Vector{Realisation{P}}) where P
   n = sum(param_length(ri) for ri in r)
   params = P(undef,n)
@@ -202,6 +208,11 @@ function get_at_time(r::GenericTransientRealisation{P,T} where P,time::T) where 
   TransientRealisationAt(get_params(r),Ref(time))
 end
 
+"""
+    get_at_timestep(r::GenericTransientRealisation,timestep::Int) -> TransientRealisationAt
+
+Restriction of `r` to its `timestep`-th time; `timestep = 0` is the initial time
+"""
 function get_at_timestep(r::GenericTransientRealisation,timestep::Int)
   @check 0 <= timestep <= num_times(r)
   timestep == 0 ? get_at_time(r,:initial) : get_at_time(r,r.times[timestep])
@@ -257,6 +268,15 @@ end
 
 get_sampling_style(p::ParamSpace) = p.sampling_style
 
+"""
+    ParamSpace(domain::Tuple;sampling=:halton) -> ParamSpace
+    ParamSpace(domain::AbstractVector{<:AbstractVector};sampling=:halton) -> ParamSpace
+
+Parameter space with bounds `domain`, given either as a tuple `(min₁,max₁,min₂,max₂,...)`
+whose entries share the same type, or as a vector of intervals `[[min₁,max₁],...]`.
+`sampling` (`:halton`, `:uniform`, `:normal`, `:latin_hypercube`, `:tensorial_uniform`)
+sets the default distribution of [`realisation`](@ref)
+"""
 function ParamSpace(domain_tuple::NTuple{N,T},style=HaltonSampling()) where {N,T}
   @notimplementedif !isconcretetype(T)
   @notimplementedif isodd(N)
@@ -308,6 +328,12 @@ end
 
 get_sampling_style(p::TransientParamSpace) = get_sampling_style(p.parametric_space)
 
+"""
+    TransientParamSpace(domain,times::AbstractVector{<:Real};sampling=:halton) -> TransientParamSpace
+
+Space of parameters with bounds `domain` (see [`ParamSpace`](@ref)), and time grid
+`times` (e.g. `t0:dt:tf`). Only the parameters are sampled
+"""
 function TransientParamSpace(
   param_domain::Union{Tuple,AbstractVector},
   temporal_domain::AbstractVector{<:Real},

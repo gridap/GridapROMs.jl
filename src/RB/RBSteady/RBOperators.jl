@@ -1,8 +1,13 @@
 """
     reduced_operator(solver::RBSolver,feop::ParamOperator,args...;kwargs...) -> ROMOperator
-    reduced_operator(solver::RBSolver,feop::TransientParamOperator,args...;kwargs...) -> TransientROMOperator
+    reduced_operator(solver::RBSolver,feop::ParamOperator,s::AbstractSnapshots) -> ROMOperator
+    reduced_operator(dir::String,solver::RBSolver,feop::ParamOperator,args...;kwargs...) -> ROMOperator
 
-Computes a RB operator from the FE operator `feop`
+Offline phase: computes the reduced operator of the FE operator `feop`, i.e. the reduced
+spaces ([`reduced_spaces`](@ref)) and the hyper-reduced residual and Jacobian
+([`reduced_weak_form`](@ref)). The snapshots `s` are computed with
+[`solution_snapshots`](@ref) if not provided (`args` and `kwargs` are passed on to it).
+When `dir` is provided, snapshots and reduced operator are saved there
 """
 function reduced_operator(
   dir::String,

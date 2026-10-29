@@ -154,8 +154,6 @@ using GridapROMs.Extensions: ⊕; export ⊕
 
 @publish RBTransient TransientReduction
 @publish RBTransient SteadyReduction
-@publish RBTransient TransientReduction
-@publish RBTransient TransientHyperReduction
 @publish RBTransient TransientHyperReduction
 @publish RBTransient TransientProjection
 @publish RBTransient TransientROMOperator

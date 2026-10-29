@@ -749,6 +749,14 @@ function SparseArrays.sparse!(
   ConsecutiveParamSparseMatrixCSC(m,n,csccolptr,cscrowval,cscnzval)
 end
 
+"""
+    const ConsecutiveParamSparseMatrix{Tv,Ti} = Union{
+      ConsecutiveParamSparseMatrixCSC{Tv,Ti},
+      ConsecutiveParamSparseMatrixCSR{<:Any,Tv,Ti}}
+
+Parameterised sparse matrices sharing the same sparsity pattern, whose nonzero values
+are stored contiguously
+"""
 const ConsecutiveParamSparseMatrix{Tv,Ti} = Union{
   ConsecutiveParamSparseMatrixCSC{Tv,Ti},
   ConsecutiveParamSparseMatrixCSR{<:Any,Tv,Ti}}

@@ -32,9 +32,8 @@ multi-dimensional snapshot arrays.
 ## Transient projections
 
 [`TransientProjection`](@ref) wraps spatial and temporal projections for
-space–time reduced-basis problems, while
-[`TransientIntegrationDomain`](@ref) provides the corresponding reduced
-integration domain.
+space–time reduced-basis problems, while [`TransientInterpolation`](@ref)
+provides the corresponding space–time interpolation.
 
 ## Full API
 

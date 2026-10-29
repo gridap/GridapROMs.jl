@@ -155,7 +155,6 @@ include("ParamVectorWithEntries.jl")
 export AbstractSnapshots
 export Snapshots
 export GenericSnapshots
-export SnapshotsAtIndices
 export SparseSnapshots
 export BlockSnapshots
 export get_realisation
@@ -170,12 +169,8 @@ export TransientGenericSnapshots
 export TransientSnapshotsWithIC
 export TransientSparseSnapshots
 export TransientBlockSnapshots
-export UnfoldingTransientSnapshots
-export ModeTransientSnapshots
 export get_initial_param_data
 export select_times
-export get_mode1
-export get_mode2
 export change_mode
 include("TransientSnapshots.jl")
 

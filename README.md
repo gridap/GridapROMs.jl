@@ -1,142 +1,106 @@
-# GridapROMs
+<p align="center">
+  <img src="docs/src/assets/logo.png" alt="GridapROMs" width="260"/>
+</p>
 
-This package provides a set of tools for the solution of parameterised partial differential equations (PDEs) with reduced order models (ROMs). The presence of parameters severely impacts the feasibility of running high-fidelity (HF) codes such as the finite element (FE) method, because typically the solution is required for many different values of the parameters. ROMs create surrogate models that approximate the solution manifold on a lower-dimensional manifold. These surrogates provide accurate solutions in a much shorter time and with much fewer computational resources. The library is developed in close collaboration with [Gridap.jl](https://github.com/gridap/Gridap.jl).
+# GridapROMs
 
 | **Documentation** |
 |:------------ |
-| [![docdev](https://img.shields.io/badge/docs-dev-blue.svg)](https://gridap.github.io/GridapROMs.jl/dev/) | 
-| **Citation** |
-| [![DOI](https://img.shields.io/badge/DOI-10.1016%2Fj.jcp.2022.111162-blue)](https://arxiv.org/abs/2503.15994) |
-|**Build Status** |
+| [![docdev](https://img.shields.io/badge/docs-dev-blue.svg)](https://gridap.github.io/GridapROMs.jl/dev/) |
+| **Build Status** |
 | [![CI](https://github.com/gridap/GridapROMs.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/gridap/GridapROMs.jl/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/gridap/GridapROMs.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/gridap/GridapROMs.jl) |
+| **Citation** |
+| [![DOI](https://img.shields.io/badge/DOI-10.1016%2Fj.cpc.2025.109985-blue)](https://doi.org/10.1016/j.cpc.2025.109985) |
+
+## What
+
+GridapROMs provides a set of tools for the reduced order modelling (ROM) of parameterised partial differential equations (PDEs), written in the Julia programming language. When a PDE must be solved for many values of its parameters (design, optimisation, uncertainty quantification, control), high-fidelity solvers quickly become unaffordable. ROMs replace them with surrogates that are orders of magnitude cheaper, at a controlled loss of accuracy.
+
+GridapROMs is built on top of [Gridap](https://github.com/gridap/Gridap.jl), and inherits its expressive API: parameterised problems are written exactly as in Gridap, with the parameter `μ` as an extra argument. The library currently supports
+
+- steady and transient, linear and nonlinear, single- and multi-field problems
+- reduced bases built with POD or tensor-train (TT-SVD) decompositions, in any norm, with supremizer enrichment for saddle-point problems
+- hyper-reduction with DEIM, S-OPT and radial basis function interpolation, per integration domain
+- global and local (clustered) reduced operators
+- distributed-memory parallelism of the whole offline and online phases, via [GridapDistributed](https://github.com/gridap/GridapDistributed.jl)
+
+A reduced order model of a parameterised Poisson problem takes a few lines of code:
+
+```julia
+using Gridap, GridapROMs
+
+D = ParamSpace((1,10,1,10))
+model = CartesianDiscreteModel((0,1,0,1),(40,40))
+Ω = Triangulation(model)
+dΩ = Measure(Ω,2)
+V = TestFESpace(Ω,ReferenceFE(lagrangian,Float64,1);dirichlet_tags="boundary")
+U = ParamTrialFESpace(V)
+
+κ(μ) = x -> 1 + μ[1]*exp(-μ[2]*x[1]*x[2])
+a(μ,u,v) = ∫(parameterise(κ,μ)*∇(v)⋅∇(u))dΩ
+l(μ,v) = ∫(v)dΩ
+feop = LinearParamOperator(l,a,D,U,V,FEDomains((Ω,),(Ω,)))
+
+rbsolver = RBSolver(LUSolver(),Reduction(1e-4,H1();nparams=50))
+rbop = reduced_operator(rbsolver,feop)         # offline phase
+μ = realisation(feop;nparams=10)
+û = solution_snapshots(rbsolver,rbop,μ)        # online phase
+```
+
+## Documentation
+
+- [**DEVEL**](https://gridap.github.io/GridapROMs.jl/dev/) — *Documentation for the most recent in-development version of GridapROMs.*
+
+## Tutorials
+
+A hands-on introduction to the library is available as a set of tutorials in the documentation:
+
+1. [Parameterised PDEs](https://gridap.github.io/GridapROMs.jl/dev/tutorials/t001_parameterised_pdes/)
+2. [Reduced order models](https://gridap.github.io/GridapROMs.jl/dev/tutorials/t002_reduced_order_models/)
+3. [Local reduced operators](https://gridap.github.io/GridapROMs.jl/dev/tutorials/t003_local_roms/)
+4. [Distributed-memory ROMs](https://gridap.github.io/GridapROMs.jl/dev/tutorials/t004_distributed/)
 
 ## Installation
 
+GridapROMs is a registered package in the official [Julia package registry](https://github.com/JuliaRegistries/General). Open the Julia REPL, type `]` to enter package mode, and install as follows
+
 ```julia
-# Type ] to enter package mode
 pkg> add GridapROMs
 ```
 
 ## Examples
 
-Before running the following examples, it is necessary to import from file some geometries which can be found [here](https://github.com/gridap/GridapROMs.jl/tree/main/docs/src/assets). The file name is `models.zip`. The geometries must be unzipped and moved to a directory where the numerical experiments are ran. This directory should be placed inside the `data` directory of the `Julia` project which is being used to run these experiments. To find this directory, first add the package `DrWatson` with 
+These are some problems solved with GridapROMs, taken from the [tutorials](https://gridap.github.io/GridapROMs.jl/dev/) and from the [examples](examples) folder.
 
-```julia
-# Type ] to enter package mode
-pkg> add DrWatson
-```
+| <img src="docs/src/assets/tutorials/t001_poisson.png" width="240"/> | <img src="docs/src/assets/tutorials/t002_rom.png" width="240"/> | <img src="docs/src/assets/tutorials/t003_local.png" width="240"/> | <img src="docs/src/assets/tutorials/t004_distributed.png" width="240"/> |
+|:-------------:|:-------------:|:-------------:|:-------------:|
+| [Parameterised Poisson equation](https://gridap.github.io/GridapROMs.jl/dev/tutorials/t001_parameterised_pdes/) | [Navier-Stokes, lid-driven cavity](https://gridap.github.io/GridapROMs.jl/dev/tutorials/t002_reduced_order_models/) | [Local ROMs, advection-diffusion](https://gridap.github.io/GridapROMs.jl/dev/tutorials/t003_local_roms/) | [Distributed ROMs](https://gridap.github.io/GridapROMs.jl/dev/tutorials/t004_distributed/) |
+| <img src="docs/src/assets/results/elasticity_pod/plot/rbsol.png" width="240"/> | <img src="docs/src/assets/results/adv_diff_ttsvd/plot/rbsol.png" width="240"/> | <img src="docs/src/assets/results/helmholtz_pod/plot/rbsol.png" width="240"/> | <img src="docs/src/assets/results/stokes_pod/plot/rbvel.png" width="240"/> |
+| [Linear elasticity, POD](examples/SteadyElasticityPOD.jl) | [Advection-diffusion, TT-SVD](examples/AdvectionDiffusionTTSVD.jl) | [Electromagnetic scattering, POD](examples/HelmholtzPOD.jl) | [Stokes flow, POD](examples/SteadyStokesPOD.jl) |
+| <img src="docs/src/assets/results/heateq_pod/plot/rbsol.gif" width="240"/> | <img src="docs/src/assets/results/nstokes_strb/plot/rbvel.gif" width="240"/> | <img src="docs/src/assets/results/nstokes_strb/plot/rbpress.gif" width="240"/> | <img src="docs/src/assets/results/stokes_pod/plot/rbpress.png" width="240"/> |
+| [Heat equation, space-time RB](examples/HeatEquationSTRB.jl) | [Navier-Stokes velocity, space-time RB](examples/NStokesTransientSTRB.jl) | [Navier-Stokes pressure, space-time RB](examples/NStokesTransientSTRB.jl) | [Stokes pressure, POD](examples/SteadyStokesPOD.jl) |
 
-and call
-
-```julia
-julia> test_dir = datadir()
-```
-
-Now we can unzip the compressed folder in `dir` with 
-
-```julia
-julia> model_dir = joinpath(@__DIR__,"docs/src/assets")
-# Type ; to enter shell mode
-shell> unzip $model_dir/models.zip -d $test_dir
-```
-
-In the following numerical examples, we provide a plot of the convergence errors for a series of tolerances (which determine the accuracy of the method), and a solution plot obtained with a fixed tolerance of `1e-5`.
-
-### Test 1 
-
-Solve a steady elasticity problem with a [proper orthogonal decomposition algorithm](https://link.springer.com/book/10.1007/978-3-319-15431-2) (POD). The presence of parameters affecting the problem's LHS/RHS are dealt with by employing a [discrete empirical interpolation method in matrix form](https://www.sciencedirect.com/science/article/pii/S0021999115006543) (DEIM). 
-
-```julia
-julia> include("examples/SteadyElasticityPOD.jl")
-```
-Solution             |  Convergence
-:-------------------------:|:-------------------------:
-<img src="docs/src/assets/results/elasticity_pod/plot/rbsol.png" alt="drawing" style="width:400px; height:250px;"/>  |  <img src="docs/src/assets/results/elasticity_pod/results/convergence.png" alt="drawing" style="width:400px; height:250px;"/>
-
-### Test 2
-
-Solve the same problem, but with a tensor-train (TT) decomposition approach. In particular, we employ the [TT-SVD](https://epubs.siam.org/doi/10.1137/090752286) method to compute the reduced approximation subspace, and [TT-DEIM](https://arxiv.org/abs/2412.14460) for the system approximation. 
-
-```julia
-julia> include("examples/SteadyElasticityTTSVD.jl")
-```
-Solution             |  Convergence
-:-------------------------:|:-------------------------:
-<img src="docs/src/assets/results/elasticity_ttsvd/plot/rbsol.png" alt="drawing" style="width:400px; height:250px;"/>  |  <img src="docs/src/assets/results/elasticity_ttsvd/results/convergence.png" alt="drawing" style="width:400px; height:250px;"/>
-
-### Test 3
-
-Solve an [advection-diffusion equation](https://gridap.github.io/Tutorials/dev/pages/t010_advection_diffusion/) with TT-SVD and TT-DEIM. 
-
-```julia
-julia> include("examples/AdvectionDiffusionTTSVD.jl")
-```
-Solution             |  Convergence
-:-------------------------:|:-------------------------:
-<img src="docs/src/assets/results/adv_diff_ttsvd/plot/rbsol.png" alt="drawing" style="width:400px; height:250px;"/>  |  <img src="docs/src/assets/results/adv_diff_ttsvd/results/convergence.png" alt="drawing" style="width:400px; height:250px;"/>
-
-### Test 4
-
-Solve a 2D [electromagnetic wave scattering problem](https://gridap.github.io/Tutorials/dev/pages/t013_emscatter/) modeled by the steady Helmholtz equation in PLM condition. We employ POD and DEIM for the reduced problem.
-
-```julia
-julia> include("examples/HelmholtzPOD.jl")
-```
-Solution             |  Convergence
-:-------------------------:|:-------------------------:
-<img src="docs/src/assets/results/helmholtz_pod/plot/rbsol.png" alt="drawing" style="width:400px; height:250px;"/>  |  <img src="docs/src/assets/results/helmholtz_pod/results/convergence.png" alt="drawing" style="width:400px; height:250px;"/>
-
-### Test 5
-
-Solve a steady Stokes equation with a POD+DEIM method.
-
-```julia
-julia> include("examples/SteadyStokesPOD.jl")
-```
-
-Solution - velocity          |  Solution - pressure        |  Convergence
-:-------------------------:|:-------------------------:|:-------------------------:
-<img src="docs/src/assets/results/stokes_pod/plot/rbvel.png" alt="drawing" style="width:275px; height:250px;"/>  |  <img src="docs/src/assets/results/stokes_pod/plot/rbpress.png" alt="drawing" style="width:275px; height:250px;"/>  |  <img src="docs/src/assets/results/stokes_pod/results/convergence.png" alt="drawing" style="width:275px; height:250px;"/> 
-
-### Test 6 
-
-Moving to transient applications, we first solve a heat equation with a [space-time RB-DEIM method](https://www.sciencedirect.com/science/article/pii/S0377042724000165).
-
-```julia
-julia> include("examples/HeatEquationSTRB.jl")
-```
-
-Solution             |  Convergence
-:-------------------------:|:-------------------------:
-<img src="docs/src/assets/results/heateq_pod/plot/rbsol.gif" alt="drawing" style="width:400px; height:250px;"/>  |  <img src="docs/src/assets/results/heateq_pod/results/convergence.png" alt="drawing" style="width:400px; height:250px;"/> 
-
-### Test 7
-
-Lastly, we solve a transient Navier-Stokes equation with the same space-time RB method as in `Test 6`.
-
-```julia
-julia> include("examples/NStokesTransientSTRB.jl")
-```
-
-Solution - velocity          |  Solution - pressure        |  Convergence
-:-------------------------:|:-------------------------:|:-------------------------:
-<img src="docs/src/assets/results/nstokes_strb/plot/rbvel.gif" alt="drawing" style="width:275px; height:250px;"/>  |  <img src="docs/src/assets/results/nstokes_strb/plot/rbpress.gif" alt="drawing" style="width:275px; height:250px;"/>  |  <img src="docs/src/assets/results/nstokes_strb/results/convergence.png" alt="drawing" style="width:275px; height:250px;"/> 
+Some of the examples load geometries stored in [`docs/src/assets/models.zip`](docs/src/assets/models.zip): unzip it into the `data` folder of the active project, given by `DrWatson.datadir()`.
 
 ## How to cite GridapROMs
 
-In order to give credit to the `GridapROMs` contributors, we simply ask you to cite the references below in any publication in which you have made use of the `GridapROMs` project. 
+In order to give credit to the GridapROMs contributors, we simply ask you to cite the reference below in any publication in which you have made use of GridapROMs:
 
 ```
 @article{MUELLER2026109985,
-      title = {GridapROMs.jl: Efficient reduced order modelling in the Julia programming language},
-      journal = {Computer Physics Communications},
-      volume = {320},
-      pages = {109985},
-      year = {2026},
-      issn = {0010-4655},
-      doi = {https://doi.org/10.1016/j.cpc.2025.109985},
-      url = {https://www.sciencedirect.com/science/article/pii/S0010465525004862},
-      author = {Nicholas Mueller and Santiago Badia},
-      keywords = {PDE, Reduced order model, Julia}
+  title = {GridapROMs.jl: Efficient reduced order modelling in the Julia programming language},
+  journal = {Computer Physics Communications},
+  volume = {320},
+  pages = {109985},
+  year = {2026},
+  issn = {0010-4655},
+  doi = {https://doi.org/10.1016/j.cpc.2025.109985},
+  url = {https://www.sciencedirect.com/science/article/pii/S0010465525004862},
+  author = {Nicholas Mueller and Santiago Badia},
+  keywords = {PDE, Reduced order model, Julia}
 }
 ```
+
+## Contact
+
+Please open an [issue](https://github.com/gridap/GridapROMs.jl/issues) for questions, bug reports and feature requests.

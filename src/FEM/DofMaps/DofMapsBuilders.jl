@@ -63,10 +63,20 @@ end
 
 # utils
 
+"""
+    get_cell_to_bg_cell(a::Union{SingleFieldFESpace,Triangulation}) -> AbstractVector
+
+Map from the cells of (the triangulation of) `a` to the cells of its background model
+"""
 function get_cell_to_bg_cell(f::SingleFieldFESpace)
   get_cell_to_bg_cell(get_triangulation(f))
 end
 
+"""
+    get_bg_cell_to_cell(a::Union{SingleFieldFESpace,Triangulation}) -> AbstractVector
+
+Inverse of [`get_cell_to_bg_cell`](@ref), with zeros for the background cells not in `a`
+"""
 function get_bg_cell_to_cell(f::SingleFieldFESpace)
   get_bg_cell_to_cell(get_triangulation(f))
 end
@@ -311,6 +321,11 @@ function get_active_dof_to_bg_dof(bg_f::SingleFieldFESpace,f::FESpaceWithLinearC
   get_dof_to_bg_dof(bg_f,f.space)
 end
 
+"""
+    get_dof_to_cells(cell_dofs::AbstractVector) -> Table
+
+Inverse of the cell-to-DOF connectivity `cell_dofs`
+"""
 function get_dof_to_cells(cell_dofs::AbstractVector)
   inverse_table(Table(cell_dofs))
 end

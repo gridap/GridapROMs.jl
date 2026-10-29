@@ -1,3 +1,12 @@
+"""
+    struct LocalInterpolation <: Interpolation
+      interp::AbstractMatrix{<:Interpolation}
+      k::NTuple{2,KmeansResult}
+    end
+
+Interpolations of a local hyper-reduction, indexed by (hyper-reduction cluster,
+reduced subspace cluster)
+"""
 struct LocalInterpolation <: Interpolation
   interp::AbstractMatrix{<:Interpolation}
   k::NTuple{2,KmeansResult}
@@ -13,6 +22,16 @@ function get_local(a::LocalInterpolation,μ::AbstractVector)
   local_vals(a)[labk,labl]
 end
 
+"""
+    struct LocalHRProjection <: HRProjection{HyperReduction,Projection}
+      reductions::AbstractMatrix
+      k::NTuple{2,KmeansResult}
+    end
+
+Local hyper-reduction: the hyper-reduction computed on each cluster of residual
+(or Jacobian) snapshots, projected onto each local reduced subspace. Indexed by
+(hyper-reduction cluster, reduced subspace cluster)
+"""
 struct LocalHRProjection <: HRProjection{HyperReduction,Projection}
   reductions::AbstractMatrix
   k::NTuple{2,KmeansResult}
@@ -55,6 +74,9 @@ function get_local(a::AffineContribution,μ::AbstractVector)
   end
 end
 
+"""
+    const LocalHRContribution = AffineContribution{<:LocalHRProjection}
+"""
 const LocalHRContribution = AffineContribution{<:LocalHRProjection}
 
 function reduced_form(lred::LocalReduction,s,trian,test)
