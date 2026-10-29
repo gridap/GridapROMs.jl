@@ -472,16 +472,16 @@ function RBSteady.collect_cell_hr_matrix(
   interp::Interpolation
   )
 
-  out = map(local_views(trial),local_views(test),local_views(a),local_views(strian)) do trial,test,a,strian
+  map(local_views(trial),local_views(test),local_views(a),local_views(strian)) do trial,test,a,strian
     scell_mat = get_contribution(a,strian)
     cell_mat,trian = move_contributions(scell_mat,strian)
     @assert ndims(eltype(cell_mat)) == 2
     cell_mat_c = attach_constraints_cols(trial,cell_mat,trian)
     cell_mat_rc = attach_constraints_rows(test,cell_mat_c,trian)
-    cell_idofs,cells = RBSteady._owned_integration_cells_and_idofs(interp,trial,test,strian,trian)
+    cell_idofs = get_cell_idofs(interp)
+    cells = get_integration_cells(interp)
     (cell_mat_rc,cell_idofs,cells)
-  end
-  map(first,out),map(x->x[2],out),map(last,out)
+  end |> tuple_of_arrays
 end
 
 function RBSteady.collect_cell_hr_vector(
@@ -491,22 +491,22 @@ function RBSteady.collect_cell_hr_vector(
   interp::Interpolation
   )
 
-  out = map(local_views(test),local_views(a),local_views(strian)) do test,a,strian
+  map(local_views(test),local_views(a),local_views(strian)) do test,a,strian
     scell_vec = get_contribution(a,strian)
     cell_vec,trian = move_contributions(scell_vec,strian)
     @assert ndims(eltype(cell_vec)) == 1
     cell_vec_r = attach_constraints_rows(test,cell_vec,trian)
-    cell_idofs,cells = RBSteady._owned_integration_cells_and_idofs(interp,test,strian,trian)
+    cell_idofs = get_cell_idofs(interp)
+    cells = get_integration_cells(interp)
     (cell_vec_r,cell_idofs,cells)
-  end
-  map(first,out),map(x->x[2],out),map(last,out)
+  end |> tuple_of_arrays
 end
 
 for T in (:MPIArray,:DebugArray)
   @eval begin
-    function RBSteady.assemble_hr_array_add!(A::$T,cellvals::$T,celldofs::$T,cells::$T,args...)
+    function RBSteady.assemble_hr_array_add!(A::$T,cellvals::$T,celldofs::$T,cells::$T)
       map(A,cellvals,celldofs,cells) do A,cellvals,celldofs,cells
-        assemble_hr_array_add!(A,cellvals,celldofs,cells,args...)
+        assemble_hr_array_add!(A,cellvals,celldofs,cells)
       end
     end
 
@@ -547,16 +547,8 @@ end
 for T in (:GenericPArray,:DistributedSnapshots)
   @eval begin
     function Utils.induced_norm(a::$T,norm_matrix::AbstractMatrix)
-      # size(al,1) can be 0 on ranks that own none of this field's dofs (e.g. a
-      # small boundary field under a partition where some ranks own nothing);
-      # reshape(al,size(al,1),:) can't infer the column count from 0 rows and
-      # silently collapses it to 0, losing the param dimension globally once
-      # GenericPArray infers its (replicated) column count from an arbitrary
-      # rank. Get the true (replicated) column count via a proper distributed
-      # max over ranks instead of local shape inference.
-      np = reduce(max,map(al -> size(al,1) == 0 ? 0 : div(length(al),size(al,1)),local_values(a)))
       values = map(local_values(a)) do al
-        reshape(al,size(al,1),np)
+        reshape(al,size(al,1),param_length(al))
       end
       a0 = GenericPArray(values,row_partition(a))
       a′ = change_ghost(a0,axes(norm_matrix,1))

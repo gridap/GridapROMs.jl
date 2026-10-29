@@ -5,7 +5,6 @@ Interpolation(args...) = @abstractmethod
 get_integration_cells(a::Interpolation) = Int32[]
 get_cell_idofs(a::Interpolation) = empty_table(Int,Int32,0)
 get_interpolation_dofs(a::Interpolation) = Int64[]
-move_integration_domain(a::Interpolation,args...) = a
 
 function FESpaces.interpolate!(cache::AbstractArray,a::Interpolation,x::Any)
   cache
@@ -36,11 +35,6 @@ function Interpolation(red::NoHyperReduction,trian,args...)
 end
 
 get_integration_cells(a::FullInterpolation) = a.cells
-
-function move_integration_domain(i::FullInterpolation,strian::Triangulation,ttrian::Triangulation)
-  rows = i.dofs
-  IntegrationDomain(ttrian,test,rows)
-end
 
 # EIM interpolation
 

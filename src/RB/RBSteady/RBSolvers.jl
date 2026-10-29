@@ -161,11 +161,11 @@ res_params(s::RBSolver) = 1:num_res_params(s)
 jac_params(s::RBSolver) = 1:num_jac_params(s)
 
 function change_context(s::GlobalRBSolver)
-  LocalRBSolver(get_fe_solver(s),get_state_reduction(s),get_residual_reduction(s),get_jacobian_reduction(s))
+  LocalRBSolver(get_fe_solver(s),get_state_reduction(s),get_residual_reduction(s),get_jacobian_reduction(s),s.tracker)
 end
 
 function change_context(s::LocalRBSolver)
-  GlobalRBSolver(get_fe_solver(s),get_state_reduction(s),get_residual_reduction(s),get_jacobian_reduction(s))
+  GlobalRBSolver(get_fe_solver(s),get_state_reduction(s),get_residual_reduction(s),get_jacobian_reduction(s),s.tracker)
 end
 
 for f in (:set_fom_tracker!,:set_rom_tracker!,:set_subspace_tracker!,:set_jacobian_tracker!,:set_residual_tracker!,

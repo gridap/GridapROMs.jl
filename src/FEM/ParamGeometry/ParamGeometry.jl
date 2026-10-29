@@ -33,6 +33,11 @@ using Gridap.Geometry
 using Gridap.Helpers
 using Gridap.ReferenceFEs
 
+using GridapEmbedded
+using GridapEmbedded.Interfaces
+using GridapEmbedded.LevelSetCutters
+using GridapEmbedded.AgFEM
+
 using GridapROMs.Utils
 using GridapROMs.ParamDataStructures
 
@@ -47,5 +52,9 @@ export ParamMappedDiscreteModel
 export ParamUnstructuredGrid
 export mapped_grid
 include("ParamGrids.jl")
+
+export ParamSubCellTriangulation
+export ParamSubFacetTriangulation
+include("ParamSubTriangulations.jl")
 
 end
