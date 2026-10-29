@@ -247,30 +247,15 @@ function run_all(distribute,np)
   nrhs = 2
   nparam = 2
 
-  results = Dict{String,Bool}()
-  results["psparse * genericp (test1)"] = test_psparse_mul(ranks,np,n)
-  results["genericpmatrix * plain vector (test4)"] = test_genericpmatrix_times_plainvector(ranks,np,n,k)
-  results["genericpmatrix * plain matrix (test7)"] = test_genericpmatrix_times_plainmatrix(ranks,np,n,k,nrhs)
-  results["inv_project!: genericpmatrix * param vector -> PVector (test5, CRITICAL - used every online solve)"] = test_inv_project(ranks,np,n,k,nparam)
-  results["genericpmatrix * param array -> replicated output (test6)"] = test_mul_replicated_output(ranks,np,n,k,nparam)
-  results["adjoint(genericpmatrix) * genericpvector (test8)"] = test_adjoint_times_genericpvector(ranks,np,n,k)
-  results["adjoint(genericpmatrix) * genericpmatrix (test9)"] = test_adjoint_times_genericpmatrix(ranks,np,n,k,nrhs)
-  results["project!: adjoint(genericpmatrix) * PVector{param} -> param array (test10, CRITICAL - used every offline/online projection)"] = test_project(ranks,np,n,k,nparam)
-  results["genericpmatrix(square,local) * genericpvector (test2/3, see note)"] = test_genericpmatrix_square_local(ranks,np,n)
-
-  if i_am_main(ranks)
-    println("="^80)
-    println("mul! test results")
-    println("="^80)
-    for (name,ok) in results
-      println(ok ? "PASS" : "FAIL", "  -  ", name)
-    end
-    nfail = count(!,values(results))
-    println("-"^80)
-    println(nfail == 0 ? "ALL PASS" : "$(nfail) FAILURE(S)")
-  end
-
-  all(values(results))
+  test_psparse_mul(ranks,np,n)
+  test_genericpmatrix_times_plainvector(ranks,np,n,k)
+  test_genericpmatrix_times_plainmatrix(ranks,np,n,k,nrhs)
+  test_inv_project(ranks,np,n,k,nparam)
+  test_mul_replicated_output(ranks,np,n,k,nparam)
+  test_adjoint_times_genericpvector(ranks,np,n,k)
+  test_adjoint_times_genericpmatrix(ranks,np,n,k,nrhs)
+  test_project(ranks,np,n,k,nparam)
+  test_genericpmatrix_square_local(ranks,np,n)
 end
 
 function main(distribute,parts)

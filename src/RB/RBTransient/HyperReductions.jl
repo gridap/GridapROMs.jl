@@ -9,7 +9,7 @@ function RBSteady.HRProjection(red::TransientNoHyperReduction,s,trian,test)
   T = get_dof_value_type(test)
   nrows = num_reduced_dofs(test)
   basis = ReducedProjection(zeros(T,nrows,1))
-  interp = Interpolation(red,trian)
+  interp = Interpolation(red)
   return HRProjection(basis,red,interp)
 end
 
@@ -18,7 +18,7 @@ function RBSteady.HRProjection(red::TransientNoHyperReduction,s,trian,trial,test
   nrows = num_reduced_dofs(test)
   ncols = num_reduced_dofs(trial)
   basis = ReducedProjection(zeros(T,nrows,ncols,1))
-  interp = Interpolation(red,trian)
+  interp = Interpolation(red)
   return HRProjection(basis,red,interp)
 end
 

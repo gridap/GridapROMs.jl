@@ -190,14 +190,32 @@ end
 
 # utils
 
-get_reindex_map(a) = @abstractmethod
-get_reindex_map(a::LazyArray) = IdentityVector(length(a))
-get_reindex_map(a::LazyArray{<:Fill{<:Reindex}}) = a.args[1].args[1]
-get_reindex_map(a::LazyArray{<:Fill{<:Geometry.CombineContributionsMap}}) = a.args[1].args[1]
+get_reindex_map(a) = IdentityVector(length(a))
+get_reindex_map(a::LazyArray) = _get_reindex_map(testitem(a.maps),a)
 
-move_cells(cells::AbstractVector{<:Number},i::IdentityVector) = cells
-move_cells(cells::AbstractVector{<:Number},i::AbstractVector) = view(cells,i)
-move_cells(cells::AbstractVector{<:Number},i::Table) = view(cells,union(i))
+_get_reindex_map(k,a::LazyArray) = get_reindex_map(first(a.args))
+_get_reindex_map(k::Reindex,a::LazyArray) = first(a.args)
+_get_reindex_map(k::Geometry.CombineContributionsMap,a::LazyArray) = first(a.args)
+
+function get_reindex_map(a::AppendedArray)
+  na = length(a.a)
+  ra = _to_table(get_reindex_map(a.a),0)
+  rb = _to_table(get_reindex_map(a.b),na)
+  append_tables_globally(ra,rb)
+end
+
+function _to_table(r::Table,offset)
+  data = collect(Int32,r.data) .+ Int32(offset)
+  ptrs = collect(Int32,r.ptrs)
+  Table(data,ptrs)
+end
+
+function _to_table(r::AbstractVector{<:Integer},offset)
+  n = length(r)
+  data = collect(Int32,r) .+ Int32(offset)
+  ptrs = collect(Int32,1:n+1)
+  Table(data,ptrs)
+end
 
 function fetch_block(a::AbstractArray,i::Int)
   T = eltype(eltype(a))

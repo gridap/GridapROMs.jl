@@ -5,12 +5,6 @@ get_interpolation_style(a::Interpolation) = KroneckerStyle()
 get_itimes(a::Interpolation,ids::Range1D) = error("should not be here")
 get_locations(a::Interpolation,ids::Range1D) = get_locations(a,ids.parent)
 
-function RBSteady.Interpolation(red::TransientNoHyperReduction,trian,args...)
-  n = num_cells(trian)
-  cells = collect(Int32,1:n)
-  FullInterpolation(cells)
-end
-
 abstract type InterpolationStyle end
 struct KroneckerStyle <: InterpolationStyle end
 struct SequentialStyle <: InterpolationStyle end
@@ -281,4 +275,14 @@ end
 
 function get_locations(a::BlockInterpolation{N},ids::Range2D) where N
   map(itp -> get_locations(itp,ids),a.interp)
+end
+
+# utils
+
+function RBSteady.move_idofs_cells(a::TransientInterpolation,i::IdentityVector)
+  move_idofs_cells(a.interp_space,i)
+end
+
+function RBSteady.move_idofs_cells(a::TransientInterpolation,args...)
+  move_idofs_cells(a.interp_space,args...)
 end

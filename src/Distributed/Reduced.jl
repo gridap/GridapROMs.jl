@@ -469,18 +469,11 @@ function RBSteady.collect_cell_hr_matrix(
   test::DistributedRBSpace,
   a::DistributedDomainContribution,
   strian::DistributedTriangulation,
-  interp::Interpolation
+  interp::Union{DistributedInterpolation,TransientDistributedInterpolation}
   )
 
-  map(local_views(trial),local_views(test),local_views(a),local_views(strian)) do trial,test,a,strian
-    scell_mat = get_contribution(a,strian)
-    cell_mat,trian = move_contributions(scell_mat,strian)
-    @assert ndims(eltype(cell_mat)) == 2
-    cell_mat_c = attach_constraints_cols(trial,cell_mat,trian)
-    cell_mat_rc = attach_constraints_rows(test,cell_mat_c,trian)
-    cell_idofs = get_cell_idofs(interp)
-    cells = get_integration_cells(interp)
-    (cell_mat_rc,cell_idofs,cells)
+  map(local_views(trial),local_views(test),local_views(a),local_views(strian),local_views(interp)) do trial,test,a,strian,interp
+    collect_cell_hr_matrix(trial,test,a,strian,interp)
   end |> tuple_of_arrays
 end
 
@@ -488,17 +481,11 @@ function RBSteady.collect_cell_hr_vector(
   test::DistributedRBSpace,
   a::DistributedDomainContribution,
   strian::DistributedTriangulation,
-  interp::Interpolation
+  interp::Union{DistributedInterpolation,TransientDistributedInterpolation}
   )
 
-  map(local_views(test),local_views(a),local_views(strian)) do test,a,strian
-    scell_vec = get_contribution(a,strian)
-    cell_vec,trian = move_contributions(scell_vec,strian)
-    @assert ndims(eltype(cell_vec)) == 1
-    cell_vec_r = attach_constraints_rows(test,cell_vec,trian)
-    cell_idofs = get_cell_idofs(interp)
-    cells = get_integration_cells(interp)
-    (cell_vec_r,cell_idofs,cells)
+  map(local_views(test),local_views(a),local_views(strian),local_views(interp)) do test,a,strian,interp
+    collect_cell_hr_vector(test,a,strian,interp)
   end |> tuple_of_arrays
 end
 
@@ -736,22 +723,4 @@ function RBTransient._reduce_trial(f::DistributedMultiFieldFESpace,hr_ids::Abstr
   field_fe_space = map(f -> RBTransient._reduce_trial(f,hr_ids),f.field_fe_space)
   part_fe_space = map(f -> RBTransient._reduce_trial(f,hr_ids),local_views(f.part_fe_space))
   DistributedMultiFieldFESpace(field_fe_space,part_fe_space,f.gids,f.vector_type)
-end
-
-function RBSteady._union(a::T,b::T) where T<:AbstractArray{<:AbstractVector}
-  map(local_views(a),local_views(b)) do a,b
-    RBSteady._union(a,b)
-  end
-end
-
-function RBSteady._union(a::AbstractArray,b::AbstractArray{<:AbstractVector})
-  map(local_views(b)) do b
-    RBSteady._union(a,b)
-  end
-end
-
-function RBSteady._union(a::AbstractArray{<:AbstractVector},b::AbstractArray)
-  map(local_views(a)) do a
-    RBSteady._union(a,b)
-  end
 end

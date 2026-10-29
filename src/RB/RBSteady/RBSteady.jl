@@ -231,10 +231,10 @@ include("IntegrationDomains.jl")
 
 export Interpolation
 export EmptyInterpolation
-export FullInterpolation
 export GreedyInterpolation
 export RBFInterpolation
 export BlockInterpolation
+export move_idofs_cells
 include("Interpolations.jl")
 
 export HRProjection
