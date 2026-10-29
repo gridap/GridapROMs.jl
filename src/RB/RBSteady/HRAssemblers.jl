@@ -1,21 +1,19 @@
-function collect_cell_hr_matrix(trial,test,a,strian,interp)
-  scell_mat = get_contribution(a,strian)
-  cell_mat,trian = move_contributions(scell_mat,strian)
+function collect_cell_hr_matrix(trial,test,a,trian,interp)
+  cell_mat = get_contribution(a,trian)
   @assert ndims(eltype(cell_mat)) == 2
   cell_mat_c = attach_constraints_cols(trial,cell_mat,trian)
   cell_mat_rc = attach_constraints_rows(test,cell_mat_c,trian)
-  reindex_map = get_reindex_map(cell_mat_rc)
-  cell_idofs,cells = move_idofs_cells(interp,reindex_map)
+  cell_idofs = get_cell_idofs(interp)
+  cells = get_integration_cells(interp)
   (cell_mat_rc,cell_idofs,cells)
 end
 
-function collect_cell_hr_vector(test,a,strian,interp)
-  scell_vec = get_contribution(a,strian)
-  cell_vec,trian = move_contributions(scell_vec,strian)
+function collect_cell_hr_vector(test,a,trian,interp)
+  cell_vec = get_contribution(a,trian)
   @assert ndims(eltype(cell_vec)) == 1
   cell_vec_r = attach_constraints_rows(test,cell_vec,trian)
-  reindex_map = get_reindex_map(cell_vec_r)
-  cell_idofs,cells = move_idofs_cells(interp,reindex_map)
+  cell_idofs = get_cell_idofs(interp)
+  cells = get_integration_cells(interp)
   (cell_vec_r,cell_idofs,cells)
 end
 
@@ -189,33 +187,6 @@ end
 end
 
 # utils
-
-get_reindex_map(a) = IdentityVector(length(a))
-get_reindex_map(a::LazyArray) = _get_reindex_map(testitem(a.maps),a)
-
-_get_reindex_map(k,a::LazyArray) = get_reindex_map(first(a.args))
-_get_reindex_map(k::Reindex,a::LazyArray) = first(a.args)
-_get_reindex_map(k::Geometry.CombineContributionsMap,a::LazyArray) = first(a.args)
-
-function get_reindex_map(a::AppendedArray)
-  na = length(a.a)
-  ra = _to_table(get_reindex_map(a.a),0)
-  rb = _to_table(get_reindex_map(a.b),na)
-  append_tables_globally(ra,rb)
-end
-
-function _to_table(r::Table,offset)
-  data = collect(Int32,r.data) .+ Int32(offset)
-  ptrs = collect(Int32,r.ptrs)
-  Table(data,ptrs)
-end
-
-function _to_table(r::AbstractVector{<:Integer},offset)
-  n = length(r)
-  data = collect(Int32,r) .+ Int32(offset)
-  ptrs = collect(Int32,1:n+1)
-  Table(data,ptrs)
-end
 
 function fetch_block(a::AbstractArray,i::Int)
   T = eltype(eltype(a))

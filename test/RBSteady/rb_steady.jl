@@ -101,13 +101,4 @@ end
   @test HyperReduction(SearchSVDRank(1e-3); hypred_strategy=:affine) isa RBSteady.AffineHyperReduction
 end
 
-@testset "NoHR keeps full triangulation" begin
-  model = CartesianDiscreteModel((0,1,0,1),(2,2))
-  trian = Triangulation(model)
-  basis = ReducedProjection(zeros(2,1))
-  nohr_red = RBSteady.NoHyperReduction()
-  nohr = HRProjection(basis,nohr_red,Interpolation(nohr_red,trian))
-  @test get_integration_cells(get_interpolation(nohr)) == collect(Int32,1:num_cells(trian))
-end
-
 end

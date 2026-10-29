@@ -534,8 +534,9 @@ end
 for T in (:GenericPArray,:DistributedSnapshots)
   @eval begin
     function Utils.induced_norm(a::$T,norm_matrix::AbstractMatrix)
+      np = param_length(a)
       values = map(local_values(a)) do al
-        reshape(al,size(al,1),param_length(al))
+        reshape(al,size(al,1),np)
       end
       a0 = GenericPArray(values,row_partition(a))
       a′ = change_ghost(a0,axes(norm_matrix,1))

@@ -511,7 +511,7 @@ end
 
 function hr_error(solver::GlobalRBSolver,op::ROMOperator{<:LinearParamEq},res,jac,s)
   μ = get_realisation(s)
-  u = get_param_data(s)|> similar
+  u = get_param_data(s) |> similar
   fill!(u,zero(eltype2(u)))
   err_res = hr_error_res(op,res,μ,u)
   err_jac = hr_error_jac(op,jac,μ,u)

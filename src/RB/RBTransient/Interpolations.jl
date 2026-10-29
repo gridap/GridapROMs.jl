@@ -276,13 +276,3 @@ end
 function get_locations(a::BlockInterpolation{N},ids::Range2D) where N
   map(itp -> get_locations(itp,ids),a.interp)
 end
-
-# utils
-
-function RBSteady.move_idofs_cells(a::TransientInterpolation,i::IdentityVector)
-  move_idofs_cells(a.interp_space,i)
-end
-
-function RBSteady.move_idofs_cells(a::TransientInterpolation,args...)
-  move_idofs_cells(a.interp_space,args...)
-end
