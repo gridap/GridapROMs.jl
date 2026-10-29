@@ -287,6 +287,10 @@ function ParamSpace(domain_tuple::NTuple{N,T},style=HaltonSampling()) where {N,T
   ParamSpace(param_domain,style)
 end
 
+function ParamSpace(domain_tuple::Tuple,args...)
+  ParamSpace(promote(domain_tuple...),args...)
+end
+
 function ParamSpace(param_domain;kwargs...)
   style = _sampling_to_style(;kwargs...)
   ParamSpace(param_domain,style)

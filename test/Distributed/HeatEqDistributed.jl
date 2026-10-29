@@ -91,7 +91,22 @@ function main(
   μon = realisation(feop;nparams=10,sampling=:uniform)
   x̂ = solution_snapshots(rbsolver,rbop,μon,uh0μ)
   x = solution_snapshots(rbsolver,feop,μon,uh0μ)
-  println(rom_performance(rbsolver,rbop,x,x̂))
+  perf = rom_performance(rbsolver,rbop,x,x̂)
+  println(perf)
+  err = perf.error
+
+  dir = datadir("heateq_distributed_save")
+  if i_am_main(ranks)
+    isdir(dir) && rm(dir;recursive=true)
+    mkpath(dir)
+  end
+  PartitionedArrays.barrier(ranks)
+
+  save(dir,rbop)
+  for rbop_load in (load_operator(dir,feop,ranks),load_operator(dir,feop))
+    x̂_load = solution_snapshots(rbsolver,rbop_load,μon,uh0μ)
+    @test rom_performance(rbsolver,rbop_load,x,x̂_load).error ≈ err
+  end
 end
 
 end

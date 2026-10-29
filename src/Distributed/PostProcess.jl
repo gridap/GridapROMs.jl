@@ -12,6 +12,8 @@ const HRPROJECTION_LABEL = "hrprojection"
 const NORM_MATRIX_LABEL = "norm"
 const BLOCK_LABEL = "block"
 const TRIAN_LABEL = "trian"
+const LOCAL_LABEL = "local"
+const CLUSTERS_LABEL = "clusters"
 
 function DrWatson.save(dir,s::DistributedSnapshots;label="")
   _psave(dir,SNAPSHOTS_LABEL,get_param_data(s);label)
@@ -83,27 +85,39 @@ function DrWatson.save(dir,a::DistributedKroneckerProjection;label="")
   save(dir,a.projection_time;label=_get_label(label,"time"))
 end
 
-for T in (:DistributedProjection,:DistributedNormedProjection,:DistributedKroneckerProjection)
-  @eval begin
-    function DrWatson.save(dir,a::BlockProjection{<:$T};label="")
-      for i in eachindex(a)
-        save(dir,a[i];label=_plabel(label,BLOCK_LABEL*"$i"))
-      end
-    end
+const DistributedLocalProjection = LocalProjection{<:Union{DistributedProjection,DistributedNormedProjection,DistributedKroneckerProjection}}
+
+function DrWatson.save(dir,a::DistributedLocalProjection;label="")
+  for (i,ai) in enumerate(local_vals(a))
+    save(dir,ai;label=_local_label(label,i))
+  end
+  _save_clusters(dir,a;label)
+end
+
+const AbstractDistributedProjection = Union{DistributedProjection,DistributedNormedProjection,DistributedKroneckerProjection,DistributedLocalProjection}
+
+function DrWatson.save(dir,a::BlockProjection{<:AbstractDistributedProjection};label="")
+  for i in eachindex(a)
+    save(dir,a[i];label=_plabel(label,BLOCK_LABEL*"$i"))
   end
 end
 
 function RBSteady.load_projection(dir,ranks::AbstractArray;label="")
-  if _haspart(dir,PROJECTION_LABEL,ranks;label=_plabel(label,BLOCK_LABEL*"1"))
+  if _has_projection(dir,ranks;label=_plabel(label,BLOCK_LABEL*"1"))
     # 1) block projection
     nblocks = 0
-    while _haspart(dir,PROJECTION_LABEL,ranks;label=_plabel(label,BLOCK_LABEL*"$(nblocks+1)"))
+    while _has_projection(dir,ranks;label=_plabel(label,BLOCK_LABEL*"$(nblocks+1)"))
       nblocks += 1
     end
     block_basis = map(1:nblocks) do i
       load_projection(dir,ranks;label=_plabel(label,BLOCK_LABEL*"$i"))
     end
     return BlockProjection(block_basis)
+  elseif _haspart(dir,CLUSTERS_LABEL,ranks;label)
+    # local projection
+    k,dims = _load_clusters(dir,ranks;label)
+    projs = map(i -> load_projection(dir,ranks;label=_local_label(label,i)),1:prod(dims))
+    return LocalProjection(reshape(projs,dims),k)
   elseif _haspart(dir,PROJECTION_LABEL,ranks;label=_get_label(label,"space"))
     # 2) kronecker projection: the space part is distributed, the time part is not
     projection_space = load_projection(dir,ranks;label=_get_label(label,"space"))
@@ -112,7 +126,7 @@ function RBSteady.load_projection(dir,ranks::AbstractArray;label="")
   else
     basis = _pload(dir,PROJECTION_LABEL,ranks;label)
     dof_map = _pload(dir,DOFMAP_LABEL,ranks;label)
-    proj = Projection(basis,dof_map)
+    proj = GenericProjection(basis,dof_map)
     if _haspart(dir,NORM_MATRIX_LABEL,ranks;label)
       # 3) normed projection
       X = _pload(dir,NORM_MATRIX_LABEL,ranks;label)
@@ -129,7 +143,18 @@ function DrWatson.save(dir,a::DistributedHRProjection;label="")
   end
 end
 
-function DrWatson.save(dir,a::BlockHRProjection{<:HyperReduction,<:Projection,<:DistributedHRProjection};label="")
+const DistributedLocalHRProjection = LocalHRProjection{<:HyperReduction,<:Projection,<:DistributedHRProjection}
+
+function DrWatson.save(dir,a::DistributedLocalHRProjection;label="")
+  for (i,ai) in enumerate(local_vals(a))
+    save(dir,ai;label=_local_label(label,i))
+  end
+  _save_clusters(dir,a;label)
+end
+
+const AbstractDistributedHRProjection = Union{DistributedHRProjection,DistributedLocalHRProjection}
+
+function DrWatson.save(dir,a::BlockHRProjection{<:HyperReduction,<:Projection,<:AbstractDistributedHRProjection};label="")
   for i in eachindex(a)
     save(dir,a[i];label=_plabel(label,BLOCK_LABEL*"$i"))
   end
@@ -156,6 +181,14 @@ function DrWatson.save(dir,contrib::Contribution{V,T};label="") where {V,T<:Dist
   end
 end
 
+function RBSteady.load_subspace(dir,f::DistributedFESpace;label="")
+  load_subspace(dir,f,_get_ranks(f);label)
+end
+
+function RBSteady.load_contribution(dir,trian::Tuple{Vararg{DistributedTriangulation}};label="")
+  load_contribution(dir,trian,_get_ranks(first(trian));label)
+end
+
 function RBSteady.load_contribution(dir,trian::Tuple{Vararg{DistributedTriangulation}},ranks::AbstractArray;label="")
   vals = ntuple(length(trian)) do i
     _load_distributed_hr(dir,ranks;label=_plabel(label,"$(TRIAN_LABEL)$i"))
@@ -168,6 +201,23 @@ function RBSteady.load_contribution(dir,trian::Tuple,ranks::Vector;label="")
     _load_distributed_hr(dir,ranks;label=_plabel(label,"$(TRIAN_LABEL)$i"))
   end
   RBSteady._setup_contribution(vals,trian)
+end
+
+for T in (:AbstractArray,:Vector)
+  @eval begin
+    function RBSteady.load_contribution(dir,trians::Tuple{Vararg{Tuple}},ranks::$T;label="")
+      c = ntuple(length(trians)) do i
+        load_contribution(dir,trians[i],ranks;label=_plabel(label,i))
+      end
+      ContributionTuple(c)
+    end
+  end
+end
+
+function RBSteady.load_contribution(dir,trians::Bundle,ranks::AbstractArray;label="")
+  lin = load_contribution(dir,trians.linear,ranks;label=_plabel(label,LINEAR_LABEL))
+  nlin = load_contribution(dir,trians.nonlinear,ranks;label=_plabel(label,NONLINEAR_LABEL))
+  Bundle(lin,nlin)
 end
 
 function RBSteady.load_operator(dir,feop::ParamOperator,ranks::AbstractArray;label="")
@@ -186,9 +236,7 @@ function RBSteady.load_operator(dir,feop::ODEParamOperator,ranks::AbstractArray;
   trian_res = get_domains_res(feop)
   trian_jacs = get_domains_jac(feop)
   red_rhs = load_contribution(dir,trian_res,ranks;label=_plabel(label,RBSteady.RHS_LABEL))
-  red_lhs = ntuple(length(trian_jacs)) do i
-    load_contribution(dir,trian_jacs[i],ranks;label=_plabel(label,RBSteady.LHS_LABEL,i))
-  end
+  red_lhs = load_contribution(dir,trian_jacs,ranks;label=_plabel(label,RBSteady.LHS_LABEL))
   ROMOperator(feop,trial,test,red_lhs,red_rhs)
 end
 
@@ -198,6 +246,33 @@ _plabel(name,label...) = foldl(RBSteady._get_label,label;init=name)
 _part_name(name,label,part) = _plabel(name,label,"part$part")
 _part_filename(dir,name,label,part) = joinpath(dir,_part_name(name,label,part)*".jld")
 _haspart(dir,name,ranks;label="") = isfile(_part_filename(dir,name,label,getany(ranks)))
+_local_label(label,i) = _plabel(label,LOCAL_LABEL*"$i")
+
+# a (possibly block, local or space-time) projection is stored under `label`
+function _has_projection(dir,ranks;label="")
+  (_haspart(dir,PROJECTION_LABEL,ranks;label) ||
+   _haspart(dir,CLUSTERS_LABEL,ranks;label) ||
+   _haspart(dir,PROJECTION_LABEL,ranks;label=_get_label(label,"space")))
+end
+
+# same, for hyper-reductions; trivial hyper-reductions (e.g. `NoHyperReduction`)
+# store no distributed data, and are saved as serial projections
+function _has_hr(dir,ranks;label="")
+  (_haspart(dir,HRPROJECTION_LABEL,ranks;label) ||
+   _haspart(dir,CLUSTERS_LABEL,ranks;label) ||
+   isfile(get_filename(dir,PROJECTION_LABEL,label)))
+end
+
+# the clusters (and the shape of the local quantities) are replicated on every part
+_get_ranks(a) = linear_indices(local_views(a))
+_get_ranks(a::Union{LocalProjection,LocalHRProjection}) = _get_ranks(first(local_vals(a)))
+
+function _save_clusters(dir,a;label="")
+  kdims = (get_clusters(a),size(local_vals(a)))
+  _psave(dir,CLUSTERS_LABEL,map(_ -> kdims,_get_ranks(a));label)
+end
+
+_load_clusters(dir,ranks;label="") = deserialize(_part_filename(dir,CLUSTERS_LABEL,label,getany(ranks)))
 
 function _psave(dir,name,x::Union{GenericPArray,PVector};label="")
   map(partition(x),partition(axes(x,1))) do xloc,ind
@@ -274,7 +349,7 @@ end
 
 function _pallocate(
   r::AbstractArray{<:AbstractLocalIndices},
-  r′::AbstractArray{<:AbstractLocalIndices}
+  r′::AbstractVector{<:AbstractLocalIndices}
   )
 
   PVectorDofMap(PRange(r),PRange(r′))
@@ -372,6 +447,14 @@ function _sallocate(
 end
 
 function _load_distributed_hrprojection(dir,ranks;label="")
+  if _haspart(dir,CLUSTERS_LABEL,ranks;label)
+    k,dims = _load_clusters(dir,ranks;label)
+    hrs = map(i -> _load_distributed_hrprojection(dir,ranks;label=_local_label(label,i)),1:prod(dims))
+    return LocalHRProjection(reshape(hrs,dims),k)
+  end
+  if !_haspart(dir,HRPROJECTION_LABEL,ranks;label)
+    return load_projection(dir;label)
+  end
   basis,style,interps = map(ranks) do p
     a = deserialize(_part_filename(dir,HRPROJECTION_LABEL,label,p))
     get_basis(a),get_style(a),get_interpolation(a)
@@ -389,9 +472,9 @@ function _load_distributed_hrprojection(dir,ranks;label="")
 end
 
 function _load_distributed_hr(dir,ranks;label="")
-  if _haspart(dir,HRPROJECTION_LABEL,ranks;label=_plabel(label,BLOCK_LABEL*"1"))
+  if _has_hr(dir,ranks;label=_plabel(label,BLOCK_LABEL*"1"))
     nblocks = 0
-    while _haspart(dir,HRPROJECTION_LABEL,ranks;label=_plabel(label,BLOCK_LABEL*"$(nblocks+1)"))
+    while _has_hr(dir,ranks;label=_plabel(label,BLOCK_LABEL*"$(nblocks+1)"))
       nblocks += 1
     end
     array = map(1:nblocks) do i

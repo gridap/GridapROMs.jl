@@ -281,15 +281,6 @@ function TransientHyperReduction(
   _replace_reduction(hr)
 end
 
-function TransientHyperReduction(
-  reduction::SteadyReduction,
-  combination::TimeCombination;kwargs...
-  )
-
-  hr = SteadyHyperReduction(reduction;kwargs...)
-  _replace_reduction(hr)
-end
-
 """
     abstract type TransientTrivialHyperReduction <: TransientHyperReduction{NoReductionStyle} end
 

@@ -316,6 +316,11 @@ function FESpaces.interpolate!(
   end
 end
 
+function GridapDistributed.local_views(a::BlockInterpolation)
+  interp = map(local_views,a.interp) |> to_parray_of_arrays
+  map(BlockProjection,interp)
+end
+
 function RBSteady.get_at_domain(s::DistributedSnapshots,rows::AbstractVector{<:LocalDofs})
   n = reduce(max,map(r -> isempty(r.global_cols) ? 0 : maximum(r.global_cols),rows))
   np = num_params(s)
@@ -469,7 +474,7 @@ function RBSteady.collect_cell_hr_matrix(
   test::DistributedRBSpace,
   a::DistributedDomainContribution,
   strian::DistributedTriangulation,
-  interp::Union{DistributedInterpolation,TransientDistributedInterpolation}
+  interp::Union{DistributedInterpolation,TransientDistributedInterpolation,BlockInterpolation}
   )
 
   map(local_views(trial),local_views(test),local_views(a),local_views(strian),local_views(interp)) do trial,test,a,strian,interp
@@ -481,7 +486,7 @@ function RBSteady.collect_cell_hr_vector(
   test::DistributedRBSpace,
   a::DistributedDomainContribution,
   strian::DistributedTriangulation,
-  interp::Union{DistributedInterpolation,TransientDistributedInterpolation}
+  interp::Union{DistributedInterpolation,TransientDistributedInterpolation,BlockInterpolation}
   )
 
   map(local_views(test),local_views(a),local_views(strian),local_views(interp)) do test,a,strian,interp

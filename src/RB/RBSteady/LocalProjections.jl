@@ -1,21 +1,21 @@
 """
-    struct LocalProjection{A<:Projection,N} <: Projection
+    struct LocalProjection{A<:Projection,N,K<:KmeansResult} <: Projection
       projections::Array{A,N}
-      k::NTuple{N,KmeansResult}
+      k::NTuple{N,K}
     end
 
 Collection of projections, one per cluster of the parameter space, together with the
 k-means clustering(s) `k` that define the clusters. See [`get_local`](@ref)
 """
-struct LocalProjection{A<:Projection,N} <: Projection
+struct LocalProjection{A<:Projection,N,K<:KmeansResult} <: Projection
   projections::Array{A,N}
-  k::NTuple{N,KmeansResult}
+  k::NTuple{N,K}
 end
 
 LocalProjection(projections::AbstractVector,k::KmeansResult) = LocalProjection(projections,(k,))
 
-const VecLocalProjection{A} = LocalProjection{A,1}
-const MatLocalProjection{A} = LocalProjection{A,2}
+const VecLocalProjection = LocalProjection{<:Projection,1}
+const MatLocalProjection = LocalProjection{<:Projection,2}
 
 function projection(lred::LocalReduction,s::Snapshots)
   red = get_reduction(lred)

@@ -23,21 +23,19 @@ function get_local(a::LocalInterpolation,μ::AbstractVector)
 end
 
 """
-    struct LocalHRProjection <: HRProjection{HyperReduction,Projection}
-      reductions::AbstractMatrix
-      k::NTuple{2,KmeansResult}
+    struct LocalHRProjection{A<:HyperReduction,B<:Projection,T<:HRProjection{A,B},K<:KmeansResult} <: HRProjection{A,B}
+      reductions::Matrix{T}
+      k::NTuple{2,K}
     end
 
 Local hyper-reduction: the hyper-reduction computed on each cluster of residual
 (or Jacobian) snapshots, projected onto each local reduced subspace. Indexed by
 (hyper-reduction cluster, reduced subspace cluster)
 """
-struct LocalHRProjection <: HRProjection{HyperReduction,Projection}
-  reductions::AbstractMatrix
-  k::NTuple{2,KmeansResult}
+struct LocalHRProjection{A<:HyperReduction,B<:Projection,T<:HRProjection{A,B},K<:KmeansResult} <: HRProjection{A,B}
+  reductions::Matrix{T}
+  k::NTuple{2,K}
 end
-
-LocalHRProjection(reductions::AbstractVector,k::KmeansResult) = LocalHRProjection(reductions,(k,))
 
 get_basis(a::LocalHRProjection) = LocalProjection(map(get_basis,local_vals(a)),get_clusters(a))
 get_interpolation(a::LocalHRProjection) = LocalInterpolation(map(get_interpolation,local_vals(a)),get_clusters(a))
