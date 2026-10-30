@@ -5,6 +5,7 @@ using Gridap
 using GridapDistributed
 using GridapROMs
 using PartitionedArrays
+using Random
 using Test
 
 using Gridap.Algebra
@@ -14,6 +15,8 @@ using GridapROMs.ParamAlgebra
 using GridapROMs.Distributed
 using GridapROMs.RBSteady
 
+import PartitionedArrays: getany
+
 function main(
   distribute,parts,
   compression=:global,hypred_strategy=:deim;
@@ -21,13 +24,15 @@ function main(
   nparams_jac=floor(Int,nparams/4),ncentroids=2
   )
 
+  ranks = distribute(LinearIndices((prod(parts),)))
+  seed = getany(emit(map(_ -> rand(UInt32),ranks)))
+  Random.seed!(seed) # set a seed for the parameters
+  
   compression = compression ∈ (:global,:local) ? compression : :global
   hypred_strategy = hypred_strategy ∈ (:deim,:sopt,:rbf,:none,:affine) ? hypred_strategy : :deim
 
-  println("Running test with $compression (pod, $hypred_strategy) strategy")
-
-  ranks = distribute(LinearIndices((prod(parts),)))
-
+  i_am_main(ranks) && println("Running test with $compression (pod, $hypred_strategy) strategy")
+  
   domain = (0,1,0,1)
   partition = (8,8)
   model = CartesianDiscreteModel(ranks,parts,domain,partition)
@@ -69,7 +74,7 @@ function main(
   state_reduction = Reduction(tol,H1();nparams,compression,ncentroids)
 
   fesolver = LUSolver()
-  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy,verbose=i_am_main(parts))
+  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy,verbose=i_am_main(ranks))
 
   feop = LinearParamOperator(rhs,stiffness,pspace,trial,test,domains)
   fesnaps = solution_snapshots(rbsolver,feop)
@@ -79,7 +84,7 @@ function main(
   x̂ = solution_snapshots(rbsolver,rbop,μon)
   x = solution_snapshots(rbsolver,feop,μon)
   perf = rom_performance(rbsolver,rbop,x,x̂)
-  println(perf)
+  i_am_main(ranks) && println(perf)
   err = perf.error
 
   dir = datadir("poisson_distributed_save")

@@ -12,11 +12,14 @@ using GridapSolvers
 using GridapSolvers.BlockSolvers
 using PartitionedArrays
 using Plots
+using Random
 using Test
 
 using GridapROMs.ParamAlgebra
 using GridapROMs.ParamDataStructures
 using GridapROMs.Distributed
+
+import PartitionedArrays: getany
 
 # `BlockPArray` (the distributed saddle-point matrix built from a
 # `BlockMultiFieldStyle` FE space) has no generic `lu`/`getindex` support, so a
@@ -61,13 +64,15 @@ function main(
   nparams_jac=floor(Int,nparams/4),ncentroids=2
   )
 
+  ranks = distribute(LinearIndices((prod(parts),)))
+  seed = getany(emit(map(_ -> rand(UInt32),ranks)))
+  Random.seed!(seed) # set a seed for the parameters
+
   compression = compression ∈ (:global,:local) ? compression : :global
   hypred_strategy = hypred_strategy ∈ (:deim,:sopt,:rbf,:none,:affine) ? hypred_strategy : :deim
 
-  println("Running test with $compression (pod, $hypred_strategy) strategy")
-
-  ranks = distribute(LinearIndices((prod(parts),)))
-
+  i_am_main(ranks) && println("Running test with $compression (pod, $hypred_strategy) strategy")
+  
   domain = (0,1,0,1)
   partition = (8,8)
   model = CartesianDiscreteModel(ranks,parts,domain,partition)
@@ -110,7 +115,7 @@ function main(
   state_reduction = SupremizerReduction(coupling,tol,energy;nparams,compression,ncentroids)
 
   fesolver = build_fesolver(Q,dΩ)
-  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy,verbose=i_am_main(parts))
+  rbsolver = RBSolver(fesolver,state_reduction;nparams_res,nparams_jac,hypred_strategy,verbose=i_am_main(ranks))
 
   feop = LinearParamOperator(rhs,stiffness,pspace,X,Y,domains)
 
@@ -125,7 +130,7 @@ function main(
   run_test(dir,rbsolver,feop,tols)
 
   dgn = rom_diagnostics(dir,rbsolver,feop)
-  println(dgn)
+  i_am_main(ranks) && println(dgn)
 end
 
 end

@@ -259,11 +259,15 @@ function RBSteady.Interpolation(red::NoHyperReduction,trian::DistributedTriangul
   DistributedInterpolation(interps)
 end
 
-function RBSteady.EmptyInterpolation(a::AbstractDistributedProjection)
-  interps = map(local_views(a)) do ai
-    EmptyInterpolation(ai)
+for T in (:AbstractDistributedProjection,:DistributedTriangulation)
+  @eval begin
+    function RBSteady.EmptyInterpolation(a::$T)
+      interps = map(local_views(a)) do ai
+        EmptyInterpolation(ai)
+      end
+      DistributedInterpolation(interps)
+    end
   end
-  DistributedInterpolation(interps)
 end
 
 function RBSteady.GreedyInterpolation(interp,domain::DistributedIntegrationDomain)
@@ -325,7 +329,7 @@ end
 
 function GridapDistributed.local_views(a::BlockInterpolation)
   interp = map(local_views,a.interp) |> to_parray_of_arrays
-  map(BlockProjection,interp)
+  map(BlockInterpolation,interp)
 end
 
 function RBSteady.get_at_domain(s::DistributedSnapshots,rows::AbstractVector{<:LocalDofs})
@@ -441,7 +445,7 @@ end
 function FESpaces.interpolate!(
   b̂::AbstractArray,
   _coeff::AbstractArray{<:AbstractArray},
-  a::DistributedHRProjection{NoHyperReduction},
+  a::DistributedHRProjection{<:Union{NoHyperReduction,TransientNoHyperReduction}},
   x::AbstractArray{<:AbstractArray}
   )
 
@@ -480,25 +484,36 @@ function RBSteady.collect_cell_hr_matrix(
   trial::DistributedRBSpace,
   test::DistributedRBSpace,
   a::DistributedDomainContribution,
-  strian::DistributedTriangulation,
-  interp::Union{DistributedInterpolation,TransientDistributedInterpolation,BlockInterpolation}
+  trian::DistributedTriangulation,
+  interp::Interpolation
   )
 
-  map(local_views(trial),local_views(test),local_views(a),local_views(strian),local_views(interp)) do trial,test,a,strian,interp
-    collect_cell_hr_matrix(trial,test,a,strian,interp)
-  end |> tuple_of_arrays
+  cell_mat_rc = map(local_views(trial),local_views(test),local_views(a),local_views(trian)) do trial,test,a,trian
+    cell_mat = get_contribution(a,trian)
+    @assert ndims(eltype(cell_mat)) == 2
+    cell_mat_c = attach_constraints_cols(trial,cell_mat,trian)
+    attach_constraints_rows(test,cell_mat_c,trian)
+  end
+  cell_idofs = get_cell_idofs(interp)
+  cells = get_integration_cells(interp)
+  (cell_mat_rc,cell_idofs,cells)
 end
 
 function RBSteady.collect_cell_hr_vector(
   test::DistributedRBSpace,
   a::DistributedDomainContribution,
-  strian::DistributedTriangulation,
-  interp::Union{DistributedInterpolation,TransientDistributedInterpolation,BlockInterpolation}
+  trian::DistributedTriangulation,
+  interp::Interpolation
   )
 
-  map(local_views(test),local_views(a),local_views(strian),local_views(interp)) do test,a,strian,interp
-    collect_cell_hr_vector(test,a,strian,interp)
-  end |> tuple_of_arrays
+  cell_vec_r = map(local_views(test),local_views(a),local_views(trian)) do test,a,trian
+    cell_vec = get_contribution(a,trian)
+    @assert ndims(eltype(cell_vec)) == 1
+    attach_constraints_rows(test,cell_vec,trian)
+  end
+  cell_idofs = get_cell_idofs(interp)
+  cells = get_integration_cells(interp)
+  (cell_vec_r,cell_idofs,cells)
 end
 
 for T in (:MPIArray,:DebugArray)
@@ -514,6 +529,11 @@ for T in (:MPIArray,:DebugArray)
       map(A,cellvals,celldofs,cells) do A,cellvals,celldofs,cells
         assemble_hr_array_add!(A,cellvals,celldofs,cells,locations,style)
       end
+    end
+
+    function Base.isempty(a::$T)
+      partials = map(isempty,local_views(a))
+      reduce(&,partials,init=true)
     end
 
     function RBSteady.fetch_block(a::$T,i::Int)
@@ -702,6 +722,11 @@ function RBTransient._permutelastdims(a::PVector;kwargs...)
     RBTransient._permutelastdims(values;kwargs...)
   end
   PVector(vector_partition,a.index_partition,a.cache)
+end
+
+function RBTransient._permutelastdims(a::BlockPArray;kwargs...)
+  b = map(ai -> RBTransient._permutelastdims(ai;kwargs...),blocks(a))
+  BlockPArray(b,a.axes)
 end
 
 function RBTransient._get_offsets(U::DistributedMultiFieldFESpace)

@@ -45,6 +45,12 @@ function ParamDataStructures.param_cat(A::AbstractVector{<:PVector})
   PVector(vector_partition,a.index_partition)
 end
 
+function ParamDataStructures.param_cat(A::AbstractVector{<:BlockPArray})
+  a = first(A)
+  b = map(i -> param_cat(map(ai -> blocks(ai)[i],A)),eachindex(blocks(a)))
+  BlockPArray(b,a.axes)
+end
+
 function ParamDataStructures.parameterise(a::PVector,plength::Integer)
   vector_partition,cache = map(a.vector_partition,a.cache) do values,cache
     parameterise(values,plength),parameterise(cache,plength)

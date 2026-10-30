@@ -1,4 +1,9 @@
-function RBSteady.check_interpolation(snaps,interp::DistributedInterpolation,_fecache)
+function RBSteady.check_interpolation(
+  snaps,
+  interp::DistributedInterpolation{<:AbstractArray{<:GreedyInterpolation}},
+  _fecache
+  )
+
   msg = "fecache mismatch at interpolation points"
   fecache = sreduce(map(get_all_data,local_views(_fecache)))
   sdofs = get_at_domain(snaps,interp)
@@ -14,6 +19,7 @@ const BLOCK_LABEL = "block"
 const TRIAN_LABEL = "trian"
 const LOCAL_LABEL = "local"
 const CLUSTERS_LABEL = "clusters"
+const BLOCKSIZE_LABEL = "blocksize"
 
 function DrWatson.save(dir,s::DistributedSnapshots;label="")
   _psave(dir,SNAPSHOTS_LABEL,get_param_data(s);label)
@@ -85,21 +91,26 @@ function DrWatson.save(dir,a::DistributedKroneckerProjection;label="")
   save(dir,a.projection_time;label=_get_label(label,"time"))
 end
 
-const DistributedLocalProjection = LocalProjection{<:Union{DistributedProjection,DistributedNormedProjection,DistributedKroneckerProjection}}
-
-function DrWatson.save(dir,a::DistributedLocalProjection;label="")
-  for (i,ai) in enumerate(local_vals(a))
-    save(dir,ai;label=_local_label(label,i))
+for T in (:LocalProjection,:LocalHRProjection)
+  @eval begin
+    function DrWatson.save(dir,a::$T;label="")
+      _is_distributed(a) || return invoke(DrWatson.save,Tuple{Any,Projection},dir,a;label)
+      for (i,ai) in enumerate(local_vals(a))
+        save(dir,ai;label=_local_label(label,i))
+      end
+      _save_clusters(dir,a;label)
+    end
   end
-  _save_clusters(dir,a;label)
 end
 
-for T in (:AbstractDistributedProjection,:DistributedLocalProjection)
+for T in (:BlockProjection,:BlockHRProjection)
   @eval begin
-    function DrWatson.save(dir,a::BlockProjection{<:$T};label="")
+    function DrWatson.save(dir,a::$T;label="")
+      _is_distributed(a) || return invoke(DrWatson.save,Tuple{Any,Projection},dir,a;label)
       for i in eachindex(a)
         save(dir,a[i];label=_plabel(label,BLOCK_LABEL*"$i"))
       end
+      _save_blocksize(dir,a;label)
     end
   end
 end
@@ -114,7 +125,8 @@ function RBSteady.load_projection(dir,ranks::AbstractArray;label="")
     block_basis = map(1:nblocks) do i
       load_projection(dir,ranks;label=_plabel(label,BLOCK_LABEL*"$i"))
     end
-    return BlockProjection(block_basis)
+    dims = _load_blocksize(dir,ranks,nblocks;label)
+    return BlockProjection(reshape(block_basis,dims))
   elseif _haspart(dir,CLUSTERS_LABEL,ranks;label)
     # local projection
     k,dims = _load_clusters(dir,ranks;label)
@@ -142,21 +154,6 @@ end
 function DrWatson.save(dir,a::DistributedHRProjection;label="")
   map(local_views(a),linear_indices(local_views(a))) do a,p
     serialize(_part_filename(dir,HRPROJECTION_LABEL,label,p),a)
-  end
-end
-
-const DistributedLocalHRProjection = LocalHRProjection{<:HyperReduction,<:Projection,<:DistributedHRProjection}
-
-function DrWatson.save(dir,a::DistributedLocalHRProjection;label="")
-  for (i,ai) in enumerate(local_vals(a))
-    save(dir,ai;label=_local_label(label,i))
-  end
-  _save_clusters(dir,a;label)
-end
-
-function DrWatson.save(dir,a::BlockHRProjection{<:HyperReduction,<:Projection,<:Union{DistributedHRProjection,DistributedLocalHRProjection}};label="")
-  for i in eachindex(a)
-    save(dir,a[i];label=_plabel(label,BLOCK_LABEL*"$i"))
   end
 end
 
@@ -248,19 +245,29 @@ _part_filename(dir,name,label,part) = joinpath(dir,_part_name(name,label,part)*"
 _haspart(dir,name,ranks;label="") = isfile(_part_filename(dir,name,label,getany(ranks)))
 _local_label(label,i) = _plabel(label,LOCAL_LABEL*"$i")
 
+_is_distributed(a) = false
+_is_distributed(a::AbstractDistributedProjection) = true
+_is_distributed(a::DistributedHRProjection) = true
+_is_distributed(a::Union{LocalProjection,LocalHRProjection}) = any(_is_distributed,local_vals(a))
+_is_distributed(a::Union{BlockProjection,BlockHRProjection}) = any(_is_distributed,a.array)
+
 # a (possibly block, local or space-time) projection is stored under `label`
 function _has_projection(dir,ranks;label="")
-  (_haspart(dir,PROJECTION_LABEL,ranks;label) ||
-   _haspart(dir,CLUSTERS_LABEL,ranks;label) ||
-   _haspart(dir,PROJECTION_LABEL,ranks;label=_get_label(label,"space")))
+  (
+    _haspart(dir,PROJECTION_LABEL,ranks;label) ||
+    _haspart(dir,CLUSTERS_LABEL,ranks;label) ||
+    _haspart(dir,PROJECTION_LABEL,ranks;label=_get_label(label,"space"))
+  )
 end
 
 # same, for hyper-reductions; trivial hyper-reductions (e.g. `NoHyperReduction`)
 # store no distributed data, and are saved as serial projections
 function _has_hr(dir,ranks;label="")
-  (_haspart(dir,HRPROJECTION_LABEL,ranks;label) ||
-   _haspart(dir,CLUSTERS_LABEL,ranks;label) ||
-   isfile(get_filename(dir,PROJECTION_LABEL,label)))
+  (
+    _haspart(dir,HRPROJECTION_LABEL,ranks;label) ||
+    _haspart(dir,CLUSTERS_LABEL,ranks;label) ||
+    isfile(get_filename(dir,PROJECTION_LABEL,label))
+  )
 end
 
 # the clusters (and the shape of the local quantities) are replicated on every part
@@ -273,6 +280,18 @@ function _save_clusters(dir,a;label="")
 end
 
 _load_clusters(dir,ranks;label="") = deserialize(_part_filename(dir,CLUSTERS_LABEL,label,getany(ranks)))
+
+# the shape of the blocks (e.g. a matrix of blocks for a Jacobian), replicated on every part
+_get_ranks(a::Union{BlockProjection,BlockHRProjection}) = _get_ranks(a.array[findfirst(_is_distributed,a.array)])
+
+function _save_blocksize(dir,a;label="")
+  _psave(dir,BLOCKSIZE_LABEL,map(_ -> size(a.array),_get_ranks(a));label)
+end
+
+function _load_blocksize(dir,ranks,nblocks;label="")
+  _haspart(dir,BLOCKSIZE_LABEL,ranks;label) || return (nblocks,)
+  deserialize(_part_filename(dir,BLOCKSIZE_LABEL,label,getany(ranks)))
+end
 
 function _psave(dir,name,x::Union{GenericPArray,PVector};label="")
   map(partition(x),partition(axes(x,1))) do xloc,ind
@@ -480,7 +499,10 @@ function _load_distributed_hr(dir,ranks;label="")
     array = map(1:nblocks) do i
       _load_distributed_hrprojection(dir,ranks;label=_plabel(label,BLOCK_LABEL*"$i"))
     end
-    return BlockHRProjection(array)
+    dims = _load_blocksize(dir,ranks,nblocks;label)
+    return BlockHRProjection(reshape(array,dims))
   end
   _load_distributed_hrprojection(dir,ranks;label)
 end
+
+RBSteady._get(x::BlockPArray,i...) = blocks(x)[i...]

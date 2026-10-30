@@ -155,7 +155,7 @@ function EmptyHRProjection(red::Reduction,s,trian,test)
   T = get_dof_value_type(test)
   nrows = num_reduced_dofs(test)
   basis = ReducedProjection(zeros(T,nrows,1))
-  interp = Interpolation(red)
+  interp = Interpolation(red,trian)
   return HRProjection(basis,red,interp)
 end
 
@@ -164,7 +164,7 @@ function EmptyHRProjection(red::Reduction,s,trian,trial,test)
   nrows = num_reduced_dofs(test)
   ncols = num_reduced_dofs(trial)
   basis = ReducedProjection(zeros(T,nrows,ncols,1))
-  interp = Interpolation(red)
+  interp = Interpolation(red,trian)
   return HRProjection(basis,red,interp)
 end
 
@@ -186,7 +186,7 @@ function HRProjection(red::NoHyperReduction,s,trian,test)
   T = get_dof_value_type(test)
   nrows = num_reduced_dofs(test)
   basis = ReducedProjection(zeros(T,nrows,1))
-  interp = Interpolation(red)
+  interp = Interpolation(red,trian)
   return HRProjection(basis,red,interp)
 end
 
@@ -195,21 +195,21 @@ function HRProjection(red::NoHyperReduction,s,trian,trial,test)
   nrows = num_reduced_dofs(test)
   ncols = num_reduced_dofs(trial)
   basis = ReducedProjection(zeros(T,nrows,ncols,1))
-  interp = Interpolation(red)
+  interp = Interpolation(red,trian)
   return HRProjection(basis,red,interp)
 end
 
 function HRProjection(red::AffineHyperReduction,s,trian,test)
   basis = GalerkinProjectable(s)
   proj_basis = project(test,basis)
-  interp = Interpolation(red)
+  interp = Interpolation(red,trian)
   return HRProjection(proj_basis,red,interp)
 end
 
 function HRProjection(red::AffineHyperReduction,s,trian,trial,test)
   basis = GalerkinProjectable(s)
   proj_basis = project(test,basis,trial)
-  interp = Interpolation(red)
+  interp = Interpolation(red,trian)
   return HRProjection(proj_basis,red,interp)
 end
 

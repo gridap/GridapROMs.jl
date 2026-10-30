@@ -31,8 +31,8 @@ struct EmptyInterpolation <: Interpolation end
 
 EmptyInterpolation(args...) = EmptyInterpolation()
 
-function Interpolation(red::HyperReduction)
-  EmptyInterpolation()
+function Interpolation(red::HyperReduction,args...)
+  EmptyInterpolation(args...)
 end
 
 # EIM interpolation

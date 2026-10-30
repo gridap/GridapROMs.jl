@@ -135,7 +135,7 @@ function RBSteady.project!(
     isp = (ip-1)*ns + 1 : ip*ns
     X̂sp = X̂s[:,isp]
     x̂p = reshape(x̂.data[:,ip],ns,nt)
-    mul!(transpose(x̂p),get_basis_time(a),X̂sp)
+    mul!(transpose(x̂p),transpose(get_basis_time(a)),X̂sp)
   end
 
   x̂
