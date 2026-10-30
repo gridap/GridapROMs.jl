@@ -13,6 +13,9 @@ using Test
 @testset "poisson" begin include("RBSteady/poisson.jl") end
 @testset "steady stokes" begin include("RBSteady/stokes.jl") end
 @testset "steady navier-stokes" begin include("RBSteady/navier_stokes.jl") end
+@testset "moving poisson" begin include("RBSteady/moving_poisson.jl") end
+@testset "moving steady elasticity" begin include("RBSteady/moving_elasticity.jl") end
+@testset "moving steady stokes" begin include("RBSteady/moving_stokes.jl") end
 
 @testset "rb transient algorithms" begin include("RBTransient/rb_transient.jl") end
 @testset "galerkin" begin include("RBTransient/galerkin.jl") end
@@ -26,10 +29,6 @@ using Test
 @testset "unsteady stokes" begin include("RBTransient/stokes.jl") end
 @testset "unsteady navier-stokes" begin include("RBTransient/navier_stokes.jl") end
 @testset "space only" begin include("RBTransient/space_only.jl") end
-
-@testset "moving poisson" begin include("RBMovingGeometries/moving_poisson.jl") end
-@testset "moving elasticity" begin include("RBMovingGeometries/moving_elasticity.jl") end
-@testset "moving stokes" begin include("RBMovingGeometries/moving_stokes.jl") end
 
 @testset "distributed" begin include("Distributed/debug/runtests.jl") end
 
