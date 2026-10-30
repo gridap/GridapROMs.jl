@@ -106,7 +106,7 @@ end
 for (T,f) in zip((:TransientDEIMHyperReduction,:TransientSOPTHyperReduction),(:DEIM,:SOPT))
   @eval begin
     function RBSteady.Interpolation(red::$T,a::TransientProjection,args...)
-      isnull(a) && return EmptyInterpolation()
+      isnull(a) && return EmptyInterpolation(a)
       GreedyInterpolation(red,a,args...)
     end
 
@@ -138,7 +138,7 @@ end
 const TransientRBFInterpolation{A} = RBFInterpolation{A}
 
 function RBSteady.Interpolation(red::TransientRBFHyperReduction,a::TransientProjection,args...)
-  isnull(a) && return EmptyInterpolation()
+  isnull(a) && return EmptyInterpolation(a)
   RBFInterpolation(red,a,args...)
 end
 

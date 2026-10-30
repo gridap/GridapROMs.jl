@@ -278,7 +278,7 @@ function TransientHyperReduction(
   )
 
   hr = HyperReduction(reduction,args...;kwargs...)
-  _replace_reduction(hr)
+  _replace_reduction(hr,combination)
 end
 
 """
@@ -415,8 +415,9 @@ end
 # utils
 
 _steady_reduction(r::HyperReduction) = SteadyReduction(get_reduction(r))
-_replace_reduction(r::TransientNoHyperReduction) = r
-_replace_reduction(r::TransientAffineHyperReduction) = r
+_replace_reduction(r::HyperReduction,c::TimeCombination) = _replace_reduction(r)
+_replace_reduction(r::NoHyperReduction,c::TimeCombination) = TransientNoHyperReduction(c)
+_replace_reduction(r::AffineHyperReduction,c::TimeCombination) = TransientAffineHyperReduction(c)
 _replace_reduction(r::DEIMHyperReduction) = DEIMHyperReduction(_steady_reduction(r))
 _replace_reduction(r::SOPTHyperReduction) = SOPTHyperReduction(_steady_reduction(r))
 _replace_reduction(r::RBFHyperReduction) = RBFHyperReduction(_steady_reduction(r),r.strategy)

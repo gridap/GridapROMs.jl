@@ -259,6 +259,13 @@ function RBSteady.Interpolation(red::NoHyperReduction,trian::DistributedTriangul
   DistributedInterpolation(interps)
 end
 
+function RBSteady.EmptyInterpolation(a::AbstractDistributedProjection)
+  interps = map(local_views(a)) do ai
+    EmptyInterpolation(ai)
+  end
+  DistributedInterpolation(interps)
+end
+
 function RBSteady.GreedyInterpolation(interp,domain::DistributedIntegrationDomain)
   interps = map(local_views(domain)) do di
     GreedyInterpolation(interp,di)

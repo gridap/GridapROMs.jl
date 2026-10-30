@@ -94,11 +94,13 @@ function DrWatson.save(dir,a::DistributedLocalProjection;label="")
   _save_clusters(dir,a;label)
 end
 
-const AbstractDistributedProjection = Union{DistributedProjection,DistributedNormedProjection,DistributedKroneckerProjection,DistributedLocalProjection}
-
-function DrWatson.save(dir,a::BlockProjection{<:AbstractDistributedProjection};label="")
-  for i in eachindex(a)
-    save(dir,a[i];label=_plabel(label,BLOCK_LABEL*"$i"))
+for T in (:AbstractDistributedProjection,:DistributedLocalProjection)
+  @eval begin
+    function DrWatson.save(dir,a::BlockProjection{<:$T};label="")
+      for i in eachindex(a)
+        save(dir,a[i];label=_plabel(label,BLOCK_LABEL*"$i"))
+      end
+    end
   end
 end
 
@@ -152,9 +154,7 @@ function DrWatson.save(dir,a::DistributedLocalHRProjection;label="")
   _save_clusters(dir,a;label)
 end
 
-const AbstractDistributedHRProjection = Union{DistributedHRProjection,DistributedLocalHRProjection}
-
-function DrWatson.save(dir,a::BlockHRProjection{<:HyperReduction,<:Projection,<:AbstractDistributedHRProjection};label="")
+function DrWatson.save(dir,a::BlockHRProjection{<:HyperReduction,<:Projection,<:Union{DistributedHRProjection,DistributedLocalHRProjection}};label="")
   for i in eachindex(a)
     save(dir,a[i];label=_plabel(label,BLOCK_LABEL*"$i"))
   end

@@ -107,6 +107,8 @@ end
 
 const DistributedKroneckerProjection{A<:Union{DistributedProjection,DistributedNormedProjection},B<:Projection} = KroneckerProjection{A,B}
 
+const AbstractDistributedProjection = Union{DistributedProjection,DistributedNormedProjection,DistributedKroneckerProjection}
+
 function GridapDistributed.local_views(a::DistributedKroneckerProjection)
   map(local_views(a.projection_space)) do projection_space
     KroneckerProjection(projection_space,a.projection_time)

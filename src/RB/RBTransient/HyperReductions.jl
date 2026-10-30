@@ -384,3 +384,7 @@ end
 function _time_combination!(usx,op::ODEParamOperator{LinearParamODE},c,u,us0)
   zero_time_combination!(usx,c,us0)
 end
+
+function _time_combination!(usx,op::ODEParamOperator{LinearParamODE},c::TimeMarchingCombination,u,us0)
+  ParamODEs.lin_time_combination!(usx,c,u,us0)
+end

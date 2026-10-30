@@ -23,19 +23,13 @@ end
 # Empty interpolation
 
 """
-    struct EmptyInterpolation{A} <: Interpolation
-      dofs::A
-    end
+    struct EmptyInterpolation <: Interpolation end
 
 Interpolation of trivial hyper-reductions, which do not interpolate
 """
-struct EmptyInterpolation{A} <: Interpolation
-  dofs::A
-end
+struct EmptyInterpolation <: Interpolation end
 
-EmptyInterpolation() = EmptyInterpolation(Int64[])
-
-get_interpolation_dofs(a::EmptyInterpolation) = a.dofs
+EmptyInterpolation(args...) = EmptyInterpolation()
 
 function Interpolation(red::HyperReduction)
   EmptyInterpolation()
@@ -60,7 +54,7 @@ end
 for (T,f) in zip((:DEIMHyperReduction,:SOPTHyperReduction),(:DEIM,:SOPT))
   @eval begin
     function Interpolation(red::$T,a::Projection,args...)
-      isnull(a) && return EmptyInterpolation()
+      isnull(a) && return EmptyInterpolation(a)
       GreedyInterpolation(red,a,args...)
     end
 
@@ -103,7 +97,7 @@ struct RBFInterpolation{A<:Interpolator} <: Interpolation
 end
 
 function Interpolation(red::RBFHyperReduction,a::Projection,args...)
-  isnull(a) && return EmptyInterpolation()
+  isnull(a) && return EmptyInterpolation(a)
   RBFInterpolation(red,a,args...)
 end
 

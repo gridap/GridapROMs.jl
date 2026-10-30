@@ -330,6 +330,7 @@ function Utils.get_nonlinear_part(nlop::SpaceTimeParamOperator)
 end
 
 RBSteady._get_trial(nlop::SpaceTimeParamOperator) = get_trial(nlop.op)
+RBSteady._get_trial(nlop::ParamStageOperator) = get_trial(nlop.op)
 
 function _update_paramcache!(nlop::NonlinearParamOperator,r::TransientRealisation)
   @abstractmethod
