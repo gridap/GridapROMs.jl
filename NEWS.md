@@ -1,5 +1,106 @@
 # GridapROMs.jl Release Notes
 
+## Release: v0.2.0
+
+### Breaking changes
+
+#### Weak forms no longer take measures as arguments
+
+Residuals, Jacobians and right-hand sides are written as in Gridap, closing over
+their measures: `a(μ,u,v) = ∫(...)dΩ` instead of `a(μ,u,v,dΩ) = ∫(...)dΩ`. The
+triangulations on which each form is integrated are still passed to the operator
+through `FEDomains`, which is what the per-triangulation hyper-reduction relies on.
+
+#### Linear/nonlinear splitting with `Bundle`
+
+`LinearNonlinearParamOperator`, `LinearNonlinearParamFEOperator` and their transient
+counterparts have been removed. A problem split into a linear and a nonlinear part is
+now built by passing `Bundle`s of residuals, Jacobians and domains to `ParamOperator`
+(or `TransientParamOperator`):
+
+```julia
+res = Bundle(rhs_lin,res_nlin)       # rhs_lin(μ,v), res_nlin(μ,u,v)
+jac = Bundle(jac_lin,jac_nlin)       # jac_lin(μ,du,v), jac_nlin(μ,u,du,v)
+domains = Bundle(domains_lin,domains_nlin)
+feop = ParamOperator(res,jac,pspace,trial,test,domains)
+```
+
+The linear part follows the conventions of `LinearParamOperator` (a right-hand side
+and a bilinear form), the nonlinear part those of `ParamOperator`.
+
+#### Snapshots, online solves and performance
+
+- `solution_snapshots` returns the snapshots only, without the cost statistics.
+- The online phase uses the same function: `solve(rbsolver,rbop,μ)` is replaced by
+  `solution_snapshots(rbsolver,rbop,μ)`.
+- Costs are recorded in the `RBPerformanceTracker` stored in the `RBSolver` (printed
+  as they are recorded unless `verbose=false`), and `eval_performance(...)` is replaced
+  by `rom_performance(rbsolver,rbop,x,x̂)`.
+- `residual_snapshots`, `jacobian_snapshots`, `save_residuals`/`load_residuals`,
+  `save_jacobians`/`load_jacobians` and `create_dir` have been removed.
+
+#### Renames
+
+| v0.1.x                             | v0.2.0                             |
+|:-----------------------------------|:-----------------------------------|
+| `MDEIMHyperReduction`, `:mdeim`    | `DEIMHyperReduction`, `:deim`      |
+| `empirical_interpolation`, `s_opt` | `DEIM`, `SOPT`                     |
+| `HighDimReduction`                 | `TransientReduction`               |
+| `HighDimHyperReduction`            | `TransientHyperReduction`          |
+| `ROMPerformance`                   | `RBPerformanceTracker`             |
+| `RBOperator`, `TransientRBOperator` (exports) | `ROMOperator`, `TransientROMOperator` |
+
+The `sketch` keyword (randomized compression) has been removed.
+
+### New features
+
+#### Distributed-memory ROMs
+
+The whole offline and online pipeline now runs on distributed models
+(`GridapDistributed`), with the same code as in serial:
+
+- distributed snapshots (`DistributedSnapshots`) and row-partitioned bases
+  (`GenericPArray`);
+- POD by the method of snapshots, norm-weighted and Householder QR decompositions,
+  distributed Gram solves and supremizer enrichment;
+- DEIM and S-OPT with per-process reduced integration domains, distributed Galerkin
+  projections and hyper-reduced assembly;
+- space-time (Kronecker) ROMs, local ROMs and multi-field problems;
+- per-process I/O: `save(dir,rbop)` and `load_operator(dir,feop[,ranks])`.
+
+Random samplings (`:uniform`, `:normal`, `:latin_hypercube`) of `realisation(feop;...)`
+now draw the same parameters on every process.
+
+#### Other additions
+
+- `EnergyNorm`: norms induced by user-defined bilinear forms.
+- `ParamSpace` accepts bounds of mixed types, e.g. `(1,10,0.5,1.5)`.
+- The Plots extension (`run_test`, `try_loading_*`) respects the verbosity of the
+  `RBSolver`.
+
+### Bug fixes
+
+- Space-only reductions of linear transient problems (`SteadyReduction`): the
+  residual snapshots are now computed at the states of the time-marching scheme,
+  restoring the accuracy of the ROM.
+- Distributed space-time projections with fewer temporal modes than time steps.
+- Distributed save and load of local, block (multi-field) and transient reduced
+  operators, which now also preserve the block structure of Jacobians.
+
+### Documentation
+
+- New Literate tutorials: parameterised PDEs, reduced order models (POD, TT-SVD,
+  hyper-reduction strategies, save/load, multi-field and nonlinear problems, transient
+  problems), local reduced operators, distributed-memory ROMs.
+- Docstrings for every exported name, new README with an example gallery, and a new logo.
+
+### Known issues
+
+- `TTSVDReduction` cannot be combined with an `EnergyNorm`: use `L2()`, `H1()` (or
+  another norm assembled as a rank tensor) instead.
+- For `SteadyReduction`, only global DEIM and S-OPT hyper-reductions are currently
+  supported.
+
 ## Release: v0.1.5
 
 ### Breaking changes
