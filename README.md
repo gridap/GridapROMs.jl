@@ -72,13 +72,26 @@ pkg> add GridapROMs
 
 These are some problems solved with GridapROMs, taken from the [tutorials](https://gridap.github.io/GridapROMs.jl/dev/) and from the [examples](examples) folder.
 
-| <img src="docs/src/assets/tutorials/t001_poisson.png" width="240"/> | <img src="docs/src/assets/tutorials/t002_rom.png" width="240"/> | <img src="docs/src/assets/tutorials/t003_local.png" width="240"/> | <img src="docs/src/assets/tutorials/t004_distributed.png" width="240"/> |
-|:-------------:|:-------------:|:-------------:|:-------------:|
-| [Parameterised Poisson equation](https://gridap.github.io/GridapROMs.jl/dev/tutorials/t001_parameterised_pdes/) | [Navier-Stokes, lid-driven cavity](https://gridap.github.io/GridapROMs.jl/dev/tutorials/t002_reduced_order_models/) | [Local ROMs, advection-diffusion](https://gridap.github.io/GridapROMs.jl/dev/tutorials/t003_local_roms/) | [Distributed ROMs](https://gridap.github.io/GridapROMs.jl/dev/tutorials/t004_distributed/) |
-| <img src="docs/src/assets/results/elasticity_pod/plot/rbsol.png" width="240"/> | <img src="docs/src/assets/results/adv_diff_ttsvd/plot/rbsol.png" width="240"/> | <img src="docs/src/assets/results/helmholtz_pod/plot/rbsol.png" width="240"/> | <img src="docs/src/assets/results/stokes_pod/plot/rbvel.png" width="240"/> |
-| [Linear elasticity, POD](examples/SteadyElasticityPOD.jl) | [Advection-diffusion, TT-SVD](examples/AdvectionDiffusionTTSVD.jl) | [Electromagnetic scattering, POD](examples/HelmholtzPOD.jl) | [Stokes flow, POD](examples/SteadyStokesPOD.jl) |
-| <img src="docs/src/assets/results/heateq_pod/plot/rbsol.gif" width="240"/> | <img src="docs/src/assets/results/nstokes_strb/plot/rbvel.gif" width="240"/> | <img src="docs/src/assets/results/nstokes_strb/plot/rbpress.gif" width="240"/> | <img src="docs/src/assets/results/stokes_pod/plot/rbpress.png" width="240"/> |
-| [Heat equation, space-time RB](examples/HeatEquationSTRB.jl) | [Navier-Stokes velocity, space-time RB](examples/NStokesTransientSTRB.jl) | [Navier-Stokes pressure, space-time RB](examples/NStokesTransientSTRB.jl) | [Stokes pressure, POD](examples/SteadyStokesPOD.jl) |
+<table>
+  <tr>
+    <td align="center" width="25%"><a href="https://gridap.github.io/GridapROMs.jl/dev/tutorials/t001_parameterised_pdes/"><img src="docs/src/assets/tutorials/t001_poisson.png" width="100%"/></a><br><a href="https://gridap.github.io/GridapROMs.jl/dev/tutorials/t001_parameterised_pdes/">Parameterised Poisson equation</a></td>
+    <td align="center" width="25%"><a href="https://gridap.github.io/GridapROMs.jl/dev/tutorials/t002_reduced_order_models/"><img src="docs/src/assets/tutorials/t002_rom.png" width="100%"/></a><br><a href="https://gridap.github.io/GridapROMs.jl/dev/tutorials/t002_reduced_order_models/">Navier-Stokes, lid-driven cavity</a></td>
+    <td align="center" width="25%"><a href="https://gridap.github.io/GridapROMs.jl/dev/tutorials/t003_local_roms/"><img src="docs/src/assets/tutorials/t003_local.png" width="100%"/></a><br><a href="https://gridap.github.io/GridapROMs.jl/dev/tutorials/t003_local_roms/">Local ROMs, advection-diffusion</a></td>
+    <td align="center" width="25%"><a href="https://gridap.github.io/GridapROMs.jl/dev/tutorials/t004_distributed/"><img src="docs/src/assets/tutorials/t004_distributed.png" width="100%"/></a><br><a href="https://gridap.github.io/GridapROMs.jl/dev/tutorials/t004_distributed/">Distributed ROMs</a></td>
+  </tr>
+  <tr>
+    <td align="center" width="25%"><a href="examples/SteadyElasticityPOD.jl"><img src="docs/src/assets/results/elasticity_pod/plot/rbsol.png" width="100%"/></a><br><a href="examples/SteadyElasticityPOD.jl">Linear elasticity, POD</a></td>
+    <td align="center" width="25%"><a href="examples/AdvectionDiffusionTTSVD.jl"><img src="docs/src/assets/results/adv_diff_ttsvd/plot/rbsol.png" width="100%"/></a><br><a href="examples/AdvectionDiffusionTTSVD.jl">Advection-diffusion, TT-SVD</a></td>
+    <td align="center" width="25%"><a href="examples/HelmholtzPOD.jl"><img src="docs/src/assets/results/helmholtz_pod/plot/rbsol.png" width="100%"/></a><br><a href="examples/HelmholtzPOD.jl">Electromagnetic scattering, POD</a></td>
+    <td align="center" width="25%"><a href="examples/SteadyStokesPOD.jl"><img src="docs/src/assets/results/stokes_pod/plot/rbvel.png" width="100%"/></a><br><a href="examples/SteadyStokesPOD.jl">Stokes flow, POD</a></td>
+  </tr>
+  <tr>
+    <td align="center" width="25%"><a href="examples/HeatEquationSTRB.jl"><img src="docs/src/assets/results/heateq_pod/plot/rbsol.gif" width="100%"/></a><br><a href="examples/HeatEquationSTRB.jl">Heat equation, space-time RB</a></td>
+    <td align="center" width="25%"><a href="examples/NStokesTransientSTRB.jl"><img src="docs/src/assets/results/nstokes_strb/plot/rbvel.gif" width="100%"/></a><br><a href="examples/NStokesTransientSTRB.jl">Navier-Stokes velocity, space-time RB</a></td>
+    <td align="center" width="25%"><a href="examples/NStokesTransientSTRB.jl"><img src="docs/src/assets/results/nstokes_strb/plot/rbpress.gif" width="100%"/></a><br><a href="examples/NStokesTransientSTRB.jl">Navier-Stokes pressure, space-time RB</a></td>
+    <td align="center" width="25%"><a href="examples/SteadyStokesPOD.jl"><img src="docs/src/assets/results/stokes_pod/plot/rbpress.png" width="100%"/></a><br><a href="examples/SteadyStokesPOD.jl">Stokes pressure, POD</a></td>
+  </tr>
+</table>
 
 Some of the examples load geometries stored in [`docs/src/assets/models.zip`](docs/src/assets/models.zip): unzip it into the `data` folder of the active project, given by `DrWatson.datadir()`.
 
