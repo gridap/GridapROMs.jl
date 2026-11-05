@@ -35,9 +35,7 @@ include("Distributed/Distributed.jl")
 
 include("Exports.jl")
 
-# examples / visualization interface (see `ext/GridapROMsExt.jl`)
-# they become available once `Plots` is loaded
-
+# the following become available when loading Plots
 """
     try_loading_fe_snapshots(dir,rbsolver,feop,args...;label="",kwargs...) -> AbstractSnapshots
 

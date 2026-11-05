@@ -137,6 +137,23 @@ for (f,_f) in zip((:DEIM,:SOPT),(:_DEIM,:_SOPT))
   end
 end
 
+for (f,_f) in zip((:DEIM,:SOPT),(:_DEIM,:_SOPT))
+  @eval begin
+    function RBSteady.$f(a::DistributedTTSVDProjection)
+      basis = get_basis(a)
+      irows,interp_space = $_f(basis)
+      c = cores2basis(reshape(interp_space,1,size(interp_space)...),a.core_time)
+      ist,interp = RBSteady.$f(c)
+      ids = CartesianIndices((length(irows),size(a.core_time,2)))
+      rows = map(i -> irows[ids[i].I[1]],ist)
+      indices_time = map(i -> ids[i].I[2],ist)
+      Iloc = map(LocalDofs,row_partition(basis))
+      _to_local_dofs!(Iloc,rows)
+      (recast_split_indices(Iloc,get_dof_map(a)),indices_time),interp
+    end
+  end
+end
+
 function _DEIM(basis::GenericPMatrix)
   T = eltype(basis)
   m,n = size(basis)
@@ -327,6 +344,30 @@ function FESpaces.interpolate!(
   end
 end
 
+function RBTransient.get_locations(a::TransientDistributedInterpolation{SequentialStyle},ids::Range2D)
+  map(local_views(a)) do a
+    get_locations(a,ids)
+  end
+end
+
+# position of an interpolation DOF -> positions of the interpolation DOFs equal to it
+function _iudof_to_idof(dofs::AbstractVector,positions::AbstractVector)
+  isempty(positions) && return Table(Int32[],Int32[1])
+  idofs = [Int32[] for _ in 1:maximum(positions)]
+  for (dofi,i) in zip(dofs,positions), (dofj,j) in zip(dofs,positions)
+    dofi == dofj && push!(idofs[i],j)
+  end
+  Table(idofs)
+end
+
+function RBTransient.get_iurow_to_irow(rows::LocalDofs)
+  _iudof_to_idof(rows.global_rows,rows.global_cols)
+end
+
+function RBTransient.get_iurowcol_to_irowcol(rows::LocalDofs,cols::LocalDofs,args...)
+  _iudof_to_idof(collect(zip(rows.global_rows,cols.global_rows)),rows.global_cols)
+end
+
 function GridapDistributed.local_views(a::BlockInterpolation)
   interp = map(local_views,a.interp) |> to_parray_of_arrays
   map(BlockInterpolation,interp)
@@ -389,8 +430,12 @@ function RBTransient.get_at_seq_domain(
   @check reduce(max,map(r -> isempty(r.global_cols) ? 0 : maximum(r.global_cols),rows)) == n
   datav = map(local_values(s),local_views(rows)) do data,rows
     x = zeros(eltype(data),n,np)
-    for i in CartesianIndices(x)
-      x[i] = data[rows[i.I[1]],i.I[2],indices_time[i.I[1]]]
+    g2l = global_to_local(rows.index_parts)
+    for (gri,i) in zip(rows.global_rows,rows.global_cols)
+      lri = g2l[gri]
+      for k in 1:np
+        x[i,k] = data[lri,(indices_time[i]-1)*np+k]
+      end
     end
     x
   end |> nzreduce
@@ -527,6 +572,13 @@ for T in (:MPIArray,:DebugArray)
     function RBSteady.assemble_hr_array_add!(
       A::$T,cellvals::$T,celldofs::$T,cells::$T,locations::AbstractArray,style::InterpolationStyle)
       map(A,cellvals,celldofs,cells) do A,cellvals,celldofs,cells
+        assemble_hr_array_add!(A,cellvals,celldofs,cells,locations,style)
+      end
+    end
+
+    function RBSteady.assemble_hr_array_add!(
+      A::$T,cellvals::$T,celldofs::$T,cells::$T,locations::$T,style::InterpolationStyle)
+      map(A,cellvals,celldofs,cells,locations) do A,cellvals,celldofs,cells,locations
         assemble_hr_array_add!(A,cellvals,celldofs,cells,locations,style)
       end
     end

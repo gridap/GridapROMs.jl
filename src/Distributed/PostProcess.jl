@@ -20,6 +20,7 @@ const TRIAN_LABEL = "trian"
 const LOCAL_LABEL = "local"
 const CLUSTERS_LABEL = "clusters"
 const BLOCKSIZE_LABEL = "blocksize"
+const CORE_TIME_LABEL = "coretime"
 
 function DrWatson.save(dir,s::DistributedSnapshots;label="")
   _psave(dir,SNAPSHOTS_LABEL,get_param_data(s);label)
@@ -91,6 +92,12 @@ function DrWatson.save(dir,a::DistributedKroneckerProjection;label="")
   save(dir,a.projection_time;label=_get_label(label,"time"))
 end
 
+function DrWatson.save(dir,a::DistributedSequentialProjection;label="")
+  save(dir,RBTransient.get_projection_space(a);label=_get_label(label,"space"))
+  core_time = RBTransient.get_core_time(a)
+  _psave(dir,CORE_TIME_LABEL,map(_ -> core_time,_get_ranks(a));label)
+end
+
 for T in (:LocalProjection,:LocalHRProjection)
   @eval begin
     function DrWatson.save(dir,a::$T;label="")
@@ -132,6 +139,11 @@ function RBSteady.load_projection(dir,ranks::AbstractArray;label="")
     k,dims = _load_clusters(dir,ranks;label)
     projs = map(i -> load_projection(dir,ranks;label=_local_label(label,i)),1:prod(dims))
     return LocalProjection(reshape(projs,dims),k)
+  elseif _haspart(dir,CORE_TIME_LABEL,ranks;label)
+    # sequential projection: the time core is replicated on every part
+    projection_space = load_projection(dir,ranks;label=_get_label(label,"space"))
+    core_time = deserialize(_part_filename(dir,CORE_TIME_LABEL,label,getany(ranks)))
+    return SequentialProjection(DistributedTTSVDProjection(projection_space,core_time))
   elseif _haspart(dir,PROJECTION_LABEL,ranks;label=_get_label(label,"space"))
     # 2) kronecker projection: the space part is distributed, the time part is not
     projection_space = load_projection(dir,ranks;label=_get_label(label,"space"))

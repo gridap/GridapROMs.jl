@@ -63,17 +63,12 @@ end
 In-place version of [`time_combination`](@ref)
 """
 function time_combination!(
-  usx::NTuple{M,AbstractVector},
+  usx::Tuple{Vararg{AbstractVector}},
   c::TimeCombination,
   u::AbstractVector,
-  us0::NTuple{N,AbstractVector}
-  ) where {M,N}
+  us0::Tuple{Vararg{AbstractVector}}
+  )
 
-  # us0 is the time-marching scheme's own stencil (e.g. 2 raw snapshots for a
-  # ThetaMethod, regardless of PDE order), not one entry per usx order; a
-  # LinNonlinParamOperator's linear/nonlinear halves can have fewer usx entries
-  # than the top-level operator (e.g. a nonlinear term with no time derivative),
-  # so M and N are allowed to differ and us0 is always passed through whole
   for i in eachindex(usx)
     ci = CombinationOrder{i}(c)
     _combination!(usx[i],ci,u,us0)
@@ -104,10 +99,10 @@ end
 In-place version of [`zero_time_combination`](@ref)
 """
 function zero_time_combination!(
-  usx::NTuple{M,AbstractVector},
+  usx::Tuple{Vararg{AbstractVector}},
   c::TimeCombination,
-  us0::NTuple{N,AbstractVector}
-  ) where {M,N}
+  us0::Tuple{Vararg{AbstractVector}}
+  )
 
   all(iszero,us0) && return usx
   for i in eachindex(usx)

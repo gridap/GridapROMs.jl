@@ -216,10 +216,12 @@ function ttsvd(
 end
 
 function ttsvd(red_style::TTSVDRanks,A::AbstractArray{T,N},X::AbstractSparseMatrix) where {T,N}
-  # reshape(A,size(A,1),:) is unsafe when size(A,1)==0 (a structurally empty
-  # jacobian block): with 0 total elements Julia can't infer the trailing
-  # dimension and silently collapses it to 0 too, losing the true size.
-  tpod(first(red_style),reshape(A,size(A,1),prod(size(A)[2:N])),X)
+  cores = Array{T,3}[]
+  remainder = first_unfold_3D(A)
+  cur_core,cur_remainder = ttsvd_loop(first(red_style),remainder,X)
+  remainder = reshape(cur_remainder,size(cur_core,3),size(A,N),:)
+  push!(cores,cur_core)
+  return cores,remainder
 end
 
 function ttsvd(

@@ -480,10 +480,19 @@ function project!(
   norm_matrix::AbstractRankTensor
   )
 
+  project!(x̂,a,x,kron(norm_matrix))
+end
+
+function project!(
+  x̂::AbstractArray,
+  a::TTSVDProjection,
+  x::AbstractArray,
+  norm_matrix::AbstractMatrix
+  )
+
   a′ = PODProjection(get_basis(a),get_dof_map(a))
-  k_norm_matrix = kron(norm_matrix)
-  k_norm_matrix′ = _make_compatible(k_norm_matrix,a′)
-  k_a′ = NormedProjection(a′,k_norm_matrix′)
+  norm_matrix′ = _make_compatible(norm_matrix,a′)
+  k_a′ = NormedProjection(a′,norm_matrix′)
   project!(x̂,k_a′,x)
 end
 

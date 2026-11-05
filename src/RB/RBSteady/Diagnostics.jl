@@ -688,10 +688,10 @@ function residual_contribution(solver::RBSolver,op::ParamOperator,s::AbstractSna
   sres = select_snapshots(s,res_params(solver))
   us_res = get_param_data(sres)
   r_res = get_realisation(sres)
-  islinear(op) && fill!(us_res,zero(eltype2(us_res)))
+  us = islinear(op) ? fill!(similar(us_res),zero(eltype(us_res))) : us_res
 
   trians = get_domains_res(op)
-  resdata = _prepare_residual(op,r_res,us_res)
+  resdata = _prepare_residual(op,r_res,us)
   contribution(trians) do trian
     _residual_for_trian!(resdata,op,trian)
   end

@@ -27,10 +27,10 @@ function GridapROMs.try_loading_fe_snapshots(
 
   try
     fesnaps = load_snapshots(dir;label)
-    _say(rbsolver,"Load snapshots at $dir succeeded!")
+    _print(rbsolver,"Load snapshots at $dir succeeded!")
     return fesnaps
   catch
-    _say(rbsolver,"Load snapshots at $dir failed, must compute them")
+    _print(rbsolver,"Load snapshots at $dir failed, must compute them")
     r = realisation(feop;sampling,nparams)
     fesnaps = solution_snapshots(rbsolver,feop,r,args...)
     save(dir,fesnaps;label)
@@ -41,22 +41,15 @@ end
 function GridapROMs.try_loading_reduced_operator(dir_tolrank,rbsolver,feop,fesnaps)
   try
     rbop = load_operator(dir_tolrank,feop)
-    _say(rbsolver,"Load reduced operator at $dir_tolrank succeeded!")
+    _print(rbsolver,"Load reduced operator at $dir_tolrank succeeded!")
     return rbop
   catch
-    _say(rbsolver,"Load reduced operator at $dir_tolrank failed, must run offline phase")
+    _print(rbsolver,"Load reduced operator at $dir_tolrank failed, must run offline phase")
     rbop = reduced_operator(rbsolver,feop,fesnaps)
     save(dir_tolrank,rbop)
     return rbop
   end
 end
-
-# messages are printed only by verbose solvers (e.g. only on the main process of a
-# distributed run, see `RBSolver`)
-_say(rbsolver::RBSolver,msg) = rbsolver.tracker.verbose && println(msg)
-
-# a fresh tracker, with the same verbosity
-_new_tracker(rbsolver::RBSolver) = RBPerformanceTracker(;verbose=rbsolver.tracker.verbose)
 
 update_redstyle(rs::SearchSVDRank,tolrank) = SearchSVDRank(tolrank)
 update_redstyle(rs::TTSVDRanks,tolrank) = TTSVDRanks(map(s->update_redstyle(s,tolrank),rs.style))
@@ -136,7 +129,7 @@ function GridapROMs.update_solver(rbsolver::RBSolver,rank::Int)
   state_reduction = update_reduction(get_state_reduction(rbsolver),rank)
   residual_reduction = update_reduction(get_residual_reduction(rbsolver),rank+5)
   jacobian_reduction = update_reduction(get_jacobian_reduction(rbsolver),rank+5)
-  RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction;tracker=_new_tracker(rbsolver))
+  RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction,rbsolver.tracker)
 end
 
 function GridapROMs.update_solver(rbsolver::RBSolver,tol)
@@ -144,7 +137,7 @@ function GridapROMs.update_solver(rbsolver::RBSolver,tol)
   state_reduction = update_reduction(get_state_reduction(rbsolver),tol)
   residual_reduction = update_reduction(get_residual_reduction(rbsolver),tol*1e-2)
   jacobian_reduction = update_reduction(get_jacobian_reduction(rbsolver),tol*1e-2)
-  RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction;tracker=_new_tracker(rbsolver))
+  RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction,rbsolver.tracker)
 end
 
 function GridapROMs.run_test(
@@ -156,7 +149,7 @@ function GridapROMs.run_test(
     dir,rbsolver,feop,args...;nparams,sampling,label=ONLINE_LABEL)
 
   perfs = map(tolranks) do tolrank
-    _say(rbsolver,"Running test $dir with tolrank = $tolrank")
+    _print(rbsolver,"Running test $dir with tolrank = $tolrank")
 
     dir_tolrank = joinpath(dir,string(tolrank))
     mkpath(dir_tolrank)
@@ -221,6 +214,10 @@ function GridapROMs.plot_solutions(
     plot_solutions(dir,trials[i],sol[i],sol_approx[i];field=i,kwargs...)
   end
 end
+
+# utils
+
+_print(rbsolver::RBSolver,msg) = rbsolver.tracker.verbose && println(msg)
 
 function _plot_solutions(dir,trian,uh,ûh,r::Realisation;field=1)
   T = eltype2(get_free_dof_values(uh))
