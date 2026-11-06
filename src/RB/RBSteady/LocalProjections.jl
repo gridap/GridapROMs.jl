@@ -152,7 +152,7 @@ function enrich!(
       dij = get_basis(a_dual_i_loc[j])
       C_primal_dual_i = supr_matrix[i]
       supr_i = supremizers(H_primal,C_primal_dual_i,dij)
-      pj = union_bases(pj,supr_i,H_primal)
+      pj = union_bases(pj,supr_i,X_primal)
     end
     a_primal_loc[j] = pj
   end

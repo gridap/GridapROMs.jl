@@ -192,7 +192,7 @@ ParamDataStructures.num_params(r::Reduction) = @abstractmethod
 Reduction by means of a truncated POD. The field `nparams` indicates the number
 of parameters selected for the computation of the snapshots
 """
-struct PODReduction{A,B} <: DirectReduction{A,B}
+struct PODReduction{A<:ReductionStyle,B<:AssembleOperator} <: DirectReduction{A,B}
   red_style::A
   norm_style::B
   nparams::Int

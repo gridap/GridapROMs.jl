@@ -445,19 +445,10 @@ Gram-Schmidt orthogonalization for a matrix `A` under a Euclidean norm. A
 (positive definite) sparse matrix `X` representing an inner product on the row space
 of `A` can be provided to make the result orthogonal under a different norm
 """
-function gram_schmidt(A::AbstractMatrix;tol=1e-10)
-  Q,R, = qr!(A,ColumnNorm())
+function gram_schmidt(A::AbstractMatrix,args...;tol=1e-10)
+  Q,R, = _pivoted_qr!(A,args...)
   rank = something(findlast(abs.(diag(R)) .> tol),0)
   Qr = _truncate_col!(Q,rank)
-  return Qr
-end
-
-function gram_schmidt(A::AbstractMatrix,C::Factorization;tol=1e-10)
-  Ã = _forward_cholesky(A,C)
-  Q̃,R, = qr!(Ã,ColumnNorm())
-  rank = something(findlast(abs.(diag(R)) .> tol),0)
-  Q̃r = _truncate_col!(Q̃,rank)
-  Qr = _backward_cholesky(Q̃r,C)
   return Qr
 end
 
@@ -669,10 +660,22 @@ function LowRankApprox.psvdfact(
   kwargs...
   )
 
+  isempty(A) && return _null_psvdfact(A)
   m,n = size(A)
   m >= n ? psvdfact_cols(A,opts;kwargs...) : psvdfact_rows(A,opts;kwargs...)
 end
 
+function LowRankApprox.psvdfact(
+  A::AbstractMatrix,
+  X::AbstractMatrix,
+  opts::LRAOptions=LRAOptions(eltype(A));
+  kwargs...
+  )
+
+  isempty(A) && return _null_psvdfact(A)
+  psvdfact_cols(A,X,opts;kwargs...)
+end
+
 function psvdfact_cols(
   A::AbstractMatrix,
   opts::LRAOptions=LRAOptions(eltype(A));
@@ -733,40 +736,15 @@ function psvdfact_rows(
   opts = isempty(kwargs) ? opts : copy(opts;kwargs...)
   V = idfact(:c,A,opts)
   V[:k] == 0 && return _null_psvdfact(A)
-  Ask = _getcols(A,V[:sk])
-  Q,R = _qr!(Ask)
+  Ask = A[V[:sk],:]'
+  F = qr!(Matrix(Ask))
+  Q,R = Matrix(F.Q),F.R
   U2,sig,V2 = svd!(V'*R')
   k = psvdrank(sig,opts)
   if k < V[:k]
     U = _getcols(U2,1:k)
     S = sig[1:k]
-    Vt = view(V2',1:k,:)*Q'
-  else
-    U = U2
-    S = sig
-    Vt = V2'*Q'
-  end
-  PartialSVD(U,S,Vt)
-end
-
-function psvdfact_rows(
-  A::AbstractMatrix,
-  X::AbstractMatrix,
-  opts::LRAOptions=LRAOptions(eltype(A));
-  kwargs...
-  )
-
-  opts = isempty(kwargs) ? opts : copy(opts;kwargs...)
-  V = idfact(:c,A,opts)
-  V[:k] == 0 && return _null_psvdfact(A)
-  Ask = _getcols(A,V[:sk])
-  Q,R = _qr!(Ask,X)
-  U2,sig,V2 = svd!(V'*R')
-  k = psvdrank(sig,opts)
-  if k < V[:k]
-    U = _getcols(U2,1:k)
-    S = sig[1:k]
-    Vt = view(V2',1:k,:)*Q'
+    Vt = V2'[1:k,:]*Q'
   else
     U = U2
     S = sig
@@ -776,18 +754,85 @@ function psvdfact_rows(
 end
 
 _qr!(A::AbstractMatrix) = qr!(A)
-_qr!(A::AbstractMatrix, X::AbstractMatrix) = qr!(X*A)
+
+function _qr!(A::AbstractMatrix,X::AbstractMatrix)
+  _,n = size(A)
+  T = eltype(A)
+  Q = Matrix(A)
+  XQ = X*Q
+  R = zeros(T,n,n)
+  @views for j in 1:n
+    normj = sqrt(max(real(dot(Q[:,j],XQ[:,j])),zero(real(T))))
+    R[j,j] = normj
+    iszero(normj) && continue
+    Q[:,j] ./= normj
+    XQ[:,j] ./= normj
+    for k in j+1:n
+      rjk = dot(Q[:,j],XQ[:,k])
+      R[j,k] = rjk
+      Q[:,k] .-= rjk.*Q[:,j]
+      XQ[:,k] .-= rjk.*XQ[:,j]
+    end
+  end
+  return Q,R
+end
+
+_pivoted_qr!(A::AbstractMatrix) = qr!(A,ColumnNorm())
+
+function _pivoted_qr!(A::AbstractMatrix,X::AbstractMatrix)
+  m,n = size(A)
+  T = eltype(A)
+  XA = X*A
+  p = collect(1:n)
+  R = zeros(T,n,n)
+  colnorms2 = [real(dot(view(A,:,j),view(XA,:,j))) for j in 1:n]
+  @views for j in 1:min(m,n)
+    j′ = argmax(colnorms2[j:n]) + j - 1
+    if j′ != j
+      _swapcols!(p,colnorms2,j,j′)
+      _swapcols!(R,j,j′)
+      _swapcols!(A,j,j′)
+      _swapcols!(XA,j,j′)
+    end
+    normj = sqrt(max(colnorms2[j],zero(real(T))))
+    R[j,j] = normj
+    iszero(normj) && continue
+    A[:,j] ./= normj
+    XA[:,j] ./= normj
+    for k in j+1:n
+      rjk = dot(A[:,j],XA[:,k])
+      R[j,k] = rjk
+      A[:,k] .-= rjk.*A[:,j]
+      XA[:,k] .-= rjk.*XA[:,j]
+      colnorms2[k] = real(dot(A[:,k],XA[:,k]))
+    end
+  end
+  return A,R,p
+end
+
+function _pivoted_qr!(A::AbstractMatrix,C::Factorization)
+  Ã = _forward_cholesky(A,C)
+  Q̃,R,p = qr!(Ã,ColumnNorm())
+  return _backward_cholesky(Matrix(Q̃),C),R,p
+end
+
+function _swapcols!(A::AbstractMatrix,i,j)
+  for k in axes(A,1)
+    A[k,i],A[k,j] = A[k,j],A[k,i]
+  end
+end
+
+function _swapcols!(p::AbstractVector,q::AbstractVector,i,j)
+  p[i],p[j] = p[j],p[i]
+  q[i],q[j] = q[j],q[i]
+end
+
 _getcols(A::AbstractMatrix,cols) = A[:,cols]
 
 function _null_psvdfact(A::AbstractMatrix{T}) where T
   m,n = size(A)
-  k = (m == 0 || n == 0) ? 0 : min(1,n)
-  U = zeros(T,m,k)
-  S = zeros(real(T),k)
-  Vt = zeros(T,k,n)
-  if k > 0
-    U[1] = one(T)
-    Vt[1] = one(T)
-  end
+  U = zeros(T,m,0)
+  S = zeros(real(T),0)
+  Vt = zeros(T,0,n)
   PartialSVD(U,S,Vt)
 end

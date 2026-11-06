@@ -795,7 +795,7 @@ function enrich!(
     dual_i = get_basis(a_dual[i])
     C_primal_dual_i = supr_matrix[i]
     supr_i = supremizers(H_primal,C_primal_dual_i,dual_i)
-    a_primal = union_bases(a_primal,supr_i,H_primal)
+    a_primal = union_bases(a_primal,supr_i,X_primal)
   end
   a[1] = a_primal
   return

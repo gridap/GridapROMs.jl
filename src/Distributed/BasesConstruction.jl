@@ -30,14 +30,90 @@ function LinearAlgebra.ldiv!(S::GenericPMatrix,ns::LinearSolvers.CGNumericalSetu
   S
 end
 
-function RBSteady.gram_schmidt(A::AbstractMatrix,ns::NumericalSetup;tol=1e-10)
-  Q,R, = _pivoted_qr!(A,_get_matrix(ns))
-  rank = something(findlast(abs.(diag(R)) .> tol),0)
-  Qr = RBSteady._truncate_col!(Q,rank)
-  return Qr
+struct DistributedPartialSVD{A,B,C}
+  U::A
+  S::B
+  Vt::C
 end
 
-function _qr!(A::GenericPMatrix)
+function LowRankApprox.PartialSVD(
+  U::GenericPMatrix{V,A,B,C,D,T},
+  S::AbstractVector{Tr},
+  Vt::AbstractMatrix{T}
+  ) where {V,A,B,C,D,T,Tr<:Real}
+
+  DistributedPartialSVD(U,S,Vt)
+end
+
+function LowRankApprox.psvdfact(
+  A::GenericPMatrix,
+  opts::LRAOptions=LRAOptions(eltype(A));
+  kwargs...
+  )
+
+  _psvdfact(A,RBSteady._qr!,opts;kwargs...)
+end
+
+function LowRankApprox.psvdfact(
+  A::GenericPMatrix,
+  X::AbstractMatrix,
+  opts::LRAOptions=LRAOptions(eltype(A));
+  kwargs...
+  )
+
+  _psvdfact(A,B -> RBSteady._qr!(B,X),opts;kwargs...)
+end
+
+function _psvdfact(A::GenericPMatrix,qrf,opts::LRAOptions;kwargs...)
+  opts = isempty(kwargs) ? opts : copy(opts;kwargs...)
+  V = idfact(:n,A,opts)
+  V[:k] == 0 && return RBSteady._null_psvdfact(A)
+  Ask = RBSteady._getcols(A,V[:sk])
+  Q,R = qrf(Ask)
+  U2,sig,V2 = svd!(R*V)
+  k = psvdrank(sig,opts)
+  if k < V[:k]
+    U = Q*U2[:,1:k]
+    S = sig[1:k]
+    Vt = V2'[1:k,:]
+  else
+    U = Q*U2
+    S = sig
+    Vt = V2'
+  end
+  PartialSVD(U,S,Vt)
+end
+
+function LowRankApprox.idfact(
+  trans::Symbol,
+  A::GenericPMatrix,
+  opts::LRAOptions=LRAOptions(eltype(A));
+  kwargs...
+  )
+
+  @check trans == :n "only trans = :n is implemented for partitioned matrices"
+  opts = isempty(kwargs) ? opts : copy(opts;kwargs...)
+  @check opts.sketch == :sprn "only sketch = :sprn is implemented for partitioned matrices"
+  m, = size(A)
+  opts_plain = copy(opts;sketch=:none)
+  if opts.sketchfact_adap || opts.rank < 0
+    order = opts.nb
+    while true
+      B = _sketch_sprn(A,order)
+      V = idfact(:n,B,opts_plain)
+      (V[:k] < order || order >= m) && return V
+      order *= 2
+    end
+  else
+    order = opts.rank
+    B = _sketch_sprn(A,order)
+    return idfact(:n,B,opts_plain)
+  end
+end
+
+LowRankApprox.idfact(A::GenericPMatrix,args...;kwargs...) = idfact(:n,A,args...;kwargs...)
+
+function RBSteady._qr!(A::GenericPMatrix)
   _,n = size(A)
   T = eltype(A)
   R = zeros(T,n,n)
@@ -56,7 +132,7 @@ function _qr!(A::GenericPMatrix)
   return A,R
 end
 
-function _qr!(A::GenericPMatrix,X::PSparseMatrix)
+function RBSteady._qr!(A::GenericPMatrix,X::PSparseMatrix)
   _,n = size(A)
   T = eltype(A)
   XA = X*A
@@ -78,7 +154,7 @@ function _qr!(A::GenericPMatrix,X::PSparseMatrix)
   return A,R
 end
 
-function _pivoted_qr!(A::GenericPMatrix,X::PSparseMatrix)
+function RBSteady._pivoted_qr!(A::GenericPMatrix,X::PSparseMatrix)
   m,n = size(A)
   T = eltype(A)
   XA = X*A
@@ -114,6 +190,39 @@ function _pivoted_qr!(A::GenericPMatrix,X::PSparseMatrix)
   return A,R,p
 end
 
+function RBSteady._null_psvdfact(A::GenericPMatrix)
+  _,n = size(A)
+  T = eltype(A)
+  U_parts = map(partition(A)) do local_mat
+    zeros(T,size(local_mat,1),0)
+  end
+  U = GenericPArray(U_parts,A.index_partition)
+  PartialSVD(U,zeros(real(T),0),zeros(T,0,n))
+end
+
+function _sketch_sprn(A::GenericPMatrix,order::Integer)
+  T = eltype(A)
+  _,n = size(A)
+  contribs = map(own_values(A),row_partition(A)) do Av,row_idxs
+    o2g = own_to_global(row_idxs)
+    B = zeros(T,order,n)
+    for (oi,gi) in enumerate(o2g)
+      bucket = mod(hash(gi),order) + 1
+      w = randn(T)
+      @views B[bucket,:] .+= w.*Av[oi,:]
+    end
+    B
+  end
+  reduce(+,contribs)
+end
+
+function RBSteady._getcols(A::GenericPMatrix,cols)
+  vals = map(local_values(A)) do A
+    A[:,cols]
+  end
+  GenericPArray(vals,A.index_partition,(Base.OneTo(length(cols)),))
+end
+
 function _wdot(A::GenericPMatrix,XA::GenericPMatrix,i,j)
   contribs = map(own_values(A),own_values(XA)) do Av,XAv
     s = zero(promote_type(eltype(Av),eltype(XAv)))
@@ -143,13 +252,13 @@ function _waxpy_col!(A::GenericPMatrix,α,i,j)
   A
 end
 
-struct PQR{A,B,C}
+struct DistributedQR{A,B,C}
   Q::A
   R::B
   p::C
 end
 
-Base.iterate(p::PQR,i...) = iterate((p.Q,p.R,p.p),i...)
+Base.iterate(p::DistributedQR,i...) = iterate((p.Q,p.R,p.p),i...)
 
 function LinearAlgebra.qr!(A::GenericPMatrix,::NoPivot)
   m,n = size(A)
@@ -162,7 +271,7 @@ function LinearAlgebra.qr!(A::GenericPMatrix,::NoPivot)
   end
   Q = _get_Q(A,τ,m,n)
   R = _get_R(A,n)
-  return PQR(Q,R,p)
+  return DistributedQR(Q,R,p)
 end
 
 function LinearAlgebra.qr!(A::GenericPMatrix,::ColumnNorm)
@@ -183,7 +292,7 @@ function LinearAlgebra.qr!(A::GenericPMatrix,::ColumnNorm)
   end
   Q = _get_Q(A,τ,m,n)
   R = _get_R(A,n)
-  return PQR(Q,R,p)
+  return DistributedQR(Q,R,p)
 end
 
 function RBTransient.first_unfold(A::DistributedSnapshots)

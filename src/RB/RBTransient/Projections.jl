@@ -490,7 +490,7 @@ function RBSteady.enrich!(
     dual_i_space = get_basis_space(a_dual[i])
     C_primal_dual_i = supr_matrix[i]
     supr_space_i = supremizers(H_primal,C_primal_dual_i,dual_i_space)
-    a_primal_space = union_bases(a_primal_space,supr_space_i,H_primal)
+    a_primal_space = union_bases(a_primal_space,supr_space_i,X_primal)
 
     dual_i_time = get_basis_time(a_dual[i])
     a_primal_time = time_enrichment(a_primal_time,dual_i_time;tol)
