@@ -21,7 +21,7 @@ function add_temporal_core!(
   ) where T
 
   remainder = permutedims(remainder,(1,3,2))
-  cur_core,cur_remainder = RBSteady.ttsvd_loop(red_style,remainder)
+  cur_core, = RBSteady.ttsvd_loop(red_style,remainder)
   push!(cores,cur_core)
   return
 end

@@ -139,12 +139,12 @@ end
 
 for (f,_f) in zip((:DEIM,:SOPT),(:_DEIM,:_SOPT))
   @eval begin
-    function RBSteady.$f(a::DistributedTTSVDProjection)
-      basis = get_basis(a)
+    function RBSteady.$f(a::DistributedSequentialProjection)
+      basis = get_basis_space(a)
       irows,interp_space = $_f(basis)
-      c = cores2basis(reshape(interp_space,1,size(interp_space)...),a.core_time)
+      c = cores2basis(reshape(interp_space,1,size(interp_space)...),RBTransient.get_core_time(a))
       ist,interp = RBSteady.$f(c)
-      ids = CartesianIndices((length(irows),size(a.core_time,2)))
+      ids = CartesianIndices((length(irows),num_times(a)))
       rows = map(i -> irows[ids[i].I[1]],ist)
       indices_time = map(i -> ids[i].I[2],ist)
       Iloc = map(LocalDofs,row_partition(basis))

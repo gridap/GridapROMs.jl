@@ -31,8 +31,9 @@ multi-dimensional snapshot arrays.
 
 ## Transient projections
 
-[`TransientProjection`](@ref) wraps spatial and temporal projections for
-space–time reduced-basis problems, while [`TransientInterpolation`](@ref)
+[`TransientProjection`](@ref) stores a spatial projection and a temporal array for
+space–time reduced-basis problems: a basis for a [`KroneckerProjection`](@ref), the
+last TT core for a [`SequentialProjection`](@ref). [`TransientInterpolation`](@ref) [`TransientInterpolation`](@ref)
 provides the corresponding space–time interpolation.
 
 ## Full API

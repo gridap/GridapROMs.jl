@@ -101,7 +101,6 @@ export projection
 export get_basis_space
 export get_basis_time
 export get_projection_space
-export get_projection_time
 export num_space_dofs
 export num_times
 export time_enrichment

@@ -20,7 +20,7 @@ const TRIAN_LABEL = "trian"
 const LOCAL_LABEL = "local"
 const CLUSTERS_LABEL = "clusters"
 const BLOCKSIZE_LABEL = "blocksize"
-const CORE_TIME_LABEL = "coretime"
+const ARRAY_TIME_LABEL = "arraytime"
 
 function DrWatson.save(dir,s::DistributedSnapshots;label="")
   _psave(dir,SNAPSHOTS_LABEL,get_param_data(s);label)
@@ -87,15 +87,10 @@ function DrWatson.save(dir,a::DistributedNormedProjection;label="")
   _psave(dir,NORM_MATRIX_LABEL,a.norm_matrix;label)
 end
 
-function DrWatson.save(dir,a::DistributedKroneckerProjection;label="")
-  save(dir,a.projection_space;label=_get_label(label,"space"))
-  save(dir,a.projection_time;label=_get_label(label,"time"))
-end
-
-function DrWatson.save(dir,a::DistributedSequentialProjection;label="")
-  save(dir,RBTransient.get_projection_space(a);label=_get_label(label,"space"))
-  core_time = RBTransient.get_core_time(a)
-  _psave(dir,CORE_TIME_LABEL,map(_ -> core_time,_get_ranks(a));label)
+function DrWatson.save(dir,a::DistributedTransientProjection;label="")
+  save(dir,get_projection_space(a);label=_get_label(label,"space"))
+  array_time = get_basis_time(a)
+  _psave(dir,ARRAY_TIME_LABEL,map(_ -> array_time,_get_ranks(a));label)
 end
 
 for T in (:LocalProjection,:LocalHRProjection)
@@ -139,16 +134,12 @@ function RBSteady.load_projection(dir,ranks::AbstractArray;label="")
     k,dims = _load_clusters(dir,ranks;label)
     projs = map(i -> load_projection(dir,ranks;label=_local_label(label,i)),1:prod(dims))
     return LocalProjection(reshape(projs,dims),k)
-  elseif _haspart(dir,CORE_TIME_LABEL,ranks;label)
-    # sequential projection: the time core is replicated on every part
+  elseif _haspart(dir,ARRAY_TIME_LABEL,ranks;label)
+    # 2) transient projection: the space part is distributed, and the time part is
+    # replicated on every part
     projection_space = load_projection(dir,ranks;label=_get_label(label,"space"))
-    core_time = deserialize(_part_filename(dir,CORE_TIME_LABEL,label,getany(ranks)))
-    return SequentialProjection(DistributedTTSVDProjection(projection_space,core_time))
-  elseif _haspart(dir,PROJECTION_LABEL,ranks;label=_get_label(label,"space"))
-    # 2) kronecker projection: the space part is distributed, the time part is not
-    projection_space = load_projection(dir,ranks;label=_get_label(label,"space"))
-    projection_time = load_projection(dir;label=_get_label(label,"time"))
-    return KroneckerProjection(projection_space,projection_time)
+    array_time = deserialize(_part_filename(dir,ARRAY_TIME_LABEL,label,getany(ranks)))
+    return TransientProjection(projection_space,array_time)
   else
     basis = _pload(dir,PROJECTION_LABEL,ranks;label)
     dof_map = _pload(dir,DOFMAP_LABEL,ranks;label)

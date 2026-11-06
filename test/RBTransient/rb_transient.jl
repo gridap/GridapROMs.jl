@@ -7,6 +7,7 @@ using Gridap
 using Gridap.Arrays: Table
 using Gridap.ODEs: Newmark
 using GridapROMs
+using GridapROMs.DofMaps
 using GridapROMs.ParamDataStructures
 using GridapROMs.ParamODEs
 using GridapROMs.RBSteady
@@ -120,17 +121,17 @@ end
   nt = 10
   Φ_primal = Matrix(I(nt))[:,1:5]
   Φ_dual   = Matrix(I(nt))[:,6:8]
-  result = time_enrichment(PODProjection(Φ_primal),Φ_dual;tol=1e-4)
-  @test get_basis(result) isa AbstractMatrix
-  @test size(get_basis(result),1) == nt
-  @test size(get_basis(result),2) == 8
+  result = time_enrichment(Φ_primal,Φ_dual;tol=1e-4)
+  @test result isa AbstractMatrix
+  @test size(result,1) == nt
+  @test size(result,2) == 8
 end
 
 @testset "time_enrichment no-op when dual already in span" begin
   nt = 8
   Φ = Matrix(qr(rand(nt,4)).Q)
-  result = time_enrichment(PODProjection(Φ),Φ[:,1:2];tol=1e-10)
-  @test size(get_basis(result),2) == 4
+  result = time_enrichment(Φ,Φ[:,1:2];tol=1e-10)
+  @test size(result,2) == 4
 end
 
 # ─── KroneckerProjection ──────────────────────────────────────────────────────
@@ -138,19 +139,21 @@ end
 @testset "KroneckerProjection — field accessors" begin
   Ns,Nt,ns,nt = 20,8,4,3
   proj_s = PODProjection(Matrix(qr(rand(Ns,ns)).Q))
-  proj_t = PODProjection(Matrix(qr(rand(Nt,nt)).Q))
-  kp = KroneckerProjection(proj_s,proj_t)
+  basis_t = Matrix(qr(rand(Nt,nt)).Q)
+  kp = KroneckerProjection(proj_s,basis_t)
 
+  @test kp isa KroneckerProjection
   @test num_reduced_dofs(kp) == ns*nt
   @test num_space_dofs(kp)   == Ns
   @test num_times(kp)        == Nt
+  @test get_basis_time(kp)   === basis_t
 end
 
 @testset "KroneckerProjection — project!/inv_project! idempotency" begin
   Ns,Nt,ns,nt = 20,8,4,3
   Φs = Matrix(qr(rand(Ns,ns)).Q)
   Φt = Matrix(qr(rand(Nt,nt)).Q)
-  kp = KroneckerProjection(PODProjection(Φs),PODProjection(Φt))
+  kp = KroneckerProjection(PODProjection(Φs),Φt)
 
   x  = rand(Ns*Nt)
   x̂  = zeros(ns*nt)
@@ -162,6 +165,32 @@ end
   x̂2 = zeros(ns*nt)
   project!(x̂2,kp,x_rec)
   @test x̂2 ≈ x̂ atol=1e-10
+end
+
+# ─── SequentialProjection ─────────────────────────────────────────────────────
+
+@testset "SequentialProjection — project!/inv_project! with a $name spatial projection" for name in (:pod,:tt)
+  Ns,Nt,rs,n = 20,8,4,3
+  Φs = Matrix(qr(rand(Ns,rs)).Q)
+  ct = reshape(Matrix(qr(rand(rs*Nt,n)).Q),rs,Nt,n)
+  ps = name == :pod ? PODProjection(Φs) : TTSVDProjection([reshape(Φs,1,Ns,rs)],VectorDofMap(Ns))
+  sp = SequentialProjection(ps,ct)
+
+  @test sp isa SequentialProjection
+  @test num_reduced_dofs(sp) == n
+  @test num_space_dofs(sp)   == Ns
+  @test num_times(sp)        == Nt
+  @test get_basis_space(sp)  ≈ Φs
+
+  Φ = reshape(Φs*reshape(ct,rs,Nt*n),Ns*Nt,n)
+  x̂ = rand(n)
+  x = zeros(Ns*Nt)
+  inv_project!(x,sp,x̂)
+  @test x ≈ Φ*x̂
+
+  x̂2 = zeros(n)
+  project!(x̂2,sp,x)
+  @test x̂2 ≈ x̂
 end
 
 # ─── TransientIntegrationDomain ───────────────────────────────────────────────

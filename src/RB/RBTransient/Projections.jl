@@ -1,17 +1,21 @@
 """
-    abstract type TransientProjection <: Projection end
+    struct TransientProjection{A<:Projection,B<:AbstractArray} <: Projection
+      projection_space::A
+      array_time::B
+    end
 
-Abstract type for projection operators in transient reduced-basis problems.
-A `TransientProjection` wraps a spatial projection and a temporal projection
-and provides methods to project and reconstruct space–time snapshot vectors.
+Space-time projection, made of a spatial `Projection` and a temporal array: a basis
+for a [`KroneckerProjection`](@ref), the last TT core for a [`SequentialProjection`](@ref)
 
 # Interface
 - `get_projection_space(a)`: return the spatial `Projection`.
-- `get_projection_time(a)`: return the temporal `Projection`.
-- `get_basis_space(a)` / `get_basis_time(a)`: retrieve the spatial / temporal
-  basis matrices.
+- `get_basis_space(a)` / `get_basis_time(a)`: retrieve the spatial basis / the
+  temporal array.
 """
-abstract type TransientProjection <: Projection end
+struct TransientProjection{A<:Projection,B<:AbstractArray} <: Projection
+  projection_space::A
+  array_time::B
+end
 
 """
     get_projection_space(a::Projection) -> Projection
@@ -19,38 +23,45 @@ abstract type TransientProjection <: Projection end
 Spatial projection of `a` (`a` itself, if not transient)
 """
 get_projection_space(a::Projection) = a
-
-"""
-    get_projection_time(a::Projection) -> Projection
-
-Temporal projection of `a`
-"""
-get_projection_time(a::Projection) = @notimplemented
-get_projection_space(a::TransientProjection) = @abstractmethod
-get_projection_time(a::TransientProjection) = @abstractmethod
+get_projection_space(a::TransientProjection) = a.projection_space
 
 """
     get_basis_space(a::Projection) -> AbstractMatrix
 
 Spatial basis of `a`
 """
-get_basis_space(a::Projection) = get_basis(get_projection_space(a))
+get_basis_space(a::Projection) = get_basis(a)
+get_basis_space(a::TransientProjection) = get_basis_space(get_projection_space(a))
 
 """
-    get_basis_time(a::Projection) -> AbstractMatrix
+    get_basis_time(a::Projection) -> AbstractArray
 
-Temporal basis of `a`
+Temporal array of `a`: a matrix, or a TT core for a [`SequentialProjection`](@ref)
 """
-get_basis_time(a::Projection) = get_basis(get_projection_time(a))
+get_basis_time(a::Projection) = @notimplemented "No available temporal basis $(typeof(a)) projections"
+get_basis_time(a::TransientProjection) = a.array_time
 
+ParamDataStructures.num_times(a::Projection) = @notimplemented "No available temporal basis $(typeof(a)) projections"
 ParamDataStructures.num_space_dofs(a::Projection) = num_fe_dofs(get_projection_space(a))
-ParamDataStructures.num_times(a::Projection) = num_fe_dofs(get_projection_time(a))
-RBSteady.num_fe_dofs(a::TransientProjection) = num_space_dofs(a)*num_times(a)
 
-num_fe_dofs_space(a::Projection) = size(get_basis_space(a),1)
-num_reduced_dofs_space(a::Projection) = size(get_basis_space(a),2)
-fe_space_dof_ids(a::Projection) = Base.OneTo(num_fe_dofs_space(a))
-reduced_space_dof_ids(a::Projection) = Base.OneTo(num_reduced_dofs_space(a))
+RBSteady.num_fe_dofs(a::TransientProjection) = num_space_dofs(a)*num_times(a)
+RBSteady.isnull(a::TransientProjection) = isnull(get_projection_space(a)) || isnull(get_basis_time(a))
+RBSteady.get_norm_matrix(a::TransientProjection) = get_norm_matrix(get_projection_space(a))
+DofMaps.get_dof_map(a::TransientProjection) = get_dof_map(get_projection_space(a))
+
+function RBSteady.projection_eltype(a::TransientProjection)
+  promote_type(projection_eltype(get_projection_space(a)),eltype(get_basis_time(a)))
+end
+
+num_fe_dofs_space(a::Projection) = num_fe_dofs(a)
+num_reduced_dofs_space(a::Projection) = num_reduced_dofs(a)
+reduced_dof_ids_space(a::Projection) = reduced_dof_ids(a)
+fe_dof_ids_space(a::Projection) = fe_dof_ids(a)
+
+num_fe_dofs_space(a::Projection) = num_fe_dofs(get_projection_space(a))
+num_reduced_dofs_space(a::TransientProjection) = num_reduced_dofs(get_projection_space(a))
+reduced_dof_ids_space(a::Projection) = reduced_dof_ids(get_projection_space(a))
+fe_dof_ids_space(a::TransientProjection) = fe_dof_ids(get_projection_space(a))
 
 function RBSteady.project!(
   x̂::ConsecutiveParamVector,
@@ -102,40 +113,35 @@ function Algebra.allocate_in_range(
   x̂::V
   ) where V<:AbstractParamVector
 
-  x = allocate_vector(eltype(V),fe_space_dof_ids(a))
+  x = allocate_vector(eltype(V),fe_dof_ids_space(a))
   nt = num_times(a)
   npt = param_length(x̂) * nt
   return parameterise(x,npt)
 end
 
 """
-    struct KroneckerProjection{A<:Projection,B<:Projection} <: TransientProjection
-      projection_space::A
-      projection_time::B
-    end
+    const KroneckerProjection{A<:Projection} = TransientProjection{A,<:AbstractMatrix}
 
-Projection operator for transient problems, containing a spatial projection and
-a temporal one. The space-time projection operator is equal to
+[`TransientProjection`](@ref) with a temporal basis. The space-time projection
+operator is equal to
 
-`projection_time ⊗ projection_space`
+`basis_time ⊗ projection_space`
 
 which, for efficiency reasons, is never explicitly computed
 """
-struct KroneckerProjection{A<:Projection,B<:Projection} <: TransientProjection
-  projection_space::A
-  projection_time::B
-end
+const KroneckerProjection{A<:Projection} = TransientProjection{A,<:AbstractMatrix}
+
+KroneckerProjection(args...) = TransientProjection(args...)
 
 function RBSteady.Projection(red::KroneckerReduction,s::TransientSnapshots,args...)
   basis_space,basis_time = tucker(red.reductions,s,args...)
   projection_space = GenericProjection(basis_space,get_dof_map(s))
-  projection_time = GenericProjection(basis_time)
-  return projection_space,projection_time
+  return projection_space,basis_time
 end
 
 function RBSteady.projection(red::KroneckerReduction,s::TransientSnapshots)
-  ps,pt = Projection(red,s)
-  return KroneckerProjection(ps,pt)
+  ps,bt = Projection(red,s)
+  return TransientProjection(ps,bt)
 end
 
 function RBSteady.projection(
@@ -144,18 +150,16 @@ function RBSteady.projection(
   X::MatrixOrTensor
   )
 
-  ps,pt = Projection(red,s,X)
+  ps,bt = Projection(red,s,X)
   psX = NormedProjection(ps,X)
-  return KroneckerProjection(psX,pt)
+  return TransientProjection(psX,bt)
 end
 
-get_projection_space(a::KroneckerProjection) = a.projection_space
-get_projection_time(a::KroneckerProjection) = a.projection_time
+ParamDataStructures.num_times(a::KroneckerProjection) = size(get_basis_time(a),1)
+num_reduced_dofs_time(a::KroneckerProjection) = size(get_basis_time(a),2)
 
 RBSteady.get_basis(a::KroneckerProjection) = kron(get_basis_time(a),get_basis_space(a))
-RBSteady.num_reduced_dofs(a::KroneckerProjection) = num_reduced_dofs(a.projection_space)*num_reduced_dofs(a.projection_time)
-RBSteady.isnull(a::KroneckerProjection) = isnull(a.projection_space) || isnull(a.projection_time)
-RBSteady.get_norm_matrix(a::KroneckerProjection) = get_norm_matrix(a.projection_space)
+RBSteady.num_reduced_dofs(a::KroneckerProjection) = num_reduced_dofs_space(a)*num_reduced_dofs_time(a)
 
 function RBSteady.project!(
   x̂::AbstractVector{<:Number},
@@ -163,17 +167,9 @@ function RBSteady.project!(
   x::AbstractVector{<:Number}
   )
 
-  ns = num_reduced_dofs(a.projection_space)
-  nt = num_reduced_dofs(a.projection_time)
-  X̂ = reshape(x̂,ns,nt)
-
-  Ns = num_fe_dofs(a.projection_space)
-  Nt = num_fe_dofs(a.projection_time)
-  X = reshape(x,Ns,Nt)
-
-  basis_time = get_basis(a.projection_time)
-
-  project!(X̂,a.projection_space,X*basis_time)
+  X̂ = reshape(x̂,num_reduced_dofs_space(a),num_reduced_dofs_time(a))
+  X = reshape(x,num_space_dofs(a),num_times(a))
+  project!(X̂,get_projection_space(a),X*get_basis_time(a))
 end
 
 function RBSteady.inv_project!(
@@ -182,17 +178,9 @@ function RBSteady.inv_project!(
   x̂::AbstractVector{<:Number}
   )
 
-  Ns = num_fe_dofs(a.projection_space)
-  Nt = num_fe_dofs(a.projection_time)
-  X = reshape(x,Ns,Nt)
-
-  ns = num_reduced_dofs(a.projection_space)
-  nt = num_reduced_dofs(a.projection_time)
-  X̂ = reshape(x̂,ns,nt)
-
-  basis_time = get_basis(a.projection_time)
-
-  inv_project!(X,a.projection_space,X̂*basis_time')
+  X = reshape(x,num_space_dofs(a),num_times(a))
+  X̂ = reshape(x̂,num_reduced_dofs_space(a),num_reduced_dofs_time(a))
+  inv_project!(X,get_projection_space(a),X̂*get_basis_time(a)')
 end
 
 function RBSteady.galerkin_projection(proj_left::KroneckerProjection,a::KroneckerProjection)
@@ -223,8 +211,8 @@ function RBSteady.galerkin_projection(
   )
 
   nleft = num_reduced_dofs(proj_left)
-  ns = num_reduced_dofs(a.projection_space)
-  nt = num_reduced_dofs(a.projection_time)
+  ns = num_reduced_dofs_space(a)
+  nt = num_reduced_dofs_time(a)
   n = num_reduced_dofs(a)
   nright = num_reduced_dofs(proj_right)
 
@@ -260,10 +248,10 @@ function RBSteady.galerkin_projection(
 
   nt = num_times(proj_left)
   np = Int(param_length(a.array) / nt)
-  ns_left = num_reduced_dofs(proj_left.projection_space)
-  ns_right = num_reduced_dofs(proj_right.projection_space)
-  nt_left = num_reduced_dofs(proj_left.projection_time)
-  nt_right = num_reduced_dofs(proj_right.projection_time)
+  ns_left = num_reduced_dofs_space(proj_left)
+  ns_right = num_reduced_dofs_space(proj_right)
+  nt_left = num_reduced_dofs_time(proj_left)
+  nt_right = num_reduced_dofs_time(proj_right)
 
   proj_a_space = galerkin_projection(
     get_basis_space(proj_left),
@@ -287,17 +275,11 @@ function RBSteady.galerkin_projection(
   return ReducedProjection(proj)
 end
 
-function RBSteady.projection_eltype(a::KroneckerProjection)
-  T = projection_eltype(a.projection_space)
-  S = projection_eltype(a.projection_time)
-  promote_type(T,S)
-end
-
 for f in (:DEIM,:SOPT)
   @eval begin
     function RBSteady.$f(a::KroneckerProjection)
-      indices_space,interp_space = RBSteady.$f(a.projection_space)
-      indices_time,interp_time = RBSteady.$f(a.projection_time)
+      indices_space,interp_space = RBSteady.$f(get_projection_space(a))
+      indices_time,interp_time = RBSteady.$f(get_basis_time(a))
       interp = kron(interp_time,interp_space)
       return (indices_space,indices_time),interp
     end
@@ -307,20 +289,25 @@ end
 # tt interface
 
 """
-    struct SequentialProjection{A<:Projection} <: TransientProjection
-      projection::A
-    end
+    const SequentialProjection{A<:Projection} = TransientProjection{A,<:AbstractArray{<:Any,3}}
 
-Space-time projection computed with a TT-SVD of the snapshots, whose last core
-spans the time dimension. Output of a [`SequentialReduction`](@ref)
+[`TransientProjection`](@ref) computed with a TT-SVD of the snapshots, whose temporal
+array is the last TT core. The reduced dimension is the rank of this core. Output
+of a [`SequentialReduction`](@ref)
 """
-struct SequentialProjection{A<:Projection} <: TransientProjection
-  projection::A
+const SequentialProjection{A<:Projection} = TransientProjection{A,<:AbstractArray{<:Any,3}}
+
+SequentialProjection(args...) = TransientProjection(args...)
+
+function RBSteady.Projection(red::SequentialReduction,s::TransientSnapshots,args...)
+  cores = reduction(get_reduction(red),s,args...)
+  projection_space = TTSVDProjection(cores[1:end-1],get_dof_map(s))
+  return projection_space,last(cores)
 end
 
 function RBSteady.projection(red::SequentialReduction,s::TransientSnapshots)
-  proj = projection(get_reduction(red),s)
-  SequentialProjection(proj)
+  ps,ct = Projection(red,s)
+  return TransientProjection(ps,ct)
 end
 
 function RBSteady.projection(
@@ -329,53 +316,71 @@ function RBSteady.projection(
   X::MatrixOrTensor
   )
 
-  proj = projection(get_reduction(red),s,X)
-  SequentialProjection(proj)
+  ps,ct = Projection(red,s,X)
+  psX = NormedProjection(ps,X)
+  return TransientProjection(psX,ct)
 end
 
-#TODO when new projection operators are implemented, this will have to change
-RBSteady.get_cores(a::SequentialProjection) = get_cores(a.projection)
-get_cores_space(a::SequentialProjection) = get_cores(a)[1:end-1]
-get_core_time(a::SequentialProjection) = get_cores(a)[end]
+get_cores_space(a::SequentialProjection) = get_cores(get_projection_space(a))
+get_core_time(a::SequentialProjection) = get_basis_time(a)
+RBSteady.get_cores(a::SequentialProjection) = [get_cores_space(a)...,get_core_time(a)]
 
-get_basis_space(a::SequentialProjection) = cores2basis(get_cores_space(a)...)
-get_basis_time(a::SequentialProjection) = @notimplemented
-
-ParamDataStructures.num_space_dofs(a::SequentialProjection) = prod(map(c -> size(c,2),get_cores_space(a)))
 ParamDataStructures.num_times(a::SequentialProjection) = size(get_core_time(a),2)
 
-DofMaps.get_dof_map(a::SequentialProjection) = get_dof_map(a.projection)
+RBSteady.get_basis(a::SequentialProjection) = cores2basis(get_recast_cores(a)...)
+RBSteady.num_reduced_dofs(a::SequentialProjection) = size(get_core_time(a),3)
 
-RBSteady.get_basis(a::SequentialProjection) = get_basis(a.projection)
-RBSteady.num_reduced_dofs(a::SequentialProjection) = num_reduced_dofs(a.projection)
-RBSteady.isnull(a::SequentialProjection) = isnull(a.projection)
-RBSteady.get_norm_matrix(a::SequentialProjection) = get_norm_matrix(a.projection)
-RBSteady.DEIM(a::SequentialProjection) = DEIM(a.projection)
-RBSteady.SOPT(a::SequentialProjection) = SOPT(a.projection)
+RBSteady.DEIM(a::SequentialProjection) = DEIM(_to_ttsvd(a))
+RBSteady.SOPT(a::SequentialProjection) = SOPT(_to_ttsvd(a))
 
 function RBSteady.union_bases(a::SequentialProjection,b::AbstractArray,args...)
-  projection′ = union_bases(a.projection,b,args...)
-  SequentialProjection(projection′)
+  ab = union_bases(_to_ttsvd(a),b,args...)
+  _to_seq(a,ab)
+end
+
+function RBSteady.project!(
+  x̂::AbstractVector{<:Number},
+  a::SequentialProjection,
+  x::AbstractVector{<:Number}
+  )
+
+  X = reshape(x,:,num_times(a))
+  X̂s = project(get_projection_space(a),X)
+  mul!(x̂,transpose(cores2basis(get_core_time(a))),vec(X̂s))
+end
+
+function RBSteady.inv_project!(
+  x::AbstractVector{<:Number},
+  a::SequentialProjection,
+  x̂::AbstractVector{<:Number}
+  )
+
+  X = reshape(x,:,num_times(a))
+  X̂s = reshape(cores2basis(get_core_time(a))*x̂,num_reduced_dofs_space(a),num_times(a))
+  inv_project!(X,get_projection_space(a),X̂s)
 end
 
 function RBSteady.galerkin_projection(proj_left::SequentialProjection,a::SequentialProjection)
-  galerkin_projection(proj_left.projection,a.projection)
+  ps_left = get_projection_space(proj_left)
+  ps = get_projection_space(a)
+  p_space = get_basis(galerkin_projection(ps_left,ps)) # ns_left x ns_a
+
+  nt = num_times(a)
+  n = num_reduced_dofs(a)
+  core = reshape(get_core_time(a),size(p_space,2),nt*n)
+  p_core = reshape(p_space*core,size(p_space,1)*nt,n)
+  ReducedProjection(transpose(cores2basis(get_core_time(proj_left)))*p_core)
 end
 
 function RBSteady.galerkin_projection(
   proj_left::SequentialProjection,
-  a::SequentialProjection{<:TTSVDProjection{A,<:AbstractDofMap}},
+  a::SequentialProjection,
   proj_right::SequentialProjection,
   combine
-  ) where A
+  )
 
-  # space
-  pl_space = get_cores_space(proj_left)
-  a_space = recast(get_cores_space(a),get_dof_map(a))
-  pr_space = get_cores_space(proj_right)
-  p_space = unbalanced_contractions(pl_space,a_space,pr_space)
+  p_space = space_contractions(proj_left,a,proj_right)
 
-  # time
   pl_time = get_core_time(proj_left)
   a_time = get_core_time(a)
   pr_time = get_core_time(proj_right)
@@ -388,32 +393,33 @@ function RBSteady.galerkin_projection(
   return ReducedProjection(proj_cores)
 end
 
-function RBSteady.galerkin_projection(
+"""
+    space_contractions(proj_left,a,proj_right) -> Tuple{Vararg{AbstractArray}}
+
+Spatial factors of the Galerkin projection of the [`SequentialProjection`](@ref) `a`
+"""
+function space_contractions(
   proj_left::SequentialProjection,
-  a::SequentialProjection{<:TTSVDProjection{A,<:TrivialDofMap}},
-  proj_right::SequentialProjection,
-  combine
+  a::SequentialProjection{<:TTSVDProjection{A,<:AbstractDofMap}},
+  proj_right::SequentialProjection
   ) where A
 
-  get_core_space(a) = RBSteady.basis2core(get_basis_space(a))
+  pl_space = get_cores_space(proj_left)
+  a_space = recast(get_cores_space(a),get_dof_map(a))
+  pr_space = get_cores_space(proj_right)
+  unbalanced_contractions(pl_space,a_space,pr_space)
+end
 
-  # space
-  pl_space = get_core_space(proj_left)
+function space_contractions(
+  proj_left::SequentialProjection,
+  a::SequentialProjection{<:TTSVDProjection{A,<:TrivialDofMap}},
+  proj_right::SequentialProjection
+  ) where A
+
+  pl_space = RBSteady.basis2core(get_basis_space(proj_left))
   a_space = first(get_recast_cores(a))
-  pr_space = get_core_space(proj_right)
-  p_space = contraction(pl_space,a_space,pr_space)
-
-  # time
-  pl_time = get_core_time(proj_left)
-  a_time = get_core_time(a)
-  pr_time = get_core_time(proj_right)
-  p_time = contraction(pl_time,a_time,pr_time,combine)
-
-  p = sequential_product(p_space,p_time)
-  proj_cores = dropdims(p;dims=(1,2,3)) # n_test x n_a x n_trial
-  proj_cores = permutedims(proj_cores,(1,3,2)) # n_test x n_trial x n_a
-
-  return ReducedProjection(proj_cores)
+  pr_space = RBSteady.basis2core(get_basis_space(proj_right))
+  (contraction(pl_space,a_space,pr_space),)
 end
 
 function RBSteady.galerkin_projection(proj_left::SequentialProjection,a::GalerkinProjectable)
@@ -453,29 +459,7 @@ function RBSteady.galerkin_projection(
   return ReducedProjection(proj_cores)
 end
 
-function RBSteady.projection_eltype(a::SequentialProjection)
-  projection_eltype(a.projection)
-end
-
-function RBSteady.project!(
-  x̂::AbstractVector{<:Number},
-  a::SequentialProjection,
-  x::AbstractVector{<:Number}
-  )
-
-  project!(x̂,a.projection,x)
-end
-
-function RBSteady.inv_project!(
-  x::AbstractVector{<:Number},
-  a::SequentialProjection,
-  x̂::AbstractVector{<:Number}
-  )
-
-  inv_project!(x,a.projection,x̂)
-end
-
-# multfield interface
+# multifield interface
 
 function RBSteady.enrich!(
   red::SupremizerReduction{A,B,<:TransientReduction},
@@ -498,8 +482,8 @@ function RBSteady.enrich!(
 
   tol = RBSteady.get_supr_tol(red)
   a_primal,a_dual... = a.array
-  a_primal_space = a_primal.projection_space
-  a_primal_time = a_primal.projection_time
+  a_primal_space = get_projection_space(a_primal)
+  a_primal_time = get_basis_time(a_primal)
   X_primal = norm_matrix[1]
   H_primal = gram_solver(X_primal)
   for i = eachindex(a_dual)
@@ -516,21 +500,16 @@ function RBSteady.enrich!(
 end
 
 """
-    time_enrichment(red::SupremizerReduction,a_primal::Projection,basis_dual;kwargs...) -> AbstractMatrix
+    time_enrichment(basis_primal::AbstractMatrix,basis_dual::AbstractMatrix;tol=1e-2) -> AbstractMatrix
 
 Temporal supremizer enrichment. (Approximate) Procedure:
 
 1. for every `b_dual ∈ Col(basis_dual)`
-2. compute `Φ_primal_dual = get_basis(a_primal)'*get_basis(b_dual)`
+2. compute `Φ_primal_dual = basis_primal'*b_dual`
 3. compute `v = kernel(Φ_primal_dual)`
-4. compute `v′ = orth_complement(v,a_primal)`
-5. enrich `a_primal = [a_primal,v′]`
+4. compute `v′ = orth_complement(v,basis_primal)`
+5. enrich `basis_primal = [basis_primal,v′]`
 """
-function time_enrichment(a_primal::Projection,basis_dual;kwargs...)
-  basis_primal′ = time_enrichment(get_basis(a_primal),basis_dual;kwargs...)
-  PODProjection(basis_primal′,get_dof_map(a_primal))
-end
-
 function time_enrichment(basis_primal,basis_dual;tol=1e-2)
   basis_pd = basis_primal'*basis_dual
   T = eltype(basis_pd)
@@ -585,12 +564,12 @@ function inv_project_space!(x::AbstractArray,a::Projection,x̂::AbstractArray)
 end
 
 function allocate_in_space_domain(a::Projection,x::V) where V<:AbstractVector
-  x̂ = allocate_vector(V,reduced_space_dof_ids(a))
+  x̂ = allocate_vector(V,reduced_dof_ids_space(a))
   return x̂
 end
 
 function allocate_in_space_range(a::Projection,x̂::V) where V<:AbstractVector
-  x = allocate_vector(V,fe_space_dof_ids(a))
+  x = allocate_vector(V,fe_dof_ids_space(a))
   return x
 end
 
@@ -605,12 +584,12 @@ function allocate_in_space_range(a::Projection,X̂::M) where M<:AbstractMatrix
 end
 
 function allocate_in_space_domain(a::Projection,x::V) where V<:AbstractParamVector
-  x̂ = allocate_vector(eltype(V),reduced_space_dof_ids(a))
+  x̂ = allocate_vector(eltype(V),reduced_dof_ids_space(a))
   return parameterise(x̂,param_length(x))
 end
 
 function allocate_in_space_range(a::Projection,x̂::V) where V<:AbstractParamVector
-  x = allocate_vector(eltype(V),fe_space_dof_ids(a))
+  x = allocate_vector(eltype(V),fe_dof_ids_space(a))
   return parameterise(x,param_length(x̂))
 end
 
@@ -657,3 +636,16 @@ for f in (:project_space!,:inv_project_space!)
     end
   end
 end
+
+# utils
+
+_to_ttsvd(a::SequentialProjection) = TTSVDProjection(get_cores_space(a),get_dof_map(a))
+
+function _to_seq(a::SequentialProjection,b::TTSVDProjection)
+  cores_space...,core_time = get_cores(b)
+  proj_space = _to_seq(a,TTSVDProjection(cores_space,get_dof_map(b)))
+  TransientProjection(proj_space,core_time)
+end
+
+_to_seq(a::TTSVDProjection,b) = b
+_to_seq(a::NormedProjection,b) = NormedProjection(b,get_norm_matrix(a))

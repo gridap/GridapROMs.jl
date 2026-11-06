@@ -1,6 +1,6 @@
 """
     reduction(red::Reduction,A::AbstractArray,args...) -> AbstractArray
-    reduction(red::Reduction,A::AbstractArray,X::AbstractSparseMatrix) -> AbstractArray
+    reduction(red::Reduction,A::AbstractArray,X::AbstractMatrix) -> AbstractArray
 
 Given an array (of snapshots) `A`, returns a reduced basis obtained by means of
 the reduction strategy `red`
@@ -161,7 +161,7 @@ end
 function ttsvd_loop(
   red_style::ReductionStyle,
   A::AbstractArray{T,3},
-  X::AbstractSparseMatrix
+  X::AbstractMatrix
   ) where T
 
   prev_rank = size(A,1)
@@ -177,7 +177,7 @@ end
 function matching_ttsvd_loop(
   red_style::ReductionStyle,
   A::AbstractArray{T,3},
-  X::AbstractSparseMatrix
+  X::AbstractMatrix
   ) where T
 
   prev_rank = size(A,1)
@@ -215,13 +215,8 @@ function ttsvd(
   return cores,remainder
 end
 
-function ttsvd(red_style::TTSVDRanks,A::AbstractArray{T,N},X::AbstractSparseMatrix) where {T,N}
-  cores = Array{T,3}[]
-  remainder = first_unfold_3D(A)
-  cur_core,cur_remainder = ttsvd_loop(first(red_style),remainder,X)
-  remainder = reshape(cur_remainder,size(cur_core,3),size(A,N),:)
-  push!(cores,cur_core)
-  return cores,remainder
+function ttsvd(red_style::TTSVDRanks,A::AbstractArray{T,N},X::AbstractMatrix) where {T,N}
+  ttsvd(red_style,A,Rank1Tensor([X]))
 end
 
 function ttsvd(

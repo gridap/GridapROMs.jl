@@ -1,24 +1,5 @@
-function RBSteady.local_vals(a::KroneckerProjection)
-  map(KroneckerProjection,local_vals(a.projection_space),local_vals(a.projection_time))
-end
-
-function RBSteady.local_vals(a::SequentialProjection)
-  map(SequentialProjection,local_vals(a.projection))
-end
-
-RBSteady.get_clusters(a::KroneckerProjection) = get_clusters(a.projection_space)
-RBSteady.get_clusters(a::SequentialProjection) = get_clusters(a.projection)
-
 RBSteady.get_local(a,r::TransientRealisation) = get_local(a,get_params(r))
 RBSteady.get_local(a,μt::Tuple{Any,Any}) = get_local(a,first(μt))
-
-function RBSteady.get_local(a::KroneckerProjection,μ::AbstractVector)
-  KroneckerProjection(get_local(a.projection_space,μ),get_local(a.projection_time,μ))
-end
-
-function RBSteady.get_local(a::SequentialProjection,μ::AbstractVector)
-  SequentialProjection(get_local(a.projection,μ))
-end
 
 function RBSteady.enrich!(
   red::SupremizerReduction{A,D,<:LocalReduction{B,C,<:KroneckerReduction}},
@@ -33,8 +14,8 @@ function RBSteady.enrich!(
   H_primal = gram_solver(X_primal)
   a_primal_loc = local_vals(a_primal)
   for j in eachindex(a_primal_loc)
-    pj_space = a_primal_loc[j].projection_space
-    pj_time = a_primal_loc[j].projection_time
+    pj_space = get_projection_space(a_primal_loc[j])
+    pj_time = get_basis_time(a_primal_loc[j])
     for i = eachindex(a_dual)
       a_dual_i = local_vals(a_dual[i])
       dij_space = get_basis_space(a_dual_i[j])
