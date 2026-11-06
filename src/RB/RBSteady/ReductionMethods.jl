@@ -326,7 +326,8 @@ ParamDataStructures.num_params(r::SupremizerReduction) = num_params(get_reductio
 
 function Reduction(
   red_style::ReductionStyle,
-  args...;compression=:global,
+  args...;
+  compression=:global,
   ncentroids=10,
   kwargs...
   )
@@ -340,7 +341,8 @@ end
 
 function Reduction(
   red_style::TTSVDRanks,
-  args...;compression=:global,
+  args...;
+  compression=:global,
   ncentroids=10,
   kwargs...
   )

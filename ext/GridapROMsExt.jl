@@ -94,8 +94,8 @@ function GridapROMs.update_reduction(red::RBFHyperReduction,tolrank)
   RBFHyperReduction(update_reduction(red.reduction,tolrank),red.strategy)
 end
 
-function GridapROMs.update_reduction(red::SteadyReduction,tolrank)
-  SteadyReduction(update_reduction(red.reduction,tolrank))
+function GridapROMs.update_reduction(red::TimeMarchingReduction,tolrank)
+  TimeMarchingReduction(update_reduction(red.reduction,tolrank))
 end
 
 function GridapROMs.update_reduction(red::KroneckerReduction,tolrank)
@@ -122,6 +122,10 @@ end
 
 function GridapROMs.update_reduction(red::TransientRBFHyperReduction,tolrank)
   TransientRBFHyperReduction(update_reduction(red.reduction,tolrank),red.combination,red.strategy)
+end
+
+function GridapROMs.update_reduction(red::TimeAffineHyperReduction,tolrank)
+  TimeAffineHyperReduction(update_reduction(red.reduction,tolrank),red.combination)
 end
 
 function GridapROMs.update_reduction(red::NTuple{N,Reduction},tolrank) where N

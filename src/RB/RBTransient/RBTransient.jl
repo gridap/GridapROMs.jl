@@ -6,7 +6,7 @@ time, and so do reduced bases and hyper-reductions. Main building blocks:
 
 - **Reduction methods** (`ReductionMethods.jl`) — [`TransientReduction`](@ref), which builds a
   [`KroneckerReduction`](@ref) (space-time POD, a Kronecker product of spatial and temporal
-  bases), a [`SequentialReduction`](@ref) (TT-SVD) or a [`SteadyReduction`](@ref) (spatial
+  bases), a [`SequentialReduction`](@ref) (TT-SVD) or a [`TimeMarchingReduction`](@ref) (spatial
   reduction only, with time marching online); the corresponding
   [`TransientHyperReduction`](@ref)s.
 - **Projections** (`Projections.jl`, `BasesConstruction.jl`) — [`TransientProjection`](@ref),
@@ -66,7 +66,7 @@ import GridapROMs.ParamDataStructures: GenericTransientRealisation, TransientRea
 import GridapROMs.RBSteady: num_centroids,get_lhs,get_rhs,_get_label,_setup,_convert_to_block,fe_dof_ids,reduced_dof_ids
 import RadialBasisFunctions: Interpolator, AbstractRadialBasis, PHS
 
-export SteadyReduction
+export TimeMarchingReduction
 export TransientReduction
 export KroneckerReduction
 export SequentialReduction
@@ -77,6 +77,7 @@ export TransientAffineHyperReduction
 export TransientDEIMHyperReduction
 export TransientSOPTHyperReduction
 export TransientRBFHyperReduction
+export TimeAffineHyperReduction
 export TransientLocalHyperReduction
 export get_reduction
 export get_time_combination
@@ -119,6 +120,9 @@ include("Interpolations.jl")
 
 export TransientAffineHRContribution
 export TransientAffineHRContributionTuple
+export TimeAffineHRProjection
+export TimeAffineHRContribution
+export TimeAffineHRContributionTuple
 export get_common_time_domain
 include("HyperReductions.jl")
 

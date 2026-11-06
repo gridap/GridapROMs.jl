@@ -62,7 +62,7 @@ trial = TransientTrialParamFESpace(test,gμt)
 
 uh0μ(μ) = interpolate_everywhere(u0μ(μ),trial(μ,t0))
 
-state_reduction = SteadyReduction(tol,H1();nparams,compression,ncentroids)
+state_reduction = TimeMarchingReduction(tol,H1();nparams,compression,ncentroids)
 
 θ = 0.5
 dt = 0.01

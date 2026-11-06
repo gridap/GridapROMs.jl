@@ -639,11 +639,11 @@ end
 
 # utils
 
-_to_ttsvd(a::SequentialProjection) = TTSVDProjection(get_cores_space(a),get_dof_map(a))
+_to_ttsvd(a::SequentialProjection) = TTSVDProjection(get_cores(a),get_dof_map(a))
 
 function _to_seq(a::SequentialProjection,b::TTSVDProjection)
   cores_space...,core_time = get_cores(b)
-  proj_space = _to_seq(a,TTSVDProjection(cores_space,get_dof_map(b)))
+  proj_space = _to_seq(get_projection_space(a),TTSVDProjection(cores_space,get_dof_map(b)))
   TransientProjection(proj_space,core_time)
 end
 

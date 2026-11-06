@@ -506,8 +506,8 @@ function RBSteady.jacobian_contribution(solver::RBSolver,op::LinearNonlinearODEP
   Bundle(jac_lin,jac_nlin)
 end
 
-function RBSteady.set_params(red::SteadyReduction;kwargs...)
-  SteadyReduction(RBSteady.set_params(red.reduction;kwargs...))
+function RBSteady.set_params(red::TimeMarchingReduction;kwargs...)
+  TimeMarchingReduction(RBSteady.set_params(red.reduction;kwargs...))
 end
 
 function RBSteady.set_params(red::KroneckerReduction;kwargs...)
@@ -524,6 +524,10 @@ end
 
 function RBSteady.set_params(red::TransientSOPTHyperReduction;kwargs...)
   TransientSOPTHyperReduction(RBSteady.set_params(red.reduction;kwargs...),red.combination)
+end
+
+function RBSteady.set_params(red::TimeAffineHyperReduction;kwargs...)
+  TimeAffineHyperReduction(RBSteady.set_params(red.reduction;kwargs...),red.combination)
 end
 
 function RBSteady.set_params(red::TransientRBFHyperReduction;kwargs...)

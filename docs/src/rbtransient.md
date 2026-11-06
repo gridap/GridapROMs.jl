@@ -12,7 +12,7 @@ Reduced-basis infrastructure for transient parametric PDEs, extending
 High-dimensional (transient) reduction methods extend the steady
 [`Reduction`](@ref) to handle the time dimension. The abstract supertype
 [`TransientReduction`](@ref) dispatches to one of three strategies depending
-on the arguments: [`SteadyReduction`](@ref), [`KroneckerReduction`](@ref),
+on the arguments: [`TimeMarchingReduction`](@ref), [`KroneckerReduction`](@ref),
 and [`SequentialReduction`](@ref).
 
 ## Hyper-reduction methods
@@ -22,7 +22,8 @@ Transient hyper-reduction wraps a [`TransientReduction`](@ref) together with a
 See [`TransientHyperReduction`](@ref) for details on how the θ-method (and
 higher-order schemes) lead to per-operator combination orders. Concrete
 subtypes include [`TransientDEIMHyperReduction`](@ref),
-[`TransientSOPTHyperReduction`](@ref), and [`TransientRBFHyperReduction`](@ref).
+[`TransientSOPTHyperReduction`](@ref), [`TransientRBFHyperReduction`](@ref), and
+[`TimeAffineHyperReduction`](@ref), for forms independent of time.
 
 ## Bases construction
 

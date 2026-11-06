@@ -672,14 +672,10 @@ function LowRankApprox.psvdfact(
   )
 
   m,n = size(A)
-  if m >= n
-    psvdfact_left(A,opts;kwargs...)
-  else
-    psvdfact_right(A,opts;kwargs...)
-  end
+  m >= n ? psvdfact_cols(A,opts;kwargs...) : psvdfact_rows(A,opts;kwargs...)
 end
 
-function psvdfact_left(
+function psvdfact_cols(
   A::AbstractMatrix,
   opts::LRAOptions=LRAOptions(eltype(A));
   kwargs...
@@ -691,7 +687,7 @@ function psvdfact_left(
   Ask = _getcols(A,V[:sk])
   Q,R = _qr!(Ask)
   U2,sig,V2 = svd!(R*V)
-  k = LowRankApprox.psvdrank(sig,opts)
+  k = psvdrank(sig,opts)
   if k < V[:k]
     U = Q*_getcols(U2,1:k)
     S = sig[1:k]
@@ -704,7 +700,7 @@ function psvdfact_left(
   PartialSVD(U,S,Vt)
 end
 
-function psvdfact_left(
+function psvdfact_cols(
   A::AbstractMatrix,
   X::AbstractMatrix,
   opts::LRAOptions=LRAOptions(eltype(A));
@@ -717,7 +713,7 @@ function psvdfact_left(
   Ask = _getcols(A,V[:sk])
   Q,R = _qr!(Ask,X)
   U2,sig,V2 = svd!(R*V)
-  k = LowRankApprox.psvdrank(sig,opts)
+  k = psvdrank(sig,opts)
   if k < V[:k]
     U = Q*_getcols(U2,1:k)
     S = sig[1:k]
@@ -729,6 +725,61 @@ function psvdfact_left(
   end
   PartialSVD(U,S,Vt)
 end
+
+function psvdfact_rows(
+  A::AbstractMatrix,
+  opts::LRAOptions=LRAOptions(eltype(A));
+  kwargs...
+  )
+
+  opts = isempty(kwargs) ? opts : copy(opts;kwargs...)
+  V = idfact(:c,A,opts)
+  V[:k] == 0 && return _null_psvdfact(A)
+  Ask = _getcols(A,V[:sk])
+  Q,R = _qr!(Ask)
+  U2,sig,V2 = svd!(V'*R')
+  k = psvdrank(sig,opts)
+  if k < V[:k]
+    U = _getcols(U2,1:k)
+    S = sig[1:k]
+    Vt = view(V2',1:k,:)*Q'
+  else
+    U = U2
+    S = sig
+    Vt = V2'*Q'
+  end
+  PartialSVD(U,S,Vt)
+end
+
+function psvdfact_rows(
+  A::AbstractMatrix,
+  X::AbstractMatrix,
+  opts::LRAOptions=LRAOptions(eltype(A));
+  kwargs...
+  )
+
+  opts = isempty(kwargs) ? opts : copy(opts;kwargs...)
+  V = idfact(:c,A,opts)
+  V[:k] == 0 && return _null_psvdfact(A)
+  Ask = _getcols(A,V[:sk])
+  Q,R = _qr!(Ask,X)
+  U2,sig,V2 = svd!(V'*R')
+  k = psvdrank(sig,opts)
+  if k < V[:k]
+    U = _getcols(U2,1:k)
+    S = sig[1:k]
+    Vt = view(V2',1:k,:)*Q'
+  else
+    U = U2
+    S = sig
+    Vt = V2'*Q'
+  end
+  PartialSVD(U,S,Vt)
+end
+
+_qr!(A::AbstractMatrix) = qr!(A)
+_qr!(A::AbstractMatrix, X::AbstractMatrix) = qr!(X*A)
+_getcols(A::AbstractMatrix,cols) = A[:,cols]
 
 function _null_psvdfact(A::AbstractMatrix{T}) where T
   m,n = size(A)

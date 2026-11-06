@@ -130,6 +130,21 @@ for (T,f) in zip((:TransientDEIMHyperReduction,:TransientSOPTHyperReduction),(:D
   end
 end
 
+function RBSteady.Interpolation(red::TimeAffineHyperReduction,a::TransientProjection,args...)
+  isnull(a) && return EmptyInterpolation(a)
+  GreedyInterpolation(red,a,args...)
+end
+
+# the temporal basis is constant: all the rows share one time step, for TT as well
+function RBSteady.GreedyInterpolation(red::TimeAffineHyperReduction,a::TransientProjection,args...)
+  style = KroneckerStyle()
+  rspace = DEIMHyperReduction(get_reduction(red))
+  aspace = get_projection_space(a)
+  interp = GreedyInterpolation(rspace,aspace,args...)
+  indices_time = [1]
+  TransientInterpolation(style,interp,indices_time)
+end
+
 # RBF interpolation
 
 """

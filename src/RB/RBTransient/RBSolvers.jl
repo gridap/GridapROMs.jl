@@ -22,7 +22,7 @@ end
 const TransientRBSolver{A<:ODESolver,B,C,D,E} = RBSolver{A,B,C,D,E}
 
 ParamODEs.TimeCombination(s::TransientRBSolver) = TimeCombination(get_fe_solver(s))
-ParamODEs.TimeCombination(s::TransientRBSolver{<:ODESolver,B,<:SteadyReduction}) where B = TimeMarchingCombination(get_fe_solver(s))
+ParamODEs.TimeCombination(s::TransientRBSolver{<:ODESolver,B,<:TimeMarchingReduction}) where B = TimeMarchingCombination(get_fe_solver(s))
 
 RBSteady.get_reduced_solver(::ODESolver) = @abstractmethod
 RBSteady.get_reduced_solver(s::ThetaMethod) = ThetaMethod(get_reduced_solver(s.sysslvr),s.dt,s.θ)

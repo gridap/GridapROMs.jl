@@ -50,11 +50,26 @@ function RBSteady.HRProjection(red::TransientRBFHyperReduction,s,trian,trial,tes
   return HRProjection(proj_basis,red,interp)
 end
 
+function RBSteady.HRProjection(red::TimeAffineHyperReduction,s,trian,test)
+  basis = _time_affine_basis(red,s,test)
+  proj_basis = project(test,basis)
+  interp = Interpolation(red,basis,trian,test)
+  return HRProjection(proj_basis,red,interp)
+end
+
+function RBSteady.HRProjection(red::TimeAffineHyperReduction,s,trian,trial,test)
+  basis = _time_affine_basis(red,s,test)
+  proj_basis = project(test,basis,trial,get_time_combination(red))
+  interp = Interpolation(red,basis,trian,trial,test)
+  return HRProjection(proj_basis,red,interp)
+end
+
 const TransientNoHRProjection{A<:Projection} = HRProjection{<:TransientNoHyperReduction,A}
 const TransientAffineHRProjection{A<:Projection} = HRProjection{<:TransientAffineHyperReduction,A}
 const TransientDEIMProjection{A<:Projection} = HRProjection{<:TransientDEIMHyperReduction,A}
 const TransientSOPTProjection{A<:Projection} = HRProjection{<:TransientSOPTHyperReduction,A}
 const TransientRBFProjection{A<:Projection} = HRProjection{<:TransientRBFHyperReduction,A}
+const TimeAffineHRProjection{A<:Projection} = HRProjection{<:TimeAffineHyperReduction,A}
 
 function FESpaces.interpolate!(
   b̂::AbstractArray,
@@ -92,6 +107,7 @@ const TransientAffineHRContribution = AffineContribution{<:TransientAffineHRProj
 const TransientDEIMContribution = AffineContribution{<:TransientDEIMProjection}
 const TransientSOPTContribution = AffineContribution{<:TransientSOPTProjection}
 const TransientRBFContribution = AffineContribution{<:TransientRBFProjection}
+const TimeAffineHRContribution = AffineContribution{<:TimeAffineHRProjection}
 
 """
     const AffineContributionTuple = ContributionTuple{<:AffineContribution,T} where T
@@ -109,6 +125,7 @@ const TransientAffineHRContributionTuple = ContributionTuple{<:TransientAffineHR
 const TransientDEIMContributionTuple = ContributionTuple{<:TransientDEIMContribution,T} where T
 const TransientSOPTContributionTuple = ContributionTuple{<:TransientSOPTContribution,T} where T
 const TransientRBFContributionTuple = ContributionTuple{<:TransientRBFContribution,T} where T
+const TimeAffineHRContributionTuple = ContributionTuple{<:TimeAffineHRContribution,T} where T
 
 function RBSteady.allocate_coefficient(a::AffineContributionTuple,b::ArrayContributionTuple)
   @check length(a) == length(b)
@@ -289,7 +306,7 @@ function RBSteady._prepare_residual(
   )
 
   c = TimeCombination(solver)
-  sres = select_snapshots(s,RBSteady.res_params(solver))
+  sres = _prepare_res_snapshots(solver,s)
   r = get_realisation(sres)
   u = get_param_data(sres)
   us0 = get_initial_param_data(sres)
@@ -370,12 +387,29 @@ function RBSteady._prepare_jacobian(
   )
 
   c = TimeCombination(solver)
-  sjac = select_snapshots(s,RBSteady.jac_params(solver))
+  sjac = _prepare_jac_snapshots(solver,s)
   r = get_realisation(sjac)
   u = get_param_data(sjac)
   us0 = get_initial_param_data(sjac)
   RBSteady._prepare_jacobian(op,c,r,u,us0)
 end
+
+function _prepare_res_snapshots(solver::RBSolver,s::AbstractSnapshots)
+  sres = select_snapshots(s,RBSteady.res_params(solver))
+  _select_times(RBSteady.get_residual_reduction(solver),sres)
+end
+
+function _prepare_jac_snapshots(solver::RBSolver,s::AbstractSnapshots)
+  sjac = select_snapshots(s,RBSteady.jac_params(solver))
+  _select_times(RBSteady.get_jacobian_reduction(solver),sjac)
+end
+
+_is_time_affine(red::Reduction) = false
+_is_time_affine(red::TimeAffineHyperReduction) = true
+_is_time_affine(red::LocalReduction) = _is_time_affine(get_reduction(red))
+
+_select_times(red::Reduction,s) = _is_time_affine(red) ? select_times(s,1:1) : s
+_select_times(red::Tuple,s) = all(_is_time_affine,red) ? select_times(s,1:1) : s
 
 function _time_combination!(usx,op::ODEParamOperator,c,u,us0)
   time_combination!(usx,c,u,us0)
@@ -387,4 +421,34 @@ end
 
 function _time_combination!(usx,op::ODEParamOperator{LinearParamODE},c::TimeMarchingCombination,u,us0)
   ParamODEs.lin_time_combination!(usx,c,u,us0)
+end
+
+# the snapshots span every time step when another jacobian is not time-affine
+function _time_affine_basis(red::TimeAffineHyperReduction,s,test)
+  basis = projection(get_reduction(red),select_times(s,1:1))
+  _add_time_basis(basis,num_times(get_reduced_subspace(test)))
+end
+
+# extensions in time of a basis computed at one time step. The temporal part equals
+# one, since the interpolation only involves the spatial part
+function _add_time_basis(a::KroneckerProjection,Nt::Int)
+  nt = num_reduced_dofs_time(a)
+  @check nt ≤ 1 "expected a basis computed at a single time step, got temporal rank $nt"
+  TransientProjection(get_projection_space(a),ones(Nt,nt))
+end
+
+# the time core is absorbed by the last spatial core, whose rank becomes the reduced dimension
+function _add_time_basis(a::SequentialProjection,Nt::Int)
+  @check num_times(a) == 1 "expected a basis computed at a single time step"
+  cores_space = get_cores_space(a)
+  c = last(cores_space)
+  n = num_reduced_dofs(a)
+  c′ = reshape(c,:,size(c,3))*dropdims(get_core_time(a);dims=2)
+  cores_space′ = [cores_space[1:end-1]...,reshape(c′,size(c,1),size(c,2),n)]
+  core_time = zeros(eltype(c),n,Nt,n)
+  for it in 1:Nt, i in 1:n
+    core_time[i,it,i] = 1
+  end
+  projection_space = TTSVDProjection(cores_space′,get_dof_map(a))
+  TransientProjection(projection_space,core_time)
 end

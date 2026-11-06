@@ -31,13 +31,54 @@ function LinearAlgebra.ldiv!(S::GenericPMatrix,ns::LinearSolvers.CGNumericalSetu
 end
 
 function RBSteady.gram_schmidt(A::AbstractMatrix,ns::NumericalSetup;tol=1e-10)
-  Q,R, = weighted_qr!(A,_get_matrix(ns))
+  Q,R, = _pivoted_qr!(A,_get_matrix(ns))
   rank = something(findlast(abs.(diag(R)) .> tol),0)
   Qr = RBSteady._truncate_col!(Q,rank)
   return Qr
 end
 
-function weighted_qr!(A::GenericPMatrix,X::PSparseMatrix)
+function _qr!(A::GenericPMatrix)
+  _,n = size(A)
+  T = eltype(A)
+  R = zeros(T,n,n)
+  for j in 1:n
+    normj = sqrt(max(real(_wdot(A,A,j,j)),zero(real(T))))
+    R[j,j] = normj
+    iszero(normj) && continue
+    _wscale_col!(A,inv(normj),j)
+    for k in j+1:n
+      rjk = _wdot(A,A,j,k)
+      R[j,k] = rjk
+      _waxpy_col!(A,-rjk,j,k)
+    end
+  end
+  consistent!(A) |> wait
+  return A,R
+end
+
+function _qr!(A::GenericPMatrix,X::PSparseMatrix)
+  _,n = size(A)
+  T = eltype(A)
+  XA = X*A
+  R = zeros(T,n,n)
+  for j in 1:n
+    normj = sqrt(max(real(_wdot(A,XA,j,j)),zero(real(T))))
+    R[j,j] = normj
+    iszero(normj) && continue
+    _wscale_col!(A,inv(normj),j)
+    _wscale_col!(XA,inv(normj),j)
+    for k in j+1:n
+      rjk = _wdot(A,XA,j,k)
+      R[j,k] = rjk
+      _waxpy_col!(A,-rjk,j,k)
+      _waxpy_col!(XA,-rjk,j,k)
+    end
+  end
+  consistent!(A) |> wait
+  return A,R
+end
+
+function _pivoted_qr!(A::GenericPMatrix,X::PSparseMatrix)
   m,n = size(A)
   T = eltype(A)
   XA = X*A

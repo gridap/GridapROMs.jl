@@ -5,7 +5,7 @@ Abstract supertype for reduction methods in high-order (e.g. transient)
 parametric problems.
 
 Concrete subtypes:
-- [`SteadyReduction`](@ref) — wraps a steady `Reduction`; no temporal
+- [`TimeMarchingReduction`](@ref) — wraps a steady `Reduction`; no temporal
   compression is applied (the ROM still time-steps).
 - [`KroneckerReduction`](@ref) — builds a Kronecker (Tucker) product space
   from independent spatial and temporal reductions.
@@ -18,7 +18,7 @@ to the appropriate subtype based on the arguments.
 abstract type TransientReduction{A<:ReductionStyle,B<:AssembleOperator} <: Reduction{A,B} end
 
 """
-    struct SteadyReduction{A,B} <: TransientReduction{A,B}
+    struct TimeMarchingReduction{A,B} <: TransientReduction{A,B}
       reduction::Reduction{A,B}
     end
 
@@ -26,23 +26,23 @@ Wrapper for steady reduction methods in high order problems, such as transient o
 In practice, the resulting ROM will still need to run the time marching scheme, since 
 no temporal reduction occurs.
 """
-struct SteadyReduction{A,B} <: TransientReduction{A,B}
+struct TimeMarchingReduction{A,B} <: TransientReduction{A,B}
   reduction::Reduction{A,B}
 end
 
-function SteadyReduction(args...;kwargs...)
+function TimeMarchingReduction(args...;kwargs...)
   reduction = Reduction(args...;kwargs...)
-  SteadyReduction(reduction)
+  TimeMarchingReduction(reduction)
 end
 
-function SteadyReduction(coupling::AssembleOperator,args...;supr_tol=1e-2,kwargs...)
-  reduction = SteadyReduction(args...;kwargs...)
+function TimeMarchingReduction(coupling::AssembleOperator,args...;supr_tol=1e-2,kwargs...)
+  reduction = TimeMarchingReduction(args...;kwargs...)
   SupremizerReduction(reduction,coupling,supr_tol)
 end
 
-RBSteady.ReductionStyle(r::SteadyReduction) = ReductionStyle(r.reduction)
-RBSteady.NormStyle(r::SteadyReduction) = NormStyle(r.reduction)
-ParamDataStructures.num_params(r::SteadyReduction) = num_params(r.reduction)
+RBSteady.ReductionStyle(r::TimeMarchingReduction) = ReductionStyle(r.reduction)
+RBSteady.NormStyle(r::TimeMarchingReduction) = NormStyle(r.reduction)
+ParamDataStructures.num_params(r::TimeMarchingReduction) = num_params(r.reduction)
 
 """
     struct KroneckerReduction{A,B} <: TransientReduction{A,B}
@@ -193,13 +193,15 @@ Supported `hypred_strategy` values:
 - `:rbf`
 - `:none` (aliases: `:no`, `:nohr`) -> [`TransientNoHyperReduction`](@ref)
 - `:affine` -> [`TransientAffineHyperReduction`](@ref)
+- `:time_affine` -> [`TimeAffineHyperReduction`](@ref)
 
 When `compression=:local`, this dispatches to
 [`TransientLocalHyperReduction`](@ref) with the selected strategy.
 """
 function TransientHyperReduction(
   combination::TimeCombination,
-  args...;compression=:global,
+  args...;
+  compression=:global,
   hypred_strategy=:deim,
   kwargs...
   )
@@ -216,6 +218,8 @@ function TransientHyperReduction(
       return TransientSOPTHyperReduction(combination,reduction)
     elseif hypred_strategy==:rbf
       return TransientRBFHyperReduction(combination,reduction)
+    elseif hypred_strategy == :time_affine
+      return TimeAffineHyperReduction(combination,reduction)
     else
       error("Unknown high-dimensional hyper-reduction strategy: $hypred_strategy")
     end
@@ -273,8 +277,9 @@ get_time_combination(r::TransientHyperReduction) = @abstractmethod
 
 function TransientHyperReduction(
   combination::TimeCombination,
-  reduction::SteadyReduction,
-  args...;kwargs...
+  reduction::TimeMarchingReduction,
+  args...;
+  kwargs...
   )
 
   hr = HyperReduction(reduction,args...;kwargs...)
@@ -400,6 +405,33 @@ RBSteady.get_reduction(r::TransientRBFHyperReduction) = r.reduction
 RBSteady.interp_strategy(r::TransientRBFHyperReduction) = r.strategy
 get_time_combination(r::TransientRBFHyperReduction) = r.combination
 
+"""
+    struct TimeAffineHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: TransientHyperReduction{A}
+      reduction::R
+      combination::TimeCombination
+    end
+
+DEIM hyper-reduction of a form independent of time. Snapshots are computed at the
+first time step only, the temporal basis is constant, and the online assembly
+only occurs at the first time step. The form may still depend on the parameter.
+
+# Fields
+- `reduction::R`: the underlying reduction.
+- `combination::TimeCombination`: time-marching combination.
+"""
+struct TimeAffineHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: TransientHyperReduction{A}
+  reduction::R
+  combination::TimeCombination
+end
+
+function TimeAffineHyperReduction(combination::TimeCombination,args...;kwargs...)
+  reduction = TransientReduction(args...;kwargs...)
+  TimeAffineHyperReduction(reduction,combination)
+end
+
+RBSteady.get_reduction(r::TimeAffineHyperReduction) = r.reduction
+get_time_combination(r::TimeAffineHyperReduction) = r.combination
+
 # local
 
 """
@@ -414,7 +446,7 @@ end
 
 # utils
 
-_steady_reduction(r::HyperReduction) = SteadyReduction(get_reduction(r))
+_steady_reduction(r::HyperReduction) = TimeMarchingReduction(get_reduction(r))
 _replace_reduction(r::HyperReduction,c::TimeCombination) = _replace_reduction(r)
 _replace_reduction(r::NoHyperReduction,c::TimeCombination) = TransientNoHyperReduction(c)
 _replace_reduction(r::AffineHyperReduction,c::TimeCombination) = TransientAffineHyperReduction(c)

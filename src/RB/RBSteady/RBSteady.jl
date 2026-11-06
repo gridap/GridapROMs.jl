@@ -82,6 +82,7 @@ export ReductionStyle
 export NoReductionStyle
 export SearchSVDRank
 export FixedSVDRank
+export LRApproxRank
 export TTSVDRanks
 export AssembleOperator
 export assemble_operator

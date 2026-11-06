@@ -1,4 +1,4 @@
-function RBSteady.reduction(red::SteadyReduction,A::TransientSnapshots,args...)
+function RBSteady.reduction(red::TimeMarchingReduction,A::TransientSnapshots,args...)
   reduction(red.reduction,A,args...)
 end
 

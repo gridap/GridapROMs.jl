@@ -321,7 +321,7 @@ function RBSteady.solution_snapshots(
 end
 
 function RBSteady.solution_snapshots(
-  solver::TransientRBSolver{A,B,<:SteadyReduction},
+  solver::TransientRBSolver{A,B,<:TimeMarchingReduction},
   op::TransientROMOperator,
   r::TransientRealisation,
   args...

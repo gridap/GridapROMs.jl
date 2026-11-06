@@ -46,9 +46,9 @@ end
   @test seq isa SequentialReduction
 end
 
-@testset "SteadyReduction wraps a steady reduction" begin
-  red = SteadyReduction(SearchSVDRank(1e-3))
-  @test red isa SteadyReduction
+@testset "TimeMarchingReduction wraps a steady reduction" begin
+  red = TimeMarchingReduction(SearchSVDRank(1e-3))
+  @test red isa TimeMarchingReduction
   @test ReductionStyle(red) isa SearchSVDRank
 end
 

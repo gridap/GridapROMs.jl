@@ -29,6 +29,7 @@ using Test
 @testset "unsteady stokes" begin include("RBTransient/stokes.jl") end
 @testset "unsteady navier-stokes" begin include("RBTransient/navier_stokes.jl") end
 @testset "space only" begin include("RBTransient/space_only.jl") end
+@testset "time affine" begin include("RBTransient/time_affine.jl") end
 
 @testset "distributed" begin include("Distributed/debug/runtests.jl") end
 
