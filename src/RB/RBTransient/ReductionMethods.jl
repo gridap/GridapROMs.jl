@@ -406,30 +406,35 @@ RBSteady.interp_strategy(r::TransientRBFHyperReduction) = r.strategy
 get_time_combination(r::TransientRBFHyperReduction) = r.combination
 
 """
-    struct TimeAffineHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: TransientHyperReduction{A}
+    struct TimeAffineHyperReduction{A,R<:HyperReduction{A}} <: TransientHyperReduction{A}
       reduction::R
       combination::TimeCombination
     end
 
-DEIM hyper-reduction of a form independent of time. Snapshots are computed at the
+Hyper-reduction of a form independent of time. Snapshots are computed at the
 first time step only, the temporal basis is constant, and the online assembly
 only occurs at the first time step. The form may still depend on the parameter.
 
 # Fields
-- `reduction::R`: the underlying reduction.
+- `reduction::R`: the spatial hyper-reduction.
 - `combination::TimeCombination`: time-marching combination.
 """
-struct TimeAffineHyperReduction{A,R<:Reduction{A,EuclideanNorm}} <: TransientHyperReduction{A}
+struct TimeAffineHyperReduction{A,R<:HyperReduction{A}} <: TransientHyperReduction{A}
   reduction::R
   combination::TimeCombination
 end
 
 function TimeAffineHyperReduction(combination::TimeCombination,args...;kwargs...)
-  reduction = TransientReduction(args...;kwargs...)
+  reduction = HyperReduction(args...;kwargs...)
   TimeAffineHyperReduction(reduction,combination)
 end
 
-RBSteady.get_reduction(r::TimeAffineHyperReduction) = r.reduction
+function TimeAffineHyperReduction(combination::TimeCombination,reduction::Reduction;kwargs...)
+  style = ReductionStyle(reduction)
+  TimeAffineHyperReduction(combination,style;nparams=num_params(reduction),kwargs...)
+end
+
+RBSteady.get_reduction(r::TimeAffineHyperReduction) = get_reduction(r.reduction)
 get_time_combination(r::TimeAffineHyperReduction) = r.combination
 
 # local

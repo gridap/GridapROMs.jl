@@ -300,7 +300,7 @@ const SequentialProjection{A<:Projection} = TransientProjection{A,<:AbstractArra
 SequentialProjection(args...) = TransientProjection(args...)
 
 function RBSteady.Projection(red::SequentialReduction,s::TransientSnapshots,args...)
-  cores = reduction(get_reduction(red),s,args...)
+  cores = reduction(red,s,args...)
   projection_space = TTSVDProjection(cores[1:end-1],get_dof_map(s))
   return projection_space,last(cores)
 end

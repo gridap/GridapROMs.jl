@@ -51,14 +51,16 @@ function RBSteady.HRProjection(red::TransientRBFHyperReduction,s,trian,trial,tes
 end
 
 function RBSteady.HRProjection(red::TimeAffineHyperReduction,s,trian,test)
-  basis = _time_affine_basis(red,s,test)
+  _basis = projection(get_reduction(red),s)
+  basis = _add_time_basis(_basis,test)
   proj_basis = project(test,basis)
   interp = Interpolation(red,basis,trian,test)
   return HRProjection(proj_basis,red,interp)
 end
 
 function RBSteady.HRProjection(red::TimeAffineHyperReduction,s,trian,trial,test)
-  basis = _time_affine_basis(red,s,test)
+  _basis = projection(get_reduction(red),s)
+  basis = _add_time_basis(_basis,test)
   proj_basis = project(test,basis,trial,get_time_combination(red))
   interp = Interpolation(red,basis,trian,trial,test)
   return HRProjection(proj_basis,red,interp)
@@ -408,8 +410,8 @@ _is_time_affine(red::Reduction) = false
 _is_time_affine(red::TimeAffineHyperReduction) = true
 _is_time_affine(red::LocalReduction) = _is_time_affine(get_reduction(red))
 
-_select_times(red::Reduction,s) = _is_time_affine(red) ? select_times(s,1:1) : s
-_select_times(red::Tuple,s) = all(_is_time_affine,red) ? select_times(s,1:1) : s
+_select_times(red::Reduction,s) = _is_time_affine(red) ? select_times(s,1) : s
+_select_times(red::Tuple,s) = all(_is_time_affine,red) ? select_times(s,1) : s
 
 function _time_combination!(usx,op::ODEParamOperator,c,u,us0)
   time_combination!(usx,c,u,us0)
@@ -423,32 +425,19 @@ function _time_combination!(usx,op::ODEParamOperator{LinearParamODE},c::TimeMarc
   ParamODEs.lin_time_combination!(usx,c,u,us0)
 end
 
-# the snapshots span every time step when another jacobian is not time-affine
-function _time_affine_basis(red::TimeAffineHyperReduction,s,test)
-  basis = projection(get_reduction(red),select_times(s,1:1))
-  _add_time_basis(basis,num_times(get_reduced_subspace(test)))
+function _add_time_basis(a::Projection,r::RBSpace)
+  T = get_dof_value_type(r)
+  Nt = num_times(get_reduced_subspace(r))
+  TransientProjection(a,ones(T,Nt,1))
 end
 
-# extensions in time of a basis computed at one time step. The temporal part equals
-# one, since the interpolation only involves the spatial part
-function _add_time_basis(a::KroneckerProjection,Nt::Int)
-  nt = num_reduced_dofs_time(a)
-  @check nt ≤ 1 "expected a basis computed at a single time step, got temporal rank $nt"
-  TransientProjection(get_projection_space(a),ones(Nt,nt))
-end
-
-# the time core is absorbed by the last spatial core, whose rank becomes the reduced dimension
-function _add_time_basis(a::SequentialProjection,Nt::Int)
-  @check num_times(a) == 1 "expected a basis computed at a single time step"
-  cores_space = get_cores_space(a)
-  c = last(cores_space)
+function _add_time_basis(a::TTSVDProjection,r::RBSpace)
+  T = get_dof_value_type(r)
   n = num_reduced_dofs(a)
-  c′ = reshape(c,:,size(c,3))*dropdims(get_core_time(a);dims=2)
-  cores_space′ = [cores_space[1:end-1]...,reshape(c′,size(c,1),size(c,2),n)]
-  core_time = zeros(eltype(c),n,Nt,n)
+  Nt = num_times(get_reduced_subspace(r))
+  core_time = zeros(T,n,Nt,n)
   for it in 1:Nt, i in 1:n
     core_time[i,it,i] = 1
   end
-  projection_space = TTSVDProjection(cores_space′,get_dof_map(a))
-  TransientProjection(projection_space,core_time)
+  TransientProjection(a,core_time)
 end

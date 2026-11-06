@@ -2,7 +2,7 @@ function RBSteady.reduction(red::TimeMarchingReduction,A::TransientSnapshots,arg
   reduction(red.reduction,A,args...)
 end
 
-function RBSteady.reduction(red::TTSVDReduction,A::TransientSnapshots,args...)
+function RBSteady.reduction(red::SequentialReduction,A::TransientSnapshots,args...)
   red_style = ReductionStyle(red)
   nparams = num_params(A)
   ntimes = num_times(A)
@@ -11,8 +11,6 @@ function RBSteady.reduction(red::TTSVDReduction,A::TransientSnapshots,args...)
   add_temporal_core!(cores,red_style[end],remainder)
   return cores
 end
-
-RBSteady.last_dim(A::TransientSnapshots{T,N}) where {T,N} = N-2
 
 function add_temporal_core!(
   cores::Vector{<:AbstractArray{T,3}},
