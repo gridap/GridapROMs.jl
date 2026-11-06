@@ -34,6 +34,7 @@ using BlockArrays
 using Clustering
 using DrWatson
 using LinearAlgebra
+using LowRankApprox
 using Random
 using Serialization
 using SparseArrays
@@ -67,6 +68,7 @@ using GridapROMs.ParamODEs
 using GridapROMs.Extensions
 
 import ArraysOfArrays: _ncolons
+import LowRankApprox: psvdrank
 import Base: +,-,*,\
 import DrWatson: save,load
 import FillArrays: Fill

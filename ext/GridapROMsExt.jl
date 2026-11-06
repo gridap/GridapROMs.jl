@@ -54,6 +54,10 @@ end
 update_redstyle(rs::SearchSVDRank,tolrank) = SearchSVDRank(tolrank)
 update_redstyle(rs::TTSVDRanks,tolrank) = TTSVDRanks(map(s->update_redstyle(s,tolrank),rs.style))
 
+function update_redstyle(rs::LRApproxRank,tolrank)
+  LRApproxRank(tolrank;sketch=rs.opts.sketch,maxdet_tol=rs.opts.maxdet_tol,sketch_randn_niter=rs.opts.sketch_randn_niter)
+end
+
 function GridapROMs.update_reduction(red::Reduction,tolrank)
   @abstractmethod
 end

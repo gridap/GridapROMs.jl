@@ -84,6 +84,14 @@ function tpod(red_style::ReductionStyle,A::AbstractMatrix,X::AbstractRankTensor)
   tpod(red_style,A,kron(X))
 end
 
+function tpod(red_style::LRApproxRank,A::AbstractMatrix)
+  psvd(A,red_style.opts)
+end
+
+function tpod(red_style::LRApproxRank,A::AbstractMatrix,X::AbstractMatrix)
+  psvd(A,X,red_style.opts)
+end
+
 function standard_tpod(red_style::ReductionStyle,A::AbstractMatrix)
   truncated_svd(red_style,A)
 end
@@ -636,3 +644,101 @@ invpermuterows!(a::AbstractMatrix,p::AbstractVector{<:Integer}) = _invpermute!(a
   a
 end
 
+# compat with LowRankApprox.jl
+
+function LowRankApprox.psvdfact(
+  A::Snapshots,
+  opts::LRAOptions=LRAOptions(eltype(A));
+  kwargs...
+  )
+  
+  psvdfact(get_all_data(A),opts;kwargs...)
+end
+
+function LowRankApprox.psvdfact(
+  A::Snapshots,
+  X::AbstractMatrix,
+  opts::LRAOptions=LRAOptions(eltype(A));
+  kwargs...
+  )
+
+  psvdfact(get_all_data(A),X,opts;kwargs...)
+end
+
+function LowRankApprox.psvdfact(
+  A::AbstractMatrix,
+  opts::LRAOptions=LRAOptions(eltype(A));
+  kwargs...
+  )
+
+  m,n = size(A)
+  if m >= n
+    psvdfact_left(A,opts;kwargs...)
+  else
+    psvdfact_right(A,opts;kwargs...)
+  end
+end
+
+function psvdfact_left(
+  A::AbstractMatrix,
+  opts::LRAOptions=LRAOptions(eltype(A));
+  kwargs...
+  )
+
+  opts = isempty(kwargs) ? opts : copy(opts;kwargs...)
+  V = idfact(:n,A,opts)
+  V[:k] == 0 && return _null_psvdfact(A)
+  Ask = _getcols(A,V[:sk])
+  Q,R = _qr!(Ask)
+  U2,sig,V2 = svd!(R*V)
+  k = LowRankApprox.psvdrank(sig,opts)
+  if k < V[:k]
+    U = Q*_getcols(U2,1:k)
+    S = sig[1:k]
+    Vt = V2'[1:k,:]
+  else
+    U = Q*U2
+    S = sig
+    Vt = V2'
+  end
+  PartialSVD(U,S,Vt)
+end
+
+function psvdfact_left(
+  A::AbstractMatrix,
+  X::AbstractMatrix,
+  opts::LRAOptions=LRAOptions(eltype(A));
+  kwargs...
+  )
+
+  opts = isempty(kwargs) ? opts : copy(opts;kwargs...)
+  V = idfact(:n,A,opts)
+  V[:k] == 0 && return _null_psvdfact(A)
+  Ask = _getcols(A,V[:sk])
+  Q,R = _qr!(Ask,X)
+  U2,sig,V2 = svd!(R*V)
+  k = LowRankApprox.psvdrank(sig,opts)
+  if k < V[:k]
+    U = Q*_getcols(U2,1:k)
+    S = sig[1:k]
+    Vt = V2'[1:k,:]
+  else
+    U = Q*U2
+    S = sig
+    Vt = V2'
+  end
+  PartialSVD(U,S,Vt)
+end
+
+function _null_psvdfact(A::AbstractMatrix{T}) where T
+  m,n = size(A)
+  k = (m == 0 || n == 0) ? 0 : min(1,n)
+  U = zeros(T,m,k)
+  S = zeros(real(T),k)
+  Vt = zeros(T,k,n)
+  if k > 0
+    U[1] = one(T)
+    Vt[1] = one(T)
+  end
+  PartialSVD(U,S,Vt)
+end

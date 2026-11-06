@@ -58,9 +58,9 @@ num_reduced_dofs_space(a::Projection) = num_reduced_dofs(a)
 reduced_dof_ids_space(a::Projection) = reduced_dof_ids(a)
 fe_dof_ids_space(a::Projection) = fe_dof_ids(a)
 
-num_fe_dofs_space(a::Projection) = num_fe_dofs(get_projection_space(a))
+num_fe_dofs_space(a::TransientProjection) = num_fe_dofs(get_projection_space(a))
 num_reduced_dofs_space(a::TransientProjection) = num_reduced_dofs(get_projection_space(a))
-reduced_dof_ids_space(a::Projection) = reduced_dof_ids(get_projection_space(a))
+reduced_dof_ids_space(a::TransientProjection) = reduced_dof_ids(get_projection_space(a))
 fe_dof_ids_space(a::TransientProjection) = fe_dof_ids(get_projection_space(a))
 
 function RBSteady.project!(

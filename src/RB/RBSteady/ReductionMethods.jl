@@ -46,12 +46,43 @@ struct FixedSVDRank <: ReductionStyle
   rank::Int
 end
 
-function ReductionStyle(tol::Float64;kwargs...)
-  SearchSVDRank(tol)
+
+"""
+    struct LRApproxRank <: ReductionStyle
+      opts::LRAOptions
+    end
+
+Struct employed when the chosen reduction algorithm is a randomized POD that
+leverages the package `LowRankApprox`. The field `opts` specifies the
+options needed to run the randomized POD
+"""
+struct LRApproxRank <: ReductionStyle
+  opts::LRAOptions
 end
 
-function ReductionStyle(rank::Int;kwargs...)
-  FixedSVDRank(rank)
+function LRApproxRank(
+  tol::Float64;
+  maxdet_tol=0.,
+  sketch_randn_niter=1,
+  sketch=:sprn,
+  kwargs...
+  )
+
+  opts = LRAOptions(;rtol=tol,maxdet_tol,sketch_randn_niter,sketch)
+  return LRApproxRank(opts)
+end
+
+function LRApproxRank(rank::Int;maxdet_tol=0.,sketch_randn_niter=1,sketch=:sprn,kwargs...)
+  opts = LRAOptions(;rank=rank,maxdet_tol,sketch_randn_niter,sketch)
+  return LRApproxRank(opts)
+end
+
+function ReductionStyle(tol::Float64;sketch=nothing,kwargs...)
+  isa(sketch,Symbol) ? LRApproxRank(tol;sketch,kwargs...) : SearchSVDRank(tol)
+end
+
+function ReductionStyle(rank::Int;sketch=nothing,kwargs...)
+  isa(sketch,Symbol) ? LRApproxRank(rank;sketch,kwargs...) : FixedSVDRank(rank)
 end
 
 """
