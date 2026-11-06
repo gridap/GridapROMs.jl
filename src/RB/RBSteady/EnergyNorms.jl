@@ -255,14 +255,14 @@ _unwrap(f) = f
 _unwrap(f::UnEvalTrialFESpace) = _unwrap(f.space)
 _unwrap(f::MultiFieldFESpace) = MultiFieldFESpace(map(_unwrap,f.spaces);style=MultiFieldStyle(f))
 
-function _meas(V::FESpace,Q::FESpace)
+function _meas(U::FESpace,V::FESpace)
+  Ωu = get_triangulation(U)
   Ωv = get_triangulation(V)
-  Ωq = get_triangulation(Q)
-  @check Ωv === Ωq "FESpaces must share the same triangulation"
+  @check Ωu === Ωv "FESpaces must share the same triangulation"
+  orderu = get_polynomial_order(U)
   orderv = get_polynomial_order(V)
-  orderq = get_polynomial_order(Q)
-  order = max(orderv,orderq)
-  Measure(Ωv,2*order)
+  order = max(orderu,orderv)
+  Measure(Ωu,2*order)
 end
 
 function _mass_1d(U::SingleFieldFESpace,V::SingleFieldFESpace)

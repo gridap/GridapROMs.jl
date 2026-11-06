@@ -303,7 +303,8 @@ end
 # multi field
 
 function get_interpolation_style(a::BlockInterpolation)
-  get_interpolation_style(first(a.interp))
+  i = findfirst(itp -> itp isa TransientInterpolation,a.interp)
+  isnothing(i) ? KroneckerStyle() : get_interpolation_style(a.interp[i])
 end
 
 function get_indices_time(a::BlockInterpolation)

@@ -129,7 +129,7 @@ function GridapROMs.update_solver(rbsolver::RBSolver,rank::Int)
   state_reduction = update_reduction(get_state_reduction(rbsolver),rank)
   residual_reduction = update_reduction(get_residual_reduction(rbsolver),rank+5)
   jacobian_reduction = update_reduction(get_jacobian_reduction(rbsolver),rank+5)
-  RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction,rbsolver.tracker)
+  RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction;tracker=rbsolver.tracker)
 end
 
 function GridapROMs.update_solver(rbsolver::RBSolver,tol)
@@ -137,7 +137,7 @@ function GridapROMs.update_solver(rbsolver::RBSolver,tol)
   state_reduction = update_reduction(get_state_reduction(rbsolver),tol)
   residual_reduction = update_reduction(get_residual_reduction(rbsolver),tol*1e-2)
   jacobian_reduction = update_reduction(get_jacobian_reduction(rbsolver),tol*1e-2)
-  RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction,rbsolver.tracker)
+  RBSolver(fesolver,state_reduction,residual_reduction,jacobian_reduction;tracker=rbsolver.tracker)
 end
 
 function GridapROMs.run_test(

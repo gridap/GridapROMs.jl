@@ -121,13 +121,14 @@ struct DistributedTTSVDProjection{A<:Projection,B<:AbstractArray{<:Any,3}} <: Pr
   core_time::B
 end
 
-const DistributedSequentialProjection{A<:DistributedTTSVDProjection} = SequentialProjection{A}
+const DistributedSequentialProjection{A<:DistributedTTSVDProjection{<:Union{DistributedProjection,DistributedNormedProjection}}} = SequentialProjection{A}
+
+const DistributedTransientProjection = Union{DistributedKroneckerProjection,DistributedSequentialProjection}
 
 const AbstractDistributedProjection = Union{
   DistributedProjection,
   DistributedNormedProjection,
-  DistributedKroneckerProjection,
-  DistributedSequentialProjection
+  DistributedTransientProjection
 }
 
 function _ttsvd_projection(red::SequentialReduction,s::DistributedTransientSnapshots,args...)
@@ -177,7 +178,25 @@ ParamDataStructures.num_space_dofs(a::DistributedSequentialProjection) = size(ge
 RBTransient.fe_space_dof_ids(a::DistributedSequentialProjection) = axes(get_basis(a.projection),1)
 
 _flat_core_time(a::DistributedSequentialProjection) = _flat_core_time(a.projection)
-_flat_core_time(a::DistributedTTSVDProjection) = reshape(a.core_time,:,size(a.core_time,3))
+
+function _flat_core_time(a::DistributedTTSVDProjection)
+  s1,s2,s3 = size(a.core_time)
+  reshape(a.core_time,s1*s2,s3)
+end
+
+function Algebra.allocate_in_domain(a::DistributedTransientProjection,x::PVector{<:V}) where V<:AbstractParamVector
+  x̂ = allocate_vector(PVector{eltype(V)},RBSteady.reduced_dof_ids(a))
+  nt = num_times(a)
+  np = Int(param_length(x) / nt)
+  return parameterise(x̂,np)
+end
+
+function Algebra.allocate_in_range(a::DistributedTransientProjection,x̂::V) where V<:AbstractParamVector
+  x = allocate_vector(PVector{eltype(V)},RBSteady.fe_dof_ids(a.projection_space))
+  nt = num_times(a)
+  npt = param_length(x̂) * nt
+  return parameterise(x,npt)
+end
 
 function RBSteady.project!(
   x̂::ConsecutiveParamVector,
@@ -208,17 +227,14 @@ function RBSteady.inv_project!(
   x
 end
 
-function Algebra.allocate_in_range(a::DistributedSequentialProjection,x̂::V) where V<:AbstractParamVector
-  x = allocate_vector(PVector{eltype(V)},RBTransient.fe_space_dof_ids(a))
-  return parameterise(x,param_length(x̂)*num_times(a))
-end
-
 function RBSteady.galerkin_projection(proj_left::DistributedTTSVDProjection,a::DistributedTTSVDProjection)
   Φl = get_basis(proj_left)
   Φa = get_basis(a)
+  Nt = size(a.core_time,2)
+  n = num_reduced_dofs(a)
   M = galerkin_projection(Φl,Φa) # ns_left x ns_a
-  core_a = reshape(a.core_time,size(Φa,2),:)
-  proj_core_a = reshape(M*core_a,:,num_reduced_dofs(a))
+  core_a = reshape(a.core_time,size(Φa,2),Nt*n)
+  proj_core_a = reshape(M*core_a,size(Φl,2)*Nt,n)
   ReducedProjection(transpose(_flat_core_time(proj_left))*proj_core_a)
 end
 
@@ -283,7 +299,7 @@ end
 
 function RBSteady.inv_project!(
   x::PVector{<:ConsecutiveParamVector},
-  a::TransientProjection,
+  a::DistributedTransientProjection,
   x̂::ConsecutiveParamVector
   )
 
@@ -293,26 +309,12 @@ function RBSteady.inv_project!(
   x
 end
 
-function Algebra.allocate_in_domain(a::TransientProjection,x::PVector{<:V}) where V<:AbstractParamVector
-  x̂ = allocate_vector(PVector{eltype(V)},RBSteady.reduced_dof_ids(a))
-  nt = num_times(a)
-  np = Int(param_length(x) / nt)
-  return parameterise(x̂,np)
-end
-
-function Algebra.allocate_in_range(a::DistributedKroneckerProjection,x̂::V) where V<:AbstractParamVector
-  x = allocate_vector(PVector{eltype(V)},RBSteady.fe_dof_ids(a.projection_space))
-  nt = num_times(a)
-  npt = param_length(x̂) * nt
-  return parameterise(x,npt)
-end
-
-function RBTransient.allocate_in_space_domain(a::TransientProjection,x::PVector{<:V}) where V<:AbstractParamVector
+function RBTransient.allocate_in_space_domain(a::DistributedTransientProjection,x::PVector{<:V}) where V<:AbstractParamVector
   x̂ = allocate_vector(PVector{eltype(V)},RBTransient.num_reduced_dofs_space(a))
   return parameterise(x̂,param_length(x))
 end
 
-function RBTransient.allocate_in_space_range(a::TransientProjection,x̂::PVector{<:V}) where V<:AbstractParamVector
+function RBTransient.allocate_in_space_range(a::DistributedTransientProjection,x̂::PVector{<:V}) where V<:AbstractParamVector
   x = allocate_vector(PVector{eltype(V)},RBTransient.num_fe_dofs_space(a))
   return parameterise(x,param_length(x̂))
 end

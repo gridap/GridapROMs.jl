@@ -30,6 +30,19 @@ for (f,g) in zip((:l2_norm,:h1_norm,:div_coupling),(:get_l2_form,:get_h1_form,:g
   @eval $f(U::DistributedSingleFieldFESpace,V::DistributedSingleFieldFESpace) = assemble_matrix($g(U,V),U,V)
 end
 
+function _meas(U::DistributedSingleFieldFESpace,V::DistributedSingleFieldFESpace)
+  Ωu = get_triangulation(U)
+  Ωv = get_triangulation(V)
+  @check Ωu === Ωv "FESpaces must share the same triangulation"
+  model = get_background_model(Ωv)
+  # otherwise the cells on the interfaces could be integrated more than once
+  Ω = GridapDistributed.remove_ghost_cells(Ωu,GridapDistributed.get_cell_gids(model))
+  orderu = get_polynomial_order(U)
+  orderv = get_polynomial_order(V)
+  order = max(orderu,orderv)
+  Measure(Ω,2*order)
+end
+
 function get_l2_form(U::DistributedSingleFieldFESpace,V::DistributedSingleFieldFESpace)
   dΩ = _meas(U,V)
   return (u,v) -> ∫(v⋅u)dΩ
