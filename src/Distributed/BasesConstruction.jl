@@ -302,29 +302,7 @@ function RBTransient.first_unfold(A::DistributedSnapshots)
   GenericPArray(values,flat_row_partition(A))
 end
 
-# utils 
-
-function RBSteady._is_rectangular(A::Union{GenericPMatrix,DistributedSnapshots};kwargs...)
-  true
-end
-
-function RBSteady._reduce_columns(A::Union{GenericPMatrix,DistributedSnapshots};kwargs...)
-  true
-end
-
-function RBSteady._weighted_mul_row(A::Union{GenericPMatrix,DistributedSnapshots},V,S)
-  Ta = eltype(A)
-  Tv = eltype(V)
-  T = typeof(zero(Ta)*zero(Tv)+zero(Ta)*zero(Tv))
-  U = GenericPArray{Matrix{T}}(undef,flat_row_partition(A),axes(V,2))
-  D = Diagonal(S.+eps())
-  map(own_values(U),own_values(A)) do Uo,Ao
-    mul!(Uo,Ao,V)
-    rdiv!(Uo,D)
-  end
-  consistent!(U) |> wait
-  U
-end
+# utils
 
 function RBSteady._truncate_col!(A::GenericPMatrix,rank)
   rank == size(A,2) && return A

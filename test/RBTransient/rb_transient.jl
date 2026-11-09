@@ -25,7 +25,7 @@ end
 # ─── TransientReduction constructors ────────────────────────────────────────────
 
 @testset "KroneckerReduction via TransientReduction — ReductionStyle vector" begin
-  red = TransientReduction([SearchSVDRank(1e-2),SearchSVDRank(1e-2)])
+  red = TransientReduction([PSVDRank(1e-2),PSVDRank(1e-2)])
   @test red isa KroneckerReduction
   @test length(red.reductions) == 2
 end
@@ -42,14 +42,14 @@ end
 end
 
 @testset "SequentialReduction via TransientReduction — TTSVDRanks" begin
-  seq = TransientReduction(TTSVDRanks([SearchSVDRank(1e-2),SearchSVDRank(1e-2)]))
+  seq = TransientReduction(TTSVDRanks([PSVDRank(1e-2),PSVDRank(1e-2)]))
   @test seq isa SequentialReduction
 end
 
 @testset "TimeMarchingReduction wraps a steady reduction" begin
-  red = TimeMarchingReduction(SearchSVDRank(1e-3))
+  red = TimeMarchingReduction(PSVDRank(1e-3))
   @test red isa TimeMarchingReduction
-  @test ReductionStyle(red) isa SearchSVDRank
+  @test ReductionStyle(red) isa PSVDRank
 end
 
 # ─── TransientHyperReduction constructors ───────────────────────────────────────
@@ -88,10 +88,10 @@ end
 
 # ─── tucker ───────────────────────────────────────────────────────────────────
 
-@testset "tucker on 3D array — SearchSVDRank" begin
+@testset "tucker on 3D array — PSVDRank" begin
   Ns,Nt,Np = 20,8,15
   A = rand(Ns,Nt,Np)
-  reds = [Reduction(SearchSVDRank(1e-2)),Reduction(SearchSVDRank(1e-2))]
+  reds = [Reduction(PSVDRank(1e-2)),Reduction(PSVDRank(1e-2))]
   bases = tucker(reds,A)
 
   @test length(bases) == 2
@@ -101,18 +101,6 @@ end
   @test norm(Φs'*Φs - I(size(Φs,2))) < 1e-10
   @test size(Φt,1) == size(Φs,2)
   @test norm(Φt'*Φt - I(size(Φt,2))) < 1e-10
-end
-
-@testset "tucker on 3D array — FixedSVDRank" begin
-  Ns,Nt,Np = 30,10,12
-  A = rand(Ns,Nt,Np)
-  ks,kt = 4,3
-  reds = [Reduction(FixedSVDRank(ks)),Reduction(FixedSVDRank(kt))]
-  bases = tucker(reds,A)
-  @test size(bases[1],1) == Ns
-  @test size(bases[1],2) == ks
-  @test size(bases[2],1) == ks
-  @test size(bases[2],2) == kt
 end
 
 # ─── time_enrichment ──────────────────────────────────────────────────────────

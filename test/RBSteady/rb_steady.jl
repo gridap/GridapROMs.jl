@@ -10,8 +10,7 @@ using GridapROMs.RBSteady
 # ─── Reduction style constructors ─────────────────────────────────────────────
 
 @testset "ReductionStyle constructors" begin
-  @test SearchSVDRank(1e-4) isa SearchSVDRank
-  @test FixedSVDRank(5) isa FixedSVDRank
+  @test PSVDRank(5) isa PSVDRank
   @test TTSVDRanks([1e-3,1e-3]) isa TTSVDRanks
   @test EuclideanNorm() isa EuclideanNorm
   @test L2() isa NormStyle
@@ -22,23 +21,14 @@ end
 
 # ─── truncated POD ────────────────────────────────────────────────────────────
 
-@testset "tpod SearchSVDRank" begin
+@testset "tpod PSVDRank" begin
   # low-rank data: rank-3 matrix + noise
   A = rand(100,50) * rand(50,30) + 1e-10*rand(100,30)
-  red = SearchSVDRank(1e-3)
+  red = PSVDRank(1e-3)
   U,S,V = tpod(red,A)
   @test size(U,1) == 100
   @test size(U,2) <= 30          # compressed rank ≤ full rank
   @test norm(U'*U - I(size(U,2))) < 1e-10  # orthonormal columns
-end
-
-@testset "tpod FixedSVDRank" begin
-  A = rand(50,40)
-  k = 5
-  red = FixedSVDRank(k)
-  U,S,V = tpod(red,A)
-  @test size(U,2) == k
-  @test norm(U'*U - I(k)) < 1e-10
 end
 
 # ─── gram-schmidt ─────────────────────────────────────────────────────────────
@@ -74,7 +64,7 @@ end
 @testset "ttsvd on 3D tensor" begin
   # random 3D tensor: space1 × space2 × params
   A = rand(10,8,20)
-  red = TTSVDRanks([SearchSVDRank(1e-2),SearchSVDRank(1e-2)])
+  red = TTSVDRanks([PSVDRank(1e-2),PSVDRank(1e-2)])
   cores,remainder = ttsvd(red,A)
   @test length(cores) == 2
   # each core must be a 3D array (rank_in × size × rank_out)
@@ -96,9 +86,9 @@ end
 end
 
 @testset "HyperReduction strategy constructors" begin
-  @test HyperReduction(SearchSVDRank(1e-3); hypred_strategy=:no) isa RBSteady.NoHyperReduction
-  @test HyperReduction(SearchSVDRank(1e-3); hypred_strategy=:none) isa RBSteady.NoHyperReduction
-  @test HyperReduction(SearchSVDRank(1e-3); hypred_strategy=:affine) isa RBSteady.AffineHyperReduction
+  @test HyperReduction(PSVDRank(1e-3); hypred_strategy=:no) isa RBSteady.NoHyperReduction
+  @test HyperReduction(PSVDRank(1e-3); hypred_strategy=:none) isa RBSteady.NoHyperReduction
+  @test HyperReduction(PSVDRank(1e-3); hypred_strategy=:affine) isa RBSteady.AffineHyperReduction
 end
 
 end

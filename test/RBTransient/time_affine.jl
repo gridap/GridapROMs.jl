@@ -57,7 +57,7 @@ function stokes(method,strategies;tol=1e-4,nparams=15,nparams_res=5,nparams_jac=
 
   energy = BlockNorm((H1(),L2()))
   tolrank = method==:ttsvd ? fill(tol,4) : tol
-  state_reduction = TransientReduction(DivCoupling(),tolrank,energy;nparams)
+  state_reduction = TransientReduction(DivCoupling(),tolrank,energy;nparams,sketch=:none)
 
   fesolver = ThetaMethod(LUSolver(),dt,0.5)
   c = TimeCombination(fesolver)
@@ -104,7 +104,7 @@ function heat(;tol=1e-4)
   ptspace = TransientParamSpace((1,10,1,10),t0:dt:10*dt)
   uh0μ(μ) = interpolate_everywhere(u0μ(μ),trial(μ,t0))
 
-  state_reduction = TransientReduction(tol,H1();nparams=15)
+  state_reduction = TransientReduction(tol,H1();nparams=15,sketch=:none)
   fesolver = ThetaMethod(LUSolver(),dt,0.5)
   rbsolver = RBSolver(fesolver,state_reduction;nparams_res=5,nparams_jacs=(5,5),hypred_strategy=:time_affine)
 

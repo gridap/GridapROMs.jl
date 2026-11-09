@@ -85,7 +85,7 @@ import GridapDistributed: BlockPMatrix,BlockPVector,BlockPArray,BlockPRange,Dist
 import GridapDistributed: DistributedSparseMatrixAssembler,DistributedAllocationCOO,_setup_prange,get_test_gids,get_trial_gids,get_gid_owners,to_global_indices!,to_local_indices!,get_allocations,get_matrix_builder,get_rows,get_cols
 import GridapROMs.DofMaps: range_2d,range_1d
 import GridapROMs.ParamAlgebra: ParamBuilder,ParamCounter
-import GridapROMs.RBSteady: SNAPSHOTS_LABEL,PROJECTION_LABEL,findrow,get_at_domain,get_l2_form,get_h1_form,get_div_coupling_form,get_form,l2_norm,h1_norm,div_coupling,_assemble_operator,_unwrap,_meas,select_rank,_truncate_row!,_get_label,get_filename
+import GridapROMs.RBSteady: SNAPSHOTS_LABEL,PROJECTION_LABEL,findrow,get_at_domain,get_l2_form,get_h1_form,get_div_coupling_form,get_form,l2_norm,h1_norm,div_coupling,_assemble_operator,_unwrap,_meas,_get_label,get_filename
 import GridapROMs.RBTransient: InterpolationStyle,KroneckerStyle,SequentialStyle,get_itimes,get_locations,get_interpolation_style
 import LowRankApprox
 import LowRankApprox: LRAOptions,PartialSVD,idfact,psvdfact,psvdrank

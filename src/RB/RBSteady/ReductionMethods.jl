@@ -5,8 +5,7 @@ Type indicating the reduction strategy to employ.
 
 Subtypes:
 
-- [`SearchSVDRank`](@ref)
-- [`FixedSVDRank`](@ref)
+- [`PSVDRank`](@ref)
 - [`TTSVDRanks`](@ref)
 """
 abstract type ReductionStyle end
@@ -21,68 +20,26 @@ Reduction style of a [`NoReduction`](@ref)
 struct NoReductionStyle <: ReductionStyle end
 
 """
-    struct SearchSVDRank <: ReductionStyle
-      tol::Float64
-    end
-
-Struct employed when the chosen reduction algorithm is a truncated POD at a
-tolerance `tol`. Check [this](https://doi.org/10.1007/978-3-319-15431-2) reference
-for more details on the truncated POD algorithm
-"""
-struct SearchSVDRank <: ReductionStyle
-  tol::Float64
-end
-
-"""
-    struct FixedSVDRank <: ReductionStyle
-      rank::Int
-    end
-
-Struct employed when the chosen reduction algorithm is a truncated POD at a
-rank `rank`. Check [this](https://doi.org/10.1007/978-3-319-15431-2) reference
-for more details on the truncated POD algorithm
-"""
-struct FixedSVDRank <: ReductionStyle
-  rank::Int
-end
-
-
-"""
-    struct LRApproxRank <: ReductionStyle
+    struct PSVDRank <: ReductionStyle
       opts::LRAOptions
     end
 
-Struct employed when the chosen reduction algorithm is a randomized POD that
+Struct employed when the chosen reduction algorithm is a probabilistic POD that
 leverages the package `LowRankApprox`. The field `opts` specifies the
 options needed to run the randomized POD
 """
-struct LRApproxRank <: ReductionStyle
+struct PSVDRank <: ReductionStyle
   opts::LRAOptions
 end
 
-function LRApproxRank(
-  tol::Float64;
-  maxdet_tol=0.,
-  sketch_randn_niter=1,
-  sketch=:sprn,
-  kwargs...
-  )
-
+function PSVDRank(tol::Float64;maxdet_tol=0.,sketch_randn_niter=1,sketch=:sprn,kwargs...)
   opts = LRAOptions(;rtol=tol,maxdet_tol,sketch_randn_niter,sketch)
-  return LRApproxRank(opts)
+  return PSVDRank(opts)
 end
 
-function LRApproxRank(rank::Int;maxdet_tol=0.,sketch_randn_niter=1,sketch=:sprn,kwargs...)
+function PSVDRank(rank::Int;maxdet_tol=0.,sketch_randn_niter=1,sketch=:sprn,kwargs...)
   opts = LRAOptions(;rank=rank,maxdet_tol,sketch_randn_niter,sketch)
-  return LRApproxRank(opts)
-end
-
-function ReductionStyle(tol::Float64;sketch=nothing,kwargs...)
-  isa(sketch,Symbol) ? LRApproxRank(tol;sketch,kwargs...) : SearchSVDRank(tol)
-end
-
-function ReductionStyle(rank::Int;sketch=nothing,kwargs...)
-  isa(sketch,Symbol) ? LRApproxRank(rank;sketch,kwargs...) : FixedSVDRank(rank)
+  return PSVDRank(opts)
 end
 
 """
@@ -114,7 +71,7 @@ function TTSVDRanks(tolrank::Union{Float64,Int},D=3,args...;kwargs...)
   TTSVDRanks(fill(tolrank,D),args...;kwargs...)
 end
 
-ReductionStyle(tolrank::Union{Float64,Int};kwargs...) = TTSVDRanks(tolrank;kwargs...)
+ReductionStyle(tolrank::Union{Float64,Int};kwargs...) = PSVDRank(tolrank;kwargs...)
 ReductionStyle(tolrank::AbstractVector;kwargs...) = TTSVDRanks(tolrank;kwargs...)
 
 Base.size(r::TTSVDRanks) = (length(r.style),)

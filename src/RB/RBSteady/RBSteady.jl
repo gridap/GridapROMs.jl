@@ -80,9 +80,7 @@ import Statistics: mean
 
 export ReductionStyle
 export NoReductionStyle
-export SearchSVDRank
-export FixedSVDRank
-export LRApproxRank
+export PSVDRank
 export TTSVDRanks
 export AssembleOperator
 export assemble_operator

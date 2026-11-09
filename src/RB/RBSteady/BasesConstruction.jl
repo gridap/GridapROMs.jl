@@ -25,44 +25,6 @@ function reduction(red::TTSVDReduction,A::AbstractArray,args...)
   return cores
 end
 
-function select_rank(red_style::ReductionStyle,args...)
-  @abstractmethod
-end
-
-function select_rank(red_style::FixedSVDRank,args...)
-  red_style.rank
-end
-
-function select_rank(red_style::SearchSVDRank,S::AbstractVector)
-  isempty(S) && return 0
-  tol = max(red_style.tol,1e-6)
-  energies = cumsum(S.^2;dims=1)
-  E = energies[end]
-  iszero(E) && return 0
-  rank = 0
-  for outer rank in eachindex(energies)
-    energies[rank] >= (1-tol^2)*E && break
-  end
-  return rank
-end
-
-function truncated_svd(red_style::ReductionStyle,A::AbstractMatrix;issquare=false)
-  U,S,V = svd(A)
-  issquare && _root!(S)
-  rank = select_rank(red_style,S)
-  Ur = _truncate_col!(U,rank)
-  Sr = _truncate!(S,rank)
-  Vr = _truncate_row!(V',rank)
-  return Ur,Sr,Vr'
-end
-
-function _root!(S)
-  for i in eachindex(S)
-    S[i] = sqrt(S[i])
-  end
-  S
-end
-
 """
     tpod(red_style::ReductionStyle,A::AbstractMatrix) -> AbstractMatrix
     tpod(red_style::ReductionStyle,A::AbstractMatrix,X::MatrixOrTensor) -> AbstractMatrix
@@ -73,89 +35,19 @@ is made orthogonal. If `X` is not provided, the output is orthogonal with respec
 to the euclidean norm
 """
 function tpod(red_style::ReductionStyle,A::AbstractMatrix,args...)
-  if _is_rectangular(A)
-    method_of_snapshots(red_style,A,args...)
-  else
-    standard_tpod(red_style,A,args...)
-  end
+  @abstractmethod
 end
 
 function tpod(red_style::ReductionStyle,A::AbstractMatrix,X::AbstractRankTensor)
   tpod(red_style,A,kron(X))
 end
 
-function tpod(red_style::LRApproxRank,A::AbstractMatrix)
+function tpod(red_style::PSVDRank,A::AbstractMatrix)
   psvd(A,red_style.opts)
 end
 
-function tpod(red_style::LRApproxRank,A::AbstractMatrix,X::AbstractMatrix)
+function tpod(red_style::PSVDRank,A::AbstractMatrix,X::AbstractMatrix)
   psvd(A,X,red_style.opts)
-end
-
-function standard_tpod(red_style::ReductionStyle,A::AbstractMatrix)
-  truncated_svd(red_style,A)
-end
-
-function standard_tpod(red_style::ReductionStyle,A::AbstractMatrix,X::AbstractMatrix)
-  L,p = _cholesky_decomp(X)
-  XA = _forward_cholesky(A,L,p)
-  Ũr,Sr,Vr = truncated_svd(red_style,XA)
-  Ur = _backward_cholesky(Ũr,L,p)
-  return Ur,Sr,Vr
-end
-
-function method_of_snapshots(red_style::ReductionStyle,A::AbstractMatrix,args...)
-  if _reduce_columns(A)
-    method_of_snapshots_col(red_style,A,args...)
-  else
-    method_of_snapshots_row(red_style,A,args...)
-  end
-end
-
-function method_of_snapshots_col(red_style::ReductionStyle,A::AbstractMatrix)
-  _method_of_snapshots_col(red_style,A,A'*A)
-end
-
-function method_of_snapshots_col(red_style::ReductionStyle,A::AbstractMatrix,X::AbstractMatrix)
-  _method_of_snapshots_col(red_style,A,A'*(X*A))
-end
-
-function _method_of_snapshots_col(red_style::ReductionStyle,A,AA)
-  _,Sr,Vr = truncated_svd(red_style,AA;issquare=true)
-  Ur = _weighted_mul_row(A,Vr,Sr)
-  return Ur,Sr,Vr
-end
-
-function method_of_snapshots_row(red_style::ReductionStyle,A::AbstractMatrix)
-  _method_of_snapshots_row(red_style,A,A*A')
-end
-
-function method_of_snapshots_row(red_style::ReductionStyle,A::AbstractMatrix,X::AbstractMatrix)
-  standard_tpod(red_style,A,X)
-end
-
-function _method_of_snapshots_row(red_style::ReductionStyle,A,AA)
-  Ur,Sr,_ = truncated_svd(red_style,AA;issquare=true)
-  Vr = _weighted_mul_col(A,Ur,Sr)
-  return Ur,Sr,Vr
-end
-
-function _weighted_mul_row(A,V,S)
-  S .+= eps()
-  U = zeros(eltype(V),size(A,1),length(S))
-  D = Diagonal(S)
-  mul!(U,A,V)
-  rdiv!(U,D)
-  U
-end
-
-function _weighted_mul_col(A,U,S)
-  S .+= eps()
-  V = zeros(eltype(U),size(A,2),length(S))
-  D = Diagonal(S)
-  mul!(V,A',U)
-  rdiv!(V,D)
-  return V
 end
 
 function ttsvd_loop(red_style::ReductionStyle,A::AbstractArray{T,3}) where T
@@ -298,7 +190,7 @@ function first_unfold_3D(A::Snapshots)
 end
 
 function orthogonalise!(cores::AbstractVector,X::AbstractRankTensor{D}) where D
-  red_style = SearchSVDRank(1e-10)
+  red_style = PSVDRank(1e-10)
   T = promote_type(map(eltype,cores)...)
   weight = ones(T,1,rank(X),1)
   decomp = get_decomposition(X)
@@ -454,15 +346,6 @@ end
 
 # utils
 
-function _is_rectangular(A::AbstractMatrix;ratio=10)
-  m,n = size(A)
-  m > ratio*n || n > ratio*m
-end
-
-function _reduce_columns(A::AbstractMatrix)
-  size(A,1) > size(A,2)
-end
-
 """
     symcholesky(X) -> Factorization
 
@@ -533,55 +416,7 @@ function symmetrise!(A::BlockMatrix;atol=1e-12,rtol=1e-8)
   return true
 end
 
-function _cholesky_decomp(X::AbstractSparseMatrix)
-  C = symcholesky(X)
-  L = sparse(C.L)
-  p = C.p
-  return L,p
-end
-
-function _forward_cholesky(A::AbstractMatrix,C)
-  _forward_cholesky(A,sparse(C.L),C.p)
-end
-
-function _forward_cholesky(A::AbstractMatrix,L::AbstractSparseMatrix,p::AbstractVector)
-  permuterows!(A,p)
-  Ã = L'*A
-  invpermuterows!(A,p)
-  return Ã
-end
-
-function _backward_cholesky(Ã::AbstractMatrix,C)
-  _backward_cholesky(Ã,sparse(C.L),C.p)
-end
-
-function _backward_cholesky(Ã::AbstractMatrix,L::AbstractSparseMatrix,p::AbstractVector)
-  A = L'\Ã
-  invpermuterows!(A,p)
-  return A
-end
-
-function _truncate!(v::AbstractVector,rank)
-  @check rank ≤ length(v) "cannot truncate a length-$(length(v)) vector to rank $rank"
-  rank == length(v) && return v
-  Base.deleteat!(v,rank+1:length(v))
-  v
-end
-
-function _truncate!(A::AbstractMatrix,rank)
-  _truncate_col!(A,rank)
-end
-
-function _truncate_row!(A::AbstractMatrix,rank)
-  @check rank ≤ size(A,1) "cannot truncate a $(size(A))-shaped matrix to $rank rows"
-  rank == size(A,1) && return A
-  nrows = size(A,1)
-  ncols = size(A,2)
-  inds = range_1d(rank+1:nrows,axes(A,2),nrows)
-  v = vec(A)
-  Base.deleteat!(v,inds)
-  reshape(v,rank,ncols)
-end
+_truncate_col!(A,rank) = _truncate_col!(Matrix(A),rank)
 
 function _truncate_col!(A::AbstractMatrix,rank)
   @check rank ≤ size(A,2) "cannot truncate a $(size(A))-shaped matrix to $rank columns"
@@ -591,46 +426,6 @@ function _truncate_col!(A::AbstractMatrix,rank)
   v = vec(A)
   Base.deleteat!(v,inds)
   reshape(v,nrows,rank)
-end
-
-for f in (:_truncate,:_truncate_row!,:_truncate_col!)
-  @eval $f(A,rank) = $f(Array(A),rank)
-end
-
-permutecols!(a::AbstractMatrix,p::AbstractVector{<:Integer}) = _permute!(a,p,Base.swapcols!)
-permuterows!(a::AbstractMatrix,p::AbstractVector{<:Integer}) = _permute!(a,p,Base.swaprows!)
-
-@inline function _permute!(a::AbstractMatrix,p::AbstractVector{<:Integer},swapfun!) 
-  Base.require_one_based_indexing(a,p)
-  p .= .-p
-  for i in eachindex(p)
-    p[i] > 0 && continue
-    j = i
-    in = p[j] = -p[j]
-    while p[in] < 0
-      swapfun!(a,in,j)
-      j = in
-      in = p[in] = -p[in]
-    end
-  end
-  a
-end
-
-invpermutecols!(a::AbstractMatrix,p::AbstractVector{<:Integer}) = _invpermute!(a,p,Base.swapcols!)
-invpermuterows!(a::AbstractMatrix,p::AbstractVector{<:Integer}) = _invpermute!(a,p,Base.swaprows!)
-
-@inline function _invpermute!(a::AbstractMatrix,p::AbstractVector{<:Integer},swapfun!) 
-  Base.require_one_based_indexing(a,p)
-  p .= .-p
-  for i in eachindex(p)
-    p[i] > 0 && continue
-    j = p[i] = -p[i]
-    while j != i
-      swapfun!(a,j,i)
-      j = p[j] = -p[j]
-    end
-  end
-  a
 end
 
 # compat with LowRankApprox.jl
@@ -808,12 +603,6 @@ function _pivoted_qr!(A::AbstractMatrix,X::AbstractMatrix)
     end
   end
   return A,R,p
-end
-
-function _pivoted_qr!(A::AbstractMatrix,C::Factorization)
-  Ã = _forward_cholesky(A,C)
-  Q̃,R,p = qr!(Ã,ColumnNorm())
-  return _backward_cholesky(Matrix(Q̃),C),R,p
 end
 
 function _swapcols!(A::AbstractMatrix,i,j)
