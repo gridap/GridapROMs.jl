@@ -5,7 +5,7 @@ function save(
   )
 
   for (i,contrib) in enumerate(contribs)
-    save(dir,contrib;label=_get_label(label,i))
+    save(dir,contrib;label=to_label(label,i))
   end
 end
 
@@ -17,7 +17,7 @@ function RBSteady.load_contribution(
 
   c = ()
   for (i,trian) in enumerate(trians)
-    c = (c...,load_contribution(dir,trian;label=_get_label(label,i)))
+    c = (c...,load_contribution(dir,trian;label=to_label(label,i)))
   end
   return ContributionTuple(c)
 end

@@ -1,3 +1,5 @@
+# label handling
+
 """
     SNAPSHOTS_LABEL
 
@@ -89,26 +91,33 @@ Label of the files storing online quantities
 """
 const ONLINE_LABEL = "online"
 
-_get_label(name::String,label) = _get_label(name,string(label))
+get_label(x) = @abstractmethod
+get_label(x::AbstractSnapshots) = SNAPSHOTS_LABEL
+get_label(x::PerformanceTracker) = RESULTS_LABEL
+get_label(x::Projection) = PROJECTION_LABEL
 
-function _get_label(name::String,label::String)
+to_label(name::String,label) = to_label(name,string(label))
+
+function to_label(name::String,label::String)
   label == "" && return name
   name == "" && return label
   return name * "_" * label
 end
 
-function _get_label(name,labels...)
+function to_label(name,labels...)
   first_lab,last_labs... = labels
-  _get_label(_get_label(name,first_lab...),last_labs...)
+  to_label(to_label(name,first_lab...),last_labs...)
 end
 
 function get_filename(dir::String,name::String,labels...;extension=".jld")
-  joinpath(dir,_get_label(name,labels...)*extension)
+  joinpath(dir,to_label(name,labels...)*extension)
 end
 
-function save(dir,s::AbstractSnapshots;label="")
-  snaps_dir = get_filename(dir,SNAPSHOTS_LABEL,label)
-  serialize(snaps_dir,s)
+# generic save/load functions for any serializable object
+
+function save(dir,x;label="")
+  xdir = get_filename(dir,get_label(x),label)
+  serialize(xdir,x)
 end
 
 function load(dir,base=SNAPSHOTS_LABEL;label="")
@@ -126,11 +135,6 @@ function load_snapshots(dir;label="")
   load(dir,SNAPSHOTS_LABEL;label)
 end
 
-function save(dir,stats::PerformanceTracker;label="")
-  stats_dir = get_filename(dir,STATISTICS_LABEL,label)
-  serialize(stats_dir,stats)
-end
-
 """
     load_stats(dir;label="") -> PerformanceTracker
 
@@ -138,11 +142,6 @@ Loads the performance statistics stored in `dir`
 """
 function load_stats(dir;label="")
   load(dir,STATISTICS_LABEL;label)
-end
-
-function save(dir,b::Projection;label="")
-  proj_dir = get_filename(dir,PROJECTION_LABEL,label)
-  serialize(proj_dir,b)
 end
 
 """
@@ -174,8 +173,8 @@ function save(dir,contrib::Contribution;label="")
 end
 
 function save(dir,contrib::Bundle;label="")
-  save(dir,contrib.linear;label=_get_label(label,LINEAR_LABEL))
-  save(dir,contrib.nonlinear;label=_get_label(label,NONLINEAR_LABEL))
+  save(dir,contrib.linear;label=to_label(label,LINEAR_LABEL))
+  save(dir,contrib.nonlinear;label=to_label(label,NONLINEAR_LABEL))
 end
 
 function _setup_contribution(vals::Tuple{Vararg{Any}},trian)
@@ -201,16 +200,16 @@ function load_contribution(
 end
 
 function load_contribution(dir,trians::Bundle;label="")
-  lin = load_contribution(dir,trians.linear;label=_get_label(label,LINEAR_LABEL))
-  nlin = load_contribution(dir,trians.nonlinear;label=_get_label(label,NONLINEAR_LABEL))
+  lin = load_contribution(dir,trians.linear;label=to_label(label,LINEAR_LABEL))
+  nlin = load_contribution(dir,trians.nonlinear;label=to_label(label,NONLINEAR_LABEL))
   Bundle(lin,nlin)
 end
 
 function save(dir,op::ROMOperator;label="")
-  save(dir,get_test(op);label=_get_label(label,TEST_LABEL))
-  save(dir,get_trial(op);label=_get_label(label,TRIAL_LABEL))
-  save(dir,get_rhs(op);label=_get_label(label,RHS_LABEL))
-  save(dir,get_lhs(op);label=_get_label(label,LHS_LABEL))
+  save(dir,get_test(op);label=to_label(label,TEST_LABEL))
+  save(dir,get_trial(op);label=to_label(label,TRIAL_LABEL))
+  save(dir,get_rhs(op);label=to_label(label,RHS_LABEL))
+  save(dir,get_lhs(op);label=to_label(label,LHS_LABEL))
 end
 
 """
@@ -221,12 +220,12 @@ directory `dir`. Throws an error if the reduced operator has not been previously
 saved to file
 """
 function load_operator(dir,feop::ParamOperator;label="")
-  test = load_subspace(dir,get_test(feop);label=_get_label(label,TEST_LABEL))
-  trial = load_subspace(dir,get_trial(feop);label=_get_label(label,TRIAL_LABEL))
+  test = load_subspace(dir,get_test(feop);label=to_label(label,TEST_LABEL))
+  trial = load_subspace(dir,get_trial(feop);label=to_label(label,TRIAL_LABEL))
   trian_res = get_domains_res(feop)
   trian_jac = get_domains_jac(feop)
-  red_rhs = load_contribution(dir,trian_res;label=_get_label(label,RHS_LABEL))
-  red_lhs = load_contribution(dir,trian_jac;label=_get_label(label,LHS_LABEL))
+  red_rhs = load_contribution(dir,trian_res;label=to_label(label,RHS_LABEL))
+  red_lhs = load_contribution(dir,trian_jac;label=to_label(label,LHS_LABEL))
   return ROMOperator(feop,trial,test,red_lhs,red_rhs)
 end
 
@@ -246,11 +245,6 @@ function rom_performance(solver::RBSolver,op::ParamOperator,x::AbstractSnapshots
   tracker = solver.tracker
   tracker.error = compute_relative_error(trial,x,x̂)
   return tracker
-end
-
-function save(dir,perf::RBPerformanceTracker;label="")
-  results_dir = get_filename(dir,RESULTS_LABEL,label)
-  serialize(results_dir,perf)
 end
 
 """

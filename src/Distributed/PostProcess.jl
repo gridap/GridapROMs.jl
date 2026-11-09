@@ -88,7 +88,7 @@ function DrWatson.save(dir,a::DistributedNormedProjection;label="")
 end
 
 function DrWatson.save(dir,a::DistributedTransientProjection;label="")
-  save(dir,get_projection_space(a);label=_get_label(label,"space"))
+  save(dir,get_projection_space(a);label=to_label(label,"space"))
   array_time = get_basis_time(a)
   _psave(dir,ARRAY_TIME_LABEL,map(_ -> array_time,_get_ranks(a));label)
 end
@@ -137,7 +137,7 @@ function RBSteady.load_projection(dir,ranks::AbstractArray;label="")
   elseif _haspart(dir,ARRAY_TIME_LABEL,ranks;label)
     # 2) transient projection: the space part is distributed, and the time part is
     # replicated on every part
-    projection_space = load_projection(dir,ranks;label=_get_label(label,"space"))
+    projection_space = load_projection(dir,ranks;label=to_label(label,"space"))
     array_time = deserialize(_part_filename(dir,ARRAY_TIME_LABEL,label,getany(ranks)))
     return TransientProjection(projection_space,array_time)
   else
@@ -242,7 +242,7 @@ end
 
 # utils
 
-_plabel(name,label...) = foldl(RBSteady._get_label,label;init=name)
+_plabel(name,label...) = foldl(RBSteady.to_label,label;init=name)
 _part_name(name,label,part) = _plabel(name,label,"part$part")
 _part_filename(dir,name,label,part) = joinpath(dir,_part_name(name,label,part)*".jld")
 _haspart(dir,name,ranks;label="") = isfile(_part_filename(dir,name,label,getany(ranks)))
@@ -259,7 +259,7 @@ function _has_projection(dir,ranks;label="")
   (
     _haspart(dir,PROJECTION_LABEL,ranks;label) ||
     _haspart(dir,CLUSTERS_LABEL,ranks;label) ||
-    _haspart(dir,PROJECTION_LABEL,ranks;label=_get_label(label,"space"))
+    _haspart(dir,PROJECTION_LABEL,ranks;label=to_label(label,"space"))
   )
 end
 

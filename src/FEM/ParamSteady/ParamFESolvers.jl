@@ -20,7 +20,7 @@ function Algebra.solve(solver::NonlinearSolver,op::ParamOperator,r::Realisation)
   u
 end
 
-for S in (:FESolver,:LinearFESolver)
+for S in (:FESolver,:LinearFESolver,:NonlinearFESolver)
   @eval begin
     function Algebra.solve!(uh,fesolver::$S,feop::ParamFEOperator,r::Realisation)
       u = get_free_dof_values(uh)
