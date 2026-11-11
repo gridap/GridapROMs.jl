@@ -7,9 +7,9 @@ Base.@propagate_inbounds function RBSteady.contraction(
 
   @check size(factor1,2) == size(factor2,2) == size(factor3,2)
   Nt = size(factor1,2)
-  A = reshape(permutedims(factor1,(2,1,3)),Nt,:)
-  B = reshape(permutedims(factor2,(2,1,3)),Nt,:)
-  C = reshape(permutedims(factor3,(2,1,3)),Nt,:)
+  A = reshape(permutedims(factor1,(2,1,3)),Nt,size(factor1,1)*size(factor1,3))
+  B = reshape(permutedims(factor2,(2,1,3)),Nt,size(factor2,1)*size(factor2,3))
+  C = reshape(permutedims(factor3,(2,1,3)),Nt,size(factor3,1)*size(factor3,3))
   θ = get_coefficients(combine,Nt)
   TSU = promote_type(T,S,U)
   ABC = zeros(TSU,size(A,2),size(B,2),size(C,2))

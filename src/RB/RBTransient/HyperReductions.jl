@@ -427,17 +427,22 @@ end
 
 function _add_time_basis(a::Projection,r::RBSpace)
   T = get_dof_value_type(r)
-  Nt = num_times(get_reduced_subspace(r))
-  TransientProjection(a,ones(T,Nt,1))
+  n = num_reduced_dofs(a)
+  Û = get_reduced_subspace(r)
+  at = _build_time_array(T,Û,n)
+  TransientProjection(a,at)
 end
 
-function _add_time_basis(a::TTSVDProjection,r::RBSpace)
-  T = get_dof_value_type(r)
-  n = num_reduced_dofs(a)
-  Nt = num_times(get_reduced_subspace(r))
+function _build_time_array(::Type{T},a::Projection,n::Int) where T
+  Nt = num_times(a)
+  ones(T,Nt,1)
+end
+
+function _build_time_array(::Type{T},a::SequentialProjection,n::Int) where T
+  Nt = num_times(a)
   core_time = zeros(T,n,Nt,n)
   for it in 1:Nt, i in 1:n
     core_time[i,it,i] = 1
   end
-  TransientProjection(a,core_time)
+  core_time
 end

@@ -393,13 +393,90 @@ end
 
 function LinearAlgebra.mul!(
   c::AbstractParamVector,
-  a::SubSparseMatrix{A,<:SparseArrays.AbstractSparseMatrixCSC} where A,
+  a::SubSparseMatrix{T,<:SparseArrays.AbstractSparseMatrixCSC} where T,
   b::AbstractParamVector,
   α::Number,
   β::Number
   )
 
   mul!(get_all_data(c),a,get_all_data(b),α,β)
+end
+
+function LinearAlgebra.mul!(
+  c::AbstractParamVector,
+  a::SubSparseMatrix{T,<:SparseMatrixCSR} where T,
+  b::AbstractParamVector,
+  α::Number,
+  β::Number
+  )
+
+  mul!(get_all_data(c),a,get_all_data(b),α,β)
+end
+
+function LinearAlgebra.mul!(
+  C::AbstractMatrix,
+  A::SubSparseMatrix{T,<:SparseArrays.AbstractSparseMatrixCSC} where T,
+  B::AbstractMatrix,
+  α::Number,
+  β::Number)
+
+  size(A,2) == size(B,1) || throw(DimensionMismatch())
+  size(A,1) == size(C,1) || throw(DimensionMismatch())
+  size(B,2) == size(C,2) || throw(DimensionMismatch())
+  if β != 1
+    β != 0 ? rmul!(C,β) : fill!(C,zero(eltype(C)))
+  end
+  rows,cols = A.indices
+  invrows,invcols = A.inv_indices
+  Ap = A.parent
+  nzv = nonzeros(Ap)
+  rv = rowvals(Ap)
+  @inbounds for k in axes(B,2)
+    for (j,J) in enumerate(cols)
+      αxj = B[j,k]*α
+      iszero(αxj) && continue
+      for p in nzrange(Ap,J)
+        i = invrows[rv[p]]
+        if i > 0
+          C[i,k] += nzv[p]*αxj
+        end
+      end
+    end
+  end
+  C
+end
+
+function LinearAlgebra.mul!(
+  C::AbstractMatrix,
+  A::SubSparseMatrix{T,<:SparseMatrixCSR} where T,
+  B::AbstractMatrix,
+  α::Number,
+  β::Number
+  )
+
+  size(A,2) == size(B,1) || throw(DimensionMismatch())
+  size(A,1) == size(C,1) || throw(DimensionMismatch())
+  size(B,2) == size(C,2) || throw(DimensionMismatch())
+  if β != 1
+    β != 0 ? rmul!(C,β) : fill!(C,zero(eltype(C)))
+  end
+  rows,cols = A.indices
+  invrows,invcols = A.inv_indices
+  Ap = A.parent
+  nzv = nonzeros(Ap)
+  cv = colvals(Ap)
+  o = getoffset(Ap)
+  @inbounds for k in axes(B,2)
+    for (i,I) in enumerate(rows)
+      for p in nzrange(Ap,I)
+        j = invcols[cv[p]+o]
+        if j > 0
+          C[i,k] += nzv[p]*B[j,k]*α
+        end
+      end
+    end
+  end
+  C
 end
 
 function LinearAlgebra.mul!(

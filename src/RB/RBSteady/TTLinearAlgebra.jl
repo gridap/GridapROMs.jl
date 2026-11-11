@@ -72,8 +72,8 @@ Base.@propagate_inbounds function contraction(
   ) where {T,S}
 
   @check size(factor1,2) == size(factor2,2)
-  A = reshape(permutedims(factor1,(1,3,2)),:,size(factor1,2))
-  B = reshape(permutedims(factor2,(2,1,3)),size(factor2,2),:)
+  A = reshape(permutedims(factor1,(1,3,2)),size(factor1,1)*size(factor1,3),size(factor1,2))
+  B = reshape(permutedims(factor2,(2,1,3)),size(factor2,2),size(factor2,1)*size(factor2,3))
   AB = A*B
   s1,s2,s3,s4 = size(factor1,1),size(factor1,3),size(factor2,1),size(factor2,3)
   ABp = permutedims(reshape(AB,s1,s2,s3,s4),(1,3,2,4))
@@ -91,9 +91,9 @@ Base.@propagate_inbounds function contraction(
   ncomps3 = size(factor3,2)
   cinds = CartesianIndices((ncomps1,ncomps3))
   @check size(factor2,2) == ncomps1*ncomps3
-  A = reshape(permutedims(factor1,(2,1,3)),size(factor1,2),:)
-  B = reshape(permutedims(factor2,(2,1,3)),size(factor2,2),:)
-  C = reshape(permutedims(factor3,(2,1,3)),size(factor3,2),:)
+  A = reshape(permutedims(factor1,(2,1,3)),size(factor1,2),size(factor1,1)*size(factor1,3))
+  B = reshape(permutedims(factor2,(2,1,3)),size(factor2,2),size(factor2,1)*size(factor2,3))
+  C = reshape(permutedims(factor3,(2,1,3)),size(factor3,2),size(factor3,1)*size(factor3,3))
   TSU = promote_type(T,S,U)
   ABC = zeros(TSU,size(A,2),size(B,2),size(C,2))
   for (iA,a) = enumerate(eachcol(A))
@@ -134,9 +134,9 @@ function contraction(
   @check size(factor1,2) == DofMaps.num_rows(sparsity)
   @check DofMaps.num_cols(sparsity) == size(factor3,2)
 
-  A = reshape(permutedims(factor1,(1,3,2)),:,size(factor1,2))
-  B = reshape(permutedims(factor2,(1,3,2)),:,size(factor2,2))
-  C = reshape(permutedims(factor3,(2,1,3)),size(factor3,2),:)
+  A = reshape(permutedims(factor1,(1,3,2)),size(factor1,1)*size(factor1,3),size(factor1,2))
+  B = reshape(permutedims(factor2,(1,3,2)),size(factor2,1)*size(factor2,3),size(factor2,2))
+  C = reshape(permutedims(factor3,(2,1,3)),size(factor3,2),size(factor3,1)*size(factor3,3))
   BC = _sparsemul(B,C,sparsity)
   ABC = A*BC
   s1,s2 = size(factor1,1),size(factor1,3)
@@ -166,8 +166,8 @@ Base.@propagate_inbounds function sequential_product(
   ) where {T,S}
 
   @check size(factor1,3) == size(factor2,1)
-  A = reshape(factor1,:,size(factor1,3))
-  B = reshape(factor2,size(factor2,1),:)
+  A = reshape(factor1,size(factor1,1)*size(factor1,2),size(factor1,3))
+  B = reshape(factor2,size(factor2,1),size(factor2,2)*size(factor2,3))
   AB = A*B
   s1,s2,s3,s4 = size(factor1,1),size(factor1,2),size(factor2,2),size(factor2,3)
   reshape(AB,s1,s2*s3,s4)
@@ -183,8 +183,8 @@ Base.@propagate_inbounds function sequential_product!(
   s1,s2,s3,s4 = size(factor1,1),size(factor1,2),size(factor2,2),size(factor2,3)
   @check size(cache) == (s1,s2*s3,s4)
 
-  A = reshape(factor1,:,size(factor1,3))
-  B = reshape(factor2,size(factor2,1),:)
+  A = reshape(factor1,size(factor1,1)*size(factor1,2),size(factor1,3))
+  B = reshape(factor2,size(factor2,1),size(factor2,2)*size(factor2,3))
   AB = reshape(cache,s1*s2,s3*s4)
   mul!(AB,A,B)
   cache
@@ -200,7 +200,7 @@ Base.@propagate_inbounds function sequential_product(
   @check size(factor1,4) == size(factor2,2)
 
   a = vec(factor1)
-  B = reshape(factor2,length(a),:)
+  B = reshape(factor2,length(a),size(factor2,3)*size(factor2,4))
   aB = (a'*B).parent
   s1,s2,s3,s4 = 1,1,size(factor2,3),size(factor2,4)
   reshape(aB,s1,s2,s3,s4)
@@ -218,8 +218,8 @@ Base.@propagate_inbounds function sequential_product!(
   @check size(cache) == (1,1,size(factor2,3),size(factor2,4))
 
   a = vec(factor1)
-  B = reshape(factor2,length(a),:)
-  aB = reshape(cache,1,:)
+  B = reshape(factor2,length(a),size(factor2,3)*size(factor2,4))
+  aB = reshape(cache,1,length(cache))
   mul!(aB,a',B)
   cache
 end
@@ -236,8 +236,8 @@ Base.@propagate_inbounds function sequential_product!(
   @check size(cache) == (size(factor2,3),size(factor2,4))
 
   a = vec(factor1)
-  B = reshape(factor2,length(a),:)
-  mul!(reshape(cache,1,:),a',B)
+  B = reshape(factor2,length(a),size(factor2,3)*size(factor2,4))
+  mul!(reshape(cache,1,length(cache)),a',B)
   cache
 end
 
@@ -252,7 +252,7 @@ Base.@propagate_inbounds function sequential_product(
   @check size(factor1,6) == size(factor2,3)
 
   a = vec(factor1)
-  B = reshape(factor2,length(a),:)
+  B = reshape(factor2,length(a),size(factor2,4)*size(factor2,5)*size(factor2,6))
   aB = (a'*B).parent
   s1,s2,s3,s4,s5,s6 = 1,1,1,size(factor2,4),size(factor2,5),size(factor2,6)
   reshape(aB,s1,s2,s3,s4,s5,s6)
@@ -271,8 +271,8 @@ Base.@propagate_inbounds function sequential_product!(
   @check size(cache) == (1,1,1,size(factor2,4),size(factor2,5),size(factor2,6))
 
   a = vec(factor1)
-  B = reshape(factor2,length(a),:)
-  aB = reshape(cache,1,:)
+  B = reshape(factor2,length(a),size(factor2,4)*size(factor2,5)*size(factor2,6))
+  aB = reshape(cache,1,length(cache))
   mul!(aB,a',B)
   cache
 end
@@ -304,12 +304,16 @@ function sequential_product!(
   else size(factor1,5) == size(factor2,1) && size(factor1,6) == size(factor2,2)
     @check size(cache) == (1,1,1,size(factor1,4),size(factor2,3),size(factor2,4))
     n = size(factor1,5)*size(factor1,6)
-    A = reshape(factor1,:,n)
-    B = reshape(factor2,n,:)
+    A = reshape(factor1,size(factor1,1)*size(factor1,2)*size(factor1,3)*size(factor1,4),n)
+    B = reshape(factor2,n,size(factor2,3)*size(factor2,4))
     AB = reshape(cache,size(A,1),size(B,2))
     mul!(AB,A,B)
   end
   cache
+end
+
+function sequential_product(factor::AbstractArray)
+  factor
 end
 
 function sequential_product(factor1::AbstractArray,factors::AbstractArray...)
@@ -454,7 +458,7 @@ Base.@propagate_inbounds function _sparsemul(B,C,sparsity::SparsityCSC{T}) where
       end
     end
   end
-  return reshape(permutedims(BC,(2,1,3)),size(BC,2),:)
+  return reshape(permutedims(BC,(2,1,3)),size(BC,2),size(BC,1)*size(BC,3))
 end
 
 @inline function _entry!(combine::Function,A::AbstractArray{T,3},v,i,j,k) where T
@@ -479,8 +483,8 @@ Base.@propagate_inbounds function _seq_prod_missing_left(
   ) where {T,S}
 
   n = size(factor1,5)*size(factor1,6)
-  A = reshape(factor1,:,n)
-  B = reshape(factor2,n,:)
+  A = reshape(factor1,size(factor1,1)*size(factor1,2)*size(factor1,3)*size(factor1,4),n)
+  B = reshape(factor2,n,size(factor2,3)*size(factor2,4))
   AB = A*B
   s1,s2,s3,s4,s5,s6 = 1,1,1,size(factor1,4),size(factor2,3),size(factor2,4)
   reshape(AB,s1,s2,s3,s4,s5,s6)
@@ -501,7 +505,7 @@ function _tt_supremizers(X::Factorization,B::AbstractSparseMatrix,core::Abstract
   cur_size′ = size(B,1)
   Cmat = reshape(permutedims(core,(1,3,2)),prev_rank*next_rank,cur_size)
   Ymat = Cmat*transpose(B)
-  W = reshape(permutedims(reshape(Ymat,prev_rank,next_rank,cur_size′),(3,1,2)),cur_size′,:)
+  W = reshape(permutedims(reshape(Ymat,prev_rank,next_rank,cur_size′),(3,1,2)),cur_size′,prev_rank*next_rank)
   Y = similar(W)
   ldiv!(Y,X,W)
   reshape(permutedims(reshape(Y,cur_size′,prev_rank,next_rank),(2,1,3)),prev_rank,cur_size′,next_rank)

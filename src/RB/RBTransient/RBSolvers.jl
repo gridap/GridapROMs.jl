@@ -4,15 +4,17 @@ function RBSteady.RBSolver(
   nparams_res=20,
   nparams_jacs=ntuple(_ -> 20,get_time_order(fesolver)+1),
   verbose=true,
+  hypred_strategy=:deim,
   kwargs...
   )
 
   c = TimeCombination(fesolver)
-  residual_reduction = TransientHyperReduction(c,reduction;nparams=nparams_res,kwargs...)
+  res_hypred_strategy = hypred_strategy==:time_affine ? :deim : hypred_strategy
+  residual_reduction = TransientHyperReduction(c,reduction;nparams=nparams_res,hypred_strategy=res_hypred_strategy,kwargs...)
   jacobian_reduction = ntuple(
     i -> TransientHyperReduction(
       CombinationOrder{i}(c),reduction;
-      nparams=nparams_jacs[i],kwargs...
+      nparams=nparams_jacs[i],hypred_strategy,kwargs...
     ),
     Val(get_time_order(fesolver)+1)
   )

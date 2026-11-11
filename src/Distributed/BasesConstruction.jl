@@ -208,7 +208,8 @@ function _sketch_sprn(A::GenericPMatrix,order::Integer)
     B = zeros(T,order,n)
     for (oi,gi) in enumerate(o2g)
       bucket = mod(hash(gi),order) + 1
-      w = randn(T)
+      # reproducibility across ranks, and still independent of the bucket
+      w = randn(Xoshiro(hash((gi,:w))),T)
       @views B[bucket,:] .+= w.*Av[oi,:]
     end
     B

@@ -45,9 +45,9 @@ module Distributed
 using DrWatson
 using LinearAlgebra
 using LinearAlgebra: BlasInt
+using PartitionedArrays
 using SparseArrays
 using Serialization
-using PartitionedArrays
 
 using Gridap
 using Gridap.Algebra
@@ -91,6 +91,8 @@ import LowRankApprox
 import LowRankApprox: LRAOptions,PartialSVD,idfact,psvdfact,psvdrank
 import MPI
 import PartitionedArrays: SubSparseMatrix,VectorAssemblyCache,length_to_ptrs!,rewind_ptrs!,getany
+import Random: Xoshiro,seed!
+import SparseMatricesCSR: SparseMatrixCSR
 
 include("OwnAndGhostParamVectors.jl")
 

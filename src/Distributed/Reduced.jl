@@ -629,6 +629,26 @@ for T in (:GenericPArray,:DistributedSnapshots)
   end
 end
 
+# time combinations
+
+for T in (:PVector,:BlockPVector)
+  @eval begin
+    function ParamODEs._zero_combination!(ux::$T,c,us0::Tuple{Vararg{$T}})
+      map(partition(ux),map(partition,us0)...) do uxl,us0l...
+        ParamODEs._zero_combination!(uxl,c,us0l)
+      end
+      ux
+    end
+
+    function ParamODEs._combination!(ux::$T,c,u::$T,us0::Tuple{Vararg{$T}})
+      map(partition(ux),partition(u),map(partition,us0)...) do uxl,ul,us0l...
+        ParamODEs._combination!(uxl,c,ul,us0l)
+      end
+      ux
+    end
+  end
+end
+
 # needed 
 
 function Base.fill!(a::DebugArray,b::Number)

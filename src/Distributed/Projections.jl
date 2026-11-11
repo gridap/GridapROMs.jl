@@ -126,9 +126,6 @@ function GridapDistributed.local_views(a::DistributedTransientProjection)
   end
 end
 
-# the space-time basis is never assembled
-RBSteady.get_basis(a::DistributedTransientProjection) = get_basis_space(a)
-
 function Algebra.allocate_in_domain(a::DistributedTransientProjection,x::PVector{<:V}) where V<:AbstractParamVector
   x̂ = allocate_vector(PVector{eltype(V)},reduced_dof_ids(a))
   nt = num_times(a)
@@ -190,12 +187,19 @@ function RBSteady.project!(
   x̂
 end
 
+function RBSteady.Projection(red::TTSVDReduction,s::DistributedSnapshots,args...)
+  red_style = ReductionStyle(red)
+  Ur, = tpod(red_style[1],s,args...)
+  GenericProjection(Ur,get_dof_map(s))
+end
+
 function RBSteady.Projection(red::SequentialReduction,s::DistributedTransientSnapshots,args...)
   red_style = ReductionStyle(red)
-  space_basis,Sr,Vr = tpod(red_style[1],RBTransient.first_unfold(s),args...)
+  Ur,Sr,Vr = tpod(red_style[1],s,args...)
   remainder = reshape(Diagonal(Sr)*Vr',length(Sr),num_params(s),num_times(s))
-  time_core, = RBSteady.ttsvd_loop(red_style,permutedims(remainder,(1,3,2)))
-  GenericProjection(space_basis,get_dof_map(s)),time_core
+  seed!(1234) # common randomized sketches on all ranks
+  time_core, = RBSteady.ttsvd_loop(red_style[end],permutedims(remainder,(1,3,2)))
+  GenericProjection(Ur,get_dof_map(s)),time_core
 end
 
 function RBSteady.project!(
