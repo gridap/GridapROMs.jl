@@ -36,7 +36,7 @@ function Algebra.solve(fesolver::FESolver,feop::ParamFEOperator,r::Realisation)
   U = get_trial(feop)(r)
   uh = zero(U)
   solve!(uh,fesolver,feop,r)
-  uh
+  FEFunction(U,get_free_dof_values(uh))
 end
 
 get_solver(solver::LinearFESolver) = solver.ls
